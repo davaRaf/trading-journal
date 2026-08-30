@@ -13,7 +13,7 @@ STATIC = os.path.join(ROOT, "static")
 DATA   = os.path.join(ROOT, "data")
 SHOTS  = os.path.join(DATA, "screenshots")
 TRADES_FILE = os.path.join(DATA, "trades.json")
-PORT   = 8172
+PORT   = int(os.environ.get("PORT", 8172))   # рабочая копия запускается на другом порту
 
 os.makedirs(SHOTS, exist_ok=True)
 
