@@ -411,18 +411,31 @@ function ovStatsHtml(st){
 }
 
 /* сглаженная кривая по точкам */
-function ovSmooth(pts){
-  let d="M"+pts[0][0]+","+pts[0][1];
+/* линейная интерполяция, как curveLinear в ProfitLossLine */
+function plPath(pts){
+  return "M"+pts.map(p=>p[0].toFixed(2)+","+p[1].toFixed(2)).join(" L");
+}
+/* ломаная режется нулевой осью: каждый кусок красится по своему знаку */
+function plSegments(pts,vals,y0){
+  const segs=[]; let cur=[pts[0]], pos=vals[0]>=0;
   for(let i=1;i<pts.length;i++){
-    const [px,py]=pts[i-1],[cx,cy]=pts[i],mx=(px+cx)/2;
-    d+=" C"+mx+","+py+" "+mx+","+cy+" "+cx+","+cy;
+    const p=vals[i]>=0;
+    if(p!==pos){
+      const t=vals[i-1]/(vals[i-1]-vals[i]);            /* доля отрезка до нуля */
+      const xz=pts[i-1][0]+(pts[i][0]-pts[i-1][0])*t;
+      cur.push([xz,y0]); segs.push({pos:pos,pts:cur});
+      cur=[[xz,y0]]; pos=p;
+    }
+    cur.push(pts[i]);
   }
-  return d;
+  segs.push({pos:pos,pts:cur});
+  return segs;
 }
 
 /* прибыль/убыток за год по календарным датам.
-   Линия из Bklit UI · Profit/Loss Line: над нулём зелёная, под нулём красная,
-   заливка тает к нулевой оси, при наведении — курсор с подписью дня. */
+   Bklit UI · Profit/Loss Line как есть: ломаная (curveLinear) режется нулевой осью
+   на сегменты по знаку, без заливки; нулевая строка сетки подсвечена
+   (Grid highlightRowValues={[0]}); при наведении — курсор и подпись с индикатором. */
 function ovEquityHtml(){
   const y=String(new Date().getFullYear());
   const arr=sortAsc(S.trades.filter(t=>(t.date||"").slice(0,4)===y));
@@ -449,34 +462,21 @@ function ovEquityHtml(){
   const X=i=>days[i]/dmax*W;
   const Y=v=>H-pad-(v-min)/((max-min)||1)*(H-pad*2);
   const pts=vals.map((v,i)=>[X(i),Y(v)]);
-  const d=ovSmooth(pts);
   const last=vals.length-1;
   const y0=Y(0);                                  /* высота нулевой оси */
-  const zero=Math.min(1,Math.max(0,y0/H));        /* та же высота долей — для градиентов */
   const grid=[0,.25,.5,.75,1].map(p=>
     '<line x1="0" y1="'+(pad+p*(H-pad*2))+'" x2="'+W+'" y2="'+(pad+p*(H-pad*2))+
     '" class="ovgrid" vector-effect="non-scaling-stroke"/>').join("");
-  /* линия и заливка меняют цвет ровно на нуле */
-  const defs='<defs>'+
-    '<linearGradient id="plStroke" x1="0" y1="0" x2="0" y2="1">'+
-      '<stop offset="0" stop-color="var(--up)"/>'+
-      '<stop offset="'+zero.toFixed(4)+'" stop-color="var(--up)"/>'+
-      '<stop offset="'+zero.toFixed(4)+'" stop-color="var(--down)"/>'+
-      '<stop offset="1" stop-color="var(--down)"/></linearGradient>'+
-    '<linearGradient id="plFill" x1="0" y1="0" x2="0" y2="1">'+
-      '<stop offset="0" stop-color="var(--up)" stop-opacity=".13"/>'+
-      '<stop offset="'+zero.toFixed(4)+'" stop-color="var(--up)" stop-opacity="0"/>'+
-      '<stop offset="'+zero.toFixed(4)+'" stop-color="var(--down)" stop-opacity="0"/>'+
-      '<stop offset="1" stop-color="var(--down)" stop-opacity=".12"/></linearGradient>'+
-    "</defs>";
-  const area='<path d="'+d+" L"+X(last)+","+y0.toFixed(1)+" L"+X(0)+","+y0.toFixed(1)+' Z" fill="url(#plFill)"/>';
+  /* сегменты по знаку: над нулём — цвет прибыли, под нулём — цвет збитку */
+  const line=plSegments(pts,vals,y0).map(sg=>
+    '<path d="'+plPath(sg.pts)+'" fill="none" stroke="'+(sg.pos?"var(--up)":"var(--down)")+
+    '" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" vector-effect="non-scaling-stroke"/>').join("");
   const svg='<svg viewBox="0 0 '+W+" "+H+'" width="100%" height="'+H+'" preserveAspectRatio="none">'+
-    defs+grid+area+
+    grid+
     '<line class="plzero" x1="0" x2="'+W+'" y1="'+y0.toFixed(1)+'" y2="'+y0.toFixed(1)+'" vector-effect="non-scaling-stroke"/>'+
-    '<path d="'+d+'" fill="none" stroke="url(#plStroke)" stroke-width="1.9" stroke-linecap="round" vector-effect="non-scaling-stroke"/>'+
+    line+
     '<line class="plcursor" x1="0" x2="0" y1="0" y2="'+H+'" vector-effect="non-scaling-stroke" hidden/>'+
-    '<line class="plhover" stroke-linecap="round" stroke-width="7" vector-effect="non-scaling-stroke" hidden/>'+
-    '<line x1="'+X(last)+'" x2="'+X(last)+'" y1="'+Y(vals[last]).toFixed(1)+'" y2="'+Y(vals[last]).toFixed(1)+'" stroke-linecap="round" stroke-width="6.5" vector-effect="non-scaling-stroke" stroke="'+(vals[last]<0?"var(--down)":"var(--up)")+'"/></svg>';
+    '<line class="plhover" stroke-linecap="round" stroke-width="7" vector-effect="non-scaling-stroke" hidden/></svg>';
   const yax=[0,1,2,3,4].map(i=>{
     const v=max-(max-min)*i/4;
     return "<span>"+Math.round(v)+"</span>";

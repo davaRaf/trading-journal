@@ -98,7 +98,10 @@ const PL = (function(){
       dot.setAttribute("y1", best.y); dot.setAttribute("y2", best.y);
       dot.setAttribute("stroke", best.v < 0 ? "var(--down)" : "var(--up)");
       cur.hidden = false; dot.hidden = false;
-      tip.innerHTML = '<span class="d">'+day(best.d)+'</span><span class="v '+
+      /* индикатор строки красится по знаку — indicatorColor из ChartTooltip */
+      const ink = best.v < 0 ? "var(--down)" : "var(--up)";
+      tip.innerHTML = '<span class="i" style="background:'+ink+'"></span>'+
+        '<span class="d">'+day(best.d)+'</span><span class="v '+
         (best.v>0.0001?"pos":best.v<-0.0001?"neg":"")+'">'+fmt(best.v)+"</span>";
       const sc = toScreen(best.x, best.y), box = wrap.getBoundingClientRect();
       tip.hidden = false;
