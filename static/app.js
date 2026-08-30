@@ -18,9 +18,11 @@ const S = {
   all: [], mRep:null, ovPeriod:"month",
 };
 
-const MONTHS = ["Январь","Февраль","Март","Апрель","Май","Июнь","Июль","Август","Сентябрь","Октябрь","Ноябрь","Декабрь"];
-const WDS = ["Пн","Вт","Ср","Чт","Пт","Сб","Вс"];
-const MON_SHORT = ["янв","фев","мар","апр","май","июн","июл","авг","сен","окт","ноя","дек"];
+const MONTHS = ["Січень","Лютий","Березень","Квітень","Травень","Червень","Липень","Серпень","Вересень","Жовтень","Листопад","Грудень"];
+const WDS = ["Пн","Вт","Ср","Чт","Пт","Сб","Нд"];
+const MON_SHORT = ["січ","лют","бер","кві","тра","чер","лип","сер","вер","жов","лис","гру"];
+/* родовий відмінок — для дат виду «30 серпня» */
+const MONTHS_GEN = ["січня","лютого","березня","квітня","травня","червня","липня","серпня","вересня","жовтня","листопада","грудня"];
 const TF_LIST = ["1m","3m","5m","15m","30m","1H","4H","1D","1W"];
 const TF_SLOTS = ["1m","3m","5m","15m","30m","1H","4H"];
 const TF_ORDER = ["1W","1D","4H","1H","30m","15m","5m","3m","1m"];
@@ -138,8 +140,8 @@ function kpiHtml(st, opts){
   const cells=[
     ["Trades", st.n, ""],
     ["Win Rate", fmtPct(st.wr), ""],
-    ["Итог, %", fmtR(st.net), clsR(st.net)],
-    ["Средний RR", st.avgRR!=null?r1(st.avgRR):"—", ""],
+    ["Підсумок, %", fmtR(st.net), clsR(st.net)],
+    ["Середній RR", st.avgRR!=null?r1(st.avgRR):"—", ""],
     ["Profit Factor", st.pfTxt, ""],
     ["TP / SL / BE", st.wins+" / "+st.losses+" / "+st.be, "small"],
     ["BE\u2212 / BE+", st.beM+" / "+st.beP, "small"],
@@ -152,7 +154,7 @@ function kpiHtml(st, opts){
 /* ---------------- график equity ---------------- */
 function equitySVG(list){
   const arr=sortAsc(list);
-  if(arr.length<2) return '<div class="empty">Недостаточно сделок для графика</div>';
+  if(arr.length<2) return '<div class="empty">Замало угод для графіка</div>';
   const eq=[]; let acc=0;
   for(const t of arr){ acc+=netR(t); eq.push(acc); }
   const W=900,H=200,padL=10,padR=10,padT=16,padB=10;
@@ -172,7 +174,7 @@ function equitySVG(list){
       '<circle class="dot end" cx="'+x(eq.length-1)+'" cy="'+y(last)+'" r="4"/>'+
     "</svg>"+
     '<span class="eqval '+clsR(last)+'">'+fmtR(last)+"</span>"+
-    '<span class="eqrange">макс '+fmtR(eq[hiI])+" · мин "+fmtR(eq[loI])+"</span>"+
+    '<span class="eqrange">макс '+fmtR(eq[hiI])+" · мін "+fmtR(eq[loI])+"</span>"+
   "</div>";
 }
 
@@ -191,7 +193,7 @@ function tradeRow(t){
     '<span class="r '+clsR(r)+'">'+fmtR(r)+"</span></div>";
 }
 function tradesCard(list,title){
-  const rows=list.length?list.map(tradeRow).join(""):'<div class="empty">Сделок нет</div>';
+  const rows=list.length?list.map(tradeRow).join(""):'<div class="empty">Угод немає</div>';
   return '<div class="card"><h3>'+esc(title)+'</h3><div class="tlist">'+rows+"</div></div>";
 }
 
@@ -215,10 +217,10 @@ function calHtml(ym, clickFn, selDay){
     if(list.length){
       const marks=sortAsc(list).map(t=>{
         const rv=dirType(t)==="Reversal";
-        if(t.result==="Win")  return '<i class="mk tp'+(rv?" rev":"")+'" title="Тейк'+(rv?" · разворот":"")+'">TP</i>';
-        if(t.result==="Loss") return '<i class="mk sl'+(rv?" rev":"")+'" title="Стоп'+(rv?" · разворот":"")+'">SL</i>';
-        if(t.result==="BE+")  return '<i class="mk beplus'+(rv?" rev":"")+'" title="Безубыток, потом дошло бы до цели">BE+</i>';
-        return '<i class="mk be'+(rv?" rev":"")+'" title="Безубыток, потом пошло против">BE\u2212</i>';
+        if(t.result==="Win")  return '<i class="mk tp'+(rv?" rev":"")+'" title="Тейк'+(rv?" · розворот":"")+'">TP</i>';
+        if(t.result==="Loss") return '<i class="mk sl'+(rv?" rev":"")+'" title="Стоп'+(rv?" · розворот":"")+'">SL</i>';
+        if(t.result==="BE+")  return '<i class="mk beplus'+(rv?" rev":"")+'" title="Беззбиток, потім дійшло б до цілі">BE+</i>';
+        return '<i class="mk be'+(rv?" rev":"")+'" title="Беззбиток, потім пішло проти">BE\u2212</i>';
       }).join("");
       body='<div class="marks">'+marks+'</div><div class="res '+clsR(net)+'">'+fmtR(net)+"</div>";
     }
@@ -256,9 +258,9 @@ function filterBar(){
     h+='<select onchange="setFilter(\''+f+'\',this.value)"><option value="">'+label+"</option>"+
       vals.map(v=>'<option '+(S.filters[f]===v?"selected":"")+' value="'+esc(v)+'">'+esc(f==="result"?resLabel(v):v)+"</option>").join("")+"</select>";
   }
-  h+='<input type="date" value="'+(S.filters.from||"")+'" onchange="setFilter(\'from\',this.value)" title="с даты">';
-  h+='<input type="date" value="'+(S.filters.to||"")+'" onchange="setFilter(\'to\',this.value)" title="по дату">';
-  if(Object.keys(S.filters).some(k=>S.filters[k])) h+='<button class="clear" onclick="clearFilters()">Сбросить ×</button>';
+  h+='<input type="date" value="'+(S.filters.from||"")+'" onchange="setFilter(\'from\',this.value)" title="з дати">';
+  h+='<input type="date" value="'+(S.filters.to||"")+'" onchange="setFilter(\'to\',this.value)" title="до дати">';
+  if(Object.keys(S.filters).some(k=>S.filters[k])) h+='<button class="clear" onclick="clearFilters()">Скинути ×</button>';
   return h+"</div>";
 }
 function setFilter(f,v){ if(v)S.filters[f]=v; else delete S.filters[f]; render(); }
@@ -276,7 +278,7 @@ function applyFilters(list){
 /* ================= VIEWS ================= */
 
 /* ---------- Обзор: раскладка из макета (design/dash.html) ---------- */
-const OV_PERIODS = [["month","Месяц"],["quarter","Квартал"],["year","Год"]];
+const OV_PERIODS = [["month","Місяць"],["quarter","Квартал"],["year","Рік"]];
 const RES_TAG = {"Win":"TP","Loss":"SL","BE-":"BE−","BE+":"BE+"};
 
 function ovSetPeriod(p){ S.ovPeriod=p; render(); }
@@ -289,17 +291,17 @@ function ovOpenDay(key){
 function ovPeriod(){
   const now=new Date(), y=String(now.getFullYear());
   if(S.ovPeriod==="year")
-    return {list:S.trades.filter(t=>(t.date||"").slice(0,4)===y), lab:"Итог года", when:y};
+    return {list:S.trades.filter(t=>(t.date||"").slice(0,4)===y), lab:"Підсумок року", when:y};
   if(S.ovPeriod==="quarter"){
     const q=Math.floor(now.getMonth()/3), from=q*3+1, to=q*3+3;
     const list=S.trades.filter(t=>{
       const k=monKey(t); if(k.slice(0,4)!==y) return false;
       const m=+k.slice(5,7); return m>=from && m<=to;
     });
-    return {list, lab:"Итог квартала", when:["I","II","III","IV"][q]+" квартал "+y};
+    return {list, lab:"Підсумок кварталу", when:["I","II","III","IV"][q]+" квартал "+y};
   }
   const mk=isoMonth(now);
-  return {list:S.trades.filter(t=>monKey(t)===mk), lab:"Итог месяца", when:MONTHS[now.getMonth()]+" "+y};
+  return {list:S.trades.filter(t=>monKey(t)===mk), lab:"Підсумок місяця", when:MONTHS[now.getMonth()]+" "+y};
 }
 
 function ovSign(r){ return r>0.0001?"pos":r<-0.0001?"neg":"be"; }
@@ -308,7 +310,7 @@ function ovFmt(v){ return (v>0?"+":"")+(v==null?0:v).toFixed(2)+"%"; }
 function ovFmt1(v){ return (v>0?"+":"")+v.toFixed(1)+"%"; }
 function ovWord(n){
   const a=n%10, b=n%100;
-  return a===1&&b!==11 ? "сделка" : (a>=2&&a<=4&&!(b>=12&&b<=14)) ? "сделки" : "сделок";
+  return a===1&&b!==11 ? "угода" : (a>=2&&a<=4&&!(b>=12&&b<=14)) ? "угоди" : "угод";
 }
 
 /* последняя неделя — крупный ряд сверху, в клетке светится исход дня */
@@ -346,24 +348,24 @@ function ovWeekHtml(){
       '<span class="bot"><span class="dr">'+val+'</span></span></div>';
   }
   return '<div class="week rise">'+
-    '<div class="sec-lab"><span class="t">Последняя неделя</span>'+
+    '<div class="sec-lab"><span class="t">Останній тиждень</span>'+
     '<span class="wn">'+n+" "+ovWord(n)+'</span>'+
     '<span class="wsum '+ovSign(sum)+'">'+ovFmt(sum)+'</span>'+
-    '<a href="#journal">весь месяц</a></div>'+
+    '<a href="#journal">весь місяць</a></div>'+
     '<div class="days">'+cells+"</div></div>";
 }
 
 /* восемь показателей hairline-сеткой */
 function ovStatsHtml(st){
   const rows=[
-    ["Сделок", String(st.n), ""],
+    ["Угод", String(st.n), ""],
     ["Win Rate", st.wr==null?"·":fmtPct(st.wr), ""],
-    ["Итог, %", ovFmt(st.net), clsR(st.net)],
-    ["Средний RR", st.avgRR==null?"·":String(r1(st.avgRR)), ""],
+    ["Підсумок, %", ovFmt(st.net), clsR(st.net)],
+    ["Середній RR", st.avgRR==null?"·":String(r1(st.avgRR)), ""],
     ["Profit Factor", st.pfTxt, ""],
     ["TP / SL / BE", st.wins+" / "+st.losses+" / "+st.be, ""],
     ["BE− / BE+", st.beM+" / "+st.beP, ""],
-    ["Средний риск", (st.avgRisk==null?"·":r1(st.avgRisk))+"%", ""],
+    ["Середній ризик", (st.avgRisk==null?"·":r1(st.avgRisk))+"%", ""],
   ];
   return '<div class="stats">'+rows.map(([l,v,c])=>
     '<div class="st"><div class="lab">'+l+'</div><div class="val '+c+'">'+v+"</div></div>").join("")+"</div>";
@@ -385,8 +387,8 @@ function ovEquityHtml(){
   const arr=sortAsc(S.trades.filter(t=>(t.date||"").slice(0,4)===y));
   if(arr.length<2)
     return '<div class="shell rise"><div class="core"><div class="chart-lab">'+
-      '<span class="t">Эквити</span></div>'+
-      '<div class="empty">Недостаточно сделок для графика</div></div></div>';
+      '<span class="t">Еквіті</span></div>'+
+      '<div class="empty">Замало угод для графіка</div></div></div>';
   const start=new Date(+y,0,1);
   const days=[], vals=[], months=new Set();
   let acc=0, peak=0, dd=0;
@@ -425,7 +427,7 @@ function ovEquityHtml(){
   const xax='<div class="xax" style="grid-template-columns:repeat('+mon.length+',1fr)">'+
     mon.map(m=>"<span>"+MON_SHORT[+m-1]+"</span>").join("")+"</div>";
   return '<div class="shell rise"><div class="core">'+
-    '<div class="chart-lab"><span class="t">Эквити</span>'+
+    '<div class="chart-lab"><span class="t">Еквіті</span>'+
     '<span class="v '+clsR(vals[last])+'">'+ovFmt(vals[last])+"</span>"+
     '<span class="dd">просадка '+ovFmt(dd)+"</span></div>"+
     '<div class="chart"><div class="yax">'+yax+"</div>"+svg+"</div>"+xax+"</div></div>";
@@ -442,30 +444,31 @@ function ovRailHtml(){
   const byCount=field=>[...groupBy(yl,t=>t[field]).entries()]
     .map(([k,v])=>[k,v.length]).sort((a,b)=>b[1]-a[1]).slice(0,4);
   const share=rows=>{
-    if(!rows.length) return '<div class="empty">Нет данных</div>';
+    if(!rows.length) return '<div class="empty">Немає даних</div>';
     const mx=Math.max(...rows.map(r=>r[1]));
     return rows.map(([nm,n])=>bar(nm,"<b>"+n+"</b> · "+Math.round(n/yl.length*100)+"%",n/mx*100)).join("");
   };
+  /* при равном итоге выше тот, по которому сделок больше */
   const setups=[...groupBy(yl,t=>t.setup).entries()]
-    .map(([k,v])=>[k,calc(v).net,v.length])
-    .sort((a,b)=>Math.abs(b[1])-Math.abs(a[1])).slice(0,3);
+    .map(([k,v])=>[k,r1(calc(v).net),v.length])
+    .sort((a,b)=>Math.abs(b[1])-Math.abs(a[1])||b[2]-a[2]).slice(0,3);
   const smx=Math.max(1,...setups.map(x=>Math.abs(x[1])));
   const setupRows=setups.length
     ? setups.map(([nm,r,n])=>bar(nm,'<b class="'+clsR(r)+'">'+ovFmt1(r)+"</b> · "+n,Math.abs(r)/smx*100,ovSign(r))).join("")
-    : '<div class="empty">Нет данных</div>';
+    : '<div class="empty">Немає даних</div>';
   return '<aside class="rail"><div class="inner"><div class="cut">'+
-    '<section><h3>Сессии<em>год</em></h3><div class="rows">'+share(byCount("session"))+"</div></section>"+
-    '<section><h3>Инструменты<em>год</em></h3><div class="rows">'+share(byCount("pair"))+"</div></section>"+
-    '<section><h3>Сетапы<em>итог, %</em></h3><div class="rows">'+setupRows+"</div></section>"+
+    '<section><h3>Сесії<em>рік</em></h3><div class="rows">'+share(byCount("session"))+"</div></section>"+
+    '<section><h3>Інструменти<em>рік</em></h3><div class="rows">'+share(byCount("pair"))+"</div></section>"+
+    '<section><h3>Сетапи<em>підсумок, %</em></h3><div class="rows">'+setupRows+"</div></section>"+
     "</div></div></aside>";
 }
 
 function vDashboard(){
   if(!S.trades.length){
-    return '<div class="vhead"><h1>Обзор</h1></div>'+
+    return '<div class="vhead"><h1>Огляд</h1></div>'+
       '<div class="card"><div class="in" style="text-align:center;padding:56px 20px">'+
-      '<div style="font-size:17px;font-weight:600;margin-bottom:6px">Журнал пуст</div>'+
-      '<div class="hint" style="margin-bottom:18px">Добавь первую сделку — статистика соберётся сама.<br>Старые сделки можно загрузить через «Импорт» слева внизу.</div>'+
+      '<div style="font-size:17px;font-weight:600;margin-bottom:6px">Журнал порожній</div>'+
+      '<div class="hint" style="margin-bottom:18px">Додай першу угоду — статистика збереться сама.<br>Старі угоди можна завантажити через «Імпорт» ліворуч унизу.</div>'+
       '<button class="btn primary" onclick="openForm()">+ New Trade</button></div></div>';
   }
   const per=ovPeriod(), st=calc(per.list);
@@ -475,14 +478,14 @@ function vDashboard(){
     '<button class="'+(S.ovPeriod===k?"on":"")+'" onclick="ovSetPeriod(\''+k+'\')">'+l+"</button>").join("");
 
   return '<div class="ovw">'+
-    '<div class="ohead"><h1>Обзор</h1><div class="per">'+btns+"</div></div>"+
+    '<div class="ohead"><h1>Огляд</h1><div class="per">'+btns+"</div></div>"+
     '<div class="flow">'+
       ovWeekHtml()+
       '<div class="shell rise"><div class="core">'+
         '<div class="sum"><div><div class="lab">'+per.lab+"</div>"+
         '<div class="big '+clsR(st.net)+'">'+(per.list.length?ovFmt(st.net):"—")+"</div></div>"+
         '<div class="when">'+per.when+"</div>"+
-        '<div class="right"><div class="lab">Лучшая · худшая</div>'+
+        '<div class="right"><div class="lab">Найкраща · найгірша</div>'+
         '<div class="v">'+(best==null?"—":ovFmt(best)+" · "+ovFmt(worst))+"</div></div></div>"+
         ovStatsHtml(st)+
       "</div></div>"+
@@ -498,20 +501,20 @@ function vJournal(){
   const label=MONTHS[M-1]+" "+Y;
   const monthTrades=S.trades.filter(t=>monKey(t)===S.jMonth);
   const st=calc(monthTrades);
-  const modeBtns='<button class="pill '+(S.jMode==="cal"?"on":"")+'" onclick="S.jMode=\'cal\';render()">Месяц</button>'+
-    '<button class="pill '+(S.jMode==="list"?"on":"")+'" onclick="S.jMode=\'list\';render()">Все сделки</button>';
+  const modeBtns='<button class="pill '+(S.jMode==="cal"?"on":"")+'" onclick="S.jMode=\'cal\';render()">Місяць</button>'+
+    '<button class="pill '+(S.jMode==="list"?"on":"")+'" onclick="S.jMode=\'list\';render()">Усі угоди</button>';
 
   let h='<div class="vhead"><h1>Journal</h1>';
   if(S.jMode==="cal"){
     h+='<div class="right">'+
       '<button class="navbtn" onclick="shiftJMonth(-1)">‹</button><span class="perlabel">'+label+'</span><button class="navbtn" onclick="shiftJMonth(1)">›</button>'+
-      '<button class="pill" onclick="goToday()">Сегодня</button>'+
-      '<button class="pill share" data-ym="'+S.jMonth+'" onclick="openShare(this.dataset.ym)">Картинка для канала</button>'+
+      '<button class="pill" onclick="goToday()">Сьогодні</button>'+
+      '<button class="pill share" data-ym="'+S.jMonth+'" onclick="openShare(this.dataset.ym)">Картинка для каналу</button>'+
       modeBtns+"</div></div>";
   }else{
     h+='<div class="right">'+modeBtns+"</div></div>";
     const list=sortDesc(applyFilters(S.trades));
-    return h+filterBar()+tradesCard(list,"Все сделки · "+list.length);
+    return h+filterBar()+tradesCard(list,"Усі угоди · "+list.length);
   }
 
   /* лента статистики месяца */
@@ -526,39 +529,39 @@ function vJournal(){
   const dst=calc(dayTrades);
   const mistakes=dayTrades.filter(t=>(t.mistakes||"").trim()).map(t=>esc(t.mistakes));
   const dsel=new Date(S.selDay+"T00:00");
-  const dayLabel=dsel.getDate()+" "+MONTHS[dsel.getMonth()].toLowerCase()+", "+WDS[(dsel.getDay()+6)%7];
+  const dayLabel=dsel.getDate()+" "+MONTHS_GEN[dsel.getMonth()]+", "+WDS[(dsel.getDay()+6)%7];
 
   let chips="";
   if(dayTrades.length){
     chips='<div class="chips">'+
-      '<span class="chip"><b>'+dst.n+"</b> сд</span>"+
+      '<span class="chip"><b>'+dst.n+"</b> уг</span>"+
       '<span class="chip '+(dst.net>0?"pos":dst.net<0?"neg":"")+'">'+fmtR(dst.net)+"</span>"+
       (dst.wr!=null?'<span class="chip">WR <b>'+fmtPct(dst.wr)+"</b></span>":"")+
-      (dst.avgRR!=null?'<span class="chip">ср. RR <b>'+r1(dst.avgRR)+"</b></span>":"")+
+      (dst.avgRR!=null?'<span class="chip">сер. RR <b>'+r1(dst.avgRR)+"</b></span>":"")+
       "</div>";
   }
   const dayPanel =
     '<div class="card daypanel"><h3>'+dayLabel+"</h3>"+chips+
-    (mistakes.length?'<div class="mistline">Ошибки: <span class="neg">'+mistakes.join(" · ")+"</span></div>":"")+
+    (mistakes.length?'<div class="mistline">Помилки: <span class="neg">'+mistakes.join(" · ")+"</span></div>":"")+
     (dayTrades.length
       ? '<div class="tlist">'+dayTrades.map(tradeRow).join("")+"</div>"
-      : '<div class="empty">Сделок нет</div>')+
-    '<button class="addday" onclick="openForm(null,\''+S.selDay+'\')">+ Сделка на этот день</button>'+
+      : '<div class="empty">Угод немає</div>')+
+    '<button class="addday" onclick="openForm(null,\''+S.selDay+'\')">+ Угода на цей день</button>'+
     "</div>";
 
   h+='<div class="jgrid">'+
     '<div class="card">'+calHtml(S.jMonth,"pickDay",S.selDay)+
-      '<div class="callegend"><i class="mk tp">TP</i>тейк<i class="mk sl">SL</i>стоп<i class="mk be">BE</i>безубыток'+
-      '<span class="lgend-rev"><i class="mk tp rev">TP</i>рамка — разворот против биаса</span></div>'+
+      '<div class="callegend"><i class="mk tp">TP</i>тейк<i class="mk sl">SL</i>стоп<i class="mk be">BE</i>беззбиток'+
+      '<span class="lgend-rev"><i class="mk tp rev">TP</i>рамка — розворот проти біасу</span></div>'+
     "</div>"+dayPanel+"</div>";
 
   /* месяц целиком: динамика и разрезы */
   if(monthTrades.length){
     h+='<div class="split">'+
-      '<div class="card"><h3>Equity месяца · %</h3><div class="in">'+equitySVG(monthTrades)+"</div></div>"+
+      '<div class="card"><h3>Equity місяця · %</h3><div class="in">'+equitySVG(monthTrades)+"</div></div>"+
       '<div style="min-width:0">'+bestWorstHtml(monthTrades)+"</div></div>";
     h+=beReportHtml(monthTrades);
-    h+=tradesCard(sortDesc(monthTrades),"Сделки месяца · "+monthTrades.length);
+    h+=tradesCard(sortDesc(monthTrades),"Угоди місяця · "+monthTrades.length);
   }
   return h;
 }
@@ -576,28 +579,28 @@ function beReportHtml(list){
   const saved=st.beSaved, lost=st.beLost, delta=saved-lost;
   const share=Math.round(be.length/list.length*100);
   const verdict = delta>0.001
-    ? "Безубыток в плюсе: спас больше, чем отнял. Держим как есть."
+    ? "Беззбиток у плюсі: врятував більше, ніж забрав. Лишаємо як є."
     : delta<-0.001
-      ? "Безубыток в минусе: забрал больше, чем спас. Переносишь стоп рано."
-      : "Безубыток вышел в ноль.";
+      ? "Беззбиток у мінусі: забрав більше, ніж урятував. Переносиш стоп зарано."
+      : "Беззбиток вийшов у нуль.";
   const bar=(a,b)=>{
     const m=Math.max(a,b,0.001);
     return '<div class="bebar"><span class="t" style="width:'+(a/m*100)+'%;background:var(--up)"></span></div>'+
            '<div class="bebar"><span class="t" style="width:'+(b/m*100)+'%;background:var(--down)"></span></div>';
   };
-  return '<div class="card"><h3>Безубытки · спасли или отняли</h3><div class="in">'+
+  return '<div class="card"><h3>Беззбитки · врятували чи забрали</h3><div class="in">'+
     '<div class="begrid">'+
-      '<div class="becell"><div class="l">BE\u2212 · спасли от стопа</div>'+
-        '<div class="v pos">+'+r1(saved)+'%</div><div class="s">'+minus.length+' сделок — цена пошла против, стоп бы забрал деньги</div></div>'+
-      '<div class="becell"><div class="l">BE+ · отняли тейк</div>'+
-        '<div class="v neg">\u2212'+r1(lost)+'%</div><div class="s">'+plus.length+' сделок — цена дошла бы до цели без тебя</div></div>'+
-      '<div class="becell"><div class="l">Чистый эффект</div>'+
+      '<div class="becell"><div class="l">BE\u2212 · врятували від стопу</div>'+
+        '<div class="v pos">+'+r1(saved)+'%</div><div class="s">'+minus.length+' угод — ціна пішла проти, стоп забрав би гроші</div></div>'+
+      '<div class="becell"><div class="l">BE+ · забрали тейк</div>'+
+        '<div class="v neg">\u2212'+r1(lost)+'%</div><div class="s">'+plus.length+' угод — ціна дійшла б до цілі без тебе</div></div>'+
+      '<div class="becell"><div class="l">Чистий ефект</div>'+
         '<div class="v '+clsR(delta)+'">'+fmtR(delta)+'</div><div class="s">'+verdict+'</div></div>'+
-      '<div class="becell"><div class="l">Доля безубытков</div>'+
-        '<div class="v beclr">'+share+'%</div><div class="s">'+be.length+' из '+list.length+' сделок</div></div>'+
+      '<div class="becell"><div class="l">Частка беззбитків</div>'+
+        '<div class="v beclr">'+share+'%</div><div class="s">'+be.length+' з '+list.length+' угод</div></div>'+
     "</div>"+bar(saved,lost)+
-    '<div class="behint">BE\u2212 — тапнуло в безубыток, дальше пошло против: безубыток сработал в твою пользу. '+
-    'BE+ — тапнуло в безубыток, а дальше цена дошла до цели: сделка была бы прибыльной.</div>'+
+    '<div class="behint">BE\u2212 — тапнуло в беззбиток, далі пішло проти: беззбиток спрацював на твою користь. '+
+    'BE+ — тапнуло в беззбиток, а далі ціна дійшла до цілі: угода була б прибутковою.</div>'+
     "</div></div>";
 }
 
@@ -621,7 +624,7 @@ function bestWorstHtml(list){
     cells+='<div class="cell"><div class="t">Mistakes</div>'+
       mist.map(m=>'<div class="row"><span class="k">'+esc(m.name)+' · '+m.n+'</span><span class="v '+clsR(m.net)+'">'+fmtR(m.net)+"</span></div>").join("")+"</div>";
   }
-  return cells?'<div class="card"><h3>Лучшее / худшее</h3><div class="bw">'+cells+"</div></div>":"";
+  return cells?'<div class="card"><h3>Найкраще / найгірше</h3><div class="bw">'+cells+"</div></div>":"";
 }
 
 
@@ -643,12 +646,12 @@ function dimTable(list,key,label){
     .sort((a,b)=>b.st.net-a.st.net);
   if(!rows.length) return "";
   const body=rows.map((g,i)=>{
-    const flag = rows.length>1 ? (i===0?' <span class="tick best">лучший</span>':(i===rows.length-1?' <span class="tick worst">худший</span>':"")) : "";
+    const flag = rows.length>1 ? (i===0?' <span class="tick best">найкращий</span>':(i===rows.length-1?' <span class="tick worst">найгірший</span>':"")) : "";
     return "<tr><td>"+esc(g.name)+flag+"</td><td>"+g.st.n+"</td><td>"+fmtPct(g.st.wr)+
       '</td><td class="'+clsR(g.st.net)+'">'+fmtR(g.st.net)+"</td></tr>";
   }).join("");
   return '<div class="rep-card"><h4>'+esc(label)+'</h4><table class="simple mini">'+
-    "<tr><th>"+esc(label)+"</th><th>Сд.</th><th>WR</th><th>Итог</th></tr>"+body+"</table></div>";
+    "<tr><th>"+esc(label)+"</th><th>Уг.</th><th>WR</th><th>Підсумок</th></tr>"+body+"</table></div>";
 }
 function openMonthReport(ym){
   S.mRep=ym;
@@ -658,72 +661,72 @@ function openMonthReport(ym){
   const title=MONTHS[M-1]+" "+Y;
   let h='<div class="m-head"><h2>'+title+' <span class="'+clsR(st.net)+'" style="font-family:var(--mono)">'+fmtR(st.net)+"</span></h2>"+
     '<button class="x" onclick="closeModal()">×</button></div><div class="m-body rep">';
-  if(!list.length){ h+='<div class="empty">В этом месяце сделок не было</div>'; }
+  if(!list.length){ h+='<div class="empty">Цього місяця угод не було</div>'; }
   else{
     h+=kpiHtml(st);
-    h+='<div class="card"><h3>Динамика месяца</h3><div class="in">'+equitySVG(list)+"</div></div>";
+    h+='<div class="card"><h3>Динаміка місяця</h3><div class="in">'+equitySVG(list)+"</div></div>";
 
     /* дни */
     const byDay=[...groupBy(list,dayKey).entries()].sort((a,b)=>a[0]<b[0]?-1:1)
       .map(([d,arr])=>({d,st:calc(arr)}));
     const best=byDay.slice().sort((a,b)=>b.st.net-a.st.net);
-    h+='<div class="rep-sec">Дни</div><div class="rep-grid">'+
-      '<div class="rep-card scrolly"><h4>Все торговые дни ('+byDay.length+")</h4>"+
-      '<table class="simple mini"><tr><th>День</th><th>Сд.</th><th>WR</th><th>Итог</th></tr>'+
+    h+='<div class="rep-sec">Дні</div><div class="rep-grid">'+
+      '<div class="rep-card scrolly"><h4>Усі торгові дні ('+byDay.length+")</h4>"+
+      '<table class="simple mini"><tr><th>День</th><th>Уг.</th><th>WR</th><th>Підсумок</th></tr>'+
       byDay.map(x=>{
         const dt=new Date(x.d+"T00:00");
         return '<tr class="click" data-day="'+x.d+'" onclick="gotoDayFromReport(this.dataset.day)">'+
-          "<td>"+dt.getDate()+" "+MONTHS[dt.getMonth()].slice(0,3).toLowerCase()+", "+WDS[(dt.getDay()+6)%7]+"</td>"+
+          "<td>"+dt.getDate()+" "+MON_SHORT[dt.getMonth()]+", "+WDS[(dt.getDay()+6)%7]+"</td>"+
           "<td>"+x.st.n+"</td><td>"+fmtPct(x.st.wr)+'</td><td class="'+clsR(x.st.net)+'">'+fmtR(x.st.net)+"</td></tr>";
       }).join("")+"</table></div>"+
-      '<div class="rep-card"><h4>Крайние дни</h4><table class="simple mini c3">'+
-      '<tr><th>День</th><th>Сд.</th><th>Итог</th></tr>'+
+      '<div class="rep-card"><h4>Крайні дні</h4><table class="simple mini c3">'+
+      '<tr><th>День</th><th>Уг.</th><th>Підсумок</th></tr>'+
       best.slice(0,3).concat(best.slice(-3).reverse()).filter((v,i,a)=>a.indexOf(v)===i).map(x=>{
         const dt=new Date(x.d+"T00:00");
-        return "<tr><td>"+dt.getDate()+" "+MONTHS[dt.getMonth()].slice(0,3).toLowerCase()+"</td><td>"+x.st.n+
+        return "<tr><td>"+dt.getDate()+" "+MON_SHORT[dt.getMonth()]+"</td><td>"+x.st.n+
           '</td><td class="'+clsR(x.st.net)+'">'+fmtR(x.st.net)+"</td></tr>";
       }).join("")+"</table></div></div>";
 
     /* разрезы */
-    h+='<div class="rep-sec">Разрезы</div><div class="rep-grid">'+
+    h+='<div class="rep-sec">Розрізи</div><div class="rep-grid">'+
       dimTable(list,"setup","Сетап")+dimTable(list,"pair","Актив")+
-      dimTable(list,"session","Сессия")+dimTable(list,"entry_model","Модель входа")+
-      dimTable(list,"direction_type","Продолжение / Разворот")+dimTable(list,"position","Направление")+
+      dimTable(list,"session","Сесія")+dimTable(list,"entry_model","Модель входу")+
+      dimTable(list,"direction_type","Продовження / Розворот")+dimTable(list,"position","Напрямок")+
       "</div>";
 
     /* ошибки */
     const mist=[...groupBy(list,t=>t.mistakes).entries()].map(([name,arr])=>({name,st:calc(arr)}))
       .sort((a,b)=>a.st.net-b.st.net);
     const withM=list.filter(t=>(t.mistakes||"").trim()), noM=list.filter(t=>!(t.mistakes||"").trim());
-    h+='<div class="rep-sec">Ошибки</div>';
+    h+='<div class="rep-sec">Помилки</div>';
     if(mist.length){
-      h+='<div class="rep-grid"><div class="rep-card"><h4>Что стоило денег</h4><table class="simple mini">'+
-        "<tr><th>Ошибка</th><th>Сд.</th><th>Итог</th></tr>"+
+      h+='<div class="rep-grid"><div class="rep-card"><h4>Що коштувало грошей</h4><table class="simple mini">'+
+        "<tr><th>Помилка</th><th>Уг.</th><th>Підсумок</th></tr>"+
         mist.map(m=>"<tr><td>"+esc(m.name)+"</td><td>"+m.st.n+'</td><td class="'+clsR(m.st.net)+'">'+fmtR(m.st.net)+"</td></tr>").join("")+
         "</table></div>"+
-        '<div class="rep-card"><h4>С ошибкой против без</h4><table class="simple mini">'+
-        "<tr><th></th><th>Сд.</th><th>WR</th><th>Итог</th></tr>"+
-        '<tr><td>С пометкой</td><td>'+withM.length+"</td><td>"+fmtPct(calc(withM).wr)+'</td><td class="'+clsR(calc(withM).net)+'">'+fmtR(calc(withM).net)+"</td></tr>"+
-        '<tr><td>Без пометки</td><td>'+noM.length+"</td><td>"+fmtPct(calc(noM).wr)+'</td><td class="'+clsR(calc(noM).net)+'">'+fmtR(calc(noM).net)+"</td></tr>"+
+        '<div class="rep-card"><h4>З помилкою проти без</h4><table class="simple mini">'+
+        "<tr><th></th><th>Уг.</th><th>WR</th><th>Підсумок</th></tr>"+
+        '<tr><td>З позначкою</td><td>'+withM.length+"</td><td>"+fmtPct(calc(withM).wr)+'</td><td class="'+clsR(calc(withM).net)+'">'+fmtR(calc(withM).net)+"</td></tr>"+
+        '<tr><td>Без позначки</td><td>'+noM.length+"</td><td>"+fmtPct(calc(noM).wr)+'</td><td class="'+clsR(calc(noM).net)+'">'+fmtR(calc(noM).net)+"</td></tr>"+
         "</table></div></div>";
-    } else h+='<div class="hint" style="padding:4px 0 12px">За месяц ошибок не отмечено.</div>';
+    } else h+='<div class="hint" style="padding:4px 0 12px">За місяць помилок не позначено.</div>';
 
     /* риск */
     const offSize=list.filter(t=>(t.risk||1)!==1), onSize=list.filter(t=>(t.risk||1)===1);
     if(offSize.length){
-      h+='<div class="rep-sec">Размер риска</div><div class="rep-grid"><div class="rep-card"><h4>Отклонение от 1%</h4>'+
-        '<table class="simple mini"><tr><th></th><th>Сд.</th><th>WR</th><th>Итог</th></tr>'+
-        '<tr><td>Риск 1%</td><td>'+onSize.length+"</td><td>"+fmtPct(calc(onSize).wr)+'</td><td class="'+clsR(calc(onSize).net)+'">'+fmtR(calc(onSize).net)+"</td></tr>"+
-        '<tr><td>Другой риск</td><td>'+offSize.length+"</td><td>"+fmtPct(calc(offSize).wr)+'</td><td class="'+clsR(calc(offSize).net)+'">'+fmtR(calc(offSize).net)+"</td></tr>"+
+      h+='<div class="rep-sec">Розмір ризику</div><div class="rep-grid"><div class="rep-card"><h4>Відхилення від 1%</h4>'+
+        '<table class="simple mini"><tr><th></th><th>Уг.</th><th>WR</th><th>Підсумок</th></tr>'+
+        '<tr><td>Ризик 1%</td><td>'+onSize.length+"</td><td>"+fmtPct(calc(onSize).wr)+'</td><td class="'+clsR(calc(onSize).net)+'">'+fmtR(calc(onSize).net)+"</td></tr>"+
+        '<tr><td>Інший ризик</td><td>'+offSize.length+"</td><td>"+fmtPct(calc(offSize).wr)+'</td><td class="'+clsR(calc(offSize).net)+'">'+fmtR(calc(offSize).net)+"</td></tr>"+
         "</table></div></div>";
     }
-    h+='<div class="rep-sec">Безубытки</div>'+beReportHtml(list);
-    h+='<div class="rep-sec">Все сделки месяца</div><div class="card"><div class="tlist">'+
+    h+='<div class="rep-sec">Беззбитки</div>'+beReportHtml(list);
+    h+='<div class="rep-sec">Усі угоди місяця</div><div class="card"><div class="tlist">'+
       sortAsc(list).map(tradeRow).join("")+"</div></div>";
   }
-  h+='</div><div class="m-foot"><button class="btn primary" data-ym="'+ym+'" onclick="closeModal();openShare(this.dataset.ym)">Картинка для канала</button>'+
-    '<button class="btn" data-ym="'+ym+'" onclick="gotoMonthFromReport(this.dataset.ym)">Открыть в журнале</button>'+
-    '<span class="sp"></span><button class="btn" onclick="closeModal()">Закрыть</button></div>';
+  h+='</div><div class="m-foot"><button class="btn primary" data-ym="'+ym+'" onclick="closeModal();openShare(this.dataset.ym)">Картинка для каналу</button>'+
+    '<button class="btn" data-ym="'+ym+'" onclick="gotoMonthFromReport(this.dataset.ym)">Відкрити в журналі</button>'+
+    '<span class="sp"></span><button class="btn" onclick="closeModal()">Закрити</button></div>';
   openModal(h);
 }
 
@@ -740,7 +743,7 @@ function vQuarterly(){
     const st=calc(list);
     const perMonth=months.map(m=>{
       const ml=S.trades.filter(t=>monKey(t)===Y+"-"+pad(m));
-      return {m,label:MONTHS[m-1].slice(0,3),net:ml.reduce((a,t)=>a+netR(t),0),n:ml.length};
+      return {m,label:MON_SHORT[m-1],net:ml.reduce((a,t)=>a+netR(t),0),n:ml.length};
     });
     const withTrades=perMonth.filter(x=>x.n);
     let bw="";
@@ -759,7 +762,7 @@ function vQuarterly(){
       '<div class="rows">'+
       '<div class="qr"><span>Trades</span><b>'+st.n+"</b></div>"+
       '<div class="qr"><span>Win Rate</span><b>'+fmtPct(st.wr)+"</b></div>"+
-      '<div class="qr"><span>Ср. RR</span><b>'+(st.avgRR!=null?r1(st.avgRR):"—")+"</b></div>"+
+      '<div class="qr"><span>Сер. RR</span><b>'+(st.avgRR!=null?r1(st.avgRR):"—")+"</b></div>"+
       '<div class="qr"><span>Profit Factor</span><b>'+st.pfTxt+"</b></div>"+bw+
       '<div style="margin-top:8px">'+bars+"</div></div></div>";
   }
@@ -774,7 +777,7 @@ function vYearly(){
   let h='<div class="vhead"><h1>Yearly</h1><div class="right">'+
     '<button class="navbtn" onclick="S.yYear--;render()">‹</button><span class="perlabel">'+Y+'</span><button class="navbtn" onclick="S.yYear++;render()">›</button></div></div>';
   h+=kpiHtml(st);
-  if(list.length) h+='<div class="card"><h3>Equity года · %</h3><div class="in">'+equitySVG(list)+"</div></div>";
+  if(list.length) h+='<div class="card"><h3>Equity року · %</h3><div class="in">'+equitySVG(list)+"</div></div>";
   h+=beReportHtml(list);
   /* месяцы */
   let mrows="";
@@ -783,10 +786,10 @@ function vYearly(){
     if(!ml.length) continue;
     const ms=calc(ml);
     mrows+='<tr class="click" onclick="openMonthReport(\''+Y+"-"+pad(m)+'\')">'+
-      "<td>"+MONTHS[m-1]+' <span class="go">разбор →</span></td><td>'+ms.n+"</td><td>"+fmtPct(ms.wr)+'</td><td class="'+clsR(ms.net)+'">'+fmtR(ms.net)+"</td><td>"+(ms.avgRR!=null?r1(ms.avgRR):"—")+"</td></tr>";
+      "<td>"+MONTHS[m-1]+' <span class="go">розбір →</span></td><td>'+ms.n+"</td><td>"+fmtPct(ms.wr)+'</td><td class="'+clsR(ms.net)+'">'+fmtR(ms.net)+"</td><td>"+(ms.avgRR!=null?r1(ms.avgRR):"—")+"</td></tr>";
   }
-  h+='<div class="card"><h3>Months · клик по месяцу открывает разбор</h3><table class="simple"><tr><th>Month</th><th>Trades</th><th>Win Rate</th><th>Итог, %</th><th>Ср. RR</th></tr>'+
-    (mrows||'<tr><td colspan="5" class="empty">Нет данных</td></tr>')+"</table></div>";
+  h+='<div class="card"><h3>Months · клік по місяцю відкриває розбір</h3><table class="simple"><tr><th>Month</th><th>Trades</th><th>Win Rate</th><th>Підсумок, %</th><th>Сер. RR</th></tr>'+
+    (mrows||'<tr><td colspan="5" class="empty">Немає даних</td></tr>')+"</table></div>";
   /* кварталы */
   let qrows="";
   for(let q=0;q<4;q++){
@@ -796,15 +799,15 @@ function vYearly(){
     const qs=calc(ql);
     qrows+="<tr><td>Q"+(q+1)+"</td><td>"+qs.n+"</td><td>"+fmtPct(qs.wr)+'</td><td class="'+clsR(qs.net)+'">'+fmtR(qs.net)+"</td><td>"+(qs.avgRR!=null?r1(qs.avgRR):"—")+"</td></tr>";
   }
-  h+='<div class="card"><h3>Quarters</h3><table class="simple"><tr><th>Quarter</th><th>Trades</th><th>Win Rate</th><th>Итог, %</th><th>Ср. RR</th></tr>'+
-    (qrows||'<tr><td colspan="5" class="empty">Нет данных</td></tr>')+"</table></div>";
+  h+='<div class="card"><h3>Quarters</h3><table class="simple"><tr><th>Quarter</th><th>Trades</th><th>Win Rate</th><th>Підсумок, %</th><th>Сер. RR</th></tr>'+
+    (qrows||'<tr><td colspan="5" class="empty">Немає даних</td></tr>')+"</table></div>";
   return h;
 }
 
 /* ---------- Analytics ---------- */
 function vAnalytics(){
   const list=applyFilters(S.trades);
-  let h='<div class="vhead"><h1>Analytics</h1><span class="sub">'+list.length+" сделок в выборке</span></div>";
+  let h='<div class="vhead"><h1>Analytics</h1><span class="sub">'+list.length+" угод у вибірці</span></div>";
   h+=filterBar();
   h+='<div class="dims">'+DIMS.map(d=>'<button class="pill '+(S.dim===d.k?"on":"")+'" onclick="S.dim=\''+d.k+'\';render()">'+d.label+"</button>").join("")+"</div>";
   const groups=[...groupBy(list,t=>S.dim==="result"?resLabel(t.result):fieldVal(t,S.dim)).entries()].map(([name,arr])=>{
@@ -818,8 +821,8 @@ function vAnalytics(){
       '<span class="netr '+clsR(g.st.net)+'">'+fmtR(g.st.net)+"</span></div>";
   }).join("");
   h+='<div class="card"><h3>'+esc(DIMS.find(d=>d.k===S.dim).label)+" Performance</h3>"+
-    '<div class="ahead"><span>Название</span><span>Trades</span><span>Win Rate</span><span>Ср. RR</span><span>Итог, %</span></div>'+
-    (rows||'<div class="empty">Нет данных — поле не заполнено ни в одной сделке</div>')+"</div>";
+    '<div class="ahead"><span>Назва</span><span>Trades</span><span>Win Rate</span><span>Сер. RR</span><span>Підсумок, %</span></div>'+
+    (rows||'<div class="empty">Немає даних — поле не заповнене в жодній угоді</div>')+"</div>";
   return h;
 }
 
@@ -840,8 +843,8 @@ function markTheme(){
   const dark = document.documentElement.getAttribute("data-theme")==="dark";
   const sun='<svg class="ic" width="14" height="14" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="4.2" stroke="currentColor" stroke-width="1.6"/><path d="M12 2.6v2.2M12 19.2v2.2M2.6 12h2.2M19.2 12h2.2M5.3 5.3l1.6 1.6M17.1 17.1l1.6 1.6M18.7 5.3l-1.6 1.6M6.9 17.1l-1.6 1.6" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>';
   const moon='<svg class="ic" width="14" height="14" viewBox="0 0 24 24" fill="none"><path d="M20 14.2A8.2 8.2 0 019.8 4a8.4 8.4 0 100 20 8.2 8.2 0 0010.2-9.8z" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/></svg>';
-  b.innerHTML = (dark ? sun : moon) + "<span>" + (dark ? "Светлая тема" : "Тёмная тема") + "</span>";
-  b.title = dark ? "Переключить на светлую" : "Переключить на тёмную";
+  b.innerHTML = (dark ? sun : moon) + "<span>" + (dark ? "Світла тема" : "Темна тема") + "</span>";
+  b.title = dark ? "Перемкнути на світлу" : "Перемкнути на темну";
 }
 
 $("#modal") && null;
@@ -855,7 +858,7 @@ function openTrade(id){
   const r=netR(t);
   const fields=[["Pair",t.pair],["Date",(t.date||"").replace("T"," ")],["Session",t.session],["Position",t.position],
     ["Entry Model",t.entry_model],["Bias",t.bias],["Setup",t.setup],["Cont / Rev",dirType(t)],
-    ["Result",resLabel(t.result)],["RR",t.rr!=null?t.rr:""],["Risk",t.risk!=null?t.risk+"%":""],["Итог",fmtR(r)]];
+    ["Result",resLabel(t.result)],["RR",t.rr!=null?t.rr:""],["Risk",t.risk!=null?t.risk+"%":""],["Підсумок",fmtR(r)]];
   let h='<div class="m-head"><h2>'+esc(t.pair||"Trade")+' <span class="'+clsR(r)+'" style="font-family:var(--mono)">'+fmtR(r)+"</span></h2>"+
     '<button class="x" onclick="closeModal()">×</button></div><div class="m-body">';
   h+='<div class="dgrid">'+fields.filter(f=>f[1]!==""&&f[1]!=null).map(f=>
@@ -869,13 +872,13 @@ function openTrade(id){
     h+='<div class="charts">'+shots.map(s=>
       '<div class="chart-item"><div class="l">'+esc(s.tf||"chart")+'</div><img loading="lazy" src="'+shotSrc(s)+'" onclick="openLightbox(this.src)"></div>').join("")+"</div>";
   }
-  h+='</div><div class="m-foot"><button class="btn" onclick="openForm(\''+t.id+'\')">Изменить</button>'+
-    '<button class="btn danger" onclick="delTrade(\''+t.id+'\')">Удалить</button><span class="sp"></span>'+
-    '<button class="btn" onclick="closeModal()">Закрыть</button></div>';
+  h+='</div><div class="m-foot"><button class="btn" onclick="openForm(\''+t.id+'\')">Змінити</button>'+
+    '<button class="btn danger" onclick="delTrade(\''+t.id+'\')">Видалити</button><span class="sp"></span>'+
+    '<button class="btn" onclick="closeModal()">Закрити</button></div>';
   openModal(h);
 }
 async function delTrade(id){
-  if(!confirm("Удалить сделку? Статистика пересчитается.")) return;
+  if(!confirm("Видалити угоду? Статистика перерахується.")) return;
   await api("DELETE","/api/trades/"+id);
   await reload(); closeModal(); render();
 }
@@ -906,7 +909,7 @@ function openForm(id, presetDay){
       '<button type="button" data-f="'+field+'" data-v="'+esc(x)+'"'+
       (String(x)===cur?' class="on"':"")+' onclick="quickSet(this)">'+esc(x)+"</button>").join("");
     return '<div class="quick">'+chips+
-      '<button type="button" class="more" onclick="showOwn(\''+field+'\')" title="Своё значение">＋</button></div>'+
+      '<button type="button" class="more" onclick="showOwn(\''+field+'\')" title="Своє значення">＋</button></div>'+
       '<input class="qinput" id="fld_'+field+'"'+(num?' type="number" step="0.25" min="0"':"")+
       ' value="'+esc(cur)+'" placeholder="'+esc(ph||"")+'" autocomplete="off"'+
       (cur&&!known?"":" hidden")+' oninput="markQuick();calcOutcome()">';
@@ -916,23 +919,23 @@ function openForm(id, presetDay){
   const setups=topVals("setup",4);
   const mistakes=topVals("mistakes",5);
 
-  let h='<div class="m-head"><h2>'+(t?"Изменить сделку":"Новая сделка")+
+  let h='<div class="m-head"><h2>'+(t?"Змінити угоду":"Нова угода")+
     '</h2><button class="x" onclick="closeModal()">×</button></div>';
 
   h+='<div class="m-body form">'+
 
   /* ---- сделка ---- */
-  '<section class="fcard"><h4>Сделка</h4><div class="fbody">'+
+  '<section class="fcard"><h4>Угода</h4><div class="fbody">'+
     '<div class="frow">'+
-      '<div class="f"><label>Инструмент <i>*</i></label>'+
-        pick("pair",PAIRS_ACTIVE,t?t.pair:"","свой инструмент")+"</div>"+
-      '<div class="f"><label>Дата и время <i>*</i></label>'+
+      '<div class="f"><label>Інструмент <i>*</i></label>'+
+        pick("pair",PAIRS_ACTIVE,t?t.pair:"","свій інструмент")+"</div>"+
+      '<div class="f"><label>Дата й час <i>*</i></label>'+
         '<input id="fld_date" type="datetime-local" value="'+esc(dt)+'"></div>'+
     "</div>"+
     '<div class="frow">'+
-      '<div class="f"><label>Сессия</label>'+
-        pick("session",SESSIONS,t?t.session:"","своя сессия")+"</div>"+
-      '<div class="f"><label>Направление сделки</label>'+
+      '<div class="f"><label>Сесія</label>'+
+        pick("session",SESSIONS,t?t.session:"","своя сесія")+"</div>"+
+      '<div class="f"><label>Напрямок угоди</label>'+
         seg("position",[{v:"Long",t:"Long",cls:"lng"},{v:"Short",t:"Short",cls:"shr"}],t?t.position:"","big")+"</div>"+
     "</div>"+
   "</div></section>"+
@@ -940,56 +943,56 @@ function openForm(id, presetDay){
   /* ---- контекст ---- */
   '<section class="fcard"><h4>Контекст</h4><div class="fbody">'+
     '<div class="frow">'+
-      '<div class="f"><label>Биас дня</label>'+
+      '<div class="f"><label>Біас дня</label>'+
         seg("bias",[{v:"Long",t:"Long",cls:"lng"},{v:"Short",t:"Short",cls:"shr"}],t?t.bias:"","big")+"</div>"+
-      '<div class="f"><label>Тип входа <span class="autotag" id="dirTag">подставится сам</span></label>'+
-        seg("direction_type",[{v:"Continuation",t:"Продолжение",cls:"cont"},
-                              {v:"Reversal",t:"Разворот",cls:"rev"}],t?dirType(t):"","big")+"</div>"+
+      '<div class="f"><label>Тип входу <span class="autotag" id="dirTag">підставиться сам</span></label>'+
+        seg("direction_type",[{v:"Continuation",t:"Продовження",cls:"cont"},
+                              {v:"Reversal",t:"Розворот",cls:"rev"}],t?dirType(t):"","big")+"</div>"+
     "</div>"+
     '<div class="frow">'+
-      '<div class="f"><label>Модель входа</label>'+
+      '<div class="f"><label>Модель входу</label>'+
         pick("entry_model",models,t?t.entry_model:"","своя модель")+"</div>"+
       '<div class="f"><label>Сетап</label>'+
-        pick("setup",setups,t?t.setup:"","свой сетап")+"</div>"+
+        pick("setup",setups,t?t.setup:"","свій сетап")+"</div>"+
     "</div>"+
   "</div></section>"+
 
   /* ---- результат ---- */
   '<section class="fcard accent"><h4>Результат</h4><div class="fbody">'+
-    '<div class="f"><label>Чем закончилась <i>*</i></label>'+
+    '<div class="f"><label>Чим завершилася <i>*</i></label>'+
       seg("result",[{v:"Win",t:"TP",cls:"win"},{v:"Loss",t:"SL",cls:"loss"},
                     {v:"BE-",t:"BE\u2212",cls:"bek"},{v:"BE+",t:"BE+",cls:"bepk"}],t?t.result:"","big res")+"</div>"+
     '<div class="frow">'+
-      '<div class="f"><label>RR — во сколько раз цель дальше стопа</label>'+
+      '<div class="f"><label>RR — у скільки разів ціль далі за стоп</label>'+
         '<input id="fld_rr" type="number" step="0.1" min="0" placeholder="2.5" oninput="calcOutcome()" value="'+(t&&t.rr!=null?t.rr:"")+'"></div>'+
-      '<div class="f"><label>Риск, % от депозита</label>'+
-        pick("risk",["0.5","1","1.5","2"],(t&&t.risk!=null?String(t.risk):"1"),"свой риск",true)+"</div>"+
+      '<div class="f"><label>Ризик, % від депозиту</label>'+
+        pick("risk",["0.5","1","1.5","2"],(t&&t.risk!=null?String(t.risk):"1"),"свій ризик",true)+"</div>"+
     "</div>"+
     '<div class="outcome" id="outcome"></div>'+
   "</div></section>"+
 
   /* ---- скриншоты ---- */
-  '<section class="fcard"><h4>Скриншоты по таймфреймам</h4><div class="fbody">'+
+  '<section class="fcard"><h4>Скриншоти за таймфреймами</h4><div class="fbody">'+
     '<div class="tfgrid" id="shotsEdit"></div>'+
     '<input id="shotFile" type="file" accept="image/*" multiple hidden>'+
   "</div></section>"+
 
   /* ---- заметки ---- */
-  '<section class="fcard"><h4>Заметки</h4><div class="fbody">'+
-    '<div class="f"><label>Как заходил</label><textarea id="fld_entry_details" placeholder="тест 4ч имб, 1м цисд, цель 15м фрактал">'+v("entry_details")+"</textarea></div>"+
-    '<div class="f"><label>Мысли по сделке</label><textarea id="fld_notes" class="short">'+v("notes")+"</textarea></div>"+
-    '<div class="f"><label>Ошибка, если была</label>'+
+  '<section class="fcard"><h4>Нотатки</h4><div class="fbody">'+
+    '<div class="f"><label>Як заходив</label><textarea id="fld_entry_details" placeholder="тест 4h імб, 1m цисд, ціль 15m фрактал">'+v("entry_details")+"</textarea></div>"+
+    '<div class="f"><label>Думки про угоду</label><textarea id="fld_notes" class="short">'+v("notes")+"</textarea></div>"+
+    '<div class="f"><label>Помилка, якщо була</label>'+
       '<div class="quick">'+mistakes.map(x=>
         '<button type="button" data-f="mistakes" data-v="'+esc(x)+'" onclick="quickSet(this)">'+esc(x)+"</button>").join("")+"</div>"+
-      '<input id="fld_mistakes" value="'+v("mistakes")+'" placeholder="пусто, если ошибок нет" autocomplete="off" oninput="markQuick()"></div>'+
+      '<input id="fld_mistakes" value="'+v("mistakes")+'" placeholder="порожньо, якщо помилок немає" autocomplete="off" oninput="markQuick()"></div>'+
   "</div></section>"+
 
   "</div>";
 
   h+='<div class="m-foot">'+
-    (t?'<button class="btn danger" onclick="delTrade(\''+t.id+'\')">Удалить</button>':"")+
-    '<span class="sp"></span><button class="btn" onclick="closeModal()">Отмена</button>'+
-    '<button class="btn primary" onclick="saveTrade(\''+(t?t.id:"")+'\')">Сохранить</button></div>';
+    (t?'<button class="btn danger" onclick="delTrade(\''+t.id+'\')">Видалити</button>':"")+
+    '<span class="sp"></span><button class="btn" onclick="closeModal()">Скасувати</button>'+
+    '<button class="btn primary" onclick="saveTrade(\''+(t?t.id:"")+'\')">Зберегти</button></div>';
 
   openModal(h);
   renderShots();
@@ -1027,11 +1030,11 @@ function calcOutcome(){
   const risk=parseFloat(($("#fld_risk")||{}).value);
   const r=isNaN(risk)?1:risk;
   markQuick();
-  if(!res){ box.className="outcome"; box.innerHTML='<span class="hint">Выбери результат — покажу, сколько это в процентах</span>'; return; }
+  if(!res){ box.className="outcome"; box.innerHTML='<span class="hint">Обери результат — покажу, скільки це у відсотках</span>'; return; }
   let val=0, txt="";
-  if(res==="Win"){ val=r*rr; txt="Тейк при риске "+r1(r)+"% и RR "+r1(rr); }
-  else if(res==="Loss"){ val=-r; txt="Стоп забирает риск целиком"; }
-  else { val=0; txt = res==="BE+" ? "Безубыток, но цена дошла бы до цели" : "Безубыток, дальше пошло против"; }
+  if(res==="Win"){ val=r*rr; txt="Тейк за ризику "+r1(r)+"% і RR "+r1(rr); }
+  else if(res==="Loss"){ val=-r; txt="Стоп забирає ризик повністю"; }
+  else { val=0; txt = res==="BE+" ? "Беззбиток, але ціна дійшла б до цілі" : "Беззбиток, далі пішло проти"; }
   box.className="outcome "+(val>0.0001?"pos":val<-0.0001?"neg":"be");
   box.innerHTML='<span class="big">'+fmtR(val)+'</span><span class="txt">'+txt+"</span>";
 }
@@ -1051,7 +1054,7 @@ function autoDirType(){
     if(b2.dataset.cls) b2.classList.toggle(b2.dataset.cls,on);
   });
   const tag=$("#dirTag");
-  if(tag) tag.textContent = val ? "подставлено само" : "подставится сам";
+  if(tag) tag.textContent = val ? "підставлено само" : "підставиться сам";
 }
 
 /* вставка скрина из буфера обмена */
@@ -1064,7 +1067,7 @@ function onPasteShot(e){
     const f=it.getAsFile();
     if(f) resizeImage(f).then(dataUrl=>{
       const tf = idx===0 && S.activeTf ? S.activeTf : firstEmptyTf();
-      putShot(tf,dataUrl,"из буфера");
+      putShot(tf,dataUrl,"з буфера");
       if(idx===0) S.activeTf=null;
     });
   });
@@ -1080,7 +1083,7 @@ function segPick(field,btn){
     btn.classList.add("on"); if(btn.dataset.cls)btn.classList.add(btn.dataset.cls);
     inp.value=btn.dataset.v;
   }
-  if(field==="direction_type"){ S.dirTouched=true; const tag=$("#dirTag"); if(tag) tag.textContent="выбрано вручную"; }
+  if(field==="direction_type"){ S.dirTouched=true; const tag=$("#dirTag"); if(tag) tag.textContent="обрано вручну"; }
   if(field==="position"||field==="bias") autoDirType();
   if(field==="result") calcOutcome();
 }
@@ -1092,7 +1095,7 @@ function renderShots(){
   const filledTile=(s,i,label)=>{
     const src=shotSrc(s);
     return '<div class="tfslot filled"><div class="tfl"><span>'+esc(label)+'</span>'+
-      '<button type="button" class="rm" title="Убрать" onclick="removeShot('+i+')">×</button></div>'+
+      '<button type="button" class="rm" title="Прибрати" onclick="removeShot('+i+')">×</button></div>'+
       '<img src="'+src+'" onclick="openLightbox(this.src)"></div>';
   };
   let h="";
@@ -1103,13 +1106,13 @@ function renderShots(){
       const on=S.activeTf===tf;
       h+='<div class="tfslot'+(on?" active":"")+'" data-tf="'+tf+'" onclick="armSlot(this.dataset.tf)">'+
         '<div class="tfl"><span>'+tf+'</span>'+
-        '<button type="button" class="pick" title="Выбрать файл" data-tf="'+tf+
+        '<button type="button" class="pick" title="Обрати файл" data-tf="'+tf+
         '" onclick="event.stopPropagation();pickFor(this.dataset.tf)">файл</button></div>'+
         '<div class="drop">'+(on?'<span class="ready">Ctrl+V</span>':"+")+'</div></div>';
     }
   }
   S.formShots.forEach((s,i)=>{ if(!used.has(i)) h+=filledTile(s,i,s.tf||"?"); });
-  h+='<div class="tfhint">Скопируй график в TradingView (<b>Ctrl+Alt+S</b>) → кликни нужный таймфрейм → <b>Ctrl+V</b>. Сохранять картинку на компьютер не нужно.</div>';
+  h+='<div class="tfhint">Скопіюй графік у TradingView (<b>Ctrl+Alt+S</b>) → клікни потрібний таймфрейм → <b>Ctrl+V</b>. Зберігати картинку на комп\'ютер не потрібно.</div>';
   box.innerHTML=h;
 }
 function removeShot(i){ S.formShots.splice(i,1); renderShots(); }
@@ -1168,16 +1171,16 @@ async function saveTrade(id){
     entry_details:g("entry_details"), notes:g("notes"), mistakes:g("mistakes"), comments:"",
     screenshots:S.formShots,
   };
-  if(!t.pair){ alert("Укажи Pair"); return; }
-  if(!t.date){ alert("Укажи дату"); return; }
-  if(!t.result){ alert("Укажи Result — TP / SL / BE\u2212 / BE+"); return; }
-  if(t.result==="Win" && !num(t.rr)){ alert("Для TP нужен RR — иначе результат посчитается как 0R"); return; }
-  const btn=document.querySelector(".m-foot .primary"); if(btn){btn.disabled=true;btn.textContent="Сохраняю…";}
+  if(!t.pair){ alert("Вкажи Pair"); return; }
+  if(!t.date){ alert("Вкажи дату"); return; }
+  if(!t.result){ alert("Вкажи Result — TP / SL / BE\u2212 / BE+"); return; }
+  if(t.result==="Win" && !num(t.rr)){ alert("Для TP потрібен RR — інакше результат порахується як 0R"); return; }
+  const btn=document.querySelector(".m-foot .primary"); if(btn){btn.disabled=true;btn.textContent="Зберігаю…";}
   try{
     if(id) await api("PUT","/api/trades/"+id,t);
     else   await api("POST","/api/trades",t);
     await reload(); closeModal(); render();
-  }catch(err){ alert("Не сохранилось: "+err.message); if(btn){btn.disabled=false;btn.textContent="Сохранить";} }
+  }catch(err){ alert("Не збереглося: "+err.message); if(btn){btn.disabled=false;btn.textContent="Зберегти";} }
 }
 
 /* ---------- импорт / экспорт ---------- */
@@ -1187,14 +1190,14 @@ const IMP_FIELDS=[["pair","Pair"],["date","Date"],["session","Session"],["positi
   ["result","Result"],["rr","RR"],["risk","Risk"],["entry_details","Entry Details"],["notes","Notes"],["mistakes","Mistakes"]];
 
 function openImport(){
-  let h='<div class="m-head"><h2>Импорт сделок</h2><button class="x" onclick="closeModal()">×</button></div>'+
+  let h='<div class="m-head"><h2>Імпорт угод</h2><button class="x" onclick="closeModal()">×</button></div>'+
   '<div class="m-body">'+
-  '<p class="hint">Подходит файл <b>JSON</b> (массив сделок) или <b>CSV</b> (первая строка — заголовки). '+
-  'После загрузки сопоставь колонки с полями журнала — совпадающие названия подставятся сами.</p>'+
+  '<p class="hint">Підходить файл <b>JSON</b> (масив угод) або <b>CSV</b> (перший рядок — заголовки). '+
+  'Після завантаження зістав колонки з полями журналу — назви, що збігаються, підставляться самі.</p>'+
   '<input id="impFile" type="file" accept=".json,.csv,.txt" style="margin:12px 0">'+
   '<div id="impMap"></div></div>'+
-  '<div class="m-foot"><span class="sp"></span><button class="btn" onclick="closeModal()">Отмена</button>'+
-  '<button class="btn primary" id="impGo" disabled onclick="doImport()">Импортировать</button></div>';
+  '<div class="m-foot"><span class="sp"></span><button class="btn" onclick="closeModal()">Скасувати</button>'+
+  '<button class="btn primary" id="impGo" disabled onclick="doImport()">Імпортувати</button></div>';
   openModal(h);
   $("#impFile").addEventListener("change", onImpFile);
 }
@@ -1215,17 +1218,20 @@ function onImpFile(e){
           const o={}; IMP.headers.forEach((hd,i)=>o[hd]=r[i]); return o;
         });
       }
-    }catch(err){ $("#impMap").innerHTML='<p class="neg">Не смог разобрать файл: '+esc(err.message)+"</p>"; return; }
+    }catch(err){ $("#impMap").innerHTML='<p class="neg">Не вдалося розібрати файл: '+esc(err.message)+"</p>"; return; }
     buildMap();
   };
   fr.readAsText(f,"utf-8");
 }
 function guessHeader(field,headers){
-  const aliases={pair:["pair","актив","symbol","ticker"],date:["date","дата","time"],session:["session","сессия"],
-    position:["position","позиция","direction","напр"],entry_model:["entry model","entry_model","model","модель"],
-    bias:["bias","биас"],setup:["setup","сетап","setups"],direction_type:["continuation","direction type","direction_type","cont","c/r"],
-    result:["result","результат","итог"],rr:["rr","r:r","risk reward"],risk:["risk","риск"],
-    entry_details:["entry details","entry_details","details","вход"],notes:["note","notes","заметк","комментар"],mistakes:["mistake","ошибк"]};
+  /* распознаём и украинские, и старые русские заголовки — файлы бывают разные */
+  const aliases={pair:["pair","актив","інструмент","symbol","ticker"],date:["date","дата","time","час"],
+    session:["session","сесія","сессия"],
+    position:["position","позиція","позиция","direction","напр"],entry_model:["entry model","entry_model","model","модель"],
+    bias:["bias","біас","биас"],setup:["setup","сетап","setups"],direction_type:["continuation","direction type","direction_type","cont","c/r"],
+    result:["result","результат","підсум","итог"],rr:["rr","r:r","risk reward"],risk:["risk","ризик","риск"],
+    entry_details:["entry details","entry_details","details","вхід","вход"],
+    notes:["note","notes","нотат","заметк","коментар","комментар"],mistakes:["mistake","помилк","ошибк"]};
   const list=aliases[field]||[field];
   for(const hd of headers){ const l=hd.toLowerCase().trim();
     if(list.some(a=>l===a)) return hd; }
@@ -1235,12 +1241,12 @@ function guessHeader(field,headers){
 }
 function buildMap(){
   IMP.map={};
-  let h='<p class="hint">Найдено строк: <b style="color:var(--text)">'+IMP.rows.length+"</b></p>"+
+  let h='<p class="hint">Знайдено рядків: <b style="color:var(--text)">'+IMP.rows.length+"</b></p>"+
     '<div class="map-grid">';
   for(const [f,label] of IMP_FIELDS){
     const guess=guessHeader(f,IMP.headers); IMP.map[f]=guess;
     h+='<span class="k">'+label+'</span><select onchange="IMP.map[\''+f+'\']=this.value">'+
-      '<option value="">— пропустить —</option>'+
+      '<option value="">— пропустити —</option>'+
       IMP.headers.map(hd=>'<option '+(hd===guess?"selected":"")+' value="'+esc(hd)+'">'+esc(hd)+"</option>").join("")+"</select>";
   }
   h+="</div>";
@@ -1249,10 +1255,10 @@ function buildMap(){
 }
 function normResult(v){
   const s=(v||"").toString().trim().toLowerCase();
-  if(["win","tp","w","профит","+","take"].some(x=>s===x||s.startsWith(x+" ")||s===x)) return "Win";
+  if(["win","tp","w","профіт","профит","+","take"].some(x=>s===x||s.startsWith(x+" ")||s===x)) return "Win";
   if(s.startsWith("tp")||s==="win") return "Win";
   if(s.startsWith("sl")||s==="loss"||s==="lose"||s==="l") return "Loss";
-  if(s.startsWith("be")||s.includes("безуб")||s==="0") return "BE";
+  if(s.startsWith("be")||s.includes("беззб")||s.includes("безуб")||s==="0") return "BE";
   if(s==="sk") return "BE";
   return v?"BE":"";
 }
@@ -1291,11 +1297,11 @@ async function doImport(){
       mistakes:(g("mistakes")||"").toString(), screenshots:[],
     });
   }
-  if(!out.length){ alert("Нечего импортировать"); return; }
-  const btn=$("#impGo"); btn.disabled=true; btn.textContent="Импортирую…";
+  if(!out.length){ alert("Нічого імпортувати"); return; }
+  const btn=$("#impGo"); btn.disabled=true; btn.textContent="Імпортую…";
   const res=await api("POST","/api/import",out);
   await reload(); closeModal(); render();
-  alert("Импортировано сделок: "+res.added);
+  alert("Імпортовано угод: "+res.added);
 }
 function parseCSV(text){
   const rows=[]; let row=[],cur="",q=false;
@@ -1337,8 +1343,8 @@ $("#modal").addEventListener("click",e=>{ if(e.target.id==="modal")closeModal();
 function markDemo(){
   const b=document.createElement("div");
   b.className="demo-badge";
-  b.innerHTML='<b>Демо</b><span>Сделки хранятся только в вашем браузере</span>'+
-              '<button type="button" onclick="DemoStore.reset()">Сбросить</button>';
+  b.innerHTML='<b>Демо</b><span>Угоди зберігаються лише у вашому браузері</span>'+
+              '<button type="button" onclick="DemoStore.reset()">Скинути</button>';
   document.body.appendChild(b);
 }
 
@@ -1354,7 +1360,7 @@ function markDemo(){
       await reload();
       markDemo();
     }catch(e2){
-      $("#main").innerHTML='<div class="empty">Сервер не отвечает. Запусти app.py</div>';
+      $("#main").innerHTML='<div class="empty">Сервер не відповідає. Запусти app.py</div>';
       return;
     }
   }

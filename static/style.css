@@ -80,7 +80,7 @@ body{margin:0;background:var(--bg);color:var(--text);font-family:var(--sans);fon
 a{color:inherit;text-decoration:none}
 button{font:inherit;color:inherit;background:none;border:none;cursor:pointer}
 :focus-visible{outline:2px solid var(--accent);outline-offset:2px;border-radius:3px}
-::-webkit-scrollbar{width:10px;height:10px}
+/* полоса прокрутки системная, как в макете: её ширина заложена в раскладку */
 ::-webkit-scrollbar-thumb{background:var(--line);border-radius:6px}
 ::-webkit-scrollbar-track{background:transparent}
 
