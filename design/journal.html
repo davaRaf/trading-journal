@@ -13,7 +13,8 @@
   --panel-3:rgba(255,255,255,.085);
   --line:rgba(255,255,255,.09); --line-soft:rgba(255,255,255,.05);
   --text:#f0f0f1; --dim:#94949a; --faint:#63636b;
-  --pos:#93c1a8; --neg:#c39a9c; --be:#b6ae95;
+  --pos:#4fd18f; --neg:#f2645f; --be:#efc258;
+  --pos-glow:rgba(79,209,143,.38); --neg-glow:rgba(242,100,95,.34); --be-glow:rgba(239,194,88,.32);
   --accent:#d4d6da;
   --card:linear-gradient(180deg,rgba(255,255,255,.062),rgba(255,255,255,.016));
   --card-lip:inset 0 1px 0 rgba(255,255,255,.08);
@@ -148,15 +149,15 @@ body{margin:0;min-height:100vh;background:var(--ink);color:var(--text);font-fami
 .day .tags{display:flex;flex-wrap:wrap;gap:3px}
 .day .tags b{font-family:var(--mono);font-size:8.5px;font-weight:500;padding:1px 4px;border-radius:4px;
   background:rgba(255,255,255,.09);color:var(--dim)}
-.day .tags b.w{background:rgba(163,188,172,.20);color:var(--pos)}
-.day .tags b.l{background:rgba(193,158,154,.18);color:var(--neg)}
-.day .tags b.b{background:rgba(184,178,158,.16);color:var(--be)}
+.day .tags b.w{background:rgba(79,209,143,.16);color:var(--pos)}
+.day .tags b.l{background:rgba(242,100,95,.15);color:var(--neg)}
+.day .tags b.b{background:rgba(239,194,88,.14);color:var(--be)}
 .day .dr{margin-top:auto;font-family:var(--num);font-size:12.5px;font-weight:600}
-.day.pos{background:linear-gradient(160deg,rgba(163,188,172,.13),rgba(163,188,172,.04));border-color:rgba(163,188,172,.22)}
+.day.pos{background:linear-gradient(160deg,rgba(79,209,143,.11),rgba(79,209,143,.03));border-color:rgba(79,209,143,.24)}
 .day.pos .dr{color:var(--pos)}
-.day.neg{background:linear-gradient(160deg,rgba(193,158,154,.12),rgba(193,158,154,.03));border-color:rgba(193,158,154,.20)}
+.day.neg{background:linear-gradient(160deg,rgba(242,100,95,.10),rgba(242,100,95,.03));border-color:rgba(242,100,95,.22)}
 .day.neg .dr{color:var(--neg)}
-.day.be{background:linear-gradient(160deg,rgba(184,178,158,.10),rgba(184,178,158,.03));border-color:rgba(184,178,158,.18)}
+.day.be{background:linear-gradient(160deg,rgba(239,194,88,.09),rgba(239,194,88,.02));border-color:rgba(239,194,88,.20)}
 .day.be .dr{color:var(--be)}
 
 /* ---- кольцо Win Rate ---- */
@@ -210,6 +211,14 @@ svg{display:block}
 .tline .v.pos{color:var(--pos)} .tline .v.neg{color:var(--neg)} .tline .v.be{color:var(--be)}
 .tmeta{font-family:var(--mono);font-size:10px;color:var(--faint);margin-top:3px}
 .empty{color:var(--faint);font-size:12.5px;padding:14px 0;text-align:center}
+
+/* цифры результата слегка отсвечивают своим цветом */
+.big.pos,.val.pos,.v.pos,.wsum.pos,.r.pos,.hero-val.pos,.qt b.pos,.day.pos .dr,.eqhead b{
+  text-shadow:0 0 12px var(--pos-glow)}
+.big.neg,.val.neg,.v.neg,.wsum.neg,.r.neg,.hero-val.neg,.qt b.neg,.day.neg .dr{
+  text-shadow:0 0 12px var(--neg-glow)}
+.v.be,.day.be .dr{text-shadow:0 0 12px var(--be-glow)}
+
 </style>
 </head>
 <body>

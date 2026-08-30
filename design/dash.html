@@ -19,9 +19,12 @@
   --text:#f0f0f1;
   --dim:#94949a;
   --faint:#63636b;
-  --pos:#93c1a8;
-  --neg:#c39a9c;
-  --be:#b6ae95;
+  --pos:#4fd18f;
+  --neg:#f2645f;
+  --be:#efc258;
+  --pos-glow:rgba(79,209,143,.38);
+  --neg-glow:rgba(242,100,95,.34);
+  --be-glow:rgba(239,194,88,.32);
   --accent:#d4d6da;
   --accent-dim:rgba(255,255,255,.14);
   /* карточка: сверху светлее — сквозь неё проходит свечение фона */
@@ -153,16 +156,16 @@ body{margin:0;min-height:100vh;background:var(--ink);color:var(--text);font-fami
 /* исход дня — надпись во всю клетку: размытая, светится своим цветом */
 .day .glow{position:absolute;inset:0;display:grid;place-items:center;pointer-events:none;
   font-family:var(--mono);font-weight:500;font-size:62px;line-height:1;letter-spacing:-.05em;
-  padding:0 3px;opacity:.5;filter:blur(2px);text-shadow:0 0 14px currentColor,0 0 36px currentColor}
+  padding:0 3px;opacity:.42;filter:blur(2px);text-shadow:0 0 12px currentColor,0 0 26px currentColor}
 .day .glow.w{color:var(--pos)} .day .glow.l{color:var(--neg)} .day .glow.b{color:var(--be)}
 .day .wd,.day .dn,.day .bot{position:relative;z-index:1}
 .day .dr{margin-left:auto;font-family:var(--num);font-size:18px;letter-spacing:-.03em;color:var(--faint)}
 .day.off{background:linear-gradient(180deg,rgba(255,255,255,.022),rgba(255,255,255,.006));box-shadow:none}
 .day.off .wd,.day.off .dn{color:rgba(255,255,255,.18)}
 .day.off .dr{color:rgba(255,255,255,.13)}
-.day.pos{border-color:rgba(147,193,168,.30);background:linear-gradient(180deg,rgba(147,193,168,.13),rgba(147,193,168,.02))} .day.pos .dr{color:var(--pos)}
-.day.neg{border-color:rgba(195,154,156,.28);background:linear-gradient(180deg,rgba(195,154,156,.12),rgba(195,154,156,.02))} .day.neg .dr{color:var(--neg)}
-.day.be{border-color:rgba(182,174,149,.24);background:linear-gradient(180deg,rgba(182,174,149,.10),rgba(182,174,149,.02))} .day.be .dr{color:var(--be)}
+.day.pos{border-color:rgba(79,209,143,.32);background:linear-gradient(180deg,rgba(79,209,143,.11),rgba(79,209,143,.02))} .day.pos .dr{color:var(--pos)}
+.day.neg{border-color:rgba(242,100,95,.30);background:linear-gradient(180deg,rgba(242,100,95,.10),rgba(242,100,95,.02))} .day.neg .dr{color:var(--neg)}
+.day.be{border-color:rgba(239,194,88,.26);background:linear-gradient(180deg,rgba(239,194,88,.09),rgba(239,194,88,.02))} .day.be .dr{color:var(--be)}
 
 svg{display:block}
 
@@ -246,9 +249,17 @@ svg{display:block}
   background:linear-gradient(90deg,rgba(255,255,255,.62),rgba(255,255,255,.24));
   transform:scaleX(0);transform-origin:left;transition:transform .9s var(--ease)}
 .rail.in .bar .ln i{transform:scaleX(1)}
-.bar.pos .ln i{background:rgba(157,179,164,.6)}
-.bar.neg .ln i{background:rgba(189,156,152,.55)}
+.bar.pos .ln i{background:rgba(79,209,143,.55)}
+.bar.neg .ln i{background:rgba(242,100,95,.5)}
 @media (prefers-reduced-motion:reduce){.bar .ln i{transform:scaleX(1);transition:none}}
+
+/* цифры результата слегка отсвечивают своим цветом */
+.big.pos,.val.pos,.v.pos,.wsum.pos,.r.pos,.hero-val.pos,.qt b.pos,.day.pos .dr,.eqhead b{
+  text-shadow:0 0 12px var(--pos-glow)}
+.big.neg,.val.neg,.v.neg,.wsum.neg,.r.neg,.hero-val.neg,.qt b.neg,.day.neg .dr{
+  text-shadow:0 0 12px var(--neg-glow)}
+.v.be,.day.be .dr{text-shadow:0 0 12px var(--be-glow)}
+
 </style>
 </head>
 <body>
