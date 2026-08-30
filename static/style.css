@@ -1148,3 +1148,11 @@ body::after{
 :root[data-nav="icons"] .nav a.on{background:var(--panel-2);border-color:var(--line)}
 :root[data-nav="icons"] .nav a.on .ic{opacity:1;color:var(--up)}
 :root[data-nav="icons"] .mini:hover,:root[data-nav="icons"] .nav a:hover{background:var(--panel-2)}
+
+/* ---- карточки без обводки: границу держит собственный фон ---- */
+.card,.qcard,.tpane{border-color:transparent}
+.ovw .shell,.ovw .core,.ovw .rail,.ovw .rail .inner{border-color:transparent}
+.ovw .day{border-color:transparent}
+/* внешняя оболочка карточек рисуется одним фоном, без волоска по краю */
+:root[data-theme="dark"] .card,
+:root[data-theme="dark"] .qcard{box-shadow:0 0 0 6px var(--shell-bg),var(--shadow)}
