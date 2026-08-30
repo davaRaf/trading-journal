@@ -142,19 +142,21 @@ body{margin:0;min-height:100vh;background:var(--ink);color:var(--text);font-fami
 /* неделя — первый экранный блок, крупным рядом */
 .week{margin-bottom:22px}
 .days{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:10px}
-.day{aspect-ratio:1.08;border:1px solid var(--hair-soft);border-radius:14px;padding:13px 14px;
+.day{position:relative;overflow:hidden;aspect-ratio:1.08;border:1px solid var(--hair-soft);
+  border-radius:14px;padding:13px 14px;
   background:var(--card);box-shadow:var(--card-lip);
   display:flex;flex-direction:column;transition:border-color .3s var(--ease)}
 .day:hover{border-color:var(--hair)}
 .day .wd{font-family:var(--mono);font-size:9px;letter-spacing:.14em;text-transform:uppercase;color:var(--faint)}
 .day .dn{font-family:var(--num);font-size:16px;color:var(--dim);margin-top:3px;letter-spacing:-.02em}
-.day .bot{margin-top:auto;display:flex;align-items:baseline;gap:8px;flex-wrap:wrap}
-.day .tags{display:flex;gap:4px;flex-wrap:wrap}
-.day .tags b{font-family:var(--mono);font-size:8.5px;font-weight:400;letter-spacing:.04em;
-  padding:2px 5px;border-radius:5px;background:rgba(255,255,255,.06);color:var(--dim)}
-.day .tags b.w{background:rgba(157,179,164,.16);color:var(--pos)}
-.day .tags b.l{background:rgba(189,156,152,.15);color:var(--neg)}
-.day .tags b.b{background:rgba(176,170,152,.14);color:var(--be)}
+.day .bot{margin-top:auto;display:flex;align-items:baseline;gap:8px;flex-wrap:wrap;line-height:1.1}
+/* исход дня — надпись во всю клетку: размытая, светится своим цветом */
+.day .glow{position:absolute;inset:0;display:grid;place-items:center;pointer-events:none;
+  font-family:var(--mono);font-weight:500;font-size:54px;line-height:1;letter-spacing:-.05em;
+  padding:0 6px;opacity:.5;filter:blur(2px);text-shadow:0 0 14px currentColor,0 0 36px currentColor}
+.day .glow.len3{font-size:40px;letter-spacing:-.03em}
+.day .glow.w{color:var(--pos)} .day .glow.l{color:var(--neg)} .day .glow.b{color:var(--be)}
+.day .wd,.day .dn,.day .bot{position:relative;z-index:1}
 .day .dr{margin-left:auto;font-family:var(--num);font-size:18px;letter-spacing:-.03em;color:var(--faint)}
 .day.off{background:linear-gradient(180deg,rgba(255,255,255,.022),rgba(255,255,255,.006));box-shadow:none}
 .day.off .wd,.day.off .dn{color:rgba(255,255,255,.18)}
@@ -178,9 +180,11 @@ svg{display:block}
   .shell{margin-bottom:14px}
   .week{margin-bottom:12px}
   .day{aspect-ratio:1.24;padding:10px 12px;border-radius:12px}
-  .day .dn{font-size:14px}
+  .day .wd{line-height:1.3}
+  .day .dn{font-size:14px;line-height:1.15}
   .day .dr{font-size:16px}
-  .day .tags b{font-size:8px;padding:1px 4px}
+  .day .glow{font-size:46px;filter:blur(1.8px)}
+  .day .glow.len3{font-size:34px}
   .rail .inner{padding:18px 18px 16px}
   .cut section + section{margin-top:14px;padding-top:14px}
 }
@@ -197,10 +201,12 @@ svg{display:block}
   .stats .val{font-size:18px;margin-top:5px}
   .week{margin-bottom:10px}
   .days{gap:8px}
-  .day{aspect-ratio:1.5;padding:8px 10px}
-  .day .dn{font-size:13px}
-  .day .dr{font-size:14px}
-  .day .tags b{font-size:7.5px;padding:1px 3px}
+  .day{aspect-ratio:1.5;padding:6px 8px}
+  .day .wd{line-height:1.15}
+  .day .dn{font-size:12px;line-height:1.05;margin-top:1px}
+  .day .dr{font-size:13px}
+  .day .glow{font-size:36px;filter:blur(1.4px)}
+  .day .glow.len3{font-size:26px}
   .shell{margin-bottom:11px}
   .cut section + section{margin-top:12px;padding-top:12px}
   .bar{padding:5px 0}
@@ -393,12 +399,19 @@ $("#stats").innerHTML = metrics(D.cur).map(m =>
   $("#days").innerHTML = week.map(g => {
     const wd = WD[(new Date(Y, M - 1, g.d).getDay() + 6) % 7];
     const val = g.n ? (Math.abs(g.r) < .005 ? "0%" : fmt1(g.r)) : "·";
-    const tags = g.tags.map(t =>
-      '<b class="' + (t === "Win" ? "w" : t === "Loss" ? "l" : "b") + '">' + tagOf(t) + '</b>').join("");
-    return '<div class="day ' + (g.n ? sign(g.r) : "off") + '">' +
+    /* в клетке — исход, которым день закончился чаще всего */
+    const top = g.tags.length
+      ? Object.entries(g.tags.reduce((m, t) => (m[t] = (m[t] || 0) + 1, m), {}))
+          .sort((a, b) => b[1] - a[1])[0][0]
+      : "";
+    const lab = top ? tagOf(top) : "";
+    const glow = top
+      ? '<span class="glow ' + (top === "Win" ? "w" : top === "Loss" ? "l" : "b") +
+        (lab.length > 2 ? " len3" : "") + '">' + lab + '</span>'
+      : "";
+    return '<div class="day ' + (g.n ? sign(g.r) : "off") + '">' + glow +
       '<span class="wd">' + wd + '</span><span class="dn">' + g.d + '</span>' +
-      '<span class="bot"><span class="tags">' + tags + '</span>' +
-      '<span class="dr">' + val + '</span></span></div>';
+      '<span class="bot"><span class="dr">' + val + '</span></span></div>';
   }).join("");
 })();
 
