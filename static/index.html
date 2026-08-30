@@ -13,7 +13,8 @@
 /* тема применяется до отрисовки, чтобы не мигало */
 try{if(localStorage.getItem("tj_theme")!=="light")document.documentElement.setAttribute("data-theme","dark");}catch(e){}
 if(!document.documentElement.getAttribute("data-theme"))document.documentElement.setAttribute("data-theme","dark");
-try{var L=localStorage.getItem("tj_layout")||"classic";document.documentElement.setAttribute("data-layout",L);}catch(e){document.documentElement.setAttribute("data-layout","classic");}
+document.documentElement.setAttribute("data-layout","classic");
+try{document.documentElement.setAttribute("data-nav",localStorage.getItem("tj_nav")||"flat");}catch(e){document.documentElement.setAttribute("data-nav","flat");}
 </script>
 </head>
 <body>
@@ -48,11 +49,6 @@ try{var L=localStorage.getItem("tj_layout")||"classic";document.documentElement.
   </div>
 
   <div class="side-foot">
-    <div class="laybox" role="group" aria-label="Розстановка">
-      <button type="button" data-lay="classic" data-tip="Бічне меню, огляд потоком і колонкою" onclick="setLayout('classic')">Класика</button>
-      <button type="button" data-lay="top" data-tip="Меню смугою зверху, робоча область на всю ширину" onclick="setLayout('top')">Смуга</button>
-      <button type="button" data-lay="bento" data-tip="Огляд плитками різного розміру" onclick="setLayout('bento')">Плитки</button>
-    </div>
     <button class="mini" id="themeBtn" data-tip="Перемкнути світлу й темну тему" onclick="toggleTheme()"><svg class="ic" width="14" height="14" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="4.2" stroke="currentColor" stroke-width="1.6"/><path d="M12 2.6v2.2M12 19.2v2.2M2.6 12h2.2M19.2 12h2.2M5.3 5.3l1.6 1.6M17.1 17.1l1.6 1.6M18.7 5.3l-1.6 1.6M6.9 17.1l-1.6 1.6" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg> <span>Світла тема</span></button>
   </div>
 </aside>

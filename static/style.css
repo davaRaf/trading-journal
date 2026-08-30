@@ -1101,3 +1101,50 @@ body::after{
 :root[data-layout="bento"] .ovw .plline .chart{flex:1;min-height:0}
 :root[data-layout="bento"] .ovw .plwrap svg{height:100%}
 :root[data-layout="bento"] .ovw .plline .xax{margin-top:8px}
+
+/* ================== варианты левого меню ==================
+   data-nav: current (как было), flat (спокойное текстовое), icons (узкая полоса). */
+
+/* ---- Flat: без плашек и рамок, меню читается как оглавление ---- */
+:root[data-nav="flat"] .side{width:206px;padding:22px 18px;gap:22px;background:var(--bg);
+  border-right:1px solid var(--line-soft)}
+:root[data-nav="flat"] .brand{padding:0;gap:10px}
+:root[data-nav="flat"] .newtrade{background:none;border:1px solid var(--line);color:var(--text);
+  font-weight:500;border-radius:10px;padding:9px 12px}
+:root[data-nav="flat"] .newtrade:hover{background:var(--panel-2);box-shadow:none;filter:none}
+:root[data-nav="flat"] .nav{gap:1px}
+:root[data-nav="flat"] .nav a{padding:7px 0;border:none;border-radius:0;background:none;color:var(--dim);gap:11px}
+:root[data-nav="flat"] .nav a:hover{background:none;color:var(--text)}
+:root[data-nav="flat"] .nav a.on{background:none;border:none;color:var(--text);font-weight:600}
+:root[data-nav="flat"] .nav a.on .ic{opacity:1;color:var(--up)}
+:root[data-nav="flat"] .side .grp{gap:1px;padding-top:20px;border-top:1px solid var(--line-soft)}
+:root[data-nav="flat"] .side .lab{padding:0 0 6px}
+:root[data-nav="flat"] .mini{background:none;border:none;padding:6px 0;color:var(--faint);font-size:13px}
+:root[data-nav="flat"] .mini:hover{background:none;color:var(--text)}
+:root[data-nav="flat"] .side-foot{padding-top:18px;border-top:1px solid var(--line-soft)}
+:root[data-nav="flat"] #themeBtn{justify-content:flex-start}
+
+/* ---- Icons: полоса 68 пикселей, подписи всплывают подсказкой ---- */
+:root[data-nav="icons"] .side{width:68px;padding:18px 10px;gap:18px;align-items:center;
+  border-right:1px solid var(--line-soft)}
+:root[data-nav="icons"] .brand{padding:0;justify-content:center}
+:root[data-nav="icons"] .brand .nm{display:none}
+:root[data-nav="icons"] .brand .mark{width:36px;height:36px}
+:root[data-nav="icons"] .newtrade{font-size:0;width:44px;height:44px;padding:0;border-radius:14px;
+  justify-content:center;align-self:center}
+:root[data-nav="icons"] .newtrade svg{width:17px;height:17px}
+:root[data-nav="icons"] .nav{width:100%;gap:4px}
+:root[data-nav="icons"] .nav a{font-size:0;justify-content:center;padding:11px 0;border-radius:12px}
+:root[data-nav="icons"] .nav a .ic{width:19px;height:19px}
+:root[data-nav="icons"] .side .grp{width:100%;gap:4px;padding-top:16px;border-top:1px solid var(--line-soft)}
+:root[data-nav="icons"] .side .lab{display:none}
+:root[data-nav="icons"] .mini{font-size:0;justify-content:center;padding:11px 0;border-radius:12px}
+:root[data-nav="icons"] .mini .ic{width:17px;height:17px}
+:root[data-nav="icons"] .side-foot{width:100%;padding-top:16px;border-top:1px solid var(--line-soft)}
+:root[data-nav="icons"] #themeBtn{font-size:0;justify-content:center;padding:11px 0}
+:root[data-nav="icons"] #themeBtn span{display:none}
+/* доводка вариантов меню */
+:root[data-nav="flat"] .brand .nm small{font-size:8px;letter-spacing:.10em;white-space:nowrap}
+:root[data-nav="icons"] .nav a.on{background:var(--panel-2);border-color:var(--line)}
+:root[data-nav="icons"] .nav a.on .ic{opacity:1;color:var(--up)}
+:root[data-nav="icons"] .mini:hover,:root[data-nav="icons"] .nav a:hover{background:var(--panel-2)}

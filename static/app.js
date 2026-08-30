@@ -898,17 +898,13 @@ function closeModal(){
 }
 
 /* ---------- тема ---------- */
-/* ---------- расстановка: класика, смуга, плитки ---------- */
-function setLayout(v){
-  document.documentElement.setAttribute("data-layout",v);
-  try{ localStorage.setItem("tj_layout",v); }catch(e){}
-  markLayout();
+/* ---------- вид левого меню: current, flat, icons ---------- */
+function setNav(v){
+  document.documentElement.setAttribute("data-nav",v);
+  try{ localStorage.setItem("tj_nav",v); }catch(e){}
   render();
 }
-function markLayout(){
-  const cur=document.documentElement.getAttribute("data-layout")||"classic";
-  document.querySelectorAll(".laybox button").forEach(b=>b.classList.toggle("on",b.dataset.lay===cur));
-}
+function markLayout(){}
 
 function toggleTheme(){
   const dark = document.documentElement.getAttribute("data-theme")==="dark";
