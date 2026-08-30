@@ -1,0 +1,7 @@
+# на Vercel едет только фронтенд — сервер и данные там не нужны
+app.py
+start.bat
+tools/
+data/
+__pycache__/
+*.pyc

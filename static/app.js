@@ -39,6 +39,7 @@ function pad(n){ return (n<10?"0":"")+n; }
 function isoDay(d){ return d.getFullYear()+"-"+pad(d.getMonth()+1)+"-"+pad(d.getDate()); }
 function isoMonth(d){ return d.getFullYear()+"-"+pad(d.getMonth()+1); }
 function esc(s){ return String(s==null?"":s).replace(/[&<>"']/g, c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c])); }
+function shotSrc(s){ return s.file?"/shots/"+esc(s.file):(s.data||""); }
 function r1(v){ return Math.round(v*100)/100; }
 function fmtR(v){ if(v==null||isNaN(v)) return "—"; const x=r1(v); return (x>0?"+":"")+x+"%"; }
 function clsR(v){ return v>0.0001?"pos":v<-0.0001?"neg":"beclr"; }
@@ -116,7 +117,10 @@ function groupBy(list, keyFn){
 }
 
 /* ---------------- API ---------------- */
+/* DEMO=true — сервера нет (например, публичное демо), данные лежат в браузере. */
+let DEMO=false;
 async function api(method,url,body){
+  if(DEMO) return DemoStore.handle(method,url,body);
   const res=await fetch(url,{method,headers:{"Content-Type":"application/json"},body:body?JSON.stringify(body):undefined});
   if(!res.ok) throw new Error("API "+res.status);
   return res.json();
@@ -699,7 +703,7 @@ function openTrade(id){
   if(shots.length){
     h+='<div class="dtext"><div class="l">Charts · '+shots.map(s=>esc(s.tf||"")).join(" | ")+"</div></div>";
     h+='<div class="charts">'+shots.map(s=>
-      '<div class="chart-item"><div class="l">'+esc(s.tf||"chart")+'</div><img loading="lazy" src="/shots/'+esc(s.file)+'" onclick="openLightbox(this.src)"></div>').join("")+"</div>";
+      '<div class="chart-item"><div class="l">'+esc(s.tf||"chart")+'</div><img loading="lazy" src="'+shotSrc(s)+'" onclick="openLightbox(this.src)"></div>').join("")+"</div>";
   }
   h+='</div><div class="m-foot"><button class="btn" onclick="openForm(\''+t.id+'\')">Изменить</button>'+
     '<button class="btn danger" onclick="delTrade(\''+t.id+'\')">Удалить</button><span class="sp"></span>'+
@@ -922,7 +926,7 @@ function renderShots(){
   const box=$("#shotsEdit"); if(!box) return;
   const used=new Set();
   const filledTile=(s,i,label)=>{
-    const src=s.file?"/shots/"+esc(s.file):s.data;
+    const src=shotSrc(s);
     return '<div class="tfslot filled"><div class="tfl"><span>'+esc(label)+'</span>'+
       '<button type="button" class="rm" title="Убрать" onclick="removeShot('+i+')">×</button></div>'+
       '<img src="'+src+'" onclick="openLightbox(this.src)"></div>';
@@ -1164,9 +1168,30 @@ document.addEventListener("keydown",e=>{
 });
 $("#modal").addEventListener("click",e=>{ if(e.target.id==="modal")closeModal(); });
 
+function markDemo(){
+  const b=document.createElement("div");
+  b.className="demo-badge";
+  b.innerHTML='<b>Демо</b><span>Сделки хранятся только в вашем браузере</span>'+
+              '<button type="button" onclick="DemoStore.reset()">Сбросить</button>';
+  document.body.appendChild(b);
+}
+
 (async function init(){
   markTheme();
-  try{ await reload(); }catch(e){ $("#main").innerHTML='<div class="empty">Сервер не отвечает. Запусти app.py</div>'; return; }
+  try{
+    await reload();
+  }catch(e){
+    /* сервера нет — значит это публичное демо, работаем на данных в браузере */
+    try{
+      await DemoStore.init();
+      DEMO=true;
+      await reload();
+      markDemo();
+    }catch(e2){
+      $("#main").innerHTML='<div class="empty">Сервер не отвечает. Запусти app.py</div>';
+      return;
+    }
+  }
   S.view=location.hash.slice(1)||"dashboard";
   if(S.view==="monthly"){ S.view="journal"; location.hash="journal"; }
   render();
