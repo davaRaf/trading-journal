@@ -897,19 +897,6 @@ function closeModal(){
   S.formShots=[]; document.removeEventListener("paste", onPasteShot);
 }
 
-/* ---------- тема ---------- */
-/* ---------- чем набраны цифры ---------- */
-function setNum(v){
-  document.documentElement.setAttribute("data-num",v);
-  try{ localStorage.setItem("tj_num",v); }catch(e){}
-  markNum();
-  render();
-}
-function markNum(){
-  const el=$("#numFont");
-  if(el) el.value=document.documentElement.getAttribute("data-num")||"geist";
-}
-
 /* ---------- вид левого меню: current, flat, icons ---------- */
 function setNav(v){
   document.documentElement.setAttribute("data-nav",v);
@@ -918,6 +905,7 @@ function setNav(v){
 }
 function markLayout(){}
 
+/* ---------- тема ---------- */
 function toggleTheme(){
   const dark = document.documentElement.getAttribute("data-theme")==="dark";
   if(dark) document.documentElement.removeAttribute("data-theme");
@@ -1483,7 +1471,7 @@ function markDemo(){
 }
 
 (async function init(){
-  markTheme(); markLayout(); markNum();
+  markTheme(); markLayout();
   try{
     await reload();
   }catch(e){

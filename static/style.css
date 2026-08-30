@@ -2,7 +2,7 @@
    Две темы: светлая (по умолчанию) и тёмная — data-theme="dark" на <html>.
    Тёмная собрана по макету из папки design: графитовая база, белый свет
    за интерфейсом, полупрозрачные карточки, яркие цвета результата.
-   Шрифты: Geist (интерфейс) + Geist Mono (цифры). */
+   Шрифты: Geist (интерфейс) + Archivo (цифры). */
 :root{
   --bg:#f2f4f8; --panel:#ffffff; --panel-2:#f6f8fb; --line:#dde3ec; --line-soft:#eaeef5;
   --text:#171b24; --dim:#5a6373; --faint:#99a2b3;
@@ -24,7 +24,7 @@
   --bar-track:var(--line-soft); --bar-fill:var(--dim);
   --side-line:var(--line); --mark-bg:var(--panel-2); --mark-line:var(--line);
   --sans:"Geist","Segoe UI",system-ui,sans-serif;
-  --mono:"Geist Mono",ui-monospace,Consolas,monospace;
+  --mono:"Archivo","Geist","Segoe UI",system-ui,sans-serif;
   --r:10px; --r-sm:8px;
 }
 /* Тёмная — оформление макета */
@@ -1157,28 +1157,26 @@ body::after{
 :root[data-theme="dark"] .card,
 :root[data-theme="dark"] .qcard{box-shadow:0 0 0 6px var(--shell-bg),var(--shadow)}
 
-/* ================== чем набраны цифры ==================
-   Весь журнал берёт цифры из --mono, поэтому вид меняется одной переменной. */
-:root[data-num="jetbrains"]{--mono:"JetBrains Mono",ui-monospace,Consolas,monospace}
-:root[data-num="plex"]{--mono:"IBM Plex Mono",ui-monospace,Consolas,monospace}
-:root[data-num="space"]{--mono:"Space Mono",ui-monospace,Consolas,monospace}
-:root[data-num="dm"]{--mono:"DM Mono",ui-monospace,Consolas,monospace}
-/* «Архіво» — не моноширинный: цифры табличные, но рисунок живой */
-:root[data-num="archivo"]{--mono:"Archivo","Geist",system-ui,sans-serif}
-:root[data-num="archivo"] .ovw .sum .big,
-:root[data-num="archivo"] .ovw .stats .val,
-:root[data-num="archivo"] .kpi .v,
-:root[data-num="archivo"] .trow .r,
-:root[data-num="archivo"] .simple td,
-:root[data-num="archivo"] .arow .netr{font-variant-numeric:tabular-nums;font-weight:500;letter-spacing:-.02em}
-/* Space Mono крупнее по рисунку — чуть сбавляем размер крупных чисел */
-:root[data-num="space"] .ovw .sum .big{font-size:48px}
-:root[data-num="space"] .ovw .stats .val{font-size:20px}
-/* выбор шрифта цифр в левой панели */
-.numpick{display:flex;flex-direction:column;gap:5px}
-.numpick span{font-family:var(--mono);font-size:9px;letter-spacing:.14em;text-transform:uppercase;
-  color:var(--faint);padding:0 2px}
-.numpick select{width:100%;font:inherit;font-size:12.5px;color:var(--dim);
-  background:var(--panel-2);border:1px solid var(--line-soft);border-radius:var(--r-sm);padding:6px 8px}
-.numpick select:hover{color:var(--text)}
-:root[data-nav="icons"] .numpick{display:none}
+/* ================== цифры ==================
+   Archivo вместо моноширинного: рисунок живее, а колонки не «плывут»
+   благодаря табличным цифрам. */
+.ovw .sum .big,
+.ovw .stats .val,
+.kpi .v,
+.trow .r,
+.simple td,
+.arow .netr{font-variant-numeric:tabular-nums;font-weight:500;letter-spacing:-.02em}
+
+/* ---- мягкое зелёное свечение на фоне двух карточек «Огляду» ----
+   Пятно уходит в ноль ещё внутри карточки, поэтому читается как подсветка,
+   а не как заливка. Остальные карточки остаются нейтральными. */
+:root[data-theme="dark"] .ovw .core:has(.sum){
+  background:
+    radial-gradient(118% 150% at 6% -38%, rgba(64,224,148,.075), rgba(64,224,148,0) 58%),
+    var(--card);
+}
+:root[data-theme="dark"] .ovw .rail .inner{
+  background:
+    radial-gradient(95% 58% at 50% -10%, rgba(64,224,148,.06), rgba(64,224,148,0) 62%),
+    var(--card);
+}
