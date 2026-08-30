@@ -1,0 +1,414 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Dashboard — минимализм</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Geist+Mono:wght@400;500&family=Geist:wght@300;400;500;600&display=swap">
+<style>
+:root{
+  /* тёмный монохром: ни одного цветного оттенка в основе, ни одного градиента */
+  --ink:#050505;
+  --surface:#0d0d0e;
+  --surface-2:#111112;
+  --surface-3:#161617;
+  --hair:rgba(255,255,255,.08);
+  --hair-soft:rgba(255,255,255,.045);
+  --text:#f2f2f3;
+  --dim:#8c8c90;
+  --faint:#5c5c61;
+  --pos:#9db3a4;
+  --neg:#bd9c98;
+  --be:#b0aa98;
+  --sans:"Geist","Segoe UI",system-ui,sans-serif;
+  --mono:"Geist Mono",ui-monospace,monospace;
+  --num:var(--mono);
+  --display:"Geist","Segoe UI",system-ui,sans-serif;
+  --h-weight:500; --h-track:-.035em;
+  --ease:cubic-bezier(.16,1,.3,1);
+}
+*{box-sizing:border-box}
+html{scrollbar-gutter:stable;overflow-y:scroll}
+body{margin:0;min-height:100vh;background:var(--ink);color:var(--text);font-family:var(--sans);
+  font-size:14px;line-height:1.6;-webkit-font-smoothing:antialiased;font-weight:300;
+  display:grid;grid-template-columns:216px 1fr}
+
+/* ================= левая панель — одинаковая во всех разделах ================= */
+.side{position:sticky;top:0;height:100vh;font-weight:400;line-height:1.5;scrollbar-gutter:stable;border-right:1px solid rgba(255,255,255,.07);background:#121213;
+  padding:18px 14px;display:flex;flex-direction:column;gap:20px;overflow-y:auto}
+.brand{display:flex;align-items:center;gap:10px;padding:0 4px}
+.brand .mark{width:32px;height:32px;border-radius:10px;background:#1d1d1f;border:1px solid rgba(255,255,255,.07);
+  display:grid;place-items:center;flex:none}
+.brand .nm{font-weight:650;font-size:14px;letter-spacing:-.01em}
+.brand .nm small{display:block;font-family:var(--mono);font-size:9px;letter-spacing:.14em;
+  text-transform:uppercase;color:var(--faint);font-weight:400}
+
+.newbtn{display:flex;align-items:center;justify-content:center;gap:8px;padding:10px;border-radius:12px;
+  border:1px solid rgba(255,255,255,.07);background:#1d1d1f;color:var(--text);font:inherit;font-size:13px;
+  cursor:pointer;transition:background .18s}
+.newbtn:hover{background:#232325}
+
+.nav{display:flex;flex-direction:column;gap:2px}
+.nav a{display:flex;align-items:center;gap:10px;padding:9px 11px;border-radius:11px;color:var(--dim);
+  text-decoration:none;font-size:13.5px;border:1px solid transparent;transition:.18s}
+.nav a:hover{color:var(--text);background:#171718}
+.nav a.on{color:var(--text);background:#171718;border-color:rgba(255,255,255,.07);font-weight:600}
+.nav a.on .ic{opacity:.9}
+.nav .ic{opacity:.45;flex:none}
+
+.side .grp{display:flex;flex-direction:column;gap:6px}
+.side .lab{font-family:var(--mono);font-size:9px;letter-spacing:.14em;text-transform:uppercase;
+  color:var(--faint);padding:0 5px}
+.mini{display:flex;align-items:center;gap:9px;padding:7px 10px;border-radius:10px;border:1px solid rgba(255,255,255,.04);
+  background:#171718;color:var(--dim);font-size:12.5px;cursor:pointer;transition:.18s}
+.mini:hover{color:var(--text);background:#1d1d1f}
+.side .foot{margin-top:auto;display:flex;flex-direction:column;gap:8px}
+
+
+/* ================= рабочая область ================= */
+.main{padding:34px 42px 22px;min-width:0}
+.head{display:flex;align-items:baseline;gap:16px;margin-bottom:26px}
+.head h1{margin:0;font-family:var(--display);font-size:34px;font-weight:var(--h-weight);
+  letter-spacing:var(--h-track);line-height:1.05}
+.head .per{margin-left:auto;display:flex;gap:22px}
+.head .per button{border:none;background:none;padding:0;color:var(--faint);font:inherit;font-size:12.5px;
+  cursor:pointer;transition:color .3s var(--ease)}
+.head .per button:hover{color:var(--dim)}
+.head .per button.on{color:var(--text)}
+
+/* двойной бордюр: внешняя оболочка + внутреннее ядро */
+.shell{border:1px solid var(--hair-soft);border-radius:22px;padding:6px;margin-bottom:18px}
+.core{background:var(--surface);border:1px solid var(--hair-soft);border-radius:17px;padding:26px 30px}
+
+/* итог месяца */
+.sum{display:flex;align-items:flex-end;gap:34px;margin-bottom:24px}
+.sum .lab{font-family:var(--mono);font-size:9px;letter-spacing:.20em;text-transform:uppercase;color:var(--faint)}
+.sum .big{font-family:var(--num);font-size:54px;font-weight:400;letter-spacing:-.045em;line-height:1;margin-top:14px}
+.sum .big.pos{color:var(--pos)} .sum .big.neg{color:var(--neg)}
+.sum .when{font-family:var(--display);font-size:22px;color:var(--dim);margin-bottom:6px}
+.sum .right{margin-left:auto;text-align:right}
+.sum .right .v{font-family:var(--num);font-size:15px;color:var(--dim)}
+
+/* показатели: только hairline-сетка, никаких карточек внутри карточек */
+.stats{display:grid;grid-template-columns:repeat(4,1fr);border-top:1px solid var(--hair-soft)}
+.stats .st{padding:14px 18px 13px;border-bottom:1px solid var(--hair-soft);border-right:1px solid var(--hair-soft)}
+.stats .st:nth-child(4n){border-right:none}
+.stats .st:nth-last-child(-n+4){border-bottom:none}
+.stats .lab{font-family:var(--mono);font-size:9px;letter-spacing:.16em;text-transform:uppercase;color:var(--faint)}
+.stats .val{font-family:var(--num);font-size:22px;font-weight:400;letter-spacing:-.03em;margin-top:8px;line-height:1}
+.stats .val.pos{color:var(--pos)} .stats .val.neg{color:var(--neg)}
+
+/* график */
+.chart{display:grid;grid-template-columns:34px 1fr;gap:10px}
+.yax{display:flex;flex-direction:column;justify-content:space-between;font-family:var(--mono);font-size:9px;
+  color:var(--faint);text-align:right;padding:2px 0 12px}
+.xax{display:grid;text-align:center;font-family:var(--mono);font-size:9px;color:var(--faint);margin-left:44px;margin-top:10px}
+.chart-lab{display:flex;align-items:baseline;gap:14px;margin-bottom:12px}
+.chart-lab .t{font-family:var(--mono);font-size:9px;letter-spacing:.20em;text-transform:uppercase;color:var(--faint)}
+.chart-lab .v{font-family:var(--num);font-size:15px}
+.chart-lab .v.pos{color:var(--pos)} .chart-lab .v.neg{color:var(--neg)}
+.chart-lab .dd{margin-left:auto;font-family:var(--mono);font-size:11px;color:var(--faint)}
+
+.sec-lab{display:flex;align-items:baseline;gap:12px;margin-bottom:16px}
+.sec-lab .t{font-family:var(--mono);font-size:9px;letter-spacing:.20em;text-transform:uppercase;color:var(--faint)}
+.sec-lab .wn{font-family:var(--mono);font-size:10px;color:rgba(255,255,255,.22);letter-spacing:0;text-transform:none}
+.sec-lab .wsum{font-family:var(--num);font-size:11px;letter-spacing:0;text-transform:none}
+.sec-lab .wsum.pos{color:var(--pos)} .sec-lab .wsum.neg{color:var(--neg)}
+.sec-lab a{margin-left:auto;color:var(--faint);text-decoration:none;font-size:11.5px;transition:color .3s var(--ease)}
+.sec-lab a:hover{color:var(--text)}
+
+/* неделя — первый экранный блок, крупным рядом */
+.week{margin-bottom:22px}
+.days{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:10px}
+.day{aspect-ratio:1.08;border:1px solid var(--hair-soft);border-radius:14px;padding:13px 14px;
+  display:flex;flex-direction:column;transition:border-color .3s var(--ease)}
+.day:hover{border-color:var(--hair)}
+.day .wd{font-family:var(--mono);font-size:9px;letter-spacing:.14em;text-transform:uppercase;color:var(--faint)}
+.day .dn{font-family:var(--num);font-size:16px;color:var(--dim);margin-top:3px;letter-spacing:-.02em}
+.day .bot{margin-top:auto;display:flex;align-items:baseline;gap:8px;flex-wrap:wrap}
+.day .tags{display:flex;gap:4px;flex-wrap:wrap}
+.day .tags b{font-family:var(--mono);font-size:8.5px;font-weight:400;letter-spacing:.04em;
+  padding:2px 5px;border-radius:5px;background:rgba(255,255,255,.06);color:var(--dim)}
+.day .tags b.w{background:rgba(157,179,164,.16);color:var(--pos)}
+.day .tags b.l{background:rgba(189,156,152,.15);color:var(--neg)}
+.day .tags b.b{background:rgba(176,170,152,.14);color:var(--be)}
+.day .dr{margin-left:auto;font-family:var(--num);font-size:18px;letter-spacing:-.03em;color:var(--faint)}
+.day.off{background:rgba(255,255,255,.012)}
+.day.off .wd,.day.off .dn{color:rgba(255,255,255,.18)}
+.day.off .dr{color:rgba(255,255,255,.13)}
+.day.pos{border-color:rgba(157,179,164,.28)} .day.pos .dr{color:var(--pos)}
+.day.neg{border-color:rgba(189,156,152,.26)} .day.neg .dr{color:var(--neg)}
+.day.be{border-color:rgba(176,170,152,.22)} .day.be .dr{color:var(--be)}
+
+svg{display:block}
+
+/* экраны пониже: ужимаем, чтобы обзор оставался на одном экране */
+@media (max-height:960px){
+  .main{padding:26px 36px 18px}
+  .head{margin-bottom:18px}
+  .head h1{font-size:28px}
+  .core{padding:20px 24px}
+  .sum{margin-bottom:18px}
+  .sum .big{font-size:44px}
+  .stats .st{padding:11px 16px 10px}
+  .stats .val{font-size:20px;margin-top:6px}
+  .shell{margin-bottom:14px}
+  .week{margin-bottom:12px}
+  .day{aspect-ratio:1.24;padding:10px 12px;border-radius:12px}
+  .day .dn{font-size:14px}
+  .day .dr{font-size:16px}
+  .day .tags b{font-size:8px;padding:1px 4px}
+  .rail .inner{padding:18px 18px 16px}
+  .cut section + section{margin-top:14px;padding-top:14px}
+}
+
+/* совсем невысокие экраны (768) — ещё плотнее */
+@media (max-height:800px){
+  .main{padding:20px 30px 14px}
+  .head{margin-bottom:14px}
+  .head h1{font-size:25px}
+  .core{padding:17px 21px}
+  .sum{margin-bottom:14px}
+  .sum .big{font-size:38px;margin-top:10px}
+  .stats .st{padding:9px 14px 8px}
+  .stats .val{font-size:18px;margin-top:5px}
+  .week{margin-bottom:10px}
+  .days{gap:8px}
+  .day{aspect-ratio:1.5;padding:8px 10px}
+  .day .dn{font-size:13px}
+  .day .dr{font-size:14px}
+  .day .tags b{font-size:7.5px;padding:1px 3px}
+  .shell{margin-bottom:11px}
+  .cut section + section{margin-top:12px;padding-top:12px}
+  .bar{padding:5px 0}
+}
+
+/* вход блоков — тихий, без спектакля */
+.rise{opacity:0;transform:translateY(12px);transition:opacity .7s var(--ease),transform .7s var(--ease)}
+.rise.in{opacity:1;transform:none}
+@media (prefers-reduced-motion:reduce){.rise{opacity:1;transform:none;transition:none}}
+
+/* раскладка: основной поток и колонка-компаньон справа */
+.main{max-width:none;display:grid;grid-template-columns:minmax(0,1fr) 320px;
+  column-gap:44px;align-items:start}
+.head{grid-column:1 / -1}
+.flow{min-width:0}
+.rail{align-self:stretch;display:flex;flex-direction:column;
+  border:1px solid var(--hair-soft);border-radius:22px;padding:6px}
+.rail .inner{flex:1;background:var(--surface);border:1px solid var(--hair-soft);
+  border-radius:17px;padding:22px 22px 20px;display:flex;flex-direction:column}
+
+/* разрез статистики: доли и полоски, без плашек */
+.cut{flex:1;display:flex;flex-direction:column}
+.cut section{flex:1;display:flex;flex-direction:column;min-height:0}
+.cut section + section{border-top:1px solid var(--hair-soft);margin-top:18px;padding-top:18px}
+.cut section .rows{flex:1;display:flex;flex-direction:column;justify-content:space-between}
+.cut h3{margin:0 0 10px;font-family:var(--mono);font-size:9px;letter-spacing:.20em;
+  text-transform:uppercase;color:var(--faint);font-weight:400;display:flex;align-items:baseline}
+.cut h3 em{margin-left:auto;font-style:normal;letter-spacing:0;text-transform:none;font-size:10px;
+  color:rgba(255,255,255,.18)}
+.bar{display:grid;grid-template-columns:1fr auto;gap:5px 10px;align-items:baseline;padding:7px 0}
+.bar + .bar{border-top:1px solid var(--hair-soft)}
+.bar .nm{font-size:12.5px;color:var(--dim);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.bar .qt{font-family:var(--num);font-size:11.5px;color:var(--faint)}
+.bar .qt b{color:var(--text);font-weight:400}
+.bar .qt b.pos{color:var(--pos)} .bar .qt b.neg{color:var(--neg)}
+.bar .ln{grid-column:1 / -1;height:2px;border-radius:2px;background:rgba(255,255,255,.05);overflow:hidden}
+.bar .ln i{display:block;height:100%;border-radius:2px;background:rgba(255,255,255,.28);
+  transform:scaleX(0);transform-origin:left;transition:transform .9s var(--ease)}
+.rail.in .bar .ln i{transform:scaleX(1)}
+.bar.pos .ln i{background:rgba(157,179,164,.6)}
+.bar.neg .ln i{background:rgba(189,156,152,.55)}
+@media (prefers-reduced-motion:reduce){.bar .ln i{transform:scaleX(1);transition:none}}
+</style>
+</head>
+<body>
+
+<aside class="side">
+  <div class="brand">
+    <div class="mark">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" class="ic"><path d="M3 17l5-6 4 3 5-8 4 5" stroke="#fff" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg>
+    </div>
+    <div class="nm">Journal<small>Trading</small></div>
+  </div>
+
+  <button class="newbtn">
+    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" class="ic"><path d="M12 5v14M5 12h14" stroke="#fff" stroke-width="1.9" stroke-linecap="round"/></svg>
+    Новая сделка
+  </button>
+
+  <nav class="nav">
+    <a href="dash.html" class="on">
+      <svg class="ic" width="16" height="16" viewBox="0 0 24 24" fill="none"><rect x="3" y="3" width="7.5" height="9" rx="2" stroke="#fff" stroke-width="1.6"/><rect x="13.5" y="3" width="7.5" height="5.5" rx="2" stroke="#fff" stroke-width="1.6"/><rect x="13.5" y="12" width="7.5" height="9" rx="2" stroke="#fff" stroke-width="1.6"/><rect x="3" y="15.5" width="7.5" height="5.5" rx="2" stroke="#fff" stroke-width="1.6"/></svg>
+      Dashboard
+    </a>
+    <a href="journal.html">
+      <svg class="ic" width="16" height="16" viewBox="0 0 24 24" fill="none"><rect x="3" y="4" width="18" height="17" rx="3" stroke="#fff" stroke-width="1.6"/><path d="M3 9h18M8 3v3M16 3v3" stroke="#fff" stroke-width="1.6" stroke-linecap="round"/></svg>
+      Journal
+    </a>
+    <a href="#">
+      <svg class="ic" width="16" height="16" viewBox="0 0 24 24" fill="none"><path d="M4 16l5-5 3 3 7-8" stroke="#fff" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/><path d="M15 6h5v5" stroke="#fff" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      Analytics
+    </a>
+  </nav>
+
+  <div class="grp">
+    <div class="lab">Быстро</div>
+    <div class="mini">
+      <svg class="ic" width="14" height="14" viewBox="0 0 24 24" fill="none"><path d="M12 3v12M8 11l4 4 4-4" stroke="#fff" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/><path d="M4 17v2a2 2 0 002 2h12a2 2 0 002-2v-2" stroke="#fff" stroke-width="1.7" stroke-linecap="round"/></svg>
+      Импорт
+    </div>
+    <div class="mini">
+      <svg class="ic" width="14" height="14" viewBox="0 0 24 24" fill="none"><path d="M12 21V9M8 13l4-4 4 4" stroke="#fff" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/><path d="M4 7V5a2 2 0 012-2h12a2 2 0 012 2v2" stroke="#fff" stroke-width="1.7" stroke-linecap="round"/></svg>
+      Экспорт
+    </div>
+    <div class="mini">
+      <svg class="ic" width="14" height="14" viewBox="0 0 24 24" fill="none"><rect x="3" y="5" width="18" height="14" rx="3" stroke="#fff" stroke-width="1.6"/><circle cx="8.5" cy="10" r="1.6" stroke="#fff" stroke-width="1.5"/><path d="M4 17l5-4 4 3 3-2 4 3" stroke="#fff" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      Картинка месяца
+    </div>
+  </div>
+
+</aside>
+
+<main class="main">
+  <div class="head">
+    <h1>Обзор</h1>
+    <div class="per">
+      <button class="on">Месяц</button><button>Квартал</button><button>Год</button>
+    </div>
+  </div>
+
+  <div class="flow">
+  <!-- последняя неделя — сверху, крупным рядом -->
+  <div class="week rise">
+    <div class="sec-lab"><span class="t">Последняя неделя</span><span class="wn" id="wn"></span><span class="wsum" id="wsum"></span><a href="journal.html">весь месяц</a></div>
+    <div class="days" id="days"></div>
+  </div>
+
+  <!-- итог месяца и показатели -->
+  <div class="shell rise">
+    <div class="core">
+      <div class="sum">
+        <div>
+          <div class="lab">Итог месяца</div>
+          <div class="big" id="net"></div>
+        </div>
+        <div class="when" id="when"></div>
+        <div class="right">
+          <div class="lab">Лучшая · худшая</div>
+          <div class="v" id="bw"></div>
+        </div>
+      </div>
+
+      <div class="stats" id="stats"></div>
+    </div>
+  </div>
+
+  <!-- эквити -->
+  <div class="shell rise">
+    <div class="core">
+      <div class="chart-lab">
+        <span class="t">Эквити</span><span class="v" id="eqNow"></span>
+        <span class="dd" id="dd"></span>
+      </div>
+      <div class="chart"><div class="yax" id="yax"></div><svg id="eq" width="100%" height="156"></svg></div>
+      <div class="xax" id="xax"></div>
+    </div>
+  </div>
+  </div><!-- /flow -->
+
+  <!-- колонка-компаньон -->
+  <aside class="rail">
+    <div class="inner">
+      <div class="cut">
+        <section><h3>Сессии<em>год</em></h3><div class="rows" id="cutSess"></div></section>
+        <section><h3>Инструменты<em>год</em></h3><div class="rows" id="cutPairs"></div></section>
+        <section><h3>Сетапы<em>итог, %</em></h3><div class="rows" id="cutSetups"></div></section>
+      </div>
+    </div>
+  </aside>
+</main>
+
+<script src="data.js"></script>
+<script src="common.js"></script>
+<script>
+/* итог месяца */
+$("#net").textContent = fmt(D.cur.net);
+$("#net").className = "big " + sign(D.cur.net);
+$("#when").textContent = monthTitle();
+$("#bw").textContent = fmt(D.cur.best) + " · " + fmt(D.cur.worst);
+
+/* показатели месяца — полный набор */
+$("#stats").innerHTML = metrics(D.cur).map(m =>
+  '<div class="st"><div class="lab">' + m[0] + '</div><div class="val ' + m[2] + '">' + m[1] + '</div></div>').join("");
+
+/* эквити */
+(function(){
+  const {min, max} = equitySVG($("#eq"), {H: 156, stroke: "rgba(255,255,255,.62)", fill: "rgba(255,255,255,.05)"});
+  const step = (max - min) / 4;
+  $("#yax").innerHTML = [4,3,2,1,0].map(i => "<span>" + Math.round(min + step * i) + "</span>").join("");
+  xLabels($("#xax"));
+  $("#eqNow").textContent = fmt(D.eq[D.eq.length - 1]);
+  $("#eqNow").className = "v " + sign(D.eq[D.eq.length - 1]);
+  $("#dd").textContent = "просадка " + D.dd.toFixed(2) + "%";
+})();
+
+/* последняя неделя — семь дней до последней сделки */
+(function(){
+  const [Y, M] = D.curYm.split("-").map(Number);
+  const week = D.strip.slice(-7);
+  const wnet = week.reduce((a, g) => a + (g.r || 0), 0);
+  const wn = week.reduce((a, g) => a + (g.n || 0), 0);
+  const word = wn % 10 === 1 && wn % 100 !== 11 ? "сделка"
+             : [2,3,4].includes(wn % 10) && ![12,13,14].includes(wn % 100) ? "сделки" : "сделок";
+  $("#wn").textContent = wn + " " + word;
+  $("#wsum").textContent = fmt(wnet);
+  $("#wsum").className = "wsum " + sign(wnet);
+  $("#days").innerHTML = week.map(g => {
+    const wd = WD[(new Date(Y, M - 1, g.d).getDay() + 6) % 7];
+    const val = g.n ? (Math.abs(g.r) < .005 ? "0%" : fmt1(g.r)) : "·";
+    const tags = g.tags.map(t =>
+      '<b class="' + (t === "Win" ? "w" : t === "Loss" ? "l" : "b") + '">' + tagOf(t) + '</b>').join("");
+    return '<div class="day ' + (g.n ? sign(g.r) : "off") + '">' +
+      '<span class="wd">' + wd + '</span><span class="dn">' + g.d + '</span>' +
+      '<span class="bot"><span class="tags">' + tags + '</span>' +
+      '<span class="dr">' + val + '</span></span></div>';
+  }).join("");
+})();
+
+/* правая колонка — разрез года: где, чем и по какой модели торгуем */
+(function(){
+  const bar = (nm, qt, w, cls) =>
+    '<div class="bar ' + (cls || "") + '"><span class="nm">' + nm + '</span>' +
+    '<span class="qt">' + qt + '</span>' +
+    '<span class="ln"><i style="width:' + Math.max(w, 2).toFixed(1) + '%"></i></span></div>';
+
+  const sMax = Math.max(...D.sess.map(x => x[1]));
+  $("#cutSess").innerHTML = D.sess.map(([nm, n]) =>
+    bar(nm, "<b>" + n + "</b> · " + Math.round(n / D.year.n * 100) + "%", n / sMax * 100)).join("");
+
+  const pMax = Math.max(...D.pairs.map(x => x[1]));
+  $("#cutPairs").innerHTML = D.pairs.map(([nm, n]) =>
+    bar(nm, "<b>" + n + "</b> · " + Math.round(n / D.year.n * 100) + "%", n / pMax * 100)).join("");
+
+  const tMax = Math.max(...D.top.map(x => Math.abs(x[1])));
+  $("#cutSetups").innerHTML = D.top.map(([nm, r, n]) =>
+    bar(nm, "<b class=\"" + sign(r) + "\">" + fmt1(r) + "</b> · " + n, Math.abs(r) / tMax * 100, sign(r))).join("");
+})();
+
+/* тихий вход блоков */
+const io = new IntersectionObserver((entries) => {
+  entries.forEach((e, i) => {
+    if (e.isIntersecting){
+      setTimeout(() => e.target.classList.add("in"), i * 70);
+      io.unobserve(e.target);
+    }
+  });
+}, {threshold: .08});
+document.querySelectorAll(".rise").forEach(el => io.observe(el));
+requestAnimationFrame(() => document.querySelector(".rail").classList.add("in"));
+</script>
+</body>
+</html>
