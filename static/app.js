@@ -15,11 +15,12 @@ const S = {
   dim: "setup",                 // Analytics
   filters: {},
   formShots: [],
-  all: [], mRep:null,
+  all: [], mRep:null, ovPeriod:"month",
 };
 
 const MONTHS = ["Январь","Февраль","Март","Апрель","Май","Июнь","Июль","Август","Сентябрь","Октябрь","Ноябрь","Декабрь"];
 const WDS = ["Пн","Вт","Ср","Чт","Пт","Сб","Вс"];
+const MON_SHORT = ["янв","фев","мар","апр","май","июн","июл","авг","сен","окт","ноя","дек"];
 const TF_LIST = ["1m","3m","5m","15m","30m","1H","4H","1D","1W"];
 const TF_SLOTS = ["1m","3m","5m","15m","30m","1H","4H"];
 const TF_ORDER = ["1W","1D","4H","1H","30m","15m","5m","3m","1m"];
@@ -274,52 +275,221 @@ function applyFilters(list){
 
 /* ================= VIEWS ================= */
 
+/* ---------- Обзор: раскладка из макета (design/dash.html) ---------- */
+const OV_PERIODS = [["month","Месяц"],["quarter","Квартал"],["year","Год"]];
+const RES_TAG = {"Win":"TP","Loss":"SL","BE-":"BE−","BE+":"BE+"};
+
+function ovSetPeriod(p){ S.ovPeriod=p; render(); }
+function ovOpenDay(key){
+  S.selDay=key; S.jMonth=key.slice(0,7); S.jMode="cal"; S.view="journal";
+  location.hash="journal"; render();
+}
+
+/* сделки выбранного периода + как он называется */
+function ovPeriod(){
+  const now=new Date(), y=String(now.getFullYear());
+  if(S.ovPeriod==="year")
+    return {list:S.trades.filter(t=>(t.date||"").slice(0,4)===y), lab:"Итог года", when:y};
+  if(S.ovPeriod==="quarter"){
+    const q=Math.floor(now.getMonth()/3), from=q*3+1, to=q*3+3;
+    const list=S.trades.filter(t=>{
+      const k=monKey(t); if(k.slice(0,4)!==y) return false;
+      const m=+k.slice(5,7); return m>=from && m<=to;
+    });
+    return {list, lab:"Итог квартала", when:["I","II","III","IV"][q]+" квартал "+y};
+  }
+  const mk=isoMonth(now);
+  return {list:S.trades.filter(t=>monKey(t)===mk), lab:"Итог месяца", when:MONTHS[now.getMonth()]+" "+y};
+}
+
+function ovSign(r){ return r>0.0001?"pos":r<-0.0001?"neg":"be"; }
+/* в обзоре проценты пишем как в макете: два знака в итогах, один в клетках дня */
+function ovFmt(v){ return (v>0?"+":"")+(v==null?0:v).toFixed(2)+"%"; }
+function ovFmt1(v){ return (v>0?"+":"")+v.toFixed(1)+"%"; }
+function ovWord(n){
+  const a=n%10, b=n%100;
+  return a===1&&b!==11 ? "сделка" : (a>=2&&a<=4&&!(b>=12&&b<=14)) ? "сделки" : "сделок";
+}
+
+/* последняя неделя — крупный ряд сверху, в клетке светится исход дня */
+function ovWeekHtml(){
+  const byDay=groupBy(S.trades, dayKey);
+  /* якорь недели — сегодня; если за неделю сделок нет, показываем неделю последней сделки */
+  let now=new Date();
+  const recent=[...byDay.keys()].sort();
+  const lastKey=recent[recent.length-1];
+  if(lastKey){
+    const weekAgo=isoDay(new Date(now.getFullYear(),now.getMonth(),now.getDate()-6));
+    if(lastKey<weekAgo) now=new Date(+lastKey.slice(0,4),+lastKey.slice(5,7)-1,+lastKey.slice(8,10));
+  }
+  let cells="", n=0, sum=0;
+  for(let i=6;i>=0;i--){
+    const d=new Date(now.getFullYear(),now.getMonth(),now.getDate()-i);
+    const key=isoDay(d), list=byDay.get(key)||[];
+    const r=list.reduce((a,t)=>a+netR(t),0);
+    n+=list.length; sum+=r;
+    const wd=WDS[(d.getDay()+6)%7];
+    if(!list.length){
+      cells+='<div class="day off"><span class="wd">'+wd+'</span><span class="dn">'+d.getDate()+
+        '</span><span class="bot"><span class="dr">·</span></span></div>';
+      continue;
+    }
+    const cnt={};
+    for(const t of list) cnt[t.result]=(cnt[t.result]||0)+1;
+    const top=Object.keys(cnt).sort((a,b)=>cnt[b]-cnt[a])[0];
+    const cls=top==="Win"?"w":top==="Loss"?"l":"b";
+    const val=Math.abs(r)<0.005?"0%":ovFmt1(r);
+    cells+='<div class="day '+ovSign(r)+'" onclick="ovOpenDay(\''+key+'\')" title="'+
+      list.length+" "+ovWord(list.length)+'">'+
+      '<span class="glow '+cls+'">'+(RES_TAG[top]||"")+'</span>'+
+      '<span class="wd">'+wd+'</span><span class="dn">'+d.getDate()+'</span>'+
+      '<span class="bot"><span class="dr">'+val+'</span></span></div>';
+  }
+  return '<div class="week rise">'+
+    '<div class="sec-lab"><span class="t">Последняя неделя</span>'+
+    '<span class="wn">'+n+" "+ovWord(n)+'</span>'+
+    '<span class="wsum '+ovSign(sum)+'">'+ovFmt(sum)+'</span>'+
+    '<a href="#journal">весь месяц</a></div>'+
+    '<div class="days">'+cells+"</div></div>";
+}
+
+/* восемь показателей hairline-сеткой */
+function ovStatsHtml(st){
+  const rows=[
+    ["Сделок", String(st.n), ""],
+    ["Win Rate", st.wr==null?"·":fmtPct(st.wr), ""],
+    ["Итог, %", ovFmt(st.net), clsR(st.net)],
+    ["Средний RR", st.avgRR==null?"·":String(r1(st.avgRR)), ""],
+    ["Profit Factor", st.pfTxt, ""],
+    ["TP / SL / BE", st.wins+" / "+st.losses+" / "+st.be, ""],
+    ["BE− / BE+", st.beM+" / "+st.beP, ""],
+    ["Средний риск", (st.avgRisk==null?"·":r1(st.avgRisk))+"%", ""],
+  ];
+  return '<div class="stats">'+rows.map(([l,v,c])=>
+    '<div class="st"><div class="lab">'+l+'</div><div class="val '+c+'">'+v+"</div></div>").join("")+"</div>";
+}
+
+/* сглаженная кривая по точкам */
+function ovSmooth(pts){
+  let d="M"+pts[0][0]+","+pts[0][1];
+  for(let i=1;i<pts.length;i++){
+    const [px,py]=pts[i-1],[cx,cy]=pts[i],mx=(px+cx)/2;
+    d+=" C"+mx+","+py+" "+mx+","+cy+" "+cx+","+cy;
+  }
+  return d;
+}
+
+/* эквити года по календарным датам — как в макете */
+function ovEquityHtml(){
+  const y=String(new Date().getFullYear());
+  const arr=sortAsc(S.trades.filter(t=>(t.date||"").slice(0,4)===y));
+  if(arr.length<2)
+    return '<div class="shell rise"><div class="core"><div class="chart-lab">'+
+      '<span class="t">Эквити</span></div>'+
+      '<div class="empty">Недостаточно сделок для графика</div></div></div>';
+  const start=new Date(+y,0,1);
+  const days=[], vals=[], months=new Set();
+  let acc=0, peak=0, dd=0;
+  for(const t of arr){
+    acc+=netR(t);
+    peak=Math.max(peak,acc);
+    dd=Math.min(dd,acc-peak);
+    const iso=(t.date||"").slice(0,10);
+    const d=new Date(+iso.slice(0,4),+iso.slice(5,7)-1,+iso.slice(8,10));
+    days.push(Math.round((d-start)/86400000));
+    vals.push(acc);
+    months.add(iso.slice(5,7));
+  }
+  const W=640,H=156,pad=10;
+  const dmax=days[days.length-1]||364;
+  const max=Math.max(...vals,0), min=Math.min(...vals,0);
+  const X=i=>days[i]/dmax*W;
+  const Y=v=>H-pad-(v-min)/((max-min)||1)*(H-pad*2);
+  const d=ovSmooth(vals.map((v,i)=>[X(i),Y(v)]));
+  const last=vals.length-1;
+  const grid=[0,.25,.5,.75,1].map(p=>
+    '<line x1="0" y1="'+(pad+p*(H-pad*2))+'" x2="'+W+'" y2="'+(pad+p*(H-pad*2))+
+    '" class="ovgrid" vector-effect="non-scaling-stroke"/>').join("");
+  const svg='<svg viewBox="0 0 '+W+" "+H+'" width="100%" height="'+H+'">'+
+    '<defs><linearGradient id="ovEqFill" x1="0" y1="0" x2="0" y2="1">'+
+      '<stop offset="0%" stop-color="var(--ov-eq-fill)"/>'+
+      '<stop offset="100%" stop-color="transparent"/></linearGradient></defs>'+grid+
+    '<path d="'+d+" L"+X(last)+","+H+" L"+X(0)+","+H+' Z" fill="url(#ovEqFill)"/>'+
+    '<path d="'+d+'" fill="none" stroke="var(--ov-eq-line)" stroke-width="1.7" vector-effect="non-scaling-stroke"/>'+
+    '<circle cx="'+X(last)+'" cy="'+Y(vals[last])+'" r="3" fill="var(--ov-eq-line)"/></svg>';
+  const yax=[0,1,2,3,4].map(i=>{
+    const v=max-(max-min)*i/4;
+    return "<span>"+Math.round(v)+"</span>";
+  }).join("");
+  const mon=[...months].sort();
+  const xax='<div class="xax" style="grid-template-columns:repeat('+mon.length+',1fr)">'+
+    mon.map(m=>"<span>"+MON_SHORT[+m-1]+"</span>").join("")+"</div>";
+  return '<div class="shell rise"><div class="core">'+
+    '<div class="chart-lab"><span class="t">Эквити</span>'+
+    '<span class="v '+clsR(vals[last])+'">'+ovFmt(vals[last])+"</span>"+
+    '<span class="dd">просадка '+ovFmt(dd)+"</span></div>"+
+    '<div class="chart"><div class="yax">'+yax+"</div>"+svg+"</div>"+xax+"</div></div>";
+}
+
+/* колонка-компаньон: где, чем и по какой модели торгуем за год */
+function ovRailHtml(){
+  const y=String(new Date().getFullYear());
+  const yl=S.trades.filter(t=>(t.date||"").slice(0,4)===y);
+  const bar=(nm,qt,w,cls)=>
+    '<div class="bar '+(cls||"")+'"><span class="nm">'+esc(nm)+"</span>"+
+    '<span class="qt">'+qt+"</span>"+
+    '<span class="ln"><i style="width:'+Math.max(w,2).toFixed(1)+'%"></i></span></div>';
+  const byCount=field=>[...groupBy(yl,t=>t[field]).entries()]
+    .map(([k,v])=>[k,v.length]).sort((a,b)=>b[1]-a[1]).slice(0,4);
+  const share=rows=>{
+    if(!rows.length) return '<div class="empty">Нет данных</div>';
+    const mx=Math.max(...rows.map(r=>r[1]));
+    return rows.map(([nm,n])=>bar(nm,"<b>"+n+"</b> · "+Math.round(n/yl.length*100)+"%",n/mx*100)).join("");
+  };
+  const setups=[...groupBy(yl,t=>t.setup).entries()]
+    .map(([k,v])=>[k,calc(v).net,v.length])
+    .sort((a,b)=>Math.abs(b[1])-Math.abs(a[1])).slice(0,3);
+  const smx=Math.max(1,...setups.map(x=>Math.abs(x[1])));
+  const setupRows=setups.length
+    ? setups.map(([nm,r,n])=>bar(nm,'<b class="'+clsR(r)+'">'+ovFmt1(r)+"</b> · "+n,Math.abs(r)/smx*100,ovSign(r))).join("")
+    : '<div class="empty">Нет данных</div>';
+  return '<aside class="rail"><div class="inner"><div class="cut">'+
+    '<section><h3>Сессии<em>год</em></h3><div class="rows">'+share(byCount("session"))+"</div></section>"+
+    '<section><h3>Инструменты<em>год</em></h3><div class="rows">'+share(byCount("pair"))+"</div></section>"+
+    '<section><h3>Сетапы<em>итог, %</em></h3><div class="rows">'+setupRows+"</div></section>"+
+    "</div></div></aside>";
+}
+
 function vDashboard(){
   if(!S.trades.length){
-    return '<div class="vhead"><h1>Dashboard</h1></div>'+
+    return '<div class="vhead"><h1>Обзор</h1></div>'+
       '<div class="card"><div class="in" style="text-align:center;padding:56px 20px">'+
-      '<div style="font-size:38px;margin-bottom:10px">📓</div>'+
       '<div style="font-size:17px;font-weight:600;margin-bottom:6px">Журнал пуст</div>'+
       '<div class="hint" style="margin-bottom:18px">Добавь первую сделку — статистика соберётся сама.<br>Старые сделки можно загрузить через «Импорт» слева внизу.</div>'+
       '<button class="btn primary" onclick="openForm()">+ New Trade</button></div></div>';
   }
-  const today=new Date();
-  const mKey=isoMonth(today), yKey=String(today.getFullYear());
-  const mT=S.trades.filter(t=>monKey(t)===mKey);
-  const yT=S.trades.filter(t=>(t.date||"").slice(0,4)===yKey);
-  const mSt=calc(mT), ySt=calc(yT);
-  let h='<div class="vhead"><h1>Dashboard</h1><span class="sub">'+S.trades.length+' сделок всего</span></div>';
+  const per=ovPeriod(), st=calc(per.list);
+  const rs=per.list.map(netR);
+  const best=rs.length?Math.max(...rs):null, worst=rs.length?Math.min(...rs):null;
+  const btns=OV_PERIODS.map(([k,l])=>
+    '<button class="'+(S.ovPeriod===k?"on":"")+'" onclick="ovSetPeriod(\''+k+'\')">'+l+"</button>").join("");
 
-  /* --- текущий месяц --- */
-  h+='<div class="seclab"><div class="t"><span class="tag">Текущий месяц</span>'+
-     '<h2>'+MONTHS[today.getMonth()]+" "+yKey+'</h2></div>'+
-     '<div class="big '+clsR(mSt.net)+'">'+(mT.length?fmtR(mSt.net):"—")+"</div></div>";
-  if(mT.length){
-    h+=kpiHtml(mSt);
-    h+='<div class="split">'+
-      '<div class="card"><h3>Equity месяца · %</h3><div class="in">'+equitySVG(mT)+"</div></div>"+
-      tradesCard(sortDesc(mT).slice(0,5),"Последние сделки месяца")+"</div>";
-  }else{
-    h+='<div class="card"><div class="empty">В этом месяце сделок ещё нет.<br><br>'+
-      '<button class="btn primary" onclick="openForm()">+ New Trade</button></div></div>';
-  }
-
-  /* --- весь год --- */
-  h+='<div class="seclab year"><div class="t"><span class="tag">Весь год</span>'+
-     '<h2>'+yKey+'</h2></div>'+
-     '<div class="big '+clsR(ySt.net)+'">'+(yT.length?fmtR(ySt.net):"—")+"</div></div>";
-  h+=kpiHtml(ySt);
-  if(yT.length) h+='<div class="card"><h3>Equity года · %</h3><div class="in">'+equitySVG(yT)+"</div></div>";
-  let mrows="";
-  for(let m=1;m<=12;m++){
-    const ml=yT.filter(t=>monKey(t)===yKey+"-"+pad(m));
-    if(!ml.length) continue;
-    const ms=calc(ml);
-    mrows+='<tr class="click" onclick="S.jMonth=\''+yKey+"-"+pad(m)+'\';S.jMode=\'cal\';location.hash=\'journal\';render()">'+
-      "<td>"+MONTHS[m-1]+"</td><td>"+ms.n+"</td><td>"+fmtPct(ms.wr)+'</td><td class="'+clsR(ms.net)+'">'+fmtR(ms.net)+"</td><td>"+(ms.avgRR!=null?r1(ms.avgRR):"—")+"</td></tr>";
-  }
-  if(mrows) h+='<div class="card"><h3>По месяцам</h3><table class="simple"><tr><th>Month</th><th>Trades</th><th>Win Rate</th><th>Итог, %</th><th>Ср. RR</th></tr>'+mrows+"</table></div>";
-  return h;
+  return '<div class="ovw">'+
+    '<div class="ohead"><h1>Обзор</h1><div class="per">'+btns+"</div></div>"+
+    '<div class="flow">'+
+      ovWeekHtml()+
+      '<div class="shell rise"><div class="core">'+
+        '<div class="sum"><div><div class="lab">'+per.lab+"</div>"+
+        '<div class="big '+clsR(st.net)+'">'+(per.list.length?ovFmt(st.net):"—")+"</div></div>"+
+        '<div class="when">'+per.when+"</div>"+
+        '<div class="right"><div class="lab">Лучшая · худшая</div>'+
+        '<div class="v">'+(best==null?"—":ovFmt(best)+" · "+ovFmt(worst))+"</div></div></div>"+
+        ovStatsHtml(st)+
+      "</div></div>"+
+      ovEquityHtml()+
+    "</div>"+
+    ovRailHtml()+
+  "</div>";
 }
 
 /* ---------- Journal: живой журнал месяца ---------- */
@@ -662,13 +832,15 @@ function toggleTheme(){
   const dark = document.documentElement.getAttribute("data-theme")==="dark";
   if(dark) document.documentElement.removeAttribute("data-theme");
   else document.documentElement.setAttribute("data-theme","dark");
-  try{ dark?localStorage.removeItem("tj_theme"):localStorage.setItem("tj_theme","dark"); }catch(e){}
+  try{ localStorage.setItem("tj_theme", dark?"light":"dark"); }catch(e){}
   markTheme();
 }
 function markTheme(){
   const b=$("#themeBtn"); if(!b) return;
   const dark = document.documentElement.getAttribute("data-theme")==="dark";
-  b.innerHTML = (dark ? "☀" : "☾") + "<span>" + (dark ? "Светлая тема" : "Тёмная тема") + "</span>";
+  const sun='<svg class="ic" width="14" height="14" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="4.2" stroke="currentColor" stroke-width="1.6"/><path d="M12 2.6v2.2M12 19.2v2.2M2.6 12h2.2M19.2 12h2.2M5.3 5.3l1.6 1.6M17.1 17.1l1.6 1.6M18.7 5.3l-1.6 1.6M6.9 17.1l-1.6 1.6" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>';
+  const moon='<svg class="ic" width="14" height="14" viewBox="0 0 24 24" fill="none"><path d="M20 14.2A8.2 8.2 0 019.8 4a8.4 8.4 0 100 20 8.2 8.2 0 0010.2-9.8z" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/></svg>';
+  b.innerHTML = (dark ? sun : moon) + "<span>" + (dark ? "Светлая тема" : "Тёмная тема") + "</span>";
   b.title = dark ? "Переключить на светлую" : "Переключить на тёмную";
 }
 
@@ -1153,6 +1325,8 @@ function render(){
   const v=VIEWS[S.view]?S.view:"dashboard";
   document.querySelectorAll(".nav a").forEach(a=>a.classList.toggle("on",a.dataset.v===v));
   $("#main").innerHTML='<div class="page">'+VIEWS[v]()+"</div>";
+  /* блоки обзора появляются тихо, как в макете */
+  requestAnimationFrame(()=>document.querySelectorAll(".ovw .rise,.ovw .rail").forEach(el=>el.classList.add("in")));
 }
 window.addEventListener("hashchange",()=>{ S.view=location.hash.slice(1)||"dashboard"; render(); });
 document.addEventListener("keydown",e=>{

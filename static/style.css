@@ -14,7 +14,8 @@
   --shadow-pop:0 24px 60px -24px rgba(23,27,36,.28);
   --shadow-badge:0 6px 24px rgba(23,27,36,.14);
   --overlay:rgba(23,27,36,.42); --overlay-strong:rgba(23,27,36,.82);
-  --card:var(--panel); --side-bg:var(--panel); --glow:none;
+  --card:var(--panel); --side-bg:var(--panel); --glow:none; --card-lip:0 0 transparent;
+  --ov-eq-line:var(--accent); --ov-eq-fill:rgba(43,98,227,.12); --ov-grid:var(--line-soft);
   --sans:"Geist","Segoe UI",system-ui,sans-serif;
   --mono:"Geist Mono",ui-monospace,Consolas,monospace;
   --r:10px; --r-sm:8px;
@@ -31,6 +32,8 @@
   --up-glow:rgba(79,209,143,.38); --down-glow:rgba(242,100,95,.34); --be-glow:rgba(239,194,88,.32);
   /* карточка светлее сверху — сквозь неё проходит свет фона */
   --card:linear-gradient(180deg,rgba(255,255,255,.062),rgba(255,255,255,.016));
+  --card-lip:inset 0 1px 0 rgba(255,255,255,.08);
+  --ov-eq-line:#d4d6da; --ov-eq-fill:rgba(255,255,255,.14); --ov-grid:rgba(255,255,255,.055);
   --side-bg:linear-gradient(180deg,rgba(255,255,255,.055),rgba(255,255,255,.02));
   --glow:
     radial-gradient(1150px 760px at 66% -12%, rgba(255,255,255,.165), transparent 62%),
@@ -598,3 +601,198 @@ table.simple.mini td:last-child{white-space:nowrap;font-weight:600}
 }
 .demo-badge button:hover{ color:var(--text); }
 @media (max-width:720px){ .demo-badge span{ display:none; } }
+
+
+/* ==================================================================
+   ОБЗОР — раскладка из макета (design/dash.html)
+   Всё внутри .ovw, чтобы не пересекаться с календарём и карточками.
+   ================================================================== */
+/* обзор занимает всю ширину рабочей области, как в макете */
+.page:has(.ovw){max-width:none}
+.ovw{--ease:cubic-bezier(.16,1,.3,1);display:grid;grid-template-columns:minmax(0,1fr) 320px;
+  column-gap:44px;align-items:start}
+.ovw .ohead{grid-column:1 / -1;display:flex;align-items:center;gap:16px;margin-bottom:26px}
+.ovw .ohead h1{margin:0;font-size:34px;font-weight:500;letter-spacing:-.035em;line-height:1.05}
+
+/* период: сегменты, по которым видно, что на них жмут */
+.ovw .per{margin-left:auto;display:flex;gap:3px;padding:4px;border-radius:13px;
+  border:1px solid var(--line-soft);box-shadow:var(--card-lip);background:var(--card)}
+.ovw .per button{padding:7px 15px;border-radius:9px;border:1px solid transparent;background:none;
+  color:var(--dim);font:inherit;font-size:12.5px;cursor:pointer;
+  transition:color .25s var(--ease),background .25s var(--ease),
+             border-color .25s var(--ease),transform .12s var(--ease)}
+.ovw .per button:hover{color:var(--text);background:var(--panel-2)}
+.ovw .per button:active{transform:scale(.96)}
+.ovw .per button.on{color:var(--text);border-color:var(--line);background:var(--panel-2);
+  box-shadow:var(--card-lip)}
+
+.ovw .flow{min-width:0}
+
+/* заголовок секции */
+.ovw .sec-lab{display:flex;align-items:baseline;gap:12px;margin-bottom:16px}
+.ovw .sec-lab .t{font-family:var(--mono);font-size:9px;letter-spacing:.20em;text-transform:uppercase;color:var(--faint)}
+.ovw .sec-lab .wn{font-family:var(--mono);font-size:10px;color:var(--faint);opacity:.8}
+.ovw .sec-lab .wsum{font-family:var(--mono);font-size:11px}
+.ovw .sec-lab a{margin-left:auto;color:var(--faint);text-decoration:none;font-size:11.5px;transition:color .3s var(--ease)}
+.ovw .sec-lab a:hover{color:var(--text)}
+
+/* неделя — крупный ряд сверху */
+.ovw .week{margin-bottom:22px}
+.ovw .days{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:10px}
+.ovw .day{position:relative;overflow:hidden;aspect-ratio:1.08;border:1px solid var(--line-soft);
+  border-radius:14px;padding:13px 14px;background:var(--card);box-shadow:var(--card-lip);
+  display:flex;flex-direction:column;transition:border-color .3s var(--ease);cursor:pointer}
+.ovw .day:hover{border-color:var(--line)}
+/* исход дня — надпись во всю клетку: размытая, светится своим цветом */
+.ovw .glow{position:absolute;inset:0;display:grid;place-items:center;pointer-events:none;
+  font-family:var(--mono);font-weight:500;font-size:62px;line-height:1;letter-spacing:-.05em;
+  padding:0 3px;opacity:.42;filter:blur(2px);text-shadow:0 0 12px currentColor,0 0 26px currentColor}
+.ovw .glow.w{color:var(--up)} .ovw .glow.l{color:var(--down)} .ovw .glow.b{color:var(--be)}
+.ovw .day .wd,.ovw .day .dn,.ovw .day .bot{position:relative;z-index:1}
+.ovw .day .wd{font-family:var(--mono);font-size:9px;letter-spacing:.14em;text-transform:uppercase;color:var(--faint)}
+.ovw .day .dn{font-family:var(--mono);font-size:16px;color:var(--dim);margin-top:3px;letter-spacing:-.02em}
+.ovw .day .bot{margin-top:auto;display:flex;align-items:baseline;gap:8px;flex-wrap:wrap;line-height:1.1}
+.ovw .day .dr{margin-left:auto;font-family:var(--mono);font-size:18px;letter-spacing:-.03em;color:var(--faint)}
+.ovw .day.off{background:var(--panel-2);box-shadow:none;cursor:default}
+.ovw .day.off .wd,.ovw .day.off .dn,.ovw .day.off .dr{opacity:.55}
+.ovw .day.pos{border-color:color-mix(in srgb,var(--up) 32%,transparent)}
+.ovw .day.neg{border-color:color-mix(in srgb,var(--down) 30%,transparent)}
+.ovw .day.be{border-color:color-mix(in srgb,var(--be) 26%,transparent)}
+.ovw .day.pos .dr{color:var(--up)} .ovw .day.neg .dr{color:var(--down)} .ovw .day.be .dr{color:var(--be)}
+
+/* двойной бордюр: внешняя оболочка + внутреннее ядро */
+.ovw .shell{border:1px solid var(--line-soft);border-radius:22px;padding:6px;margin-bottom:18px;background:var(--panel-2)}
+.ovw .core{background:var(--card);border:1px solid var(--line-soft);border-radius:17px;padding:26px 30px;
+  box-shadow:var(--shadow)}
+
+/* итог периода */
+.ovw .sum{display:flex;align-items:flex-end;gap:34px;margin-bottom:24px}
+.ovw .sum .lab{font-family:var(--mono);font-size:9px;letter-spacing:.20em;text-transform:uppercase;color:var(--faint)}
+.ovw .sum .big{font-family:var(--mono);font-size:54px;font-weight:400;letter-spacing:-.045em;line-height:1;margin-top:14px}
+.ovw .sum .when{font-size:22px;color:var(--dim);margin-bottom:6px}
+.ovw .sum .right{margin-left:auto;text-align:right}
+.ovw .sum .right .v{font-family:var(--mono);font-size:15px;color:var(--dim)}
+
+/* показатели: только hairline-сетка, никаких карточек внутри карточек */
+.ovw .stats{display:grid;grid-template-columns:repeat(4,1fr);border-top:1px solid var(--line-soft)}
+.ovw .stats .st{padding:14px 18px 13px;border-bottom:1px solid var(--line-soft);border-right:1px solid var(--line-soft)}
+.ovw .stats .st:nth-child(4n){border-right:none}
+.ovw .stats .st:nth-last-child(-n+4){border-bottom:none}
+.ovw .stats .lab{font-family:var(--mono);font-size:9px;letter-spacing:.16em;text-transform:uppercase;color:var(--faint)}
+.ovw .stats .val{font-family:var(--mono);font-size:22px;font-weight:400;letter-spacing:-.03em;margin-top:8px;line-height:1}
+
+/* эквити */
+.ovw .chart{display:grid;grid-template-columns:34px 1fr;gap:10px}
+.ovw .yax{display:flex;flex-direction:column;justify-content:space-between;font-family:var(--mono);font-size:9px;
+  color:var(--faint);text-align:right;padding:2px 0 12px}
+.ovw .xax{display:grid;text-align:center;font-family:var(--mono);font-size:9px;color:var(--faint);
+  margin-left:44px;margin-top:10px}
+.ovw .chart-lab{display:flex;align-items:baseline;gap:14px;margin-bottom:12px}
+.ovw .chart-lab .t{font-family:var(--mono);font-size:9px;letter-spacing:.20em;text-transform:uppercase;color:var(--faint)}
+.ovw .chart-lab .v{font-family:var(--mono);font-size:15px}
+.ovw .chart-lab .dd{margin-left:auto;font-family:var(--mono);font-size:11px;color:var(--faint)}
+.ovw svg{display:block}
+.ovw .ovgrid{stroke:var(--ov-grid);stroke-width:1}
+
+/* колонка-компаньон */
+.ovw .rail{align-self:stretch;display:flex;flex-direction:column;border:1px solid var(--line-soft);
+  border-radius:22px;padding:6px;background:var(--panel-2)}
+.ovw .rail .inner{flex:1;background:var(--card);border:1px solid var(--line-soft);border-radius:17px;
+  padding:22px 22px 20px;display:flex;flex-direction:column;box-shadow:var(--shadow)}
+.ovw .cut{flex:1;display:flex;flex-direction:column}
+.ovw .cut section{flex:1;display:flex;flex-direction:column;min-height:0}
+.ovw .cut section + section{border-top:1px solid var(--line-soft);margin-top:18px;padding-top:18px}
+.ovw .cut section .rows{flex:1;display:flex;flex-direction:column;justify-content:space-between}
+.ovw .cut h3{margin:0 0 10px;padding:0;border:none;font-family:var(--mono);font-size:9px;letter-spacing:.20em;
+  text-transform:uppercase;color:var(--faint);font-weight:400;display:flex;align-items:baseline;background:none}
+.ovw .cut h3 em{margin-left:auto;font-style:normal;letter-spacing:0;text-transform:none;font-size:10px;
+  color:var(--faint);opacity:.7}
+.ovw .bar{display:grid;grid-template-columns:1fr auto;gap:5px 10px;align-items:baseline;padding:7px 0}
+.ovw .bar + .bar{border-top:1px solid var(--line-soft)}
+.ovw .bar .nm{font-size:12.5px;color:var(--dim);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.ovw .bar .qt{font-family:var(--mono);font-size:11.5px;color:var(--faint)}
+.ovw .bar .qt b{color:var(--text);font-weight:400}
+.ovw .bar .ln{grid-column:1 / -1;height:2px;border-radius:2px;background:var(--line-soft);overflow:hidden}
+.ovw .bar .ln i{display:block;height:100%;border-radius:2px;background:var(--dim);
+  transform:scaleX(0);transform-origin:left;transition:transform .9s var(--ease)}
+.ovw .rail.in .bar .ln i{transform:scaleX(1)}
+.ovw .bar.pos .ln i{background:var(--up)} .ovw .bar.neg .ln i{background:var(--down)}
+
+/* тихий вход блоков */
+.ovw .rise{opacity:0;transform:translateY(12px);transition:opacity .7s var(--ease),transform .7s var(--ease)}
+.ovw .rise.in{opacity:1;transform:none}
+@media (prefers-reduced-motion:reduce){
+  .ovw .rise{opacity:1;transform:none;transition:none}
+  .ovw .bar .ln i{transform:scaleX(1);transition:none}
+}
+
+/* экраны пониже: ужимаем, чтобы обзор оставался на одном экране */
+@media (max-height:960px){
+  .ovw .ohead{margin-bottom:18px}
+  .ovw .ohead h1{font-size:28px}
+  .ovw .per button{padding:6px 13px}
+  .ovw .core{padding:20px 24px}
+  .ovw .sum{margin-bottom:18px}
+  .ovw .sum .big{font-size:44px}
+  .ovw .stats .st{padding:11px 16px 10px}
+  .ovw .stats .val{font-size:20px;margin-top:6px}
+  .ovw .shell{margin-bottom:14px}
+  .ovw .week{margin-bottom:12px}
+  .ovw .day{aspect-ratio:1.24;padding:10px 12px;border-radius:12px}
+  .ovw .day .wd{line-height:1.3}
+  .ovw .day .dn{font-size:14px;line-height:1.15}
+  .ovw .day .dr{font-size:16px}
+  .ovw .glow{font-size:54px;filter:blur(1.8px)}
+  .ovw .rail .inner{padding:18px 18px 16px}
+  .ovw .cut section + section{margin-top:14px;padding-top:14px}
+}
+@media (max-height:800px){
+  .ovw .ohead{margin-bottom:14px}
+  .ovw .ohead h1{font-size:25px}
+  .ovw .per{padding:3px}
+  .ovw .per button{padding:5px 11px;font-size:12px}
+  .ovw .core{padding:17px 21px}
+  .ovw .sum{margin-bottom:14px}
+  .ovw .sum .big{font-size:38px;margin-top:10px}
+  .ovw .stats .st{padding:9px 14px 8px}
+  .ovw .stats .val{font-size:18px;margin-top:5px}
+  .ovw .week{margin-bottom:10px}
+  .ovw .days{gap:8px}
+  .ovw .day{aspect-ratio:1.5;padding:6px 8px}
+  .ovw .day .wd{line-height:1.15}
+  .ovw .day .dn{font-size:12px;line-height:1.05;margin-top:1px}
+  .ovw .day .dr{font-size:13px}
+  .ovw .glow{font-size:42px;filter:blur(1.4px)}
+  .ovw .shell{margin-bottom:11px}
+  .ovw .cut section + section{margin-top:12px;padding-top:12px}
+  .ovw .bar{padding:5px 0}
+}
+/* узкий экран — колонка-компаньон уходит под основной поток */
+@media (max-width:1180px){
+  .ovw{grid-template-columns:minmax(0,1fr)}
+  .ovw .rail{margin-top:14px}
+}
+
+
+/* ---- левая панель в языке макета ---- */
+.brand{gap:10px;font-family:var(--sans);font-size:14px;letter-spacing:-.01em;text-transform:none;font-weight:650;padding:0 4px}
+.brand .mark{width:32px;height:32px;border-radius:10px;background:var(--panel-2);border:1px solid var(--line);
+  display:grid;place-items:center;flex:none;color:var(--text)}
+.brand .nm small{display:block;font-family:var(--mono);font-size:9px;letter-spacing:.14em;
+  text-transform:uppercase;color:var(--faint);font-weight:400}
+.newtrade{display:flex;align-items:center;justify-content:center;gap:8px;border-radius:12px}
+:root[data-theme="dark"] .newtrade{background:linear-gradient(180deg,rgba(255,255,255,.10),rgba(255,255,255,.035));
+  border:1px solid var(--line);color:var(--text)}
+:root[data-theme="dark"] .newtrade:hover{filter:none;background:linear-gradient(180deg,rgba(255,255,255,.14),rgba(255,255,255,.06))}
+.nav a{display:flex;align-items:center;gap:10px;padding:9px 11px;border-radius:11px;font-size:13.5px;
+  border:1px solid transparent}
+.nav a.on{box-shadow:none;border-color:var(--line);background:var(--panel-2)}
+.nav .ic{opacity:.45;flex:none}
+.nav a.on .ic{opacity:.9}
+.side .grp{display:flex;flex-direction:column;gap:6px}
+.side .lab{font-family:var(--mono);font-size:9px;letter-spacing:.14em;text-transform:uppercase;
+  color:var(--faint);padding:0 5px}
+.mini{display:flex;align-items:center;gap:9px;padding:7px 10px;border-radius:10px;border:1px solid var(--line-soft);
+  background:var(--panel-2);color:var(--dim);font-size:12.5px;cursor:pointer;transition:.18s;text-align:left}
+.mini:hover{color:var(--text);background:var(--panel-2);border-color:var(--line)}
+.mini .ic{opacity:.5;flex:none}
