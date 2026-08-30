@@ -835,3 +835,11 @@ body:has(.ovw){font-size:14px;line-height:1.6;font-weight:300}
   background:var(--panel-2);color:var(--dim);font-size:12.5px;cursor:pointer;transition:.18s;text-align:left}
 .mini:hover{color:var(--text);background:var(--panel-2);border-color:var(--line)}
 .mini .ic{opacity:.5;flex:none}
+
+/* ---- фирменный знак в сайдбаре ---- */
+:root{ --logo-green:#40e094 }
+.brand .mark .logo{
+  height:19px; width:auto; aspect-ratio:902/1315;   /* знак вытянут из-за фитилей */
+  display:block; color:var(--text);
+}
+.brand .nm i{font-style:normal; color:var(--logo-green)}

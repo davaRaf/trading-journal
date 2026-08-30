@@ -1,0 +1,244 @@
+<!doctype html>
+<html lang="uk">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>StatsAI — дельта и S</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Geist+Mono:wght@400;500&family=Geist:wght@400;500;600;700&display=swap">
+<style>
+:root{
+  --ink:#050505; --surface:#0d0d0e; --surface-2:#141416;
+  --hair:rgba(255,255,255,.08); --hair-soft:rgba(255,255,255,.045);
+  --text:#f2f2f3; --dim:#8c8c90; --faint:#5c5c61;
+  --g:#40e094;
+  --sans:"Geist","Segoe UI",system-ui,sans-serif;
+  --mono:"Geist Mono",ui-monospace,Consolas,monospace;
+  --ease:cubic-bezier(.16,1,.3,1);
+}
+*{box-sizing:border-box}
+body{margin:0; background:var(--ink); color:var(--text); font-family:var(--sans);
+  -webkit-font-smoothing:antialiased}
+.wrap{max-width:1080px; margin:0 auto; padding:clamp(36px,6vw,72px) 24px 100px;
+  display:flex; flex-direction:column; gap:16px}
+header.top{display:flex; flex-direction:column; gap:9px; margin-bottom:12px}
+.eyebrow{font-family:var(--mono); font-size:11px; letter-spacing:.16em;
+  text-transform:uppercase; color:var(--faint)}
+h1{margin:0; font-size:27px; font-weight:600; letter-spacing:-.02em}
+.note{font-size:14.5px; color:var(--dim); max-width:70ch; line-height:1.62}
+.note b{color:var(--text); font-weight:500}
+
+.con{background:var(--surface); border:1px solid var(--hair); border-radius:14px;
+  padding:26px 28px; display:flex; flex-direction:column; gap:20px;
+  transition:border-color .25s var(--ease)}
+.con:hover{border-color:rgba(64,224,148,.32)}
+.con .head{display:flex; align-items:baseline; gap:12px; flex-wrap:wrap}
+.con .num{font-family:var(--mono); font-size:12px; color:var(--g)}
+.con h2{margin:0; font-size:17px; font-weight:600; letter-spacing:-.01em}
+.con .desc{margin:0; font-size:13.5px; color:var(--dim); line-height:1.55; flex:1 1 320px}
+
+.tests{display:flex; flex-wrap:wrap; gap:14px}
+.cell{background:var(--surface-2); border:1px solid var(--hair-soft); border-radius:11px;
+  padding:16px 18px; display:flex; flex-direction:column; gap:11px; justify-content:space-between}
+.cell .k{font-family:var(--mono); font-size:9.5px; letter-spacing:.13em;
+  text-transform:uppercase; color:var(--faint)}
+.cell .body{display:flex; align-items:flex-end; gap:14px; min-height:60px}
+
+.mk{display:block; color:var(--text)}
+.mk.s56{width:56px; height:56px}
+.mk.s32{width:32px; height:32px}
+.mk.s24{width:24px; height:24px}
+.mk.s16{width:16px; height:16px}
+
+.onecolor{--g:currentColor}
+.cell.light{background:#f4f5f2; border-color:rgba(0,0,0,.08)}
+.cell.light .k{color:#7b8280}
+.cell.light .mk{color:#0d0f0e}
+.lock{display:flex; align-items:center; gap:11px}
+.lock .word{font-size:23px; font-weight:600; letter-spacing:-.025em; line-height:1}
+.lock .word i{font-style:normal; color:var(--g)}
+.cell.light .lock .word{color:#0d0f0e}
+@media (max-width:560px){ .cell{flex:1 1 100%} }
+</style>
+</head>
+<body>
+
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+<defs>
+
+  <!-- 1. S внутри дельты -->
+  <symbol id="d1" viewBox="0 0 48 48">
+    <path d="M24 6L42 42H6L24 6Z" stroke="currentColor" stroke-width="3.2"
+          stroke-linejoin="round" fill="none"/>
+    <path d="M29.5 25.5C29.5 22 18.5 22 18.5 26.5C18.5 30 29.5 30.5 29.5 34.5C29.5 38.5 18.5 38.5 18.5 35"
+          stroke="var(--g)" stroke-width="3.4" stroke-linecap="round" fill="none"/>
+  </symbol>
+
+  <!-- 2. S прорезана насквозь -->
+  <symbol id="d2" viewBox="0 0 48 48">
+    <mask id="d2m">
+      <path d="M24 6L42 42H6L24 6Z" fill="#fff"/>
+      <path d="M29.5 25.5C29.5 22 18.5 22 18.5 26.5C18.5 30 29.5 30.5 29.5 34.5C29.5 38.5 18.5 38.5 18.5 35"
+            stroke="#000" stroke-width="3.8" stroke-linecap="round" fill="none"/>
+    </mask>
+    <path d="M24 6L42 42H6L24 6Z" fill="var(--g)" mask="url(#d2m)"/>
+  </symbol>
+
+  <!-- 3. Свеча-дельта: треугольник это тело свечи, сверху и снизу фитили, внутри прорезана S -->
+  <symbol id="d3" viewBox="0 0 48 48">
+    <mask id="d3m">
+      <path d="M24 11L40 38H8L24 11Z" fill="#fff"/>
+      <path d="M28.5 25C28.5 22 19.5 22 19.5 25.8C19.5 28.6 28.5 29 28.5 32.2C28.5 35.4 19.5 35.4 19.5 32.6"
+            stroke="#000" stroke-width="3.2" stroke-linecap="round" fill="none"/>
+    </mask>
+    <path d="M24 11L40 38H8L24 11Z" fill="var(--g)" mask="url(#d3m)"/>
+    <path d="M24 3V11M24 38V45" stroke="currentColor" stroke-width="3" stroke-linecap="round"/>
+  </symbol>
+
+  <!-- 4. S держит левую грань, свеча — правую -->
+  <symbol id="d4" viewBox="0 0 48 48">
+    <path d="M24 7C18 17 27 26 8 41H36" stroke="currentColor" stroke-width="3.2"
+          stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+    <path d="M36.5 12V18M36.5 35V41" stroke="var(--g)" stroke-width="2.6" stroke-linecap="round"/>
+    <rect x="33" y="18" width="7" height="17" rx="2" fill="var(--g)"/>
+  </symbol>
+
+  <!-- 5. Гранёная S: та же буква, но прямыми отрезками — как ступени графика -->
+  <symbol id="d5" viewBox="0 0 48 48">
+    <path d="M24 6L42 42H6L24 6Z" stroke="currentColor" stroke-width="3.2"
+          stroke-linejoin="round" fill="none"/>
+    <path d="M30 24H19L30 31H19" stroke="var(--g)" stroke-width="3.4"
+          stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+  </symbol>
+
+  <!-- 6. Дельта, S и свеча вместе -->
+  <symbol id="d6" viewBox="0 0 48 48">
+    <path d="M24 6L42 42H6L24 6Z" stroke="currentColor" stroke-width="3"
+          stroke-linejoin="round" fill="none"/>
+    <path d="M30 25C30 22 19 22 19 26C19 30 30 30 30 34C30 38 19 38 19 34.5"
+          stroke="currentColor" stroke-width="2.8" stroke-linecap="round" fill="none" opacity=".55"/>
+    <path d="M24 19V23M24 37V41" stroke="var(--g)" stroke-width="2.4" stroke-linecap="round"/>
+    <rect x="21" y="23" width="6" height="14" rx="2" fill="var(--g)"/>
+  </symbol>
+
+</defs>
+</svg>
+
+<div class="wrap">
+
+  <header class="top">
+    <div class="eyebrow">StatsAI · дельта + S + свеча</div>
+    <h1>Шесть способов соединить</h1>
+    <p class="note">Задача непростая: три смысла в одном знаке. Главная ловушка —
+      набить треугольник деталями, и на 16 пикселях всё слипнется. Поэтому здесь есть
+      варианты <b>слитные</b>, где формы делят между собой линии, и <b>наложенные</b>,
+      где элементы просто стоят рядом. Проверки те же: лесенка размеров, локап,
+      светлый фон и один цвет.</p>
+  </header>
+
+  <article class="con">
+    <div class="head"><span class="num">Д1</span><h2>S внутри дельты</h2>
+      <p class="desc">Самое прямое решение: контур треугольника и зелёная S внутри. Читается сразу, спорить нечему.</p></div>
+    <div class="tests">
+      <div class="cell"><span class="k">Размеры</span><div class="body">
+        <svg class="mk s56"><use href="#d1"/></svg><svg class="mk s32"><use href="#d1"/></svg>
+        <svg class="mk s24"><use href="#d1"/></svg><svg class="mk s16"><use href="#d1"/></svg></div></div>
+      <div class="cell"><span class="k">Локап</span><div class="body"><div class="lock">
+        <svg class="mk s32"><use href="#d1"/></svg><span class="word">Stats<i>AI</i></span></div></div></div>
+      <div class="cell light"><span class="k">На светлом</span><div class="body">
+        <svg class="mk s56"><use href="#d1"/></svg>
+        <div class="lock"><span class="word">Stats<i>AI</i></span></div></div></div>
+      <div class="cell"><span class="k">Один цвет</span><div class="body onecolor">
+        <svg class="mk s56"><use href="#d1"/></svg><svg class="mk s16"><use href="#d1"/></svg></div></div>
+    </div>
+  </article>
+
+  <article class="con">
+    <div class="head"><span class="num">Д2</span><h2>S прорезана насквозь</h2>
+      <p class="desc">Дельта залита зелёным, буква вырезана — сквозь неё видно фон. Плотное пятно, отлично держится в мелком размере.</p></div>
+    <div class="tests">
+      <div class="cell"><span class="k">Размеры</span><div class="body">
+        <svg class="mk s56"><use href="#d2"/></svg><svg class="mk s32"><use href="#d2"/></svg>
+        <svg class="mk s24"><use href="#d2"/></svg><svg class="mk s16"><use href="#d2"/></svg></div></div>
+      <div class="cell"><span class="k">Локап</span><div class="body"><div class="lock">
+        <svg class="mk s32"><use href="#d2"/></svg><span class="word">Stats<i>AI</i></span></div></div></div>
+      <div class="cell light"><span class="k">На светлом</span><div class="body">
+        <svg class="mk s56"><use href="#d2"/></svg>
+        <div class="lock"><span class="word">Stats<i>AI</i></span></div></div></div>
+      <div class="cell"><span class="k">Один цвет</span><div class="body onecolor">
+        <svg class="mk s56"><use href="#d2"/></svg><svg class="mk s16"><use href="#d2"/></svg></div></div>
+    </div>
+  </article>
+
+  <article class="con">
+    <div class="head"><span class="num">Д3</span><h2>Свеча-дельта</h2>
+      <p class="desc">Треугольник сам стал телом свечи: сверху и снизу фитили, внутри прорезана S. Все три смысла в одной форме, ничего лишнего не приклеено.</p></div>
+    <div class="tests">
+      <div class="cell"><span class="k">Размеры</span><div class="body">
+        <svg class="mk s56"><use href="#d3"/></svg><svg class="mk s32"><use href="#d3"/></svg>
+        <svg class="mk s24"><use href="#d3"/></svg><svg class="mk s16"><use href="#d3"/></svg></div></div>
+      <div class="cell"><span class="k">Локап</span><div class="body"><div class="lock">
+        <svg class="mk s32"><use href="#d3"/></svg><span class="word">Stats<i>AI</i></span></div></div></div>
+      <div class="cell light"><span class="k">На светлом</span><div class="body">
+        <svg class="mk s56"><use href="#d3"/></svg>
+        <div class="lock"><span class="word">Stats<i>AI</i></span></div></div></div>
+      <div class="cell"><span class="k">Один цвет</span><div class="body onecolor">
+        <svg class="mk s56"><use href="#d3"/></svg><svg class="mk s16"><use href="#d3"/></svg></div></div>
+    </div>
+  </article>
+
+  <article class="con">
+    <div class="head"><span class="num">Д4</span><h2>S держит грань</h2>
+      <p class="desc">Левая сторона треугольника изогнута как S, правую держит зелёная свеча. Самый необычный — и самый спорный.</p></div>
+    <div class="tests">
+      <div class="cell"><span class="k">Размеры</span><div class="body">
+        <svg class="mk s56"><use href="#d4"/></svg><svg class="mk s32"><use href="#d4"/></svg>
+        <svg class="mk s24"><use href="#d4"/></svg><svg class="mk s16"><use href="#d4"/></svg></div></div>
+      <div class="cell"><span class="k">Локап</span><div class="body"><div class="lock">
+        <svg class="mk s32"><use href="#d4"/></svg><span class="word">Stats<i>AI</i></span></div></div></div>
+      <div class="cell light"><span class="k">На светлом</span><div class="body">
+        <svg class="mk s56"><use href="#d4"/></svg>
+        <div class="lock"><span class="word">Stats<i>AI</i></span></div></div></div>
+      <div class="cell"><span class="k">Один цвет</span><div class="body onecolor">
+        <svg class="mk s56"><use href="#d4"/></svg><svg class="mk s16"><use href="#d4"/></svg></div></div>
+    </div>
+  </article>
+
+  <article class="con">
+    <div class="head"><span class="num">Д5</span><h2>Гранёная S</h2>
+      <p class="desc">Та же буква, но собрана из прямых отрезков — как ступени на графике. Держит геометрию треугольника.</p></div>
+    <div class="tests">
+      <div class="cell"><span class="k">Размеры</span><div class="body">
+        <svg class="mk s56"><use href="#d5"/></svg><svg class="mk s32"><use href="#d5"/></svg>
+        <svg class="mk s24"><use href="#d5"/></svg><svg class="mk s16"><use href="#d5"/></svg></div></div>
+      <div class="cell"><span class="k">Локап</span><div class="body"><div class="lock">
+        <svg class="mk s32"><use href="#d5"/></svg><span class="word">Stats<i>AI</i></span></div></div></div>
+      <div class="cell light"><span class="k">На светлом</span><div class="body">
+        <svg class="mk s56"><use href="#d5"/></svg>
+        <div class="lock"><span class="word">Stats<i>AI</i></span></div></div></div>
+      <div class="cell"><span class="k">Один цвет</span><div class="body onecolor">
+        <svg class="mk s56"><use href="#d5"/></svg><svg class="mk s16"><use href="#d5"/></svg></div></div>
+    </div>
+  </article>
+
+  <article class="con">
+    <div class="head"><span class="num">Д6</span><h2>Дельта, S и свеча</h2>
+      <p class="desc">Все три элемента по отдельности: контур, приглушённая S фоном и зелёная свеча поверх. Честно, но плотно — смотри, не слипается ли мелко.</p></div>
+    <div class="tests">
+      <div class="cell"><span class="k">Размеры</span><div class="body">
+        <svg class="mk s56"><use href="#d6"/></svg><svg class="mk s32"><use href="#d6"/></svg>
+        <svg class="mk s24"><use href="#d6"/></svg><svg class="mk s16"><use href="#d6"/></svg></div></div>
+      <div class="cell"><span class="k">Локап</span><div class="body"><div class="lock">
+        <svg class="mk s32"><use href="#d6"/></svg><span class="word">Stats<i>AI</i></span></div></div></div>
+      <div class="cell light"><span class="k">На светлом</span><div class="body">
+        <svg class="mk s56"><use href="#d6"/></svg>
+        <div class="lock"><span class="word">Stats<i>AI</i></span></div></div></div>
+      <div class="cell"><span class="k">Один цвет</span><div class="body onecolor">
+        <svg class="mk s56"><use href="#d6"/></svg><svg class="mk s16"><use href="#d6"/></svg></div></div>
+    </div>
+  </article>
+
+</div>
+</body>
+</html>

@@ -1,0 +1,199 @@
+<!doctype html>
+<html lang="uk">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>StatsAI — знак</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Geist+Mono:wght@400;500&family=Geist:wght@400;500;600;700&display=swap">
+<style>
+:root{
+  --ink:#050505; --surface:#0d0d0e; --surface-2:#141416;
+  --hair:rgba(255,255,255,.08); --hair-soft:rgba(255,255,255,.045);
+  --text:#f2f2f3; --dim:#8c8c90; --faint:#5c5c61;
+  --g:#40e094;
+  --sans:"Geist","Segoe UI",system-ui,sans-serif;
+  --mono:"Geist Mono",ui-monospace,Consolas,monospace;
+  --ease:cubic-bezier(.16,1,.3,1);
+}
+*{box-sizing:border-box}
+body{margin:0; background:var(--ink); color:var(--text); font-family:var(--sans);
+  -webkit-font-smoothing:antialiased}
+.wrap{max-width:1040px; margin:0 auto; padding:clamp(36px,6vw,72px) 24px 100px;
+  display:flex; flex-direction:column; gap:16px}
+header.top{display:flex; flex-direction:column; gap:9px; margin-bottom:10px}
+.eyebrow{font-family:var(--mono); font-size:11px; letter-spacing:.16em;
+  text-transform:uppercase; color:var(--faint)}
+h1{margin:0; font-size:27px; font-weight:600; letter-spacing:-.02em}
+.note{font-size:14.5px; color:var(--dim); max-width:70ch; line-height:1.62}
+.note b{color:var(--text); font-weight:500}
+
+.block{background:var(--surface); border:1px solid var(--hair); border-radius:14px;
+  padding:26px 28px; display:flex; flex-direction:column; gap:18px}
+.block h2{margin:0; font-size:16px; font-weight:600; letter-spacing:-.01em}
+.block .sub{margin:0; font-size:13.5px; color:var(--dim); line-height:1.55; max-width:66ch}
+
+.row{display:flex; flex-wrap:wrap; gap:14px}
+.cell{background:var(--surface-2); border:1px solid var(--hair-soft); border-radius:11px;
+  padding:16px 18px; display:flex; flex-direction:column; gap:12px; justify-content:space-between}
+.cell .k{font-family:var(--mono); font-size:9.5px; letter-spacing:.13em;
+  text-transform:uppercase; color:var(--faint)}
+.cell .body{display:flex; align-items:flex-end; gap:16px; min-height:66px}
+.cell.light{background:#f4f5f2; border-color:rgba(0,0,0,.08)}
+.cell.light .k{color:#7b8280}
+.cell.light .mk{color:#0d0f0e}
+.cell.light .word{color:#0d0f0e}
+
+.mk{display:block; color:var(--text)}
+.s72{width:72px;height:72px}.s56{width:56px;height:56px}.s40{width:40px;height:40px}
+.s32{width:32px;height:32px}.s24{width:24px;height:24px}.s20{width:20px;height:20px}
+.s16{width:16px;height:16px}
+.onecolor{--g:currentColor}
+
+.lock{display:flex; align-items:center; gap:12px}
+.lock.stack{flex-direction:column; gap:8px}
+.word{font-size:26px; font-weight:600; letter-spacing:-.028em; line-height:1}
+.word.sm{font-size:19px}
+.word i{font-style:normal; color:var(--g)}
+
+/* иконка приложения */
+.appicon{width:88px; height:88px; border-radius:20px; background:#0a0a0b;
+  display:grid; place-items:center; border:1px solid var(--hair)}
+.appicon.lightbg{background:#f4f5f2}
+.appicon.lightbg .mk{color:#0d0f0e}
+.appicon.green{background:var(--g)}
+.appicon.green .mk{color:#062015; --g:#062015}
+
+.tag{font-family:var(--mono); font-size:10px; letter-spacing:.1em; text-transform:uppercase;
+  color:var(--faint); text-align:center}
+
+code{font-family:var(--mono); font-size:12.5px; color:var(--g);
+  background:rgba(64,224,148,.08); padding:2px 6px; border-radius:5px}
+@media (max-width:560px){ .cell{flex:1 1 100%} }
+</style>
+</head>
+<body>
+
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+<defs>
+
+  <!-- ПОЛНЫЙ ЗНАК: дельта-свеча с фитилями, внутри прорезана S.
+       Для 24 пикселей и крупнее. -->
+  <symbol id="full" viewBox="0 0 48 48">
+    <mask id="fullm">
+      <path d="M24 10L39 37H9L24 10Z" fill="#fff"/>
+      <path d="M28.5 25.5C28.5 23 20 23 20 26C20 29 28.5 29 28.5 32C28.5 35 20 35 20 32.5"
+            stroke="#000" stroke-width="3.2" stroke-linecap="round" fill="none"/>
+    </mask>
+    <path d="M24 3V10M24 37V44" stroke="currentColor" stroke-width="3" stroke-linecap="round"/>
+    <path d="M24 10L39 37H9L24 10Z" fill="var(--g)" mask="url(#fullm)"/>
+  </symbol>
+
+  <!-- КОМПАКТНЫЙ ЗНАК: та же дельта без фитилей, крупнее в поле,
+       вырез толще. Для 16 пикселей и фавиконки. -->
+  <symbol id="mini" viewBox="0 0 48 48">
+    <mask id="minim">
+      <path d="M24 5L43 43H5L24 5Z" fill="#fff"/>
+      <path d="M30 26C30 22.6 19 22.6 19 26.6C19 30.6 30 30.6 30 34.4C30 38.2 19 38.2 19 35"
+            stroke="#000" stroke-width="4.4" stroke-linecap="round" fill="none"/>
+    </mask>
+    <path d="M24 5L43 43H5L24 5Z" fill="var(--g)" mask="url(#minim)"/>
+  </symbol>
+
+</defs>
+</svg>
+
+<div class="wrap">
+
+  <header class="top">
+    <div class="eyebrow">StatsAI · фирменный знак</div>
+    <h1>Дельта с прорезанной S</h1>
+    <p class="note">Треугольник работает сразу на три смысла: <b>дельта</b> — изменение на языке
+      трейдера, <b>тело свечи</b> с фитилями сверху и снизу, и <b>S</b> из названия, прорезанная
+      насквозь. Ничего не приклеено сбоку — формы делят одну фигуру.
+      Знак живёт в двух версиях: полной и компактной.</p>
+  </header>
+
+  <!-- ---------- две версии ---------- -->
+  <section class="block">
+    <h2>Две версии одного знака</h2>
+    <p class="sub">Фитили — то, что делает треугольник свечой. Но на 16 пикселях тонкая линия
+      исчезает и остаётся мусорная точка. Поэтому мелкие размеры получают версию без фитилей,
+      с более крупным треугольником и толстым вырезом. Это не два логотипа, а один в двух
+      исполнениях — так делают все.</p>
+    <div class="row">
+      <div class="cell"><span class="k">Полный · от 24 px</span><div class="body">
+        <svg class="mk s72"><use href="#full"/></svg>
+        <svg class="mk s40"><use href="#full"/></svg>
+        <svg class="mk s24"><use href="#full"/></svg></div></div>
+      <div class="cell"><span class="k">Компактный · до 24 px</span><div class="body">
+        <svg class="mk s72"><use href="#mini"/></svg>
+        <svg class="mk s24"><use href="#mini"/></svg>
+        <svg class="mk s20"><use href="#mini"/></svg>
+        <svg class="mk s16"><use href="#mini"/></svg></div></div>
+    </div>
+  </section>
+
+  <!-- ---------- локапы ---------- -->
+  <section class="block">
+    <h2>Знак и название</h2>
+    <p class="sub">В строку — для шапки сайта и приложения. В столбик — для экрана входа,
+      писем и обложек. Слово всегда <code>Stats</code> обычным начертанием и зелёное
+      <code>AI</code>: название само показывает, что внутри ИИ.</p>
+    <div class="row">
+      <div class="cell"><span class="k">В строку</span><div class="body">
+        <div class="lock"><svg class="mk s40"><use href="#full"/></svg>
+          <span class="word">Stats<i>AI</i></span></div></div></div>
+      <div class="cell"><span class="k">В столбик</span><div class="body">
+        <div class="lock stack"><svg class="mk s56"><use href="#full"/></svg>
+          <span class="word sm">Stats<i>AI</i></span></div></div></div>
+      <div class="cell light"><span class="k">На светлом</span><div class="body">
+        <div class="lock"><svg class="mk s40"><use href="#full"/></svg>
+          <span class="word">Stats<i>AI</i></span></div></div></div>
+    </div>
+  </section>
+
+  <!-- ---------- иконка приложения ---------- -->
+  <section class="block">
+    <h2>Иконка приложения</h2>
+    <p class="sub">Три заливки на выбор: чёрная — основная, светлая — для светлой темы системы,
+      зелёная — самая заметная в списке приложений.</p>
+    <div class="row">
+      <div class="cell"><span class="k">Варианты</span><div class="body" style="gap:20px">
+        <div><div class="appicon"><svg class="mk s56"><use href="#mini"/></svg></div>
+          <div class="tag" style="margin-top:8px">чёрная</div></div>
+        <div><div class="appicon lightbg"><svg class="mk s56"><use href="#mini"/></svg></div>
+          <div class="tag" style="margin-top:8px">светлая</div></div>
+        <div><div class="appicon green"><svg class="mk s56"><use href="#mini"/></svg></div>
+          <div class="tag" style="margin-top:8px">зелёная</div></div>
+      </div></div>
+    </div>
+  </section>
+
+  <!-- ---------- проверки ---------- -->
+  <section class="block">
+    <h2>Проверки</h2>
+    <p class="sub">Знак, который не проходит эти три, рано или поздно подведёт: его нельзя будет
+      напечатать, выгравировать или отдать в чужой каталог.</p>
+    <div class="row">
+      <div class="cell"><span class="k">Один цвет</span><div class="body onecolor">
+        <svg class="mk s56"><use href="#full"/></svg>
+        <svg class="mk s24"><use href="#full"/></svg>
+        <svg class="mk s16"><use href="#mini"/></svg></div></div>
+      <div class="cell light"><span class="k">Один цвет на светлом</span><div class="body onecolor">
+        <svg class="mk s56"><use href="#full"/></svg>
+        <svg class="mk s24"><use href="#full"/></svg>
+        <svg class="mk s16"><use href="#mini"/></svg></div></div>
+      <div class="cell"><span class="k">Фавиконка в браузере</span><div class="body">
+        <div style="display:flex;align-items:center;gap:8px;background:#1c1c1f;
+                    border:1px solid var(--hair);border-radius:8px 8px 0 0;padding:7px 12px">
+          <svg class="mk s16"><use href="#mini"/></svg>
+          <span style="font-size:12px;color:var(--dim)">StatsAI — вхід</span>
+        </div></div></div>
+    </div>
+  </section>
+
+</div>
+</body>
+</html>

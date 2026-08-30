@@ -1,0 +1,1085 @@
+<!doctype html>
+<html lang="ru" data-pal="night" data-card="accent">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>StatsAI — вход</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg%20version%3D%221.1%22%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%22573%20366%20902%201315%22%3E%20%3Cpath%20transform%3D%22translate%280%2C0%29%22%20fill%3D%22rgb%2864%2C224%2C148%29%22%20d%3D%22M%201007.73%20417.867%20C%201012.96%20407.472%201022.43%20403.074%201033.28%20408.302%20C%201044.26%20413.587%201041.3%20436.645%201041.28%20447.276%20L%201041.16%20500.837%20C%201041.03%20559.942%201042.37%20622.699%201040.98%20681.397%20C%201041.86%20686.293%201067.84%20728.571%201072.19%20736.023%20L%201174.17%20909.911%20L%201090.84%20909.91%20C%201043.39%20909.921%201001.55%20904.752%20964.567%20941.347%20C%20943.67%20962.177%20931.992%20990.513%20932.146%201020.02%20C%20932.11%201049.34%20943.509%201078.75%20964.485%201099.42%20C%20980.427%201114.93%201000.76%201125.16%201022.72%201128.71%20C%201042.29%201131.77%201078.91%201127.86%201092.5%201131.48%20C%201105.78%201135.12%201114.96%201147.22%201114.88%201160.99%20C%201114.77%201199.93%201067.21%201191.64%201040.77%201191.58%20L%20946.808%201191.77%20C%20921.351%201165.65%20896.502%201138.93%20872.279%201111.66%20C%20860.111%201130.48%20848.698%201150.33%20837.098%201169.56%20C%20816.464%201203.51%20796.056%201237.59%20775.874%201271.81%20L%20993.674%201271.93%20L%201055.86%201271.88%20C%201100.21%201271.8%201134.64%201273.2%201168.73%201238.91%20C%201189.33%201217.81%201200.69%201189.37%201200.29%201159.89%20C%201200.15%201130.6%201190.28%201103.4%201169.26%201082.6%20C%201152.78%201066.48%201131.7%201055.89%201108.92%201052.3%20C%201086.87%201048.86%201057.05%201054.56%201036.53%201048.43%20C%201010.67%201040.71%201012.03%20992.508%201043.02%20990.261%20C%201063.65%20988.886%201084.63%20989.833%201105.32%20989.979%20L%201220.58%20989.922%20L%201434.91%201357.49%20L%201158.98%201357.8%20L%201079.96%201357.75%20C%201071.4%201357.73%201049.21%201357.11%201041.3%201358%20L%201041.14%201538.09%20L%201041.3%201594.17%20C%201041.34%201604.03%201041.86%201615.95%201041.16%201625.6%20C%201039.85%201643.54%201015.04%201647.32%201007.77%201629.23%20C%201006.7%201623.59%201007.04%201606.7%201007.06%201600.06%20L%201007.17%201551.24%20L%201007.07%201357.74%20L%20612.894%201357.86%20C%20654.064%201291.27%20693.944%201219.52%20733.687%201151.66%20L%201007.18%20683.395%20C%201006.3%20626.487%201007.22%20567.336%201007.12%20510.216%20L%201007.01%20452.565%20C%201006.99%20442.982%201006.55%20426.917%201007.73%20417.867%20z%22%2F%3E%20%3Cpath%20transform%3D%22translate%280%2C0%29%22%20fill%3D%22%23f2f2f3%22%20d%3D%22M%201007.77%201358.05%20L%201041.3%201358%20L%201041.14%201538.09%20L%201041.3%201594.17%20C%201041.34%201604.03%201041.86%201615.95%201041.16%201625.6%20C%201039.85%201643.54%201015.04%201647.32%201007.77%201629.23%20C%201009.05%201603.41%201007.95%201565.83%201007.96%201539.15%20L%201007.77%201358.05%20z%22%2F%3E%20%3Cpath%20transform%3D%22translate%280%2C0%29%22%20fill%3D%22%23f2f2f3%22%20d%3D%22M%201007.73%20417.867%20C%201012.96%20407.472%201022.43%20403.074%201033.28%20408.302%20C%201044.26%20413.587%201041.3%20436.645%201041.28%20447.276%20L%201041.16%20500.837%20C%201041.03%20559.942%201042.37%20622.699%201040.98%20681.397%20C%201035.71%20674.277%201029.82%20662.763%201024.31%20654.534%20C%201018.61%20663.506%201013.14%20672.625%201007.92%20681.882%20C%201007.27%20653.296%201008.22%20624.592%201008%20596%20C%201007.55%20536.664%201008.45%20477.184%201007.73%20417.867%20z%22%2F%3E%20%3C%2Fsvg%3E">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Geist+Mono:wght@400;500&family=Geist:wght@400;500;600&display=swap">
+<!-- шрифт цитаты: PT Serif курсив (рисовался под кириллицу) -->
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=PT+Serif:ital,wght@1,400&display=swap">
+<style>
+/* ============================================================
+   Экран входа StatsAI.
+   Четыре фоновые анимации × четыре палитры — всё рисуется кодом.
+   Цвета анимации берутся из этих же CSS-переменных, так что
+   смена палитры перекрашивает и фон, и форму разом.
+   ============================================================ */
+
+:root{
+  --sans:"Geist","Segoe UI",system-ui,sans-serif;
+  --mono:"Geist Mono",ui-monospace,Consolas,monospace;
+  --ease:cubic-bezier(.16,1,.3,1);
+}
+
+/* ---- 1. Ночь: почти чёрный, как в макете журнала ---- */
+:root[data-pal="night"]{
+  --canvas:5,5,5;
+  --surface:#0d0d0e;   --surface-2:#111112;  --surface-3:#161617;
+  --hair:rgba(255,255,255,.08);  --hair-soft:rgba(255,255,255,.045);
+  --text:#f2f2f3;  --dim:#8c8c90;  --faint:#5c5c61;
+  --pos-rgb:64,224,148;  --neg-rgb:255,110,96;  --grid-rgb:255,255,255;
+  --btn-bg:#f2f2f3;  --btn-fg:#0d0d0e;
+  --veil-mid:.92; --veil-edge:.72;
+  --amp:2.6; --glow:1;   --on-accent:#06130d;
+}
+
+/* ---- 2. Сумерки: глубокий сине-зелёный. Тёмный, но не чёрный ---- */
+:root[data-pal="dusk"]{
+  --canvas:16,26,30;
+  --surface:#18262b;   --surface-2:#1d2d33;  --surface-3:#23353c;
+  --hair:rgba(190,225,225,.11);  --hair-soft:rgba(190,225,225,.06);
+  --text:#e8f0f0;  --dim:#96aaad;  --faint:#69807f;
+  --pos-rgb:120,206,164;  --neg-rgb:214,140,122;  --grid-rgb:200,235,235;
+  --btn-bg:#e8f0f0;  --btn-fg:#16242a;
+  --veil-mid:.90; --veil-edge:.66;
+  --amp:1.7; --glow:.55; --on-accent:#08150f;
+}
+
+/* ---- 3. Дымка: средний серо-голубой, заметно светлее ---- */
+:root[data-pal="haze"]{
+  --canvas:42,50,56;
+  --surface:#39434a;   --surface-2:#414c54;  --surface-3:#4b5760;
+  --hair:rgba(255,255,255,.13);  --hair-soft:rgba(255,255,255,.07);
+  --text:#f0f3f5;  --dim:#b3bcc4;  --faint:#8b959d;
+  --pos-rgb:150,196,168;  --neg-rgb:206,158,144;  --grid-rgb:255,255,255;
+  --btn-bg:#f2f5f7;  --btn-fg:#2a3238;
+  --veil-mid:.86; --veil-edge:.58;
+  --amp:1.2; --glow:.25; --on-accent:#0b1a12;
+}
+
+/* ---- 4. Утро: светлая тема, карточка тоже светлая ---- */
+:root[data-pal="morning"]{
+  --canvas:238,238,234;
+  --surface:#ffffff;   --surface-2:#f4f4f1;  --surface-3:#dbdfd9;
+  --hair:rgba(30,35,35,.13);  --hair-soft:rgba(30,35,35,.07);
+  --text:#1b2220;  --dim:#5f6a67;  --faint:#8b948f;
+  --pos-rgb:74,128,99;  --neg-rgb:166,94,78;  --grid-rgb:40,50,48;
+  --btn-bg:#1b2220;  --btn-fg:#f4f4f1;
+  --veil-mid:.80; --veil-edge:.46;
+  --amp:2.3; --glow:0;   --on-accent:#f4f7f4;
+}
+
+*{box-sizing:border-box}
+html,body{height:100%}
+body{
+  margin:0; background:rgb(var(--canvas)); color:var(--text);
+  font-family:var(--sans); -webkit-font-smoothing:antialiased; overflow:hidden;
+  transition:background .5s var(--ease), color .5s var(--ease);
+}
+
+#bg{position:fixed; inset:0; width:100%; height:100%; display:block}
+
+/* затемнение к центру, чтобы форма читалась поверх любого фона */
+.veil{
+  position:fixed; inset:0; pointer-events:none;
+  background:
+    radial-gradient(ellipse 46% 52% at 50% 50%,
+      rgba(var(--canvas),var(--veil-mid)) 0%,
+      rgba(var(--canvas),var(--veil-edge)) 45%,
+      rgba(var(--canvas),0) 78%),
+    linear-gradient(to bottom,
+      rgba(var(--canvas),.5) 0%, rgba(var(--canvas),0) 22%,
+      rgba(var(--canvas),0) 76%, rgba(var(--canvas),.66) 100%);
+  transition:background .5s var(--ease);
+}
+
+/* ---------- карточка ---------- */
+.stage{
+  position:relative; height:100%; overflow-y:auto;
+  display:flex; flex-direction:column; align-items:center;
+  justify-content:center;
+  justify-content:safe center;   /* при нехватке места не срезает верх */
+  gap:clamp(20px,3.4vh,34px); padding:40px 24px;
+  transition:padding-bottom .35s var(--ease);
+}
+.card{
+  position:relative; width:100%; max-width:380px;
+  background:color-mix(in srgb, var(--surface) 88%, transparent);
+  border:1px solid var(--hair); border-radius:14px;
+  padding:34px 32px 28px;
+  backdrop-filter:blur(14px) saturate(115%);
+  box-shadow:0 40px 90px -22px rgba(0,0,0,.55);
+  transition:background .5s var(--ease), border-color .5s var(--ease);
+}
+.brand{display:flex; align-items:baseline; gap:9px; margin-bottom:26px}
+/* знак вытянут по вертикали из-за фитилей — размер задаём по высоте */
+.brand .logo{height:30px; width:auto; aspect-ratio:902/1315; display:block;
+  color:var(--text); flex:0 0 auto}
+.brand .mark{font-family:var(--mono); font-size:19px; font-weight:500; letter-spacing:-.02em}
+.brand .mark i{font-style:normal; color:rgb(var(--pos-rgb))}
+.brand .sub{font-family:var(--mono); font-size:10px; letter-spacing:.16em;
+  text-transform:uppercase; color:var(--faint)}
+
+.tabs{display:flex; gap:2px; padding:3px; background:var(--surface-2);
+  border:1px solid var(--hair-soft); border-radius:9px; margin-bottom:22px}
+.tabs button{
+  flex:1; border:0; background:transparent; color:var(--dim); font:inherit;
+  font-size:13px; padding:8px 0; border-radius:7px; cursor:pointer;
+  transition:background .25s var(--ease), color .25s var(--ease);
+}
+.tabs button.on{background:var(--surface-3); color:var(--text); box-shadow:inset 0 0 0 1px var(--hair)}
+.tabs button:focus-visible{outline:1px solid rgb(var(--pos-rgb)); outline-offset:1px}
+
+.field{display:flex; flex-direction:column; gap:6px; margin-bottom:14px}
+.field[hidden]{display:none}
+.field label{font-family:var(--mono); font-size:10px; letter-spacing:.12em;
+  text-transform:uppercase; color:var(--faint)}
+.field input{
+  background:var(--surface-2); border:1px solid var(--hair-soft); border-radius:9px;
+  padding:11px 13px; color:var(--text); font:inherit; font-size:14px;
+  transition:border-color .2s var(--ease), background .5s var(--ease);
+}
+.field input::placeholder{color:var(--faint)}
+.field input:focus{outline:none; border-color:rgb(var(--pos-rgb))}
+
+.go{
+  width:100%; margin-top:8px; padding:12px 0; border:0; border-radius:9px;
+  background:var(--btn-bg); color:var(--btn-fg); font:inherit; font-size:14px;
+  font-weight:500; cursor:pointer; transition:opacity .2s var(--ease);
+}
+.go:hover{opacity:.88}
+.go:focus-visible{outline:2px solid rgb(var(--pos-rgb)); outline-offset:2px}
+
+.alt{margin-top:16px; text-align:center; font-size:12.5px; color:var(--faint)}
+.alt a{color:var(--dim); text-decoration:none; border-bottom:1px solid var(--hair)}
+.alt a:hover{color:var(--text)}
+
+/* ---------- кнопка: покой → загрузка → успех ---------- */
+.go{position:relative; overflow:hidden}
+.go .lbl{transition:opacity .2s var(--ease), transform .25s var(--ease); display:inline-block}
+.go .spin, .go .tick{
+  position:absolute; left:50%; top:50%; transform:translate(-50%,-50%) scale(.7);
+  opacity:0; transition:opacity .2s var(--ease), transform .3s var(--ease);
+}
+.go .spin{
+  width:16px; height:16px; border-radius:50%;
+  border:2px solid color-mix(in srgb, var(--on-accent) 30%, transparent);
+  border-top-color:var(--on-accent);
+}
+.go .tick{width:22px; height:22px; fill:none; stroke:var(--on-accent);
+  stroke-width:2.4; stroke-linecap:round; stroke-linejoin:round}
+.go .tick path{stroke-dasharray:26; stroke-dashoffset:26}
+
+.go.busy .lbl{opacity:0; transform:translateY(-6px)}
+.go.busy .spin{opacity:1; transform:translate(-50%,-50%) scale(1); animation:spin .7s linear infinite}
+@keyframes spin{to{transform:translate(-50%,-50%) scale(1) rotate(360deg)}}
+
+.go.done .lbl{opacity:0; transform:translateY(-6px)}
+.go.done .tick{opacity:1; transform:translate(-50%,-50%) scale(1)}
+.go.done .tick path{animation:draw .45s var(--ease) forwards}
+@keyframes draw{to{stroke-dashoffset:0}}
+
+/* ---------- тряска при ошибке ---------- */
+@keyframes shake{
+  10%,90%{transform:translateX(-2px)} 20%,80%{transform:translateX(4px)}
+  30%,50%,70%{transform:translateX(-7px)} 40%,60%{transform:translateX(7px)}
+}
+.shell.shake{animation:shake .5s cubic-bezier(.36,.07,.19,.97) both}
+.field.bad input{border-color:rgb(var(--neg-rgb))}
+.field.bad label{color:rgb(var(--neg-rgb))}
+
+/* ---------- плавная смена вкладок ---------- */
+.card form, .card .social, .card .or, .card .alt{
+  transition:opacity .22s var(--ease), transform .22s var(--ease);
+}
+.card.swap form, .card.swap .social, .card.swap .or, .card.swap .alt{
+  opacity:0; transform:translateY(6px);
+}
+
+/* ---------- лёгкий наклон за курсором ---------- */
+.stage{perspective:1100px}
+.shell{transform-style:preserve-3d; will-change:transform}
+
+/* ---------- переключатель языка ---------- */
+.langs{
+  position:fixed; top:20px; right:22px; z-index:6;
+  display:flex; gap:2px; padding:3px; border-radius:9px;
+  background:color-mix(in srgb, var(--surface) 82%, transparent);
+  border:1px solid var(--hair); backdrop-filter:blur(12px);
+}
+.langs button{
+  border:0; background:transparent; color:var(--faint); cursor:pointer;
+  font-family:var(--mono); font-size:10.5px; letter-spacing:.1em;
+  padding:5px 9px; border-radius:6px;
+  transition:background .2s var(--ease), color .2s var(--ease);
+}
+.langs button:hover{color:var(--dim)}
+.langs button.on{background:var(--surface-3); color:var(--text)}
+.langs button:focus-visible{outline:1px solid rgb(var(--pos-rgb)); outline-offset:1px}
+@media (max-width:520px){ .langs{top:14px; right:14px} }
+
+/* ---------- надпись над панелью ---------- */
+.headline{
+  margin:0; max-width:min(560px, 88vw); text-align:center;
+  font-family:"PT Serif", Georgia, serif;
+  font-size:clamp(18px,2.4vw,23px);
+  font-weight:400; font-style:italic; line-height:1.45;
+  letter-spacing:-.015em; color:var(--text); text-wrap:balance;
+  opacity:.92;
+  animation:riseIn .8s var(--ease) both;
+}
+.headline::before{content:"«"; color:var(--faint); margin-right:.05em}
+.headline::after{content:"»"; color:var(--faint); margin-left:.02em}
+.headline:empty{display:none}
+.headline:empty::before,.headline:empty::after{content:none}
+.headline b{color:rgb(var(--pos-rgb)); font-weight:500}
+
+@keyframes riseIn{ from{opacity:0; transform:translateY(14px)} to{opacity:.92; transform:none} }
+@keyframes cardIn{ from{opacity:0; transform:translateY(20px) scale(.985)} to{opacity:1; transform:none} }
+.shell{animation:cardIn .75s var(--ease) both .08s}
+
+/* ---------- вход через сервисы ---------- */
+.social{display:flex; flex-direction:column; gap:8px; margin-bottom:18px}
+.soc{
+  display:flex; align-items:center; justify-content:center; gap:10px;
+  width:100%; padding:11px 0; border-radius:9px; cursor:pointer;
+  background:var(--surface-2); border:1px solid var(--hair);
+  color:var(--text); font:inherit; font-size:13.5px;
+  transition:background .2s var(--ease), border-color .2s var(--ease), transform .12s var(--ease);
+}
+.soc:hover{background:var(--surface-3); border-color:rgba(var(--pos-rgb),.4)}
+.soc:active{transform:translateY(1px)}
+.soc:focus-visible{outline:2px solid rgb(var(--pos-rgb)); outline-offset:2px}
+.soc svg{width:17px; height:17px; flex:0 0 auto}
+
+.or{display:flex; align-items:center; gap:12px; margin-bottom:18px}
+.or::before,.or::after{content:""; flex:1; height:1px; background:var(--hair)}
+.or span{
+  font-family:var(--mono); font-size:10px; letter-spacing:.14em;
+  text-transform:uppercase; color:var(--faint);
+}
+
+/* ---------- пароль: показать/скрыть ---------- */
+.pwwrap{position:relative; display:flex}
+.pwwrap input{flex:1; padding-right:40px}
+.eye{
+  position:absolute; right:6px; top:50%; transform:translateY(-50%);
+  width:28px; height:28px; display:grid; place-items:center;
+  border:0; background:transparent; color:var(--faint); cursor:pointer;
+  border-radius:6px; transition:color .2s var(--ease);
+}
+.eye svg{width:17px; height:17px; fill:currentColor}
+.eye:hover{color:var(--text)}
+.eye.off svg{opacity:.45}
+.eye:focus-visible{outline:1px solid rgb(var(--pos-rgb)); outline-offset:1px}
+
+/* ---------- надёжность пароля ---------- */
+.meter{display:flex; align-items:center; gap:5px; margin-top:8px}
+.meter[hidden]{display:none}
+.meter i{
+  flex:1; height:3px; border-radius:2px; background:var(--hair);
+  transition:background .3s var(--ease);
+}
+.meter span{
+  font-family:var(--mono); font-size:10px; letter-spacing:.1em;
+  text-transform:uppercase; color:var(--faint); margin-left:4px; min-width:52px;
+}
+.meter[data-lvl="1"] i:nth-child(-n+1){background:rgb(var(--neg-rgb))}
+.meter[data-lvl="2"] i:nth-child(-n+2){background:#d7a13c}
+.meter[data-lvl="3"] i:nth-child(-n+3){background:#d7a13c}
+.meter[data-lvl="4"] i{background:rgb(var(--pos-rgb))}
+
+/* ---------- запомнить меня / забыли пароль ---------- */
+.minor{
+  display:flex; align-items:center; justify-content:space-between;
+  gap:12px; margin:4px 0 16px; font-size:12.5px;
+}
+.check{display:flex; align-items:center; gap:8px; color:var(--dim); cursor:pointer}
+.check input{
+  appearance:none; width:15px; height:15px; border-radius:4px; cursor:pointer;
+  border:1px solid var(--hair); background:var(--surface-2); display:grid; place-items:center;
+  transition:background .2s var(--ease), border-color .2s var(--ease);
+}
+.check input:checked{background:rgb(var(--pos-rgb)); border-color:rgb(var(--pos-rgb))}
+.check input:checked::after{
+  content:""; width:8px; height:4px; border-left:1.6px solid var(--on-accent);
+  border-bottom:1.6px solid var(--on-accent); transform:rotate(-45deg) translate(1px,-1px);
+}
+.check input:focus-visible{outline:2px solid rgb(var(--pos-rgb)); outline-offset:2px}
+.minor a{color:var(--dim); text-decoration:none; border-bottom:1px solid var(--hair)}
+.minor a:hover{color:var(--text)}
+
+/* кнопка входа мягко светится на наведении */
+.go{position:relative}
+:root[data-card="accent"] .go:hover{box-shadow:0 0 26px -4px rgba(var(--pos-rgb),.65)}
+
+/* ============ варианты оформления панели ============ */
+.shell{width:100%; display:flex; justify-content:center}
+.pitch{display:none}
+
+/* --- 2. Разделённый экран --- */
+:root[data-card="split"] .shell{
+  max-width:880px; border:1px solid var(--hair); border-radius:16px; overflow:hidden;
+  background:color-mix(in srgb, var(--surface) 92%, transparent);
+  backdrop-filter:blur(16px) saturate(115%);
+  box-shadow:0 50px 100px -30px rgba(0,0,0,.6);
+}
+:root[data-card="split"] .pitch{
+  display:flex; flex-direction:column; justify-content:space-between; gap:28px;
+  flex:1 1 46%; padding:38px 34px; border-right:1px solid var(--hair-soft);
+  background:linear-gradient(155deg, rgba(var(--pos-rgb),.10), transparent 62%);
+}
+:root[data-card="split"] .card{
+  flex:1 1 54%; max-width:none; background:transparent; border:0;
+  border-radius:0; box-shadow:none; backdrop-filter:none; padding:38px 34px;
+}
+/* логотип здесь уже есть слева — во второй раз не повторяем */
+:root[data-card="split"] .card > .brand{display:none}
+:root[data-card="split"] .card .tabs{margin-top:4px}
+@media (max-width:760px){
+  :root[data-card="split"] .pitch{display:none}
+  :root[data-card="split"] .shell{max-width:400px}
+}
+.pitch .big{font-size:23px; font-weight:600; line-height:1.28; letter-spacing:-.02em}
+.pitch .facts{display:flex; flex-direction:column; gap:13px}
+.pitch .fact{display:flex; flex-direction:column; gap:2px}
+.pitch .fact b{font-family:var(--mono); font-size:17px; font-weight:500;
+  color:rgb(var(--pos-rgb)); letter-spacing:-.01em}
+.pitch .fact span{font-size:12px; color:var(--dim)}
+
+/* --- 3. Без карточки --- */
+:root[data-card="bare"] .card{
+  background:transparent; border:0; box-shadow:none; backdrop-filter:none;
+  max-width:330px; padding:0;
+}
+:root[data-card="bare"] .brand{justify-content:center; margin-bottom:32px}
+:root[data-card="bare"] .tabs{background:transparent; border:0; padding:0;
+  gap:22px; justify-content:center; margin-bottom:26px}
+:root[data-card="bare"] .tabs button{flex:0 0 auto; padding:6px 0; border-radius:0}
+:root[data-card="bare"] .tabs button.on{background:transparent; box-shadow:none;
+  border-bottom:1px solid rgb(var(--pos-rgb))}
+:root[data-card="bare"] .field input{
+  background:transparent; border:0; border-bottom:1px solid var(--hair);
+  border-radius:0; padding:10px 2px;
+}
+:root[data-card="bare"] .field input:focus{border-bottom-color:rgb(var(--pos-rgb))}
+:root[data-card="bare"] .field{margin-bottom:18px}
+:root[data-card="bare"] .soc{background:transparent}
+:root[data-card="bare"] .soc:hover{background:color-mix(in srgb, var(--surface) 55%, transparent)}
+
+/* --- 4. Терминал --- */
+:root[data-card="frame"] .card{
+  border-radius:2px; padding:32px 30px;
+  background:color-mix(in srgb, var(--surface) 94%, transparent);
+}
+:root[data-card="frame"] .card::before{
+  content:""; position:absolute; inset:5px; border:1px solid var(--hair-soft);
+  pointer-events:none;
+}
+:root[data-card="frame"] .card *{font-family:var(--mono)}
+:root[data-card="frame"] .tabs,
+:root[data-card="frame"] .field input{border-radius:2px}
+:root[data-card="frame"] .tabs button{border-radius:0; font-size:12px;
+  letter-spacing:.06em; text-transform:uppercase}
+:root[data-card="frame"] .go{border-radius:2px; font-size:12px;
+  letter-spacing:.12em; text-transform:uppercase}
+
+/* --- 5. Акцент --- */
+:root[data-card="accent"] .card{padding-top:42px; overflow:hidden}
+:root[data-card="accent"] .card::before{
+  content:""; position:absolute; left:0; right:0; top:0; height:2px;
+  background:linear-gradient(90deg, transparent, rgb(var(--pos-rgb)), transparent);
+}
+:root[data-card="accent"] .card::after{
+  content:""; position:absolute; left:50%; top:0; width:240px; height:120px;
+  transform:translateX(-50%); pointer-events:none;
+  background:radial-gradient(ellipse at top, rgba(var(--pos-rgb),.22), transparent 70%);
+}
+:root[data-card="accent"] .brand{flex-direction:column; align-items:center;
+  gap:5px; margin-bottom:26px}
+:root[data-card="accent"] .brand .logo{height:54px; margin-bottom:4px}
+:root[data-card="accent"] .brand .mark{font-size:25px}
+:root[data-card="accent"] .go{background:rgb(var(--pos-rgb)); color:var(--on-accent);
+  font-weight:600; padding:13px 0}
+
+
+</style>
+</head>
+<body>
+
+<div class="langs" id="langs" role="group" aria-label="Мова інтерфейсу"></div>
+
+<svg width="0" height="0" style="position:absolute" aria-hidden="true"><defs>
+  <symbol id="logomark" viewBox="573 366 902 1315">
+<path transform="translate(0,0)" fill="rgb(var(--pos-rgb))" d="M 1007.73 417.867 C 1012.96 407.472 1022.43 403.074 1033.28 408.302 C 1044.26 413.587 1041.3 436.645 1041.28 447.276 L 1041.16 500.837 C 1041.03 559.942 1042.37 622.699 1040.98 681.397 C 1041.86 686.293 1067.84 728.571 1072.19 736.023 L 1174.17 909.911 L 1090.84 909.91 C 1043.39 909.921 1001.55 904.752 964.567 941.347 C 943.67 962.177 931.992 990.513 932.146 1020.02 C 932.11 1049.34 943.509 1078.75 964.485 1099.42 C 980.427 1114.93 1000.76 1125.16 1022.72 1128.71 C 1042.29 1131.77 1078.91 1127.86 1092.5 1131.48 C 1105.78 1135.12 1114.96 1147.22 1114.88 1160.99 C 1114.77 1199.93 1067.21 1191.64 1040.77 1191.58 L 946.808 1191.77 C 921.351 1165.65 896.502 1138.93 872.279 1111.66 C 860.111 1130.48 848.698 1150.33 837.098 1169.56 C 816.464 1203.51 796.056 1237.59 775.874 1271.81 L 993.674 1271.93 L 1055.86 1271.88 C 1100.21 1271.8 1134.64 1273.2 1168.73 1238.91 C 1189.33 1217.81 1200.69 1189.37 1200.29 1159.89 C 1200.15 1130.6 1190.28 1103.4 1169.26 1082.6 C 1152.78 1066.48 1131.7 1055.89 1108.92 1052.3 C 1086.87 1048.86 1057.05 1054.56 1036.53 1048.43 C 1010.67 1040.71 1012.03 992.508 1043.02 990.261 C 1063.65 988.886 1084.63 989.833 1105.32 989.979 L 1220.58 989.922 L 1434.91 1357.49 L 1158.98 1357.8 L 1079.96 1357.75 C 1071.4 1357.73 1049.21 1357.11 1041.3 1358 L 1041.14 1538.09 L 1041.3 1594.17 C 1041.34 1604.03 1041.86 1615.95 1041.16 1625.6 C 1039.85 1643.54 1015.04 1647.32 1007.77 1629.23 C 1006.7 1623.59 1007.04 1606.7 1007.06 1600.06 L 1007.17 1551.24 L 1007.07 1357.74 L 612.894 1357.86 C 654.064 1291.27 693.944 1219.52 733.687 1151.66 L 1007.18 683.395 C 1006.3 626.487 1007.22 567.336 1007.12 510.216 L 1007.01 452.565 C 1006.99 442.982 1006.55 426.917 1007.73 417.867 z"/>
+<path transform="translate(0,0)" fill="currentColor" d="M 1007.77 1358.05 L 1041.3 1358 L 1041.14 1538.09 L 1041.3 1594.17 C 1041.34 1604.03 1041.86 1615.95 1041.16 1625.6 C 1039.85 1643.54 1015.04 1647.32 1007.77 1629.23 C 1009.05 1603.41 1007.95 1565.83 1007.96 1539.15 L 1007.77 1358.05 z"/>
+<path transform="translate(0,0)" fill="currentColor" d="M 1007.73 417.867 C 1012.96 407.472 1022.43 403.074 1033.28 408.302 C 1044.26 413.587 1041.3 436.645 1041.28 447.276 L 1041.16 500.837 C 1041.03 559.942 1042.37 622.699 1040.98 681.397 C 1035.71 674.277 1029.82 662.763 1024.31 654.534 C 1018.61 663.506 1013.14 672.625 1007.92 681.882 C 1007.27 653.296 1008.22 624.592 1008 596 C 1007.55 536.664 1008.45 477.184 1007.73 417.867 z"/>
+  </symbol>
+</defs></svg>
+
+<canvas id="bg"></canvas>
+<div class="veil"></div>
+
+<div class="stage">
+ <p class="headline" id="headline"></p>
+ <div class="shell">
+
+  <aside class="pitch">
+    <div class="brand"><svg class="logo" aria-hidden="true"><use href="#logomark"/></svg><span class="mark">Stats<i>AI</i></span><span class="sub">помічник трейдера</span></div>
+    <div class="big">Журнал, который<br>объясняет результат</div>
+    <div class="facts">
+      <div class="fact"><b>+58.05%</b><span>входы по своему биасу</span></div>
+      <div class="fact"><b>&minus;6.6%</b><span>входы против биаса</span></div>
+      <div class="fact"><b>213</b><span>сделок в разборе</span></div>
+    </div>
+  </aside>
+
+  <div class="card">
+    <div class="brand"><svg class="logo" aria-hidden="true"><use href="#logomark"/></svg><span class="mark">Stats<i>AI</i></span><span class="sub">помічник трейдера</span></div>
+
+    <div class="tabs">
+      <button class="on" data-tab="in">Вход</button>
+      <button data-tab="up">Регистрация</button>
+    </div>
+
+    <div class="social">
+      <button class="soc" type="button" data-svc="Google">
+        <svg viewBox="0 0 18 18" aria-hidden="true"><path fill="#4285F4" d="M17.6 9.2c0-.64-.06-1.25-.16-1.84H9v3.48h4.84a4.14 4.14 0 0 1-1.8 2.72v2.26h2.92c1.7-1.57 2.68-3.88 2.68-6.62z"/><path fill="#34A853" d="M9 18c2.43 0 4.47-.8 5.96-2.18l-2.92-2.26c-.8.54-1.84.86-3.04.86-2.34 0-4.33-1.58-5.04-3.71H.94v2.33A9 9 0 0 0 9 18z"/><path fill="#FBBC05" d="M3.96 10.71a5.4 5.4 0 0 1 0-3.42V4.96H.94a9 9 0 0 0 0 8.08l3.02-2.33z"/><path fill="#EA4335" d="M9 3.58c1.32 0 2.5.45 3.44 1.35l2.58-2.59C13.46.89 11.43 0 9 0A9 9 0 0 0 .94 4.96l3.02 2.33C4.67 5.16 6.66 3.58 9 3.58z"/></svg>
+        Продолжить с Google
+      </button>
+      <button class="soc" type="button" data-svc="Discord">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path fill="#5865F2" d="M20.317 4.369a19.79 19.79 0 0 0-4.885-1.515.074.074 0 0 0-.079.037c-.21.375-.444.864-.608 1.25a18.27 18.27 0 0 0-5.487 0 12.64 12.64 0 0 0-.617-1.25.077.077 0 0 0-.079-.037A19.736 19.736 0 0 0 3.677 4.37a.07.07 0 0 0-.32.027C.533 9.046-.32 13.58.099 18.057a.082.082 0 0 0 .031.057 19.9 19.9 0 0 0 5.993 3.03.078.078 0 0 0 .084-.028c.462-.63.874-1.295 1.226-1.994a.076.076 0 0 0-.041-.106 13.107 13.107 0 0 1-1.872-.892.077.077 0 0 1-.008-.128c.126-.094.252-.192.372-.291a.074.074 0 0 1 .077-.01c3.928 1.793 8.18 1.793 12.062 0a.074.074 0 0 1 .078.009c.12.099.246.198.373.292a.077.077 0 0 1-.006.127c-.598.35-1.22.645-1.873.891a.077.077 0 0 0-.041.107c.36.698.772 1.362 1.225 1.993a.076.076 0 0 0 .084.028 19.839 19.839 0 0 0 6.002-3.03.077.077 0 0 0 .032-.054c.5-5.177-.838-9.674-3.549-13.66a.061.061 0 0 0-.031-.028zM8.02 15.331c-1.183 0-2.157-1.086-2.157-2.419 0-1.333.955-2.419 2.157-2.419 1.211 0 2.176 1.096 2.157 2.42 0 1.332-.955 2.418-2.157 2.418zm7.975 0c-1.183 0-2.157-1.086-2.157-2.419 0-1.333.955-2.419 2.157-2.419 1.211 0 2.176 1.096 2.157 2.42 0 1.332-.946 2.418-2.157 2.418z"/></svg>
+        Продовжити з Discord
+      </button>
+      <button class="soc" type="button" data-svc="Telegram">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path fill="#2AABEE" d="M12 0a12 12 0 1 0 0 24 12 12 0 0 0 0-24zm5.56 8.2-1.86 8.78c-.14.62-.51.77-1.03.48l-2.85-2.1-1.37 1.32c-.15.15-.28.28-.58.28l.2-2.9 5.28-4.77c.23-.2-.05-.32-.36-.12l-6.52 4.1-2.81-.88c-.61-.19-.62-.61.13-.9l10.98-4.24c.51-.18.96.12.79.95z"/></svg>
+        Продолжить с Telegram
+      </button>
+    </div>
+
+    <div class="or"><span>или почтой</span></div>
+
+    <form onsubmit="return false">
+      <div class="field" id="nickField" hidden>
+        <label for="nick">Нікнейм</label>
+        <input id="nick" type="text" placeholder="trader_davyd" autocomplete="username"
+               spellcheck="false" autocapitalize="off">
+      </div>
+      <div class="field">
+        <label for="em" id="emLabel">Пошта або нікнейм</label>
+        <input id="em" type="text" placeholder="trader@mail.com" autocomplete="username"
+               spellcheck="false" autocapitalize="off">
+      </div>
+      <div class="field">
+        <label for="pw">Пароль</label>
+        <div class="pwwrap">
+          <input id="pw" type="password" placeholder="••••••••" autocomplete="current-password">
+          <button class="eye" id="eyeBtn" type="button" aria-label="Показать пароль">
+            <svg viewBox="0 0 20 20" aria-hidden="true"><path d="M10 4c-4 0-7.3 2.6-9 6 1.7 3.4 5 6 9 6s7.3-2.6 9-6c-1.7-3.4-5-6-9-6zm0 10a4 4 0 1 1 0-8 4 4 0 0 1 0 8zm0-6.2a2.2 2.2 0 1 0 0 4.4 2.2 2.2 0 0 0 0-4.4z"/></svg>
+          </button>
+        </div>
+        <div class="meter" id="meter" hidden><i></i><i></i><i></i><i></i><span id="meterTxt">Слабый</span></div>
+      </div>
+
+      <div class="minor">
+        <label class="check"><input type="checkbox" id="rem"><span>Запомнить меня</span></label>
+        <a href="#" id="forgot">Забыли пароль?</a>
+      </div>
+
+      <button class="go" id="goBtn">
+        <span class="lbl">Войти</span>
+        <span class="spin" aria-hidden="true"></span>
+        <svg class="tick" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 12.5l5.2 5.2L20 7"/></svg>
+      </button>
+    </form>
+
+    <div class="alt" id="altLine">Нет аккаунта? <a href="#" data-goto="up">Создать</a></div>
+  </div>
+
+ </div>
+</div>
+
+<script>
+const cv = document.getElementById("bg");
+const ctx = cv.getContext("2d");
+/* Движение включено по умолчанию, даже если в системе выключены анимации:
+   без него не видно самого смысла экрана. Переключатель — ниже. */
+let MOTION = true;
+const CALM_SYS = matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+/* цвета анимации читаются из палитры — одна точка правды */
+let C = {};
+function readPalette(){
+  const cs = getComputedStyle(document.documentElement);
+  C = {
+    pos:  cs.getPropertyValue("--pos-rgb").trim(),
+    neg:  cs.getPropertyValue("--neg-rgb").trim(),
+    grid: cs.getPropertyValue("--grid-rgb").trim(),
+    base: cs.getPropertyValue("--canvas").trim(),
+  };
+}
+
+/* K — плотность линий, GLOW — сила свечения. Задаются палитрой. */
+let K = 1, GLOW = 0;
+function readTone(){
+  const cs = getComputedStyle(document.documentElement);
+  K    = parseFloat(cs.getPropertyValue("--amp"))  || 1;
+  GLOW = parseFloat(cs.getPropertyValue("--glow")) || 0;
+}
+
+let W = 0, H = 0, DPR = 1;
+function resize(){
+  DPR = Math.min(devicePixelRatio || 1, 2);
+  W = innerWidth; H = innerHeight;
+  cv.width = Math.floor(W * DPR); cv.height = Math.floor(H * DPR);
+  cv.style.width = W + "px"; cv.style.height = H + "px";
+  ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
+  if (!W || !H) return;
+  if (current) current.init();
+}
+addEventListener("resize", resize);
+
+function walk(n, start, vol){
+  const out = []; let p = start;
+  for (let i = 0; i < n; i++){ p += (Math.random() - 0.485) * vol; out.push(p); }
+  return out;
+}
+
+/* ============ 1. Свечи ============ */
+/* Каждая свеча рождается с нулевой высотой и вырастает из цены открытия
+   в обе стороны — так, как она формируется на реальном графике.
+   Пока свеча молодая, она подсвечена; свечение гаснет вместе с ростом. */
+const candles = {
+  name: "Свечи",
+  note: "Свечи рождаются у правого края и вырастают на глазах",
+  GROW: 0.75,          // секунд на полный рост одной свечи
+  init(){
+    this.cw = this.SIZES[this.size].cw;
+    this.gap = this.SIZES[this.size].gap;
+    this.n = Math.ceil(W / (this.cw + this.gap)) + 3;
+    this.bars = []; this.price = 100;
+    for (let i = 0; i < this.n; i++){
+      const b = this.make();
+      // при открытии график собирается слева направо;
+      // если у человека выключены анимации — показываем сразу готовый
+      b.wait = MOTION ? i * 0.030 : 0;
+      b.age  = MOTION ? 0 : 1;
+      this.bars.push(b);
+    }
+    this.off = 0;
+  },
+  SIZES: [ {cw:14, gap:6, drift:0.40, noise:3.4},     // обычные
+           {cw:23, gap:9, drift:0.62, noise:3.2},     // крупные
+           {cw:34, gap:13, drift:0.90, noise:3.0} ],  // очень крупные
+  size: 1,             // по умолчанию крупные
+  get DRIFT(){ return this.SIZES[this.size].drift },
+  get NOISE(){ return this.SIZES[this.size].noise },
+  make(){
+    const open = this.price;
+    const close = open + this.DRIFT + (Math.random() - 0.5) * this.NOISE;
+    const hi = Math.max(open, close) + Math.random() * 2.0;
+    const lo = Math.min(open, close) - Math.random() * 2.0;
+    this.price = close;
+    return { open, close, hi, lo, age: 0, wait: 0 };
+  },
+  draw(dt){
+    // за candleEvery секунд график сдвигается ровно на одну свечу
+    this.off += dt * ((this.cw + this.gap) / SETUP.candleEvery);
+    while (this.off > this.cw + this.gap){
+      this.off -= this.cw + this.gap;
+      this.bars.shift(); this.bars.push(this.make());
+    }
+    for (const b of this.bars){
+      if (b.wait > 0){ b.wait -= dt; continue; }
+      b.age = Math.min(1, b.age + dt / this.GROW);
+    }
+
+    /* Масштаб по вертикали. Раньше он считался заново каждый кадр по крайним
+       значениям видимых свечей — и когда высокая свеча уходила за левый край,
+       границы менялись скачком и весь график дёргался. Теперь границы
+       подтягиваются к цели плавно. */
+    let tMn = Infinity, tMx = -Infinity;
+    for (const b of this.bars){ if (b.lo < tMn) tMn = b.lo; if (b.hi > tMx) tMx = b.hi; }
+    if (this.mn === undefined){ this.mn = tMn; this.mx = tMx; }
+    const k = Math.min(1, dt * 2.2);
+    this.mn += (tMn - this.mn) * k;
+    this.mx += (tMx - this.mx) * k;
+
+    const pad = (this.mx - this.mn) * 0.28 || 1;
+    const mn = this.mn - pad, mx = this.mx + pad;
+    const y = v => H - ((v - mn) / (mx - mn)) * H;
+    const ease = t => 1 - Math.pow(1 - t, 3);
+
+    for (let i = 0; i < this.bars.length; i++){
+      const b = this.bars[i];
+      if (b.wait > 0 || b.age <= 0) continue;
+
+      const e = ease(b.age);
+      /* Позиция округляется до пикселя. Пока она была дробной, тонкая обводка
+         каждый кадр попадала между пикселями и края свечей мерцали. */
+      const x = Math.round(i * (this.cw + this.gap) - this.off);
+      const up = b.close >= b.open;
+      const col = up ? C.pos : C.neg;
+
+      // ярче в середине экрана, тише к краям
+      const dx = Math.abs(x + this.cw / 2 - W / 2) / (W / 2);
+      const a = (0.13 + 0.20 * (1 - dx)) * K;
+
+      // свежая свеча светится, свечение гаснет по мере роста
+      const fresh = 1 - b.age;
+      if (GLOW > 0 && fresh > 0){
+        ctx.shadowBlur = 16 * GLOW * fresh;
+        ctx.shadowColor = `rgba(${col},${Math.min(1, a * 2.2)})`;
+      }
+
+      // тень и тело растут из цены открытия
+      const vHi = b.open + (b.hi - b.open) * e;
+      const vLo = b.open + (b.lo - b.open) * e;
+      const vCl = b.open + (b.close - b.open) * e;
+
+      const lw = Math.max(1.2, this.cw * 0.085);
+      // середина фитиля кладётся на полпикселя — так линия остаётся чёткой
+      const xw = Math.round(x + this.cw / 2) + (Math.round(lw) % 2 ? .5 : 0);
+      ctx.strokeStyle = `rgba(${col},${Math.min(1, a * 0.9)})`;
+      ctx.lineWidth = lw;
+      ctx.beginPath();
+      ctx.moveTo(xw, Math.round(y(vHi)));
+      ctx.lineTo(xw, Math.round(y(vLo)));
+      ctx.stroke();
+
+      const yo = Math.round(y(b.open)), yc = Math.round(y(vCl));
+      const top = Math.min(yo, yc);
+      const h = Math.max(1.4, Math.abs(yc - yo));
+      if (up){
+        ctx.fillStyle = `rgba(${col},${Math.min(1, a * 0.34)})`;
+        ctx.fillRect(x, top, this.cw, h);
+        ctx.strokeStyle = `rgba(${col},${Math.min(1, a * 1.15)})`;
+        ctx.strokeRect(x + .5, top + .5, this.cw - 1, h - 1);
+      } else {
+        ctx.fillStyle = `rgba(${col},${Math.min(1, a)})`;
+        ctx.fillRect(x, top, this.cw, h);
+      }
+      ctx.shadowBlur = 0;
+    }
+  }
+};
+
+/* ============ 2. Эквити ============ */
+const equity = {
+  name: "Эквити",
+  note: "Кривая накопленного результата рисует сама себя и начинается заново",
+  init(){
+    this.pts = walk(260, 0, 1.30).map((v, i) => v + i * 0.26);
+    this.head = MOTION ? 0 : this.pts.length - 1;   // без движения — сразу целиком
+  },
+  draw(dt){
+    const n = this.pts.length;
+    this.head += dt * 34;
+    if (this.head > n + 40){ this.head = 0; this.init(); }
+
+    let mn = Math.min(...this.pts), mx = Math.max(...this.pts);
+    const pad = (mx - mn) * 0.55 || 1; mn -= pad; mx += pad;
+    const X = i => (i / (n - 1)) * W;
+    const Y = v => H * 0.62 - ((v - mn) / (mx - mn)) * H * 0.42 + H * 0.14;
+
+    const upto = Math.min(n - 1, Math.floor(this.head));
+    if (upto < 1) return;
+
+    ctx.beginPath();
+    ctx.moveTo(X(0), H);
+    for (let i = 0; i <= upto; i++) ctx.lineTo(X(i), Y(this.pts[i]));
+    ctx.lineTo(X(upto), H); ctx.closePath();
+    const g = ctx.createLinearGradient(0, H * 0.2, 0, H);
+    g.addColorStop(0, `rgba(${C.pos},${.085 * K})`);
+    g.addColorStop(1, `rgba(${C.pos},0)`);
+    ctx.fillStyle = g; ctx.fill();
+
+    ctx.beginPath();
+    for (let i = 0; i <= upto; i++){
+      const x = X(i), y = Y(this.pts[i]);
+      i ? ctx.lineTo(x, y) : ctx.moveTo(x, y);
+    }
+    ctx.strokeStyle = `rgba(${C.pos},${Math.min(.9, .34 * K)})`;
+    ctx.lineWidth = 1.4; ctx.lineJoin = "round"; ctx.stroke();
+
+    const hx = X(upto), hy = Y(this.pts[upto]);
+    const halo = ctx.createRadialGradient(hx, hy, 0, hx, hy, 46);
+    halo.addColorStop(0, `rgba(${C.pos},${.30 * K})`);
+    halo.addColorStop(1, `rgba(${C.pos},0)`);
+    ctx.fillStyle = halo; ctx.beginPath(); ctx.arc(hx, hy, 46, 0, 7); ctx.fill();
+    ctx.fillStyle = `rgba(${C.pos},${Math.min(1, .8 * K)})`;
+    ctx.beginPath(); ctx.arc(hx, hy, 2, 0, 7); ctx.fill();
+  }
+};
+
+/* ============ 3. Стакан ============ */
+const depth = {
+  name: "Стакан",
+  note: "Заявки на покупку и продажу дышат по обе стороны от центра",
+  init(){
+    this.rows = Math.max(14, Math.floor(H / 26));
+    this.bid = []; this.ask = [];
+    for (let i = 0; i < this.rows; i++){
+      this.bid.push({ v: Math.random(), tgt: Math.random(), ph: Math.random() * 6 });
+      this.ask.push({ v: Math.random(), tgt: Math.random(), ph: Math.random() * 6 });
+    }
+    this.t = 0;
+  },
+  draw(dt){
+    this.t += dt;
+    const rh = H / this.rows, bh = Math.max(2, rh * 0.42);
+    const side = (arr, col, fromLeft) => {
+      for (let i = 0; i < arr.length; i++){
+        const r = arr[i];
+        if (Math.random() < 0.010) r.tgt = Math.random();
+        r.v += (r.tgt - r.v) * Math.min(1, dt * 1.6);
+        const breathe = 0.86 + 0.14 * Math.sin(this.t * 0.7 + r.ph);
+        const w = r.v * breathe * W * 0.40;
+        const y = i * rh + (rh - bh) / 2;
+        const x = fromLeft ? 0 : W - w;
+        const g = ctx.createLinearGradient(fromLeft ? 0 : W, 0, fromLeft ? w : W - w, 0);
+        g.addColorStop(0, `rgba(${col},${.16 * K})`);
+        g.addColorStop(1, `rgba(${col},${.015 * K})`);
+        ctx.fillStyle = g; ctx.fillRect(x, y, w, bh);
+      }
+    };
+    side(this.bid, C.pos, true);
+    side(this.ask, C.neg, false);
+    ctx.strokeStyle = `rgba(${C.grid},${.05 * K})`; ctx.lineWidth = 1;
+    ctx.beginPath(); ctx.moveTo(W / 2, 0); ctx.lineTo(W / 2, H); ctx.stroke();
+  }
+};
+
+/* ============ 4. Лента ============ */
+const tape = {
+  name: "Лента",
+  note: "Поток котировок: цифры медленно плывут и изредка вспыхивают",
+  init(){
+    this.cw = 62; this.rh = 26;
+    this.cols = Math.ceil(W / this.cw) + 1;
+    this.rowsN = Math.ceil(H / this.rh) + 1;
+    this.cells = [];
+    for (let r = 0; r < this.rowsN; r++){
+      const row = [];
+      for (let c = 0; c < this.cols; c++) row.push({ v: Math.random() * 4 - 2, flash: 0 });
+      this.cells.push(row);
+    }
+    this.off = 0;
+  },
+  draw(dt){
+    this.off = (this.off + dt * 9) % this.rh;
+    ctx.font = '11px "Geist Mono", ui-monospace, monospace';
+    ctx.textBaseline = "middle";
+    for (let r = 0; r < this.rowsN; r++){
+      for (let c = 0; c < this.cols; c++){
+        const cell = this.cells[r][c];
+        if (Math.random() < 0.0016){ cell.v = Math.random() * 4 - 2; cell.flash = 1; }
+        cell.flash = Math.max(0, cell.flash - dt * 1.5);
+        const x = c * this.cw + 8;
+        const y = r * this.rh - this.off + this.rh / 2;
+        const up = cell.v >= 0;
+        const col = up ? C.pos : C.neg;
+        const dy = Math.abs(y - H / 2) / (H / 2);
+        const base = (0.06 + 0.07 * (1 - dy)) * K;
+        const alpha = Math.min(1, base + cell.flash * 0.42 * K);
+        if (GLOW > 0 && cell.flash > 0.05){
+          ctx.shadowBlur = 14 * GLOW * cell.flash;
+          ctx.shadowColor = `rgba(${col},${alpha})`;
+        }
+        ctx.fillStyle = `rgba(${col},${alpha})`;
+        ctx.fillText((up ? "+" : "") + cell.v.toFixed(2) + "%", x, y);
+        ctx.shadowBlur = 0;
+      }
+    }
+  }
+};
+
+/* ============ движок ============ */
+const VARIANTS = [candles, equity, depth, tape];
+let current = null, prev = 0;
+
+function pickBg(i){
+  current = VARIANTS[i];
+  if (W && H) current.init();
+}
+
+function frame(ts){
+  const dt = Math.min(0.05, (ts - prev) / 1000 || 0);
+  prev = ts;
+  if (!W || !H){ if (innerWidth && innerHeight) resize(); requestAnimationFrame(frame); return; }
+  ctx.clearRect(0, 0, W, H);
+  ctx.fillStyle = `rgb(${C.base})`; ctx.fillRect(0, 0, W, H);
+  if (current) current.draw(MOTION ? dt : 0);
+  requestAnimationFrame(frame);
+}
+
+function setTab(t){
+  // содержимое коротко гаснет и возвращается — переход не рвётся
+  const c = document.querySelector(".card");
+  if (c){ c.classList.add("swap"); setTimeout(() => c.classList.remove("swap"), 180); }
+  document.querySelectorAll(".tabs button").forEach(b => b.classList.toggle("on", b.dataset.tab === t));
+
+  const reg = t === "up";
+
+  /* Вход: одно поле — можно ввести почту или ник.
+     Регистрация: сначала ник, потом почта отдельным полем. */
+  document.getElementById("nickField").hidden = !reg;
+  document.getElementById("emLabel").textContent = reg ? T.lEmail : T.lLogin;
+  em.placeholder = reg ? T.phEmail : T.phLogin;
+  em.type = reg ? "email" : "text";
+  em.setAttribute("autocomplete", reg ? "email" : "username");
+
+  document.querySelector("#goBtn .lbl").textContent = reg ? T.btnUp : T.btnIn;
+  document.getElementById("pw").setAttribute("autocomplete", reg ? "new-password" : "current-password");
+  document.getElementById("altLine").innerHTML = reg ? T.altUp : T.altIn;
+
+  // при регистрации показываем надёжность пароля, при входе — «запомнить меня»
+  const meterEl = document.getElementById("meter");
+  meterEl.hidden = !reg;
+  // сбрасываем оценку, иначе на пустом поле остаётся надпись от прошлого раза
+  meterEl.dataset.lvl = "0";
+  document.getElementById("meterTxt").textContent = pw.value ? T.lvl[scorePw(pw.value)] : "";
+  if (pw.value) meterEl.dataset.lvl = String(scorePw(pw.value));
+  document.querySelector(".minor").style.display = reg ? "none" : "flex";
+  document.querySelectorAll(".soc").forEach(b => {
+    b.childNodes[b.childNodes.length - 1].textContent =
+      (reg ? T.regWith : T.contWith) + b.dataset.svc;
+  });
+}
+document.querySelectorAll(".tabs button").forEach(b => b.onclick = () => setTab(b.dataset.tab));
+document.addEventListener("click", e => {
+  const a = e.target.closest("[data-goto]");
+  if (a){ e.preventDefault(); setTab(a.dataset.goto); }
+});
+
+/* ============================================================
+   Выбранное оформление. Меняется здесь одной строкой.
+   bg: 0 свечи · 1 эквити · 2 стакан · 3 лента
+   palette: night · dusk · haze · morning
+   card: glass · split · bare · frame · accent
+   candleSize: 0 обычные · 1 крупные · 2 очень крупные
+   ============================================================ */
+const SETUP = { bg: 0, palette: "night", card: "accent", candleSize: 1, motion: true,
+                candleEvery: 2.2 };   // секунд на одну новую свечу — чем меньше, тем быстрее график
+
+/* ---- надпись над панелью ---- */
+/* ---- шрифт цитаты ---- */
+
+
+/* ---- показать / скрыть пароль ---- */
+const pw = document.getElementById("pw"), eyeBtn = document.getElementById("eyeBtn");
+eyeBtn.onclick = () => {
+  const shown = pw.type === "text";
+  pw.type = shown ? "password" : "text";
+  eyeBtn.classList.toggle("off", !shown);
+  eyeBtn.setAttribute("aria-label", shown ? T.showPw : T.hidePw);
+  pw.focus();
+};
+
+/* ---- надёжность пароля: считается только при регистрации ---- */
+const meter = document.getElementById("meter"), meterTxt = document.getElementById("meterTxt");
+function scorePw(v){
+  let n = 0;
+  if (v.length >= 8) n++;
+  if (v.length >= 12) n++;
+  if (/[A-ZА-Я]/.test(v) && /[a-zа-я]/.test(v)) n++;
+  if (/\d/.test(v) && /[^\wа-яА-Я]/.test(v)) n++;
+  return Math.min(4, n);
+}
+pw.addEventListener("input", () => {
+  if (meter.hidden) return;
+  const lvl = pw.value ? scorePw(pw.value) : 0;
+  meter.dataset.lvl = String(lvl);
+  meterTxt.textContent = pw.value ? T.lvl[lvl] : "";
+});
+
+/* ============================================================
+   Языки. По умолчанию украинский, переключается на русский и английский.
+   Выбор запоминается в браузере.
+   ============================================================ */
+const I18N = {
+  uk: {
+    label: "УКР", htmlLang: "uk",
+    tagline: "помічник трейдера",
+    quote: 'Твоя <b>статистика</b> знає про тебе <b>більше, ніж ти</b>',
+    tabIn: "Вхід", tabUp: "Реєстрація",
+    contWith: "Продовжити з ", regWith: "Зареєструватися через ",
+    orEmail: "або поштою",
+    lEmail: "Пошта", lPw: "Пароль", phEmail: "trader@mail.com",
+    lNick: "Нікнейм", phNick: "trader_davyd",
+    lLogin: "Пошта або нікнейм", phLogin: "пошта або нікнейм",
+    showPw: "Показати пароль", hidePw: "Сховати пароль",
+    remember: "Запам'ятати мене", forgot: "Забули пароль?",
+    btnIn: "Увійти", btnUp: "Створити акаунт",
+    altIn: 'Немає акаунта? <a href="#" data-goto="up">Створити</a>',
+    altUp: 'Вже є акаунт? <a href="#" data-goto="in">Увійти</a>',
+    lvl: ["Слабкий", "Слабкий", "Середній", "Добрий", "Надійний"],
+    pitchBig: "Журнал, який<br>пояснює результат",
+    pitchFacts: ["входи за своїм біасом", "входи проти біасу", "угод у розборі"],
+  },
+  ru: {
+    label: "РУС", htmlLang: "ru",
+    tagline: "помощник трейдера",
+    quote: 'Твоя <b>статистика</b> знает о тебе <b>больше, чем ты</b>',
+    tabIn: "Вход", tabUp: "Регистрация",
+    contWith: "Продолжить с ", regWith: "Зарегистрироваться через ",
+    orEmail: "или почтой",
+    lEmail: "Почта", lPw: "Пароль", phEmail: "trader@mail.com",
+    lNick: "Никнейм", phNick: "trader_davyd",
+    lLogin: "Почта или никнейм", phLogin: "почта или никнейм",
+    showPw: "Показать пароль", hidePw: "Скрыть пароль",
+    remember: "Запомнить меня", forgot: "Забыли пароль?",
+    btnIn: "Войти", btnUp: "Создать аккаунт",
+    altIn: 'Нет аккаунта? <a href="#" data-goto="up">Создать</a>',
+    altUp: 'Уже есть аккаунт? <a href="#" data-goto="in">Войти</a>',
+    lvl: ["Слабый", "Слабый", "Средний", "Хороший", "Надёжный"],
+    pitchBig: "Журнал, который<br>объясняет результат",
+    pitchFacts: ["входы по своему биасу", "входы против биаса", "сделок в разборе"],
+  },
+  en: {
+    label: "ENG", htmlLang: "en",
+    tagline: "trading assistant",
+    quote: 'Your <b>stats</b> know you <b>better than you do</b>',
+    tabIn: "Sign in", tabUp: "Sign up",
+    contWith: "Continue with ", regWith: "Sign up with ",
+    orEmail: "or with email",
+    lEmail: "Email", lPw: "Password", phEmail: "trader@mail.com",
+    lNick: "Nickname", phNick: "trader_davyd",
+    lLogin: "Email or nickname", phLogin: "email or nickname",
+    showPw: "Show password", hidePw: "Hide password",
+    remember: "Remember me", forgot: "Forgot password?",
+    btnIn: "Sign in", btnUp: "Create account",
+    altIn: 'No account? <a href="#" data-goto="up">Create one</a>',
+    altUp: 'Already have an account? <a href="#" data-goto="in">Sign in</a>',
+    lvl: ["Weak", "Weak", "Fair", "Good", "Strong"],
+    pitchBig: "The journal that<br>explains your results",
+    pitchFacts: ["entries with your bias", "entries against it", "trades reviewed"],
+  },
+};
+
+let LANG = "uk", T = I18N.uk;
+
+function applyLang(code){
+  LANG = I18N[code] ? code : "uk";
+  T = I18N[LANG];
+  document.documentElement.setAttribute("lang", T.htmlLang);
+
+  document.querySelectorAll(".brand .sub").forEach(el => el.textContent = T.tagline);
+  document.getElementById("headline").innerHTML = T.quote;
+  document.querySelector('.tabs [data-tab="in"]').textContent = T.tabIn;
+  document.querySelector('.tabs [data-tab="up"]').textContent = T.tabUp;
+  document.querySelector(".or span").textContent = T.orEmail;
+  document.querySelector('label[for="em"]').textContent = T.lEmail;
+  document.querySelector('label[for="pw"]').textContent = T.lPw;
+  document.querySelector('label[for="nick"]').textContent = T.lNick;
+  document.getElementById("nick").placeholder = T.phNick;
+  document.querySelector(".check span").textContent = T.remember;
+  document.getElementById("forgot").textContent = T.forgot;
+
+  const big = document.querySelector(".pitch .big");
+  if (big) big.innerHTML = T.pitchBig;
+  document.querySelectorAll(".pitch .fact span").forEach((el, i) => el.textContent = T.pitchFacts[i]);
+
+  document.querySelectorAll("#langs button").forEach(b => b.classList.toggle("on", b.dataset.lang === LANG));
+  try { localStorage.setItem("statsai_lang", LANG); } catch(e){}
+
+  setTab(document.querySelector('.tabs button.on')?.dataset.tab || "in");
+}
+
+const langs = document.getElementById("langs");
+Object.keys(I18N).forEach(code => {
+  const b = document.createElement("button");
+  b.type = "button"; b.dataset.lang = code; b.textContent = I18N[code].label;
+  b.onclick = () => applyLang(code);
+  langs.appendChild(b);
+});
+
+/* ============ живые реакции формы ============ */
+const shell = document.querySelector(".shell");
+const card  = document.querySelector(".card");
+const goBtn = document.getElementById("goBtn");
+const em    = document.getElementById("em");
+
+function markBad(input){
+  const f = input.closest(".field");
+  f.classList.add("bad");
+  input.addEventListener("input", () => f.classList.remove("bad"), { once: true });
+}
+
+/* пустые поля — карточка вздрагивает и подсвечивает, что не заполнено */
+goBtn.addEventListener("click", () => {
+  if (goBtn.classList.contains("busy") || goBtn.classList.contains("done")) return;
+
+  const reg = document.querySelector('.tabs button.on').dataset.tab === "up";
+  const nick = document.getElementById("nick");
+  const empty = (reg ? [nick, em, pw] : [em, pw]).filter(i => !i.value.trim());
+  if (empty.length){
+    empty.forEach(markBad);
+    shell.classList.remove("shake"); void shell.offsetWidth;
+    shell.classList.add("shake");
+    empty[0].focus();
+    return;
+  }
+
+  // всё заполнено: крутилка, потом галочка
+  goBtn.classList.add("busy");
+  setTimeout(() => {
+    goBtn.classList.remove("busy");
+    goBtn.classList.add("done");
+    setTimeout(() => {
+      goBtn.classList.remove("done");
+      goBtn.querySelector(".tick path").style.animation = "";
+    }, 1600);
+  }, 1100);
+});
+
+/* наклон карточки за курсором — совсем чуть-чуть, только на мыши */
+if (matchMedia("(hover: hover) and (pointer: fine)").matches){
+  const MAX = 4;   // градусов
+  let raf = 0;
+  addEventListener("pointermove", e => {
+    if (!MOTION || raf) return;
+    raf = requestAnimationFrame(() => {
+      raf = 0;
+      const r = shell.getBoundingClientRect();
+      const dx = (e.clientX - (r.left + r.width / 2))  / (innerWidth / 2);
+      const dy = (e.clientY - (r.top  + r.height / 2)) / (innerHeight / 2);
+      shell.style.transform =
+        `rotateY(${(dx * MAX).toFixed(2)}deg) rotateX(${(-dy * MAX).toFixed(2)}deg)`;
+    });
+  });
+  addEventListener("pointerleave", () => { shell.style.transform = ""; });
+}
+
+
+
+/* localStorage отдаёт null, если ключа нет — проверяем отдельно,
+   иначе значение по умолчанию превращалось бы в ноль */
+function stored(key, def, max){
+  try {
+    const raw = localStorage.getItem(key);
+    if (raw === null) return def;
+    const n = parseInt(raw, 10);
+    return Number.isFinite(n) ? Math.min(max, Math.max(0, n)) : def;
+  } catch(e){ return def; }
+}
+
+/* ---- применяем выбранное оформление ---- */
+MOTION = SETUP.motion;
+candles.size = SETUP.candleSize;
+document.documentElement.setAttribute("data-pal", SETUP.palette);
+document.documentElement.setAttribute("data-card", SETUP.card);
+readPalette(); readTone();
+
+let startLang = "uk";
+try { startLang = localStorage.getItem("statsai_lang") || "uk"; } catch(e){}
+applyLang(startLang);
+resize();
+pickBg(SETUP.bg);
+requestAnimationFrame(frame);
+</script>
+</body>
+</html>
