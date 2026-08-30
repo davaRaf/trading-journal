@@ -16,8 +16,7 @@ const S = {
   filters: {},
   formShots: [],
   all: [], mRep:null, ovPeriod:"month",
-  pages:{},                     // номер страницы для каждого списка сделок
-  selTrade:null,                // сделка, открытая во второй панели журнала
+  pages:{},                     // номер страницы для каждого списка сделок                // сделка, открытая во второй панели журнала
 };
 
 const MONTHS = ["Січень","Лютий","Березень","Квітень","Травень","Червень","Липень","Серпень","Вересень","Жовтень","Листопад","Грудень"];
@@ -202,7 +201,7 @@ function tradeRow(t){
   const dt=dirType(t);
   const dtb=dt?'<span class="badge '+(dt==="Reversal"?"rev":"cont")+'">'+(dt==="Reversal"?"REV":"CONT")+"</span>":"";
   const info=[t.setup,t.session,t.entry_model].filter(Boolean).map(esc).join(" · ");
-  return '<div class="trow'+(S.selTrade===t.id?" on":"")+'" onclick="openTradeRow(\''+t.id+'\')">'+
+  return '<div class="trow" onclick="openTradeRow(\''+t.id+'\')">'+
     '<span class="d">'+esc(d)+'</span><span class="p">'+esc(t.pair||"—")+" "+pos+"</span>"+
     '<span class="info">'+info+"</span>"+dtb+badge+
     '<span class="r '+clsR(r)+'">'+fmtR(r)+"</span></div>";
@@ -576,8 +575,7 @@ function vJournal(){
   }else{
     h+='<div class="right">'+modeBtns+"</div></div>";
     const list=sortDesc(applyFilters(S.trades));
-    return h+filterBar()+
-      '<div class="jsplit">'+tradesCard(list,"Усі угоди · "+list.length,"all")+tradePaneHtml(false)+"</div>";
+    return h+filterBar()+tradesCard(list,"Усі угоди · "+list.length,"all");
   }
 
   /* лента статистики месяца */
@@ -616,7 +614,7 @@ function vJournal(){
     '<div class="card">'+calHtml(S.jMonth,"pickDay",S.selDay)+
       '<div class="callegend"><i class="mk tp">TP</i>тейк<i class="mk sl">SL</i>стоп<i class="mk be">BE</i>беззбиток'+
       '<span class="lgend-rev"><i class="mk tp rev">TP</i>рамка — розворот проти біасу</span></div>'+
-    "</div>"+(S.selTrade&&findTrade(S.selTrade)?tradePaneHtml(true):dayPanel)+"</div>";
+    "</div>"+dayPanel+"</div>";
 
   /* месяц целиком: динамика и разрезы */
   if(monthTrades.length){
@@ -628,7 +626,7 @@ function vJournal(){
   return h;
 }
 function shiftJMonth(d){ const [y,m]=S.jMonth.split("-").map(Number); const dt=new Date(y,m-1+d,1); S.jMonth=isoMonth(dt); S.pages={}; render(); }
-function pickDay(key){ S.selTrade=null; S.selDay=key; if(key.slice(0,7)!==S.jMonth)S.jMonth=key.slice(0,7); render(); }
+function pickDay(key){ S.selDay=key; if(key.slice(0,7)!==S.jMonth)S.jMonth=key.slice(0,7); render(); }
 function goToday(){ const t=new Date(); S.selDay=isoDay(t); S.jMonth=isoMonth(t); render(); }
 
 
@@ -960,28 +958,9 @@ function openTrade(id){
   Sheet.open(h);
 }
 
-/* ---------- сделка прямо в странице: вторая панель журнала ---------- */
 function findTrade(id){ return (S.all.length?S.all:S.trades).find(x=>x.id===id); }
-/* на широком экране карточка встаёт во вторую панель, на узком выезжает */
-function openTradeRow(id){
-  if(S.view==="journal" && innerWidth>=1100 && $("#modal").hidden && !Panel.isOpen()) pickTrade(id);
-  else openTrade(id);
-}
-function pickTrade(id){ S.selTrade=id; render(); }
-function closeTradeCard(){ S.selTrade=null; render(); }
-function tradePaneHtml(back){
-  const t=S.selTrade?findTrade(S.selTrade):null;
-  if(!t) return '<div class="card tpane"><div class="empty">Вибери угоду зі списку</div></div>';
-  const r=netR(t);
-  return '<div class="card tpane"><div class="tpane-head">'+
-    '<h3>'+esc(t.pair||"Угода")+' <span class="'+clsR(r)+'">'+fmtR(r)+"</span></h3>"+
-    '<button class="x" title="Закрити картку" onclick="closeTradeCard()">×</button></div>'+
-    '<div class="tpane-body">'+tradeBodyHtml(t)+"</div>"+
-    '<div class="tpane-foot">'+
-      (back?'<button class="btn" onclick="closeTradeCard()">← До дня</button>':"")+
-      '<button class="btn" onclick="openForm(\''+t.id+'\')">Змінити</button>'+
-      '<button class="btn danger" onclick="delTrade(\''+t.id+'\')">Видалити</button></div></div>';
-}
+/* клик по строке — карточка выезжает справа */
+function openTradeRow(id){ openTrade(id); }
 async function delTrade(id){
   if(!confirm("Видалити угоду? Статистика перерахується.")) return;
   await api("DELETE","/api/trades/"+id);
@@ -1099,7 +1078,7 @@ function openForm(id, presetDay){
     '<span class="sp"></span><button class="btn" onclick="closeModal()">Скасувати</button>'+
     '<button class="btn primary" onclick="saveTrade(\''+(t?t.id:"")+'\')">Зберегти</button></div>';
 
-  openModal(h);
+  Sheet.open(h,{cls:"form-pnl"});
   renderShots();
   markQuick(); autoDirType(); calcOutcome();
   $("#shotFile").addEventListener("change", onShotFiles);

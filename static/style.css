@@ -897,6 +897,8 @@ button[data-tip],a[data-tip],.mk[data-tip]{cursor:pointer}
 .pnl-wrap[data-side="right"]{justify-content:flex-end}
 .pnl-wrap[data-side="right"] .pnl{width:min(560px,100%);height:100%;
   border-radius:16px 0 0 16px;border-right:none;transform:translateX(100%)}
+/* форма угоди шире карточки: в ней поля идут в две колонки */
+.pnl-wrap[data-side="right"] .pnl.form-pnl{width:min(760px,100%)}
 /* снизу — форма сделки */
 .pnl-wrap[data-side="bottom"]{align-items:flex-end;justify-content:center}
 .pnl-wrap[data-side="bottom"] .pnl{width:min(940px,100%);max-height:92vh;
@@ -992,27 +994,6 @@ body::after{
   .trow:active,.ovw .day:not(.off):active{transform:none}
 }
 
-/* ---- журнал в две панели: список слева, карточка сделки справа ---- */
-.jsplit{display:grid;grid-template-columns:minmax(0,1fr) minmax(360px,430px);gap:18px;align-items:start}
-.tpane{display:flex;flex-direction:column;max-height:calc(100vh - 120px);position:sticky;top:24px}
-.tpane-head{display:flex;align-items:center;gap:10px;padding:14px 18px;border-bottom:1px solid var(--line-soft)}
-.tpane-head h3{margin:0;padding:0;border:none;background:none;font-size:16px;font-weight:600;
-  display:flex;align-items:baseline;gap:9px;text-transform:none;letter-spacing:-.01em}
-.tpane-head h3 span{font-family:var(--mono);font-size:14px}
-.tpane-head .x{margin-left:auto;color:var(--faint);font-size:19px;line-height:1;padding:2px 8px;border-radius:6px}
-.tpane-head .x:hover{color:var(--text);background:var(--panel-2)}
-.tpane-body{flex:1;overflow-y:auto;min-height:0;padding:16px 18px}
-.tpane-body .dgrid{grid-template-columns:repeat(auto-fill,minmax(120px,1fr))}
-.tpane-body .charts{grid-template-columns:minmax(0,1fr)}
-.tpane-foot{display:flex;gap:8px;padding:12px 18px;border-top:1px solid var(--line-soft);flex-wrap:wrap}
-.tpane .empty{padding:44px 20px}
-.trow.on{background:var(--panel-2);box-shadow:inset 2px 0 0 var(--accent)}
-/* узкий экран: второй панели нет, карточка снова выезжает сбоку */
-@media(max-width:1100px){
-  .jsplit{grid-template-columns:minmax(0,1fr)}
-  .jsplit .tpane{display:none}
-}
-
 /* ---- двойной бортик: карточка сидит в собственной оболочке ----
    Оболочка нарисована кольцами тени, поэтому разметка не меняется.
    Отступы сеток подняты, чтобы соседние оболочки не соприкасались. */
@@ -1023,7 +1004,6 @@ body::after{
 }
 :root[data-theme="dark"] .jgrid,
 :root[data-theme="dark"] .split{gap:28px}
-:root[data-theme="dark"] .jsplit{gap:30px}
 :root[data-theme="dark"] .card+.card,
 :root[data-theme="dark"] .kpis+.card,
 :root[data-theme="dark"] .split+.card,
@@ -1031,7 +1011,6 @@ body::after{
 :root[data-theme="dark"] .jgrid+.split,
 :root[data-theme="dark"] .jgrid+.card{margin-top:28px}
 :root[data-theme="dark"] .page > .card:first-child,
-:root[data-theme="dark"] .jsplit,
 :root[data-theme="dark"] .jgrid{margin-top:8px}
 :root[data-theme="dark"] .kpis{margin-bottom:22px}
 /* карточки внутри модалок и панелей остаются плоскими */
@@ -1155,7 +1134,7 @@ body::after{
 :root[data-nav="icons"] .mini:hover,:root[data-nav="icons"] .nav a:hover{background:var(--panel-2)}
 
 /* ---- карточки без обводки: границу держит собственный фон ---- */
-.card,.qcard,.tpane{border-color:transparent}
+.card,.qcard{border-color:transparent}
 .ovw .shell,.ovw .core,.ovw .rail,.ovw .rail .inner{border-color:transparent}
 .ovw .day{border-color:transparent}
 /* внешняя оболочка карточек рисуется одним фоном, без волоска по краю */
