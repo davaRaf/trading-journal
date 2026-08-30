@@ -1,0 +1,45 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Trading Journal</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>📓</text></svg>">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600&family=Manrope:wght@400;500;600;700;800&display=swap">
+<link rel="stylesheet" href="/static/style.css">
+<script>
+/* тема применяется до отрисовки, чтобы не мигало */
+try{var th=localStorage.getItem("tj_theme");if(th)document.documentElement.setAttribute("data-theme",th);}catch(e){}
+</script>
+</head>
+<body>
+
+<aside class="side">
+  <div class="brand"><span class="dot"></span>Journal</div>
+  <button class="newtrade" onclick="openForm()">+ New Trade</button>
+  <nav class="nav">
+    <a href="#dashboard" data-v="dashboard">Dashboard</a>
+    <a href="#journal"   data-v="journal">Journal</a>
+    <a href="#quarterly" data-v="quarterly">Quarterly</a>
+    <a href="#yearly"    data-v="yearly">Yearly</a>
+    <a href="#analytics" data-v="analytics">Analytics</a>
+  </nav>
+  <div class="side-foot">
+    <div class="themes-lab">Тема</div>
+    <div class="themes" id="themes" role="group" aria-label="Тема"></div>
+    <button class="ghost" onclick="openImport()">Импорт</button>
+    <button class="ghost" onclick="exportData()">Экспорт</button>
+  </div>
+</aside>
+
+<main id="main" class="main"></main>
+
+<div id="modal" class="modal" hidden><div class="modal-box" id="modalBox"></div></div>
+<div id="lightbox" class="lightbox" hidden onclick="closeLightbox()"><img id="lightboxImg" alt=""></div>
+
+<script src="/static/app.js"></script>
+<script src="/static/share.js"></script>
+</body>
+</html>

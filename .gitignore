@@ -1,0 +1,12 @@
+# журнал у каждого свой — данные в репозиторий не кладём
+data/trades.json
+data/screenshots/*
+!data/screenshots/.gitkeep
+data/*.bak*
+data/*.tmp
+data/*.broken.*
+
+__pycache__/
+*.pyc
+.DS_Store
+Thumbs.db
