@@ -902,7 +902,12 @@ function closeModal(){
 function setNum(v){
   document.documentElement.setAttribute("data-num",v);
   try{ localStorage.setItem("tj_num",v); }catch(e){}
+  markNum();
   render();
+}
+function markNum(){
+  const el=$("#numFont");
+  if(el) el.value=document.documentElement.getAttribute("data-num")||"geist";
 }
 
 /* ---------- вид левого меню: current, flat, icons ---------- */
@@ -1478,7 +1483,7 @@ function markDemo(){
 }
 
 (async function init(){
-  markTheme(); markLayout();
+  markTheme(); markLayout(); markNum();
   try{
     await reload();
   }catch(e){

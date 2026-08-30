@@ -1174,3 +1174,11 @@ body::after{
 /* Space Mono крупнее по рисунку — чуть сбавляем размер крупных чисел */
 :root[data-num="space"] .ovw .sum .big{font-size:48px}
 :root[data-num="space"] .ovw .stats .val{font-size:20px}
+/* выбор шрифта цифр в левой панели */
+.numpick{display:flex;flex-direction:column;gap:5px}
+.numpick span{font-family:var(--mono);font-size:9px;letter-spacing:.14em;text-transform:uppercase;
+  color:var(--faint);padding:0 2px}
+.numpick select{width:100%;font:inherit;font-size:12.5px;color:var(--dim);
+  background:var(--panel-2);border:1px solid var(--line-soft);border-radius:var(--r-sm);padding:6px 8px}
+.numpick select:hover{color:var(--text)}
+:root[data-nav="icons"] .numpick{display:none}
