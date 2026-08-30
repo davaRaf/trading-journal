@@ -1166,17 +1166,3 @@ body::after{
 .trow .r,
 .simple td,
 .arow .netr{font-variant-numeric:tabular-nums;font-weight:500;letter-spacing:-.02em}
-
-/* ---- мягкое зелёное свечение на фоне двух карточек «Огляду» ----
-   Пятно уходит в ноль ещё внутри карточки, поэтому читается как подсветка,
-   а не как заливка. Остальные карточки остаются нейтральными. */
-:root[data-theme="dark"] .ovw .core:has(.sum){
-  background:
-    radial-gradient(118% 150% at 6% -38%, rgba(64,224,148,.075), rgba(64,224,148,0) 58%),
-    var(--card);
-}
-:root[data-theme="dark"] .ovw .rail .inner{
-  background:
-    radial-gradient(95% 58% at 50% -10%, rgba(64,224,148,.06), rgba(64,224,148,0) 62%),
-    var(--card);
-}
