@@ -129,7 +129,8 @@ button{font:inherit;color:inherit;background:none;border:none;cursor:pointer}
 .beclr{color:var(--be);text-shadow:0 0 12px var(--be-glow)}
 
 .card{background:var(--card);border:1px solid var(--line);border-radius:var(--r);box-shadow:var(--shadow);container-type:inline-size}
-.card+.card,.kpis+.card,.split+.card,.card+.split{margin-top:14px}
+.card+.card,.kpis+.card,.split+.card,.card+.split,
+.jgrid+.split,.jgrid+.card{margin-top:14px}
 .card h3{margin:0;padding:12px 16px;border-bottom:1px solid var(--line-soft);
   font-family:var(--mono);font-size:10.5px;font-weight:500;letter-spacing:.14em;text-transform:uppercase;color:var(--dim);
   display:flex;align-items:center;gap:10px;flex-wrap:wrap}
@@ -1026,7 +1027,9 @@ body::after{
 :root[data-theme="dark"] .card+.card,
 :root[data-theme="dark"] .kpis+.card,
 :root[data-theme="dark"] .split+.card,
-:root[data-theme="dark"] .card+.split{margin-top:28px}
+:root[data-theme="dark"] .card+.split,
+:root[data-theme="dark"] .jgrid+.split,
+:root[data-theme="dark"] .jgrid+.card{margin-top:28px}
 :root[data-theme="dark"] .page > .card:first-child,
 :root[data-theme="dark"] .jsplit,
 :root[data-theme="dark"] .jgrid{margin-top:8px}

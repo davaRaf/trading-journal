@@ -624,7 +624,6 @@ function vJournal(){
       '<div class="card"><h3>Еквіті місяця · %</h3><div class="in">'+equitySVG(monthTrades)+"</div></div>"+
       '<div style="min-width:0">'+bestWorstHtml(monthTrades)+"</div></div>";
     h+=beReportHtml(monthTrades);
-    h+=tradesCard(sortDesc(monthTrades),"Угоди місяця · "+monthTrades.length,"month");
   }
   return h;
 }
