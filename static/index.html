@@ -9,10 +9,6 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600&family=Manrope:wght@400;500;600;700;800&display=swap">
 <link rel="stylesheet" href="/static/style.css">
-<script>
-/* тема применяется до отрисовки, чтобы не мигало */
-try{var th=localStorage.getItem("tj_theme");if(th)document.documentElement.setAttribute("data-theme",th);}catch(e){}
-</script>
 </head>
 <body>
 
@@ -27,8 +23,6 @@ try{var th=localStorage.getItem("tj_theme");if(th)document.documentElement.setAt
     <a href="#analytics" data-v="analytics">Analytics</a>
   </nav>
   <div class="side-foot">
-    <div class="themes-lab">Тема</div>
-    <div class="themes" id="themes" role="group" aria-label="Тема"></div>
     <button class="ghost" onclick="openImport()">Импорт</button>
     <button class="ghost" onclick="exportData()">Экспорт</button>
   </div>
