@@ -898,6 +898,13 @@ function closeModal(){
 }
 
 /* ---------- тема ---------- */
+/* ---------- чем набраны цифры ---------- */
+function setNum(v){
+  document.documentElement.setAttribute("data-num",v);
+  try{ localStorage.setItem("tj_num",v); }catch(e){}
+  render();
+}
+
 /* ---------- вид левого меню: current, flat, icons ---------- */
 function setNav(v){
   document.documentElement.setAttribute("data-nav",v);

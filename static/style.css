@@ -1156,3 +1156,21 @@ body::after{
 /* внешняя оболочка карточек рисуется одним фоном, без волоска по краю */
 :root[data-theme="dark"] .card,
 :root[data-theme="dark"] .qcard{box-shadow:0 0 0 6px var(--shell-bg),var(--shadow)}
+
+/* ================== чем набраны цифры ==================
+   Весь журнал берёт цифры из --mono, поэтому вид меняется одной переменной. */
+:root[data-num="jetbrains"]{--mono:"JetBrains Mono",ui-monospace,Consolas,monospace}
+:root[data-num="plex"]{--mono:"IBM Plex Mono",ui-monospace,Consolas,monospace}
+:root[data-num="space"]{--mono:"Space Mono",ui-monospace,Consolas,monospace}
+:root[data-num="dm"]{--mono:"DM Mono",ui-monospace,Consolas,monospace}
+/* «Архіво» — не моноширинный: цифры табличные, но рисунок живой */
+:root[data-num="archivo"]{--mono:"Archivo","Geist",system-ui,sans-serif}
+:root[data-num="archivo"] .ovw .sum .big,
+:root[data-num="archivo"] .ovw .stats .val,
+:root[data-num="archivo"] .kpi .v,
+:root[data-num="archivo"] .trow .r,
+:root[data-num="archivo"] .simple td,
+:root[data-num="archivo"] .arow .netr{font-variant-numeric:tabular-nums;font-weight:500;letter-spacing:-.02em}
+/* Space Mono крупнее по рисунку — чуть сбавляем размер крупных чисел */
+:root[data-num="space"] .ovw .sum .big{font-size:48px}
+:root[data-num="space"] .ovw .stats .val{font-size:20px}
