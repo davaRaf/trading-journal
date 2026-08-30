@@ -94,8 +94,9 @@ const PL = (function(){
       let best = pts[0], bd = Infinity;
       for(const p of pts){ const d = Math.abs(p.x - loc.x); if(d < bd){ bd = d; best = p; } }
       cur.setAttribute("x1", best.x); cur.setAttribute("x2", best.x);
-      dot.setAttribute("cx", best.x); dot.setAttribute("cy", best.y);
-      dot.setAttribute("fill", best.v < 0 ? "var(--down)" : "var(--up)");
+      dot.setAttribute("x1", best.x); dot.setAttribute("x2", best.x);
+      dot.setAttribute("y1", best.y); dot.setAttribute("y2", best.y);
+      dot.setAttribute("stroke", best.v < 0 ? "var(--down)" : "var(--up)");
       cur.hidden = false; dot.hidden = false;
       tip.innerHTML = '<span class="d">'+day(best.d)+'</span><span class="v '+
         (best.v>0.0001?"pos":best.v<-0.0001?"neg":"")+'">'+fmt(best.v)+"</span>";

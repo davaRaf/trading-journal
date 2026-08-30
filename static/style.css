@@ -845,7 +845,8 @@ body:has(.ovw){font-size:14px;line-height:1.6;font-weight:300}
 .ovw .plwrap{position:relative;min-width:0}
 .ovw .plzero{stroke:var(--line);stroke-width:1;stroke-dasharray:3 4}
 .ovw .plcursor{stroke:var(--faint);stroke-width:1;stroke-dasharray:2 3;opacity:.75}
-.ovw .plhover{stroke:var(--bg);stroke-width:2}
+/* конечная и наведённая точки нарисованы линиями нулевой длины */
+.ovw .plhover{filter:none}
 .ovw .pltip{position:absolute;transform:translateX(-50%);pointer-events:none;z-index:2;
   display:flex;align-items:baseline;gap:8px;white-space:nowrap;
   padding:5px 9px;border-radius:9px;border:1px solid var(--line);
@@ -1031,3 +1032,72 @@ body::after{
 /* карточки внутри модалок и панелей остаются плоскими */
 :root[data-theme="dark"] .pnl .card,
 :root[data-theme="dark"] .modal-box .card{box-shadow:var(--shadow)}
+
+/* ================== варианты расстановки ==================
+   Переключаются кнопкой в левой панели, состояние живёт в data-layout.
+   «Класика» — состояние по умолчанию, отдельных правил не требует. */
+
+/* ---- Смуга: меню одной строкой сверху, рабочая область во всю ширину ---- */
+:root[data-layout="top"] body{flex-direction:column}
+:root[data-layout="top"] .side{
+  width:100%;height:auto;flex-direction:row;align-items:center;gap:12px;
+  padding:9px 20px;border-right:none;border-bottom:1px solid var(--side-line);
+  position:sticky;top:0;z-index:20;overflow:visible;background:var(--panel)}
+:root[data-layout="top"] .brand{padding:0;gap:9px}
+:root[data-layout="top"] .brand .nm small{display:none}
+:root[data-layout="top"] .side .nav{flex-direction:row;gap:4px;margin-left:14px}
+:root[data-layout="top"] .side .nav a{padding:7px 13px}
+:root[data-layout="top"] .side .grp{flex-direction:row;align-items:center;gap:6px;margin-left:auto}
+:root[data-layout="top"] .side .grp .lab{display:none}
+:root[data-layout="top"] .side .mini{padding:7px 11px}
+:root[data-layout="top"] .side .mini span{display:none}
+:root[data-layout="top"] .side-foot{margin-top:0;flex-direction:row}
+:root[data-layout="top"] .newtrade{order:9;padding:8px 15px;white-space:nowrap}
+:root[data-layout="top"] .laybox{order:8}
+:root[data-layout="top"] .main:has(.ovw){padding:26px 32px 20px}
+:root[data-layout="top"] .ovw{column-gap:32px}
+@media(max-width:900px){
+  :root[data-layout="top"] .side{flex-wrap:wrap;padding:9px 14px}
+  :root[data-layout="top"] .side .nav{margin-left:0;width:100%;order:9}
+}
+
+/* ---- Плитки: обзор асимметричной сеткой ---- */
+:root[data-layout="bento"] .ovw{
+  grid-template-columns:repeat(12,minmax(0,1fr));
+  grid-auto-rows:min-content;column-gap:18px;row-gap:18px;align-items:stretch}
+:root[data-layout="bento"] .ovw .ohead{grid-column:1 / -1}
+:root[data-layout="bento"] .ovw .flow{display:contents}
+:root[data-layout="bento"] .ovw .week{grid-column:1 / 9;grid-row:2;margin-bottom:0}
+:root[data-layout="bento"] .ovw .rail{grid-column:9 / 13;grid-row:2 / 4}
+:root[data-layout="bento"] .ovw .flow > .shell:nth-child(2){grid-column:1 / 5;grid-row:3;margin-bottom:0}
+:root[data-layout="bento"] .ovw .flow > .shell:nth-child(3){grid-column:5 / 9;grid-row:3;margin-bottom:0}
+:root[data-layout="bento"] .ovw .flow > .shell,
+:root[data-layout="bento"] .ovw .rail{display:flex;flex-direction:column}
+:root[data-layout="bento"] .ovw .flow > .shell > .core{flex:1}
+:root[data-layout="bento"] .ovw .sum{flex-wrap:wrap;gap:16px}
+:root[data-layout="bento"] .ovw .sum .big{font-size:44px}
+:root[data-layout="bento"] .ovw .sum .when{font-size:18px}
+:root[data-layout="bento"] .ovw .stats{grid-template-columns:repeat(2,1fr)}
+:root[data-layout="bento"] .ovw .stats .st:nth-child(4n){border-right:1px solid var(--line-soft)}
+:root[data-layout="bento"] .ovw .stats .st:nth-child(2n){border-right:none}
+:root[data-layout="bento"] .ovw .stats .st:nth-last-child(-n+2){border-bottom:none}
+@media(max-width:1180px){
+  :root[data-layout="bento"] .ovw{grid-template-columns:minmax(0,1fr)}
+  :root[data-layout="bento"] .ovw .week,
+  :root[data-layout="bento"] .ovw .rail,
+  :root[data-layout="bento"] .ovw .flow > .shell{grid-column:1 / -1;grid-row:auto}
+}
+
+/* ---- сам переключатель ---- */
+.laybox{display:flex;gap:3px;padding:3px;border:1px solid var(--line-soft);border-radius:11px;
+  background:var(--seg-bg)}
+.laybox button{flex:1;padding:6px 8px;border-radius:8px;border:1px solid transparent;background:none;
+  color:var(--faint);font-size:11.5px;line-height:1;white-space:nowrap;
+  transition:color .2s cubic-bezier(.32,.72,0,1),background .2s cubic-bezier(.32,.72,0,1)}
+.laybox button:hover{color:var(--text)}
+.laybox button.on{color:var(--text);background:var(--seg-on-bg);border-color:var(--seg-on-line)}
+/* в плитках график занимает всю высоту своей ячейки */
+:root[data-layout="bento"] .ovw .plline{display:flex;flex-direction:column}
+:root[data-layout="bento"] .ovw .plline .chart{flex:1;min-height:0}
+:root[data-layout="bento"] .ovw .plwrap svg{height:100%}
+:root[data-layout="bento"] .ovw .plline .xax{margin-top:8px}

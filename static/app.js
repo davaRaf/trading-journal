@@ -470,13 +470,13 @@ function ovEquityHtml(){
       '<stop offset="1" stop-color="var(--down)" stop-opacity=".12"/></linearGradient>'+
     "</defs>";
   const area='<path d="'+d+" L"+X(last)+","+y0.toFixed(1)+" L"+X(0)+","+y0.toFixed(1)+' Z" fill="url(#plFill)"/>';
-  const svg='<svg viewBox="0 0 '+W+" "+H+'" width="100%" height="'+H+'">'+
+  const svg='<svg viewBox="0 0 '+W+" "+H+'" width="100%" height="'+H+'" preserveAspectRatio="none">'+
     defs+grid+area+
     '<line class="plzero" x1="0" x2="'+W+'" y1="'+y0.toFixed(1)+'" y2="'+y0.toFixed(1)+'" vector-effect="non-scaling-stroke"/>'+
     '<path d="'+d+'" fill="none" stroke="url(#plStroke)" stroke-width="1.9" stroke-linecap="round" vector-effect="non-scaling-stroke"/>'+
     '<line class="plcursor" x1="0" x2="0" y1="0" y2="'+H+'" vector-effect="non-scaling-stroke" hidden/>'+
-    '<circle class="plhover" r="3.5" hidden/>'+
-    '<circle cx="'+X(last)+'" cy="'+Y(vals[last]).toFixed(1)+'" r="3.2" fill="'+(vals[last]<0?"var(--down)":"var(--up)")+'"/></svg>';
+    '<line class="plhover" stroke-linecap="round" stroke-width="7" vector-effect="non-scaling-stroke" hidden/>'+
+    '<line x1="'+X(last)+'" x2="'+X(last)+'" y1="'+Y(vals[last]).toFixed(1)+'" y2="'+Y(vals[last]).toFixed(1)+'" stroke-linecap="round" stroke-width="6.5" vector-effect="non-scaling-stroke" stroke="'+(vals[last]<0?"var(--down)":"var(--up)")+'"/></svg>';
   const yax=[0,1,2,3,4].map(i=>{
     const v=max-(max-min)*i/4;
     return "<span>"+Math.round(v)+"</span>";
@@ -898,6 +898,18 @@ function closeModal(){
 }
 
 /* ---------- тема ---------- */
+/* ---------- расстановка: класика, смуга, плитки ---------- */
+function setLayout(v){
+  document.documentElement.setAttribute("data-layout",v);
+  try{ localStorage.setItem("tj_layout",v); }catch(e){}
+  markLayout();
+  render();
+}
+function markLayout(){
+  const cur=document.documentElement.getAttribute("data-layout")||"classic";
+  document.querySelectorAll(".laybox button").forEach(b=>b.classList.toggle("on",b.dataset.lay===cur));
+}
+
 function toggleTheme(){
   const dark = document.documentElement.getAttribute("data-theme")==="dark";
   if(dark) document.documentElement.removeAttribute("data-theme");
@@ -1463,7 +1475,7 @@ function markDemo(){
 }
 
 (async function init(){
-  markTheme();
+  markTheme(); markLayout();
   try{
     await reload();
   }catch(e){
