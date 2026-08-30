@@ -31,9 +31,9 @@ const SESSIONS = ["LONDON","NY","FRANKFURT","PH","PM"];
    в статистике полностью, но новую сделку по ним не предлагаем. */
 const PAIRS_ACTIVE = ["US100","GER40","ES500"];
 const DIMS = [
-  {k:"pair",label:"Pair"},{k:"session",label:"Session"},{k:"position",label:"Position"},
-  {k:"entry_model",label:"Entry Model"},{k:"bias",label:"Bias"},{k:"setup",label:"Setup"},
-  {k:"direction_type",label:"Cont / Rev"},{k:"result",label:"TP / SL / BE"},{k:"mistakes",label:"Mistakes"},
+  {k:"pair",label:"Інструмент"},{k:"session",label:"Сесія"},{k:"position",label:"Напрямок"},
+  {k:"entry_model",label:"Модель входу"},{k:"bias",label:"Біас"},{k:"setup",label:"Сетап"},
+  {k:"direction_type",label:"Продовження / Розворот"},{k:"result",label:"TP / SL / BE"},{k:"mistakes",label:"Помилки"},
 ];
 
 /* ---------------- утилиты ---------------- */
@@ -138,7 +138,7 @@ async function reload(){
 function kpiHtml(st, opts){
   opts=opts||{};
   const cells=[
-    ["Trades", st.n, ""],
+    ["Угод", st.n, ""],
     ["Win Rate", fmtPct(st.wr), ""],
     ["Підсумок, %", fmtR(st.net), clsR(st.net)],
     ["Середній RR", st.avgRR!=null?r1(st.avgRR):"—", ""],
@@ -146,7 +146,7 @@ function kpiHtml(st, opts){
     ["TP / SL / BE", st.wins+" / "+st.losses+" / "+st.be, "small"],
     ["BE\u2212 / BE+", st.beM+" / "+st.beP, "small"],
   ];
-  if(!opts.compact) cells.push(["Avg Risk", st.avgRisk!=null?r1(st.avgRisk)+"%":"—",""]);
+  if(!opts.compact) cells.push(["Середній ризик", st.avgRisk!=null?r1(st.avgRisk)+"%":"—",""]);
   return '<div class="kpis">'+cells.map(c=>
     '<div class="kpi"><div class="l">'+c[0]+'</div><div class="v '+c[2]+'">'+c[1]+'</div></div>').join("")+"</div>";
 }
@@ -248,10 +248,10 @@ function uniqueVals(field){
   return [...set].sort();
 }
 function filterBar(){
-  const selects=[["result","Result",["Win","Loss","BE-","BE+"]],["position","Position",["Long","Short"]],
-    ["pair","Pair",uniqueVals("pair")],["session","Session",uniqueVals("session")],
-    ["setup","Setup",uniqueVals("setup")],["entry_model","Model",uniqueVals("entry_model")],
-    ["bias","Bias",uniqueVals("bias")],["direction_type","C/R",["Continuation","Reversal"]]];
+  const selects=[["result","Результат",["Win","Loss","BE-","BE+"]],["position","Напрямок",["Long","Short"]],
+    ["pair","Інструмент",uniqueVals("pair")],["session","Сесія",uniqueVals("session")],
+    ["setup","Сетап",uniqueVals("setup")],["entry_model","Модель",uniqueVals("entry_model")],
+    ["bias","Біас",uniqueVals("bias")],["direction_type","Прод. / Розв.",["Continuation","Reversal"]]];
   let h='<div class="filters">';
   for(const [f,label,vals] of selects){
     if(!vals.length) continue;
@@ -504,7 +504,7 @@ function vJournal(){
   const modeBtns='<button class="pill '+(S.jMode==="cal"?"on":"")+'" onclick="S.jMode=\'cal\';render()">Місяць</button>'+
     '<button class="pill '+(S.jMode==="list"?"on":"")+'" onclick="S.jMode=\'list\';render()">Усі угоди</button>';
 
-  let h='<div class="vhead"><h1>Journal</h1>';
+  let h='<div class="vhead"><h1>Журнал</h1>';
   if(S.jMode==="cal"){
     h+='<div class="right">'+
       '<button class="navbtn" onclick="shiftJMonth(-1)">‹</button><span class="perlabel">'+label+'</span><button class="navbtn" onclick="shiftJMonth(1)">›</button>'+
@@ -558,7 +558,7 @@ function vJournal(){
   /* месяц целиком: динамика и разрезы */
   if(monthTrades.length){
     h+='<div class="split">'+
-      '<div class="card"><h3>Equity місяця · %</h3><div class="in">'+equitySVG(monthTrades)+"</div></div>"+
+      '<div class="card"><h3>Еквіті місяця · %</h3><div class="in">'+equitySVG(monthTrades)+"</div></div>"+
       '<div style="min-width:0">'+bestWorstHtml(monthTrades)+"</div></div>";
     h+=beReportHtml(monthTrades);
     h+=tradesCard(sortDesc(monthTrades),"Угоди місяця · "+monthTrades.length);
@@ -606,8 +606,8 @@ function beReportHtml(list){
 
 /* ---------- разрезы месяца ---------- */
 function bestWorstHtml(list){
-  const dims=[["setup","Setup"],["pair","Pair"],["entry_model","Entry Model"],["session","Session"],
-              ["direction_type","Cont / Rev"],["bias","Bias"],["position","Position"]];
+  const dims=[["setup","Сетап"],["pair","Інструмент"],["entry_model","Модель входу"],["session","Сесія"],
+              ["direction_type","Продовження / Розворот"],["bias","Біас"],["position","Напрямок"]];
   let cells="";
   for(const [k,label] of dims){
     const groups=[...groupBy(list,t=>fieldVal(t,k)).entries()].map(([name,arr])=>({name,net:arr.reduce((a,t)=>a+netR(t),0),n:arr.length}));
@@ -621,7 +621,7 @@ function bestWorstHtml(list){
   }
   const mist=[...groupBy(list,t=>t.mistakes).entries()].map(([name,arr])=>({name,net:arr.reduce((a,t)=>a+netR(t),0),n:arr.length})).sort((a,b)=>a.net-b.net).slice(0,4);
   if(mist.length){
-    cells+='<div class="cell"><div class="t">Mistakes</div>'+
+    cells+='<div class="cell"><div class="t">Помилки</div>'+
       mist.map(m=>'<div class="row"><span class="k">'+esc(m.name)+' · '+m.n+'</span><span class="v '+clsR(m.net)+'">'+fmtR(m.net)+"</span></div>").join("")+"</div>";
   }
   return cells?'<div class="card"><h3>Найкраще / найгірше</h3><div class="bw">'+cells+"</div></div>":"";
@@ -733,7 +733,7 @@ function openMonthReport(ym){
 /* ---------- Quarterly ---------- */
 function vQuarterly(){
   const Y=S.qYear;
-  let h='<div class="vhead"><h1>Quarterly</h1><div class="right">'+
+  let h='<div class="vhead"><h1>Квартали</h1><div class="right">'+
     '<button class="navbtn" onclick="S.qYear--;render()">‹</button><span class="perlabel">'+Y+'</span><button class="navbtn" onclick="S.qYear++;render()">›</button></div></div>';
   h+='<div class="qgrid">';
   for(let q=0;q<4;q++){
@@ -774,10 +774,10 @@ function vYearly(){
   const Y=S.yYear;
   const list=S.trades.filter(t=>(t.date||"").slice(0,4)==String(Y));
   const st=calc(list);
-  let h='<div class="vhead"><h1>Yearly</h1><div class="right">'+
+  let h='<div class="vhead"><h1>Роки</h1><div class="right">'+
     '<button class="navbtn" onclick="S.yYear--;render()">‹</button><span class="perlabel">'+Y+'</span><button class="navbtn" onclick="S.yYear++;render()">›</button></div></div>';
   h+=kpiHtml(st);
-  if(list.length) h+='<div class="card"><h3>Equity року · %</h3><div class="in">'+equitySVG(list)+"</div></div>";
+  if(list.length) h+='<div class="card"><h3>Еквіті року · %</h3><div class="in">'+equitySVG(list)+"</div></div>";
   h+=beReportHtml(list);
   /* месяцы */
   let mrows="";
@@ -788,7 +788,7 @@ function vYearly(){
     mrows+='<tr class="click" onclick="openMonthReport(\''+Y+"-"+pad(m)+'\')">'+
       "<td>"+MONTHS[m-1]+' <span class="go">розбір →</span></td><td>'+ms.n+"</td><td>"+fmtPct(ms.wr)+'</td><td class="'+clsR(ms.net)+'">'+fmtR(ms.net)+"</td><td>"+(ms.avgRR!=null?r1(ms.avgRR):"—")+"</td></tr>";
   }
-  h+='<div class="card"><h3>Months · клік по місяцю відкриває розбір</h3><table class="simple"><tr><th>Month</th><th>Trades</th><th>Win Rate</th><th>Підсумок, %</th><th>Сер. RR</th></tr>'+
+  h+='<div class="card"><h3>Місяці · клік по місяцю відкриває розбір</h3><table class="simple"><tr><th>Місяць</th><th>Угод</th><th>Win Rate</th><th>Підсумок, %</th><th>Сер. RR</th></tr>'+
     (mrows||'<tr><td colspan="5" class="empty">Немає даних</td></tr>')+"</table></div>";
   /* кварталы */
   let qrows="";
@@ -799,7 +799,7 @@ function vYearly(){
     const qs=calc(ql);
     qrows+="<tr><td>Q"+(q+1)+"</td><td>"+qs.n+"</td><td>"+fmtPct(qs.wr)+'</td><td class="'+clsR(qs.net)+'">'+fmtR(qs.net)+"</td><td>"+(qs.avgRR!=null?r1(qs.avgRR):"—")+"</td></tr>";
   }
-  h+='<div class="card"><h3>Quarters</h3><table class="simple"><tr><th>Quarter</th><th>Trades</th><th>Win Rate</th><th>Підсумок, %</th><th>Сер. RR</th></tr>'+
+  h+='<div class="card"><h3>Квартали</h3><table class="simple"><tr><th>Квартал</th><th>Угод</th><th>Win Rate</th><th>Підсумок, %</th><th>Сер. RR</th></tr>'+
     (qrows||'<tr><td colspan="5" class="empty">Немає даних</td></tr>')+"</table></div>";
   return h;
 }
@@ -807,7 +807,7 @@ function vYearly(){
 /* ---------- Analytics ---------- */
 function vAnalytics(){
   const list=applyFilters(S.trades);
-  let h='<div class="vhead"><h1>Analytics</h1><span class="sub">'+list.length+" угод у вибірці</span></div>";
+  let h='<div class="vhead"><h1>Аналітика</h1><span class="sub">'+list.length+" угод у вибірці</span></div>";
   h+=filterBar();
   h+='<div class="dims">'+DIMS.map(d=>'<button class="pill '+(S.dim===d.k?"on":"")+'" onclick="S.dim=\''+d.k+'\';render()">'+d.label+"</button>").join("")+"</div>";
   const groups=[...groupBy(list,t=>S.dim==="result"?resLabel(t.result):fieldVal(t,S.dim)).entries()].map(([name,arr])=>{
@@ -820,8 +820,8 @@ function vAnalytics(){
       '<span class="rr">'+(g.st.avgRR!=null?r1(g.st.avgRR):"—")+"</span>"+
       '<span class="netr '+clsR(g.st.net)+'">'+fmtR(g.st.net)+"</span></div>";
   }).join("");
-  h+='<div class="card"><h3>'+esc(DIMS.find(d=>d.k===S.dim).label)+" Performance</h3>"+
-    '<div class="ahead"><span>Назва</span><span>Trades</span><span>Win Rate</span><span>Сер. RR</span><span>Підсумок, %</span></div>'+
+  h+='<div class="card"><h3>Результати · '+esc(DIMS.find(d=>d.k===S.dim).label)+"</h3>"+
+    '<div class="ahead"><span>Назва</span><span>Угод</span><span>Win Rate</span><span>Сер. RR</span><span>Підсумок, %</span></div>'+
     (rows||'<div class="empty">Немає даних — поле не заповнене в жодній угоді</div>')+"</div>";
   return h;
 }
@@ -856,19 +856,19 @@ function closeLightbox(){ $("#lightbox").hidden=true; $("#lightboxImg").src=""; 
 function openTrade(id){
   const t=(S.all.length?S.all:S.trades).find(x=>x.id===id); if(!t) return;
   const r=netR(t);
-  const fields=[["Pair",t.pair],["Date",(t.date||"").replace("T"," ")],["Session",t.session],["Position",t.position],
-    ["Entry Model",t.entry_model],["Bias",t.bias],["Setup",t.setup],["Cont / Rev",dirType(t)],
-    ["Result",resLabel(t.result)],["RR",t.rr!=null?t.rr:""],["Risk",t.risk!=null?t.risk+"%":""],["Підсумок",fmtR(r)]];
-  let h='<div class="m-head"><h2>'+esc(t.pair||"Trade")+' <span class="'+clsR(r)+'" style="font-family:var(--mono)">'+fmtR(r)+"</span></h2>"+
+  const fields=[["Інструмент",t.pair],["Дата",(t.date||"").replace("T"," ")],["Сесія",t.session],["Напрямок",t.position],
+    ["Модель входу",t.entry_model],["Біас",t.bias],["Сетап",t.setup],["Прод. / Розв.",dirType(t)],
+    ["Результат",resLabel(t.result)],["RR",t.rr!=null?t.rr:""],["Ризик",t.risk!=null?t.risk+"%":""],["Підсумок",fmtR(r)]];
+  let h='<div class="m-head"><h2>'+esc(t.pair||"Угода")+' <span class="'+clsR(r)+'" style="font-family:var(--mono)">'+fmtR(r)+"</span></h2>"+
     '<button class="x" onclick="closeModal()">×</button></div><div class="m-body">';
   h+='<div class="dgrid">'+fields.filter(f=>f[1]!==""&&f[1]!=null).map(f=>
     '<div class="f2"><div class="l">'+f[0]+'</div><div class="v">'+esc(f[1])+"</div></div>").join("")+"</div>";
-  for(const [label,key] of [["Entry Details","entry_details"],["Notes","notes"],["Mistakes","mistakes"],["Comments","comments"]]){
+  for(const [label,key] of [["Як заходив","entry_details"],["Нотатки","notes"],["Помилки","mistakes"],["Коментарі","comments"]]){
     if((t[key]||"").trim()) h+='<div class="dtext"><div class="l">'+label+'</div><div class="v">'+esc(t[key])+"</div></div>";
   }
   const shots=(t.screenshots||[]).slice().sort((a,b)=>TF_ORDER.indexOf(a.tf)-TF_ORDER.indexOf(b.tf));
   if(shots.length){
-    h+='<div class="dtext"><div class="l">Charts · '+shots.map(s=>esc(s.tf||"")).join(" | ")+"</div></div>";
+    h+='<div class="dtext"><div class="l">Графіки · '+shots.map(s=>esc(s.tf||"")).join(" | ")+"</div></div>";
     h+='<div class="charts">'+shots.map(s=>
       '<div class="chart-item"><div class="l">'+esc(s.tf||"chart")+'</div><img loading="lazy" src="'+shotSrc(s)+'" onclick="openLightbox(this.src)"></div>').join("")+"</div>";
   }
@@ -1171,9 +1171,9 @@ async function saveTrade(id){
     entry_details:g("entry_details"), notes:g("notes"), mistakes:g("mistakes"), comments:"",
     screenshots:S.formShots,
   };
-  if(!t.pair){ alert("Вкажи Pair"); return; }
+  if(!t.pair){ alert("Вкажи інструмент"); return; }
   if(!t.date){ alert("Вкажи дату"); return; }
-  if(!t.result){ alert("Вкажи Result — TP / SL / BE\u2212 / BE+"); return; }
+  if(!t.result){ alert("Вкажи результат — TP / SL / BE\u2212 / BE+"); return; }
   if(t.result==="Win" && !num(t.rr)){ alert("Для TP потрібен RR — інакше результат порахується як 0R"); return; }
   const btn=document.querySelector(".m-foot .primary"); if(btn){btn.disabled=true;btn.textContent="Зберігаю…";}
   try{
@@ -1185,9 +1185,9 @@ async function saveTrade(id){
 
 /* ---------- импорт / экспорт ---------- */
 const IMP={rows:[],headers:[],map:{}};
-const IMP_FIELDS=[["pair","Pair"],["date","Date"],["session","Session"],["position","Position"],
-  ["entry_model","Entry Model"],["bias","Bias"],["setup","Setup"],["direction_type","Cont/Rev"],
-  ["result","Result"],["rr","RR"],["risk","Risk"],["entry_details","Entry Details"],["notes","Notes"],["mistakes","Mistakes"]];
+const IMP_FIELDS=[["pair","Інструмент"],["date","Дата"],["session","Сесія"],["position","Напрямок"],
+  ["entry_model","Модель входу"],["bias","Біас"],["setup","Сетап"],["direction_type","Прод./Розв."],
+  ["result","Результат"],["rr","RR"],["risk","Ризик"],["entry_details","Як заходив"],["notes","Нотатки"],["mistakes","Помилки"]];
 
 function openImport(){
   let h='<div class="m-head"><h2>Імпорт угод</h2><button class="x" onclick="closeModal()">×</button></div>'+
