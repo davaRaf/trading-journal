@@ -582,7 +582,7 @@ function vQuarterly(){
     const maxAbs=Math.max(0.001,...perMonth.map(x=>Math.abs(x.net)));
     const bars=perMonth.map(x=>{
       const wPct=Math.abs(x.net)/maxAbs*100;
-      const color=x.net>0?"#2fae72":x.net<0?"#e0553d":"#3a4556";
+      const color=x.net>0?"var(--up)":x.net<0?"var(--down)":"var(--line)";
       return '<div class="mbar"><span>'+x.label+'</span><span class="track"><i style="left:0;width:'+Math.max(x.n?4:0,wPct)+'%;background:'+color+'"></i></span><span class="val">'+(x.n?fmtR(x.net):"—")+"</span></div>";
     }).join("");
     h+='<div class="qcard"><h4>Q'+(q+1)+" "+Y+'<span class="netr '+clsR(st.net)+'">'+(st.n?fmtR(st.net):"—")+"</span></h4>"+
@@ -657,29 +657,6 @@ function vAnalytics(){
 function openModal(html){ $("#modalBox").innerHTML=html; $("#modal").hidden=false; document.body.style.overflow="hidden"; }
 function closeModal(){ $("#modal").hidden=true; document.body.style.overflow=""; S.formShots=[]; document.removeEventListener("paste", onPasteShot); }
 
-/* ---------- темы ---------- */
-function setTheme(name){
-  if(name) document.documentElement.setAttribute("data-theme",name);
-  else document.documentElement.removeAttribute("data-theme");
-  try{ name?localStorage.setItem("tj_theme",name):localStorage.removeItem("tj_theme"); }catch(e){}
-  markTheme();
-}
-const THEMES=[
-  {id:"",         name:"Полночь", a:"#0c0f16", b:"#4d84ff"},
-  {id:"black",    name:"Чёрная",  a:"#050506", b:"#6f8dff"},
-  {id:"graphite", name:"Графит",  a:"#16171b", b:"#3fb8ae"},
-  {id:"violet",   name:"Индиго",  a:"#0e0c17", b:"#9d7bff"},
-  {id:"light",    name:"Светлая", a:"#ffffff", b:"#2b62e3"},
-  {id:"paper",    name:"Бумага",  a:"#f3efe7", b:"#b1622c"},
-];
-function markTheme(){
-  const box=$("#themes"); if(!box) return;
-  const cur=document.documentElement.getAttribute("data-theme")||"";
-  box.innerHTML=THEMES.map(t=>
-    '<button title="'+t.name+'" data-id="'+t.id+'" class="'+(t.id===cur?"on":"")+
-    '" style="background:linear-gradient(135deg,'+t.a+' 50%,'+t.b+' 50%)" onclick="setTheme(this.dataset.id)"></button>'
-  ).join("");
-}
 $("#modal") && null;
 
 function openLightbox(src){ $("#lightboxImg").src=src; $("#lightbox").hidden=false; }
@@ -1177,7 +1154,6 @@ function markDemo(){
 }
 
 (async function init(){
-  markTheme();
   try{
     await reload();
   }catch(e){
