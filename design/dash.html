@@ -90,14 +90,23 @@ body{margin:0;min-height:100vh;background:var(--ink);color:var(--text);font-fami
 
 /* ================= рабочая область ================= */
 .main{padding:34px 42px 22px;min-width:0}
-.head{display:flex;align-items:baseline;gap:16px;margin-bottom:26px}
+.head{display:flex;align-items:center;gap:16px;margin-bottom:26px}
 .head h1{margin:0;font-family:var(--display);font-size:34px;font-weight:var(--h-weight);
   letter-spacing:var(--h-track);line-height:1.05}
-.head .per{margin-left:auto;display:flex;gap:22px}
-.head .per button{border:none;background:none;padding:0;color:var(--faint);font:inherit;font-size:12.5px;
-  cursor:pointer;transition:color .3s var(--ease)}
-.head .per button:hover{color:var(--dim)}
-.head .per button.on{color:var(--text)}
+/* период: сегменты, по которым видно, что на них жмут */
+.head .per{margin-left:auto;display:flex;gap:3px;padding:4px;border-radius:13px;
+  border:1px solid var(--hair-soft);box-shadow:var(--card-lip);
+  background:linear-gradient(180deg,rgba(255,255,255,.05),rgba(255,255,255,.015))}
+.head .per button{padding:7px 15px;border-radius:9px;border:1px solid transparent;background:none;
+  color:var(--dim);font:inherit;font-size:12.5px;cursor:pointer;
+  transition:color .25s var(--ease),background .25s var(--ease),
+             border-color .25s var(--ease),transform .12s var(--ease)}
+.head .per button:hover{color:var(--text);background:rgba(255,255,255,.07)}
+.head .per button:active{transform:scale(.96)}
+.head .per button:focus-visible{outline:2px solid rgba(255,255,255,.4);outline-offset:2px}
+.head .per button.on{color:var(--text);border-color:rgba(255,255,255,.13);
+  background:linear-gradient(180deg,rgba(255,255,255,.14),rgba(255,255,255,.06));
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.10)}
 
 /* двойной бордюр: внешняя оболочка + внутреннее ядро */
 .shell{border:1px solid var(--hair-soft);border-radius:22px;padding:6px;margin-bottom:18px;
@@ -174,6 +183,7 @@ svg{display:block}
   .main{padding:26px 36px 18px}
   .head{margin-bottom:18px}
   .head h1{font-size:28px}
+  .head .per button{padding:6px 13px}
   .core{padding:20px 24px}
   .sum{margin-bottom:18px}
   .sum .big{font-size:44px}
@@ -195,6 +205,8 @@ svg{display:block}
   .main{padding:20px 30px 14px}
   .head{margin-bottom:14px}
   .head h1{font-size:25px}
+  .head .per{padding:3px}
+  .head .per button{padding:5px 11px;font-size:12px}
   .core{padding:17px 21px}
   .sum{margin-bottom:14px}
   .sum .big{font-size:38px;margin-top:10px}
