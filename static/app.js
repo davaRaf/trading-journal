@@ -657,6 +657,21 @@ function vAnalytics(){
 function openModal(html){ $("#modalBox").innerHTML=html; $("#modal").hidden=false; document.body.style.overflow="hidden"; }
 function closeModal(){ $("#modal").hidden=true; document.body.style.overflow=""; S.formShots=[]; document.removeEventListener("paste", onPasteShot); }
 
+/* ---------- тема ---------- */
+function toggleTheme(){
+  const dark = document.documentElement.getAttribute("data-theme")==="dark";
+  if(dark) document.documentElement.removeAttribute("data-theme");
+  else document.documentElement.setAttribute("data-theme","dark");
+  try{ dark?localStorage.removeItem("tj_theme"):localStorage.setItem("tj_theme","dark"); }catch(e){}
+  markTheme();
+}
+function markTheme(){
+  const b=$("#themeBtn"); if(!b) return;
+  const dark = document.documentElement.getAttribute("data-theme")==="dark";
+  b.innerHTML = (dark ? "☀" : "☾") + "<span>" + (dark ? "Светлая тема" : "Тёмная тема") + "</span>";
+  b.title = dark ? "Переключить на светлую" : "Переключить на тёмную";
+}
+
 $("#modal") && null;
 
 function openLightbox(src){ $("#lightboxImg").src=src; $("#lightbox").hidden=false; }
@@ -1154,6 +1169,7 @@ function markDemo(){
 }
 
 (async function init(){
+  markTheme();
   try{
     await reload();
   }catch(e){

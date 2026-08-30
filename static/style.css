@@ -1,5 +1,6 @@
 /* Trading Journal — палитра и типографика.
-   Одна светлая тема. Шрифты: Manrope (интерфейс) + JetBrains Mono (цифры). */
+   Две темы: светлая (по умолчанию) и тёмная — data-theme="dark" на <html>.
+   Шрифты: Manrope (интерфейс) + JetBrains Mono (цифры). */
 :root{
   --bg:#f2f4f8; --panel:#ffffff; --panel-2:#f6f8fb; --line:#dde3ec; --line-soft:#eaeef5;
   --text:#171b24; --dim:#5a6373; --faint:#99a2b3;
@@ -7,9 +8,24 @@
   --up:#128a53; --down:#c94430; --be:#9c7514;
   --up-soft:rgba(18,138,83,.10); --down-soft:rgba(201,68,48,.10); --be-soft:rgba(156,117,20,.12);
   --shadow:0 1px 2px rgba(23,27,36,.05),0 6px 20px -12px rgba(23,27,36,.12);
+  --shadow-pop:0 24px 60px -24px rgba(23,27,36,.28);
+  --shadow-badge:0 6px 24px rgba(23,27,36,.14);
+  --overlay:rgba(23,27,36,.42); --overlay-strong:rgba(23,27,36,.82);
   --sans:"Manrope","Segoe UI",system-ui,sans-serif;
   --mono:"JetBrains Mono",ui-monospace,Consolas,monospace;
   --r:10px; --r-sm:8px;
+}
+/* Тёмная */
+:root[data-theme="dark"]{
+  --bg:#0c0f16; --panel:#131826; --panel-2:#1a2030; --line:#232c3f; --line-soft:#1b2233;
+  --text:#e9edf5; --dim:#8f99ad; --faint:#5d6678;
+  --accent:#4d84ff; --accent-ink:#ffffff; --accent-soft:rgba(77,132,255,.13);
+  --up:#33b97a; --down:#e2604a; --be:#d7a13c;
+  --up-soft:rgba(51,185,122,.13); --down-soft:rgba(226,96,74,.13); --be-soft:rgba(215,161,60,.14);
+  --shadow:none;
+  --shadow-pop:0 24px 60px -24px rgba(0,0,0,.55);
+  --shadow-badge:0 6px 24px rgba(0,0,0,.28);
+  --overlay:rgba(5,7,12,.66); --overlay-strong:rgba(3,4,7,.93);
 }
 
 *{box-sizing:border-box}
@@ -41,6 +57,7 @@ button{font:inherit;color:inherit;background:none;border:none;cursor:pointer}
 .side-foot{margin-top:auto;display:flex;flex-direction:column;gap:10px}
 .ghost{border:1px solid var(--line);border-radius:var(--r-sm);padding:7px 10px;color:var(--dim);font-size:13px;text-align:center}
 .ghost:hover{color:var(--text);border-color:var(--faint)}
+#themeBtn{display:flex;align-items:center;justify-content:center;gap:7px}
 
 /* ================= main ================= */
 .main{flex:1;min-width:0;padding:clamp(16px,3vw,36px)}
@@ -234,9 +251,9 @@ table.simple tr.click:hover td{background:var(--panel-2)}
 .qcard .mbar .val{text-align:right;font-variant-numeric:tabular-nums}
 
 /* ================= модалка ================= */
-.modal{position:fixed;inset:0;background:rgba(23,27,36,.42);z-index:50;display:flex;
+.modal{position:fixed;inset:0;background:var(--overlay);z-index:50;display:flex;
   align-items:flex-start;justify-content:center;overflow:auto;padding:4vh 14px;backdrop-filter:blur(3px)}
-.modal-box{background:var(--panel);border:1px solid var(--line);border-radius:12px;width:100%;max-width:860px;margin-bottom:6vh;box-shadow:0 24px 60px -24px rgba(23,27,36,.28)}
+.modal-box{background:var(--panel);border:1px solid var(--line);border-radius:12px;width:100%;max-width:860px;margin-bottom:6vh;box-shadow:var(--shadow-pop)}
 .m-head{display:flex;align-items:center;gap:12px;padding:15px 20px;border-bottom:1px solid var(--line-soft)}
 .m-head h2{margin:0;font-size:18px;font-weight:650}
 .m-head .x{margin-left:auto;color:var(--faint);font-size:20px;line-height:1;padding:2px 8px;border-radius:6px}
@@ -293,7 +310,7 @@ table.simple tr.click:hover td{background:var(--panel-2)}
 .chart-item img{width:100%;border-radius:var(--r-sm);border:1px solid var(--line);cursor:zoom-in;display:block}
 
 /* lightbox */
-.lightbox{position:fixed;inset:0;background:rgba(23,27,36,.82);z-index:60;display:flex;align-items:center;justify-content:center;cursor:zoom-out;padding:20px}
+.lightbox{position:fixed;inset:0;background:var(--overlay-strong);z-index:60;display:flex;align-items:center;justify-content:center;cursor:zoom-out;padding:20px}
 .lightbox img{max-width:96vw;max-height:92vh;border-radius:6px}
 
 /* импорт */
@@ -310,6 +327,7 @@ table.simple tr.click:hover td{background:var(--panel-2)}
   .nav a{padding:6px 10px;font-size:13px}
   .nav a.on{box-shadow:inset 0 -2px 0 var(--accent)}
   .side-foot{margin-top:0;flex-direction:row;margin-left:auto;align-items:center}
+  #themeBtn span{display:none}
   .newtrade{padding:8px 12px}
   .trow{grid-template-columns:80px 1fr auto auto;gap:8px;padding:10px 12px}
   .trow .info{display:none}
@@ -544,7 +562,7 @@ table.simple.mini td:last-child{white-space:nowrap;font-weight:600}
   display:flex; align-items:center; gap:10px;
   padding:8px 10px 8px 12px; border-radius:var(--r);
   background:var(--panel); border:1px solid var(--line);
-  box-shadow:0 6px 24px rgba(23,27,36,.14);
+  box-shadow:var(--shadow-badge);
   font-size:12px; color:var(--dim);
   max-width:calc(100vw - 32px);
 }
