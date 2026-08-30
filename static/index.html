@@ -31,23 +31,23 @@ if(!document.documentElement.getAttribute("data-theme"))document.documentElement
     <span class="nm">Stats<i>AI</i><small>помічник трейдера</small></span>
   </div>
 
-  <button class="newtrade" onclick="openForm()"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" class="ic"><path d="M12 5v14M5 12h14" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"/></svg> Нова угода</button>
+  <button class="newtrade" data-tip="Записати угоду · відкриється панель знизу" onclick="openForm()"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" class="ic"><path d="M12 5v14M5 12h14" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"/></svg> Нова угода</button>
 
   <nav class="nav">
-    <a href="#dashboard" data-v="dashboard"><svg class="ic" width="16" height="16" viewBox="0 0 24 24" fill="none"><rect x="3" y="3" width="7.5" height="9" rx="2" stroke="currentColor" stroke-width="1.6"/><rect x="13.5" y="3" width="7.5" height="5.5" rx="2" stroke="currentColor" stroke-width="1.6"/><rect x="13.5" y="12" width="7.5" height="9" rx="2" stroke="currentColor" stroke-width="1.6"/><rect x="3" y="15.5" width="7.5" height="5.5" rx="2" stroke="currentColor" stroke-width="1.6"/></svg> Огляд</a>
-    <a href="#journal"   data-v="journal"><svg class="ic" width="16" height="16" viewBox="0 0 24 24" fill="none"><rect x="3" y="4" width="18" height="17" rx="3" stroke="currentColor" stroke-width="1.6"/><path d="M3 9h18M8 3v3M16 3v3" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg> Журнал</a>
-    <a href="#analytics" data-v="analytics"><svg class="ic" width="16" height="16" viewBox="0 0 24 24" fill="none"><path d="M4 16l5-5 3 3 7-8" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/><path d="M15 6h5v5" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg> Аналітика</a>
+    <a href="#dashboard" data-v="dashboard" data-tip="Підсумки тижня, місяця й року"><svg class="ic" width="16" height="16" viewBox="0 0 24 24" fill="none"><rect x="3" y="3" width="7.5" height="9" rx="2" stroke="currentColor" stroke-width="1.6"/><rect x="13.5" y="3" width="7.5" height="5.5" rx="2" stroke="currentColor" stroke-width="1.6"/><rect x="13.5" y="12" width="7.5" height="9" rx="2" stroke="currentColor" stroke-width="1.6"/><rect x="3" y="15.5" width="7.5" height="5.5" rx="2" stroke="currentColor" stroke-width="1.6"/></svg> Огляд</a>
+    <a href="#journal"   data-v="journal" data-tip="Календар місяця й усі угоди"><svg class="ic" width="16" height="16" viewBox="0 0 24 24" fill="none"><rect x="3" y="4" width="18" height="17" rx="3" stroke="currentColor" stroke-width="1.6"/><path d="M3 9h18M8 3v3M16 3v3" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg> Журнал</a>
+    <a href="#analytics" data-v="analytics" data-tip="Розрізи: сетапи, сесії, моделі"><svg class="ic" width="16" height="16" viewBox="0 0 24 24" fill="none"><path d="M4 16l5-5 3 3 7-8" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/><path d="M15 6h5v5" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg> Аналітика</a>
   </nav>
 
   <div class="grp">
     <div class="lab">Швидко</div>
-    <button class="mini" onclick="openImport()"><svg class="ic" width="14" height="14" viewBox="0 0 24 24" fill="none"><path d="M12 3v12M8 11l4 4 4-4" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/><path d="M4 17v2a2 2 0 002 2h12a2 2 0 002-2v-2" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></svg> Імпорт</button>
-    <button class="mini" onclick="exportData()"><svg class="ic" width="14" height="14" viewBox="0 0 24 24" fill="none"><path d="M12 21V9M8 13l4-4 4 4" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/><path d="M4 7V5a2 2 0 012-2h12a2 2 0 012 2v2" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></svg> Експорт</button>
-    <button class="mini" onclick="openShare(S.jMonth)"><svg class="ic" width="14" height="14" viewBox="0 0 24 24" fill="none"><rect x="3" y="5" width="18" height="14" rx="3" stroke="currentColor" stroke-width="1.6"/><circle cx="8.5" cy="10" r="1.6" stroke="currentColor" stroke-width="1.5"/><path d="M4 17l5-4 4 3 3-2 4 3" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg> Картинка місяця</button>
+    <button class="mini" data-tip="Завантажити угоди з CSV або Excel" onclick="openImport()"><svg class="ic" width="14" height="14" viewBox="0 0 24 24" fill="none"><path d="M12 3v12M8 11l4 4 4-4" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/><path d="M4 17v2a2 2 0 002 2h12a2 2 0 002-2v-2" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></svg> Імпорт</button>
+    <button class="mini" data-tip="Зберегти всі угоди файлом" onclick="exportData()"><svg class="ic" width="14" height="14" viewBox="0 0 24 24" fill="none"><path d="M12 21V9M8 13l4-4 4 4" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/><path d="M4 7V5a2 2 0 012-2h12a2 2 0 012 2v2" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></svg> Експорт</button>
+    <button class="mini" data-tip="Картинка з підсумками місяця для каналу" onclick="openShare(S.jMonth)"><svg class="ic" width="14" height="14" viewBox="0 0 24 24" fill="none"><rect x="3" y="5" width="18" height="14" rx="3" stroke="currentColor" stroke-width="1.6"/><circle cx="8.5" cy="10" r="1.6" stroke="currentColor" stroke-width="1.5"/><path d="M4 17l5-4 4 3 3-2 4 3" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg> Картинка місяця</button>
   </div>
 
   <div class="side-foot">
-    <button class="mini" id="themeBtn" onclick="toggleTheme()"><svg class="ic" width="14" height="14" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="4.2" stroke="currentColor" stroke-width="1.6"/><path d="M12 2.6v2.2M12 19.2v2.2M2.6 12h2.2M19.2 12h2.2M5.3 5.3l1.6 1.6M17.1 17.1l1.6 1.6M18.7 5.3l-1.6 1.6M6.9 17.1l-1.6 1.6" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg> <span>Світла тема</span></button>
+    <button class="mini" id="themeBtn" data-tip="Перемкнути світлу й темну тему" onclick="toggleTheme()"><svg class="ic" width="14" height="14" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="4.2" stroke="currentColor" stroke-width="1.6"/><path d="M12 2.6v2.2M12 19.2v2.2M2.6 12h2.2M19.2 12h2.2M5.3 5.3l1.6 1.6M17.1 17.1l1.6 1.6M18.7 5.3l-1.6 1.6M6.9 17.1l-1.6 1.6" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg> <span>Світла тема</span></button>
   </div>
 </aside>
 
@@ -56,6 +56,7 @@ if(!document.documentElement.getAttribute("data-theme"))document.documentElement
 <div id="modal" class="modal" hidden><div class="modal-box" id="modalBox"></div></div>
 <div id="lightbox" class="lightbox" hidden onclick="closeLightbox()"><img id="lightboxImg" alt=""></div>
 
+<script src="/static/ui.js"></script>
 <script src="/static/demo.js"></script>
 <script src="/static/app.js"></script>
 <script src="/static/share.js"></script>

@@ -29,43 +29,36 @@
 }
 /* Тёмная — оформление макета */
 :root[data-theme="dark"]{
-  --bg:#08080a;
-  --panel:rgba(255,255,255,.045); --panel-2:rgba(255,255,255,.075);
-  --line:rgba(255,255,255,.10); --line-soft:rgba(255,255,255,.055);
-  --text:#f0f0f1; --dim:#94949a; --faint:#63636b;
-  --accent:#d4d6da; --accent-ink:#0a0a0c; --accent-soft:rgba(255,255,255,.10);
-  --up:#4fd18f; --down:#f2645f; --be:#efc258;
-  --up-soft:rgba(79,209,143,.14); --down-soft:rgba(242,100,95,.13); --be-soft:rgba(239,194,88,.13);
-  --up-glow:rgba(79,209,143,.38); --down-glow:rgba(242,100,95,.34); --be-glow:rgba(239,194,88,.32);
-  /* карточка светлее сверху — сквозь неё проходит свет фона */
-  --card:linear-gradient(180deg,rgba(255,255,255,.062),rgba(255,255,255,.016));
-  --card-lip:inset 0 1px 0 rgba(255,255,255,.08);
-  --ov-eq-line:#d4d6da; --ov-eq-fill:rgba(255,255,255,.14); --ov-grid:rgba(255,255,255,.055);
-  --side-bg:linear-gradient(180deg,rgba(255,255,255,.055),rgba(255,255,255,.02));
-  --glow:
-    radial-gradient(1150px 760px at 66% -12%, rgba(255,255,255,.165), transparent 62%),
-    radial-gradient(720px 540px at 97% 10%, rgba(255,255,255,.105), transparent 62%),
-    radial-gradient(800px 580px at -5% -8%, rgba(255,255,255,.085), transparent 64%),
-    radial-gradient(1000px 680px at 100% 104%, rgba(255,255,255,.07), transparent 62%);
-  /* оттенки макета один в один */
-  --shell-bg:linear-gradient(180deg,rgba(255,255,255,.028),rgba(255,255,255,0));
-  --seg-bg:linear-gradient(180deg,rgba(255,255,255,.05),rgba(255,255,255,.015));
-  --seg-on-bg:linear-gradient(180deg,rgba(255,255,255,.14),rgba(255,255,255,.06));
-  --seg-on-line:rgba(255,255,255,.13); --seg-on-lip:inset 0 1px 0 rgba(255,255,255,.10);
-  --day-off-bg:linear-gradient(180deg,rgba(255,255,255,.022),rgba(255,255,255,.006));
-  --day-off-ink:rgba(255,255,255,.18); --day-off-ink-2:rgba(255,255,255,.13);
-  --ghost:rgba(255,255,255,.22); --ghost-2:rgba(255,255,255,.18);
-  --bar-track:rgba(255,255,255,.05);
-  --bar-fill:linear-gradient(90deg,rgba(255,255,255,.62),rgba(255,255,255,.24));
+  /* палитра экрана входа (design/auth, «ночь»): графит, тонкие волоски, мятный акцент */
+  --bg:#050505;
+  --panel:#0d0d0e; --panel-2:#111112;
+  --line:rgba(255,255,255,.08); --line-soft:rgba(255,255,255,.045);
+  --text:#f2f2f3; --dim:#8c8c90; --faint:#5c5c61;
+  --accent:#40e094; --accent-ink:#06130d; --accent-soft:rgba(64,224,148,.12);
+  --up:#40e094; --down:#ff6e60; --be:#efc258;
+  --up-soft:rgba(64,224,148,.13); --down-soft:rgba(255,110,96,.13); --be-soft:rgba(239,194,88,.12);
+  --up-glow:transparent; --down-glow:transparent; --be-glow:transparent;
+  /* поверхности сплошные, как в макете входа */
+  --card:#0d0d0e; --card-lip:0 0 transparent;
+  --ov-eq-line:#d4d6da; --ov-eq-fill:rgba(255,255,255,.10); --ov-grid:rgba(255,255,255,.05);
+  --side-bg:#0a0a0b;
+  --glow:none;                       /* фон ровный: светящихся пятен за интерфейсом нет */
+  --shell-bg:#0a0a0b;
+  --seg-bg:#111112;
+  --seg-on-bg:#161617; --seg-on-line:rgba(255,255,255,.08); --seg-on-lip:0 0 transparent;
+  --day-off-bg:#0a0a0b; --day-off-ink:#3c3c40; --day-off-ink-2:#313135;
+  --ghost:#5c5c61; --ghost-2:#4a4a4f;
+  --bar-track:rgba(255,255,255,.06);
+  --bar-fill:linear-gradient(90deg,rgba(255,255,255,.55),rgba(255,255,255,.20));
   --side-line:rgba(255,255,255,.07);
-  --mark-bg:linear-gradient(150deg,rgba(255,255,255,.20),rgba(255,255,255,.05));
-  --mark-line:rgba(255,255,255,.12);
-  --shadow:inset 0 1px 0 rgba(255,255,255,.08),0 34px 70px -46px rgba(0,0,0,.95);
-  --shadow-pop:0 24px 60px -24px rgba(0,0,0,.7);
-  --shadow-badge:0 6px 24px rgba(0,0,0,.32);
-  --overlay:rgba(4,4,6,.7); --overlay-strong:rgba(2,2,4,.94);
+  --mark-bg:#161617; --mark-line:rgba(255,255,255,.08);
+  --shadow:0 40px 90px -22px rgba(0,0,0,.55);
+  --shadow-pop:0 50px 100px -30px rgba(0,0,0,.6);
+  --shadow-badge:0 6px 24px rgba(0,0,0,.4);
+  --overlay:rgba(0,0,0,.62); --overlay-strong:rgba(0,0,0,.9);
   --r:14px; --r-sm:10px;
 }
+
 
 *{box-sizing:border-box}
 [hidden]{display:none !important}
@@ -670,10 +663,10 @@ body:has(.ovw){font-size:14px;line-height:1.6;font-weight:300}
   border-radius:14px;padding:13px 14px;background:var(--card);box-shadow:var(--card-lip);
   display:flex;flex-direction:column;transition:border-color .3s var(--ease);cursor:pointer}
 .ovw .day:hover{border-color:var(--line)}
-/* исход дня — надпись во всю клетку: размытая, светится своим цветом */
+/* исход дня — надпись во всю клетку: ровная, без ореола */
 .ovw .glow{position:absolute;inset:0;display:grid;place-items:center;pointer-events:none;
   font-family:var(--mono);font-weight:500;font-size:62px;line-height:1;letter-spacing:-.05em;
-  padding:0 3px;opacity:.42;filter:blur(2px);text-shadow:0 0 12px currentColor,0 0 26px currentColor}
+  padding:0 3px;opacity:.20;filter:none;text-shadow:none}
 .ovw .glow.w{color:var(--up)} .ovw .glow.l{color:var(--down)} .ovw .glow.b{color:var(--be)}
 .ovw .day .wd,.ovw .day .dn,.ovw .day .bot{position:relative;z-index:1}
 .ovw .day .wd{font-family:var(--mono);font-size:9px;letter-spacing:.14em;text-transform:uppercase;color:var(--faint)}
@@ -820,9 +813,9 @@ body:has(.ovw){font-size:14px;line-height:1.6;font-weight:300}
 .brand .nm small{display:block;font-family:var(--mono);font-size:9px;letter-spacing:.14em;
   text-transform:uppercase;color:var(--faint);font-weight:400}
 .newtrade{display:flex;align-items:center;justify-content:center;gap:8px;border-radius:12px}
-:root[data-theme="dark"] .newtrade{background:linear-gradient(180deg,rgba(255,255,255,.10),rgba(255,255,255,.035));
-  border:1px solid var(--line);color:var(--text)}
-:root[data-theme="dark"] .newtrade:hover{filter:none;background:linear-gradient(180deg,rgba(255,255,255,.14),rgba(255,255,255,.06))}
+:root[data-theme="dark"] .newtrade{background:var(--accent);border:1px solid var(--accent);
+  color:var(--accent-ink);font-weight:600}
+:root[data-theme="dark"] .newtrade:hover{filter:none;box-shadow:0 0 26px -4px rgba(64,224,148,.65)}
 .nav a{display:flex;align-items:center;gap:10px;padding:9px 11px;border-radius:11px;font-size:13.5px;
   border:1px solid transparent}
 .nav a.on{box-shadow:none;border-color:var(--line);background:var(--panel-2)}
@@ -843,3 +836,150 @@ body:has(.ovw){font-size:14px;line-height:1.6;font-weight:300}
   display:block; color:var(--text);
 }
 .brand .nm i{font-style:normal; color:var(--logo-green)}
+
+/* ---- Bklit UI · Profit/Loss Line ---- */
+.ovw .plwrap{position:relative;min-width:0}
+.ovw .plzero{stroke:var(--line);stroke-width:1;stroke-dasharray:3 4}
+.ovw .plcursor{stroke:var(--faint);stroke-width:1;stroke-dasharray:2 3;opacity:.75}
+.ovw .plhover{stroke:var(--bg);stroke-width:2}
+.ovw .pltip{position:absolute;transform:translateX(-50%);pointer-events:none;z-index:2;
+  display:flex;align-items:baseline;gap:8px;white-space:nowrap;
+  padding:5px 9px;border-radius:9px;border:1px solid var(--line);
+  background:var(--panel-2);backdrop-filter:blur(8px);box-shadow:var(--shadow-badge);
+  font-family:var(--mono);font-size:11px;line-height:1}
+.ovw .pltip .d{color:var(--faint)}
+.ovw .pltip .v{color:var(--text)}
+
+/* ---- shadcn/ui · Tooltip ---- */
+.tipbox{position:fixed;z-index:80;pointer-events:none;max-width:260px;
+  padding:6px 11px;border-radius:8px;border:1px solid var(--line);
+  background:var(--panel-2);backdrop-filter:blur(10px);box-shadow:var(--shadow-badge);
+  color:var(--text);font-size:12px;line-height:1.45;
+  opacity:0;transform:translateY(3px) scale(.96);
+  transition:opacity .14s ease,transform .14s cubic-bezier(.16,1,.3,1)}
+.tipbox.below{transform:translateY(-3px) scale(.96)}
+.tipbox.in{opacity:1;transform:none}
+[data-tip]{cursor:help}
+button[data-tip],a[data-tip],.mk[data-tip]{cursor:pointer}
+
+/* ---- shadcn/ui · Pagination ---- */
+.pagi{display:flex;align-items:center;justify-content:center;gap:4px;flex-wrap:wrap;
+  padding:14px 12px 4px}
+.pagi .pg{min-width:34px;height:34px;padding:0 10px;border-radius:var(--r-sm);
+  border:1px solid transparent;background:none;color:var(--dim);
+  font-family:var(--mono);font-size:12.5px;line-height:1;
+  display:inline-flex;align-items:center;justify-content:center;
+  transition:color .14s,background .14s,border-color .14s}
+.pagi .pg:hover:not(:disabled):not(.gap){color:var(--text);background:var(--panel-2)}
+.pagi .pg.on{color:var(--text);border-color:var(--line);background:var(--panel-2);font-weight:500}
+.pagi .pg.step{font-family:var(--sans);font-size:13px}
+.pagi .pg:disabled{opacity:.35;cursor:default}
+.pagi .pg.gap{cursor:default;color:var(--faint)}
+
+/* ---- shadcn/ui · Sheet и Drawer ---- */
+.pnl-wrap{position:fixed;inset:0;z-index:70;display:flex}
+.pnl-ov{position:absolute;inset:0;background:var(--overlay);backdrop-filter:blur(2px);
+  opacity:0;transition:opacity .26s ease}
+.pnl-wrap.in .pnl-ov{opacity:1}
+.pnl{position:relative;display:flex;flex-direction:column;
+  background:var(--card);                   /* дно панели плотное, без просвета */
+  border:1px solid var(--line);box-shadow:var(--shadow-pop);
+  transition:transform .3s cubic-bezier(.16,1,.3,1)}
+/* справа — детали сделки */
+.pnl-wrap[data-side="right"]{justify-content:flex-end}
+.pnl-wrap[data-side="right"] .pnl{width:min(560px,100%);height:100%;
+  border-radius:16px 0 0 16px;border-right:none;transform:translateX(100%)}
+/* снизу — форма сделки */
+.pnl-wrap[data-side="bottom"]{align-items:flex-end;justify-content:center}
+.pnl-wrap[data-side="bottom"] .pnl{width:min(940px,100%);max-height:92vh;
+  border-radius:18px 18px 0 0;border-bottom:none;transform:translateY(100%)}
+.pnl-wrap.in .pnl{transform:none}
+.pnl-grab{padding:9px 0 3px;display:grid;place-items:center;cursor:grab;touch-action:none;flex:none}
+.pnl-grab i{width:44px;height:4px;border-radius:4px;background:var(--line);display:block}
+.pnl-grab:active{cursor:grabbing}
+/* шапка и подвал держатся, тело скроллится */
+.pnl .m-head{flex:none}
+.pnl .m-body{flex:1;overflow-y:auto;min-height:0}
+.pnl .m-body.form > *{flex:none}          /* секции формы не сжимаются под высоту панели */
+.pnl .m-foot{flex:none}
+@media(max-width:640px){
+  .pnl-wrap[data-side="right"] .pnl{width:100%;border-radius:0;border:none}
+}
+
+/* ---- shadcn/ui · Date Picker ---- */
+.dpop{position:fixed;z-index:85;width:268px;padding:12px;border-radius:12px;
+  border:1px solid var(--line);background:var(--card);box-shadow:var(--shadow-pop);
+  opacity:0;transform:translateY(-4px) scale(.985);
+  transition:opacity .15s ease,transform .15s cubic-bezier(.16,1,.3,1)}
+.dpop.in{opacity:1;transform:none}
+.dp-head{display:flex;align-items:center;gap:6px;margin-bottom:8px}
+.dp-title{flex:1;text-align:center;font-size:13px;font-weight:600}
+.dp-nav{width:26px;height:26px;border-radius:7px;border:1px solid var(--line);color:var(--dim);
+  display:grid;place-items:center;font-size:14px;line-height:1}
+.dp-nav:hover{color:var(--text);background:var(--panel-2)}
+.dp-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:2px}
+.dp-wd{display:grid;place-items:center;height:26px;font-family:var(--mono);font-size:9px;
+  letter-spacing:.1em;text-transform:uppercase;color:var(--faint)}
+.dp-day{height:32px;border-radius:8px;border:1px solid transparent;background:none;color:var(--dim);
+  font-family:var(--mono);font-size:12px;display:grid;place-items:center;
+  transition:background .12s,color .12s,border-color .12s}
+.dp-day:hover{background:var(--panel-2);color:var(--text)}
+.dp-day.off{color:var(--faint);opacity:.4;pointer-events:none}
+.dp-day.today{border-color:var(--line)}
+.dp-day.in{background:var(--panel-2);color:var(--text);border-radius:0}
+.dp-day.on{background:var(--accent);color:var(--accent-ink);font-weight:600}
+.dp-foot{display:flex;align-items:center;gap:8px;margin-top:10px;padding-top:9px;
+  border-top:1px solid var(--line-soft)}
+.dp-val{flex:1;font-family:var(--mono);font-size:11px;color:var(--faint)}
+.dp-clear{border:1px solid var(--line);border-radius:8px;padding:5px 10px;font-size:12px;color:var(--dim)}
+.dp-clear:hover{color:var(--text);background:var(--panel-2)}
+/* кнопка, из которой открывается календарь */
+.dbtn{display:inline-flex;align-items:center;gap:7px;border:1px solid var(--line);background:var(--panel);
+  color:var(--dim);border-radius:var(--r-sm);padding:6px 12px;font-size:13px;transition:color .12s,border-color .12s}
+.dbtn:hover{color:var(--text);border-color:var(--faint)}
+.dbtn.set{color:var(--text)}
+.dbtn svg{opacity:.6;flex:none}
+
+/* ---- shadcn/ui · Attachment ---- */
+.tfslot.dragover,.attach.dragover{border-color:var(--up);
+  background:color-mix(in srgb,var(--up) 10%,transparent)}
+.attach{display:flex;align-items:center;justify-content:center;gap:9px;
+  margin-top:10px;padding:13px;border:1px dashed var(--line);border-radius:var(--r-sm);
+  color:var(--faint);font-size:12.5px;text-align:center;transition:border-color .15s,background .15s,color .15s}
+.attach:hover{color:var(--dim);border-color:var(--faint)}
+.attach svg{opacity:.55;flex:none}
+.attach b{color:var(--dim);font-weight:500}
+
+/* активная пилюля — как вкладка на экране входа: графит с волоском, а не белая заливка */
+:root[data-theme="dark"] .pill.on{background:var(--seg-on-bg);color:var(--text);
+  border-color:var(--line);box-shadow:inset 0 0 0 1px var(--line);font-weight:500}
+
+/* ================== дорогая подача (high-end visual design) ==================
+   Три точечных приёма, раскладка не меняется:
+   плёночное зерно поверх фона, «тяжёлые» кривые движения, отклик на нажатие. */
+/* 1. зерно — фиксированный слой, не перерисовывается при прокрутке */
+body::after{
+  content:"";position:fixed;inset:0;z-index:5;pointer-events:none;opacity:.035;
+  background-image:url("data:image/svg+xml;charset=utf-8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='140' height='140'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='3'/%3E%3C/filter%3E%3Crect width='140' height='140' filter='url(%23n)'/%3E%3C/svg%3E")}
+:root:not([data-theme="dark"]) body::after{opacity:.022}
+
+/* 2. движение с массой: одна кривая на весь интерфейс */
+:root{--ease-lux:cubic-bezier(.32,.72,0,1)}
+.btn,.pill,.mini,.newtrade,.navbtn,.ghost,.dbtn,.pagi .pg,.nav a,.trow,.card,
+.ovw .day,.ovw .per button,.tfslot,.dp-day,.dp-nav,.dp-clear{
+  transition:background .28s var(--ease-lux),color .28s var(--ease-lux),
+             border-color .28s var(--ease-lux),box-shadow .28s var(--ease-lux),
+             transform .18s var(--ease-lux)}
+
+/* 3. отклик на нажатие — лёгкое «продавливание» */
+.btn:active,.pill:active,.mini:active,.newtrade:active,.navbtn:active,
+.ghost:active,.dbtn:active,.pagi .pg:not(:disabled):active,.dp-day:active{transform:scale(.985)}
+.trow:active,.ovw .day:not(.off):active{transform:scale(.997)}
+
+@media (prefers-reduced-motion:reduce){
+  .btn,.pill,.mini,.newtrade,.navbtn,.ghost,.dbtn,.pagi .pg,.nav a,.trow,.card,
+  .ovw .day,.ovw .per button,.tfslot,.dp-day,.dp-nav,.dp-clear{transition:none}
+  .btn:active,.pill:active,.mini:active,.newtrade:active,.navbtn:active,
+  .ghost:active,.dbtn:active,.pagi .pg:not(:disabled):active,.dp-day:active,
+  .trow:active,.ovw .day:not(.off):active{transform:none}
+}
