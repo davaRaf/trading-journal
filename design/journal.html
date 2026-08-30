@@ -9,12 +9,12 @@
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Geist+Mono:wght@400;500&family=Geist:wght@300;400;500;600&display=swap">
 <style>
 :root{
-  --ink:#06070b; --panel:rgba(255,255,255,.042); --panel-2:rgba(255,255,255,.055);
+  --ink:#08080a; --panel:rgba(255,255,255,.042); --panel-2:rgba(255,255,255,.055);
   --panel-3:rgba(255,255,255,.085);
   --line:rgba(255,255,255,.09); --line-soft:rgba(255,255,255,.05);
-  --text:#eef1f6; --dim:#8f96a6; --faint:#5f6675;
+  --text:#f0f0f1; --dim:#94949a; --faint:#63636b;
   --pos:#93c1a8; --neg:#c39a9c; --be:#b6ae95;
-  --accent:#7ea8f0;
+  --accent:#d4d6da;
   --card:linear-gradient(180deg,rgba(255,255,255,.062),rgba(255,255,255,.016));
   --card-lip:inset 0 1px 0 rgba(255,255,255,.08);
   /* набор шрифтов подставляется переключателем */
@@ -24,13 +24,13 @@
   --h-weight:600; --h-track:-.03em;
 }
 *{box-sizing:border-box}
-/* световой слой: мягкие синие пятна за интерфейсом */
+/* световой слой: мягкие светлые пятна за интерфейсом */
 body::before{content:"";position:fixed;inset:0;z-index:0;pointer-events:none;
   background:
-    radial-gradient(1100px 700px at 68% -10%, rgba(86,140,244,.40), transparent 60%),
-    radial-gradient(700px 520px at 96% 12%, rgba(64,112,224,.26), transparent 62%),
-    radial-gradient(760px 560px at -4% -6%, rgba(60,104,208,.22), transparent 64%),
-    radial-gradient(1000px 680px at 100% 104%, rgba(52,96,196,.18), transparent 62%)}
+    radial-gradient(1150px 760px at 66% -12%, rgba(255,255,255,.165), transparent 62%),
+    radial-gradient(720px 540px at 97% 10%, rgba(255,255,255,.105), transparent 62%),
+    radial-gradient(800px 580px at -5% -8%, rgba(255,255,255,.085), transparent 64%),
+    radial-gradient(1000px 680px at 100% 104%, rgba(255,255,255,.07), transparent 62%)}
 .side,.main{position:relative;z-index:1}
 html{scrollbar-gutter:stable;overflow-y:scroll}
 body{margin:0;min-height:100vh;background:var(--ink);color:var(--text);font-family:var(--sans);
@@ -42,8 +42,8 @@ body{margin:0;min-height:100vh;background:var(--ink);color:var(--text);font-fami
   padding:18px 14px;display:flex;flex-direction:column;gap:20px;overflow-y:auto}
 .brand{display:flex;align-items:center;gap:10px;padding:0 4px}
 .brand .mark{width:32px;height:32px;border-radius:10px;
-  background:linear-gradient(150deg,rgba(126,168,240,.42),rgba(126,168,240,.10));
-  border:1px solid rgba(126,168,240,.28);
+  background:linear-gradient(150deg,rgba(255,255,255,.20),rgba(255,255,255,.05));
+  border:1px solid rgba(255,255,255,.12);
   display:grid;place-items:center;flex:none}
 .brand .nm{font-weight:650;font-size:14px;letter-spacing:-.01em}
 .brand .nm small{display:block;font-family:var(--mono);font-size:9px;letter-spacing:.14em;
@@ -61,8 +61,8 @@ body{margin:0;min-height:100vh;background:var(--ink);color:var(--text);font-fami
 .nav a{display:flex;align-items:center;gap:10px;padding:9px 11px;border-radius:11px;color:var(--dim);
   text-decoration:none;font-size:13.5px;border:1px solid transparent;transition:.18s}
 .nav a:hover{color:var(--text);background:rgba(255,255,255,.05)}
-.nav a.on{color:var(--text);background:rgba(126,168,240,.13);
-  border-color:rgba(126,168,240,.22);font-weight:600}
+.nav a.on{color:var(--text);background:rgba(255,255,255,.085);
+  border-color:rgba(255,255,255,.10);font-weight:600}
 .nav a.on .ic{opacity:.9}
 .nav .ic{opacity:.45;flex:none}
 
@@ -179,7 +179,7 @@ body{margin:0;min-height:100vh;background:var(--ink);color:var(--text);font-fami
 
 .sbar{display:flex;gap:4px;height:9px;margin:10px 0 8px}
 .sbar i{border-radius:5px;background:rgba(255,255,255,.12)}
-.sbar i.a{background:linear-gradient(90deg,rgba(126,168,240,.9),rgba(126,168,240,.45))} .sbar i.b{background:rgba(255,255,255,.28)} .sbar i.c{background:rgba(255,255,255,.18)}
+.sbar i.a{background:linear-gradient(90deg,rgba(255,255,255,.7),rgba(255,255,255,.32))} .sbar i.b{background:rgba(255,255,255,.28)} .sbar i.c{background:rgba(255,255,255,.18)}
 .smarks{display:flex;justify-content:space-between;font-family:var(--mono);font-size:9.5px;color:var(--faint)}
 
 /* ---- эквити ---- */
@@ -201,7 +201,7 @@ svg{display:block}
 .callegend i{width:6px;height:6px;border-radius:2px;background:rgba(255,255,255,.3)}
 .callegend i.w{background:var(--pos)} .callegend i.l{background:var(--neg)} .callegend i.be{background:var(--be)}
 .callegend .hint{margin-left:auto}
-.cal .day.sel{border-color:rgba(126,168,240,.55);box-shadow:0 0 0 1px rgba(126,168,240,.25)}
+.cal .day.sel{border-color:rgba(255,255,255,.45);box-shadow:0 0 0 1px rgba(255,255,255,.18)}
 .trade{padding:10px 0;border-bottom:1px solid var(--line-soft)}
 .trade:last-child{border-bottom:none}
 .tline{display:flex;align-items:center;gap:8px}
