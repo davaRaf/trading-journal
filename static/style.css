@@ -4,6 +4,8 @@
    за интерфейсом, полупрозрачные карточки, яркие цвета результата.
    Шрифты: Geist (интерфейс) + Archivo (цифры). */
 :root{
+  /* общий шаг между блоками и общая кривая — ими живут и «Огляд», и «Журнал» */
+  --stack:18px; --ease:cubic-bezier(.16,1,.3,1); color-scheme:light;
   --bg:#f2f4f8; --panel:#ffffff; --panel-2:#f6f8fb; --line:#dde3ec; --line-soft:#eaeef5;
   --text:#171b24; --dim:#5a6373; --faint:#99a2b3;
   --accent:#2b62e3; --accent-ink:#ffffff; --accent-soft:rgba(43,98,227,.09);
@@ -30,6 +32,7 @@
 /* Тёмная — оформление макета */
 :root[data-theme="dark"]{
   /* палитра экрана входа (design/auth, «ночь»): графит, тонкие волоски, мятный акцент */
+  color-scheme:dark;
   --bg:#050505;
   --panel:#0d0d0e; --panel-2:#111112;
   --line:rgba(255,255,255,.08); --line-soft:rgba(255,255,255,.045);
@@ -114,6 +117,35 @@ button{font:inherit;color:inherit;background:none;border:none;cursor:pointer}
 .navbtn:hover{color:var(--text);border-color:var(--faint)}
 .perlabel{font-family:var(--mono);font-size:14px;letter-spacing:.04em;min-width:150px;text-align:center;font-weight:500}
 
+/* ============ шапка журнала: вид · який місяць · окрема дія ============
+   три зоны вместо одного ряда кнопок, чтобы было видно, что с чем связано */
+.jhead{display:flex;align-items:center;gap:14px;flex-wrap:wrap;margin-bottom:var(--stack)}
+.jhead h1{font-size:clamp(22px,3.2vw,28px);font-weight:650;letter-spacing:-.02em;margin:0}
+.jhead .seg-tabs{margin-left:0}
+.jhead .tools{margin-left:auto;display:flex;align-items:center;gap:14px;flex-wrap:wrap}
+/* навигация по месяцу — один узел в общей капсуле */
+.mnav{display:flex;align-items:center;gap:2px;padding:4px;border-radius:13px;
+  border:1px solid var(--line-soft);background:var(--seg-bg);box-shadow:var(--card-lip)}
+.mnav button{background:none;border:1px solid transparent;border-radius:9px;color:var(--dim);
+  font:inherit;cursor:pointer;transition:color .25s var(--ease),background .25s var(--ease)}
+.mnav button:hover{color:var(--text);background:var(--panel-2)}
+.mnav button:active{transform:scale(.96)}
+.mnav .nb{padding:5px 11px;font-size:16px;line-height:1.1}
+.mnav .lb{display:flex;align-items:center;gap:7px;justify-content:center;padding:6px 12px;
+  font-family:var(--mono);font-size:13px;letter-spacing:.03em;min-width:158px;font-variant-numeric:tabular-nums}
+.mnav .sep{width:1px;align-self:stretch;margin:3px 5px;background:var(--line-soft);flex:none}
+.mnav .tb{padding:6px 13px;font-size:12.5px}
+/* разовое действие живёт отдельно от навигации */
+.jact{display:flex;align-items:center;gap:7px;padding:8px 14px;border-radius:11px;
+  border:1px solid var(--line);background:var(--panel);color:var(--dim);font-size:13px;
+  transition:color .25s var(--ease),border-color .25s var(--ease),background .25s var(--ease)}
+.jact:hover{color:var(--accent);border-color:var(--accent);background:var(--accent-soft)}
+@media(max-width:760px){
+  .jhead .tools{width:100%;margin-left:0}
+  .mnav{flex:1;justify-content:center}
+  .mnav .lb{min-width:0;flex:1}
+}
+
 /* ---------- статистика: одна лента вместо коробок ---------- */
 .kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(142px,1fr));
   background:var(--panel);border:1px solid var(--line);border-radius:var(--r);
@@ -129,8 +161,10 @@ button{font:inherit;color:inherit;background:none;border:none;cursor:pointer}
 .beclr{color:var(--be);text-shadow:0 0 12px var(--be-glow)}
 
 .card{background:var(--card);border:1px solid var(--line);border-radius:var(--r);box-shadow:var(--shadow);container-type:inline-size}
+/* один шаг между блоками: карточка, оболочка графика и сетки живут одной сеткой */
 .card+.card,.kpis+.card,.split+.card,.card+.split,
-.jgrid+.split,.jgrid+.card{margin-top:14px}
+.jgrid+.split,.jgrid+.card,.shell+.card,.card+.shell,
+.jgrid+.shell,.kpis+.shell{margin-top:var(--stack)}
 .card h3{margin:0;padding:12px 16px;border-bottom:1px solid var(--line-soft);
   font-family:var(--mono);font-size:10.5px;font-weight:500;letter-spacing:.14em;text-transform:uppercase;color:var(--dim);
   display:flex;align-items:center;gap:10px;flex-wrap:wrap}
@@ -213,7 +247,7 @@ svg.chart{display:block;width:100%;height:auto}
 .split{display:grid;grid-template-columns:1fr 1fr;gap:14px;align-items:start}
 @media(max-width:900px){.split{grid-template-columns:minmax(0,1fr)}}
 
-.daypanel .chips{display:flex;flex-wrap:wrap;gap:8px;padding:14px 16px 4px}
+.daypanel .chips{display:flex;flex-wrap:wrap;gap:8px;padding:16px 16px 4px}
 .chip{font-family:var(--mono);font-size:12px;padding:5px 12px;border-radius:20px;
   background:var(--panel-2);color:var(--dim);border:1px solid var(--line-soft)}
 .chip b{color:var(--text);font-weight:600}
@@ -338,7 +372,45 @@ table.simple tr.click:hover td{background:var(--panel-2)}
 .btn.danger:hover{border-color:var(--down)}
 .m-foot .sp{flex:1}
 
-/* просмотр сделки */
+/* ============ карточка сделки в выезжающей панели ============
+   четыре блока с hairline-границами вместо ровной сетки одинаковых плиток */
+.thead{align-items:flex-start;gap:12px}
+.thead .ttl{display:flex;align-items:center;gap:9px;flex-wrap:wrap;min-width:0}
+.thead .ttl h2{margin:0;font-size:19px;font-weight:650}
+.thead .ttl .dt{width:100%;font-family:var(--mono);font-size:11.5px;color:var(--faint);letter-spacing:.03em}
+.thead .res{margin-left:auto;font-family:var(--mono);font-size:26px;font-weight:500;letter-spacing:-.03em;
+  line-height:1.15;font-variant-numeric:tabular-nums;white-space:nowrap}
+.thead .x{margin-left:0}
+.m-body.trade{padding:0}
+/* итог сделки: та же hairline-лента, что и показатели на «Огляді» */
+.tstats{display:grid;grid-template-columns:repeat(4,1fr);border-bottom:1px solid var(--line-soft)}
+.tstats .st{padding:14px 16px 13px;border-right:1px solid var(--line-soft);min-width:0}
+.tstats .st:last-child{border-right:none}
+.tstats .lab{font-family:var(--mono);font-size:9px;letter-spacing:.16em;text-transform:uppercase;
+  color:var(--faint);white-space:nowrap}
+.tstats .val{font-family:var(--mono);font-size:18px;margin-top:8px;line-height:1;
+  font-variant-numeric:tabular-nums;overflow:hidden;text-overflow:ellipsis}
+.tsec{padding:16px 20px 18px;border-bottom:1px solid var(--line-soft)}
+.tsec:last-child{border-bottom:none}
+.tsec h3{margin:0 0 10px;padding:0;border:none;background:none;font-family:var(--mono);font-size:9px;letter-spacing:.20em;text-transform:uppercase;
+  color:var(--faint);font-weight:400}
+.tfields{display:grid;grid-template-columns:repeat(auto-fit,minmax(196px,1fr));gap:0 24px}
+.tfields .fr{display:flex;align-items:baseline;justify-content:space-between;gap:12px;padding:8px 0;
+  border-bottom:1px solid var(--line-soft)}
+.tfields .fr .l{color:var(--faint);font-size:12.5px;white-space:nowrap}
+.tfields .fr .v{font-size:13.5px;font-weight:500;text-align:right;min-width:0;overflow-wrap:anywhere}
+.tnote+.tnote{margin-top:14px}
+.tnote .l{font-family:var(--mono);font-size:9px;letter-spacing:.14em;text-transform:uppercase;
+  color:var(--faint);margin-bottom:5px}
+.tnote .v{font-size:13.5px;line-height:1.55;color:var(--dim);white-space:pre-wrap;overflow-wrap:anywhere}
+.pnl .m-foot{position:sticky;bottom:0;background:var(--card);z-index:1}
+@media(max-width:620px){
+  .tstats{grid-template-columns:repeat(2,1fr)}
+  .tstats .st:nth-child(2n){border-right:none}
+  .tstats .st:nth-child(-n+2){border-bottom:1px solid var(--line-soft)}
+}
+
+/* просмотр сделки: старая сетка полей — осталась для отчётов */
 .dgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:10px;margin-bottom:16px}
 .dgrid .f2{border:1px solid var(--line-soft);border-radius:var(--r-sm);padding:9px 12px;background:var(--panel-2)}
 .dgrid .f2 .l{font-family:var(--mono);font-size:9px;letter-spacing:.12em;text-transform:uppercase;color:var(--faint)}
@@ -640,15 +712,15 @@ body:has(.ovw){font-size:14px;line-height:1.6;font-weight:300}
 .ovw .ohead h1{margin:0;font-size:34px;font-weight:500;letter-spacing:-.035em;line-height:1.05}
 
 /* период: сегменты, по которым видно, что на них жмут */
-.ovw .per{margin-left:auto;display:flex;gap:3px;padding:4px;border-radius:13px;
+.seg-tabs,.ovw .per{margin-left:auto;display:flex;gap:3px;padding:4px;border-radius:13px;
   border:1px solid var(--line-soft);box-shadow:var(--card-lip);background:var(--seg-bg)}
-.ovw .per button{padding:7px 15px;border-radius:9px;border:1px solid transparent;background:none;
+.seg-tabs button,.ovw .per button{padding:7px 15px;border-radius:9px;border:1px solid transparent;background:none;
   color:var(--dim);font:inherit;font-size:12.5px;cursor:pointer;
   transition:color .25s var(--ease),background .25s var(--ease),
              border-color .25s var(--ease),transform .12s var(--ease)}
-.ovw .per button:hover{color:var(--text);background:var(--panel-2)}
-.ovw .per button:active{transform:scale(.96)}
-.ovw .per button.on{color:var(--text);border-color:var(--seg-on-line);background:var(--seg-on-bg);
+.seg-tabs button:hover,.ovw .per button:hover{color:var(--text);background:var(--panel-2)}
+.seg-tabs button:active,.ovw .per button:active{transform:scale(.96)}
+.seg-tabs button.on,.ovw .per button.on{color:var(--text);border-color:var(--seg-on-line);background:var(--seg-on-bg);
   box-shadow:var(--seg-on-lip)}
 
 .ovw .flow{min-width:0}
@@ -695,8 +767,10 @@ body:has(.ovw){font-size:14px;line-height:1.6;font-weight:300}
 .ovw .day.be .dr{color:var(--be);text-shadow:0 0 12px var(--be-glow)}
 
 /* двойной бордюр: внешняя оболочка + внутреннее ядро */
-.ovw .shell{border:1px solid var(--line-soft);border-radius:22px;padding:6px;margin-bottom:18px;background:var(--shell-bg)}
-.ovw .core{background:var(--card);border:1px solid var(--line-soft);border-radius:17px;padding:26px 30px;
+.shell{border:1px solid var(--line-soft);border-radius:22px;padding:6px;margin-bottom:var(--stack);background:var(--shell-bg)}
+/* в журнале оболочки идут в общем потоке: отступ держит правило .shell+... сверху */
+.page > .shell:last-child{margin-bottom:0}
+.core{background:var(--card);border:1px solid var(--line-soft);border-radius:17px;padding:26px 30px;
   box-shadow:var(--shadow)}
 
 /* итог периода */
@@ -716,17 +790,17 @@ body:has(.ovw){font-size:14px;line-height:1.6;font-weight:300}
 .ovw .stats .val{font-family:var(--mono);font-size:22px;font-weight:400;letter-spacing:-.03em;margin-top:8px;line-height:1}
 
 /* эквити */
-.ovw .chart{display:grid;grid-template-columns:34px 1fr;gap:10px}
-.ovw .yax{display:flex;flex-direction:column;justify-content:space-between;font-family:var(--mono);font-size:9px;
+.chart{display:grid;grid-template-columns:34px 1fr;gap:10px}
+.yax{display:flex;flex-direction:column;justify-content:space-between;font-family:var(--mono);font-size:9px;
   color:var(--faint);text-align:right;padding:2px 0 12px}
-.ovw .xax{display:grid;text-align:center;font-family:var(--mono);font-size:9px;color:var(--faint);
+.xax{display:grid;text-align:center;font-family:var(--mono);font-size:9px;color:var(--faint);
   margin-left:44px;margin-top:10px}
-.ovw .chart-lab{display:flex;align-items:baseline;gap:14px;margin-bottom:12px}
-.ovw .chart-lab .t{font-family:var(--mono);font-size:9px;letter-spacing:.20em;text-transform:uppercase;color:var(--faint)}
-.ovw .chart-lab .v{font-family:var(--mono);font-size:15px}
-.ovw .chart-lab .dd{margin-left:auto;font-family:var(--mono);font-size:11px;color:var(--faint)}
-.ovw svg{display:block}
-.ovw .ovgrid{stroke:var(--ov-grid);stroke-width:1}
+.chart-lab{display:flex;align-items:baseline;gap:14px;margin-bottom:12px}
+.chart-lab .t{font-family:var(--mono);font-size:9px;letter-spacing:.20em;text-transform:uppercase;color:var(--faint)}
+.chart-lab .v{font-family:var(--mono);font-size:15px}
+.chart-lab .dd{margin-left:auto;font-family:var(--mono);font-size:11px;color:var(--faint)}
+.ovw svg,.plwrap svg{display:block}
+.ovgrid{stroke:var(--ov-grid);stroke-width:1}
 
 /* колонка-компаньон */
 .ovw .rail{align-self:stretch;display:flex;flex-direction:column;border:1px solid var(--line-soft);
@@ -754,10 +828,10 @@ body:has(.ovw){font-size:14px;line-height:1.6;font-weight:300}
 .ovw .bar.neg .ln i{background:color-mix(in srgb,var(--down) 50%,transparent)}
 
 /* тихий вход блоков */
-.ovw .rise{opacity:0;transform:translateY(12px);transition:opacity .7s var(--ease),transform .7s var(--ease)}
-.ovw .rise.in{opacity:1;transform:none}
+.rise{opacity:0;transform:translateY(12px);transition:opacity .7s var(--ease),transform .7s var(--ease)}
+.rise.in{opacity:1;transform:none}
 @media (prefers-reduced-motion:reduce){
-  .ovw .rise{opacity:1;transform:none;transition:none}
+  .rise{opacity:1;transform:none;transition:none}
   .ovw .bar .ln i{transform:scaleX(1);transition:none}
 }
 
@@ -767,12 +841,12 @@ body:has(.ovw){font-size:14px;line-height:1.6;font-weight:300}
   .ovw .ohead{margin-bottom:18px}
   .ovw .ohead h1{font-size:28px}
   .ovw .per button{padding:6px 13px}
-  .ovw .core{padding:20px 24px}
+  .core{padding:20px 24px}
   .ovw .sum{margin-bottom:18px}
   .ovw .sum .big{font-size:44px}
   .ovw .stats .st{padding:11px 16px 10px}
   .ovw .stats .val{font-size:20px;margin-top:6px}
-  .ovw .shell{margin-bottom:14px}
+  .shell{margin-bottom:14px}
   .ovw .week{margin-bottom:12px}
   .ovw .day{aspect-ratio:1.24;padding:10px 12px;border-radius:12px}
   .ovw .day .wd{line-height:1.3}
@@ -788,7 +862,7 @@ body:has(.ovw){font-size:14px;line-height:1.6;font-weight:300}
   .ovw .ohead h1{font-size:25px}
   .ovw .per{padding:3px}
   .ovw .per button{padding:5px 11px;font-size:12px}
-  .ovw .core{padding:17px 21px}
+  .core{padding:17px 21px}
   .ovw .sum{margin-bottom:14px}
   .ovw .sum .big{font-size:38px;margin-top:10px}
   .ovw .stats .st{padding:9px 14px 8px}
@@ -800,7 +874,7 @@ body:has(.ovw){font-size:14px;line-height:1.6;font-weight:300}
   .ovw .day .dn{font-size:12px;line-height:1.05;margin-top:1px}
   .ovw .day .dr{font-size:13px}
   .ovw .glow{font-size:42px;filter:blur(1.4px)}
-  .ovw .shell{margin-bottom:11px}
+  .shell{margin-bottom:11px}
   .ovw .cut section + section{margin-top:12px;padding-top:12px}
   .ovw .bar{padding:5px 0}
 }
@@ -843,20 +917,20 @@ body:has(.ovw){font-size:14px;line-height:1.6;font-weight:300}
 .brand .nm i{font-style:normal; color:var(--logo-green)}
 
 /* ---- Bklit UI · Profit/Loss Line ---- */
-.ovw .plwrap{position:relative;min-width:0}
+.plwrap{position:relative;min-width:0}
 /* нулевая ось выделена, как Grid highlightRowValues={[0]} */
-.ovw .plzero{stroke:var(--text);stroke-width:1;opacity:.35}
-.ovw .plcursor{stroke:var(--faint);stroke-width:1;stroke-dasharray:2 3;opacity:.75}
+.plzero{stroke:var(--text);stroke-width:1;opacity:.35}
+.plcursor{stroke:var(--faint);stroke-width:1;stroke-dasharray:2 3;opacity:.75}
 /* наведённая точка нарисована линией нулевой длины */
-.ovw .plhover{filter:none}
-.ovw .pltip{position:absolute;transform:translateX(-50%);pointer-events:none;z-index:2;
+.plhover{filter:none}
+.pltip{position:absolute;transform:translateX(-50%);pointer-events:none;z-index:2;
   display:flex;align-items:baseline;gap:7px;white-space:nowrap;
   padding:5px 9px;border-radius:9px;border:1px solid var(--line);
   background:var(--panel-2);backdrop-filter:blur(8px);box-shadow:var(--shadow-badge);
   font-family:var(--mono);font-size:11px;line-height:1}
-.ovw .pltip .i{align-self:center;width:7px;height:7px;border-radius:50%;flex:none}
-.ovw .pltip .d{color:var(--faint)}
-.ovw .pltip .v{color:var(--text)}
+.pltip .i{align-self:center;width:7px;height:7px;border-radius:50%;flex:none}
+.pltip .d{color:var(--faint)}
+.pltip .v{color:var(--text)}
 
 /* ---- shadcn/ui · Tooltip ---- */
 .tipbox{position:fixed;z-index:80;pointer-events:none;max-width:260px;
@@ -909,7 +983,7 @@ button[data-tip],a[data-tip],.mk[data-tip]{cursor:pointer}
 .pnl-grab:active{cursor:grabbing}
 /* шапка и подвал держатся, тело скроллится */
 .pnl .m-head{flex:none}
-.pnl .m-body{flex:1;overflow-y:auto;min-height:0}
+.pnl .m-body{flex:1;overflow-y:auto;min-height:0;overscroll-behavior:contain}
 .pnl .m-body.form > *{flex:none}          /* секции формы не сжимаются под высоту панели */
 .pnl .m-foot{flex:none}
 @media(max-width:640px){
@@ -1135,7 +1209,7 @@ body::after{
 
 /* ---- карточки без обводки: границу держит собственный фон ---- */
 .card,.qcard{border-color:transparent}
-.ovw .shell,.ovw .core,.ovw .rail,.ovw .rail .inner{border-color:transparent}
+.shell,.core,.ovw .rail,.ovw .rail .inner{border-color:transparent}
 .ovw .day{border-color:transparent}
 /* внешняя оболочка карточек рисуется одним фоном, без волоска по краю */
 :root[data-theme="dark"] .card,

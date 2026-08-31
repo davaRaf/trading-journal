@@ -281,9 +281,13 @@ function filterBar(){
   return h+"</div>";
 }
 /* ---------- выбор даты и периода (shadcn/ui · Date Picker) ---------- */
-const CAL_ICON='<svg width="13" height="13" viewBox="0 0 24 24" fill="none">'+
+const CAL_ICON='<svg width="13" height="13" aria-hidden="true" viewBox="0 0 24 24" fill="none">'+
   '<rect x="3" y="4.5" width="18" height="16" rx="3" stroke="currentColor" stroke-width="1.7"/>'+
   '<path d="M3 9.5h18M8 3v3M16 3v3" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></svg>';
+const SHARE_ICON='<svg width="14" height="14" aria-hidden="true" viewBox="0 0 24 24" fill="none">'+
+  '<rect x="3" y="5" width="18" height="14" rx="3" stroke="currentColor" stroke-width="1.6"/>'+
+  '<circle cx="8.5" cy="10" r="1.6" stroke="currentColor" stroke-width="1.5"/>'+
+  '<path d="M4 17l5-4 4 3 3-2 4 3" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>';
 function periodBtn(){
   const f=S.filters.from||"", t=S.filters.to||"";
   const lab=(f||t) ? (DatePicker.human(f)||"…")+" — "+(DatePicker.human(t)||"…") : "Період";
@@ -431,18 +435,23 @@ function plSegments(pts,vals,y0){
   return segs;
 }
 
-/* прибыль/убыток за год по календарным датам.
+/* прибыль/убыток по календарным датам.
    Bklit UI · Profit/Loss Line как есть: ломаная (curveLinear) режется нулевой осью
    на сегменты по знаку, без заливки; нулевая строка сетки подсвечена
-   (Grid highlightRowValues={[0]}); при наведении — курсор и подпись с индикатором. */
-function ovEquityHtml(){
-  const y=String(new Date().getFullYear());
-  const arr=sortAsc(S.trades.filter(t=>(t.date||"").slice(0,4)===y));
+   (Grid highlightRowValues={[0]}); при наведении — курсор и подпись с индикатором.
+   Один и тот же график на «Огляді» (год) и в журнале (месяц) — меняется только ось X. */
+let plSeq=0;
+function plChart(list, opts){
+  opts=opts||{};
+  const title=opts.title||"Прибуток / збиток";
+  const month=opts.ym||null;                       /* "YYYY-MM" — режим месяца */
+  const arr=sortAsc(list);
   if(arr.length<2)
     return '<div class="shell rise"><div class="core"><div class="chart-lab">'+
-      '<span class="t">Прибуток / збиток</span></div>'+
+      '<span class="t">'+esc(title)+'</span></div>'+
       '<div class="empty">Замало угод для графіка</div></div></div>';
-  const start=new Date(+y,0,1);
+  const [sy,sm] = month ? month.split("-").map(Number) : [new Date(arr[0].date).getFullYear(),1];
+  const start=new Date(sy,sm-1,1);
   const days=[], vals=[], iso=[], months=new Set();
   let acc=0, peak=0, dd=0;
   for(const t of arr){
@@ -456,7 +465,8 @@ function ovEquityHtml(){
     months.add(day.slice(5,7));
   }
   const W=640,H=156,pad=10;
-  const dmax=days[days.length-1]||364;
+  /* месяц занимает всю ширину от 1-го до последнего числа, год — до последней сделки */
+  const dmax=month ? new Date(sy,sm,0).getDate()-1 : (days[days.length-1]||364);
   const max=Math.max(...vals,0), min=Math.min(...vals,0);
   const X=i=>days[i]/dmax*W;
   const Y=v=>H-pad-(v-min)/((max-min)||1)*(H-pad*2);
@@ -476,22 +486,38 @@ function ovEquityHtml(){
     line+
     '<line class="plcursor" x1="0" x2="0" y1="0" y2="'+H+'" vector-effect="non-scaling-stroke" hidden/>'+
     '<line class="plhover" stroke-linecap="round" stroke-width="7" vector-effect="non-scaling-stroke" hidden/></svg>';
+  /* у месяца разброс мелкий — там нужен знак после запятой, у года хватает целых */
+  const fine=(max-min)<10;
   const yax=[0,1,2,3,4].map(i=>{
     const v=max-(max-min)*i/4;
-    return "<span>"+Math.round(v)+"</span>";
+    return "<span>"+(fine?(Math.round(v*10)/10).toFixed(1):Math.round(v))+"</span>";
   }).join("");
-  const mon=[...months].sort();
-  const xax='<div class="xax" style="grid-template-columns:repeat('+mon.length+',1fr)">'+
-    mon.map(m=>"<span>"+MON_SHORT[+m-1]+"</span>").join("")+"</div>";
-  /* точки для подписи под курсором держим рядом с графиком */
-  S.plPts=pts.map((p,i)=>({x:p[0],y:p[1],v:vals[i],d:iso[i]}));
-  S.plBox={W:W,H:H};
+  /* ось X: у года — месяцы, у месяца — числа с ровным шагом */
+  let ticks;
+  if(month){
+    const dim=dmax+1;
+    ticks=[0,1,2,3,4].map(i=>String(Math.max(1,Math.round(dim*i/4)||1)));
+  }else{
+    ticks=[...months].sort().map(m=>MON_SHORT[+m-1]);
+  }
+  const xax='<div class="xax" style="grid-template-columns:repeat('+ticks.length+',1fr)">'+
+    ticks.map(t=>"<span>"+t+"</span>").join("")+"</div>";
+  /* точки для подписи под курсором кладём в реестр графиков: их может быть несколько */
+  const id="pl"+(++plSeq);
+  if(window.PL) PL.data[id]=pts.map((p,i)=>({x:p[0],y:p[1],v:vals[i],d:iso[i]}));
   return '<div class="shell rise"><div class="core plline">'+
-    '<div class="chart-lab"><span class="t">Прибуток / збиток</span>'+
+    '<div class="chart-lab"><span class="t">'+esc(title)+'</span>'+
     '<span class="v '+clsR(vals[last])+'">'+ovFmt(vals[last])+"</span>"+
     '<span class="dd">просадка '+ovFmt(dd)+"</span></div>"+
     '<div class="chart"><div class="yax">'+yax+"</div>"+
-    '<div class="plwrap">'+svg+'<div class="pltip" hidden></div></div></div>'+xax+"</div></div>";
+    '<div class="plwrap" data-pl="'+id+'">'+svg+'<div class="pltip" hidden></div></div></div>'+xax+"</div></div>";
+}
+
+/* прибыль/убыток за текущий год — «Огляд» */
+function ovEquityHtml(){
+  const y=String(new Date().getFullYear());
+  return plChart(S.trades.filter(t=>(t.date||"").slice(0,4)===y),
+    {title:"Прибуток / збиток"});
 }
 
 /* колонка-компаньон: где, чем и по какой модели торгуем за год */
@@ -562,18 +588,26 @@ function vJournal(){
   const label=MONTHS[M-1]+" "+Y;
   const monthTrades=S.trades.filter(t=>monKey(t)===S.jMonth);
   const st=calc(monthTrades);
-  const modeBtns='<button class="pill '+(S.jMode==="cal"?"on":"")+'" onclick="S.jMode=\'cal\';render()">Місяць</button>'+
-    '<button class="pill '+(S.jMode==="list"?"on":"")+'" onclick="S.jMode=\'list\';render()">Усі угоди</button>';
+  /* шапка живёт тремя зонами: что смотрим · який місяць · окрема дія */
+  const modeTabs='<div class="seg-tabs">'+
+    '<button class="'+(S.jMode==="cal"?"on":"")+'" data-tip="Календар місяця" onclick="S.jMode=\'cal\';render()">Місяць</button>'+
+    '<button class="'+(S.jMode==="list"?"on":"")+'" data-tip="Суцільний список з фільтрами" onclick="S.jMode=\'list\';render()">Усі угоди</button>'+
+    "</div>";
+  const monthNav='<div class="mnav">'+
+    '<button class="nb" aria-label="Попередній місяць" data-tip="Попередній місяць" onclick="shiftJMonth(-1)">‹</button>'+
+    '<button class="lb" data-tip="Вибрати день у календарі" onclick="pickDate(this)">'+CAL_ICON+label+"</button>"+
+    '<button class="nb" aria-label="Наступний місяць" data-tip="Наступний місяць" onclick="shiftJMonth(1)">›</button>'+
+    '<span class="sep"></span>'+
+    '<button class="tb" data-tip="Повернутись до поточного дня" onclick="goToday()">Сьогодні</button>'+
+    "</div>";
+  const shareBtn='<button class="jact" data-tip="Зібрати картинку з підсумками місяця" data-ym="'+S.jMonth+
+    '" onclick="openShare(this.dataset.ym)">'+SHARE_ICON+"Картинка для каналу</button>";
 
-  let h='<div class="vhead"><h1>Журнал</h1>';
+  let h='<div class="jhead"><h1>Журнал</h1>'+modeTabs;
   if(S.jMode==="cal"){
-    h+='<div class="right">'+
-      '<button class="navbtn" data-tip="Попередній місяць" onclick="shiftJMonth(-1)">‹</button><button class="perlabel dbtn" data-tip="Вибрати день у календарі" onclick="pickDate(this)">'+CAL_ICON+label+'</button><button class="navbtn" data-tip="Наступний місяць" onclick="shiftJMonth(1)">›</button>'+
-      '<button class="pill" data-tip="Повернутись до поточного дня" onclick="goToday()">Сьогодні</button>'+
-      '<button class="pill share" data-tip="Зібрати картинку з підсумками місяця" data-ym="'+S.jMonth+'" onclick="openShare(this.dataset.ym)">Картинка для каналу</button>'+
-      modeBtns+"</div></div>";
+    h+='<div class="tools">'+monthNav+shareBtn+"</div></div>";
   }else{
-    h+='<div class="right">'+modeBtns+"</div></div>";
+    h+="</div>";
     const list=sortDesc(applyFilters(S.trades));
     return h+filterBar()+tradesCard(list,"Усі угоди · "+list.length,"all");
   }
@@ -616,14 +650,41 @@ function vJournal(){
       '<span class="lgend-rev"><i class="mk tp rev">TP</i>рамка — розворот проти біасу</span></div>'+
     "</div>"+dayPanel+"</div>";
 
-  /* месяц целиком: динамика и разрезы */
+  /* месяц целиком: динамика, сетапы, разрезы */
   if(monthTrades.length){
-    h+='<div class="split">'+
-      '<div class="card"><h3>Еквіті місяця · %</h3><div class="in">'+equitySVG(monthTrades)+"</div></div>"+
-      '<div style="min-width:0">'+bestWorstHtml(monthTrades)+"</div></div>";
+    h+=plChart(monthTrades,{title:"Еквіті місяця",ym:S.jMonth});
+    h+=setupStatsHtml(monthTrades);
+    h+=bestWorstHtml(monthTrades);
     h+=beReportHtml(monthTrades);
   }
   return h;
+}
+
+/* ---------- статистика по сетапам месяца ----------
+   разметка та же, что в «Аналітиці», чтобы таблицы по журналу читались одинаково */
+function setupStatsHtml(list){
+  const rows=[...groupBy(list,t=>(t.setup||"").trim()).entries()]
+    .filter(([name])=>name)
+    .map(([name,arr])=>({name,st:calc(arr)}))
+    .sort((a,b)=>b.st.net-a.st.net);
+  if(!rows.length)
+    return '<div class="card"><h3>Сетапи місяця</h3>'+
+      '<div class="empty">Поле «Сетап» не заповнене в жодній угоді місяця</div></div>';
+  const body=rows.map((g,i)=>{
+    const wr=g.st.wr;
+    const tick = rows.length>1
+      ? (i===0?' <span class="tick best">найкращий</span>'
+        :(i===rows.length-1?' <span class="tick worst">найгірший</span>':""))
+      : "";
+    return '<div class="arow"><span class="nm">'+esc(g.name)+tick+"</span>"+
+      '<span class="n">'+g.st.n+"</span>"+
+      '<span class="wrbar"><span class="track"><i style="width:'+(wr||0)+'%"></i></span><b>'+fmtPct(wr)+"</b></span>"+
+      '<span class="rr">'+(g.st.avgRR!=null?r1(g.st.avgRR):"—")+"</span>"+
+      '<span class="netr '+clsR(g.st.net)+'">'+fmtR(g.st.net)+"</span></div>";
+  }).join("");
+  return '<div class="card"><h3>Сетапи місяця<span class="hr">'+rows.length+" шт</span></h3>"+
+    '<div class="ahead"><span>Сетап</span><span>Угод</span><span>Win Rate</span><span>Сер. RR</span><span>Підсумок, %</span></div>'+
+    body+"</div>";
 }
 function shiftJMonth(d){ const [y,m]=S.jMonth.split("-").map(Number); const dt=new Date(y,m-1+d,1); S.jMonth=isoMonth(dt); S.pages={}; render(); }
 function pickDay(key){ S.selDay=key; if(key.slice(0,7)!==S.jMonth)S.jMonth=key.slice(0,7); render(); }
@@ -925,23 +986,38 @@ function openLightbox(src){ $("#lightboxImg").src=src; $("#lightbox").hidden=fal
 function closeLightbox(){ $("#lightbox").hidden=true; $("#lightboxImg").src=""; }
 
 /* ---------- просмотр сделки ---------- */
-/* содержимое карточки сделки: поля, тексты, графики. Обёртку задаёт вызывающий */
+/* содержимое карточки сделки четырьмя блоками: итог, как торговал, записи, графики.
+   Обёртку задаёт вызывающий */
 function tradeBodyHtml(t){
   const r=netR(t);
-  const fields=[["Інструмент",t.pair],["Дата",(t.date||"").replace("T"," ")],["Сесія",t.session],["Напрямок",t.position],
-    ["Модель входу",t.entry_model],["Біас",t.bias],["Сетап",t.setup],["Прод. / Розв.",dirType(t)],
-    ["Результат",resLabel(t.result)],["RR",t.rr!=null?t.rr:""],["Ризик",t.risk!=null?t.risk+"%":""],["Підсумок",fmtR(r)]];
-  let h='<div class="dgrid">'+fields.filter(f=>f[1]!==""&&f[1]!=null).map(f=>
-    '<div class="f2"><div class="l">'+f[0]+'</div><div class="v">'+esc(f[1])+"</div></div>").join("")+"</div>";
-  for(const [label,key] of [["Як заходив","entry_details"],["Нотатки","notes"],["Помилки","mistakes"],["Коментарі","comments"]]){
-    if((t[key]||"").trim()) h+='<div class="dtext"><div class="l">'+label+'</div><div class="v">'+esc(t[key])+"</div></div>";
-  }
+  /* 1. итог сделки — то, ради чего карточку открывают */
+  const facts=[["Результат",resLabel(t.result)||"—",""],
+    ["RR",(t.rr!=null&&t.rr!=="")?r1(t.rr):"—",""],
+    ["Ризик",(t.risk!=null&&t.risk!=="")?r1(t.risk)+"%":"—",""],
+    ["Підсумок",fmtR(r),clsR(r)]];
+  let h='<div class="tstats">'+facts.map(f=>
+    '<div class="st"><div class="lab">'+f[0]+'</div><div class="val '+f[2]+'">'+esc(f[1])+"</div></div>").join("")+"</div>";
+
+  /* 2. обстоятельства входа */
+  const ctx=[["Сесія",t.session],["Біас",t.bias],["Модель входу",t.entry_model],
+    ["Сетап",t.setup],["Прод. / Розв.",dirType(t)]].filter(f=>f[1]);
+  if(ctx.length)
+    h+='<section class="tsec"><h3>Як торгував</h3><div class="tfields">'+ctx.map(f=>
+      '<div class="fr"><span class="l">'+f[0]+'</span><span class="v">'+esc(f[1])+"</span></div>").join("")+"</div></section>";
+
+  /* 3. записи руками */
+  const notes=[["Як заходив","entry_details"],["Нотатки","notes"],["Помилки","mistakes"],["Коментарі","comments"]]
+    .filter(f=>(t[f[1]]||"").trim());
+  if(notes.length)
+    h+='<section class="tsec"><h3>Нотатки</h3>'+notes.map(f=>
+      '<div class="tnote"><div class="l">'+f[0]+'</div><div class="v">'+esc(t[f[1]])+"</div></div>").join("")+"</section>";
+
+  /* 4. графики: подпись таймфрейма стоит на самой картинке, отдельный перечень не нужен */
   const shots=(t.screenshots||[]).slice().sort((a,b)=>TF_ORDER.indexOf(a.tf)-TF_ORDER.indexOf(b.tf));
-  if(shots.length){
-    h+='<div class="dtext"><div class="l">Графіки · '+shots.map(s=>esc(s.tf||"")).join(" | ")+"</div></div>";
-    h+='<div class="charts">'+shots.map(s=>
-      '<div class="chart-item"><div class="l">'+esc(s.tf||"chart")+'</div><img loading="lazy" src="'+shotSrc(s)+'" onclick="openLightbox(this.src)"></div>').join("")+"</div>";
-  }
+  if(shots.length)
+    h+='<section class="tsec"><h3>Графіки</h3><div class="charts">'+shots.map(s=>
+      '<div class="chart-item"><div class="l">'+esc(s.tf||"chart")+'</div><img loading="lazy" src="'+
+      shotSrc(s)+'" onclick="openLightbox(this.src)"></div>').join("")+"</div></section>";
   return h;
 }
 
@@ -949,12 +1025,16 @@ function tradeBodyHtml(t){
 function openTrade(id){
   const t=(S.all.length?S.all:S.trades).find(x=>x.id===id); if(!t) return;
   const r=netR(t);
-  const h='<div class="m-head"><h2>'+esc(t.pair||"Угода")+' <span class="'+clsR(r)+'" style="font-family:var(--mono)">'+fmtR(r)+"</span></h2>"+
-    '<button class="x" onclick="closeModal()">×</button></div>'+
-    '<div class="m-body">'+tradeBodyHtml(t)+"</div>"+
-    '<div class="m-foot"><button class="btn" onclick="openForm(\''+t.id+'\')">Змінити</button>'+
-    '<button class="btn danger" onclick="delTrade(\''+t.id+'\')">Видалити</button><span class="sp"></span>'+
-    '<button class="btn" onclick="closeModal()">Закрити</button></div>';
+  const pos=t.position?'<span class="badge '+(t.position==="Long"?"long":"short")+'">'+esc(t.position)+"</span>":"";
+  const when=(t.date||"").replace("T"," ").slice(0,16);
+  const h='<div class="m-head thead"><div class="ttl"><h2>'+esc(t.pair||"Угода")+"</h2>"+pos+
+    '<span class="dt">'+esc(when)+"</span></div>"+
+    '<span class="res '+clsR(r)+'">'+fmtR(r)+"</span>"+
+    '<button class="x" aria-label="Закрити" data-tip="Закрити · Esc" onclick="closeModal()">×</button></div>'+
+    '<div class="m-body trade">'+tradeBodyHtml(t)+"</div>"+
+    '<div class="m-foot"><button class="btn primary" onclick="openForm(\''+t.id+'\')">Змінити</button>'+
+    '<span class="sp"></span>'+
+    '<button class="btn danger" onclick="delTrade(\''+t.id+'\')">Видалити</button></div>';
   Sheet.open(h);
 }
 
@@ -1426,9 +1506,10 @@ let tickedView=null;                 /* цифры отсчитываются п
 function render(){
   const v=VIEWS[S.view]?S.view:"dashboard";
   document.querySelectorAll(".nav a").forEach(a=>a.classList.toggle("on",a.dataset.v===v));
+  if(window.PL) PL.reset();
   $("#main").innerHTML='<div class="page">'+VIEWS[v]()+"</div>";
-  /* блоки обзора появляются тихо, как в макете */
-  requestAnimationFrame(()=>document.querySelectorAll(".ovw .rise,.ovw .rail").forEach(el=>el.classList.add("in")));
+  /* блоки появляются тихо, как в макете */
+  requestAnimationFrame(()=>document.querySelectorAll(".page .rise,.ovw .rail").forEach(el=>el.classList.add("in")));
   const fresh = tickedView!==v; tickedView=v;
   if(window.Ticker) Ticker.run($("#main"), fresh);
   if(window.PL) PL.mount();

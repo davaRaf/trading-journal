@@ -66,17 +66,26 @@ window.Ticker = Ticker;   /* const не попадает в window — связ�
 /* ================= Bklit UI · Profit/Loss Line =================
    Линия прибыли/убытка: под курсором показывает день и накопленный итог. */
 const PL = (function(){
+  /* точки графиков, собранные при отрисовке: ключ — data-pl у обёртки */
+  const data = {};
   function fmt(v){ return (v>0?"+":"")+v.toFixed(2)+"%"; }
   function day(iso){ return iso.slice(8,10)+"."+iso.slice(5,7); }
 
-  function mount(){
-    const wrap = document.querySelector(".plwrap");
-    if(!wrap || typeof S === "undefined" || !S.plPts || !S.plPts.length) return;
+  /* графиков на странице может быть несколько (год на «Огляді», месяц у журналі):
+     точки лежат на самом элементе, а не в общем состоянии */
+  function mount(root){
+    (root || document).querySelectorAll(".plwrap").forEach(one);
+  }
+
+  function one(wrap){
+    const pts = wrap._pts || data[wrap.dataset.pl];
+    if(!pts || !pts.length || wrap._plBound) return;
+    wrap._pts = pts;
+    wrap._plBound = true;
     const svg = wrap.querySelector("svg");
     const cur = svg.querySelector(".plcursor");
     const dot = svg.querySelector(".plhover");
     const tip = wrap.querySelector(".pltip");
-    const pts = S.plPts, H = S.plBox.H;
 
     /* из экранных координат в систему графика и обратно — работает при любом масштабе svg */
     const toLocal = e => {
@@ -115,7 +124,9 @@ const PL = (function(){
       cur.hidden = true; dot.hidden = true; tip.hidden = true;
     });
   }
-  return { mount };
+  /* перед новой отрисовкой старые точки не нужны — иначе реестр растёт бесконечно */
+  function reset(){ for(const k in data) delete data[k]; }
+  return { mount, reset, data };
 })();
 window.PL = PL;
 
