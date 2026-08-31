@@ -8,7 +8,8 @@ const S = {
   view: "dashboard",
   selDay: isoDay(now),          // выбранный день в Journal
   jMonth: isoMonth(now),        // месяц календаря Journal
-  jMode: "cal",                 // cal | list
+  jMode: (function(){ try{ return localStorage.getItem("tj_jmode")||"cal"; }catch(e){ return "cal"; } })(),
+                                // cal | table | list
   mMonth: isoMonth(now),        // Monthly
   qYear: now.getFullYear(),     // Quarterly
   yYear: now.getFullYear(),     // Yearly
@@ -590,8 +591,9 @@ function vJournal(){
   const st=calc(monthTrades);
   /* шапка живёт тремя зонами: что смотрим · який місяць · окрема дія */
   const modeTabs='<div class="seg-tabs">'+
-    '<button class="'+(S.jMode==="cal"?"on":"")+'" data-tip="Календар місяця" onclick="S.jMode=\'cal\';render()">Місяць</button>'+
-    '<button class="'+(S.jMode==="list"?"on":"")+'" data-tip="Суцільний список з фільтрами" onclick="S.jMode=\'list\';render()">Усі угоди</button>'+
+    '<button class="'+(S.jMode==="cal"?"on":"")+'" data-tip="Місяць клітинками" onclick="setJMode(\'cal\')">Календар</button>'+
+    '<button class="'+(S.jMode==="table"?"on":"")+'" data-tip="Угоди місяця таблицею" onclick="setJMode(\'table\')">Список</button>'+
+    '<button class="'+(S.jMode==="list"?"on":"")+'" data-tip="Усі угоди з фільтрами" onclick="setJMode(\'list\')">Усі угоди</button>'+
     "</div>";
   const monthNav='<div class="mnav">'+
     '<button class="nb" aria-label="Попередній місяць" data-tip="Попередній місяць" onclick="shiftJMonth(-1)">‹</button>'+
@@ -604,13 +606,12 @@ function vJournal(){
     '" onclick="openShare(this.dataset.ym)">'+SHARE_ICON+"Картинка для каналу</button>";
 
   let h='<div class="jhead"><h1>Журнал</h1>'+modeTabs;
-  if(S.jMode==="cal"){
-    h+='<div class="tools">'+monthNav+shareBtn+"</div></div>";
-  }else{
+  if(S.jMode==="list"){
     h+="</div>";
     const list=sortDesc(applyFilters(S.trades));
     return h+filterBar()+tradesCard(list,"Усі угоди · "+list.length,"all");
   }
+  h+='<div class="tools">'+monthNav+shareBtn+"</div></div>";
 
   /* лента статистики месяца */
   h+=kpiHtml(st);
@@ -644,11 +645,14 @@ function vJournal(){
     '<button class="addday" onclick="openForm(null,\''+S.selDay+'\')">+ Угода на цей день</button>'+
     "</div>";
 
-  h+='<div class="jgrid">'+
-    '<div class="card">'+calHtml(S.jMonth,"pickDay",S.selDay)+
-      '<div class="callegend"><i class="mk tp">TP</i>тейк<i class="mk sl">SL</i>стоп<i class="mk be">BE</i>беззбиток'+
-      '<span class="lgend-rev"><i class="mk tp rev">TP</i>рамка — розворот проти біасу</span></div>'+
-    "</div>"+dayPanel+"</div>";
+  const leftPane = S.jMode==="table"
+    ? monthTableHtml(monthTrades)
+    : '<div class="card">'+calHtml(S.jMonth,"pickDay",S.selDay)+
+        '<div class="callegend"><i class="mk tp">TP</i>тейк<i class="mk sl">SL</i>стоп<i class="mk be">BE</i>беззбиток'+
+        '<span class="lgend-rev"><i class="mk tp rev">TP</i>рамка — розворот проти біасу</span></div>'+
+      "</div>";
+  /* панель дня живёт в гнезде: так её высота равна левой половине, а не тянет страницу вниз */
+  h+='<div class="jgrid">'+leftPane+'<div class="dayslot">'+dayPanel+"</div></div>";
 
   /* месяц целиком: динамика, сетапы, разрезы */
   if(monthTrades.length){
@@ -686,6 +690,41 @@ function setupStatsHtml(list){
     '<div class="ahead"><span>Сетап</span><span>Угод</span><span>Win Rate</span><span>Сер. RR</span><span>Підсумок, %</span></div>'+
     body+"</div>";
 }
+/* вид журнала: календарь, таблица месяца или все сделки. Выбор запоминаем */
+function setJMode(v){
+  S.jMode=v; S.pages={};
+  try{ localStorage.setItem("tj_jmode",v); }catch(e){}
+  render();
+}
+
+/* месяц таблицей: те же угоди, что в календаре, но подряд и с колонками */
+function monthTableHtml(list){
+  if(!list.length)
+    return '<div class="card"><h3>Угоди місяця</h3><div class="empty">За цей місяць угод немає</div></div>';
+  const rows=sortAsc(list).map(t=>{
+    const r=netR(t);
+    const day=(t.date||"").slice(0,10);
+    const dt=dirType(t);
+    return '<tr class="'+(day===S.selDay?"sel":"")+'" onclick="pickDay(\''+day+'\')">'+
+      '<td class="dt">'+esc(day.slice(8,10)+"."+day.slice(5,7))+
+        '<i>'+esc((t.date||"").slice(11,16))+"</i></td>"+
+      "<td>"+esc(t.pair||"—")+"</td>"+
+      '<td>'+(t.position?'<span class="badge '+(t.position==="Long"?"long":"short")+'">'+esc(t.position)+"</span>":"—")+"</td>"+
+      "<td>"+esc(t.session||"—")+"</td>"+
+      '<td class="wide">'+esc(t.setup||"—")+"</td>"+
+      '<td>'+(dt?'<span class="badge '+(dt==="Reversal"?"rev":"cont")+'">'+(dt==="Reversal"?"REV":"CONT")+"</span>":"—")+"</td>"+
+      '<td><span class="badge '+(t.result==="Win"?"win":t.result==="Loss"?"loss":t.result==="BE+"?"beplus":"be")+'">'+
+        resLabel(t.result)+"</span></td>"+
+      '<td class="num">'+(t.rr!=null&&t.rr!==""?r1(t.rr):"—")+"</td>"+
+      '<td class="num '+clsR(r)+'">'+fmtR(r)+"</td></tr>";
+  }).join("");
+  return '<div class="card"><h3>Угоди місяця<span class="hr">'+list.length+' шт</span></h3>'+
+    '<div class="mtwrap"><table class="mtable">'+
+    "<thead><tr><th>Дата</th><th>Інструмент</th><th>Напрямок</th><th>Сесія</th>"+
+    '<th class="wide">Сетап</th><th>Тип</th><th>Результат</th><th class="num">RR</th><th class="num">Підсумок</th></tr></thead>'+
+    "<tbody>"+rows+"</tbody></table></div></div>";
+}
+
 /* сделка в панели дня: строка-заголовок и под ней вся карточка целиком.
    Первая раскрыта сразу, остальные — по клику, чтобы день с пятью угодами
    не превращался в простыню */

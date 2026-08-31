@@ -282,8 +282,19 @@ svg.chart{display:block;width:100%;height:auto}
 .badge.cont{background:var(--panel-2);color:var(--dim)}
 
 /* журнал: календарь + панель дня */
-.jgrid{display:grid;grid-template-columns:minmax(0,1.55fr) minmax(300px,1fr);gap:14px;align-items:start}
-@media(max-width:1020px){.jgrid{grid-template-columns:minmax(0,1fr)}}
+.jgrid{display:grid;grid-template-columns:minmax(0,1.55fr) minmax(300px,1fr);gap:14px;align-items:stretch}
+/* гнездо панели дня: сама панель лежит в нём абсолютом, поэтому её высота
+   равна левой половине и длинная угода не тянет страницу вниз */
+.dayslot{position:relative;min-height:340px}
+.dayslot > .daypanel{position:absolute;inset:0;display:flex;flex-direction:column;overflow:hidden}
+.daypanel > h3,.daypanel .chips,.daypanel .mistline,.daypanel .addday{flex:none}
+.daypanel .tlist,.daypanel > .empty{flex:1;min-height:0;overflow-y:auto}
+@media(max-width:1020px){
+  .jgrid{grid-template-columns:minmax(0,1fr)}
+  .dayslot{position:static;min-height:0}
+  .dayslot > .daypanel{position:static;display:block;overflow:visible}
+  .daypanel .tlist{overflow:visible}
+}
 .split{display:grid;grid-template-columns:1fr 1fr;gap:14px;align-items:start}
 @media(max-width:900px){.split{grid-template-columns:minmax(0,1fr)}}
 
@@ -323,6 +334,25 @@ svg.chart{display:block;width:100%;height:auto}
 .dbody .tfields{grid-template-columns:minmax(0,1fr)}
 .dact{display:flex;gap:8px;padding:12px 16px 14px}
 .dact .btn{padding:7px 14px;font-size:13px}
+
+/* месяц таблицей */
+.mtwrap{overflow-x:auto}
+.mtable{width:100%;border-collapse:collapse;font-size:13px}
+.mtable th{font-family:var(--mono);font-size:9px;letter-spacing:.12em;text-transform:uppercase;
+  color:var(--faint);font-weight:400;text-align:left;padding:10px 12px;white-space:nowrap;
+  border-bottom:1px solid var(--line-soft)}
+.mtable td{padding:9px 12px;border-bottom:1px solid var(--line-soft);white-space:nowrap}
+.mtable tbody tr{cursor:pointer;transition:background .15s}
+.mtable tbody tr:hover{background:var(--panel-2)}
+.mtable tbody tr.sel{background:var(--accent-soft)}
+.mtable tbody tr:last-child td{border-bottom:none}
+.mtable .dt{font-family:var(--mono);color:var(--dim)}
+.mtable .dt i{font-style:normal;color:var(--faint);margin-left:7px;font-size:11.5px}
+.mtable .num{font-family:var(--mono);text-align:right;font-variant-numeric:tabular-nums}
+.mtable td.wide{max-width:180px;overflow:hidden;text-overflow:ellipsis}
+@container (max-width:640px){
+  .mtable th.wide,.mtable td.wide{display:none}
+}
 
 /* лучший / худший */
 .bw{display:grid;grid-template-columns:repeat(auto-fill,minmax(225px,1fr));gap:10px;padding:16px}
