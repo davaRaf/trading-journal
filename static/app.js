@@ -416,8 +416,41 @@ function ovStatsHtml(st){
 
 /* сглаженная кривая по точкам */
 /* линейная интерполяция, как curveLinear в ProfitLossLine */
+/* Плавная кривая через все точки. Берём монотонную кубику: она проходит
+   ровно по точкам и, в отличие от обычного сглаживания, не выскакивает за
+   них — на графике денег это важно, иначе рисовались бы прибыли, которых
+   не было. */
 function plPath(pts){
-  return "M"+pts.map(p=>p[0].toFixed(2)+","+p[1].toFixed(2)).join(" L");
+  const n=pts.length;
+  if(n<3) return "M"+pts.map(p=>p[0].toFixed(2)+","+p[1].toFixed(2)).join(" L");
+  const dx=[],dy=[],sl=[],m=[];
+  for(let i=0;i<n-1;i++){
+    dx[i]=pts[i+1][0]-pts[i][0];
+    dy[i]=pts[i+1][1]-pts[i][1];
+    sl[i]=dx[i]===0?0:dy[i]/dx[i];
+  }
+  m[0]=sl[0]; m[n-1]=sl[n-2];
+  for(let i=1;i<n-1;i++) m[i]=(sl[i-1]*sl[i]<=0)?0:(sl[i-1]+sl[i])/2;
+  /* ограничение Фрица — Карлсона: гасит выбросы на резких перепадах */
+  for(let i=0;i<n-1;i++){
+    if(sl[i]===0){ m[i]=0; m[i+1]=0; continue; }
+    const a=m[i]/sl[i], b=m[i+1]/sl[i], h=Math.hypot(a,b);
+    if(h>3){ m[i]=3*a/h*sl[i]; m[i+1]=3*b/h*sl[i]; }
+  }
+  let d="M"+pts[0][0].toFixed(2)+","+pts[0][1].toFixed(2);
+  for(let i=0;i<n-1;i++){
+    const h=dx[i]/3;
+    d+=" C"+(pts[i][0]+h).toFixed(2)+","+(pts[i][1]+m[i]*h).toFixed(2)+
+       " "+(pts[i+1][0]-h).toFixed(2)+","+(pts[i+1][1]-m[i+1]*h).toFixed(2)+
+       " "+pts[i+1][0].toFixed(2)+","+pts[i+1][1].toFixed(2);
+  }
+  return d;
+}
+/* тот же контур, но замкнутый на нулевую ось — под заливку */
+function plArea(pts,y0){
+  if(!pts.length) return "";
+  return plPath(pts)+" L"+pts[pts.length-1][0].toFixed(2)+","+y0.toFixed(1)+
+         " L"+pts[0][0].toFixed(2)+","+y0.toFixed(1)+" Z";
 }
 /* ломаная режется нулевой осью: каждый кусок красится по своему знаку */
 function plSegments(pts,vals,y0){
@@ -473,9 +506,17 @@ function plChart(list, opts){
     acc+=netR(t);
     peak=Math.max(peak,acc);
     dd=Math.min(dd,acc-peak);
-    const day=(t.date||"").slice(0,10);
-    const d=new Date(+day.slice(0,4),+day.slice(5,7)-1,+day.slice(8,10));
-    days.push(Math.round((d-start)/86400000));
+    const raw=t.date||"";
+    const day=raw.slice(0,10);
+    /* берём и время: раньше все сделки одного дня стояли в одной точке,
+       и график падал отвесной стенкой вместо линии */
+    const d=new Date(+day.slice(0,4),+day.slice(5,7)-1,+day.slice(8,10),
+                     +raw.slice(11,13)||0,+raw.slice(14,16)||0);
+    let pos=(d-start)/86400000;
+    /* две сделки в одну минуту всё же бывают — чуть разводим, иначе
+       кривая не знает, куда идти */
+    if(days.length && pos<=days[days.length-1]) pos=days[days.length-1]+0.004;
+    days.push(pos);
     vals.push(acc); iso.push(day);
     months.add(day.slice(5,7));
   }
@@ -485,7 +526,7 @@ function plChart(list, opts){
   /* Засечки берём круглые: если просто делить размах на четыре, подписи
      округляются и шаг выходит рваным — 3, 0, −3, −5, −8. */
   const sc=niceScale(Math.min(...vals,0),Math.max(...vals,0),4);
-  const X=i=>days[i]/dmax*W;
+  const X=i=>Math.max(0,Math.min(1,days[i]/dmax))*W;
   const Y=v=>H-pad-(v-sc.lo)/(sc.hi-sc.lo)*(H-pad*2);
   const pts=vals.map((v,i)=>[X(i),Y(v)]);
   const last=vals.length-1;
@@ -493,12 +534,24 @@ function plChart(list, opts){
   const grid=sc.vals.map(v=>
     '<line x1="0" y1="'+Y(v).toFixed(1)+'" x2="'+W+'" y2="'+Y(v).toFixed(1)+
     '" class="ovgrid" vector-effect="non-scaling-stroke"/>').join("");
-  /* сегменты по знаку: над нулём — цвет прибыли, под нулём — цвет збитку */
-  const line=plSegments(pts,vals,y0).map(sg=>
+  /* сегменты по знаку: над нулём — цвет прибыли, под нулём — цвет збитку.
+     под каждым — мягкая заливка, чтобы линия не висела в пустоте */
+  const id="pl"+(++plSeq);
+  /* кусок из одной точки рисуется точкой из-за круглых концов — выкидываем */
+  const segs=plSegments(pts,vals,y0).filter(sg=>
+    sg.pts.length>1 && sg.pts.some(p=>p[0]!==sg.pts[0][0]||p[1]!==sg.pts[0][1]));
+  const fill=segs.map(sg=>
+    '<path d="'+plArea(sg.pts,y0)+'" fill="url(#'+id+(sg.pos?"u":"d")+')" stroke="none"/>').join("");
+  const line=segs.map(sg=>
     '<path d="'+plPath(sg.pts)+'" fill="none" stroke="'+(sg.pos?"var(--up)":"var(--down)")+
-    '" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" vector-effect="non-scaling-stroke"/>').join("");
+    '" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" vector-effect="non-scaling-stroke"/>').join("");
+  const grad=(sfx,col,down)=>
+    '<linearGradient id="'+id+sfx+'" x1="0" y1="'+(down?"0":"1")+'" x2="0" y2="'+(down?"1":"0")+'">'+
+    '<stop offset="0" stop-color="'+col+'" stop-opacity="0"/>'+
+    '<stop offset="1" stop-color="'+col+'" stop-opacity=".26"/></linearGradient>';
   const svg='<svg viewBox="0 0 '+W+" "+H+'" width="100%" height="'+H+'" preserveAspectRatio="none">'+
-    grid+
+    '<defs>'+grad("u","var(--up)",false)+grad("d","var(--down)",true)+'</defs>'+
+    grid+fill+
     '<line class="plzero" x1="0" x2="'+W+'" y1="'+y0.toFixed(1)+'" y2="'+y0.toFixed(1)+'" vector-effect="non-scaling-stroke"/>'+
     line+
     '<line class="plcursor" x1="0" x2="0" y1="0" y2="'+H+'" vector-effect="non-scaling-stroke" hidden/>'+
@@ -523,7 +576,6 @@ function plChart(list, opts){
   const xax='<div class="xax">'+ticks.map(x=>
     '<span style="left:'+(x.f*100).toFixed(2)+'%">'+x.t+"</span>").join("")+"</div>";
   /* точки для подписи под курсором кладём в реестр графиков: их может быть несколько */
-  const id="pl"+(++plSeq);
   if(window.PL) PL.data[id]=pts.map((p,i)=>({x:p[0],y:p[1],v:vals[i],d:iso[i]}));
   return '<div class="shell rise"><div class="core plline">'+
     '<div class="chart-lab"><span class="t">'+esc(title)+'</span>'+
