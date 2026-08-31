@@ -19,9 +19,9 @@
   --card:var(--panel); --side-bg:var(--panel); --glow:none; --card-lip:0 0 transparent;
   --ov-eq-line:var(--accent); --ov-eq-fill:rgba(43,98,227,.12); --ov-grid:var(--line-soft);
   /* оттенки макета: оболочка блока, сегменты периода, пустой день, полоски разреза */
-  --glow:radial-gradient(64% 46% at 18% -6%,rgba(43,98,227,.05),transparent 68%),
-        radial-gradient(52% 40% at 96% 4%,rgba(23,27,36,.035),transparent 70%);
-  --grid-line:rgba(23,27,36,.038); --grid-step:64px;
+  --glow:radial-gradient(64% 46% at 18% -6%,rgba(43,98,227,.11),transparent 70%),
+        radial-gradient(52% 40% at 96% 4%,rgba(23,27,36,.07),transparent 72%);
+  --grid-line:rgba(23,27,36,.07); --grid-step:64px;
   --shell-bg:var(--panel-2); --seg-bg:var(--card);
   --seg-on-bg:var(--panel-2); --seg-on-line:var(--line); --seg-on-lip:0 0 transparent;
   --day-off-bg:var(--panel-2); --day-off-ink:var(--faint); --day-off-ink-2:var(--faint);
@@ -49,9 +49,9 @@
   --ov-eq-line:#d4d6da; --ov-eq-fill:rgba(255,255,255,.10); --ov-grid:rgba(255,255,255,.05);
   --side-bg:#0a0a0b;
   /* задний план: два мягких пятна — мятное сверху слева и холодное справа */
-  --glow:radial-gradient(58% 44% at 16% -4%,rgba(64,224,148,.055),transparent 66%),
-        radial-gradient(48% 38% at 98% 6%,rgba(255,255,255,.035),transparent 70%);
-  --grid-line:rgba(255,255,255,.022); --grid-step:64px;
+  --glow:radial-gradient(58% 44% at 16% -4%,rgba(64,224,148,.12),transparent 68%),
+        radial-gradient(48% 38% at 98% 6%,rgba(255,255,255,.07),transparent 72%);
+  --grid-line:rgba(255,255,255,.05); --grid-step:64px;
   --shell-bg:#0a0a0b;
   --seg-bg:#111112;
   --seg-on-bg:#161617; --seg-on-line:rgba(255,255,255,.08); --seg-on-lip:0 0 transparent;
@@ -80,8 +80,8 @@ body::before{content:"";position:fixed;inset:0;z-index:0;pointer-events:none;bac
 .main::before{content:"";position:fixed;inset:0;z-index:-1;pointer-events:none;
   background:linear-gradient(var(--grid-line) 1px,transparent 1px) 0 0/100% var(--grid-step),
              linear-gradient(90deg,var(--grid-line) 1px,transparent 1px) 0 0/var(--grid-step) 100%;
-  -webkit-mask-image:radial-gradient(120% 90% at 50% 0%,#000 12%,transparent 78%);
-  mask-image:radial-gradient(120% 90% at 50% 0%,#000 12%,transparent 78%)}
+  -webkit-mask-image:radial-gradient(130% 105% at 50% 0%,#000 24%,transparent 92%);
+  mask-image:radial-gradient(130% 105% at 50% 0%,#000 24%,transparent 92%)}
 .side,.main{position:relative;z-index:1}
 body{margin:0;background:var(--bg);color:var(--text);font-family:var(--sans);font-size:15px;
   -webkit-font-smoothing:antialiased;text-rendering:optimizeLegibility;
