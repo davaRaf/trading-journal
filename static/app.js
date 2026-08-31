@@ -793,23 +793,17 @@ function gotoDayFromReport(day){
 }
 
 /* ---------- подробный разбор месяца (из Yearly) ---------- */
-/* opts.skipEmpty — не показывать угоди с незаполненным полем;
-   opts.scrolly — длинный список листается внутри карточки, чтобы плитки были одного роста */
-function dimTable(list,key,label,opts){
-  opts=opts||{};
-  let rows=[...groupBy(list,t=>key==="result"?resLabel(t.result):fieldVal(t,key)).entries()]
+function dimTable(list,key,label){
+  const rows=[...groupBy(list,t=>fieldVal(t,key)).entries()]
     .map(([name,arr])=>({name,st:calc(arr)}))
     .sort((a,b)=>b.st.net-a.st.net);
-  if(opts.skipEmpty) rows=rows.filter(g=>String(g.name).trim());
   if(!rows.length) return "";
   const body=rows.map((g,i)=>{
     const flag = rows.length>1 ? (i===0?' <span class="tick best">найкращий</span>':(i===rows.length-1?' <span class="tick worst">найгірший</span>':"")) : "";
     return "<tr><td>"+esc(g.name)+flag+"</td><td>"+g.st.n+"</td><td>"+fmtPct(g.st.wr)+
       '</td><td class="'+clsR(g.st.net)+'">'+fmtR(g.st.net)+"</td></tr>";
   }).join("");
-  const cls = opts.scrolly && rows.length>7 ? "rep-card scrolly" : "rep-card";
-  const cnt = opts.count ? "<i>"+rows.length+"</i>" : "";
-  return '<div class="'+cls+'"><h4>'+esc(label)+cnt+'</h4><table class="simple mini">'+
+  return '<div class="rep-card"><h4>'+esc(label)+'</h4><table class="simple mini">'+
     "<tr><th>"+esc(label)+"</th><th>Уг.</th><th>WR</th><th>Підсумок</th></tr>"+body+"</table></div>";
 }
 function openMonthReport(ym){
@@ -964,9 +958,6 @@ function vYearly(){
 }
 
 /* ---------- Analytics ---------- */
-/* плитки под главной таблицей: основные разрезы, по которым смотрят чаще всего */
-const CUTS=[["session","Сесія"],["position","Напрямок"],["direction_type","Продовження / Розворот"],
-  ["setup","Сетап"],["entry_model","Модель входу"],["pair","Інструмент"],["result","TP / SL / BE"]];
 function vAnalytics(){
   const list=applyFilters(S.trades);
   let h='<div class="vhead"><h1>Аналітика</h1><span class="sub">'+list.length+" угод у вибірці</span></div>";
@@ -985,12 +976,6 @@ function vAnalytics(){
   h+='<div class="card"><h3>Результати · '+esc(DIMS.find(d=>d.k===S.dim).label)+"</h3>"+
     '<div class="ahead"><span>Назва</span><span>Угод</span><span>Win Rate</span><span>Сер. RR</span><span>Підсумок, %</span></div>'+
     (rows||'<div class="empty">Немає даних — поле не заповнене в жодній угоді</div>')+"</div>";
-
-  /* решта основних розрізів плитками — щоб бачити картину відразу, не перемикаючи вимір */
-  const cuts=CUTS.filter(c=>c[0]!==S.dim)
-    .map(c=>dimTable(list,c[0],c[1],{skipEmpty:true,scrolly:true,count:true}))
-    .filter(Boolean).join("");
-  if(cuts) h+='<div class="rep-sec">Інші розрізи</div><div class="rep-grid">'+cuts+"</div>";
   return h;
 }
 
