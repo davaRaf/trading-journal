@@ -976,8 +976,8 @@ button[data-tip],a[data-tip],.mk[data-tip]{cursor:pointer}
 /* справа — детали сделки */
 .pnl-wrap[data-side="right"]{justify-content:flex-end}
 .pnl-wrap[data-side="right"] .pnl{width:min(560px,100%);height:100%;
-  border-radius:16px 0 0 16px;border-right:none;transform:translateX(100%)}
-/* форма угоди шире карточки: в ней поля идут в две колонки */
+  border-radius:0;border-right:none;transform:translateX(100%)}
+/* форма угоди чуть шире карточки сделки */
 .pnl-wrap[data-side="right"] .pnl.form-pnl{width:min(640px,100%)}
 /* снизу — форма сделки */
 .pnl-wrap[data-side="bottom"]{align-items:flex-end;justify-content:center}
