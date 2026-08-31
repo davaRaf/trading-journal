@@ -245,6 +245,21 @@ def insert_trade(user_id, t, emotion_status="na"):
     return t
 
 
+def insert_trades(user_id, trades, emotion_status="na"):
+    """Пачкой и одним подключением: импорт из Notion приносит сотни сделок,
+    а база в облаке — каждый отдельный заход это лишний рейс туда-обратно."""
+    if not trades:
+        return 0
+    sql = ("INSERT INTO trades (id, user_id, %s, emotion_prompt_status) "
+           "VALUES (%%s, %%s, %s, %%s)" % (_COLS, _PLACEHOLDERS))
+    rows = [[t["id"], user_id] + _trade_values(t) + [emotion_status] for t in trades]
+    with connect() as conn:
+        with conn.cursor() as cur:
+            cur.executemany(sql, rows)
+        conn.commit()
+    return len(rows)
+
+
 def update_trade(user_id, t):
     with connect() as conn:
         cur = conn.execute(

@@ -190,10 +190,12 @@ def notion_save(uid, conf):
 
 def add_trades(user_id, items):
     """Кладём пачку сделок в журнал. Вызывается из фонового потока импорта."""
+    batch = []
     for it in items:
         t = clean_trade(it, new_id())
         t["screenshots"] = it.get("screenshots") or []
-        db.insert_trade(user_id, t)
+        batch.append(t)
+    db.insert_trades(user_id, batch)
 
 
 def start_import(user_id, tables, mapping, opts):
@@ -508,15 +510,14 @@ class H(BaseHTTPRequestHandler):
             if body is None:
                 return self._json({"error": "bad json"}, 400)
             items = body if isinstance(body, list) else body.get("trades") or []
-            added = 0
+            batch = []
             for it in items:
                 if not isinstance(it, dict):
                     continue
                 t = clean_trade(it, new_id())
                 save_screenshots(t)
-                db.insert_trade(uid, t)
-                added += 1
-            return self._json({"ok": True, "added": added})
+                batch.append(t)
+            return self._json({"ok": True, "added": db.insert_trades(uid, batch)})
 
         self.send_response(404); self.end_headers()
 
