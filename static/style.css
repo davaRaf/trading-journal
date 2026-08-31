@@ -338,7 +338,7 @@ table.simple tr.click:hover td{background:var(--panel-2)}
 /* форма */
 .fgrid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:13px}
 @media(max-width:640px){.fgrid{grid-template-columns:minmax(0,1fr)}}
-.f{display:flex;flex-direction:column;gap:5px}
+.f{display:flex;flex-direction:column;gap:9px}
 .f.full{grid-column:1/-1}
 .f label{font-family:var(--mono);font-size:9.5px;letter-spacing:.12em;text-transform:uppercase;color:var(--faint)}
 .f input,.f textarea,.f select{background:var(--bg);border:1px solid var(--line);color:var(--text);
@@ -575,13 +575,19 @@ table.simple.mini td:last-child{white-space:nowrap;font-weight:600}
 .pill.share:hover{background:var(--accent-soft)}
 
 /* ================= форма сделки ================= */
-.m-body.form{padding:18px;display:flex;flex-direction:column;gap:14px;background:var(--bg)}
+.m-body.form{padding:18px;display:flex;flex-direction:column;gap:20px;background:var(--bg)}
 .fcard{background:var(--panel);border:1px solid var(--line);border-radius:var(--r);overflow:hidden}
 .fcard>h4{margin:0;padding:11px 16px;border-bottom:1px solid var(--line-soft);background:var(--panel-2);
   font-family:var(--mono);font-size:10px;font-weight:600;letter-spacing:.16em;text-transform:uppercase;color:var(--dim)}
 .fcard.accent>h4{color:var(--accent)}
-.fbody{padding:16px;display:flex;flex-direction:column;gap:16px}
-.frow{display:grid;grid-template-columns:1fr 1fr;gap:16px;align-items:start}
+/* каждое поле — свой ряд: подпись, поле, воздух и волосок до следующего */
+.fbody{padding:2px 20px 20px;display:flex;flex-direction:column;gap:0}
+.frow{display:contents}
+.fbody > .f,.fbody > .frow > .f{padding:18px 0;border-top:1px solid var(--line-soft)}
+.fbody > .f:first-child,.fbody > .frow:first-child > .f:first-child{border-top:none}
+.fbody > .outcome{margin-top:18px}
+.fbody > .tfgrid{padding-top:18px}
+.fbody > .tfgrid:first-child{padding-top:0}
 @media(max-width:660px){.frow{grid-template-columns:1fr}}
 .form .f{display:flex;flex-direction:column;gap:7px;min-width:0}
 .form .f label{font-size:12.5px;font-weight:500;color:var(--dim);letter-spacing:0;text-transform:none;font-family:var(--sans)}
@@ -972,7 +978,7 @@ button[data-tip],a[data-tip],.mk[data-tip]{cursor:pointer}
 .pnl-wrap[data-side="right"] .pnl{width:min(560px,100%);height:100%;
   border-radius:16px 0 0 16px;border-right:none;transform:translateX(100%)}
 /* форма угоди шире карточки: в ней поля идут в две колонки */
-.pnl-wrap[data-side="right"] .pnl.form-pnl{width:min(760px,100%)}
+.pnl-wrap[data-side="right"] .pnl.form-pnl{width:min(640px,100%)}
 /* снизу — форма сделки */
 .pnl-wrap[data-side="bottom"]{align-items:flex-end;justify-content:center}
 .pnl-wrap[data-side="bottom"] .pnl{width:min(940px,100%);max-height:92vh;
@@ -1224,3 +1230,6 @@ body::after{
 .trow .r,
 .simple td,
 .arow .netr{font-variant-numeric:tabular-nums;font-weight:500;letter-spacing:-.02em}
+
+/* короткие поля не тянем на всю ширину ряда */
+#fld_date,#fld_rr{max-width:290px}
