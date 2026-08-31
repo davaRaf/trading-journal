@@ -442,6 +442,20 @@ function plSegments(pts,vals,y0){
    (Grid highlightRowValues={[0]}); при наведении — курсор и подпись с индикатором.
    Один и тот же график на «Огляді» (год) и в журнале (месяц) — меняется только ось X. */
 let plSeq=0;
+/* Круглые засечки: шаг из ряда 1 / 2 / 2.5 / 5 / 10, а границы — по нему.
+   Так подписи выходят ровные, а линии сетки стоят ровно на подписях. */
+function niceScale(min,max,count){
+  if(max===min){ max=min+1; }
+  const raw=(max-min)/(count||4);
+  const mag=Math.pow(10,Math.floor(Math.log10(raw)));
+  const n=raw/mag;
+  const step=(n<=1?1:n<=2?2:n<=2.5?2.5:n<=5?5:10)*mag;
+  const lo=Math.floor(min/step)*step, hi=Math.ceil(max/step)*step;
+  const vals=[];
+  for(let v=lo; v<=hi+step*1e-9; v+=step) vals.push(Math.round(v*1e6)/1e6);
+  return {lo,hi,step,vals};
+}
+
 function plChart(list, opts){
   opts=opts||{};
   const title=opts.title||"Прибуток / збиток";
@@ -468,14 +482,16 @@ function plChart(list, opts){
   const W=640,H=156,pad=10;
   /* месяц занимает всю ширину от 1-го до последнего числа, год — до последней сделки */
   const dmax=month ? new Date(sy,sm,0).getDate()-1 : (days[days.length-1]||364);
-  const max=Math.max(...vals,0), min=Math.min(...vals,0);
+  /* Засечки берём круглые: если просто делить размах на четыре, подписи
+     округляются и шаг выходит рваным — 3, 0, −3, −5, −8. */
+  const sc=niceScale(Math.min(...vals,0),Math.max(...vals,0),4);
   const X=i=>days[i]/dmax*W;
-  const Y=v=>H-pad-(v-min)/((max-min)||1)*(H-pad*2);
+  const Y=v=>H-pad-(v-sc.lo)/(sc.hi-sc.lo)*(H-pad*2);
   const pts=vals.map((v,i)=>[X(i),Y(v)]);
   const last=vals.length-1;
   const y0=Y(0);                                  /* высота нулевой оси */
-  const grid=[0,.25,.5,.75,1].map(p=>
-    '<line x1="0" y1="'+(pad+p*(H-pad*2))+'" x2="'+W+'" y2="'+(pad+p*(H-pad*2))+
+  const grid=sc.vals.map(v=>
+    '<line x1="0" y1="'+Y(v).toFixed(1)+'" x2="'+W+'" y2="'+Y(v).toFixed(1)+
     '" class="ovgrid" vector-effect="non-scaling-stroke"/>').join("");
   /* сегменты по знаку: над нулём — цвет прибыли, под нулём — цвет збитку */
   const line=plSegments(pts,vals,y0).map(sg=>
@@ -487,22 +503,25 @@ function plChart(list, opts){
     line+
     '<line class="plcursor" x1="0" x2="0" y1="0" y2="'+H+'" vector-effect="non-scaling-stroke" hidden/>'+
     '<line class="plhover" stroke-linecap="round" stroke-width="7" vector-effect="non-scaling-stroke" hidden/></svg>';
-  /* у месяца разброс мелкий — там нужен знак после запятой, у года хватает целых */
-  const fine=(max-min)<10;
-  const yax=[0,1,2,3,4].map(i=>{
-    const v=max-(max-min)*i/4;
-    return "<span>"+(fine?(Math.round(v*10)/10).toFixed(1):Math.round(v))+"</span>";
-  }).join("");
-  /* ось X: у года — месяцы, у месяца — числа с ровным шагом */
+  const dec=sc.step<1?1:0;
+  const yax=sc.vals.slice().reverse().map(v=>"<span>"+v.toFixed(dec)+"</span>").join("");
+
+  /* Ось X: подпись должна стоять ровно над своим днём. Раньше числа делили
+     ширину на равные доли и разъезжались с графиком. */
   let ticks;
   if(month){
     const dim=dmax+1;
-    ticks=[0,1,2,3,4].map(i=>String(Math.max(1,Math.round(dim*i/4)||1)));
+    const set=[...new Set([1,Math.round(dim*.25),Math.round(dim*.5),Math.round(dim*.75),dim])]
+      .filter(d=>d>=1&&d<=dim).sort((a,b)=>a-b);
+    ticks=set.map(d=>({t:String(d),f:(d-1)/dmax}));
   }else{
-    ticks=[...months].sort().map(m=>MON_SHORT[+m-1]);
+    ticks=[...months].sort().map(m=>{
+      const d=new Date(sy,+m-1,1);
+      return {t:MON_SHORT[+m-1],f:Math.round((d-start)/86400000)/dmax};
+    }).filter(x=>x.f>=0&&x.f<=1);
   }
-  const xax='<div class="xax" style="grid-template-columns:repeat('+ticks.length+',1fr)">'+
-    ticks.map(t=>"<span>"+t+"</span>").join("")+"</div>";
+  const xax='<div class="xax">'+ticks.map(x=>
+    '<span style="left:'+(x.f*100).toFixed(2)+'%">'+x.t+"</span>").join("")+"</div>";
   /* точки для подписи под курсором кладём в реестр графиков: их может быть несколько */
   const id="pl"+(++plSeq);
   if(window.PL) PL.data[id]=pts.map((p,i)=>({x:p[0],y:p[1],v:vals[i],d:iso[i]}));

@@ -891,9 +891,13 @@ body:has(.ovw){font-size:14px;line-height:1.6;font-weight:300}
 /* эквити */
 .chart{display:grid;grid-template-columns:34px 1fr;gap:10px}
 .yax{display:flex;flex-direction:column;justify-content:space-between;font-family:var(--mono);font-size:9px;
-  color:var(--faint);text-align:right;padding:2px 0 12px}
-.xax{display:grid;text-align:center;font-family:var(--mono);font-size:9px;color:var(--faint);
+  color:var(--faint);text-align:right;padding:4px 0}
+/* числа стоят ровно над своим днём, а не в равных долях ширины */
+.xax{position:relative;height:11px;font-family:var(--mono);font-size:9px;color:var(--faint);
   margin-left:44px;margin-top:10px}
+.xax span{position:absolute;top:0;transform:translateX(-50%);white-space:nowrap}
+.xax span:first-child{transform:none}
+.xax span:last-child{transform:translateX(-100%)}
 .chart-lab{display:flex;align-items:baseline;gap:14px;margin-bottom:12px}
 .chart-lab .t{font-family:var(--mono);font-size:9px;letter-spacing:.20em;text-transform:uppercase;color:var(--faint)}
 .chart-lab .v{font-family:var(--mono);font-size:15px}
