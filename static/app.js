@@ -648,8 +648,6 @@ function vJournal(){
   const leftPane = S.jMode==="table"
     ? monthTableHtml(monthTrades)
     : '<div class="card">'+calHtml(S.jMonth,"pickDay",S.selDay)+
-        '<div class="callegend"><i class="mk tp">TP</i>тейк<i class="mk sl">SL</i>стоп<i class="mk be">BE</i>беззбиток'+
-        '<span class="lgend-rev"><i class="mk tp rev">TP</i>рамка — розворот проти біасу</span></div>'+
       "</div>";
   /* панель дня живёт в гнезде: так её высота равна левой половине, а не тянет страницу вниз */
   h+='<div class="jgrid">'+leftPane+'<div class="dayslot">'+dayPanel+"</div></div>";

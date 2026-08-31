@@ -77,11 +77,6 @@ html{-webkit-text-size-adjust:100%;overflow-y:scroll;scrollbar-gutter:stable}
 body::before{content:"";position:fixed;inset:0;z-index:0;pointer-events:none;background:var(--glow)}
 /* миллиметровка за интерфейсом: собственный слой ПОД сайдбаром и контентом,
    поэтому сквозь них не проступает (body::after занят плёночным зерном) */
-.bg-grid{position:fixed;inset:0;z-index:0;pointer-events:none;
-  background:linear-gradient(var(--grid-line) 1px,transparent 1px) 0 0/100% var(--grid-step),
-             linear-gradient(90deg,var(--grid-line) 1px,transparent 1px) 0 0/var(--grid-step) 100%;
-  -webkit-mask-image:radial-gradient(130% 105% at 50% 0%,#000 24%,transparent 92%);
-  mask-image:radial-gradient(130% 105% at 50% 0%,#000 24%,transparent 92%)}
 .side,.main{position:relative;z-index:1}
 /* ================= фоновые ломаные =================
    Слой под контентом: линия рисуется слева направо, замирает и тает. */
