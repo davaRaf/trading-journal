@@ -4,7 +4,7 @@ Trading Journal — локальный сервер.
 Только стандартная библиотека Python. Запуск:  python app.py
 Данные: data/trades.json, скриншоты: data/screenshots/
 """
-import json, os, re, base64, threading, time, urllib.request, datetime
+import json, os, re, base64, threading, time, urllib.request, datetime, secrets
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from urllib.parse import urlparse, unquote
 
@@ -18,6 +18,63 @@ PORT   = int(os.environ.get("PORT", 8172))   # рабочая копия зап�
 os.makedirs(SHOTS, exist_ok=True)
 
 _lock = threading.Lock()
+
+# ---------------------------------------------------------------------------
+# Ссылки, которыми можно поделиться.
+#
+# Сохраняем снимок статистики файлом и выдаём короткий адрес. Снимок — уже
+# посчитанные цифры, а не сами сделки: по ссылке нельзя вытащить журнал целиком.
+# У каждой ссылки свой срок жизни; просроченные удаляются при обращении.
+# ---------------------------------------------------------------------------
+SHARE_DIR = os.path.join(DATA, "shares")
+SHARE_MAX = 256 * 1024          # больше снимку не нужно
+SHARE_TTL = {                   # что можно выбрать в интерфейсе, в секундах
+    "1h":   3600,
+    "24h":  86400,
+    "7d":   604800,
+    "30d":  2592000,
+    "forever": 0,               # 0 — без срока
+}
+os.makedirs(SHARE_DIR, exist_ok=True)
+_share_lock = threading.Lock()
+
+def _share_path(sid):
+    return os.path.join(SHARE_DIR, sid + ".json")
+
+def share_create(payload, ttl_key):
+    sid = secrets.token_urlsafe(9)          # 12 символов, хватает с запасом
+    ttl = SHARE_TTL.get(ttl_key, SHARE_TTL["7d"])
+    rec = {
+        "id": sid,
+        "created": int(time.time()),
+        "expires": int(time.time()) + ttl if ttl else 0,
+        "ttl": ttl_key,
+        "data": payload,
+    }
+    with _share_lock:
+        tmp = _share_path(sid) + ".tmp"
+        with open(tmp, "w", encoding="utf-8") as f:
+            json.dump(rec, f, ensure_ascii=False)
+        os.replace(tmp, _share_path(sid))
+    return rec
+
+def share_read(sid):
+    """Отдаёт снимок или None, если его нет либо срок вышел."""
+    if not re.fullmatch(r"[A-Za-z0-9_-]{6,32}", sid or ""):
+        return None
+    path = _share_path(sid)
+    if not os.path.exists(path):
+        return None
+    try:
+        with open(path, "r", encoding="utf-8") as f:
+            rec = json.load(f)
+    except Exception:
+        return None
+    if rec.get("expires") and time.time() > rec["expires"]:
+        try: os.remove(path)                # просроченное сразу убираем
+        except Exception: pass
+        return None
+    return rec
 
 # ---------------------------------------------------------------------------
 # Экономический календарь.
@@ -206,6 +263,9 @@ class H(BaseHTTPRequestHandler):
         self.send_response(200)
         self.send_header("Content-Type", ctype)
         self.send_header("Content-Length", str(len(data)))
+        # Без этого браузер сам решает, сколько держать файл в кэше, и после
+        # правки в js/css показывает старую версию — правки будто не применились.
+        self.send_header("Cache-Control", "no-store")
         self.end_headers()
         self.wfile.write(data)
 
@@ -228,6 +288,13 @@ class H(BaseHTTPRequestHandler):
         if p == "/api/calendar":
             events, warn = calendar_events()
             return self._json({"events": events, "warning": warn})
+        if p.startswith("/api/share/"):
+            rec = share_read(p[len("/api/share/"):])
+            if rec is None:
+                return self._json({"error": "посилання не знайдено або прострочене"}, 404)
+            return self._json(rec)
+        if p.startswith("/s/"):
+            return self._file(os.path.join(STATIC, "share.html"), "text/html; charset=utf-8")
         if p == "/login":
             return self._file(os.path.join(STATIC, "login.html"), "text/html; charset=utf-8")
         if p.startswith("/design/"):
@@ -265,6 +332,16 @@ class H(BaseHTTPRequestHandler):
     # ---------- POST ----------
     def do_POST(self):
         p = urlparse(self.path).path
+        if p == "/api/share":
+            body = self._body()
+            if not isinstance(body, dict) or not isinstance(body.get("data"), dict):
+                return self._json({"error": "нужен объект data"}, 400)
+            raw = json.dumps(body["data"], ensure_ascii=False)
+            if len(raw.encode("utf-8")) > SHARE_MAX:
+                return self._json({"error": "снимок слишком большой"}, 413)
+            rec = share_create(body["data"], body.get("ttl", "7d"))
+            return self._json({"id": rec["id"], "url": "/s/" + rec["id"],
+                               "expires": rec["expires"]}, 201)
         if p == "/api/trades":
             body = self._body()
             if not isinstance(body, dict) or not str(body.get("pair", "")).strip():

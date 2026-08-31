@@ -1,0 +1,151 @@
+<!doctype html>
+<html lang="uk" data-theme="dark">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>StatsAI</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 48 48'><path d='M24 5L43 43H5L24 5Z' fill='%2340e094'/><path d='M30 26C30 22.6 19 22.6 19 26.6C19 30.6 30 30.6 30 34.4C30 38.2 19 38.2 19 35' stroke='%23050505' stroke-width='4.4' stroke-linecap='round' fill='none'/></svg>">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Geist+Mono:wght@400;500&family=Geist:wght@400;500;600;700&display=swap">
+<style>
+/* Публічна сторінка: її бачить той, кому дали посилання.
+   Ані журналу, ані акаунта в нього немає — лише цей знімок. */
+:root{
+  --bg:#f2f4f8; --panel:#ffffff; --panel-2:#f6f8fb; --line:#dde3ec; --line-soft:#eaeef5;
+  --text:#171b24; --dim:#5a6373; --faint:#99a2b3;
+  --up:#128a53; --down:#c94430; --be:#9c7514;
+  --up-soft:rgba(18,138,83,.10); --down-soft:rgba(201,68,48,.10); --be-soft:rgba(156,117,20,.12);
+  --card:var(--panel); --g:#128a53;
+  --sans:"Geist","Segoe UI",system-ui,sans-serif;
+  --mono:"Geist Mono",ui-monospace,Consolas,monospace;
+  --r:12px; --ease:cubic-bezier(.16,1,.3,1);
+}
+:root[data-theme="dark"]{
+  --bg:#08080a; --panel:rgba(255,255,255,.045); --panel-2:rgba(255,255,255,.075);
+  --line:rgba(255,255,255,.10); --line-soft:rgba(255,255,255,.055);
+  --text:#f0f0f1; --dim:#94949a; --faint:#63636b;
+  --up:#4fd18f; --down:#f2645f; --be:#efc258;
+  --up-soft:rgba(79,209,143,.14); --down-soft:rgba(242,100,95,.13); --be-soft:rgba(239,194,88,.13);
+  --card:linear-gradient(180deg,rgba(255,255,255,.062),rgba(255,255,255,.016));
+  --g:#40e094;
+}
+*{box-sizing:border-box}
+body{margin:0; background:var(--bg); color:var(--text); font-family:var(--sans);
+  -webkit-font-smoothing:antialiased}
+.wrap{max-width:760px; margin:0 auto; padding:clamp(28px,5vw,60px) 20px 70px;
+  display:flex; flex-direction:column; gap:16px}
+
+.brand{display:flex; align-items:center; gap:10px; margin-bottom:6px}
+.brand svg{height:26px; width:auto; aspect-ratio:902/1315; color:var(--text)}
+.brand .nm{font-family:var(--mono); font-size:15px; font-weight:500; letter-spacing:-.01em}
+.brand .nm i{font-style:normal; color:var(--g)}
+
+.head{display:flex; align-items:flex-end; justify-content:space-between; gap:16px; flex-wrap:wrap}
+h1{margin:0; font-size:clamp(22px,4vw,30px); font-weight:600; letter-spacing:-.025em}
+.sub{font-family:var(--mono); font-size:11px; letter-spacing:.12em;
+  text-transform:uppercase; color:var(--faint)}
+.total{font-family:var(--mono); font-size:clamp(28px,6vw,42px); font-weight:500;
+  letter-spacing:-.02em; font-variant-numeric:tabular-nums; line-height:1}
+.total.pos{color:var(--up)} .total.neg{color:var(--down)} .total.zero{color:var(--dim)}
+
+.card{background:var(--card); border:1px solid var(--line); border-radius:var(--r); padding:20px 22px}
+.kpis{display:grid; grid-template-columns:repeat(auto-fit,minmax(132px,1fr)); gap:1px;
+  background:var(--line-soft); border:1px solid var(--line-soft); border-radius:var(--r);
+  overflow:hidden}
+.kpi{background:var(--bg); padding:15px 17px; display:flex; flex-direction:column; gap:5px}
+.kpi .k{font-family:var(--mono); font-size:9.5px; letter-spacing:.13em;
+  text-transform:uppercase; color:var(--faint)}
+.kpi .v{font-family:var(--mono); font-size:19px; font-weight:500;
+  font-variant-numeric:tabular-nums; letter-spacing:-.01em}
+.kpi .v.pos{color:var(--up)} .kpi .v.neg{color:var(--down)}
+
+.rows{display:flex; flex-direction:column; gap:1px; background:var(--line-soft);
+  border:1px solid var(--line-soft); border-radius:var(--r); overflow:hidden}
+.row{background:var(--bg); padding:12px 17px; display:flex; align-items:center;
+  justify-content:space-between; gap:14px; font-size:14px}
+.row .l{color:var(--dim); min-width:0}
+.row .r{font-family:var(--mono); font-variant-numeric:tabular-nums; white-space:nowrap}
+.row .r.pos{color:var(--up)} .row .r.neg{color:var(--down)}
+
+.sect{font-family:var(--mono); font-size:10px; letter-spacing:.14em;
+  text-transform:uppercase; color:var(--faint); margin:8px 0 -6px}
+
+.foot{margin-top:16px; padding-top:18px; border-top:1px solid var(--line);
+  display:flex; align-items:center; justify-content:space-between; gap:14px; flex-wrap:wrap;
+  font-size:12.5px; color:var(--faint)}
+.foot a{color:var(--g); text-decoration:none}
+.foot a:hover{text-decoration:underline}
+
+.msg{padding:56px 24px; text-align:center; color:var(--dim); font-size:15px; line-height:1.6;
+  border:1px dashed var(--line); border-radius:var(--r)}
+.msg b{display:block; color:var(--text); font-size:18px; margin-bottom:8px}
+</style>
+</head>
+<body>
+<div class="wrap" id="wrap">
+  <div class="msg">Завантаження…</div>
+</div>
+
+<script>
+const MARK = "<svg viewBox=\"573 366 902 1315\" aria-hidden=\"true\"><path transform=\"translate(0,0)\" fill=\"var(--g)\" d=\"M 1007.73 417.867 C 1012.96 407.472 1022.43 403.074 1033.28 408.302 C 1044.26 413.587 1041.3 436.645 1041.28 447.276 L 1041.16 500.837 C 1041.03 559.942 1042.37 622.699 1040.98 681.397 C 1041.86 686.293 1067.84 728.571 1072.19 736.023 L 1174.17 909.911 L 1090.84 909.91 C 1043.39 909.921 1001.55 904.752 964.567 941.347 C 943.67 962.177 931.992 990.513 932.146 1020.02 C 932.11 1049.34 943.509 1078.75 964.485 1099.42 C 980.427 1114.93 1000.76 1125.16 1022.72 1128.71 C 1042.29 1131.77 1078.91 1127.86 1092.5 1131.48 C 1105.78 1135.12 1114.96 1147.22 1114.88 1160.99 C 1114.77 1199.93 1067.21 1191.64 1040.77 1191.58 L 946.808 1191.77 C 921.351 1165.65 896.502 1138.93 872.279 1111.66 C 860.111 1130.48 848.698 1150.33 837.098 1169.56 C 816.464 1203.51 796.056 1237.59 775.874 1271.81 L 993.674 1271.93 L 1055.86 1271.88 C 1100.21 1271.8 1134.64 1273.2 1168.73 1238.91 C 1189.33 1217.81 1200.69 1189.37 1200.29 1159.89 C 1200.15 1130.6 1190.28 1103.4 1169.26 1082.6 C 1152.78 1066.48 1131.7 1055.89 1108.92 1052.3 C 1086.87 1048.86 1057.05 1054.56 1036.53 1048.43 C 1010.67 1040.71 1012.03 992.508 1043.02 990.261 C 1063.65 988.886 1084.63 989.833 1105.32 989.979 L 1220.58 989.922 L 1434.91 1357.49 L 1158.98 1357.8 L 1079.96 1357.75 C 1071.4 1357.73 1049.21 1357.11 1041.3 1358 L 1041.14 1538.09 L 1041.3 1594.17 C 1041.34 1604.03 1041.86 1615.95 1041.16 1625.6 C 1039.85 1643.54 1015.04 1647.32 1007.77 1629.23 C 1006.7 1623.59 1007.04 1606.7 1007.06 1600.06 L 1007.17 1551.24 L 1007.07 1357.74 L 612.894 1357.86 C 654.064 1291.27 693.944 1219.52 733.687 1151.66 L 1007.18 683.395 C 1006.3 626.487 1007.22 567.336 1007.12 510.216 L 1007.01 452.565 C 1006.99 442.982 1006.55 426.917 1007.73 417.867 z\"/> <path transform=\"translate(0,0)\" fill=\"currentColor\" d=\"M 1007.77 1358.05 L 1041.3 1358 L 1041.14 1538.09 L 1041.3 1594.17 C 1041.34 1604.03 1041.86 1615.95 1041.16 1625.6 C 1039.85 1643.54 1015.04 1647.32 1007.77 1629.23 C 1009.05 1603.41 1007.95 1565.83 1007.96 1539.15 L 1007.77 1358.05 z\"/> <path transform=\"translate(0,0)\" fill=\"currentColor\" d=\"M 1007.73 417.867 C 1012.96 407.472 1022.43 403.074 1033.28 408.302 C 1044.26 413.587 1041.3 436.645 1041.28 447.276 L 1041.16 500.837 C 1041.03 559.942 1042.37 622.699 1040.98 681.397 C 1035.71 674.277 1029.82 662.763 1024.31 654.534 C 1018.61 663.506 1013.14 672.625 1007.92 681.882 C 1007.27 653.296 1008.22 624.592 1008 596 C 1007.55 536.664 1008.45 477.184 1007.73 417.867 z\"/></svg>";
+
+const esc = s => String(s==null?"":s).replace(/[&<>"']/g,
+  c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+const sign = v => (v > 0.0001 ? "pos" : v < -0.0001 ? "neg" : "zero");
+const pct  = v => (v == null || isNaN(v)) ? "—" : (v > 0 ? "+" : "") + (Math.round(v*100)/100) + "%";
+
+function kpi(k, v, cls){
+  return '<div class="kpi"><span class="k">'+esc(k)+'</span>'
+       + '<span class="v'+(cls?" "+cls:"")+'">'+esc(v)+'</span></div>';
+}
+
+function render(rec){
+  const d = rec.data || {};
+  const rows = (title, items) => !items || !items.length ? "" :
+    '<div class="sect">'+esc(title)+'</div><div class="rows">'
+    + items.map(r => '<div class="row"><span class="l">'+esc(r.name)+'</span>'
+        + '<span class="r '+(r.value!=null?sign(r.value):"")+'">'
+        + (r.text != null ? esc(r.text) : pct(r.value)) + '</span></div>').join("")
+    + '</div>';
+
+  const until = rec.expires
+    ? "діє до " + new Date(rec.expires*1000).toLocaleString("uk-UA",
+        {day:"numeric", month:"long", hour:"2-digit", minute:"2-digit"})
+    : "без обмеження часу";
+
+  document.getElementById("wrap").innerHTML =
+      '<div class="brand">' + MARK + '<span class="nm">Stats<i>AI</i></span></div>'
+    + '<div class="head"><div><div class="sub">'+esc(d.kind||"статистика")+'</div>'
+      + '<h1>'+esc(d.title||"")+'</h1></div>'
+      + (d.total != null ? '<div class="total '+sign(d.total)+'">'+pct(d.total)+'</div>' : "")
+    + '</div>'
+    + (d.kpis && d.kpis.length
+        ? '<div class="kpis">' + d.kpis.map(k => kpi(k.k, k.v, k.cls)).join("") + '</div>' : "")
+    + (d.blocks || []).map(b => rows(b.title, b.items)).join("")
+    + '<div class="foot"><span>'+esc(until)+'</span>'
+      + '<span>зроблено в <a href="/">StatsAI</a></span></div>';
+
+  document.title = (d.title ? d.title + " · " : "") + "StatsAI";
+}
+
+(async function(){
+  const id = location.pathname.replace(/^\/s\//, "");
+  try{
+    const res = await fetch("/api/share/" + encodeURIComponent(id));
+    if(res.status === 404){
+      document.getElementById("wrap").innerHTML =
+        '<div class="msg"><b>Посилання не працює</b>'
+        + 'Його або видалили, або вийшов термін дії.</div>';
+      return;
+    }
+    if(!res.ok) throw new Error("HTTP " + res.status);
+    render(await res.json());
+  }catch(err){
+    document.getElementById("wrap").innerHTML =
+      '<div class="msg"><b>Не вдалося відкрити</b>'+esc(err.message)+'</div>';
+  }
+})();
+</script>
+</body>
+</html>
