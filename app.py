@@ -8,6 +8,7 @@ import base64
 import json
 import os
 import re
+import secrets
 import threading
 import time
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
@@ -17,6 +18,8 @@ import auth
 import config
 import db
 import emotions
+import notion_import as notion
+import notion_public as npub
 import tg_api
 from calendar_feed import calendar_events
 
@@ -89,6 +92,127 @@ def clean_trade(body, tid):
     t["screenshots"] = body.get("screenshots") or []
     if body.get("hidden"): t["hidden"] = True
     return t
+
+
+# ---------------------------------------------------------------------------
+# Ссылки, которыми можно поделиться.
+#
+# Сохраняем снимок статистики файлом и выдаём короткий адрес. Снимок — уже
+# посчитанные цифры, а не сами сделки: по ссылке нельзя вытащить журнал целиком.
+# У каждой ссылки свой срок жизни; просроченные удаляются при обращении.
+# ---------------------------------------------------------------------------
+SHARE_DIR = os.path.join(DATA, "shares")
+SHARE_MAX = 256 * 1024          # больше снимку не нужно
+SHARE_TTL = {                   # что можно выбрать в интерфейсе, в секундах
+    "1h":   3600,
+    "24h":  86400,
+    "7d":   604800,
+    "30d":  2592000,
+    "forever": 0,               # 0 — без срока
+}
+os.makedirs(SHARE_DIR, exist_ok=True)
+_share_lock = threading.Lock()
+
+
+def _share_path(sid):
+    return os.path.join(SHARE_DIR, sid + ".json")
+
+
+def share_create(payload, ttl_key):
+    sid = secrets.token_urlsafe(9)          # 12 символов, хватает с запасом
+    ttl = SHARE_TTL.get(ttl_key, SHARE_TTL["7d"])
+    rec = {
+        "id": sid,
+        "created": int(time.time()),
+        "expires": int(time.time()) + ttl if ttl else 0,
+        "ttl": ttl_key,
+        "data": payload,
+    }
+    with _share_lock:
+        tmp = _share_path(sid) + ".tmp"
+        with open(tmp, "w", encoding="utf-8") as f:
+            json.dump(rec, f, ensure_ascii=False)
+        os.replace(tmp, _share_path(sid))
+    return rec
+
+
+def share_read(sid):
+    """Отдаёт снимок или None, если его нет либо срок вышел."""
+    if not re.fullmatch(r"[A-Za-z0-9_-]{6,32}", sid or ""):
+        return None
+    path = _share_path(sid)
+    if not os.path.exists(path):
+        return None
+    try:
+        with open(path, "r", encoding="utf-8") as f:
+            rec = json.load(f)
+    except Exception:
+        return None
+    if rec.get("expires") and time.time() > rec["expires"]:
+        try: os.remove(path)                # просроченное сразу убираем
+        except Exception: pass
+        return None
+    return rec
+
+
+# ---------------------------------------------------------------------------
+# Перенос журнала из Notion по обычной публичной ссылке.
+#
+# Никаких ключей: человек в Notion делает Share -> Publish to web и вставляет
+# сюда ссылку. Чтение живёт в notion_public.py, разбор значений — в
+# notion_import.py. Последнюю ссылку и сверку колонок помним для каждого
+# пользователя отдельно: журналы у всех свои.
+# ---------------------------------------------------------------------------
+NOTION_DIR = os.path.join(DATA, "notion")
+os.makedirs(NOTION_DIR, exist_ok=True)
+_jobs = {}
+_jobs_lock = threading.Lock()
+
+
+def notion_file(uid):
+    return os.path.join(NOTION_DIR, "user_%d.json" % uid)
+
+
+def notion_conf(uid):
+    try:
+        with open(notion_file(uid), "r", encoding="utf-8") as f:
+            return json.load(f)
+    except Exception:
+        return {}
+
+
+def notion_save(uid, conf):
+    tmp = notion_file(uid) + ".tmp"
+    with open(tmp, "w", encoding="utf-8") as f:
+        json.dump(conf, f, ensure_ascii=False, indent=1)
+    os.replace(tmp, notion_file(uid))
+
+
+def add_trades(user_id, items):
+    """Кладём пачку сделок в журнал. Вызывается из фонового потока импорта."""
+    for it in items:
+        t = clean_trade(it, new_id())
+        t["screenshots"] = it.get("screenshots") or []
+        db.insert_trade(user_id, t)
+
+
+def start_import(user_id, tables, mapping, opts):
+    jid = secrets.token_urlsafe(6)
+    job = notion.Job(jid)
+    job.user_id = user_id          # чтобы чужое задание нельзя было подсмотреть
+    with _jobs_lock:
+        _jobs[jid] = job
+        # старые задания не копим
+        for old_id in list(_jobs)[:-8]:
+            _jobs.pop(old_id, None)
+    known, seen = db.notion_known(user_id)
+    th = threading.Thread(
+        target=npub.run_public_import,
+        args=(job, tables, mapping, opts, SHOTS, known, seen,
+              lambda items: add_trades(user_id, items)),
+        daemon=True)
+    th.start()
+    return job
 
 
 def ask_emotion_later(user, trade):
@@ -174,6 +298,15 @@ class H(BaseHTTPRequestHandler):
     def do_GET(self):
         p = unquote(urlparse(self.path).path)
 
+        # ---- открыто всем: страница по ссылке и её снимок ----
+        if p.startswith("/api/share/"):
+            rec = share_read(p[len("/api/share/"):])
+            if rec is None:
+                return self._json({"error": "посилання не знайдено або прострочене"}, 404)
+            return self._json(rec)
+        if p.startswith("/s/"):
+            return self._file(os.path.join(STATIC, "share.html"), "text/html; charset=utf-8")
+
         if p == "/api/auth/me":
             uid = self._uid()
             user = db.get_user(uid) if uid else None
@@ -188,6 +321,28 @@ class H(BaseHTTPRequestHandler):
         if p == "/api/calendar":
             events, warn = calendar_events()
             return self._json({"events": events, "warning": warn})
+
+        if p == "/api/notion/state":
+            uid = self._uid()
+            if not uid:
+                return self._json({"error": "auth required"}, 401)
+            conf = notion_conf(uid)
+            return self._json({
+                "url": conf.get("url") or "",
+                "title": conf.get("title") or "",
+                "mapping": conf.get("mapping") or {},
+                "fields": [{"k": k, "label": notion.LABELS[k]} for k in notion.FIELDS],
+            })
+
+        if p.startswith("/api/notion/job/"):
+            uid = self._uid()
+            if not uid:
+                return self._json({"error": "auth required"}, 401)
+            with _jobs_lock:
+                job = _jobs.get(p[len("/api/notion/job/"):])
+            if not job or getattr(job, "user_id", None) != uid:
+                return self._json({"error": "завдання не знайдено"}, 404)
+            return self._json(job.snapshot())
 
         if p == "/login":
             return self._file(os.path.join(STATIC, "login.html"), "text/html; charset=utf-8")
@@ -288,6 +443,54 @@ class H(BaseHTTPRequestHandler):
         if p == "/api/telegram/unlink":
             db.unlink_telegram(uid)
             return self._json({"ok": True})
+
+        if p == "/api/share":
+            if not isinstance(body, dict) or not isinstance(body.get("data"), dict):
+                return self._json({"error": "нужен объект data"}, 400)
+            raw = json.dumps(body["data"], ensure_ascii=False)
+            if len(raw.encode("utf-8")) > SHARE_MAX:
+                return self._json({"error": "снимок слишком большой"}, 413)
+            rec = share_create(body["data"], body.get("ttl", "7d"))
+            return self._json({"id": rec["id"], "url": "/s/" + rec["id"],
+                               "expires": rec["expires"]}, 201)
+
+        if p == "/api/notion/preview":
+            body = body or {}
+            url = str(body.get("url") or "").strip()
+            try:
+                data = npub.preview(url, body.get("mapping"), body.get("table"))
+            except notion.NotionError as ex:
+                return self._json({"error": str(ex)}, 400)
+            except Exception as ex:
+                return self._json({"error": "не вдалося прочитати сторінку: %s" % ex}, 502)
+            conf = notion_conf(uid)
+            conf.update({"url": url, "title": data.get("title") or "",
+                         "mapping": data.get("mapping") or {}})
+            notion_save(uid, conf)
+            data["fields"] = [{"k": k, "label": notion.LABELS[k]} for k in notion.FIELDS]
+            data.pop("source", None)
+            return self._json(data)
+
+        if p == "/api/notion/forget":
+            try:
+                os.remove(notion_file(uid))
+            except Exception:
+                pass
+            return self._json({"ok": True})
+
+        if p == "/api/notion/import":
+            body = body or {}
+            url = str(body.get("url") or "").strip()
+            mapping = body.get("mapping") or {}
+            tables = [t for t in (body.get("tables") or [])
+                      if isinstance(t, dict) and t.get("collection") and t.get("view")]
+            if not tables or not mapping.get("pair"):
+                return self._json({"error": "потрібні таблиця і колонка з інструментом"}, 400)
+            conf = notion_conf(uid)
+            conf.update({"url": url, "mapping": mapping, "title": body.get("title") or ""})
+            notion_save(uid, conf)
+            job = start_import(uid, tables, mapping, body.get("options") or {})
+            return self._json(job.snapshot(), 202)
 
         if p == "/api/trades":
             if not isinstance(body, dict) or not str(body.get("pair", "")).strip():

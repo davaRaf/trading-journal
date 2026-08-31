@@ -446,6 +446,20 @@ function plSegments(pts,vals,y0){
    (Grid highlightRowValues={[0]}); при наведении — курсор и подпись с индикатором.
    Один и тот же график на «Огляді» (год) и в журнале (месяц) — меняется только ось X. */
 let plSeq=0;
+/* Круглые засечки: шаг из ряда 1 / 2 / 2.5 / 5 / 10, а границы — по нему.
+   Так подписи выходят ровные, а линии сетки стоят ровно на подписях. */
+function niceScale(min,max,count){
+  if(max===min){ max=min+1; }
+  const raw=(max-min)/(count||4);
+  const mag=Math.pow(10,Math.floor(Math.log10(raw)));
+  const n=raw/mag;
+  const step=(n<=1?1:n<=2?2:n<=2.5?2.5:n<=5?5:10)*mag;
+  const lo=Math.floor(min/step)*step, hi=Math.ceil(max/step)*step;
+  const vals=[];
+  for(let v=lo; v<=hi+step*1e-9; v+=step) vals.push(Math.round(v*1e6)/1e6);
+  return {lo,hi,step,vals};
+}
+
 function plChart(list, opts){
   opts=opts||{};
   const title=opts.title||"Прибуток / збиток";
@@ -472,14 +486,16 @@ function plChart(list, opts){
   const W=640,H=156,pad=10;
   /* месяц занимает всю ширину от 1-го до последнего числа, год — до последней сделки */
   const dmax=month ? new Date(sy,sm,0).getDate()-1 : (days[days.length-1]||364);
-  const max=Math.max(...vals,0), min=Math.min(...vals,0);
+  /* Засечки берём круглые: если просто делить размах на четыре, подписи
+     округляются и шаг выходит рваным — 3, 0, −3, −5, −8. */
+  const sc=niceScale(Math.min(...vals,0),Math.max(...vals,0),4);
   const X=i=>days[i]/dmax*W;
-  const Y=v=>H-pad-(v-min)/((max-min)||1)*(H-pad*2);
+  const Y=v=>H-pad-(v-sc.lo)/(sc.hi-sc.lo)*(H-pad*2);
   const pts=vals.map((v,i)=>[X(i),Y(v)]);
   const last=vals.length-1;
   const y0=Y(0);                                  /* высота нулевой оси */
-  const grid=[0,.25,.5,.75,1].map(p=>
-    '<line x1="0" y1="'+(pad+p*(H-pad*2))+'" x2="'+W+'" y2="'+(pad+p*(H-pad*2))+
+  const grid=sc.vals.map(v=>
+    '<line x1="0" y1="'+Y(v).toFixed(1)+'" x2="'+W+'" y2="'+Y(v).toFixed(1)+
     '" class="ovgrid" vector-effect="non-scaling-stroke"/>').join("");
   /* сегменты по знаку: над нулём — цвет прибыли, под нулём — цвет збитку */
   const line=plSegments(pts,vals,y0).map(sg=>
@@ -491,22 +507,25 @@ function plChart(list, opts){
     line+
     '<line class="plcursor" x1="0" x2="0" y1="0" y2="'+H+'" vector-effect="non-scaling-stroke" hidden/>'+
     '<line class="plhover" stroke-linecap="round" stroke-width="7" vector-effect="non-scaling-stroke" hidden/></svg>';
-  /* у месяца разброс мелкий — там нужен знак после запятой, у года хватает целых */
-  const fine=(max-min)<10;
-  const yax=[0,1,2,3,4].map(i=>{
-    const v=max-(max-min)*i/4;
-    return "<span>"+(fine?(Math.round(v*10)/10).toFixed(1):Math.round(v))+"</span>";
-  }).join("");
-  /* ось X: у года — месяцы, у месяца — числа с ровным шагом */
+  const dec=sc.step<1?1:0;
+  const yax=sc.vals.slice().reverse().map(v=>"<span>"+v.toFixed(dec)+"</span>").join("");
+
+  /* Ось X: подпись должна стоять ровно над своим днём. Раньше числа делили
+     ширину на равные доли и разъезжались с графиком. */
   let ticks;
   if(month){
     const dim=dmax+1;
-    ticks=[0,1,2,3,4].map(i=>String(Math.max(1,Math.round(dim*i/4)||1)));
+    const set=[...new Set([1,Math.round(dim*.25),Math.round(dim*.5),Math.round(dim*.75),dim])]
+      .filter(d=>d>=1&&d<=dim).sort((a,b)=>a-b);
+    ticks=set.map(d=>({t:String(d),f:(d-1)/dmax}));
   }else{
-    ticks=[...months].sort().map(m=>MON_SHORT[+m-1]);
+    ticks=[...months].sort().map(m=>{
+      const d=new Date(sy,+m-1,1);
+      return {t:MON_SHORT[+m-1],f:Math.round((d-start)/86400000)/dmax};
+    }).filter(x=>x.f>=0&&x.f<=1);
   }
-  const xax='<div class="xax" style="grid-template-columns:repeat('+ticks.length+',1fr)">'+
-    ticks.map(t=>"<span>"+t+"</span>").join("")+"</div>";
+  const xax='<div class="xax">'+ticks.map(x=>
+    '<span style="left:'+(x.f*100).toFixed(2)+'%">'+x.t+"</span>").join("")+"</div>";
   /* точки для подписи под курсором кладём в реестр графиков: их может быть несколько */
   const id="pl"+(++plSeq);
   if(window.PL) PL.data[id]=pts.map((p,i)=>({x:p[0],y:p[1],v:vals[i],d:iso[i]}));
@@ -652,8 +671,6 @@ function vJournal(){
   const leftPane = S.jMode==="table"
     ? monthTableHtml(monthTrades)
     : '<div class="card">'+calHtml(S.jMonth,"pickDay",S.selDay)+
-        '<div class="callegend"><i class="mk tp">TP</i>тейк<i class="mk sl">SL</i>стоп<i class="mk be">BE</i>беззбиток'+
-        '<span class="lgend-rev"><i class="mk tp rev">TP</i>рамка — розворот проти біасу</span></div>'+
       "</div>";
   /* панель дня живёт в гнезде: так её высота равна левой половине, а не тянет страницу вниз */
   h+='<div class="jgrid">'+leftPane+'<div class="dayslot">'+dayPanel+"</div></div>";
@@ -1026,40 +1043,50 @@ function closeLightbox(){ $("#lightbox").hidden=true; $("#lightboxImg").src=""; 
    Обёртку задаёт вызывающий */
 function tradeBodyHtml(t){
   const r=netR(t);
-  /* 1. итог сделки — то, ради чего карточку открывают */
+
+  /* 1. итог сделки. Инструмент, направление, время и общий процент уже стоят
+     в шапке карточки — повторять их здесь незачем, от этого и была каша */
   const facts=[["Результат",resLabel(t.result)||"—",""],
     ["RR",(t.rr!=null&&t.rr!=="")?r1(t.rr):"—",""],
-    ["Ризик",(t.risk!=null&&t.risk!=="")?r1(t.risk)+"%":"—",""],
-    ["Підсумок",fmtR(r),clsR(r)]];
+    ["Ризик",(t.risk!=null&&t.risk!=="")?r1(t.risk)+"%":"—",""]];
   let h='<div class="tstats">'+facts.map(f=>
     '<div class="st"><div class="lab">'+f[0]+'</div><div class="val '+f[2]+'">'+esc(f[1])+"</div></div>").join("")+"</div>";
 
-  /* 2. обстоятельства входа: показываем весь набор, незаполненное — прочерком,
-     чтобы сразу было видно, что именно не записал */
-  const ctx=[["Інструмент",t.pair],["Дата й час",(t.date||"").replace("T"," ").slice(0,16)],
-    ["Напрямок",t.position],["Сесія",t.session],["Біас",t.bias],
-    ["Модель входу",t.entry_model],["Сетап",t.setup],["Прод. / Розв.",dirType(t)]];
-  h+='<section class="tsec"><h3>Як торгував</h3><div class="tfields">'+ctx.map(f=>
-    '<div class="fr"><span class="l">'+f[0]+'</span><span class="v'+(f[1]?"":" none")+'">'+
-    esc(f[1]||"—")+"</span></div>").join("")+"</div></section>";
+  /* 2. обстоятельства входа. Заполненное показываем, пустое собираем одной
+     строкой внизу: видно, чего не хватает, но экран это не съедает */
+  const ctx=[["Сесія",t.session],["Біас",t.bias],["Модель входу",t.entry_model],
+    ["Сетап",t.setup],["Прод. / Розв.",dirType(t)]];
+  h+=section("Як торгував",
+    '<div class="tfields">'+ctx.filter(f=>f[1]).map(f=>
+      '<div class="fr"><span class="l">'+f[0]+'</span><span class="v">'+esc(f[1])+"</span></div>").join("")+"</div>",
+    ctx.filter(f=>!f[1]).map(f=>f[0]));
 
-  /* 3. записи руками: показываем все четыре, незаполненное — так и говорим */
-  const notes=[["Як заходив","entry_details"],["Нотатки","notes"],["Помилки","mistakes"],["Коментарі","comments"]];
-  h+='<section class="tsec"><h3>Нотатки</h3>'+notes.map(f=>{
-    const val=(t[f[1]]||"").trim();
-    return '<div class="tnote"><div class="l">'+f[0]+'</div><div class="v'+(val?"":" none")+'">'+
-      (val?esc(val):"не записано")+"</div></div>";
-  }).join("")+"</section>";
+  /* 3. записи руками */
+  const notes=[["Як заходив","entry_details"],["Нотатки","notes"],
+    ["Помилки","mistakes"],["Коментарі","comments"]];
+  const wrote=notes.filter(f=>(t[f[1]]||"").trim());
+  h+=section("Що записав",
+    wrote.map(f=>'<div class="tnote"><div class="l">'+f[0]+'</div><div class="v">'+
+      esc(t[f[1]].trim())+"</div></div>").join(""),
+    notes.filter(f=>!(t[f[1]]||"").trim()).map(f=>f[0]));
 
-  /* 4. графики: подпись таймфрейма стоит на самой картинке, отдельный перечень не нужен */
+  /* 4. графики: подпись таймфрейма стоит на самой картинке */
   const shots=(t.screenshots||[]).slice().sort((a,b)=>TF_ORDER.indexOf(a.tf)-TF_ORDER.indexOf(b.tf));
-  h+='<section class="tsec"><h3>Графіки</h3>'+
-    (shots.length
-      ? '<div class="charts">'+shots.map(s=>
-          '<div class="chart-item"><div class="l">'+esc(s.tf||"chart")+'</div><img loading="lazy" src="'+
-          shotSrc(s)+'" onclick="openLightbox(this.src)"></div>').join("")+"</div>"
-      : '<div class="tnote"><div class="v none">скриншотів немає</div></div>')+"</section>";
+  h+=section("Графіки",
+    shots.length ? '<div class="charts">'+shots.map(s=>
+      '<div class="chart-item"><div class="l">'+esc(s.tf||"chart")+'</div><img loading="lazy" src="'+
+      shotSrc(s)+'" onclick="openLightbox(this.src)"></div>').join("")+"</div>" : "",
+    shots.length ? [] : ["скриншотів немає"]);
   return h;
+}
+
+/* Раздел карточки. Пустые поля не занимают по строке каждое — они уходят
+   одной приглушённой строкой «не заповнено: …» */
+function section(title,body,missing){
+  if(!body && !missing.length) return "";
+  return '<section class="tsec"><h3>'+title+"</h3>"+body+
+    (missing.length ? '<div class="tempty">'+(body?"не заповнено: ":"")+
+      esc(missing.join(", "))+"</div>" : "")+"</section>";
 }
 
 /* карточка сделки выезжающей панелью — остаётся для узких экранов и отчётов */

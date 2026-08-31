@@ -77,11 +77,6 @@ html{-webkit-text-size-adjust:100%;overflow-y:scroll;scrollbar-gutter:stable}
 body::before{content:"";position:fixed;inset:0;z-index:0;pointer-events:none;background:var(--glow)}
 /* миллиметровка за интерфейсом: собственный слой ПОД сайдбаром и контентом,
    поэтому сквозь них не проступает (body::after занят плёночным зерном) */
-.bg-grid{position:fixed;inset:0;z-index:0;pointer-events:none;
-  background:linear-gradient(var(--grid-line) 1px,transparent 1px) 0 0/100% var(--grid-step),
-             linear-gradient(90deg,var(--grid-line) 1px,transparent 1px) 0 0/var(--grid-step) 100%;
-  -webkit-mask-image:radial-gradient(130% 105% at 50% 0%,#000 24%,transparent 92%);
-  mask-image:radial-gradient(130% 105% at 50% 0%,#000 24%,transparent 92%)}
 .side,.main{position:relative;z-index:1}
 /* ================= фоновые ломаные =================
    Слой под контентом: линия рисуется слева направо, замирает и тает. */
@@ -329,9 +324,7 @@ svg.chart{display:block;width:100%;height:auto}
   font-variant-numeric:tabular-nums;white-space:nowrap}
 .dtrade[open] > summary{background:var(--panel-2);border-bottom:1px solid var(--line-soft)}
 .dbody{background:var(--panel-2)}
-.dbody .tstats{grid-template-columns:repeat(2,1fr);border-top:none}
-.dbody .tstats .st:nth-child(2n){border-right:none}
-.dbody .tstats .st:nth-child(-n+2){border-bottom:1px solid var(--line-soft)}
+.dbody .tstats{grid-template-columns:repeat(3,1fr);border-top:none}
 .dbody .tsec{padding:12px 16px 13px}
 .dbody .tfields{grid-template-columns:minmax(0,1fr)}
 .dact{display:flex;gap:8px;padding:12px 16px 14px}
@@ -479,7 +472,7 @@ table.simple tr.click:hover td{background:var(--panel-2)}
 .thead .x{margin-left:0}
 .m-body.trade{padding:0}
 /* итог сделки: та же hairline-лента, что и показатели на «Огляді» */
-.tstats{display:grid;grid-template-columns:repeat(4,1fr);border-bottom:1px solid var(--line-soft)}
+.tstats{display:grid;grid-template-columns:repeat(3,1fr);border-bottom:1px solid var(--line-soft)}
 .tstats .st{padding:12px 16px 11px;border-right:1px solid var(--line-soft);min-width:0}
 .tstats .st:last-child{border-right:none}
 .tstats .lab{font-family:var(--mono);font-size:9px;letter-spacing:.16em;text-transform:uppercase;
@@ -499,12 +492,13 @@ table.simple tr.click:hover td{background:var(--panel-2)}
 .tnote .l{font-family:var(--mono);font-size:9px;letter-spacing:.14em;text-transform:uppercase;
   color:var(--faint);margin-bottom:5px}
 .tfields .fr .v.none,.tnote .v.none{color:var(--faint);font-weight:400}
+/* чего в сделке не записано — одной строкой, а не пустым полем на каждое */
+.tempty{margin-top:10px;font-size:12.5px;line-height:1.5;color:var(--faint)}
+.tsec > .tempty:first-of-type:not(:nth-child(2)){margin-top:0}
 .tnote .v{font-size:13.5px;line-height:1.55;color:var(--dim);white-space:pre-wrap;overflow-wrap:anywhere}
 .pnl .m-foot{position:sticky;bottom:0;background:var(--card);z-index:1}
 @media(max-width:620px){
-  .tstats{grid-template-columns:repeat(2,1fr)}
-  .tstats .st:nth-child(2n){border-right:none}
-  .tstats .st:nth-child(-n+2){border-bottom:1px solid var(--line-soft)}
+  .tstats .st{padding:11px 13px 10px}
 }
 
 /* просмотр сделки: старая сетка полей — осталась для отчётов */
@@ -897,9 +891,13 @@ body:has(.ovw){font-size:14px;line-height:1.6;font-weight:300}
 /* эквити */
 .chart{display:grid;grid-template-columns:34px 1fr;gap:10px}
 .yax{display:flex;flex-direction:column;justify-content:space-between;font-family:var(--mono);font-size:9px;
-  color:var(--faint);text-align:right;padding:2px 0 12px}
-.xax{display:grid;text-align:center;font-family:var(--mono);font-size:9px;color:var(--faint);
+  color:var(--faint);text-align:right;padding:4px 0}
+/* числа стоят ровно над своим днём, а не в равных долях ширины */
+.xax{position:relative;height:11px;font-family:var(--mono);font-size:9px;color:var(--faint);
   margin-left:44px;margin-top:10px}
+.xax span{position:absolute;top:0;transform:translateX(-50%);white-space:nowrap}
+.xax span:first-child{transform:none}
+.xax span:last-child{transform:translateX(-100%)}
 .chart-lab{display:flex;align-items:baseline;gap:14px;margin-bottom:12px}
 .chart-lab .t{font-family:var(--mono);font-size:9px;letter-spacing:.20em;text-transform:uppercase;color:var(--faint)}
 .chart-lab .v{font-family:var(--mono);font-size:15px}

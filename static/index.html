@@ -9,10 +9,27 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Geist:wght@300;400;500;600;700&family=Archivo:wght@400;500;600&display=swap">
 <link rel="stylesheet" href="/static/style.css">
-<link rel="stylesheet" href="/static/news.css">
+<link rel="stylesheet" href="/static/news.css?v=2">
+<link rel="stylesheet" href="/static/import.css?v=1">
+<link rel="stylesheet" href="/static/themes.css?v=1">
+<link rel="stylesheet" href="/static/calc.css?v=1">
 <script>
 /* тема применяется до отрисовки, чтобы не мигало */
-try{if(localStorage.getItem("tj_theme")!=="light")document.documentElement.setAttribute("data-theme","dark");}catch(e){}
+/* оформление ставим до первой отрисовки, иначе мигнёт прежней темой */
+try{
+  var _sk = localStorage.getItem("statsai_skin") || "night";
+  var _light = ["day","paper","fog","sand"];
+  var _base = _light.indexOf(_sk) >= 0 ? "light" : "dark";
+  if (_sk === "custom"){
+    var _seed = JSON.parse(localStorage.getItem("statsai_skin_custom") || "{}");
+    _base = _seed.base === "light" ? "light" : "dark";
+    if (_seed.bg) document.documentElement.style.setProperty("--seed-bg", _seed.bg);
+    if (_seed.accent) document.documentElement.style.setProperty("--seed-accent", _seed.accent);
+    document.documentElement.style.setProperty("--seed-ink", _base === "light" ? "#171b24" : "#f4f5f7");
+  }
+  document.documentElement.setAttribute("data-skin", _sk);
+  document.documentElement.setAttribute("data-theme", _base);
+}catch(e){ document.documentElement.setAttribute("data-theme","dark"); }
 if(!document.documentElement.getAttribute("data-theme"))document.documentElement.setAttribute("data-theme","dark");
 document.documentElement.setAttribute("data-layout","classic");
 try{document.documentElement.setAttribute("data-nav",localStorage.getItem("tj_nav")||"flat");}catch(e){document.documentElement.setAttribute("data-nav","flat");}
@@ -20,7 +37,6 @@ try{document.documentElement.setAttribute("data-nav",localStorage.getItem("tj_na
 </head>
 <body>
 
-<div class="bg-grid" aria-hidden="true"></div>
 
 <aside class="side">
   <svg width="0" height="0" style="position:absolute" aria-hidden="true"><defs>
@@ -46,15 +62,15 @@ try{document.documentElement.setAttribute("data-nav",localStorage.getItem("tj_na
   </nav>
 
   <div class="grp">
-    <div class="lab">Швидко</div>
-    <button class="mini" data-tip="Завантажити угоди з CSV або Excel" onclick="openImport()"><svg class="ic" width="14" height="14" viewBox="0 0 24 24" fill="none"><path d="M12 3v12M8 11l4 4 4-4" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/><path d="M4 17v2a2 2 0 002 2h12a2 2 0 002-2v-2" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></svg> Імпорт</button>
-    <button class="mini" data-tip="Зберегти всі угоди файлом" onclick="exportData()"><svg class="ic" width="14" height="14" viewBox="0 0 24 24" fill="none"><path d="M12 21V9M8 13l4-4 4 4" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/><path d="M4 7V5a2 2 0 012-2h12a2 2 0 012 2v2" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></svg> Експорт</button>
+    <div class="lab">Ваш журнал</div>
+    <button class="mini" data-tip="Порахувати розмір позиції під свій ризик" onclick="__calc.open()"><svg class="ic" width="14" height="14" viewBox="0 0 24 24" fill="none"><rect x="4" y="3" width="16" height="18" rx="3" stroke="currentColor" stroke-width="1.7"/><path d="M8 8h8" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/><path d="M8.5 12.5h.01M12 12.5h.01M15.5 12.5h.01M8.5 16.5h.01M12 16.5h.01M15.5 16.5h3" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"/></svg> Калькулятор ризику</button>
+    <button class="mini notionbtn" data-tip="Перенести свої угоди з Notion — записи, нотатки й скріншоти" onclick="__notion.open()"><svg class="ic" width="15" height="15" viewBox="0 0 24 24" fill="none"><rect x="3.5" y="3.5" width="17" height="17" rx="3.5" stroke="currentColor" stroke-width="1.7"/><path d="M9 16V8l6 8V8" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg> <span><b>Підключити Notion</b><i>перенести свої угоди сюди</i></span></button>
   </div>
 
   <div class="side-foot">
     <button class="mini" data-tip="Нагадування про новини та питання про емоції" onclick="openTelegram()"><svg class="ic" width="14" height="14" viewBox="0 0 24 24" fill="none"><path d="M21 4L3 11l6 2.2L19 6.5l-7.5 8.3.4 5.2 2.6-3.6 4.2 3.1L21 4z" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/></svg> <span>Telegram</span></button>
     <button class="mini" data-tip="Вийти з акаунта" onclick="logout()"><svg class="ic" width="14" height="14" viewBox="0 0 24 24" fill="none"><path d="M15 17l5-5-5-5M20 12H9" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/><path d="M12 20H6a2 2 0 01-2-2V6a2 2 0 012-2h6" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></svg> <span>Вийти</span></button>
-    <button class="mini" id="themeBtn" data-tip="Перемкнути світлу й темну тему" onclick="toggleTheme()"><svg class="ic" width="14" height="14" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="4.2" stroke="currentColor" stroke-width="1.6"/><path d="M12 2.6v2.2M12 19.2v2.2M2.6 12h2.2M19.2 12h2.2M5.3 5.3l1.6 1.6M17.1 17.1l1.6 1.6M18.7 5.3l-1.6 1.6M6.9 17.1l-1.6 1.6" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg> <span>Світла тема</span></button>
+    <button class="mini" id="skinBtn" data-tip="Теми оформлення: світлі, темні й своя" onclick="__skin.open()"><svg class="ic" width="14" height="14" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="8.6" stroke="currentColor" stroke-width="1.7"/><path d="M12 3.4a8.6 8.6 0 000 17.2z" fill="currentColor" opacity=".55"/></svg> <span>Оформлення</span></button>
   </div>
 </aside>
 
@@ -66,7 +82,11 @@ try{document.documentElement.setAttribute("data-nav",localStorage.getItem("tj_na
 <script src="/static/ui.js"></script>
 <script src="/static/demo.js"></script>
 <script src="/static/app.js"></script>
-<script src="/static/news.js"></script>
+<script src="/static/news.js?v=2"></script>
+<script src="/static/sharelink.js?v=2"></script>
+<script src="/static/notion.js?v=1"></script>
+<script src="/static/calc.js?v=1"></script>
 <script src="/static/share.js"></script>
+<script src="/static/themes.js?v=1"></script>
 </body>
 </html>

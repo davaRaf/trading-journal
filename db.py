@@ -15,7 +15,7 @@ from config import DATABASE_URL
 # Текстовые поля сделки. Порядок важен: по нему строятся INSERT/UPDATE.
 TEXT_FIELDS = ["pair", "date", "session", "position", "entry_model", "bias", "setup",
                "direction_type", "result", "entry_details", "notes", "mistakes",
-               "comments", "emotion"]
+               "comments", "emotion", "notion_id"]
 NUM_FIELDS = ["rr", "risk"]
 FIELDS = TEXT_FIELDS + NUM_FIELDS
 
@@ -69,6 +69,7 @@ CREATE TABLE IF NOT EXISTS trades (
   "mistakes"            TEXT NOT NULL DEFAULT '',
   "comments"            TEXT NOT NULL DEFAULT '',
   "emotion"             TEXT NOT NULL DEFAULT '',
+  "notion_id"           TEXT NOT NULL DEFAULT '',   -- id записи в Notion: чтобы импорт не задваивал
   rr                    DOUBLE PRECISION,
   risk                  DOUBLE PRECISION,
   screenshots           JSONB NOT NULL DEFAULT '[]'::jsonb,
@@ -107,6 +108,7 @@ CREATE TABLE IF NOT EXISTS meta (
 -- Своими словами ответ храним отдельно: в emotion лежит категория для статистики,
 -- а тут — как человек это сказал.
 ALTER TABLE trades ADD COLUMN IF NOT EXISTS emotion_raw TEXT;
+ALTER TABLE trades ADD COLUMN IF NOT EXISTS "notion_id" TEXT NOT NULL DEFAULT '';
 """
 
 
@@ -200,6 +202,17 @@ def get_trade(tid, user_id=None):
         args.append(user_id)
     with connect() as conn:
         return _row_to_trade(conn.execute(sql, args).fetchone())
+
+
+def notion_known(user_id):
+    """Что у человека уже есть: инструменты и id записей Notion.
+    Импорт по ним понимает, что переносить не нужно."""
+    with connect() as conn:
+        rows = conn.execute('SELECT DISTINCT "pair", "notion_id" FROM trades '
+                            'WHERE user_id=%s', (user_id,)).fetchall()
+    known = {(r["pair"] or "").strip() for r in rows if (r["pair"] or "").strip()}
+    seen = {r["notion_id"] for r in rows if r["notion_id"]}
+    return known, seen
 
 
 def owns_screenshot(user_id, filename):

@@ -111,3 +111,33 @@
   .nw-ev .num{grid-column:1/-1; justify-content:flex-start; margin-top:8px; text-align:left}
   .nw-ev .num > div:not(.badge){min-width:0}
 }
+
+/* ---------- поділитися посиланням ---------- */
+.sh-bar{display:flex; gap:8px; margin:-4px 0 16px; flex-wrap:wrap}
+.sh-btn{display:inline-flex; align-items:center; gap:7px}
+.sh-body{display:flex; flex-direction:column; gap:14px}
+.sh-note{margin:0; font-size:13px; color:var(--dim); line-height:1.55}
+.sh-what{display:flex; align-items:baseline; gap:10px; padding:13px 15px;
+  background:var(--panel-2); border:1px solid var(--line-soft); border-radius:var(--r)}
+.sh-what b{font-size:15px; font-weight:600}
+.sh-what span{font-family:var(--mono); font-size:10px; letter-spacing:.13em;
+  text-transform:uppercase; color:var(--faint)}
+.sh-lab{font-family:var(--mono); font-size:10px; letter-spacing:.13em;
+  text-transform:uppercase; color:var(--faint)}
+.sh-ttl{display:flex; gap:6px; flex-wrap:wrap}
+.sh-chip{border:1px solid var(--line); background:var(--panel); color:var(--dim);
+  font:inherit; font-size:12.5px; padding:7px 13px; border-radius:99px; cursor:pointer;
+  transition:color .18s, background .18s, border-color .18s}
+.sh-chip:hover{color:var(--text)}
+.sh-chip.on{background:var(--panel-2); color:var(--text);
+  border-color:color-mix(in srgb, var(--text) 26%, transparent)}
+.sh-out{display:flex; gap:8px; flex-wrap:wrap; align-items:center;
+  padding-top:12px; border-top:1px dashed var(--line)}
+.sh-out[hidden]{display:none}
+.sh-url{flex:1 1 260px; min-width:0; background:var(--panel-2); color:var(--text);
+  border:1px solid var(--line); border-radius:var(--r-sm); padding:9px 12px;
+  font-family:var(--mono); font-size:12.5px}
+.sh-bar{align-items:center}
+.sh-cap{font-family:var(--mono); font-size:10px; letter-spacing:.13em;
+  text-transform:uppercase; color:var(--faint); margin-right:2px}
+.sh-day{width:100%; justify-content:center; margin-top:10px}

@@ -202,6 +202,9 @@ body{
 /* ---------- лёгкий наклон за курсором ---------- */
 .stage{perspective:1100px}
 .shell{transform-style:preserve-3d; will-change:transform}
+/* параллакс: чем дальше слой, тем меньше он смещается */
+#bg{will-change:transform}
+.headline{will-change:transform}
 
 /* ---------- переключатель языка ---------- */
 .langs{
@@ -1036,22 +1039,49 @@ goBtn.addEventListener("click", () => {
   }, 1100);
 });
 
-/* наклон карточки за курсором — совсем чуть-чуть, только на мыши */
+/* ============================================================
+   Параллакс. Слои двигаются за курсором с разной силой:
+   свечи позади — сильнее всех, цитата — слабее, карточка почти
+   стоит на месте и лишь наклоняется. Разная скорость и создаёт
+   ощущение глубины.
+   ============================================================ */
 if (matchMedia("(hover: hover) and (pointer: fine)").matches){
-  const MAX = 4;   // градусов
-  let raf = 0;
+  const TILT = 4;          // наклон карточки, градусов
+  const SHIFT_BG = 26;     // насколько уводим фон со свечами, пикселей
+  const SHIFT_TXT = 10;    // насколько уводим цитату
+  const SHIFT_CARD = 5;    // и саму карточку
+
+  const headline = document.getElementById("headline");
+  let raf = 0, tx = 0, ty = 0, cx = 0, cy = 0;
+
   addEventListener("pointermove", e => {
+    // -1 … 1 от центра экрана
+    tx = (e.clientX / innerWidth  - .5) * 2;
+    ty = (e.clientY / innerHeight - .5) * 2;
     if (!MOTION || raf) return;
-    raf = requestAnimationFrame(() => {
-      raf = 0;
-      const r = shell.getBoundingClientRect();
-      const dx = (e.clientX - (r.left + r.width / 2))  / (innerWidth / 2);
-      const dy = (e.clientY - (r.top  + r.height / 2)) / (innerHeight / 2);
-      shell.style.transform =
-        `rotateY(${(dx * MAX).toFixed(2)}deg) rotateX(${(-dy * MAX).toFixed(2)}deg)`;
-    });
+    raf = requestAnimationFrame(step);
   });
-  addEventListener("pointerleave", () => { shell.style.transform = ""; });
+
+  function step(){
+    raf = 0;
+    // догоняем курсор плавно, иначе слои дёргаются вслед за каждым движением
+    cx += (tx - cx) * .08;
+    cy += (ty - cy) * .08;
+
+    cv.style.transform =
+      `translate3d(${(-cx * SHIFT_BG).toFixed(1)}px, ${(-cy * SHIFT_BG * .6).toFixed(1)}px, 0)`;
+    if (headline) headline.style.transform =
+      `translate3d(${(-cx * SHIFT_TXT).toFixed(1)}px, ${(-cy * SHIFT_TXT * .6).toFixed(1)}px, 0)`;
+    shell.style.transform =
+      `translate3d(${(-cx * SHIFT_CARD).toFixed(1)}px, ${(-cy * SHIFT_CARD * .6).toFixed(1)}px, 0)`
+      + ` rotateY(${(cx * TILT).toFixed(2)}deg) rotateX(${(-cy * TILT).toFixed(2)}deg)`;
+
+    // пока не пришли в цель — продолжаем догонять
+    if (Math.abs(tx - cx) > .001 || Math.abs(ty - cy) > .001)
+      raf = requestAnimationFrame(step);
+  }
+
+  addEventListener("pointerleave", () => { tx = ty = 0; if (!raf) raf = requestAnimationFrame(step); });
 }
 
 
