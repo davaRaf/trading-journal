@@ -10,7 +10,7 @@
    Выключается при prefers-reduced-motion, на узких экранах и в фоновой вкладке. */
 const Sparks = (function(){
   let box = null, timer = 0, alive = 0;
-  const MAX = 3;                                   /* больше трёх сразу — уже мельтешение */
+  const MAX = 2;                                   /* больше двух сразу — уже мельтешение */
   const rnd = (a,b) => a + Math.random()*(b-a);
   const calm = () => window.matchMedia("(prefers-reduced-motion:reduce)").matches;
 
@@ -52,7 +52,7 @@ const Sparks = (function(){
 
   function plan(){
     clearTimeout(timer);
-    timer = setTimeout(()=>{ spawn(); plan(); }, rnd(2400, 5200));
+    timer = setTimeout(()=>{ spawn(); plan(); }, rnd(3600, 7000));
   }
 
   function start(){
