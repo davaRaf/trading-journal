@@ -1,0 +1,113 @@
+/* Розділ «Новини». Окремий файл, щоб не заважати правкам у style.css.
+   Кольори беруться з тем застосунку. */
+
+:root{
+  /* важливість: червоний · помаранчевий · жовтий */
+  --n-h:#c94430; --n-m:#c2701a; --n-l:#a8860f;
+  --n-h-bg:rgba(201,68,48,.10); --n-m-bg:rgba(194,112,26,.11); --n-l-bg:rgba(168,134,15,.11);
+}
+:root[data-theme="dark"]{
+  --n-h:#f2645f; --n-m:#f0964a; --n-l:#efc258;
+  --n-h-bg:rgba(242,100,95,.13); --n-m-bg:rgba(240,150,74,.13); --n-l-bg:rgba(239,194,88,.12);
+}
+
+/* ---------- попередження ---------- */
+.nw-warn{padding:12px 14px; border-radius:var(--r); margin-bottom:14px;
+  background:var(--be-soft); border:1px solid color-mix(in srgb, var(--be) 34%, transparent);
+  font-size:13.5px; color:var(--text); line-height:1.5}
+.nw-warn b{color:var(--be)}
+
+/* ---------- дні тижня ---------- */
+.nw-days{display:flex; gap:6px; overflow-x:auto; padding-bottom:2px; margin-bottom:12px;
+  scrollbar-width:none}
+.nw-days::-webkit-scrollbar{display:none}
+.nw-day,.nw-week{
+  border:1px solid var(--line); border-radius:var(--r); background:var(--card);
+  color:var(--text);                       /* без цього кнопка бере чорний колір браузера */
+  padding:10px 8px; cursor:pointer; text-align:center;
+  display:flex; flex-direction:column; gap:3px; align-items:center; justify-content:center;
+  transition:border-color .2s, background .2s;
+}
+.nw-day{flex:1 1 0; min-width:76px}
+.nw-week{flex:0 0 auto; min-width:98px; padding:10px 14px}
+.nw-day:hover,.nw-week:hover{border-color:color-mix(in srgb, var(--text) 22%, transparent)}
+.nw-day.on,.nw-week.on{background:var(--panel-2);
+  border-color:color-mix(in srgb, var(--text) 30%, transparent)}
+.nw-day .wd,.nw-week .wd{font-family:var(--mono); font-size:10px; letter-spacing:.12em;
+  text-transform:uppercase; color:var(--faint)}
+.nw-day .dt{font-family:var(--mono); font-size:17px; font-weight:500;
+  font-variant-numeric:tabular-nums; color:inherit}
+.nw-week .dt{font-family:var(--mono); font-size:14px; font-weight:500; color:inherit}
+.nw-day.today .dt{color:var(--up)}
+.nw-day .dots{display:flex; gap:3px; justify-content:center; min-height:6px; margin-top:1px}
+.nw-day .dots i{width:5px; height:5px; border-radius:50%}
+.nw-day .dots i.h{background:var(--n-h)}
+.nw-day .dots i.m{background:var(--n-m)}
+.nw-day .dots i.l{background:var(--n-l)}
+
+/* ---------- фільтри сегментами ---------- */
+.nw-filters{display:flex; flex-direction:column; align-items:flex-start; gap:10px;
+  margin-bottom:14px}
+.nw-grp{display:flex; align-items:center; flex-wrap:nowrap; overflow-x:auto; max-width:100%;
+  gap:0; padding:3px; border-radius:99px;
+  background:var(--panel); border:1px solid var(--line); scrollbar-width:none}
+.nw-grp::-webkit-scrollbar{display:none}
+.nw-grp .lab{padding:0 12px 0 11px; flex:0 0 auto;
+  font-family:var(--mono); font-size:10px; letter-spacing:.13em;
+  text-transform:uppercase; color:var(--faint)}
+.nw-chip{border:0; background:transparent; color:var(--dim); font:inherit; font-size:12.5px;
+  padding:7px 14px; border-radius:99px; cursor:pointer; flex:0 0 auto;
+  display:flex; align-items:center; gap:7px; white-space:nowrap;
+  transition:color .18s, background .18s}
+.nw-chip:hover{color:var(--text)}
+.nw-chip.on{background:var(--panel-2); color:var(--text); box-shadow:inset 0 0 0 1px var(--line)}
+.nw-chip.off{opacity:.42}
+.nw-chip i{width:8px; height:8px; border-radius:50%; flex:none}
+.nw-chip i.h{background:var(--n-h)}
+.nw-chip i.m{background:var(--n-m)}
+.nw-chip i.l{background:var(--n-l)}
+.nw-chip .n{font-family:var(--mono); font-size:10.5px; color:var(--faint)}
+.nw-chip.on .n{color:var(--dim)}
+
+/* ---------- список подій ---------- */
+.nw-list{display:flex; flex-direction:column; gap:6px}
+.nw-ev{display:grid; grid-template-columns:64px 52px 1fr auto; gap:0 14px; align-items:center;
+  background:var(--card); border:1px solid var(--line-soft); border-radius:var(--r);
+  padding:12px 16px; border-left:3px solid transparent}
+.nw-ev.h{border-left-color:var(--n-h); background:var(--n-h-bg)}
+.nw-ev.m{border-left-color:var(--n-m); background:var(--n-m-bg)}
+.nw-ev.l{border-left-color:var(--n-l); background:var(--n-l-bg)}
+.nw-ev.past{opacity:.42}
+.nw-ev .tm{font-family:var(--mono); font-size:13.5px; font-variant-numeric:tabular-nums;
+  color:var(--text)}
+.nw-ev .cur{font-family:var(--mono); font-size:11px; letter-spacing:.06em; color:var(--dim);
+  border:1px solid var(--line); border-radius:6px; padding:3px 0; text-align:center}
+.nw-ev .ttl{font-size:14px; line-height:1.35; min-width:0}
+.nw-ev .ttl small{display:block; font-family:var(--mono); font-size:10.5px; color:var(--faint);
+  margin-top:3px; letter-spacing:.04em}
+.nw-ev .num{display:flex; gap:16px; font-family:var(--mono); font-size:12px;
+  font-variant-numeric:tabular-nums; color:var(--dim); text-align:right}
+.nw-ev .num > div:not(.badge){display:flex; flex-direction:column; gap:2px; min-width:52px}
+.nw-ev .num span{font-size:9.5px; letter-spacing:.1em; text-transform:uppercase; color:var(--faint)}
+.nw-ev .badge{display:inline-flex; align-items:center; justify-content:center; align-self:center;
+  font-family:var(--mono); font-size:9.5px; letter-spacing:.1em; text-transform:uppercase;
+  line-height:1; height:22px; padding:0 10px; white-space:nowrap;
+  color:var(--up); border:1px solid color-mix(in srgb, var(--up) 45%, transparent);
+  background:var(--up-soft); border-radius:99px}
+
+/* ---------- заголовок дня в режимі тижня ---------- */
+.nw-dayhead{display:flex; align-items:center; gap:10px; margin:14px 0 2px}
+.nw-dayhead:first-child{margin-top:0}
+.nw-dayhead b{font-size:13.5px; font-weight:600; letter-spacing:-.01em}
+.nw-dayhead span{font-family:var(--mono); font-size:10.5px; letter-spacing:.1em;
+  text-transform:uppercase; color:var(--faint)}
+.nw-dayhead .rule{flex:1; height:1px; background:var(--line-soft)}
+
+.nw-empty{padding:40px 20px; text-align:center; color:var(--faint); font-size:14px;
+  border:1px dashed var(--line); border-radius:var(--r)}
+
+@media (max-width:760px){
+  .nw-ev{grid-template-columns:56px 46px 1fr; gap:0 10px}
+  .nw-ev .num{grid-column:1/-1; justify-content:flex-start; margin-top:8px; text-align:left}
+  .nw-ev .num > div:not(.badge){min-width:0}
+}

@@ -228,6 +228,8 @@ class H(BaseHTTPRequestHandler):
         if p == "/api/calendar":
             events, warn = calendar_events()
             return self._json({"events": events, "warning": warn})
+        if p == "/login":
+            return self._file(os.path.join(STATIC, "login.html"), "text/html; charset=utf-8")
         if p.startswith("/design/"):
             # прототипы: экран входа, новости, знак — чтобы смотреть с того же адреса
             name = os.path.normpath(p[len("/design/"):]).replace("\\", "/")

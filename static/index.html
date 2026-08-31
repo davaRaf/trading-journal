@@ -9,6 +9,12 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Geist:wght@300;400;500;600;700&family=Archivo:wght@400;500;600&display=swap">
 <link rel="stylesheet" href="/static/style.css">
+<link rel="stylesheet" href="/static/news.css">
+<script>
+/* Экран входа. Пока он не настоящий: отметка живёт в браузере,
+   сервера и аккаунтов ещё нет. Кнопка «Вийти» в меню её стирает. */
+try{ if(localStorage.getItem("statsai_entered")!=="1") location.replace("/login"); }catch(e){}
+</script>
 <script>
 /* тема применяется до отрисовки, чтобы не мигало */
 try{if(localStorage.getItem("tj_theme")!=="light")document.documentElement.setAttribute("data-theme","dark");}catch(e){}
@@ -41,6 +47,7 @@ try{document.documentElement.setAttribute("data-nav",localStorage.getItem("tj_na
     <a href="#dashboard" data-v="dashboard" data-tip="Підсумки тижня, місяця й року"><svg class="ic" width="16" height="16" viewBox="0 0 24 24" fill="none"><rect x="3" y="3" width="7.5" height="9" rx="2" stroke="currentColor" stroke-width="1.6"/><rect x="13.5" y="3" width="7.5" height="5.5" rx="2" stroke="currentColor" stroke-width="1.6"/><rect x="13.5" y="12" width="7.5" height="9" rx="2" stroke="currentColor" stroke-width="1.6"/><rect x="3" y="15.5" width="7.5" height="5.5" rx="2" stroke="currentColor" stroke-width="1.6"/></svg> Огляд</a>
     <a href="#journal"   data-v="journal" data-tip="Календар місяця й усі угоди"><svg class="ic" width="16" height="16" viewBox="0 0 24 24" fill="none"><rect x="3" y="4" width="18" height="17" rx="3" stroke="currentColor" stroke-width="1.6"/><path d="M3 9h18M8 3v3M16 3v3" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg> Журнал</a>
     <a href="#analytics" data-v="analytics" data-tip="Розрізи: сетапи, сесії, моделі"><svg class="ic" width="16" height="16" viewBox="0 0 24 24" fill="none"><path d="M4 16l5-5 3 3 7-8" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/><path d="M15 6h5v5" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg> Аналітика</a>
+    <a href="#news"      data-v="news" data-tip="Економічний календар на тиждень"><svg class="ic" width="16" height="16" viewBox="0 0 24 24" fill="none"><rect x="3" y="5" width="14" height="15" rx="2.5" stroke="currentColor" stroke-width="1.6"/><path d="M17 9h2.5a1.5 1.5 0 011.5 1.5v7a2.5 2.5 0 01-5 0" stroke="currentColor" stroke-width="1.6"/><path d="M6.5 9h7M6.5 12.5h7M6.5 16h4" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg> Новини</a>
   </nav>
 
   <div class="grp">
@@ -50,6 +57,7 @@ try{document.documentElement.setAttribute("data-nav",localStorage.getItem("tj_na
   </div>
 
   <div class="side-foot">
+    <button class="mini" data-tip="Повернутися на екран входу" onclick="if(confirm('Вийти з журналу?')){try{localStorage.removeItem('statsai_entered')}catch(e){};location.href='/login'}"><svg class="ic" width="14" height="14" viewBox="0 0 24 24" fill="none"><path d="M15 17l5-5-5-5M20 12H9" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/><path d="M12 20H6a2 2 0 01-2-2V6a2 2 0 012-2h6" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></svg> <span>Вийти</span></button>
     <button class="mini" id="themeBtn" data-tip="Перемкнути світлу й темну тему" onclick="toggleTheme()"><svg class="ic" width="14" height="14" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="4.2" stroke="currentColor" stroke-width="1.6"/><path d="M12 2.6v2.2M12 19.2v2.2M2.6 12h2.2M19.2 12h2.2M5.3 5.3l1.6 1.6M17.1 17.1l1.6 1.6M18.7 5.3l-1.6 1.6M6.9 17.1l-1.6 1.6" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg> <span>Світла тема</span></button>
   </div>
 </aside>
@@ -62,6 +70,7 @@ try{document.documentElement.setAttribute("data-nav",localStorage.getItem("tj_na
 <script src="/static/ui.js"></script>
 <script src="/static/demo.js"></script>
 <script src="/static/app.js"></script>
+<script src="/static/news.js"></script>
 <script src="/static/share.js"></script>
 </body>
 </html>
