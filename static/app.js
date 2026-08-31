@@ -639,7 +639,7 @@ function vJournal(){
     '<div class="card daypanel"><h3>'+dayLabel+"</h3>"+chips+
     (mistakes.length?'<div class="mistline">Помилки: <span class="neg">'+mistakes.join(" · ")+"</span></div>":"")+
     (dayTrades.length
-      ? '<div class="tlist">'+dayTrades.map(tradeRow).join("")+"</div>"
+      ? '<div class="tlist">'+dayTrades.map((t,i)=>dayTradeHtml(t,dayTrades.length===1||i===0)).join("")+"</div>"
       : '<div class="empty">Угод немає</div>')+
     '<button class="addday" onclick="openForm(null,\''+S.selDay+'\')">+ Угода на цей день</button>'+
     "</div>";
@@ -686,6 +686,26 @@ function setupStatsHtml(list){
     '<div class="ahead"><span>Сетап</span><span>Угод</span><span>Win Rate</span><span>Сер. RR</span><span>Підсумок, %</span></div>'+
     body+"</div>";
 }
+/* сделка в панели дня: строка-заголовок и под ней вся карточка целиком.
+   Первая раскрыта сразу, остальные — по клику, чтобы день с пятью угодами
+   не превращался в простыню */
+function dayTradeHtml(t, open){
+  const r=netR(t);
+  const pos=t.position?'<span class="badge '+(t.position==="Long"?"long":"short")+'">'+esc(t.position)+"</span>":"";
+  const dt=dirType(t);
+  const dtb=dt?'<span class="badge '+(dt==="Reversal"?"rev":"cont")+'">'+(dt==="Reversal"?"REV":"CONT")+"</span>":"";
+  const badge='<span class="badge '+(t.result==="Win"?"win":t.result==="Loss"?"loss":t.result==="BE+"?"beplus":"be")+'">'+resLabel(t.result)+"</span>";
+  return '<details class="dtrade"'+(open?" open":"")+'>'+
+    '<summary><span class="p">'+esc(t.pair||"—")+" "+pos+"</span>"+
+      '<span class="d">'+esc((t.date||"").slice(11,16))+"</span>"+dtb+badge+
+      '<span class="r '+clsR(r)+'">'+fmtR(r)+"</span></summary>"+
+    '<div class="dbody">'+tradeBodyHtml(t)+
+      '<div class="dact">'+
+        '<button class="btn" onclick="openForm(\''+t.id+'\')">Змінити</button>'+
+        '<button class="btn danger" onclick="delTrade(\''+t.id+'\')">Видалити</button>'+
+      "</div></div></details>";
+}
+
 function shiftJMonth(d){ const [y,m]=S.jMonth.split("-").map(Number); const dt=new Date(y,m-1+d,1); S.jMonth=isoMonth(dt); S.pages={}; render(); }
 function pickDay(key){ S.selDay=key; if(key.slice(0,7)!==S.jMonth)S.jMonth=key.slice(0,7); render(); }
 function goToday(){ const t=new Date(); S.selDay=isoDay(t); S.jMonth=isoMonth(t); render(); }
@@ -1007,22 +1027,22 @@ function tradeBodyHtml(t){
     '<div class="fr"><span class="l">'+f[0]+'</span><span class="v'+(f[1]?"":" none")+'">'+
     esc(f[1]||"—")+"</span></div>").join("")+"</div></section>";
 
-  /* 3. записи руками */
-  const notes=[["Як заходив","entry_details"],["Нотатки","notes"],["Помилки","mistakes"],["Коментарі","comments"]]
-    .filter(f=>(t[f[1]]||"").trim());
-  if(notes.length)
-    h+='<section class="tsec"><h3>Нотатки</h3>'+notes.map(f=>
-      '<div class="tnote"><div class="l">'+f[0]+'</div><div class="v">'+esc(t[f[1]])+"</div></div>").join("")+"</section>";
-  else
-    h+='<section class="tsec"><h3>Нотатки</h3><div class="tnote">'+
-       '<div class="v none">Нічого не записано</div></div></section>';
+  /* 3. записи руками: показываем все четыре, незаполненное — так и говорим */
+  const notes=[["Як заходив","entry_details"],["Нотатки","notes"],["Помилки","mistakes"],["Коментарі","comments"]];
+  h+='<section class="tsec"><h3>Нотатки</h3>'+notes.map(f=>{
+    const val=(t[f[1]]||"").trim();
+    return '<div class="tnote"><div class="l">'+f[0]+'</div><div class="v'+(val?"":" none")+'">'+
+      (val?esc(val):"не записано")+"</div></div>";
+  }).join("")+"</section>";
 
   /* 4. графики: подпись таймфрейма стоит на самой картинке, отдельный перечень не нужен */
   const shots=(t.screenshots||[]).slice().sort((a,b)=>TF_ORDER.indexOf(a.tf)-TF_ORDER.indexOf(b.tf));
-  if(shots.length)
-    h+='<section class="tsec"><h3>Графіки</h3><div class="charts">'+shots.map(s=>
-      '<div class="chart-item"><div class="l">'+esc(s.tf||"chart")+'</div><img loading="lazy" src="'+
-      shotSrc(s)+'" onclick="openLightbox(this.src)"></div>').join("")+"</div></section>";
+  h+='<section class="tsec"><h3>Графіки</h3>'+
+    (shots.length
+      ? '<div class="charts">'+shots.map(s=>
+          '<div class="chart-item"><div class="l">'+esc(s.tf||"chart")+'</div><img loading="lazy" src="'+
+          shotSrc(s)+'" onclick="openLightbox(this.src)"></div>').join("")+"</div>"
+      : '<div class="tnote"><div class="v none">скриншотів немає</div></div>')+"</section>";
   return h;
 }
 
