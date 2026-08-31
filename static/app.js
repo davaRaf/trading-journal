@@ -1020,40 +1020,50 @@ function closeLightbox(){ $("#lightbox").hidden=true; $("#lightboxImg").src=""; 
    Обёртку задаёт вызывающий */
 function tradeBodyHtml(t){
   const r=netR(t);
-  /* 1. итог сделки — то, ради чего карточку открывают */
+
+  /* 1. итог сделки. Инструмент, направление, время и общий процент уже стоят
+     в шапке карточки — повторять их здесь незачем, от этого и была каша */
   const facts=[["Результат",resLabel(t.result)||"—",""],
     ["RR",(t.rr!=null&&t.rr!=="")?r1(t.rr):"—",""],
-    ["Ризик",(t.risk!=null&&t.risk!=="")?r1(t.risk)+"%":"—",""],
-    ["Підсумок",fmtR(r),clsR(r)]];
+    ["Ризик",(t.risk!=null&&t.risk!=="")?r1(t.risk)+"%":"—",""]];
   let h='<div class="tstats">'+facts.map(f=>
     '<div class="st"><div class="lab">'+f[0]+'</div><div class="val '+f[2]+'">'+esc(f[1])+"</div></div>").join("")+"</div>";
 
-  /* 2. обстоятельства входа: показываем весь набор, незаполненное — прочерком,
-     чтобы сразу было видно, что именно не записал */
-  const ctx=[["Інструмент",t.pair],["Дата й час",(t.date||"").replace("T"," ").slice(0,16)],
-    ["Напрямок",t.position],["Сесія",t.session],["Біас",t.bias],
-    ["Модель входу",t.entry_model],["Сетап",t.setup],["Прод. / Розв.",dirType(t)]];
-  h+='<section class="tsec"><h3>Як торгував</h3><div class="tfields">'+ctx.map(f=>
-    '<div class="fr"><span class="l">'+f[0]+'</span><span class="v'+(f[1]?"":" none")+'">'+
-    esc(f[1]||"—")+"</span></div>").join("")+"</div></section>";
+  /* 2. обстоятельства входа. Заполненное показываем, пустое собираем одной
+     строкой внизу: видно, чего не хватает, но экран это не съедает */
+  const ctx=[["Сесія",t.session],["Біас",t.bias],["Модель входу",t.entry_model],
+    ["Сетап",t.setup],["Прод. / Розв.",dirType(t)]];
+  h+=section("Як торгував",
+    '<div class="tfields">'+ctx.filter(f=>f[1]).map(f=>
+      '<div class="fr"><span class="l">'+f[0]+'</span><span class="v">'+esc(f[1])+"</span></div>").join("")+"</div>",
+    ctx.filter(f=>!f[1]).map(f=>f[0]));
 
-  /* 3. записи руками: показываем все четыре, незаполненное — так и говорим */
-  const notes=[["Як заходив","entry_details"],["Нотатки","notes"],["Помилки","mistakes"],["Коментарі","comments"]];
-  h+='<section class="tsec"><h3>Нотатки</h3>'+notes.map(f=>{
-    const val=(t[f[1]]||"").trim();
-    return '<div class="tnote"><div class="l">'+f[0]+'</div><div class="v'+(val?"":" none")+'">'+
-      (val?esc(val):"не записано")+"</div></div>";
-  }).join("")+"</section>";
+  /* 3. записи руками */
+  const notes=[["Як заходив","entry_details"],["Нотатки","notes"],
+    ["Помилки","mistakes"],["Коментарі","comments"]];
+  const wrote=notes.filter(f=>(t[f[1]]||"").trim());
+  h+=section("Що записав",
+    wrote.map(f=>'<div class="tnote"><div class="l">'+f[0]+'</div><div class="v">'+
+      esc(t[f[1]].trim())+"</div></div>").join(""),
+    notes.filter(f=>!(t[f[1]]||"").trim()).map(f=>f[0]));
 
-  /* 4. графики: подпись таймфрейма стоит на самой картинке, отдельный перечень не нужен */
+  /* 4. графики: подпись таймфрейма стоит на самой картинке */
   const shots=(t.screenshots||[]).slice().sort((a,b)=>TF_ORDER.indexOf(a.tf)-TF_ORDER.indexOf(b.tf));
-  h+='<section class="tsec"><h3>Графіки</h3>'+
-    (shots.length
-      ? '<div class="charts">'+shots.map(s=>
-          '<div class="chart-item"><div class="l">'+esc(s.tf||"chart")+'</div><img loading="lazy" src="'+
-          shotSrc(s)+'" onclick="openLightbox(this.src)"></div>').join("")+"</div>"
-      : '<div class="tnote"><div class="v none">скриншотів немає</div></div>')+"</section>";
+  h+=section("Графіки",
+    shots.length ? '<div class="charts">'+shots.map(s=>
+      '<div class="chart-item"><div class="l">'+esc(s.tf||"chart")+'</div><img loading="lazy" src="'+
+      shotSrc(s)+'" onclick="openLightbox(this.src)"></div>').join("")+"</div>" : "",
+    shots.length ? [] : ["скриншотів немає"]);
   return h;
+}
+
+/* Раздел карточки. Пустые поля не занимают по строке каждое — они уходят
+   одной приглушённой строкой «не заповнено: …» */
+function section(title,body,missing){
+  if(!body && !missing.length) return "";
+  return '<section class="tsec"><h3>'+title+"</h3>"+body+
+    (missing.length ? '<div class="tempty">'+(body?"не заповнено: ":"")+
+      esc(missing.join(", "))+"</div>" : "")+"</section>";
 }
 
 /* карточка сделки выезжающей панелью — остаётся для узких экранов и отчётов */

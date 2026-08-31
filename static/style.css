@@ -324,9 +324,7 @@ svg.chart{display:block;width:100%;height:auto}
   font-variant-numeric:tabular-nums;white-space:nowrap}
 .dtrade[open] > summary{background:var(--panel-2);border-bottom:1px solid var(--line-soft)}
 .dbody{background:var(--panel-2)}
-.dbody .tstats{grid-template-columns:repeat(2,1fr);border-top:none}
-.dbody .tstats .st:nth-child(2n){border-right:none}
-.dbody .tstats .st:nth-child(-n+2){border-bottom:1px solid var(--line-soft)}
+.dbody .tstats{grid-template-columns:repeat(3,1fr);border-top:none}
 .dbody .tsec{padding:12px 16px 13px}
 .dbody .tfields{grid-template-columns:minmax(0,1fr)}
 .dact{display:flex;gap:8px;padding:12px 16px 14px}
@@ -474,7 +472,7 @@ table.simple tr.click:hover td{background:var(--panel-2)}
 .thead .x{margin-left:0}
 .m-body.trade{padding:0}
 /* итог сделки: та же hairline-лента, что и показатели на «Огляді» */
-.tstats{display:grid;grid-template-columns:repeat(4,1fr);border-bottom:1px solid var(--line-soft)}
+.tstats{display:grid;grid-template-columns:repeat(3,1fr);border-bottom:1px solid var(--line-soft)}
 .tstats .st{padding:12px 16px 11px;border-right:1px solid var(--line-soft);min-width:0}
 .tstats .st:last-child{border-right:none}
 .tstats .lab{font-family:var(--mono);font-size:9px;letter-spacing:.16em;text-transform:uppercase;
@@ -494,12 +492,13 @@ table.simple tr.click:hover td{background:var(--panel-2)}
 .tnote .l{font-family:var(--mono);font-size:9px;letter-spacing:.14em;text-transform:uppercase;
   color:var(--faint);margin-bottom:5px}
 .tfields .fr .v.none,.tnote .v.none{color:var(--faint);font-weight:400}
+/* чего в сделке не записано — одной строкой, а не пустым полем на каждое */
+.tempty{margin-top:10px;font-size:12.5px;line-height:1.5;color:var(--faint)}
+.tsec > .tempty:first-of-type:not(:nth-child(2)){margin-top:0}
 .tnote .v{font-size:13.5px;line-height:1.55;color:var(--dim);white-space:pre-wrap;overflow-wrap:anywhere}
 .pnl .m-foot{position:sticky;bottom:0;background:var(--card);z-index:1}
 @media(max-width:620px){
-  .tstats{grid-template-columns:repeat(2,1fr)}
-  .tstats .st:nth-child(2n){border-right:none}
-  .tstats .st:nth-child(-n+2){border-bottom:1px solid var(--line-soft)}
+  .tstats .st{padding:11px 13px 10px}
 }
 
 /* просмотр сделки: старая сетка полей — осталась для отчётов */
