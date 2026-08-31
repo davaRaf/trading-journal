@@ -38,6 +38,7 @@ UA = ("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
 
 MIN_GAP = 0.30
 PAGE_STEP = 200          # сколько строк просим за раз
+PROBE = 25               # столько читаем, чтобы понять, что лежит в колонках
 PAGE_CAP = 5000          # предохранитель от бесконечной базы
 
 _last = [0.0]
@@ -305,15 +306,21 @@ def preview(url, mapping=None, sample=5):
         raise NotionError("не вдалося прочитати колонки таблиці")
 
     types = {(v.get("name") or k): (v.get("type") or "") for k, v in schema.items()}
-    mapping = mapping or guess_mapping(types)
 
-    res = query(found["collection"], found["view"], found["space"], sample)
+    # Берём не пять строк, а побольше: по значениям видно, что в колонке лежит,
+    # даже если названа она «Колонка 2». Показываем всё равно пять.
+    res = query(found["collection"], found["view"], found["space"], PROBE)
     ids, total = rows_of(res)
     blocks = (res.get("recordMap") or {}).get("block") or {}
-    rows = []
-    for bid in ids[:sample]:
+
+    seen = []
+    for bid in ids[:PROBE]:
         props, _f = row_props(_unwrap(blocks.get(bid) or {}), schema)
-        rows.append(map_simple(props, mapping))
+        seen.append(props)
+
+    values = {name: [row.get(name, "") for row in seen] for name in types}
+    mapping = mapping or guess_mapping(types, values)
+    rows = [map_simple(row, mapping) for row in seen[:sample]]
 
     return {"source": found, "title": title, "mapping": mapping, "total": total,
             "columns": [{"name": n, "type": t} for n, t in sorted(types.items())],

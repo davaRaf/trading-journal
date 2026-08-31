@@ -143,11 +143,21 @@ function drawMap(){
   const what = (title ? "«" + esc(title) + "»" : "Таблиця")
              + (total ? ", рядків: " + total : "");
 
+  /* Показуємо, що лишилось поза журналом — щоб було видно, що нічого
+     не загубилось, і за потреби можна це кудись покласти. */
+  const taken = new Set(fields.map(f => mapping[f.k]).filter(Boolean));
+  const left = columns.filter(c => !taken.has(c.name)).map(c => c.name);
+  const leftHtml = left.length
+    ? '<p class="nt-note">Не потрапили в журнал: ' + left.map(esc).join(", ")
+      + ". Якщо щось із цього потрібне — постав його у відповідне поле вище.</p>"
+    : "";
+
   paint(
     '<div class="nt">'
     + '<p class="nt-lead">' + what + ". Колонки звірені самі — <b>" + found + " з "
     + fields.length + "</b>. Перевір і поправ, де не вгадало.</p>"
     + '<div class="nt-map">' + rowsHtml + "</div>"
+    + leftHtml
     + '<div class="nt-sub">Як це виглядатиме</div>'
     + '<div class="nt-prev">' + preview() + "</div>"
     + '<div class="nt-opts">'

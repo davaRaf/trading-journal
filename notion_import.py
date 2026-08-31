@@ -73,11 +73,17 @@ HINTS = {
 NUMERIC = ("number", "formula", "rollup")
 
 
-def guess_mapping(props):
+def guess_mapping(props, values=None):
     """
-    props: {"Имя колонки": "тип"}.
-    Возвращает {наше_поле: "Имя колонки"} — то, что удалось узнать.
-    Каждую колонку отдаём максимум одному полю: побеждает лучший счёт.
+    props:  {"Имя колонки": "тип"}
+    values: {"Имя колонки": [значения из первых строк]} — необязательно.
+
+    Возвращает {наше_поле: "Имя колонки"}.
+
+    Сначала пробуем по названию. Названия у всех свои: «Направление», «Side»,
+    «Куда», «Name» — словарь всё не покроет. Поэтому дальше смотрим на сами
+    значения: если в колонке лежит Win/Loss/BE — это результат, как бы она
+    ни называлась. Так работает на любом языке и с любыми заголовками.
     """
     scored = []
     for field in FIELDS:
@@ -95,13 +101,162 @@ def guess_mapping(props):
         used_field.add(field)
         used_col.add(name)
 
-    # Инструмент почти всегда в заголовке страницы, даже если назван иначе
+    # Инструмент почти всегда в заголовке страницы, даже если назван иначе.
+    # Занимаем колонку до разбора по значениям, иначе длинный заголовок
+    # успеет уехать в «Коментар».
     if "pair" not in out:
         for name, ptype in props.items():
             if ptype == "title" and name not in used_col:
                 out["pair"] = name
+                used_col.add(name)
                 break
+
+    # Что не узнали по названию — узнаём по содержимому
+    if values:
+        infer_by_values(out, used_col, props, values)
     return out
+
+
+# ------------------------------------------------------ узнавание по значениям
+
+def _share(vals, test):
+    """Доля значений, подходящих под проверку. Пустые не считаем."""
+    vals = [str(v).strip() for v in vals if str(v if v is not None else "").strip()]
+    if len(vals) < 2:
+        return 0.0, 0
+    return sum(1 for v in vals if test(v)) / float(len(vals)), len(vals)
+
+
+# LONG и SHORT объявлены ниже, поэтому собираем набор при вызове
+def _side_words():
+    return set(LONG) | set(SHORT)
+
+_RES_WORDS = {"win", "loss", "be", "be+", "be-", "tp", "sl", "тейк", "стоп",
+              "прибуток", "прибыль", "збиток", "убыток", "беззбиток", "безубыток",
+              "бу", "бу+", "бу-", "профит", "лось"}
+_DIR_WORDS = {"continuation", "reversal", "продовження", "розворот",
+              "продолжение", "разворот", "cont", "rev"}
+_SESSIONS = {"london", "ny", "new york", "newyork", "asia", "asian", "tokyo",
+             "frankfurt", "sydney", "лондон", "нью-йорк", "азия", "азія",
+             "франкфурт", "токио", "ph", "pm", "am", "premarket", "pre-market"}
+
+_DATE_RE = re.compile(r"^\d{4}-\d{2}-\d{2}|^\d{1,2}[./]\d{1,2}[./]\d{2,4}")
+_TICKER_RE = re.compile(r"^[A-Z][A-Z0-9]{1,9}([./][A-Z0-9]{1,6})?$")
+# просто число: 2.2 · «1,5 %» · 3. Дату сюда не пускаем, иначе год уедет в RR.
+_NUM_RE = re.compile(r"^-?\d+(?:[.,]\d+)?\s*%?$")
+
+
+def _num(v):
+    try:
+        return norm_num(v)
+    except Exception:
+        return None
+
+
+def _plain_num(v):
+    return bool(_NUM_RE.match(str(v).strip())) and not _DATE_RE.match(str(v).strip())
+
+
+def _checks():
+    """Как выглядят значения каждого поля. По этому и узнаём, и проверяем."""
+    low = lambda v: str(v).strip().lower()
+    sides = _side_words()
+    return {
+        "date":           lambda v: bool(_DATE_RE.match(str(v).strip())),
+        "result":         lambda v: low(v) in _RES_WORDS,
+        "position":       lambda v: low(v) in sides,
+        "bias":           lambda v: low(v) in sides,
+        "direction_type": lambda v: low(v) in _DIR_WORDS,
+        "session":        lambda v: low(v) in _SESSIONS,
+        "rr":             _plain_num,
+        "risk":           _plain_num,
+    }
+
+
+def infer_by_values(out, used_col, props, values):
+    """
+    Дописываем сопоставление, глядя на содержимое колонок.
+
+    Сначала проверяем то, что угадали по названию: если в колонке «Час» лежат
+    LONDON и NY, то это не дата, как бы она ни называлась — такую догадку
+    отменяем и колонку освобождаем. Потом добираем недостающее по значениям.
+    """
+    checks = _checks()
+    low = lambda v: str(v).strip().lower()
+    sides = _side_words()
+
+    # 1. Отменяем догадки, которым содержимое противоречит
+    for field, test in checks.items():
+        col = out.get(field)
+        if not col or col not in values:
+            continue
+        share, n = _share(values[col], test)
+        if n and share < 0.5:
+            del out[field]
+            used_col.discard(col)
+
+    free = [c for c in values if c not in used_col]
+
+    def take(field, col):
+        if not col or field in out or col in used_col:
+            return
+        out[field] = col
+        used_col.add(col)
+        if col in free:
+            free.remove(col)
+
+    def best(test, need=0.6):
+        found, score = None, need
+        for c in list(free):
+            share, n = _share(values[c], test)
+            if n and share >= score:
+                found, score = c, share
+        return found
+
+    # 2. Однозначные наборы значений. Сесію ищем раньше дати: колонка «Час»
+    #    с LONDON внутри — это сесія, а не дата.
+    take("result", best(checks["result"]))
+    take("direction_type", best(checks["direction_type"]))
+    take("session", best(checks["session"]))
+    take("date", best(checks["date"]))
+
+    # Long/Short встречается дважды: напрямок и біас. Первым берём напрямок.
+    for _ in range(2):
+        col = best(lambda v: low(v) in sides)
+        if not col:
+            break
+        take("position" if "position" not in out else "bias", col)
+
+    # Инструмент: короткие заглавные тикеры
+    take("pair", best(lambda v: bool(_TICKER_RE.match(str(v).strip())), 0.7))
+
+    # Числа: где значения крупнее — это RR, где мельче — риск
+    nums = []
+    for c in list(free):
+        vals = [_num(v) for v in values[c] if _plain_num(v)]
+        filled = [x for x in values[c] if str(x if x is not None else "").strip()]
+        vals = [v for v in vals if v is not None]
+        if len(vals) >= 2 and filled and len(vals) >= len(filled) * 0.6:
+            mean = sum(vals) / len(vals)
+            if 0.05 <= mean <= 50:
+                nums.append((mean, c))
+    nums.sort(reverse=True)
+    if nums:
+        take("rr", nums[0][1])
+    if len(nums) > 1:
+        take("risk", nums[1][1])
+
+    # Длинный текст: сначала деталі входу, потім нотатки й коментар
+    texts = []
+    for c in list(free):
+        vals = [str(v).strip() for v in values[c] if str(v if v is not None else "").strip()]
+        if vals:
+            avg = sum(len(v) for v in vals) / float(len(vals))
+            if avg >= 25:
+                texts.append((avg, c))
+    texts.sort(reverse=True)
+    for field, (_avg, col) in zip(["entry_details", "notes", "comments"], texts):
+        take(field, col)
 
 
 def _score(field, name, ptype):
