@@ -23,6 +23,9 @@ let columns = [];      // колонки бази
 let sample = [];       // перші рядки для перегляду
 let total = 0;
 let poll = 0;
+let tables = [];       // усі таблиці, які знайшли за посиланням
+let picked = [];       // які з них переносимо
+let chosen = null;     // за якою звіряємо колонки
 
 /* ---- інструменти з імпорту показуємо в підказках форми ---- */
 function rememberPairs(list){
@@ -117,12 +120,61 @@ async function read(url){
     return;
   }
   link = url;
+  soak(r);
+  tables = r.tables || [];
+  picked = tables.filter(t => t.matched >= 3);
+  if (!picked.length && tables.length) picked = [tables[0]];
+  /* Журнал часто розбитий по місяцях: один рік — дванадцять таблиць.
+     Тоді спершу показуємо, що знайшли, і даємо обрати. */
+  if (tables.length > 1) return stepTables(r.notes || []);
+  drawMap();
+}
+
+function soak(r){
   title = r.title || "";
   mapping = r.mapping || {};
   columns = r.columns || [];
   sample = r.rows || [];
   total = r.total || 0;
+  chosen = r.chosen || chosen;
   if (r.fields) state = Object.assign(state || {}, {fields: r.fields});
+}
+
+/* ---------- крок 2: яку таблицю переносимо ---------- */
+function stepTables(notes){
+  const same = (a, b) => a && b && a.collection === b.collection;
+  const rows = tables.map((t, i) => {
+    const on = picked.some(p => same(p, t));
+    const name = esc(t.title || "без назви")
+      + (t.path && t.path !== t.title ? ' <em>' + esc(t.path) + "</em>" : "");
+    return '<label class="nt-tbl-row' + (on ? " on" : "") + '">'
+      + '<input type="checkbox"' + (on ? " checked" : "")
+      + ' onchange="__notion.pickTable(' + i + ', this.checked)">'
+      + '<b>' + name + "</b>"
+      + '<span>' + (t.rows || 0) + " рядків</span>"
+      + '<i>' + (t.matched >= 3 ? "схоже на журнал" : "полів: " + t.matched) + "</i></label>";
+  }).join("");
+
+  paint(
+    '<div class="nt">'
+    + '<p class="nt-lead">За посиланням знайшлося таблиць: <b>' + tables.length
+    + "</b>. Познач ті, де лежать угоди — перенесемо все за один раз.</p>"
+    + (notes.length ? '<p class="nt-note">' + notes.map(esc).join(". ") + ".</p>" : "")
+    + '<div class="nt-tbls">' + rows + "</div>"
+    + '</div>',
+    '<button class="btn ghost" onclick="__notion.back()">Інше посилання</button>'
+    + '<span class="sp"></span><button class="btn" onclick="__notion.allTables()">Позначити всі</button>'
+    + '<button class="btn primary" id="ntNext" onclick="__notion.toMap()">Далі</button>'
+  );
+}
+
+async function toMap(){
+  if (!picked.length) return err("Познач хоча б одну таблицю");
+  busy("#ntNext", "Читаю…");
+  const best = picked.slice().sort((a, b) => b.matched - a.matched)[0];
+  try{
+    soak(await call("POST", "/api/notion/preview", {url: link, table: best}));
+  }catch(e){ return err(e.message); }
   drawMap();
 }
 
@@ -152,10 +204,17 @@ function drawMap(){
       + ". Якщо щось із цього потрібне — постав його у відповідне поле вище.</p>"
     : "";
 
+  const many = picked.length > 1
+    ? '<p class="nt-note">Переносимо з ' + picked.length
+      + " таблиць. Колонки звіряємо за «" + esc(title)
+      + "»; де вони інші — підберемо для тієї таблиці окремо.</p>"
+    : "";
+
   paint(
     '<div class="nt">'
     + '<p class="nt-lead">' + what + ". Колонки звірені самі — <b>" + found + " з "
     + fields.length + "</b>. Перевір і поправ, де не вгадало.</p>"
+    + many
     + '<div class="nt-map">' + rowsHtml + "</div>"
     + leftHtml
     + '<div class="nt-sub">Як це виглядатиме</div>'
@@ -165,7 +224,8 @@ function drawMap(){
     +   optChk("ntShots", "Переносити скріншоти", true)
     +   optChk("ntSkip",  "Пропускати вже перенесені угоди", true)
     + "</div></div>",
-    '<button class="btn ghost" onclick="__notion.back()">Інше посилання</button>'
+    '<button class="btn ghost" onclick="__notion.' + (tables.length > 1 ? "toTables" : "back")
+    + '()">' + (tables.length > 1 ? "Інша таблиця" : "Інше посилання") + "</button>"
     + '<span class="sp"></span><button class="btn" onclick="closeModal()">Скасувати</button>'
     + '<button class="btn primary" id="ntRun" onclick="__notion.run()">Перенести все</button>'
   );
@@ -200,7 +260,8 @@ async function run(){
   busy("#ntRun", "Переношу…");
   let job;
   try{
-    job = await call("POST", "/api/notion/import", {url: link, title, mapping, options: opts});
+    job = await call("POST", "/api/notion/import",
+      {url: link, title, mapping, tables: picked, options: opts});
   }catch(e){ return err(e.message); }
   watch(job.id);
 }
@@ -326,8 +387,15 @@ function open(){
 }
 
 window.__notion = {
-  open, tab, run,
+  open, tab, run, toMap,
   back: stepLink,
+  toTables(){ stepTables([]); },
+  pickTable(i, on){
+    const t = tables[i];
+    picked = picked.filter(p => p.collection !== t.collection);
+    if (on) picked.push(t);
+  },
+  allTables(){ picked = tables.slice(); stepTables([]); },
   setMap(sel){ const f = sel.dataset.f; if (sel.value) mapping[f] = sel.value; else delete mapping[f]; },
 };
 

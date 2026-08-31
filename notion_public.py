@@ -39,6 +39,8 @@ UA = ("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
 MIN_GAP = 0.30
 PAGE_STEP = 200          # сколько строк просим за раз
 PROBE = 25               # столько читаем, чтобы понять, что лежит в колонках
+DRILL_ROWS = 25          # во столько страниц оглавления заглядываем
+INDEX_MAX = 2            # если полей узнали не больше — считаем таблицу оглавлением
 PAGE_CAP = 5000          # предохранитель от бесконечной базы
 
 _last = [0.0]
@@ -136,27 +138,27 @@ def load_page(pid):
     return res.get("recordMap") or {}
 
 
-def find_collection(rm, pid):
-    """Находим базу на странице. Ссылка может вести и на саму базу,
-       и на страницу, внутри которой она лежит."""
+def collections_on(rm, pid=None):
+    """Все таблицы, которые есть на странице. Ссылка может вести и на саму
+       таблицу, и на страницу, внутри которой она лежит."""
     blocks = rm.get("block") or {}
 
     def pointer(b):
-        return b.get("collection_id") or \
-            ((b.get("format") or {}).get("collection_pointer") or {}).get("id")
+        return b.get("collection_id") or             ((b.get("format") or {}).get("collection_pointer") or {}).get("id")
 
-    order = [pid] + [k for k in blocks if k != pid]
+    order = ([pid] if pid else []) + [k for k in blocks if k != pid]
+    out, seen = [], set()
     for key in order:
         b = _unwrap(blocks.get(key) or {})
         if b.get("type") not in ("collection_view", "collection_view_page"):
             continue
         cid = pointer(b)
         views = b.get("view_ids") or []
-        if cid and views:
-            return {"collection": cid, "view": views[0],
-                    "space": b.get("space_id") or "", "block": key}
-    raise NotionError("на цій сторінці немає таблиці з угодами. "
-                      "Дай посилання саме на базу — ту, де рядки й колонки")
+        if cid and views and cid not in seen:
+            seen.add(cid)
+            out.append({"collection": cid, "view": views[0],
+                        "space": b.get("space_id") or "", "block": key})
+    return out
 
 
 def schema_of(rm, cid):
@@ -294,116 +296,218 @@ def row_content(pid):
 
 # ------------------------------------------------------------------- сборка
 
-def preview(url, mapping=None, sample=5):
-    pid, _view = parse_link(url)
-    rm = load_page(pid)
-    found = find_collection(rm, pid)
-    schema, title = schema_of(rm, found["collection"])
+def describe(t, rm=None, path=""):
+    """Читаем таблицу настолько, чтобы понять: журнал это или что-то другое."""
+    schema, title = schema_of(rm or {}, t["collection"])
+    res = query(t["collection"], t["view"], t["space"], PROBE)
     if not schema:
-        rm2 = query(found["collection"], found["view"], found["space"], 1).get("recordMap") or {}
-        schema, title = schema_of(rm2, found["collection"])
+        schema, title = schema_of(res.get("recordMap") or {}, t["collection"])
     if not schema:
-        raise NotionError("не вдалося прочитати колонки таблиці")
+        return None
 
-    types = {(v.get("name") or k): (v.get("type") or "") for k, v in schema.items()}
-
-    # Берём не пять строк, а побольше: по значениям видно, что в колонке лежит,
-    # даже если названа она «Колонка 2». Показываем всё равно пять.
-    res = query(found["collection"], found["view"], found["space"], PROBE)
     ids, total = rows_of(res)
     blocks = (res.get("recordMap") or {}).get("block") or {}
-
-    seen = []
+    seen, row_ids = [], []
     for bid in ids[:PROBE]:
         props, _f = row_props(_unwrap(blocks.get(bid) or {}), schema)
         seen.append(props)
+        row_ids.append(bid)
 
+    types = {(v.get("name") or k): (v.get("type") or "") for k, v in schema.items()}
     values = {name: [row.get(name, "") for row in seen] for name in types}
-    mapping = mapping or guess_mapping(types, values)
-    rows = [map_simple(row, mapping) for row in seen[:sample]]
+    mapping = guess_mapping(types, values)
 
-    return {"source": found, "title": title, "mapping": mapping, "total": total,
-            "columns": [{"name": n, "type": t} for n, t in sorted(types.items())],
+    return dict(t, title=title or path or "без назви", path=path, rows=total,
+                matched=len(mapping), mapping=mapping, types=types,
+                values=values, sample=seen, row_ids=row_ids, schema=schema)
+
+
+def find_tables(url):
+    """
+    Возвращает все таблицы, до которых дотянулись.
+
+    Журнал часто устроен так: одна таблица-оглавление, в ней строки
+    «Trading Journal (August 2026)», а сами сделки — внутри этих страниц.
+    Поэтому если наверху ничего похожего на журнал нет, заходим внутрь строк.
+    """
+    pid, _view = parse_link(url)
+    rm = load_page(pid)
+    tops = collections_on(rm, pid)
+    if not tops:
+        raise NotionError("на цій сторінці немає жодної таблиці. "
+                          "Дай посилання на сторінку з таблицею або на саму таблицю")
+
+    # Заходя внутрь строки, Notion отдаёт и родительскую таблицу — иначе
+    # она повторится столько раз, сколько строк в оглавлении.
+    tables, notes, seen = [], [], set()
+
+    def add(t, rm_src, path=""):
+        if t["collection"] in seen:
+            return
+        seen.add(t["collection"])
+        d = describe(t, rm_src, path=path)
+        if d:
+            tables.append(d)
+
+    for t in tops:
+        add(t, rm)
+
+    # Похоже на оглавление — идём внутрь строк
+    best = max([t["matched"] for t in tables] or [0])
+    if best <= INDEX_MAX:
+        for parent in list(tables):
+            kids = parent["row_ids"][:DRILL_ROWS]
+            if parent["rows"] > len(kids):
+                notes.append("зазирнули в перші %d сторінок із %d"
+                             % (len(kids), parent["rows"]))
+            for i, rid in enumerate(kids):
+                name = ""
+                for col, ptype in parent["types"].items():
+                    if ptype == "title":
+                        name = (parent["sample"][i] or {}).get(col, "")
+                        break
+                try:
+                    sub = load_page(rid)
+                except NotionError:
+                    continue
+                for t2 in collections_on(sub, rid):
+                    add(t2, sub, path=name)
+
+    tables.sort(key=lambda t: (t["matched"], t["rows"]), reverse=True)
+    return tables, notes
+
+
+def _slim(t):
+    """То, что уходит в браузер: без сырых значений."""
+    return {"collection": t["collection"], "view": t["view"], "space": t["space"],
+            "title": t["title"], "path": t["path"], "rows": t["rows"],
+            "matched": t["matched"]}
+
+
+def preview(url, mapping=None, table=None, sample=5):
+    """
+    Без table — ищем все таблицы и разбираем лучшую.
+    С table — разбираем именно её (человек выбрал из списка).
+    """
+    if table and table.get("collection"):
+        found = {"collection": table["collection"], "view": table["view"],
+                 "space": table.get("space") or ""}
+        d = describe(found, None, path=table.get("path") or "")
+        if not d:
+            raise NotionError("не вдалося прочитати колонки таблиці")
+        tables, notes = [d], []
+    else:
+        tables, notes = find_tables(url)
+        if not tables:
+            raise NotionError("не вдалося прочитати жодну таблицю")
+        d = tables[0]
+
+    use = mapping or d["mapping"]
+    rows = [map_simple(row, use) for row in d["sample"][:sample]]
+
+    return {"chosen": _slim(d), "tables": [_slim(t) for t in tables],
+            "notes": notes, "title": d["title"], "path": d["path"],
+            "mapping": use, "total": d["rows"],
+            "columns": [{"name": n, "type": t} for n, t in sorted(d["types"].items())],
             "rows": rows}
 
 
-def run_public_import(job, url, mapping, opts, shots_dir, known_pairs, existing_ids, sink):
-    """Читаем публичную базу целиком и отдаём готовые сделки в sink."""
+def run_public_import(job, tables, mapping, opts, shots_dir, known_pairs, existing_ids, sink):
+    """
+    Читаем выбранные таблицы целиком и отдаём готовые сделки в sink.
+
+    tables — список {collection, view, space, path}. Их может быть несколько:
+    журнал часто разбит по месяцам, и переносить его надо за один раз.
+    Сопоставление колонок одно на всех; там, где оно не подходит,
+    для таблицы подбираем своё.
+    """
     try:
-        job.step = "читаємо сторінку"
-        pid, _view = parse_link(url)
-        rm = load_page(pid)
-        found = find_collection(rm, pid)
-        schema, _title = schema_of(rm, found["collection"])
-
-        limit = PAGE_STEP
-        while True:
-            res = query(found["collection"], found["view"], found["space"], limit)
-            ids, total = rows_of(res)
-            if not schema:
-                schema, _title = schema_of(res.get("recordMap") or {}, found["collection"])
-            if len(ids) >= total or limit >= PAGE_CAP:
-                break
-            limit = min(limit * 4, PAGE_CAP)
-
-        blocks = (res.get("recordMap") or {}).get("block") or {}
-        job.total = len(ids)
-
         want_notes = bool(opts.get("notes", True))
         want_shots = bool(opts.get("shots", True))
         skip_known = bool(opts.get("skipExisting", True))
+
+        job.step = "читаємо таблиці"
+        plans = []
+        for t in tables:
+            src = {"collection": t["collection"], "view": t["view"],
+                   "space": t.get("space") or ""}
+            limit = PAGE_STEP
+            while True:
+                res = query(src["collection"], src["view"], src["space"], limit)
+                ids, total = rows_of(res)
+                if len(ids) >= total or limit >= PAGE_CAP:
+                    break
+                limit = min(limit * 4, PAGE_CAP)
+            rm = res.get("recordMap") or {}
+            schema, title = schema_of(rm, src["collection"])
+            if not schema:
+                continue
+
+            # Своё сопоставление, если общее к этой таблице не подходит
+            types = {(v.get("name") or k): (v.get("type") or "") for k, v in schema.items()}
+            use = mapping if mapping.get("pair") in types else None
+            if use is None:
+                probe = [row_props(_unwrap((rm.get("block") or {}).get(b) or {}), schema)[0]
+                         for b in ids[:PROBE]]
+                vals = {n: [r.get(n, "") for r in probe] for n in types}
+                use = guess_mapping(types, vals)
+                job.warnings.append("«%s»: колонки інші, звірили окремо" % (title or "таблиця"))
+            plans.append((ids, rm, schema, use, title or t.get("path") or ""))
+
+        job.total = sum(len(p[0]) for p in plans)
         batch = []
 
-        for bid in ids:
-            job.done += 1
-            if skip_known and bid in existing_ids:
-                job.skipped += 1
-                continue
+        for ids, rm, schema, use, tname in plans:
+            blocks = rm.get("block") or {}
+            for bid in ids:
+                job.done += 1
+                if skip_known and bid in existing_ids:
+                    job.skipped += 1
+                    continue
 
-            block = _unwrap(blocks.get(bid) or {})
-            props, files = row_props(block, schema)
-            t = map_simple(props, mapping)
-            t["notion_id"] = bid
-            if not (t.get("pair") or "").strip():
-                job.skipped += 1
-                continue
+                props, files = row_props(_unwrap(blocks.get(bid) or {}), schema)
+                t = map_simple(props, use)
+                t["notion_id"] = bid
+                if not (t.get("pair") or "").strip():
+                    job.skipped += 1
+                    continue
 
-            job.step = "%s · %s" % (t.get("pair") or "?", (t.get("date") or "")[:10])
-            images = [{"url": signed(f["url"], bid), "caption": f["caption"]} for f in files] \
-                if want_shots else []
+                job.step = "%s · %s" % (t.get("pair") or "?", (t.get("date") or "")[:10])
+                images = [{"url": signed(f["url"], bid), "caption": f["caption"]}
+                          for f in files] if want_shots else []
 
-            if want_notes or want_shots:
-                try:
-                    text, inner = row_content(bid)
-                except NotionError as ex:
-                    text, inner = "", []
-                    job.warnings.append("картку не прочитали: %s" % ex)
-                if want_shots:
-                    images += inner
-                if want_notes and text:
-                    t["notes"] = (t["notes"] + "\n\n" + text).strip() if t.get("notes") else text
+                if want_notes or want_shots:
+                    try:
+                        text, inner = row_content(bid)
+                    except NotionError as ex:
+                        text, inner = "", []
+                        job.warnings.append("картку не прочитали: %s" % ex)
+                    if want_shots:
+                        images += inner
+                    if want_notes and text:
+                        t["notes"] = (t["notes"] + "\n\n" + text).strip() if t.get("notes") else text
 
-            shots = []
-            for i, im in enumerate(images):
-                try:
-                    base = "notion_%s_%d" % (re.sub(r"[^0-9a-f]", "", bid)[:32], i)
-                    shots.append({"tf": guess_tf(im.get("caption"), im["url"]),
-                                  "file": download(im["url"], shots_dir, base)})
-                    job.shots += 1
-                except Exception as ex:
-                    job.warnings.append("скрін не завантажився: %s" % ex)
-            t["screenshots"] = shots
+                shots = []
+                for i, im in enumerate(images):
+                    try:
+                        base = "notion_%s_%d" % (re.sub(r"[^0-9a-f]", "", bid)[:32], i)
+                        shots.append({"tf": guess_tf(im.get("caption"), im["url"]),
+                                      "file": download(im["url"], shots_dir, base)})
+                        job.shots += 1
+                    except Exception as ex:
+                        job.warnings.append("скрін не завантажився: %s" % ex)
+                t["screenshots"] = shots
 
-            pair = (t.get("pair") or "").strip()
-            if pair and pair not in known_pairs:
-                known_pairs.add(pair)
-                job.new_assets.append(pair)
+                pair = (t.get("pair") or "").strip()
+                if pair and pair not in known_pairs:
+                    known_pairs.add(pair)
+                    job.new_assets.append(pair)
 
-            batch.append(t)
-            job.added += 1
-            if len(batch) >= 25:
-                sink(batch)
-                batch = []
+                batch.append(t)
+                job.added += 1
+                if len(batch) >= 25:
+                    sink(batch)
+                    batch = []
 
         if batch:
             sink(batch)

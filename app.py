@@ -284,7 +284,7 @@ def add_trades(items):
         _save(TRADES)
 
 
-def start_import(url, mapping, opts):
+def start_import(tables, mapping, opts):
     jid = secrets.token_urlsafe(6)
     job = notion.Job(jid)
     with _jobs_lock:
@@ -297,7 +297,7 @@ def start_import(url, mapping, opts):
         seen = {t.get("notion_id") for t in TRADES if t.get("notion_id")}
     th = threading.Thread(
         target=npub.run_public_import,
-        args=(job, url, mapping, opts, SHOTS, known, seen, add_trades),
+        args=(job, tables, mapping, opts, SHOTS, known, seen, add_trades),
         daemon=True)
     th.start()
     return job
@@ -422,7 +422,7 @@ class H(BaseHTTPRequestHandler):
             body = self._body() or {}
             url = str(body.get("url") or "").strip()
             try:
-                data = npub.preview(url, body.get("mapping"))
+                data = npub.preview(url, body.get("mapping"), body.get("table"))
             except notion.NotionError as ex:
                 return self._json({"error": str(ex)}, 400)
             except Exception as ex:
@@ -444,12 +444,14 @@ class H(BaseHTTPRequestHandler):
             body = self._body() or {}
             url = str(body.get("url") or "").strip()
             mapping = body.get("mapping") or {}
-            if not url or not mapping.get("pair"):
-                return self._json({"error": "потрібні посилання і колонка з інструментом"}, 400)
+            tables = [t for t in (body.get("tables") or [])
+                      if isinstance(t, dict) and t.get("collection") and t.get("view")]
+            if not tables or not mapping.get("pair"):
+                return self._json({"error": "потрібні таблиця і колонка з інструментом"}, 400)
             conf = notion_conf()
             conf.update({"url": url, "mapping": mapping, "title": body.get("title") or ""})
             notion_save(conf)
-            job = start_import(url, mapping, body.get("options") or {})
+            job = start_import(tables, mapping, body.get("options") or {})
             return self._json(job.snapshot(), 202)
         if p == "/api/trades":
             body = self._body()

@@ -97,3 +97,22 @@
   .nt-map{grid-template-columns:1fr}
   .nt-row > span{flex-basis:112px}
 }
+
+/* ---------- вибір таблиці, коли їх кілька ---------- */
+.nt-tbls{display:flex; flex-direction:column; gap:7px; max-height:340px; overflow-y:auto}
+.nt-tbl-row{display:flex; align-items:center; gap:11px; padding:12px 15px; cursor:pointer;
+  background:var(--card); border:1px solid var(--line-soft); border-radius:var(--r);
+  transition:border-color .18s, background .18s}
+.nt-tbl-row:hover{background:var(--panel-2)}
+.nt-tbl-row.on{border-color:color-mix(in srgb, var(--up) 42%, transparent)}
+.nt-tbl-row input{accent-color:var(--up); width:15px; height:15px; flex:none; cursor:pointer}
+.nt-tbl-row b{font-size:14px; font-weight:600; min-width:0; overflow:hidden;
+  text-overflow:ellipsis; white-space:nowrap}
+.nt-tbl-row b em{font-style:normal; color:var(--faint); font-weight:400; font-size:12.5px}
+.nt-tbl-row span{font-family:var(--mono); font-size:11px; color:var(--faint); margin-left:auto;
+  flex:none}
+.nt-tbl-row i{font-style:normal; font-family:var(--mono); font-size:10px; letter-spacing:.08em;
+  text-transform:uppercase; color:var(--dim); flex:none; padding:3px 9px; border-radius:99px;
+  background:var(--panel-2); border:1px solid var(--line-soft)}
+.nt-tbl-row.on i{color:var(--up); border-color:color-mix(in srgb, var(--up) 34%, transparent);
+  background:var(--up-soft)}
