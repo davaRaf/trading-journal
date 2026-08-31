@@ -283,12 +283,14 @@ svg.chart{display:block;width:100%;height:auto}
 
 /* журнал: календарь + панель дня */
 .jgrid{display:grid;grid-template-columns:minmax(0,1.55fr) minmax(300px,1fr);gap:14px;align-items:stretch}
-/* гнездо панели дня: сама панель лежит в нём абсолютом, поэтому её высота
-   равна левой половине и длинная угода не тянет страницу вниз */
-.dayslot{position:relative;min-height:340px}
-.dayslot > .daypanel{position:absolute;inset:0;display:flex;flex-direction:column;overflow:hidden}
+/* гнездо панели дня: панель лежит в нём абсолютом и растёт только по содержимому,
+   но не выше левой половины — длинная угода не тянет страницу вниз,
+   короткая не оставляет под собой пустоту */
+.dayslot{position:relative}
+.dayslot > .daypanel{position:absolute;top:0;left:0;right:0;max-height:100%;
+  display:flex;flex-direction:column;overflow:hidden}
 .daypanel > h3,.daypanel .chips,.daypanel .mistline,.daypanel .addday{flex:none}
-.daypanel .tlist,.daypanel > .empty{flex:1;min-height:0;overflow-y:auto}
+.daypanel .tlist{min-height:0;overflow-y:auto}
 @media(max-width:1020px){
   .jgrid{grid-template-columns:minmax(0,1fr)}
   .dayslot{position:static;min-height:0}

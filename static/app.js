@@ -657,39 +657,12 @@ function vJournal(){
   /* месяц целиком: динамика, сетапы, разрезы */
   if(monthTrades.length){
     h+=plChart(monthTrades,{title:"Еквіті місяця",ym:S.jMonth});
-    h+=setupStatsHtml(monthTrades);
     h+=bestWorstHtml(monthTrades);
     h+=beReportHtml(monthTrades);
   }
   return h;
 }
 
-/* ---------- статистика по сетапам месяца ----------
-   разметка та же, что в «Аналітиці», чтобы таблицы по журналу читались одинаково */
-function setupStatsHtml(list){
-  const rows=[...groupBy(list,t=>(t.setup||"").trim()).entries()]
-    .filter(([name])=>name)
-    .map(([name,arr])=>({name,st:calc(arr)}))
-    .sort((a,b)=>b.st.net-a.st.net);
-  if(!rows.length)
-    return '<div class="card"><h3>Сетапи місяця</h3>'+
-      '<div class="empty">Поле «Сетап» не заповнене в жодній угоді місяця</div></div>';
-  const body=rows.map((g,i)=>{
-    const wr=g.st.wr;
-    const tick = rows.length>1
-      ? (i===0?' <span class="tick best">найкращий</span>'
-        :(i===rows.length-1?' <span class="tick worst">найгірший</span>':""))
-      : "";
-    return '<div class="arow"><span class="nm">'+esc(g.name)+tick+"</span>"+
-      '<span class="n">'+g.st.n+"</span>"+
-      '<span class="wrbar"><span class="track"><i style="width:'+(wr||0)+'%"></i></span><b>'+fmtPct(wr)+"</b></span>"+
-      '<span class="rr">'+(g.st.avgRR!=null?r1(g.st.avgRR):"—")+"</span>"+
-      '<span class="netr '+clsR(g.st.net)+'">'+fmtR(g.st.net)+"</span></div>";
-  }).join("");
-  return '<div class="card"><h3>Сетапи місяця<span class="hr">'+rows.length+" шт</span></h3>"+
-    '<div class="ahead"><span>Сетап</span><span>Угод</span><span>Win Rate</span><span>Сер. RR</span><span>Підсумок, %</span></div>'+
-    body+"</div>";
-}
 /* вид журнала: календарь, таблица месяца или все сделки. Выбор запоминаем */
 function setJMode(v){
   S.jMode=v; S.pages={};
