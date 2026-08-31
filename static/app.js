@@ -1548,4 +1548,5 @@ function markDemo(){
   S.view=location.hash.slice(1)||"dashboard";
   if(S.view==="monthly"){ S.view="journal"; location.hash="journal"; }
   render();
+  if(window.Sparks) Sparks.start();
 })();

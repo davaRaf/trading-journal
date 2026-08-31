@@ -4,6 +4,76 @@
    Здесь нет сборки и зависимостей — журнал остаётся статикой. */
 "use strict";
 
+/* ================= фоновые ломаные =================
+   Раз в несколько секунд где-нибудь за интерфейсом прорисовывается зелёный
+   график и тает. Живёт своим слоем под контентом, кликам не мешает.
+   Выключается при prefers-reduced-motion, на узких экранах и в фоновой вкладке. */
+const Sparks = (function(){
+  let box = null, timer = 0, alive = 0;
+  const MAX = 2;                                   /* больше двух сразу — уже мельтешение */
+  const rnd = (a,b) => a + Math.random()*(b-a);
+  const calm = () => window.matchMedia("(prefers-reduced-motion:reduce)").matches;
+
+  /* ломаная общим ходом вверх, но с откатами — как настоящая кривая доходности */
+  function shape(){
+    const w = rnd(150,320), h = rnd(60,130);
+    const n = Math.round(rnd(5,9));
+    const step = w/n;
+    let y = h, d = "M0,"+h.toFixed(1);
+    const pts = [[0,h]];
+    for(let i=1;i<=n;i++){
+      const up = h/n*rnd(0.7,1.7);
+      y = Math.min(h, Math.max(3, y - up + (Math.random()<0.32 ? up*rnd(0.6,1.1) : 0)));
+      const x = step*i;
+      d += " L"+x.toFixed(1)+","+y.toFixed(1);
+      pts.push([x,y]);
+    }
+    return {d, w, h, end: pts[pts.length-1]};
+  }
+
+  function spawn(){
+    if(!box || alive >= MAX || document.hidden) return;
+    const s = shape();
+    const svg = document.createElementNS("http://www.w3.org/2000/svg","svg");
+    svg.setAttribute("width", s.w); svg.setAttribute("height", s.h);
+    svg.setAttribute("viewBox", "0 0 "+s.w+" "+s.h);
+    /* держимся правее сайдбара и не лезем под самый край */
+    const left = rnd(260, Math.max(300, window.innerWidth - s.w - 60));
+    const top  = rnd(70,  Math.max(110, window.innerHeight - s.h - 80));
+    svg.style.left = Math.round(left)+"px";
+    svg.style.top  = Math.round(top)+"px";
+    /* pathLength=1 избавляет от замера длины: dashoffset считаем в долях */
+    svg.innerHTML = '<path pathLength="1" d="'+s.d+'"/>'+
+      '<circle class="tip" r="2.6" cx="'+s.end[0].toFixed(1)+'" cy="'+s.end[1].toFixed(1)+'"/>';
+    box.appendChild(svg);
+    alive++;
+    setTimeout(()=>{ svg.remove(); alive--; }, 4600);
+  }
+
+  function plan(){
+    clearTimeout(timer);
+    timer = setTimeout(()=>{ spawn(); plan(); }, rnd(4200, 9000));
+  }
+
+  function start(){
+    if(calm() || window.innerWidth < 900) return;
+    if(!box){
+      box = document.createElement("div");
+      box.id = "bgfx";
+      box.setAttribute("aria-hidden","true");
+      document.body.appendChild(box);
+    }
+    setTimeout(spawn, 1200);
+    plan();
+    /* в скрытой вкладке не рисуем: незачем греть машину */
+    document.addEventListener("visibilitychange", ()=>{
+      if(document.hidden) clearTimeout(timer); else plan();
+    });
+  }
+  return { start };
+})();
+window.Sparks = Sparks;
+
 /* ================= Magic UI · Number Ticker =================
    Число отсчитывается до своего значения: при первом заходе
    и при каждом переходе между разделами. */
