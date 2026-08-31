@@ -15,10 +15,12 @@ import time
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from urllib.parse import urlparse, unquote
 
+import assistant
 import auth
 import config
 import db
 import emotions
+import llm
 import notion_import as notion
 import notion_public as npub
 import tg_api
@@ -477,6 +479,24 @@ class H(BaseHTTPRequestHandler):
         if p == "/api/telegram/unlink":
             db.unlink_telegram(uid)
             return self._json({"ok": True})
+
+        if p == "/api/assistant/ask":
+            question = str((body or {}).get("question") or "").strip()
+            if not question:
+                return self._json({"error": "порожнє питання"}, 400)
+            if not llm.enabled():
+                return self._json({"error": "помічник вимкнений — немає GEMINI_API_KEY"}, 503)
+            # історія розмови приходить з браузера — беремо тільки останні репліки
+            raw = (body or {}).get("history")
+            history = [m for m in raw if isinstance(m, dict)][-16:] if isinstance(raw, list) else []
+            return self._json({"answer": assistant.ask(uid, question, history)})
+
+        if p == "/api/assistant/review":
+            if not llm.enabled():
+                return self._json({"error": "помічник вимкнений — немає GEMINI_API_KEY"}, 503)
+            raw = (body or {}).get("history")
+            history = [m for m in raw if isinstance(m, dict)][-16:] if isinstance(raw, list) else []
+            return self._json(assistant.review(uid, history))
 
         if p == "/api/share":
             if not isinstance(body, dict) or not isinstance(body.get("data"), dict):

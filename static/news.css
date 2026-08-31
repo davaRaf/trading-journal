@@ -4,11 +4,16 @@
 :root{
   /* важливість: червоний · помаранчевий · жовтий */
   --n-h:#c94430; --n-m:#c2701a; --n-l:#a8860f;
-  --n-h-bg:rgba(201,68,48,.10); --n-m-bg:rgba(194,112,26,.11); --n-l-bg:rgba(168,134,15,.11);
 }
 :root[data-theme="dark"]{
   --n-h:#f2645f; --n-m:#f0964a; --n-l:#efc258;
-  --n-h-bg:rgba(242,100,95,.13); --n-m-bg:rgba(240,150,74,.13); --n-l-bg:rgba(239,194,88,.12);
+}
+/* Підкладка плашок замішується з кольором картки, а не кладеться напівпрозорою:
+   за списком живе фонова анімація, і крізь прозорий фон просвічували її лінії. */
+:root{
+  --n-h-bg:color-mix(in srgb, var(--n-h) 10%, var(--card));
+  --n-m-bg:color-mix(in srgb, var(--n-m) 11%, var(--card));
+  --n-l-bg:color-mix(in srgb, var(--n-l) 11%, var(--card));
 }
 
 /* ---------- попередження ---------- */
@@ -77,7 +82,11 @@
 .nw-ev.h{border-left-color:var(--n-h); background:var(--n-h-bg)}
 .nw-ev.m{border-left-color:var(--n-m); background:var(--n-m-bg)}
 .nw-ev.l{border-left-color:var(--n-l); background:var(--n-l-bg)}
-.nw-ev.past{opacity:.42}
+/* що вже минуло — гасимо кольором, не прозорістю: інакше крізь плашку
+   знову видно фонову анімацію */
+.nw-ev.past{filter:saturate(.45)}
+.nw-ev.past .tm,.nw-ev.past .ttl{color:var(--dim)}
+.nw-ev.past .cur,.nw-ev.past .num,.nw-ev.past .ttl small{color:var(--faint)}
 .nw-ev .tm{font-family:var(--mono); font-size:13.5px; font-variant-numeric:tabular-nums;
   color:var(--text)}
 .nw-ev .cur{font-family:var(--mono); font-size:11px; letter-spacing:.06em; color:var(--dim);
@@ -138,6 +147,9 @@
   border:1px solid var(--line); border-radius:var(--r-sm); padding:9px 12px;
   font-family:var(--mono); font-size:12.5px}
 .sh-bar{align-items:center}
+/* та сама смуга, але всередині шапки журналу: без відступів окремого рядка */
+.sh-bar.sh-inline{margin:0; gap:7px}
+.sh-bar.sh-inline .sh-btn{padding:8px 14px; border-radius:11px}
 .sh-cap{font-family:var(--mono); font-size:10px; letter-spacing:.13em;
   text-transform:uppercase; color:var(--faint); margin-right:2px}
 .sh-day{width:100%; justify-content:center; margin-top:10px}

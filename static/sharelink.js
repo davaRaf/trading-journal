@@ -294,6 +294,24 @@ function mountBar(){
   bar.innerHTML = '<span class="sh-cap">Поділитися</span>';
   btns.forEach(b => bar.appendChild(b));
 
+  /* у журналі кнопки живуть у шапці розділу — поруч із «Картинка для каналу»,
+     бо це та сама дія: віддати місяць чи рік назовні */
+  const tools = root.querySelector(".jhead .tools");
+  if (tools){
+    bar.classList.add("sh-inline");
+    tools.insertBefore(bar, tools.firstChild);
+    return;
+  }
+
+  /* на огляді — праворуч, одразу за перемикачем періоду: місяць і рік
+     віддаються назовні тим самим рухом, яким їх обирають */
+  const ohead = root.querySelector(".ovw .ohead");
+  if (ohead){
+    bar.classList.add("sh-inline");
+    ohead.appendChild(bar);
+    return;
+  }
+
   const h = root.querySelector(".page > h1, .page .phead, .page > .head");
   (h ? h.parentNode : root).insertBefore(bar, h ? h.nextSibling : root.firstChild);
 }

@@ -158,10 +158,14 @@ html:has(.pnl-wrap){overflow-y:hidden}
 .jhead .tools{margin-left:auto;display:flex;align-items:center;gap:14px;flex-wrap:wrap}
 /* навигация по месяцу — один узел в общей капсуле */
 .mnav{display:flex;align-items:center;gap:2px;padding:4px;border-radius:13px;
-  border:1px solid var(--line-soft);background:var(--seg-bg);box-shadow:var(--card-lip)}
-.mnav button{background:none;border:1px solid transparent;border-radius:9px;color:var(--dim);
-  font:inherit;cursor:pointer;transition:color .25s var(--ease),background .25s var(--ease)}
-.mnav button:hover{color:var(--text);background:var(--panel-2)}
+  border:1px solid var(--line-soft);background:var(--seg-bg);box-shadow:var(--card-lip);
+  /* в шапке карточки-списка вокруг стоят капс и разрядка — они сюда не наследуются */
+  text-transform:none;letter-spacing:normal;font-weight:400}
+/* каждая — именно кнопка: своя поверхность и рамка, а не просто надпись */
+.mnav button{background:var(--panel);border:1px solid var(--line);border-radius:9px;color:var(--text);
+  font:inherit;cursor:pointer;
+  transition:color .25s var(--ease),background .25s var(--ease),border-color .25s var(--ease)}
+.mnav button:hover{color:var(--accent);border-color:var(--accent);background:var(--accent-soft)}
 .mnav button:active{transform:scale(.96)}
 .mnav .nb{padding:5px 11px;font-size:16px;line-height:1.1}
 .mnav .lb{display:flex;align-items:center;gap:7px;justify-content:center;padding:6px 12px;
@@ -239,12 +243,22 @@ svg.chart{display:block;width:100%;height:auto}
 }
 
 /* ================= КАЛЕНДАРЬ — главный элемент ================= */
+/* переход между разделами: содержимое всплывает, а не подменяется рывком */
+@keyframes pageIn{from{opacity:0;transform:translateY(10px)} to{opacity:1;transform:none}}
+.page.enter > *{animation:pageIn .3s cubic-bezier(.16,1,.3,1) both}
+@media (prefers-reduced-motion:reduce){.page.enter > *{animation:none}}
+
 .cal{display:grid;grid-template-columns:repeat(7,1fr);gap:6px;padding:16px}
 .cal .wd{font-family:var(--mono);font-size:10px;letter-spacing:.12em;color:var(--faint);
   text-align:center;text-transform:uppercase;padding:2px 0 6px}
 .cal .day{min-height:98px;border:1px solid var(--line);border-radius:var(--r-sm);
   padding:8px 9px;cursor:pointer;background:var(--panel-2);position:relative;
   display:flex;flex-direction:column;transition:border-color .12s,transform .08s}
+/* День без угод виден только рамкой — на светлых темах её надо усилить,
+   иначе сетка месяца почти растворяется в карточке */
+:root:not([data-theme="dark"]) .cal .day:not(.up):not(.down):not(.flat):not(.off){
+  border-color:color-mix(in srgb, var(--line) 45%, var(--dim));
+  background:color-mix(in srgb, var(--panel-2) 82%, var(--line))}
 .cal .day:hover{border-color:var(--faint)}
 .cal .day:active{transform:scale(.98)}
 .cal .day.off{opacity:0;pointer-events:none;border:none}
@@ -277,7 +291,21 @@ svg.chart{display:block;width:100%;height:auto}
 .badge.cont{background:var(--panel-2);color:var(--dim)}
 
 /* журнал: календарь + панель дня */
-.jgrid{display:grid;grid-template-columns:minmax(0,1.55fr) minmax(300px,1fr);gap:14px;align-items:stretch}
+.jgrid{display:grid;grid-template-columns:minmax(0,1.55fr) minmax(300px,1fr);gap:14px;align-items:stretch;
+  /* обе половины одной высоты: переключение «Календар · Список» не должно
+     дёргать страницу вверх-вниз */
+  --jpane:clamp(520px,68vh,760px)}
+.jpane{min-height:var(--jpane)}
+.jpane-list{height:var(--jpane);display:flex;flex-direction:column}
+/* список длиннее карточки — прокручиваем его внутри, а не тянем страницу */
+.jpane-list .mtwrap{flex:1;min-height:0;overflow:auto}
+/* шапка карточки журнала: та же линия, что и у заголовков других карточек */
+.panehead{display:flex;justify-content:flex-end;align-items:center;
+  padding:9px 12px;border-bottom:1px solid var(--line-soft);min-height:47px}
+.jpane-cal .panehead+.cal{padding-top:12px}
+.jpane-list h3{padding-right:12px}
+.jpane-list h3 .hr{display:flex;align-items:center;gap:12px}
+.jpane-list h3 .hr em{font-style:normal;color:var(--faint)}
 /* гнездо панели дня: панель лежит в нём абсолютом и растёт только по содержимому,
    но не выше левой половины — длинная угода не тянет страницу вниз,
    короткая не оставляет под собой пустоту */
@@ -805,7 +833,8 @@ body:has(.ovw){font-size:14px;line-height:1.6;font-weight:300}
 .page:has(.ovw) .ovw{flex:1}
 .ovw{--ease:cubic-bezier(.16,1,.3,1);display:grid;grid-template-columns:minmax(0,1fr) 320px;
   column-gap:44px;align-items:start}
-.ovw .ohead{grid-column:1 / -1;display:flex;align-items:center;gap:16px;margin-bottom:26px}
+/* wrap — чтобы кнопки «поділитися» справа от периода не выдавливали заголовок */
+.ovw .ohead{grid-column:1 / -1;display:flex;align-items:center;gap:16px;margin-bottom:26px;flex-wrap:wrap}
 .ovw .ohead h1{margin:0;font-size:34px;font-weight:500;letter-spacing:-.035em;line-height:1.05}
 
 /* период: сегменты, по которым видно, что на них жмут */

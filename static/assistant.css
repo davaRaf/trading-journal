@@ -1,0 +1,80 @@
+/* Помічник. Кольори й радіуси беруться з тем застосунку — свого стилю тут немає. */
+
+.as-panel .m-body{padding:0}
+.as-body{display:flex; flex-direction:column; min-height:0}
+.as-log{flex:1; min-height:0; overflow-y:auto; padding:18px 18px 6px;
+  display:flex; flex-direction:column; gap:12px}
+
+/* ---------- порожній стан: одразу видно, про що можна питати ---------- */
+.as-empty{color:var(--dim); font-size:13.5px; line-height:1.6}
+.as-empty p{margin:0 0 14px}
+.as-hints{display:flex; flex-direction:column; gap:8px}
+.as-hint{text-align:left; background:var(--panel-2); border:1px solid var(--line);
+  border-radius:var(--r-sm); color:var(--text); font:inherit; font-size:13px;
+  padding:10px 13px; cursor:pointer;
+  transition:border-color .18s, background .18s, color .18s}
+.as-hint:hover{border-color:var(--accent); color:var(--accent); background:var(--accent-soft)}
+.as-hint:focus-visible{outline:2px solid var(--accent); outline-offset:2px}
+
+/* ---------- листування ---------- */
+.as-msg{display:flex}
+.as-msg.me{justify-content:flex-end}
+.as-bubble{max-width:88%; padding:11px 14px; border-radius:var(--r);
+  font-size:13.5px; line-height:1.6; overflow-wrap:anywhere}
+.as-msg.me .as-bubble{background:var(--accent-soft); color:var(--text);
+  border:1px solid color-mix(in srgb, var(--accent) 35%, transparent)}
+.as-msg.ai .as-bubble{background:var(--panel-2); color:var(--text);
+  border:1px solid var(--line-soft)}
+.as-bubble p{margin:0 0 9px}
+.as-bubble p:last-child{margin:0}
+
+/* три крапки, поки модель думає */
+.as-wait{display:flex; gap:5px; align-items:center; padding:15px 16px}
+.as-wait i{width:6px; height:6px; border-radius:50%; background:var(--faint);
+  animation:asDot 1s ease-in-out infinite}
+.as-wait i:nth-child(2){animation-delay:.15s}
+.as-wait i:nth-child(3){animation-delay:.3s}
+@keyframes asDot{0%,60%,100%{opacity:.3; transform:translateY(0)}
+                 30%{opacity:1; transform:translateY(-3px)}}
+@media (prefers-reduced-motion:reduce){.as-wait i{animation:none; opacity:.6}}
+
+/* ---------- поле питання ---------- */
+.as-foot{display:flex; flex-direction:column; align-items:stretch; gap:10px}
+.as-input{width:100%; box-sizing:border-box; resize:none; overflow-y:auto;
+  min-height:82px; max-height:200px;
+  background:var(--panel-2); color:var(--text); border:1px solid var(--line);
+  border-radius:var(--r-sm); padding:12px 14px; font:inherit; font-size:14.5px;
+  line-height:1.55}
+.as-input:focus{outline:none; border-color:var(--accent);
+  box-shadow:0 0 0 3px var(--accent-soft)}
+.as-input:disabled{opacity:.55}
+.as-actions{display:flex; align-items:center; gap:10px}
+.as-actions .sp{flex:1}
+.as-foot .btn:disabled{opacity:.5; cursor:default}
+.as-review{white-space:nowrap}
+
+/* ---------- кнопка-«бульбашка», що висить поверх сторінки ---------- */
+.as-fab{position:fixed; right:22px; bottom:22px; z-index:45;
+  display:flex; align-items:center; gap:9px;
+  padding:13px 20px 13px 17px; border-radius:999px;
+  background:var(--accent); color:var(--accent-ink,#fff);
+  border:none; font:inherit; font-size:14px; font-weight:600; cursor:pointer;
+  box-shadow:var(--shadow-badge), 0 10px 30px -10px var(--accent);
+  transition:transform .16s, box-shadow .16s, opacity .18s}
+.as-fab:hover{transform:translateY(-2px)}
+.as-fab:active{transform:translateY(0)}
+.as-fab:focus-visible{outline:2px solid var(--accent); outline-offset:3px}
+.as-fab .ic{flex:none}
+/* поки відкрита будь-яка панель — кнопка не заважає */
+body:has(.pnl-wrap) .as-fab, body:has(.modal:not([hidden])) .as-fab{
+  opacity:0; pointer-events:none; transform:translateY(8px)}
+
+@media (max-width:560px){
+  .as-bubble{max-width:94%}
+  .as-fab{right:14px; bottom:14px; padding:13px; gap:0}
+  .as-fab span{display:none}
+}
+@media (prefers-reduced-motion:reduce){
+  .as-fab{transition:opacity .18s}
+  .as-fab:hover{transform:none}
+}

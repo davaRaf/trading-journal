@@ -660,22 +660,13 @@ function vDashboard(){
 
 /* ---------- Journal: живой журнал месяца ---------- */
 function vJournal(){
-  const [Y,M]=S.jMonth.split("-").map(Number);
-  const label=MONTHS[M-1]+" "+Y;
   const monthTrades=S.trades.filter(t=>monKey(t)===S.jMonth);
   const st=calc(monthTrades);
-  /* шапка живёт тремя зонами: что смотрим · який місяць · окрема дія */
+  /* шапка: что смотрим и отдельное действие. Перемотка месяца — в самой карточке */
   const modeTabs='<div class="seg-tabs">'+
     '<button class="'+(S.jMode==="cal"?"on":"")+'" data-tip="Місяць клітинками" onclick="setJMode(\'cal\')">Календар</button>'+
     '<button class="'+(S.jMode==="table"?"on":"")+'" data-tip="Угоди місяця таблицею" onclick="setJMode(\'table\')">Список</button>'+
     '<button class="'+(S.jMode==="list"?"on":"")+'" data-tip="Усі угоди з фільтрами" onclick="setJMode(\'list\')">Усі угоди</button>'+
-    "</div>";
-  const monthNav='<div class="mnav">'+
-    '<button class="nb" aria-label="Попередній місяць" data-tip="Попередній місяць" onclick="shiftJMonth(-1)">‹</button>'+
-    '<button class="lb" data-tip="Вибрати день у календарі" onclick="pickDate(this)">'+CAL_ICON+label+"</button>"+
-    '<button class="nb" aria-label="Наступний місяць" data-tip="Наступний місяць" onclick="shiftJMonth(1)">›</button>'+
-    '<span class="sep"></span>'+
-    '<button class="tb" data-tip="Повернутись до поточного дня" onclick="goToday()">Сьогодні</button>'+
     "</div>";
   const shareBtn='<button class="jact" data-tip="Зібрати картинку з підсумками місяця" data-ym="'+S.jMonth+
     '" onclick="openShare(this.dataset.ym)">'+SHARE_ICON+"Картинка для каналу</button>";
@@ -686,7 +677,7 @@ function vJournal(){
     const list=sortDesc(applyFilters(S.trades));
     return h+filterBar()+tradesCard(list,"Усі угоди · "+list.length,"all");
   }
-  h+='<div class="tools">'+monthNav+shareBtn+"</div></div>";
+  h+='<div class="tools">'+shareBtn+"</div></div>";
 
   /* лента статистики месяца */
   h+=kpiHtml(st);
@@ -722,7 +713,8 @@ function vJournal(){
 
   const leftPane = S.jMode==="table"
     ? monthTableHtml(monthTrades)
-    : '<div class="card">'+calHtml(S.jMonth,"pickDay",S.selDay)+
+    : '<div class="card jpane jpane-cal"><div class="panehead">'+monthNavHtml()+"</div>"+
+      calHtml(S.jMonth,"pickDay",S.selDay)+
       "</div>";
   /* панель дня живёт в гнезде: так её высота равна левой половине, а не тянет страницу вниз */
   h+='<div class="jgrid">'+leftPane+'<div class="dayslot">'+dayPanel+"</div></div>";
@@ -736,6 +728,20 @@ function vJournal(){
   return h;
 }
 
+/* Перемотка месяца живёт в самой карточке журнала — рядом с тем, что она листает.
+   Одной группой: ‹ місяць › и «Сьогодні», все одинаковыми кнопками. */
+function monthNavHtml(){
+  const [Y,M]=S.jMonth.split("-").map(Number);
+  return '<div class="mnav">'+
+    '<button class="nb" aria-label="Попередній місяць" data-tip="Попередній місяць" onclick="shiftJMonth(-1)">‹</button>'+
+    '<button class="lb" data-tip="Вибрати день у календарі" onclick="pickDate(this)">'+
+      CAL_ICON+MONTHS[M-1]+" "+Y+"</button>"+
+    '<button class="nb" aria-label="Наступний місяць" data-tip="Наступний місяць" onclick="shiftJMonth(1)">›</button>'+
+    '<span class="sep"></span>'+
+    '<button class="tb" data-tip="Повернутись до поточного дня" onclick="goToday()">Сьогодні</button>'+
+    "</div>";
+}
+
 /* вид журнала: календарь, таблица месяца или все сделки. Выбор запоминаем */
 function setJMode(v){
   S.jMode=v; S.pages={};
@@ -746,7 +752,9 @@ function setJMode(v){
 /* месяц таблицей: те же угоди, что в календаре, но подряд и с колонками */
 function monthTableHtml(list){
   if(!list.length)
-    return '<div class="card"><h3>Угоди місяця</h3><div class="empty">За цей місяць угод немає</div></div>';
+    return '<div class="card jpane jpane-list"><h3>Угоди місяця'+
+      '<span class="hr">'+monthNavHtml()+'</span></h3>'+
+      '<div class="empty">За цей місяць угод немає</div></div>';
   const rows=sortAsc(list).map(t=>{
     const r=netR(t);
     const day=(t.date||"").slice(0,10);
@@ -764,7 +772,8 @@ function monthTableHtml(list){
       '<td class="num">'+(t.rr!=null&&t.rr!==""?r1(t.rr):"—")+"</td>"+
       '<td class="num '+clsR(r)+'">'+fmtR(r)+"</td></tr>";
   }).join("");
-  return '<div class="card"><h3>Угоди місяця<span class="hr">'+list.length+' шт</span></h3>'+
+  return '<div class="card jpane jpane-list"><h3>Угоди місяця'+
+    '<span class="hr"><em>'+list.length+' шт</em>'+monthNavHtml()+"</span></h3>"+
     '<div class="mtwrap"><table class="mtable">'+
     "<thead><tr><th>Дата</th><th>Інструмент</th><th>Напрямок</th><th>Сесія</th>"+
     '<th class="wide">Сетап</th><th>Тип</th><th>Результат</th><th class="num">RR</th><th class="num">Підсумок</th></tr></thead>'+
@@ -1633,10 +1642,13 @@ function render(){
   const v=VIEWS[S.view]?S.view:"dashboard";
   document.querySelectorAll(".nav a").forEach(a=>a.classList.toggle("on",a.dataset.v===v));
   if(window.PL) PL.reset();
-  $("#main").innerHTML='<div class="page">'+VIEWS[v]()+"</div>";
+  /* «enter» только при смене раздела: перерисовка после правки угоди
+     не должна каждый раз моргать всей страницей */
+  const fresh = tickedView!==v;
+  $("#main").innerHTML='<div class="page'+(fresh?" enter":"")+'">'+VIEWS[v]()+"</div>";
   /* блоки появляются тихо, как в макете */
   requestAnimationFrame(()=>document.querySelectorAll(".page .rise,.ovw .rail").forEach(el=>el.classList.add("in")));
-  const fresh = tickedView!==v; tickedView=v;
+  tickedView=v;
   if(window.Ticker) Ticker.run($("#main"), fresh);
   if(window.PL) PL.mount();
   if(window.Tip) Tip.mount($("#main"));
