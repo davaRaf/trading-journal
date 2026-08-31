@@ -76,9 +76,19 @@ body{margin:0;background:var(--bg);color:var(--text);font-family:var(--sans);fon
 a{color:inherit;text-decoration:none}
 button{font:inherit;color:inherit;background:none;border:none;cursor:pointer}
 :focus-visible{outline:2px solid var(--accent);outline-offset:2px;border-radius:3px}
-/* полоса прокрутки системная, как в макете: её ширина заложена в раскладку */
-::-webkit-scrollbar-thumb{background:var(--line);border-radius:6px}
+/* полоса прокрутки тонкая и без системных стрелок — иначе рядом с панелью
+   получается частокол из полос */
+*{scrollbar-width:thin;scrollbar-color:var(--line) transparent}
+::-webkit-scrollbar{width:10px;height:10px}
+::-webkit-scrollbar-button{display:none;width:0;height:0}
+::-webkit-scrollbar-corner{background:transparent}
+::-webkit-scrollbar-thumb{background:var(--line);border-radius:6px;
+  border:3px solid transparent;background-clip:content-box}
+::-webkit-scrollbar-thumb:hover{background:var(--faint);background-clip:content-box}
 ::-webkit-scrollbar-track{background:transparent}
+/* пока открыта выезжающая панель, страница за ней не прокручивается —
+   и своей полосой не мозолит глаза */
+html:has(.pnl-wrap){overflow-y:hidden}
 
 /* ================= sidebar ================= */
 .side{width:216px;flex:none;border-right:1px solid var(--side-line);padding:18px 14px;
