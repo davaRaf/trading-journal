@@ -9,6 +9,7 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from urllib.parse import urlparse, unquote
 
 import notion_import as notion
+import notion_public as npub
 
 ROOT   = os.path.dirname(os.path.abspath(__file__))
 STATIC = os.path.join(ROOT, "static")
@@ -246,11 +247,12 @@ def clean_trade(body, tid):
     return t
 
 # ---------------------------------------------------------------------------
-# Перенос журнала из Notion.
+# Перенос журнала из Notion по обычной публичной ссылке.
 #
-# Ключ доступа лежит только здесь, на сервере, в data/notion.json. В браузер
-# он не возвращается никогда — наружу отдаём лишь название рабочего места.
-# Сам разбор данных живёт в notion_import.py.
+# Никаких ключей: человек в Notion делает Share -> Publish to web и вставляет
+# сюда ссылку. Чтение живёт в notion_public.py, разбор значений — в
+# notion_import.py. В data/notion.json запоминаем последнюю ссылку и сверку
+# колонок, чтобы не настраивать заново.
 # ---------------------------------------------------------------------------
 NOTION_FILE = os.path.join(DATA, "notion.json")
 _jobs = {}
@@ -272,10 +274,6 @@ def notion_save(conf):
     os.replace(tmp, NOTION_FILE)
 
 
-def notion_token():
-    return (notion_conf().get("token") or "").strip()
-
-
 def add_trades(items):
     """Кладём пачку сделок в журнал. Вызывается из фонового потока."""
     with _lock:
@@ -286,7 +284,7 @@ def add_trades(items):
         _save(TRADES)
 
 
-def start_import(db_id, mapping, opts):
+def start_import(url, mapping, opts):
     jid = secrets.token_urlsafe(6)
     job = notion.Job(jid)
     with _jobs_lock:
@@ -298,8 +296,8 @@ def start_import(db_id, mapping, opts):
         known = {(t.get("pair") or "").strip() for t in TRADES if t.get("pair")}
         seen = {t.get("notion_id") for t in TRADES if t.get("notion_id")}
     th = threading.Thread(
-        target=notion.run_import,
-        args=(job, notion_token(), db_id, mapping, opts, SHOTS, known, seen, add_trades),
+        target=npub.run_public_import,
+        args=(job, url, mapping, opts, SHOTS, known, seen, add_trades),
         daemon=True)
     th.start()
     return job
@@ -360,22 +358,11 @@ class H(BaseHTTPRequestHandler):
         if p == "/api/notion/state":
             conf = notion_conf()
             return self._json({
-                "connected": bool(conf.get("token")),
-                "workspace": conf.get("workspace") or "",
-                "name": conf.get("name") or "",
-                "db": conf.get("db") or "",
-                "dbTitle": conf.get("dbTitle") or "",
+                "url": conf.get("url") or "",
+                "title": conf.get("title") or "",
                 "mapping": conf.get("mapping") or {},
                 "fields": [{"k": k, "label": notion.LABELS[k]} for k in notion.FIELDS],
             })
-        if p == "/api/notion/databases":
-            token = notion_token()
-            if not token:
-                return self._json({"error": "спочатку підключи Notion"}, 400)
-            try:
-                return self._json({"databases": notion.databases(token)})
-            except notion.NotionError as ex:
-                return self._json({"error": str(ex)}, 502)
         if p.startswith("/api/notion/job/"):
             with _jobs_lock:
                 job = _jobs.get(p[len("/api/notion/job/"):])
@@ -431,55 +418,38 @@ class H(BaseHTTPRequestHandler):
             rec = share_create(body["data"], body.get("ttl", "7d"))
             return self._json({"id": rec["id"], "url": "/s/" + rec["id"],
                                "expires": rec["expires"]}, 201)
-        if p == "/api/notion/connect":
+        if p == "/api/notion/preview":
             body = self._body() or {}
-            token = str(body.get("token") or "").strip()
-            if not token:
-                return self._json({"error": "порожній ключ"}, 400)
+            url = str(body.get("url") or "").strip()
             try:
-                who = notion.whoami(token)
+                data = npub.preview(url, body.get("mapping"))
             except notion.NotionError as ex:
                 return self._json({"error": str(ex)}, 400)
+            except Exception as ex:
+                return self._json({"error": "не вдалося прочитати сторінку: %s" % ex}, 502)
             conf = notion_conf()
-            conf.update({"token": token, "workspace": who["workspace"], "name": who["name"]})
+            conf.update({"url": url, "title": data.get("title") or "",
+                         "mapping": data.get("mapping") or {}})
             notion_save(conf)
-            return self._json({"ok": True, "workspace": who["workspace"], "name": who["name"]})
+            data["fields"] = [{"k": k, "label": notion.LABELS[k]} for k in notion.FIELDS]
+            data.pop("source", None)
+            return self._json(data)
         if p == "/api/notion/forget":
             try:
                 os.remove(NOTION_FILE)
             except Exception:
                 pass
             return self._json({"ok": True})
-        if p == "/api/notion/preview":
-            token = notion_token()
-            body = self._body() or {}
-            db_id = str(body.get("db") or "").strip()
-            if not token or not db_id:
-                return self._json({"error": "потрібні підключення і база"}, 400)
-            try:
-                pages = notion.rows(token, db_id, limit=5)
-                info = next((d for d in notion.databases(token) if d["id"] == db_id), None)
-            except notion.NotionError as ex:
-                return self._json({"error": str(ex)}, 502)
-            props = (info or {}).get("props") or {}
-            mapping = body.get("mapping") or notion.guess_mapping(props)
-            return self._json({
-                "mapping": mapping,
-                "columns": [{"name": k, "type": v} for k, v in sorted(props.items())],
-                "rows": [notion.map_row(pg, mapping) for pg in pages],
-                "title": (info or {}).get("title") or "",
-            })
         if p == "/api/notion/import":
-            token = notion_token()
             body = self._body() or {}
-            db_id = str(body.get("db") or "").strip()
+            url = str(body.get("url") or "").strip()
             mapping = body.get("mapping") or {}
-            if not token or not db_id or not mapping.get("pair"):
-                return self._json({"error": "потрібні підключення, база і колонка з інструментом"}, 400)
+            if not url or not mapping.get("pair"):
+                return self._json({"error": "потрібні посилання і колонка з інструментом"}, 400)
             conf = notion_conf()
-            conf.update({"db": db_id, "dbTitle": body.get("dbTitle") or "", "mapping": mapping})
+            conf.update({"url": url, "mapping": mapping, "title": body.get("title") or ""})
             notion_save(conf)
-            job = start_import(db_id, mapping, body.get("options") or {})
+            job = start_import(url, mapping, body.get("options") or {})
             return self._json(job.snapshot(), 202)
         if p == "/api/trades":
             body = self._body()

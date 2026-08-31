@@ -1,21 +1,12 @@
 # -*- coding: utf-8 -*-
 """
-Перенос журнала из Notion.
+Разбор журнала из Notion: угадывание колонок, приведение значений,
+загрузка картинок и учёт хода переноса.
 
-Задача: человек уже год ведёт журнал в Notion, и руками переносить сюда
-двести сделок он не будет. Поэтому здесь всё, что нужно, чтобы забрать
-базу целиком — строки, заметки со страниц и скриншоты.
+Само чтение Notion живёт в notion_public.py — оно ходит по обычной публичной
+ссылке, без ключей и интеграций. Здесь только то, что от источника не зависит.
 
-Работает только на стандартной библиотеке, как и весь app.py.
-
-Как это устроено по шагам:
-  1. connect  — проверяем ключ доступа, запоминаем его на сервере
-  2. databases— показываем базы, к которым человек дал доступ
-  3. preview  — сами угадываем, какая колонка чем является, и показываем 5 строк
-  4. run      — качаем всё в фоне, отдавая прогресс
-
-Ключ доступа наружу не отдаём никогда: он лежит в data/notion.json
-и в браузер не возвращается.
+Работает на стандартной библиотеке, как и весь app.py.
 """
 
 import json
@@ -23,173 +14,17 @@ import os
 import re
 import threading
 import time
-import urllib.error
 import urllib.parse
 import urllib.request
 
-API = os.environ.get("NOTION_API", "https://api.notion.com/v1")
-VERSION = "2022-06-28"
 UA = "StatsAI/1.0"
 
-# Notion не любит больше трёх обращений в секунду — держим паузу сами,
-# иначе он начинает отвечать 429 и импорт разваливается на середине.
-MIN_GAP = 0.34
 MAX_SHOT = 12 * 1024 * 1024      # скриншот тяжелее 12 МБ не тянем
 NET_TIMEOUT = 30
 
 
 class NotionError(Exception):
     pass
-
-
-_last_call = [0.0]
-_gap_lock = threading.Lock()
-
-
-def _throttle():
-    with _gap_lock:
-        wait = MIN_GAP - (time.time() - _last_call[0])
-        if wait > 0:
-            time.sleep(wait)
-        _last_call[0] = time.time()
-
-
-def _req(token, method, path, body=None, tries=3):
-    # Ключ уходит в заголовок, а туда можно только латиницу. Проверяем сами,
-    # иначе вместо понятного текста человек увидит ошибку кодировки.
-    try:
-        str(token).encode("ascii")
-    except Exception:
-        raise NotionError("у ключі є зайві символи — скопіюй його з Notion ще раз")
-    data = json.dumps(body).encode("utf-8") if body is not None else None
-    for attempt in range(tries):
-        _throttle()
-        req = urllib.request.Request(API + path, data=data, method=method)
-        req.add_header("Authorization", "Bearer " + token)
-        req.add_header("Notion-Version", VERSION)
-        req.add_header("User-Agent", UA)
-        if data is not None:
-            req.add_header("Content-Type", "application/json")
-        try:
-            with urllib.request.urlopen(req, timeout=NET_TIMEOUT) as r:
-                return json.loads(r.read().decode("utf-8"))
-        except urllib.error.HTTPError as e:
-            raw = e.read().decode("utf-8", "replace")
-            try:
-                msg = json.loads(raw).get("message") or raw
-            except Exception:
-                msg = raw
-            if e.code == 429 and attempt < tries - 1:
-                time.sleep(float(e.headers.get("Retry-After") or 1) + 0.5)
-                continue
-            raise NotionError(_human(e.code, msg))
-        except Exception as ex:
-            if attempt < tries - 1:
-                time.sleep(1.5)
-                continue
-            raise NotionError("немає зв'язку з Notion: %s" % ex)
-
-
-def _human(code, msg):
-    if code == 401:
-        return "ключ не підходить — перевір, чи скопійований повністю"
-    if code == 403:
-        return "ключ є, але доступу до цієї сторінки немає — поділись базою з інтеграцією"
-    if code == 404:
-        return "Notion не бачить цю базу. Найчастіше — база не розшарена інтеграції"
-    if code == 429:
-        return "Notion просить зачекати — забагато запитів. Спробуй за хвилину"
-    return "Notion відповів помилкою (%s): %s" % (code, msg)
-
-
-# ---------------------------------------------------------------- подключение
-
-def whoami(token):
-    me = _req(token, "GET", "/users/me")
-    bot = me.get("bot") or {}
-    ws = bot.get("workspace_name") or ""
-    return {"name": me.get("name") or "інтеграція", "workspace": ws}
-
-
-def databases(token):
-    """Базы, к которым интеграции дали доступ."""
-    out, cursor = [], None
-    while True:
-        body = {"filter": {"value": "database", "property": "object"}, "page_size": 100}
-        if cursor:
-            body["start_cursor"] = cursor
-        res = _req(token, "POST", "/search", body)
-        for db in res.get("results", []):
-            props = db.get("properties") or {}
-            out.append({
-                "id": db.get("id"),
-                "title": _plain(db.get("title") or []) or "без назви",
-                "props": {k: (v or {}).get("type", "") for k, v in props.items()},
-            })
-        if not res.get("has_more"):
-            break
-        cursor = res.get("next_cursor")
-    return out
-
-
-# ------------------------------------------------------------ чтение значений
-
-def _plain(rich):
-    return "".join(x.get("plain_text", "") for x in (rich or []))
-
-
-def prop_value(p):
-    """Значение свойства Notion в понятном нам виде. Тип может быть любым."""
-    if not isinstance(p, dict):
-        return ""
-    t = p.get("type") or ""
-    if t in ("title", "rich_text"):
-        return _plain(p.get(t))
-    if t == "select":
-        return (p.get("select") or {}).get("name", "")
-    if t == "status":
-        return (p.get("status") or {}).get("name", "")
-    if t == "multi_select":
-        return ", ".join(x.get("name", "") for x in p.get("multi_select") or [])
-    if t == "number":
-        return p.get("number")
-    if t == "date":
-        d = p.get("date") or {}
-        return d.get("start") or ""
-    if t == "checkbox":
-        return "так" if p.get("checkbox") else ""
-    if t in ("url", "email", "phone_number"):
-        return p.get(t) or ""
-    if t == "people":
-        return ", ".join(x.get("name", "") for x in p.get("people") or [])
-    if t in ("created_time", "last_edited_time"):
-        return p.get(t) or ""
-    if t == "unique_id":
-        u = p.get("unique_id") or {}
-        return "%s%s" % (u.get("prefix") or "", u.get("number") or "")
-    if t == "formula":
-        f = p.get("formula") or {}
-        return prop_value({"type": f.get("type"), f.get("type"): f.get(f.get("type"))})
-    if t == "rollup":
-        r = p.get("rollup") or {}
-        if r.get("type") == "array":
-            return ", ".join(str(prop_value(x)) for x in r.get("array") or [])
-        return prop_value({"type": r.get("type"), r.get("type"): r.get(r.get("type"))})
-    if t == "files":
-        return ", ".join(_file_urls(p))
-    return ""
-
-
-def _file_urls(p):
-    out = []
-    for f in p.get("files") or []:
-        if f.get("type") == "file":
-            u = (f.get("file") or {}).get("url")
-        else:
-            u = (f.get("external") or {}).get("url")
-        if u:
-            out.append(u)
-    return out
 
 
 # --------------------------------------------------------- угадывание колонок
@@ -379,70 +214,7 @@ NORMALIZE = {
 }
 
 
-def map_row(page, mapping):
-    """Строка Notion -> наша сделка (без скриншотов и текста страницы)."""
-    props = page.get("properties") or {}
-    t = {"notion_id": page.get("id") or ""}
-    for field in FIELDS:
-        col = mapping.get(field)
-        raw = prop_value(props.get(col)) if col else ""
-        fn = NORMALIZE.get(field)
-        val = fn(raw) if fn else (str(raw).strip() if raw is not None else "")
-        t[field] = val
-    return t
-
-
-# ------------------------------------------------------------- чтение страниц
-
-def rows(token, db_id, limit=None):
-    out, cursor = [], None
-    while True:
-        body = {"page_size": 100}
-        if cursor:
-            body["start_cursor"] = cursor
-        res = _req(token, "POST", "/databases/%s/query" % db_id, body)
-        out.extend(res.get("results", []))
-        if limit and len(out) >= limit:
-            return out[:limit]
-        if not res.get("has_more"):
-            return out
-        cursor = res.get("next_cursor")
-
-
-TEXT_BLOCKS = ("paragraph", "heading_1", "heading_2", "heading_3", "quote",
-               "callout", "bulleted_list_item", "numbered_list_item", "to_do", "code")
-
-
-def page_content(token, page_id, depth=0):
-    """Текст со страницы и картинки из неё. Заметки в Notion часто лежат
-       именно в теле страницы, а не в колонке."""
-    text, images, cursor = [], [], None
-    while True:
-        q = "?page_size=100" + ("&start_cursor=" + cursor if cursor else "")
-        res = _req(token, "GET", "/blocks/%s/children%s" % (page_id, q))
-        for b in res.get("results", []):
-            bt = b.get("type") or ""
-            if bt in TEXT_BLOCKS:
-                s = _plain((b.get(bt) or {}).get("rich_text"))
-                if s.strip():
-                    text.append(("• " if bt.endswith("list_item") else "") + s.strip())
-            elif bt == "image":
-                img = b.get("image") or {}
-                u = ((img.get("file") or {}).get("url")
-                     if img.get("type") == "file" else (img.get("external") or {}).get("url"))
-                if u:
-                    images.append({"url": u, "caption": _plain(img.get("caption"))})
-            # вложенные блоки — на один уровень, глубже журналы не заводят
-            if b.get("has_children") and depth < 1 and bt != "image":
-                sub_t, sub_i = page_content(token, b.get("id"), depth + 1)
-                if sub_t:
-                    text.append(sub_t)
-                images.extend(sub_i)
-        if not res.get("has_more"):
-            break
-        cursor = res.get("next_cursor")
-    return "\n".join(text).strip(), images
-
+# ---------------------------------------------------------------- скриншоты
 
 TF_RE = re.compile(r"(?<![0-9a-zA-Z])(1m|3m|5m|15m|30m|1h|4h|1d|1w)(?![0-9a-zA-Z])", re.I)
 TF_CANON = {"1m": "1m", "3m": "3m", "5m": "5m", "15m": "15m", "30m": "30m",
@@ -504,82 +276,3 @@ class Job(object):
                 "skipped": self.skipped, "shots": self.shots,
                 "newAssets": self.new_assets, "warnings": self.warnings[:20],
                 "error": self.error}
-
-
-def run_import(job, token, db_id, mapping, opts, shots_dir, known_pairs, existing_ids, sink):
-    """
-    Забирает базу целиком и отдаёт готовые сделки в sink(list).
-    sink сам решает, как их сохранить — этот файл про Notion, а не про хранилище.
-    """
-    try:
-        job.step = "читаємо базу"
-        pages = rows(token, db_id)
-        job.total = len(pages)
-
-        want_notes = bool(opts.get("notes", True))
-        want_shots = bool(opts.get("shots", True))
-        skip_known = bool(opts.get("skipExisting", True))
-        batch = []
-
-        for page in pages:
-            job.done += 1
-            pid = page.get("id") or ""
-            if skip_known and pid in existing_ids:
-                job.skipped += 1
-                continue
-
-            t = map_row(page, mapping)
-            if not (t.get("pair") or "").strip():
-                job.skipped += 1
-                job.warnings.append("рядок без інструмента пропущено")
-                continue
-
-            job.step = "%s · %s" % (t.get("pair") or "?", (t.get("date") or "")[:10])
-
-            images = []
-            for col, prop in (page.get("properties") or {}).items():
-                if (prop or {}).get("type") == "files":
-                    images += [{"url": u, "caption": col} for u in _file_urls(prop)]
-
-            if want_notes or want_shots:
-                try:
-                    text, page_imgs = page_content(token, pid)
-                except NotionError as ex:
-                    text, page_imgs = "", []
-                    job.warnings.append("сторінку не прочитали: %s" % ex)
-                if want_shots:
-                    images += page_imgs
-                if want_notes and text:
-                    t["notes"] = (t["notes"] + "\n\n" + text).strip() if t.get("notes") else text
-
-            shots = []
-            if want_shots:
-                for i, im in enumerate(images):
-                    try:
-                        base = "notion_%s_%d" % (re.sub(r"[^0-9a-f]", "", pid)[:32], i)
-                        fname = download(im["url"], shots_dir, base)
-                        shots.append({"tf": guess_tf(im.get("caption"), im["url"]), "file": fname})
-                        job.shots += 1
-                    except Exception as ex:
-                        job.warnings.append("скрін не завантажився: %s" % ex)
-            t["screenshots"] = shots
-
-            pair = (t.get("pair") or "").strip()
-            if pair and pair not in known_pairs:
-                known_pairs.add(pair)
-                job.new_assets.append(pair)
-
-            batch.append(t)
-            job.added += 1
-            if len(batch) >= 25:
-                sink(batch)
-                batch = []
-
-        if batch:
-            sink(batch)
-        job.step = "готово"
-        job.state = "done"
-    except NotionError as ex:
-        job.state, job.error = "error", str(ex)
-    except Exception as ex:
-        job.state, job.error = "error", "несподівана помилка: %s" % ex

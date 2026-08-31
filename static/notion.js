@@ -2,23 +2,26 @@
    Перенесення журналу з Notion.
 
    Людина рік вела журнал у Notion — руками сюди вона його не
-   перенесе. Тут майстер на чотири кроки: ключ → база → звірка
+   перенесе. Тут майстер на три кроки: посилання → звірка
    колонок → перенесення разом зі скрінами й нотатками.
 
-   Живе окремим файлом. У чужий код не лізе: підмінює глобальну
-   openImport() і додає в те саме вікно другу вкладку.
+   Ніяких ключів і інтеграцій: потрібне звичайне посилання на
+   опубліковану сторінку. Живе окремим файлом, у чужий код
+   не лізе — підмінює глобальну openImport() і додає в те саме
+   вікно другу вкладку.
    ============================================================ */
 (function(){
 
 const PAIRS_KEY = "statsai_pairs";     // інструменти, що приїхали з імпорту
 const SEEN_KEY  = "statsai_import_offered";
 
-let state = null;      // що сервер знає про підключення
-let dbs = null;        // бази Notion
-let picked = null;     // обрана база
+let state = null;      // що сервер пам'ятає з минулого разу
+let link = "";         // посилання на базу
+let title = "";        // як база зветься в Notion
 let mapping = {};      // наше поле -> колонка Notion
-let columns = [];      // колонки обраної бази
+let columns = [];      // колонки бази
 let sample = [];       // перші рядки для перегляду
+let total = 0;
 let poll = 0;
 
 /* ---- інструменти з імпорту показуємо в підказках форми ---- */
@@ -74,84 +77,56 @@ function busy(sel, text){
   if (el){ el.disabled = true; el.textContent = text; }
 }
 
-/* ---------- крок 1: ключ ---------- */
-function stepConnect(){
+/* ---------- крок 1: посилання ---------- */
+function stepLink(){
   paint(
     '<div class="nt">'
     + '<p class="nt-lead">Перенесемо журнал із Notion цілком — угоди, нотатки зі сторінок '
     + 'і скріншоти. Нічого копіювати руками не треба.</p>'
     + '<ol class="nt-steps">'
-    + '<li>Відкрий <b>notion.so/my-integrations</b> → <b>New integration</b>. '
-    +   'Назва будь-яка, тип — <b>Internal</b>.</li>'
-    + '<li>Скопіюй <b>Internal Integration Secret</b> — рядок, що починається на <code>ntn_</code>.</li>'
-    + '<li>Відкрий свою базу угод у Notion → меню <b>···</b> → <b>Connections</b> → '
-    +   'додай щойно створену інтеграцію. Без цього Notion бази не покаже.</li>'
+    + '<li>У Notion відкрий свою таблицю з угодами → <b>Share</b> → '
+    +   'увімкни <b>Publish to web</b>.</li>'
+    + '<li>Натисни <b>Copy web link</b> і встав посилання сюди.</li>'
     + '</ol>'
-    + '<label class="nt-lab">Ключ інтеграції</label>'
-    + '<input id="ntToken" class="nt-inp" type="password" autocomplete="off" placeholder="ntn_…">'
-    + '<p class="nt-note">Ключ залишається на сервері журналу й назад у браузер не повертається.</p>'
+    + '<label class="nt-lab">Посилання на таблицю</label>'
+    + '<input id="ntUrl" class="nt-inp" type="url" autocomplete="off" spellcheck="false"'
+    +   ' value="' + esc(link) + '" placeholder="https://…notion.site/…">'
+    + '<p class="nt-note">Посилання має вести саме на таблицю — ту, де рядки й колонки. '
+    + 'Читаємо тільки для себе, нічого в Notion не змінюємо.</p>'
     + '</div>',
     '<span class="sp"></span><button class="btn" onclick="closeModal()">Скасувати</button>'
-    + '<button class="btn primary" id="ntGo">Підключити</button>'
+    + '<button class="btn primary" id="ntGo">Прочитати</button>'
   );
-  document.getElementById("ntGo").onclick = async () => {
-    const token = (document.getElementById("ntToken").value || "").trim();
-    if (!token) return err("Встав ключ інтеграції");
-    busy("#ntGo", "Перевіряю…");
-    try{
-      const r = await call("POST", "/api/notion/connect", {token});
-      state = Object.assign(state || {}, {connected: true, workspace: r.workspace, name: r.name});
-      await stepDatabases();
-    }catch(e){
-      err(e.message);
-      const b = document.getElementById("ntGo");
-      if (b){ b.disabled = false; b.textContent = "Підключити"; }
-    }
-  };
+  const input = document.getElementById("ntUrl");
+  const go = () => read((input.value || "").trim());
+  document.getElementById("ntGo").onclick = go;
+  input.onkeydown = e => { if (e.key === "Enter") go(); };
+  input.focus();
 }
 
-/* ---------- крок 2: база ---------- */
-async function stepDatabases(){
-  paint('<div class="nt"><p class="nt-lead">Читаю список баз…</p></div>', "");
-  try{
-    dbs = (await call("GET", "/api/notion/databases")).databases || [];
-  }catch(e){
-    return paint('<div class="nt"><div class="nt-err">' + esc(e.message) + "</div></div>",
-      '<span class="sp"></span><button class="btn" onclick="__notion.reset()">Інший ключ</button>');
-  }
-
-  const who = (state && state.workspace) ? esc(state.workspace) : "Notion";
-  const list = dbs.length
-    ? dbs.map((d, i) =>
-        '<button class="nt-db" onclick="__notion.pick(' + i + ')">'
-        + '<b>' + esc(d.title) + "</b>"
-        + '<span>' + Object.keys(d.props).length + " колонок</span></button>").join("")
-    : '<div class="nt-empty">Жодної бази не видно.<br>Відкрий базу в Notion → <b>···</b> → '
-      + "<b>Connections</b> → додай інтеграцію, і натисни «Оновити».</div>";
-
-  paint('<div class="nt"><p class="nt-lead">Підключено до <b>' + who + "</b>. "
-        + "Обери базу, у якій лежать угоди.</p>" + '<div class="nt-dbs">' + list + "</div></div>",
-    '<button class="btn ghost" onclick="__notion.reset()">Відключити</button>'
-    + '<span class="sp"></span><button class="btn" onclick="__notion.step2()">Оновити</button>');
-}
-
-/* ---------- крок 3: звірка колонок ---------- */
-async function stepMap(i){
-  picked = dbs[i];
-  paint('<div class="nt"><p class="nt-lead">Читаю «' + esc(picked.title) + "»…</p></div>", "");
+async function read(url){
+  if (!url) return err("Встав посилання на таблицю");
+  busy("#ntGo", "Читаю…");
   let r;
   try{
-    r = await call("POST", "/api/notion/preview", {db: picked.id});
+    r = await call("POST", "/api/notion/preview", {url});
   }catch(e){
-    return paint('<div class="nt"><div class="nt-err">' + esc(e.message) + "</div></div>",
-      '<span class="sp"></span><button class="btn" onclick="__notion.step2()">Назад</button>');
+    err(e.message);
+    const b = document.getElementById("ntGo");
+    if (b){ b.disabled = false; b.textContent = "Прочитати"; }
+    return;
   }
+  link = url;
+  title = r.title || "";
   mapping = r.mapping || {};
   columns = r.columns || [];
   sample = r.rows || [];
+  total = r.total || 0;
+  if (r.fields) state = Object.assign(state || {}, {fields: r.fields});
   drawMap();
 }
 
+/* ---------- крок 2: звірка колонок ---------- */
 function drawMap(){
   const fields = (state && state.fields) || [];
   const opts = (cur) => '<option value="">— не переносити</option>'
@@ -165,11 +140,13 @@ function drawMap(){
   ).join("");
 
   const found = fields.filter(f => mapping[f.k]).length;
+  const what = (title ? "«" + esc(title) + "»" : "Таблиця")
+             + (total ? ", рядків: " + total : "");
 
   paint(
     '<div class="nt">'
-    + '<p class="nt-lead">Колонки звірені самі — <b>' + found + " з " + fields.length
-    + "</b>. Перевір і поправ, де не вгадало.</p>"
+    + '<p class="nt-lead">' + what + ". Колонки звірені самі — <b>" + found + " з "
+    + fields.length + "</b>. Перевір і поправ, де не вгадало.</p>"
     + '<div class="nt-map">' + rowsHtml + "</div>"
     + '<div class="nt-sub">Як це виглядатиме</div>'
     + '<div class="nt-prev">' + preview() + "</div>"
@@ -178,7 +155,7 @@ function drawMap(){
     +   optChk("ntShots", "Переносити скріншоти", true)
     +   optChk("ntSkip",  "Пропускати вже перенесені угоди", true)
     + "</div></div>",
-    '<button class="btn ghost" onclick="__notion.step2()">Інша база</button>'
+    '<button class="btn ghost" onclick="__notion.back()">Інше посилання</button>'
     + '<span class="sp"></span><button class="btn" onclick="closeModal()">Скасувати</button>'
     + '<button class="btn primary" id="ntRun" onclick="__notion.run()">Перенести все</button>'
   );
@@ -190,7 +167,7 @@ function optChk(id, label, on){
 }
 
 function preview(){
-  if (!sample.length) return '<div class="nt-empty">У базі немає рядків.</div>';
+  if (!sample.length) return '<div class="nt-empty">У таблиці немає рядків.</div>';
   const cell = v => esc(v === null || v === undefined || v === "" ? "—" : String(v));
   return '<table class="nt-tbl"><thead><tr>'
     + "<th>Дата</th><th>Інструмент</th><th>Напрямок</th><th>Результат</th><th>RR</th><th>Ризик</th>"
@@ -202,7 +179,7 @@ function preview(){
     + "</tbody></table>";
 }
 
-/* ---------- крок 4: перенесення ---------- */
+/* ---------- крок 3: перенесення ---------- */
 async function run(){
   if (!mapping.pair) return err("Вкажи, у якій колонці лежить інструмент — без нього угоду не записати");
   const opts = {
@@ -213,8 +190,7 @@ async function run(){
   busy("#ntRun", "Переношу…");
   let job;
   try{
-    job = await call("POST", "/api/notion/import",
-      {db: picked.id, dbTitle: picked.title, mapping, options: opts});
+    job = await call("POST", "/api/notion/import", {url: link, title, mapping, options: opts});
   }catch(e){ return err(e.message); }
   watch(job.id);
 }
@@ -245,7 +221,7 @@ function drawProgress(j){
     + '<div class="nt-prog"><b>' + (j.total ? j.done + " з " + j.total : "…") + "</b>"
     + "<span>" + esc(j.step || "") + "</span></div>"
     + '</div>',
-    bad ? '<span class="sp"></span><button class="btn" onclick="__notion.open()">Спробувати ще</button>'
+    bad ? '<span class="sp"></span><button class="btn" onclick="__notion.back()">Спробувати ще</button>'
         : '<span class="sp"></span><button class="btn" disabled>Триває…</button>'
   );
 }
@@ -276,6 +252,12 @@ async function finish(j){
 
 /* ---------- вкладки у вікні імпорту ---------- */
 let fileHtml = null;
+
+function remember(){
+  const b = box();
+  if (b) fileHtml = {body: b.querySelector(".m-body").innerHTML,
+                     foot: b.querySelector(".m-foot").innerHTML};
+}
 
 function tabs(active){
   const b = box(); if (!b) return;
@@ -315,37 +297,27 @@ async function openNotion(){
       + "воно працює тільки там, де є сервер журналу.</div></div>",
       '<span class="sp"></span><button class="btn" onclick="closeModal()">Зрозуміло</button>');
   }
-  paint('<div class="nt"><p class="nt-lead">Перевіряю підключення…</p></div>', "");
+  paint('<div class="nt"><p class="nt-lead">Хвилинку…</p></div>', "");
   try{
     state = await call("GET", "/api/notion/state");
+    link = state.url || link;
   }catch(e){
     return paint('<div class="nt"><div class="nt-err">' + esc(e.message) + "</div></div>",
       '<span class="sp"></span><button class="btn" onclick="closeModal()">Закрити</button>');
   }
-  if (state.connected) return stepDatabases();
-  stepConnect();
+  stepLink();
 }
 
 function open(){
   if (typeof openImport !== "function") return;
   openImport();          // малює рідне вікно імпорту
-  const b = box();
-  if (b) fileHtml = {body: b.querySelector(".m-body").innerHTML,
-                     foot: b.querySelector(".m-foot").innerHTML};
+  remember();
   tab("notion");
 }
 
-async function reset(){
-  try{ await call("POST", "/api/notion/forget"); }catch(e){}
-  state = {connected: false};
-  stepConnect();
-}
-
 window.__notion = {
-  open, reset, tab,
-  step2: stepDatabases,
-  pick: stepMap,
-  run,
+  open, tab, run,
+  back: stepLink,
   setMap(sel){ const f = sel.dataset.f; if (sel.value) mapping[f] = sel.value; else delete mapping[f]; },
 };
 
@@ -354,9 +326,7 @@ window.__notion = {
 const origOpenImport = window.openImport;
 window.openImport = function(){
   origOpenImport.apply(this, arguments);
-  const b = box();
-  if (b) fileHtml = {body: b.querySelector(".m-body").innerHTML,
-                     foot: b.querySelector(".m-foot").innerHTML};
+  remember();
   tabs("file");
 };
 
