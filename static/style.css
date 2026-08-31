@@ -422,24 +422,25 @@ table.simple tr.click:hover td{background:var(--panel-2)}
 .m-body.trade{padding:0}
 /* итог сделки: та же hairline-лента, что и показатели на «Огляді» */
 .tstats{display:grid;grid-template-columns:repeat(4,1fr);border-bottom:1px solid var(--line-soft)}
-.tstats .st{padding:14px 16px 13px;border-right:1px solid var(--line-soft);min-width:0}
+.tstats .st{padding:12px 16px 11px;border-right:1px solid var(--line-soft);min-width:0}
 .tstats .st:last-child{border-right:none}
 .tstats .lab{font-family:var(--mono);font-size:9px;letter-spacing:.16em;text-transform:uppercase;
   color:var(--faint);white-space:nowrap}
 .tstats .val{font-family:var(--mono);font-size:18px;margin-top:8px;line-height:1;
   font-variant-numeric:tabular-nums;overflow:hidden;text-overflow:ellipsis}
-.tsec{padding:16px 20px 18px;border-bottom:1px solid var(--line-soft)}
+.tsec{padding:14px 20px 15px;border-bottom:1px solid var(--line-soft)}
 .tsec:last-child{border-bottom:none}
 .tsec h3{margin:0 0 10px;padding:0;border:none;background:none;font-family:var(--mono);font-size:9px;letter-spacing:.20em;text-transform:uppercase;
   color:var(--faint);font-weight:400}
 .tfields{display:grid;grid-template-columns:repeat(auto-fit,minmax(196px,1fr));gap:0 24px}
-.tfields .fr{display:flex;align-items:baseline;justify-content:space-between;gap:12px;padding:8px 0;
+.tfields .fr{display:flex;align-items:baseline;justify-content:space-between;gap:12px;padding:6px 0;
   border-bottom:1px solid var(--line-soft)}
 .tfields .fr .l{color:var(--faint);font-size:12.5px;white-space:nowrap}
 .tfields .fr .v{font-size:13.5px;font-weight:500;text-align:right;min-width:0;overflow-wrap:anywhere}
 .tnote+.tnote{margin-top:14px}
 .tnote .l{font-family:var(--mono);font-size:9px;letter-spacing:.14em;text-transform:uppercase;
   color:var(--faint);margin-bottom:5px}
+.tfields .fr .v.none,.tnote .v.none{color:var(--faint);font-weight:400}
 .tnote .v{font-size:13.5px;line-height:1.55;color:var(--dim);white-space:pre-wrap;overflow-wrap:anywhere}
 .pnl .m-foot{position:sticky;bottom:0;background:var(--card);z-index:1}
 @media(max-width:620px){

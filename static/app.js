@@ -998,12 +998,14 @@ function tradeBodyHtml(t){
   let h='<div class="tstats">'+facts.map(f=>
     '<div class="st"><div class="lab">'+f[0]+'</div><div class="val '+f[2]+'">'+esc(f[1])+"</div></div>").join("")+"</div>";
 
-  /* 2. обстоятельства входа */
-  const ctx=[["Сесія",t.session],["Біас",t.bias],["Модель входу",t.entry_model],
-    ["Сетап",t.setup],["Прод. / Розв.",dirType(t)]].filter(f=>f[1]);
-  if(ctx.length)
-    h+='<section class="tsec"><h3>Як торгував</h3><div class="tfields">'+ctx.map(f=>
-      '<div class="fr"><span class="l">'+f[0]+'</span><span class="v">'+esc(f[1])+"</span></div>").join("")+"</div></section>";
+  /* 2. обстоятельства входа: показываем весь набор, незаполненное — прочерком,
+     чтобы сразу было видно, что именно не записал */
+  const ctx=[["Інструмент",t.pair],["Дата й час",(t.date||"").replace("T"," ").slice(0,16)],
+    ["Напрямок",t.position],["Сесія",t.session],["Біас",t.bias],
+    ["Модель входу",t.entry_model],["Сетап",t.setup],["Прод. / Розв.",dirType(t)]];
+  h+='<section class="tsec"><h3>Як торгував</h3><div class="tfields">'+ctx.map(f=>
+    '<div class="fr"><span class="l">'+f[0]+'</span><span class="v'+(f[1]?"":" none")+'">'+
+    esc(f[1]||"—")+"</span></div>").join("")+"</div></section>";
 
   /* 3. записи руками */
   const notes=[["Як заходив","entry_details"],["Нотатки","notes"],["Помилки","mistakes"],["Коментарі","comments"]]
@@ -1011,6 +1013,9 @@ function tradeBodyHtml(t){
   if(notes.length)
     h+='<section class="tsec"><h3>Нотатки</h3>'+notes.map(f=>
       '<div class="tnote"><div class="l">'+f[0]+'</div><div class="v">'+esc(t[f[1]])+"</div></div>").join("")+"</section>";
+  else
+    h+='<section class="tsec"><h3>Нотатки</h3><div class="tnote">'+
+       '<div class="v none">Нічого не записано</div></div></section>';
 
   /* 4. графики: подпись таймфрейма стоит на самой картинке, отдельный перечень не нужен */
   const shots=(t.screenshots||[]).slice().sort((a,b)=>TF_ORDER.indexOf(a.tf)-TF_ORDER.indexOf(b.tf));
