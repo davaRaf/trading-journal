@@ -10,7 +10,7 @@
    Выключается при prefers-reduced-motion, на узких экранах и в фоновой вкладке. */
 const Sparks = (function(){
   let box = null, timer = 0, alive = 0;
-  const MAX = 2;                                   /* больше двух сразу — уже мельтешение */
+  const MAX = 3;                                   /* больше трёх сразу — уже мельтешение */
   const rnd = (a,b) => a + Math.random()*(b-a);
   const calm = () => window.matchMedia("(prefers-reduced-motion:reduce)").matches;
 
@@ -52,7 +52,7 @@ const Sparks = (function(){
 
   function plan(){
     clearTimeout(timer);
-    timer = setTimeout(()=>{ spawn(); plan(); }, rnd(4200, 9000));
+    timer = setTimeout(()=>{ spawn(); plan(); }, rnd(2400, 5200));
   }
 
   function start(){
@@ -63,7 +63,7 @@ const Sparks = (function(){
       box.setAttribute("aria-hidden","true");
       document.body.appendChild(box);
     }
-    setTimeout(spawn, 1200);
+    setTimeout(spawn, 900);
     plan();
     /* в скрытой вкладке не рисуем: незачем греть машину */
     document.addEventListener("visibilitychange", ()=>{
