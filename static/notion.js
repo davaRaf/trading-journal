@@ -219,6 +219,7 @@ function drawMap(){
     + leftHtml
     + '<div class="nt-sub">Як це виглядатиме</div>'
     + '<div class="nt-prev">' + preview() + "</div>"
+    + safeHtml()
     + '<div class="nt-opts">'
     +   optChk("ntNotes", "Переносити нотатки зі сторінок", true)
     +   optChk("ntShots", "Переносити скріншоти", true)
@@ -229,6 +230,15 @@ function drawMap(){
     + '<span class="sp"></span><button class="btn" onclick="closeModal()">Скасувати</button>'
     + '<button class="btn primary" id="ntRun" onclick="__notion.run()">Перенести все</button>'
   );
+}
+
+/* Відкату в імпорту немає, тому копію журналу пропонуємо саме тут —
+   за крок до того, як вона знадобиться. */
+function safeHtml(){
+  if (typeof exportData !== "function") return "";
+  return '<div class="nt-safe"><p>Перед перенесенням варто зберегти копію журналу: '
+    + "відкоту в імпорту немає.</p>"
+    + '<button class="btn" onclick="exportData()">Зберегти копію</button></div>';
 }
 
 function optChk(id, label, on){

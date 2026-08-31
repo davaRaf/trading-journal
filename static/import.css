@@ -116,3 +116,20 @@
   background:var(--panel-2); border:1px solid var(--line-soft)}
 .nt-tbl-row.on i{color:var(--up); border-color:color-mix(in srgb, var(--up) 34%, transparent);
   background:var(--up-soft)}
+
+/* ---------- кнопка в лівій панелі ---------- */
+/* Просто «Notion» нікому нічого не каже — пишемо, що саме станеться. */
+.notionbtn{align-items:flex-start; padding:10px 12px; gap:10px}
+.notionbtn .ic{margin-top:1px}
+.notionbtn > span{display:flex; flex-direction:column; gap:2px; min-width:0}
+.notionbtn b{font-size:12.5px; font-weight:600; color:var(--text); line-height:1.25}
+.notionbtn i{font-style:normal; font-size:10.5px; color:var(--faint); line-height:1.35}
+.notionbtn:hover i{color:var(--dim)}
+
+/* ---------- копія журналу перед перенесенням ---------- */
+.nt-safe{display:flex; align-items:center; gap:12px; flex-wrap:wrap;
+  padding:11px 14px; border-radius:var(--r);
+  background:var(--be-soft, var(--panel-2));
+  border:1px solid var(--line-soft)}
+.nt-safe p{margin:0; flex:1 1 240px; font-size:12.5px; line-height:1.5; color:var(--dim)}
+.nt-safe button{flex:none}
