@@ -414,6 +414,9 @@ class Job(object):
 
     def __init__(self, jid):
         self.id = jid
+        # тем же ключом помечаем перенесённые сделки: по нему потом
+        # можно отменить всё перенесение одним движением
+        self.batch = jid
         self.state = "running"     # running · done · error
         self.step = "готуємось"
         self.done = 0
@@ -426,7 +429,7 @@ class Job(object):
         self.error = ""
 
     def snapshot(self):
-        return {"id": self.id, "state": self.state, "step": self.step,
+        return {"id": self.id, "batch": self.batch, "state": self.state, "step": self.step,
                 "done": self.done, "total": self.total, "added": self.added,
                 "skipped": self.skipped, "shots": self.shots,
                 "newAssets": self.new_assets, "warnings": self.warnings[:20],

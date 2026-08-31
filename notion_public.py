@@ -468,6 +468,7 @@ def run_public_import(job, tables, mapping, opts, shots_dir, known_pairs, existi
                 props, files = row_props(_unwrap(blocks.get(bid) or {}), schema)
                 t = map_simple(props, use)
                 t["notion_id"] = bid
+                t["import_id"] = job.batch
                 if not (t.get("pair") or "").strip():
                     job.skipped += 1
                     continue

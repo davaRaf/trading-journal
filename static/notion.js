@@ -26,6 +26,7 @@ let poll = 0;
 let tables = [];       // усі таблиці, які знайшли за посиланням
 let picked = [];       // які з них переносимо
 let chosen = null;     // за якою звіряємо колонки
+let batch = null;      // остання партія — її можна скасувати
 
 /* ---- інструменти з імпорту показуємо в підказках форми ---- */
 function rememberPairs(list){
@@ -96,6 +97,7 @@ function stepLink(){
     +   ' value="' + esc(link) + '" placeholder="https://…notion.site/…">'
     + '<p class="nt-note">Посилання має вести саме на таблицю — ту, де рядки й колонки. '
     + 'Читаємо тільки для себе, нічого в Notion не змінюємо.</p>'
+    + lastHtml()
     + '</div>',
     '<span class="sp"></span><button class="btn" onclick="closeModal()">Скасувати</button>'
     + '<button class="btn primary" id="ntGo">Прочитати</button>'
@@ -138,6 +140,26 @@ function soak(r){
   total = r.total || 0;
   chosen = r.chosen || chosen;
   if (r.fields) state = Object.assign(state || {}, {fields: r.fields});
+}
+
+/* Останнє перенесення можна скасувати — і зараз, і згодом.
+   Без цього будь-яка помилка у звірці колонок необоротна. */
+function lastHtml(){
+  const l = state && state.last;
+  if (!l || !l.id) return "";
+  return '<div class="nt-safe"><p>Останнє перенесення: <b>' + (l.count || 0)
+    + "</b> угод" + (l.when ? ", " + esc(l.when) : "") + ". Якщо щось пішло не так — "
+    + "його можна прибрати, журнал лишиться як був.</p>"
+    + '<button class="btn" onclick="__notion.undo(\'' + l.id + '\')">Скасувати перенесення</button></div>';
+}
+
+/* Скільки вже лежить у журналі — щоб перенесені не змішалися з чужими
+   непомітно. Найчастіше це демо-угоди, з якими журнал приїхав. */
+function haveHtml(){
+  const n = (typeof S !== "undefined" && S.all) ? S.all.length : 0;
+  if (!n) return "";
+  return '<p class="nt-note">У журналі вже є <b>' + n + "</b> угод — перенесені "
+    + "додадуться до них. Якщо це чужі або демонстраційні, приберіть їх до перенесення.</p>";
 }
 
 /* ---------- крок 2: яку таблицю переносимо ---------- */
@@ -219,6 +241,7 @@ function drawMap(){
     + leftHtml
     + '<div class="nt-sub">Як це виглядатиме</div>'
     + '<div class="nt-prev">' + preview() + "</div>"
+    + haveHtml()
     + safeHtml()
     + '<div class="nt-opts">'
     +   optChk("ntNotes", "Переносити нотатки зі сторінок", true)
@@ -273,6 +296,7 @@ async function run(){
     job = await call("POST", "/api/notion/import",
       {url: link, title, mapping, tables: picked, options: opts});
   }catch(e){ return err(e.message); }
+  batch = job.batch || job.id;
   watch(job.id);
 }
 
@@ -322,12 +346,20 @@ async function finish(j){
       + '<p class="nt-note">Вони вже в статистиці й у підказках форми нової угоди.</p>'
     : "";
 
+  const back = (j.batch && j.added)
+    ? '<button class="btn ghost" onclick="__notion.undo(\'' + j.batch + '\')">Скасувати перенесення</button>'
+    : "";
+
   paint(
     '<div class="nt"><p class="nt-lead">Готово.</p>'
     + '<div class="nt-stats">' + line("перенесено", j.added)
       + line("пропущено", j.skipped) + line("скріншотів", j.shots) + "</div>"
-    + assets + warn + "</div>",
-    '<span class="sp"></span><button class="btn primary" onclick="closeModal()">Закрити</button>'
+    + assets + warn
+    + (j.added ? '<p class="nt-note">Щось не так? Перенесення можна прибрати цілком — '
+        + "журнал стане таким, як був.</p>" : "")
+    + "</div>",
+    back + '<span class="sp"></span>'
+    + '<button class="btn primary" onclick="closeModal()">Закрити</button>'
   );
 }
 
@@ -396,8 +428,23 @@ function open(){
   tab("notion");
 }
 
+async function undo(id){
+  if (!confirm("Прибрати всі угоди цього перенесення? Журнал стане таким, як був.")) return;
+  let r;
+  try{ r = await call("POST", "/api/notion/undo/" + id, {}); }
+  catch(e){ return err(e.message); }
+  batch = null;
+  try{ state = await call("GET", "/api/notion/state"); }catch(e){}
+  try{ await reload(); render(); }catch(e){}
+  paint('<div class="nt"><p class="nt-lead">Прибрано угод: <b>' + (r.removed || 0)
+    + "</b>. Журнал такий, як був до перенесення.</p></div>",
+    '<span class="sp"></span>'
+    + '<button class="btn" onclick="__notion.back()">Спробувати ще</button>'
+    + '<button class="btn primary" onclick="closeModal()">Закрити</button>');
+}
+
 window.__notion = {
-  open, tab, run, toMap,
+  open, tab, run, toMap, undo,
   back: stepLink,
   toTables(){ stepTables([]); },
   pickTable(i, on){

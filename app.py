@@ -244,6 +244,8 @@ def clean_trade(body, tid):
     if body.get("hidden"): t["hidden"] = True
     # откуда сделка приехала — нужно, чтобы повторный импорт не задвоил её
     if body.get("notion_id"): t["notion_id"] = str(body["notion_id"])[:64]
+    # какое перенесение её принесло — нужно, чтобы его можно было отменить
+    if body.get("import_id"): t["import_id"] = str(body["import_id"])[:32]
     return t
 
 # ---------------------------------------------------------------------------
@@ -282,6 +284,33 @@ def add_trades(items):
             t["screenshots"] = it.get("screenshots") or []
             TRADES.append(t)
         _save(TRADES)
+
+
+def drop_import(batch):
+    """Отменяет перенесение целиком: убирает его сделки и их скриншоты.
+
+    Без этого любая ошибка в сверке колонок необратима — а ошибиться там
+    легко, поэтому откат нужен не «когда-нибудь», а сразу."""
+    batch = str(batch or "")[:32]
+    if not batch:
+        return 0
+    with _lock:
+        keep, gone = [], []
+        for t in TRADES:
+            (gone if t.get("import_id") == batch else keep).append(t)
+        if not gone:
+            return 0
+        files = {s.get("file") for t in gone for s in (t.get("screenshots") or []) if s.get("file")}
+        # файл может быть общим с оставшейся сделкой — такие не трогаем
+        used = {s.get("file") for t in keep for s in (t.get("screenshots") or []) if s.get("file")}
+        delete_files(files - used)
+        TRADES[:] = keep
+        _save(TRADES)
+    conf = notion_conf()
+    if (conf.get("last") or {}).get("id") == batch:
+        conf.pop("last", None)
+        notion_save(conf)
+    return len(gone)
 
 
 def start_import(tables, mapping, opts):
@@ -357,9 +386,19 @@ class H(BaseHTTPRequestHandler):
             return self._json(rec)
         if p == "/api/notion/state":
             conf = notion_conf()
+            last = conf.get("last") or None
+            if last and last.get("id"):
+                # считаем по журналу, а не по записанному числу: цифра верна,
+                # даже если браузер закрыли посреди перенесения
+                with _lock:
+                    last = dict(last, count=sum(1 for t in TRADES
+                                                if t.get("import_id") == last["id"]))
+                if not last["count"]:
+                    last = None
             return self._json({
                 "url": conf.get("url") or "",
                 "title": conf.get("title") or "",
+                "last": last,
                 "mapping": conf.get("mapping") or {},
                 "fields": [{"k": k, "label": notion.LABELS[k]} for k in notion.FIELDS],
             })
@@ -434,6 +473,9 @@ class H(BaseHTTPRequestHandler):
             data["fields"] = [{"k": k, "label": notion.LABELS[k]} for k in notion.FIELDS]
             data.pop("source", None)
             return self._json(data)
+        if p.startswith("/api/notion/undo/"):
+            n = drop_import(p[len("/api/notion/undo/"):])
+            return self._json({"removed": n})
         if p == "/api/notion/forget":
             try:
                 os.remove(NOTION_FILE)
@@ -452,6 +494,10 @@ class H(BaseHTTPRequestHandler):
             conf.update({"url": url, "mapping": mapping, "title": body.get("title") or ""})
             notion_save(conf)
             job = start_import(tables, mapping, body.get("options") or {})
+            conf = notion_conf()
+            conf["last"] = {"id": job.batch, "count": 0,
+                            "when": datetime.datetime.now().strftime("%Y-%m-%d %H:%M")}
+            notion_save(conf)
             return self._json(job.snapshot(), 202)
         if p == "/api/trades":
             body = self._body()
