@@ -255,6 +255,24 @@ function curMonth(){
   return S.jMonth || (S.all.length ? monKey(S.all[S.all.length-1]) : null);
 }
 
+/* Порожній період відправляти нема сенсу — кнопку тоді просто не показуємо. */
+function weekRange(anchor){
+  const d = new Date(anchor + "T00:00");
+  const mon = new Date(d); mon.setDate(d.getDate() - ((d.getDay() + 6) % 7));
+  const sun = new Date(mon); sun.setDate(mon.getDate() + 6);
+  const k = x => x.getFullYear() + "-" + String(x.getMonth()+1).padStart(2,"0")
+              + "-" + String(x.getDate()).padStart(2,"0");
+  return [k(mon), k(sun)];
+}
+function hasDay(dk){   return !!dk && S.all.some(t => dayKey(t) === dk); }
+function hasWeek(dk){
+  if (!dk) return false;
+  const [from, to] = weekRange(dk);
+  return S.all.some(t => { const k = dayKey(t); return k >= from && k <= to; });
+}
+function hasMonth(mk){ return !!mk && S.all.some(t => monKey(t) === mk); }
+function hasYear(y){   return !!y  && S.all.some(t => monKey(t).slice(0,4) === y); }
+
 /* ---- смуга кнопок над розділом ---- */
 function mountBar(){
   const root = document.getElementById("main");
@@ -264,13 +282,17 @@ function mountBar(){
   const d = curDay(), mk = curMonth();
   const year = mk ? mk.slice(0,4) : String(new Date().getFullYear());
 
+  const btns = [];
+  if (hasDay(d))     btns.push(mkBtn("День",    "day",   d));
+  if (hasWeek(d))    btns.push(mkBtn("Тиждень", "week",  d));
+  if (hasMonth(mk))  btns.push(mkBtn("Місяць",  "month", mk));
+  if (hasYear(year)) btns.push(mkBtn("Рік",     "year",  year));
+  if (!btns.length) return;
+
   const bar = document.createElement("div");
   bar.className = "sh-bar";
   bar.innerHTML = '<span class="sh-cap">Поділитися</span>';
-  if (d)  bar.appendChild(mkBtn("День",    "day",   d));
-  if (d)  bar.appendChild(mkBtn("Тиждень", "week",  d));
-  if (mk) bar.appendChild(mkBtn("Місяць",  "month", mk));
-  bar.appendChild(mkBtn("Рік", "year", year));
+  btns.forEach(b => bar.appendChild(b));
 
   const h = root.querySelector(".page > h1, .page .phead, .page > .head");
   (h ? h.parentNode : root).insertBefore(bar, h ? h.nextSibling : root.firstChild);
@@ -281,7 +303,7 @@ function mountDayPanel(){
   const panel = document.querySelector(".daypanel");
   if (!panel || panel.querySelector(".sh-day")) return;
   const d = curDay();
-  if (!d) return;
+  if (!hasDay(d)) return;
   const b = mkBtn("Поділитися днем", "day", d, "sh-day");
   const add = panel.querySelector(".addday");
   add ? panel.insertBefore(b, add) : panel.appendChild(b);
@@ -310,11 +332,9 @@ window.Share = { open, mount };
    Картка угоди виїжджає панеллю, яку ui.js переиспользує: тіло сторінки
    при цьому не змінюється, тому спостерігач її не бачить. Тому чіпляємось
    прямо до відкриття панелі. */
-let pending = 0;
-function schedule(){
-  if (pending) return;
-  pending = setTimeout(() => { pending = 0; mount(); }, 40);
-}
+/* Синхронно, без setTimeout: інакше сторінка встигає перемалюватися без
+   смуги кнопок і зразу з нею — і на кожному кліку по календарю все стрибає. */
+function schedule(){ mount(); }
 const main = document.getElementById("main");
 if (main) new MutationObserver(schedule).observe(main, { childList:true });
 
