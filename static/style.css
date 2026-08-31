@@ -75,9 +75,9 @@
 html{-webkit-text-size-adjust:100%;overflow-y:scroll;scrollbar-gutter:stable}
 /* световой слой: мягкие светлые пятна за интерфейсом (только в тёмной теме) */
 body::before{content:"";position:fixed;inset:0;z-index:0;pointer-events:none;background:var(--glow)}
-/* миллиметровка за интерфейсом: в центре чуть видна, к краям тает.
-   слой живёт внутри .main, потому что body::after занят плёночным зерном */
-.main::before{content:"";position:fixed;inset:0;z-index:-1;pointer-events:none;
+/* миллиметровка за интерфейсом: собственный слой ПОД сайдбаром и контентом,
+   поэтому сквозь них не проступает (body::after занят плёночным зерном) */
+.bg-grid{position:fixed;inset:0;z-index:0;pointer-events:none;
   background:linear-gradient(var(--grid-line) 1px,transparent 1px) 0 0/100% var(--grid-step),
              linear-gradient(90deg,var(--grid-line) 1px,transparent 1px) 0 0/var(--grid-step) 100%;
   -webkit-mask-image:radial-gradient(130% 105% at 50% 0%,#000 24%,transparent 92%);
@@ -779,7 +779,9 @@ body:has(.ovw){font-size:14px;line-height:1.6;font-weight:300}
 
 /* неделя — крупный ряд сверху */
 .ovw .week{margin-bottom:22px}
-.ovw .days{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:10px}
+/* под неделей плотная подложка: в зазорах между картками сітка не проступає */
+.ovw .days{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:10px;
+  background:var(--bg);border-radius:16px}
 .ovw .day{position:relative;overflow:hidden;aspect-ratio:1.08;border:1px solid var(--line-soft);
   border-radius:14px;padding:13px 14px;background:var(--card);box-shadow:var(--card-lip);
   display:flex;flex-direction:column;transition:border-color .3s var(--ease);cursor:pointer}
