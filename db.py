@@ -15,7 +15,7 @@ from config import DATABASE_URL
 # Текстовые поля сделки. Порядок важен: по нему строятся INSERT/UPDATE.
 TEXT_FIELDS = ["pair", "date", "session", "position", "entry_model", "bias", "setup",
                "direction_type", "result", "entry_details", "notes", "mistakes",
-               "comments", "emotion", "notion_id"]
+               "comments", "emotion", "notion_id", "import_id"]
 NUM_FIELDS = ["rr", "risk"]
 FIELDS = TEXT_FIELDS + NUM_FIELDS
 
@@ -70,6 +70,7 @@ CREATE TABLE IF NOT EXISTS trades (
   "comments"            TEXT NOT NULL DEFAULT '',
   "emotion"             TEXT NOT NULL DEFAULT '',
   "notion_id"           TEXT NOT NULL DEFAULT '',   -- id записи в Notion: чтобы импорт не задваивал
+  "import_id"           TEXT NOT NULL DEFAULT '',   -- каким переносом принесена: чтобы можно было отменить
   rr                    DOUBLE PRECISION,
   risk                  DOUBLE PRECISION,
   screenshots           JSONB NOT NULL DEFAULT '[]'::jsonb,
@@ -109,6 +110,8 @@ CREATE TABLE IF NOT EXISTS meta (
 -- а тут — как человек это сказал.
 ALTER TABLE trades ADD COLUMN IF NOT EXISTS emotion_raw TEXT;
 ALTER TABLE trades ADD COLUMN IF NOT EXISTS "notion_id" TEXT NOT NULL DEFAULT '';
+ALTER TABLE trades ADD COLUMN IF NOT EXISTS "import_id" TEXT NOT NULL DEFAULT '';
+CREATE INDEX IF NOT EXISTS trades_import ON trades (user_id, "import_id");
 """
 
 
@@ -213,6 +216,32 @@ def notion_known(user_id):
     known = {(r["pair"] or "").strip() for r in rows if (r["pair"] or "").strip()}
     seen = {r["notion_id"] for r in rows if r["notion_id"]}
     return known, seen
+
+
+def count_import(user_id, batch):
+    with connect() as conn:
+        row = conn.execute('SELECT count(*) AS n FROM trades WHERE user_id=%s '
+                           'AND "import_id"=%s', (user_id, batch)).fetchone()
+    return row["n"]
+
+
+def drop_import(user_id, batch):
+    """Убирает сделки одного переноса. Возвращает (сколько убрали, какие
+    файлы скриншотов больше никому не нужны)."""
+    with connect() as conn:
+        gone = conn.execute('SELECT screenshots FROM trades WHERE user_id=%s '
+                            'AND "import_id"=%s', (user_id, batch)).fetchall()
+        if not gone:
+            return 0, []
+        conn.execute('DELETE FROM trades WHERE user_id=%s AND "import_id"=%s',
+                     (user_id, batch))
+        left = conn.execute("SELECT screenshots FROM trades WHERE user_id=%s",
+                            (user_id,)).fetchall()
+        conn.commit()
+    files = {s.get("file") for r in gone for s in (r["screenshots"] or []) if s.get("file")}
+    # файл может быть общим с оставшейся сделкой — такие не трогаем
+    used = {s.get("file") for r in left for s in (r["screenshots"] or []) if s.get("file")}
+    return len(gone), sorted(files - used)
 
 
 def owns_screenshot(user_id, filename):

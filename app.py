@@ -5,6 +5,7 @@ Trading Journal — сервер журнала.
 Данные: Postgres (DATABASE_URL), скриншоты: data/screenshots/
 """
 import base64
+import datetime
 import json
 import os
 import re
@@ -91,6 +92,10 @@ def clean_trade(body, tid):
             t[k] = None
     t["screenshots"] = body.get("screenshots") or []
     if body.get("hidden"): t["hidden"] = True
+    # откуда сделка приехала — нужно, чтобы повторный импорт не задвоил её
+    if body.get("notion_id"): t["notion_id"] = str(body["notion_id"])[:64]
+    # какое перенесение её принесло — нужно, чтобы его можно было отменить
+    if body.get("import_id"): t["import_id"] = str(body["import_id"])[:32]
     return t
 
 
@@ -196,6 +201,25 @@ def add_trades(user_id, items):
         t["screenshots"] = it.get("screenshots") or []
         batch.append(t)
     db.insert_trades(user_id, batch)
+
+
+def drop_import(user_id, batch):
+    """Отменяет перенесение целиком: убирает его сделки и их скриншоты.
+
+    Без этого любая ошибка в сверке колонок необратима — а ошибиться там
+    легко, поэтому откат нужен не «когда-нибудь», а сразу."""
+    batch = str(batch or "")[:32]
+    if not batch:
+        return 0
+    removed, orphan_files = db.drop_import(user_id, batch)
+    if not removed:
+        return 0
+    delete_files(orphan_files)
+    conf = notion_conf(user_id)
+    if (conf.get("last") or {}).get("id") == batch:
+        conf.pop("last", None)
+        notion_save(user_id, conf)
+    return removed
 
 
 def start_import(user_id, tables, mapping, opts):
@@ -329,9 +353,17 @@ class H(BaseHTTPRequestHandler):
             if not uid:
                 return self._json({"error": "auth required"}, 401)
             conf = notion_conf(uid)
+            last = conf.get("last") or None
+            if last and last.get("id"):
+                # считаем по журналу, а не по записанному числу: цифра верна,
+                # даже если браузер закрыли посреди перенесения
+                last = dict(last, count=db.count_import(uid, last["id"]))
+                if not last["count"]:
+                    last = None
             return self._json({
                 "url": conf.get("url") or "",
                 "title": conf.get("title") or "",
+                "last": last,
                 "mapping": conf.get("mapping") or {},
                 "fields": [{"k": k, "label": notion.LABELS[k]} for k in notion.FIELDS],
             })
@@ -472,6 +504,9 @@ class H(BaseHTTPRequestHandler):
             data["fields"] = [{"k": k, "label": notion.LABELS[k]} for k in notion.FIELDS]
             data.pop("source", None)
             return self._json(data)
+        if p.startswith("/api/notion/undo/"):
+            n = drop_import(uid, p[len("/api/notion/undo/"):])
+            return self._json({"removed": n})
 
         if p == "/api/notion/forget":
             try:
@@ -490,8 +525,10 @@ class H(BaseHTTPRequestHandler):
                 return self._json({"error": "потрібні таблиця і колонка з інструментом"}, 400)
             conf = notion_conf(uid)
             conf.update({"url": url, "mapping": mapping, "title": body.get("title") or ""})
-            notion_save(uid, conf)
             job = start_import(uid, tables, mapping, body.get("options") or {})
+            conf["last"] = {"id": job.batch, "count": 0,
+                            "when": datetime.datetime.now().strftime("%Y-%m-%d %H:%M")}
+            notion_save(uid, conf)
             return self._json(job.snapshot(), 202)
 
         if p == "/api/trades":
