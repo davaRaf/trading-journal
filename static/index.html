@@ -11,11 +11,6 @@
 <link rel="stylesheet" href="/static/style.css">
 <link rel="stylesheet" href="/static/news.css">
 <script>
-/* Экран входа. Пока он не настоящий: отметка живёт в браузере,
-   сервера и аккаунтов ещё нет. Кнопка «Вийти» в меню её стирает. */
-try{ if(localStorage.getItem("statsai_entered")!=="1") location.replace("/login"); }catch(e){}
-</script>
-<script>
 /* тема применяется до отрисовки, чтобы не мигало */
 try{if(localStorage.getItem("tj_theme")!=="light")document.documentElement.setAttribute("data-theme","dark");}catch(e){}
 if(!document.documentElement.getAttribute("data-theme"))document.documentElement.setAttribute("data-theme","dark");
@@ -57,7 +52,8 @@ try{document.documentElement.setAttribute("data-nav",localStorage.getItem("tj_na
   </div>
 
   <div class="side-foot">
-    <button class="mini" data-tip="Повернутися на екран входу" onclick="if(confirm('Вийти з журналу?')){try{localStorage.removeItem('statsai_entered')}catch(e){};location.href='/login'}"><svg class="ic" width="14" height="14" viewBox="0 0 24 24" fill="none"><path d="M15 17l5-5-5-5M20 12H9" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/><path d="M12 20H6a2 2 0 01-2-2V6a2 2 0 012-2h6" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></svg> <span>Вийти</span></button>
+    <button class="mini" data-tip="Нагадування про новини та питання про емоції" onclick="openTelegram()"><svg class="ic" width="14" height="14" viewBox="0 0 24 24" fill="none"><path d="M21 4L3 11l6 2.2L19 6.5l-7.5 8.3.4 5.2 2.6-3.6 4.2 3.1L21 4z" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/></svg> <span>Telegram</span></button>
+    <button class="mini" data-tip="Вийти з акаунта" onclick="logout()"><svg class="ic" width="14" height="14" viewBox="0 0 24 24" fill="none"><path d="M15 17l5-5-5-5M20 12H9" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/><path d="M12 20H6a2 2 0 01-2-2V6a2 2 0 012-2h6" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></svg> <span>Вийти</span></button>
     <button class="mini" id="themeBtn" data-tip="Перемкнути світлу й темну тему" onclick="toggleTheme()"><svg class="ic" width="14" height="14" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="4.2" stroke="currentColor" stroke-width="1.6"/><path d="M12 2.6v2.2M12 19.2v2.2M2.6 12h2.2M19.2 12h2.2M5.3 5.3l1.6 1.6M17.1 17.1l1.6 1.6M18.7 5.3l-1.6 1.6M6.9 17.1l-1.6 1.6" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg> <span>Світла тема</span></button>
   </div>
 </aside>

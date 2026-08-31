@@ -29,6 +29,8 @@ const TF_LIST = ["1m","3m","5m","15m","30m","1H","4H","1D","1W"];
 const TF_SLOTS = ["1m","3m","5m","15m","30m","1H","4H"];
 const TF_ORDER = ["1W","1D","4H","1H","30m","15m","5m","3m","1m"];
 const SESSIONS = ["LONDON","NY","FRANKFURT","PH","PM"];
+/* те же варианты, что бот показывает кнопками в Telegram */
+const EMOTIONS = ["Спокій","Впевненість","Жадібність","Страх","Азарт","Помста","Нудьга"];
 /* активы для подсказок в форме. Старые инструменты (форекс, золото) остаются
    в статистике полностью, но новую сделку по ним не предлагаем. */
 const PAIRS_ACTIVE = ["US100","GER40","ES500"];
@@ -36,6 +38,7 @@ const DIMS = [
   {k:"pair",label:"Інструмент"},{k:"session",label:"Сесія"},{k:"position",label:"Напрямок"},
   {k:"entry_model",label:"Модель входу"},{k:"bias",label:"Біас"},{k:"setup",label:"Сетап"},
   {k:"direction_type",label:"Продовження / Розворот"},{k:"result",label:"TP / SL / BE"},{k:"mistakes",label:"Помилки"},
+  {k:"emotion",label:"Емоція"},
 ];
 
 /* короткие пояснения к показателям — всплывают при наведении */
@@ -138,7 +141,8 @@ function groupBy(list, keyFn){
 let DEMO=false;
 async function api(method,url,body){
   if(DEMO) return DemoStore.handle(method,url,body);
-  const res=await fetch(url,{method,headers:{"Content-Type":"application/json"},body:body?JSON.stringify(body):undefined});
+  const res=await fetch(url,{method,credentials:"same-origin",headers:{"Content-Type":"application/json"},body:body?JSON.stringify(body):undefined});
+  if(res.status===401){ location.href="/login"; throw new Error("API 401"); }
   if(!res.ok) throw new Error("API "+res.status);
   return res.json();
 }
@@ -1186,6 +1190,10 @@ function openForm(id, presetDay){
       '<div class="quick">'+mistakes.map(x=>
         '<button type="button" data-f="mistakes" data-v="'+esc(x)+'" onclick="quickSet(this)">'+esc(x)+"</button>").join("")+"</div>"+
       '<input id="fld_mistakes" value="'+v("mistakes")+'" placeholder="порожньо, якщо помилок немає" autocomplete="off" oninput="markQuick()"></div>'+
+    '<div class="f"><label>Емоція під час угоди <span class="autotag">не вкажеш — запитає бот у Telegram</span></label>'+
+      '<div class="quick">'+EMOTIONS.map(x=>
+        '<button type="button" data-f="emotion" data-v="'+esc(x)+'" onclick="quickSet(this)">'+esc(x)+"</button>").join("")+"</div>"+
+      '<input id="fld_emotion" value="'+v("emotion")+'" placeholder="або своїми словами" autocomplete="off" oninput="markQuick()"></div>'+
   "</div></section>"+
 
   "</div>";
@@ -1380,7 +1388,8 @@ async function saveTrade(id){
     entry_model:g("entry_model"), bias:g("bias"), setup:g("setup"),
     direction_type:g("direction_type"), result:g("result"),
     rr:g("rr"), risk:g("risk"),
-    entry_details:g("entry_details"), notes:g("notes"), mistakes:g("mistakes"), comments:"",
+    entry_details:g("entry_details"), notes:g("notes"), mistakes:g("mistakes"),
+    emotion:g("emotion"), comments:"",
     screenshots:S.formShots,
   };
   if(!t.pair){ alert("Вкажи інструмент"); return; }
@@ -1399,7 +1408,8 @@ async function saveTrade(id){
 const IMP={rows:[],headers:[],map:{}};
 const IMP_FIELDS=[["pair","Інструмент"],["date","Дата"],["session","Сесія"],["position","Напрямок"],
   ["entry_model","Модель входу"],["bias","Біас"],["setup","Сетап"],["direction_type","Прод./Розв."],
-  ["result","Результат"],["rr","RR"],["risk","Ризик"],["entry_details","Як заходив"],["notes","Нотатки"],["mistakes","Помилки"]];
+  ["result","Результат"],["rr","RR"],["risk","Ризик"],["entry_details","Як заходив"],["notes","Нотатки"],["mistakes","Помилки"],
+  ["emotion","Емоція"]];
 
 function openImport(){
   let h='<div class="m-head"><h2>Імпорт угод</h2><button class="x" onclick="closeModal()">×</button></div>'+
@@ -1557,6 +1567,50 @@ document.addEventListener("keydown",e=>{
   if(e.key==="Escape"){ if(!$("#lightbox").hidden)closeLightbox(); else if(!$("#modal").hidden)closeModal(); }
 });
 $("#modal").addEventListener("click",e=>{ if(e.target.id==="modal")closeModal(); });
+
+/* ---------- аккаунт и Telegram ---------- */
+async function logout(){
+  if(!confirm("Вийти з журналу?")) return;
+  try{ await api("POST","/api/auth/logout"); }catch(e){}
+  location.href="/login";
+}
+
+async function openTelegram(){
+  let user=null;
+  try{ user=(await api("GET","/api/auth/me")).user; }catch(e){ return; }
+  const head='<div class="m-head"><h2>Telegram</h2><button class="x" onclick="closeModal()">×</button></div>';
+  const foot='<div class="m-foot"><span class="sp"></span><button class="btn" onclick="closeModal()">Закрити</button></div>';
+  let body;
+  if(user && user.telegram_linked){
+    body='<div class="m-body"><p class="hint">Прив\'язано: <b>'+esc(user.telegram ? "@"+user.telegram : "Telegram")+'</b>. '+
+      'Нагадую про важливі новини за 30 хвилин і вранці, а після угоди без емоції питаю, що ти відчував.</p>'+
+      '<button class="btn danger" onclick="unlinkTelegram()">Відв\'язати</button></div>';
+  }else{
+    body='<div class="m-body"><p class="hint">Прив\'яжи Telegram — і бот нагадає про важливі новини '+
+      'та запитає про емоцію після кожної угоди, якщо не вкажеш її тут.</p>'+
+      '<button class="btn primary" onclick="linkTelegram()">Отримати код</button>'+
+      '<div id="tgLink" style="margin-top:14px"></div></div>';
+  }
+  openModal(head+body+foot);
+}
+
+async function linkTelegram(){
+  const box=$("#tgLink"); if(box) box.innerHTML='<span class="hint">Готую код…</span>';
+  try{
+    const r=await api("POST","/api/telegram/link-code");
+    box.innerHTML='<p class="hint">Код діє 15 хвилин.</p>'+
+      '<a class="btn primary" href="'+esc(r.link)+'" target="_blank" rel="noopener">Відкрити @'+esc(r.bot)+'</a>'+
+      '<p class="hint" style="margin-top:10px">Або надішли боту вручну: <b>/start '+esc(r.code)+'</b></p>';
+  }catch(e){
+    box.innerHTML='<span class="hint">Не вийшло отримати код. Перевір, чи запущено bot.py</span>';
+  }
+}
+
+async function unlinkTelegram(){
+  if(!confirm("Відв'язати Telegram?")) return;
+  try{ await api("POST","/api/telegram/unlink"); }catch(e){}
+  closeModal();
+}
 
 function markDemo(){
   const b=document.createElement("div");

@@ -6,6 +6,10 @@ data/*.bak*
 data/*.tmp
 data/*.broken.*
 
+# доступы и ключ подписи сессий
+.env
+data/.session_secret
+
 __pycache__/
 *.pyc
 .DS_Store

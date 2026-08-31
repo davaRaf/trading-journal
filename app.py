@@ -1,139 +1,46 @@
 # -*- coding: utf-8 -*-
 """
-Trading Journal — локальный сервер.
-Только стандартная библиотека Python. Запуск:  python app.py
-Данные: data/trades.json, скриншоты: data/screenshots/
+Trading Journal — сервер журнала.
+Только стандартная библиотека Python плюс драйвер Postgres. Запуск:  python app.py
+Данные: Postgres (DATABASE_URL), скриншоты: data/screenshots/
 """
-import json, os, re, base64, threading, time, urllib.request, datetime
+import base64
+import json
+import os
+import re
+import threading
+import time
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from urllib.parse import urlparse, unquote
 
-ROOT   = os.path.dirname(os.path.abspath(__file__))
+import auth
+import config
+import db
+import emotions
+import tg_api
+from calendar_feed import calendar_events
+
+ROOT   = config.ROOT
 STATIC = os.path.join(ROOT, "static")
 DATA   = os.path.join(ROOT, "data")
 SHOTS  = os.path.join(DATA, "screenshots")
-TRADES_FILE = os.path.join(DATA, "trades.json")
-PORT   = int(os.environ.get("PORT", 8172))   # рабочая копия запускается на другом порту
+PORT   = config.PORT
 
 os.makedirs(SHOTS, exist_ok=True)
 
-_lock = threading.Lock()
-
-# ---------------------------------------------------------------------------
-# Экономический календарь.
-# Фид Forex Factory блокирует за частые запросы, поэтому ходим за ним отсюда
-# раз в полчаса, а не из браузера каждого пользователя. Каждую удачную выгрузку
-# складываем в архив по неделям: фид отдаёт только текущую неделю, историю
-# иначе взять негде, и каждый пропущенный день потерян навсегда.
-# ---------------------------------------------------------------------------
-CAL_URL  = "https://nfs.faireconomy.media/ff_calendar_thisweek.json"
-CAL_DIR  = os.path.join(DATA, "calendar")
-CAL_TTL  = 1800          # секунд между походами в сеть
-CAL_UA   = "Mozilla/5.0 (compatible; StatsAI/1.0; +local)"
-
-os.makedirs(CAL_DIR, exist_ok=True)
-_cal_lock = threading.Lock()
-_cal = {"at": 0, "data": None, "error": None}
-
-def _cal_week_file(iso_date):
-    """Файл архива по номеру недели из даты события."""
-    y, w, _ = datetime.date.fromisoformat(iso_date[:10]).isocalendar()
-    return os.path.join(CAL_DIR, "%04d-W%02d.json" % (y, w))
-
-def _cal_archive(events):
-    """Дописываем события в архив, не плодя дубликаты."""
-    by_week = {}
-    for e in events:
-        try:
-            by_week.setdefault(_cal_week_file(e.get("date", "")), []).append(e)
-        except Exception:
-            continue
-    for path, items in by_week.items():
-        old = []
-        if os.path.exists(path):
-            try:
-                with open(path, "r", encoding="utf-8") as f:
-                    old = json.load(f)
-            except Exception:
-                old = []
-        seen = {(x.get("date"), x.get("country"), x.get("title")) for x in old}
-        for e in items:
-            k = (e.get("date"), e.get("country"), e.get("title"))
-            if k not in seen:
-                old.append(e); seen.add(k)
-        old.sort(key=lambda x: x.get("date") or "")
-        tmp = path + ".tmp"
-        with open(tmp, "w", encoding="utf-8") as f:
-            json.dump(old, f, ensure_ascii=False, indent=1)
-        os.replace(tmp, path)
-
-def _cal_newest_archive():
-    """Если сеть недоступна — отдаём последнее, что успели сохранить."""
-    files = sorted(f for f in os.listdir(CAL_DIR) if f.endswith(".json"))
-    if not files:
-        return None
-    try:
-        with open(os.path.join(CAL_DIR, files[-1]), "r", encoding="utf-8") as f:
-            return json.load(f)
-    except Exception:
-        return None
-
-def calendar_events():
-    """Отдаёт события недели: из памяти, из сети или из архива."""
-    with _cal_lock:
-        fresh = _cal["data"] is not None and (time.time() - _cal["at"]) < CAL_TTL
-        if fresh:
-            return _cal["data"], None
-        try:
-            req = urllib.request.Request(CAL_URL, headers={"User-Agent": CAL_UA})
-            with urllib.request.urlopen(req, timeout=20) as r:
-                data = json.loads(r.read().decode("utf-8"))
-            if not isinstance(data, list):
-                raise ValueError("фид вернул не список")
-            _cal.update(at=time.time(), data=data, error=None)
-            try:
-                _cal_archive(data)
-            except Exception:
-                pass
-            return data, None
-        except Exception as ex:
-            _cal["error"] = str(ex)
-            if _cal["data"] is not None:
-                return _cal["data"], "сеть недоступна, показываю сохранённое"
-            saved = _cal_newest_archive()
-            if saved is not None:
-                return saved, "сеть недоступна, показываю архив"
-            return [], "календарь недоступен: %s" % ex
-
-def _load():
-    if not os.path.exists(TRADES_FILE):
-        return []
-    try:
-        with open(TRADES_FILE, "r", encoding="utf-8") as f:
-            return json.load(f)
-    except Exception:
-        # повреждённый файл не затираем — откладываем копию
-        try:
-            os.replace(TRADES_FILE, TRADES_FILE + ".broken." + str(int(time.time())))
-        except Exception:
-            pass
-        return []
-
-def _save(trades):
-    tmp = TRADES_FILE + ".tmp"
-    with open(tmp, "w", encoding="utf-8") as f:
-        json.dump(trades, f, ensure_ascii=False, indent=1)
-    os.replace(tmp, TRADES_FILE)
-
-TRADES = _load()
-
 _id_counter = int(time.time() * 1000)
+_id_lock = threading.Lock()
+
+
 def new_id():
     global _id_counter
-    _id_counter += 1
-    return "t" + str(_id_counter)
+    with _id_lock:
+        _id_counter += 1
+        return "t" + str(_id_counter)
+
 
 DATAURL_RE = re.compile(r"^data:image/(png|jpeg|jpg|webp|gif);base64,(.+)$", re.S)
+
 
 def save_screenshots(trade):
     """Скриншоты с base64-данными сохраняем в файлы; уже сохранённые оставляем."""
@@ -158,6 +65,7 @@ def save_screenshots(trade):
             out.append({"tf": s.get("tf") or "", "file": s["file"]})
     trade["screenshots"] = out
 
+
 def delete_files(names):
     for n in names:
         p = os.path.join(SHOTS, os.path.basename(n))
@@ -167,12 +75,10 @@ def delete_files(names):
             except Exception:
                 pass
 
-FIELDS = ["pair","date","session","position","entry_model","bias","setup","direction_type",
-          "result","rr","risk","entry_details","notes","mistakes","comments"]
 
 def clean_trade(body, tid):
     t = {"id": tid}
-    for k in FIELDS:
+    for k in db.FIELDS:
         v = body.get(k)
         t[k] = v if v is not None else ""
     for k in ("rr", "risk"):
@@ -184,16 +90,53 @@ def clean_trade(body, tid):
     if body.get("hidden"): t["hidden"] = True
     return t
 
+
+def ask_emotion_later(user, trade):
+    """Вопрос про эмоцию уходит в фоне — ответ сайту ждать Telegram не должен."""
+    def run():
+        try:
+            emotions.send_prompt(user["telegram_id"], trade)
+        except Exception as ex:
+            print("не смог спросить про эмоцию:", ex)
+    threading.Thread(target=run, daemon=True).start()
+
+
+def bot_username():
+    """Имя бота нужно для ссылки привязки. Спрашиваем у Telegram сами и запоминаем,
+    чтобы кнопка работала и до первого запуска bot.py."""
+    name = config.BOT_USERNAME or db.meta_get("bot_username")
+    if name:
+        return name
+    try:
+        name = tg_api.get_me()["username"]
+    except Exception as ex:
+        print("не смог узнать имя бота:", ex)
+        return None
+    db.meta_set("bot_username", name)
+    return name
+
+
+def user_public(user):
+    return {"id": user["id"], "email": user["email"], "nickname": user["nickname"],
+            "telegram": user["telegram_username"] or (str(user["telegram_id"])
+                                                      if user["telegram_id"] else None),
+            "telegram_linked": user["telegram_id"] is not None,
+            "digest_hour": user["digest_hour"], "digest_minute": user["digest_minute"],
+            "digest_enabled": user["digest_enabled"]}
+
+
 class H(BaseHTTPRequestHandler):
     def log_message(self, fmt, *args):  # тихий лог
         pass
 
     # ---------- ответы ----------
-    def _json(self, obj, code=200):
+    def _json(self, obj, code=200, cookie=None):
         data = json.dumps(obj, ensure_ascii=False).encode("utf-8")
         self.send_response(code)
         self.send_header("Content-Type", "application/json; charset=utf-8")
         self.send_header("Content-Length", str(len(data)))
+        if cookie:
+            self.send_header("Set-Cookie", cookie)
         self.end_headers()
         self.wfile.write(data)
 
@@ -209,6 +152,11 @@ class H(BaseHTTPRequestHandler):
         self.end_headers()
         self.wfile.write(data)
 
+    def _redirect(self, where):
+        self.send_response(302)
+        self.send_header("Location", where)
+        self.end_headers()
+
     def _body(self):
         n = int(self.headers.get("Content-Length") or 0)
         if n <= 0:
@@ -219,17 +167,31 @@ class H(BaseHTTPRequestHandler):
         except Exception:
             return None
 
+    def _uid(self):
+        return auth.current_user_id(self)
+
     # ---------- GET ----------
     def do_GET(self):
         p = unquote(urlparse(self.path).path)
+
+        if p == "/api/auth/me":
+            uid = self._uid()
+            user = db.get_user(uid) if uid else None
+            return self._json({"user": user_public(user) if user else None})
+
         if p == "/api/trades":
-            with _lock:
-                return self._json(TRADES)
+            uid = self._uid()
+            if not uid:
+                return self._json({"error": "auth required"}, 401)
+            return self._json(db.list_trades(uid))
+
         if p == "/api/calendar":
             events, warn = calendar_events()
             return self._json({"events": events, "warning": warn})
+
         if p == "/login":
             return self._file(os.path.join(STATIC, "login.html"), "text/html; charset=utf-8")
+
         if p.startswith("/design/"):
             # прототипы: экран входа, новости, знак — чтобы смотреть с того же адреса
             name = os.path.normpath(p[len("/design/"):]).replace("\\", "/")
@@ -244,14 +206,23 @@ class H(BaseHTTPRequestHandler):
                      "svg":"image/svg+xml","png":"image/png","md":"text/plain; charset=utf-8"
                      }.get(ext, "application/octet-stream")
             return self._file(full, ctype)
+
         if p.startswith("/shots/"):
+            uid = self._uid()
             name = os.path.basename(p[len("/shots/"):])
+            # скриншот отдаём только владельцу сделки, в которой он числится
+            if not uid or not db.owns_screenshot(uid, name):
+                self.send_response(404); self.end_headers(); return
             ext = name.rsplit(".", 1)[-1].lower()
             ctype = {"png":"image/png","jpg":"image/jpeg","jpeg":"image/jpeg",
                      "webp":"image/webp","gif":"image/gif"}.get(ext, "application/octet-stream")
             return self._file(os.path.join(SHOTS, name), ctype)
+
         if p in ("/", "/index.html"):
+            if not self._uid():
+                return self._redirect("/login")
             return self._file(os.path.join(STATIC, "index.html"), "text/html; charset=utf-8")
+
         if p.startswith("/static/"):
             name = os.path.normpath(p[len("/static/"):]).replace("\\", "/")
             if name.startswith(".."):
@@ -260,37 +231,90 @@ class H(BaseHTTPRequestHandler):
             ctype = {"css":"text/css; charset=utf-8","js":"application/javascript; charset=utf-8",
                      "html":"text/html; charset=utf-8","png":"image/png","svg":"image/svg+xml"}.get(ext,"application/octet-stream")
             return self._file(os.path.join(STATIC, name), ctype)
+
         self.send_response(404); self.end_headers()
 
     # ---------- POST ----------
     def do_POST(self):
         p = urlparse(self.path).path
+        body = self._body()
+
+        # ---- вход и регистрация ----
+        if p == "/api/auth/register":
+            if not isinstance(body, dict):
+                return self._json({"error": "bad json"}, 400)
+            email = str(body.get("email") or "").strip()
+            nickname = str(body.get("nickname") or "").strip()
+            password = str(body.get("password") or "")
+            if not email or not nickname or len(password) < 6:
+                return self._json({"error": "потрібні пошта, нікнейм і пароль від 6 символів"}, 400)
+            pw_hash, pw_salt, iters = auth.hash_password(password)
+            try:
+                user = db.create_user(email, nickname, pw_hash, pw_salt, iters)
+            except Exception as ex:
+                if "unique" in str(ex).lower() or "duplicate" in str(ex).lower():
+                    return self._json({"error": "така пошта або нікнейм уже зайняті"}, 409)
+                raise
+            return self._json({"user": user_public(user)}, 201,
+                              cookie=auth.cookie_header(auth.make_session(user["id"])))
+
+        if p == "/api/auth/login":
+            if not isinstance(body, dict):
+                return self._json({"error": "bad json"}, 400)
+            user = db.get_user_by_login(body.get("login"))
+            if not user or not auth.verify_password(str(body.get("password") or ""),
+                                                    user["pw_hash"], user["pw_salt"],
+                                                    user["pw_iters"]):
+                return self._json({"error": "невірна пошта або пароль"}, 401)
+            return self._json({"user": user_public(user)},
+                              cookie=auth.cookie_header(auth.make_session(user["id"])))
+
+        if p == "/api/auth/logout":
+            return self._json({"ok": True}, cookie=auth.clear_cookie_header())
+
+        # ---- дальше всё только для своих ----
+        uid = self._uid()
+        if p.startswith("/api/") and not uid:
+            return self._json({"error": "auth required"}, 401)
+
+        if p == "/api/telegram/link-code":
+            bot = bot_username()
+            if not bot:
+                return self._json({"error": "бот не налаштований — немає BOT_TOKEN"}, 503)
+            code = db.create_link_code(uid)
+            return self._json({"code": code, "bot": bot,
+                               "link": "https://t.me/%s?start=%s" % (bot, code)})
+
+        if p == "/api/telegram/unlink":
+            db.unlink_telegram(uid)
+            return self._json({"ok": True})
+
         if p == "/api/trades":
-            body = self._body()
             if not isinstance(body, dict) or not str(body.get("pair", "")).strip():
                 return self._json({"error": "bad json or empty pair"}, 400)
-            with _lock:
-                t = clean_trade(body, new_id())
-                save_screenshots(t)
-                TRADES.append(t)
-                _save(TRADES)
+            t = clean_trade(body, new_id())
+            save_screenshots(t)
+            user = db.get_user(uid)
+            ask = not str(t.get("emotion") or "").strip() and user["telegram_id"] is not None
+            db.insert_trade(uid, t, "pending" if ask else "na")
+            if ask:
+                ask_emotion_later(user, t)
             return self._json(t, 201)
+
         if p == "/api/import":
-            body = self._body()
             if body is None:
                 return self._json({"error": "bad json"}, 400)
             items = body if isinstance(body, list) else body.get("trades") or []
             added = 0
-            with _lock:
-                for it in items:
-                    if not isinstance(it, dict):
-                        continue
-                    t = clean_trade(it, new_id())
-                    save_screenshots(t)
-                    TRADES.append(t)
-                    added += 1
-                _save(TRADES)
+            for it in items:
+                if not isinstance(it, dict):
+                    continue
+                t = clean_trade(it, new_id())
+                save_screenshots(t)
+                db.insert_trade(uid, t)
+                added += 1
             return self._json({"ok": True, "added": added})
+
         self.send_response(404); self.end_headers()
 
     # ---------- PUT ----------
@@ -299,22 +323,23 @@ class H(BaseHTTPRequestHandler):
         m = re.match(r"^/api/trades/([\w-]+)$", p)
         if not m:
             self.send_response(404); self.end_headers(); return
+        uid = self._uid()
+        if not uid:
+            return self._json({"error": "auth required"}, 401)
         tid = m.group(1)
         body = self._body()
         if not isinstance(body, dict):
             return self._json({"error": "bad json"}, 400)
-        with _lock:
-            for i, old in enumerate(TRADES):
-                if old["id"] == tid:
-                    t = clean_trade(body, tid)
-                    save_screenshots(t)
-                    old_files = {s["file"] for s in old.get("screenshots") or [] if s.get("file")}
-                    new_files = {s["file"] for s in t["screenshots"] if s.get("file")}
-                    delete_files(old_files - new_files)
-                    TRADES[i] = t
-                    _save(TRADES)
-                    return self._json(t)
-        self._json({"error": "not found"}, 404)
+        old = db.get_trade(tid, uid)
+        if not old:
+            return self._json({"error": "not found"}, 404)
+        t = clean_trade(body, tid)
+        save_screenshots(t)
+        old_files = {s["file"] for s in old.get("screenshots") or [] if s.get("file")}
+        new_files = {s["file"] for s in t["screenshots"] if s.get("file")}
+        db.update_trade(uid, t)
+        delete_files(old_files - new_files)
+        return self._json(t)
 
     # ---------- DELETE ----------
     def do_DELETE(self):
@@ -322,16 +347,19 @@ class H(BaseHTTPRequestHandler):
         m = re.match(r"^/api/trades/([\w-]+)$", p)
         if not m:
             self.send_response(404); self.end_headers(); return
+        uid = self._uid()
+        if not uid:
+            return self._json({"error": "auth required"}, 401)
         tid = m.group(1)
-        with _lock:
-            for i, old in enumerate(TRADES):
-                if old["id"] == tid:
-                    delete_files([s["file"] for s in old.get("screenshots") or [] if s.get("file")])
-                    TRADES.pop(i)
-                    _save(TRADES)
-                    return self._json({"ok": True})
-        self._json({"error": "not found"}, 404)
+        old = db.get_trade(tid, uid)
+        if not old:
+            return self._json({"error": "not found"}, 404)
+        db.delete_trade(uid, tid)
+        delete_files([s["file"] for s in old.get("screenshots") or [] if s.get("file")])
+        return self._json({"ok": True})
+
 
 if __name__ == "__main__":
+    db.init()
     print("Trading Journal -> http://localhost:%d/  (Ctrl+C stop)" % PORT)
     ThreadingHTTPServer(("127.0.0.1", PORT), H).serve_forever()

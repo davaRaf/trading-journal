@@ -153,6 +153,9 @@ body{
 .go:hover{opacity:.88}
 .go:focus-visible{outline:2px solid rgb(var(--pos-rgb)); outline-offset:2px}
 
+.err{margin:12px 0 0; text-align:center; font-size:12.5px; color:rgb(var(--neg-rgb))}
+.err[hidden]{display:none}
+
 .alt{margin-top:16px; text-align:center; font-size:12.5px; color:var(--faint)}
 .alt a{color:var(--dim); text-decoration:none; border-bottom:1px solid var(--hair)}
 .alt a:hover{color:var(--text)}
@@ -494,6 +497,7 @@ body{
         <span class="spin" aria-hidden="true"></span>
         <svg class="tick" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 12.5l5.2 5.2L20 7"/></svg>
       </button>
+      <p class="err" id="errMsg" hidden></p>
     </form>
 
     <div class="alt" id="altLine">Нет аккаунта? <a href="#" data-goto="up">Создать</a></div>
@@ -998,16 +1002,21 @@ Object.keys(I18N).forEach(code => {
 });
 
 /* ============================================================
-   Вход пока не настоящий: сервера и аккаунтов ещё нет.
-   Любая кнопка просто ставит отметку и ведёт в журнал —
-   чтобы можно было посмотреть, как выглядит путь целиком.
+   Вход через сервер: сессия живёт в подписанной cookie,
+   журнал на "/" сам отправит обратно сюда, если её нет.
+   Кнопки соцсетей — пока заглушки, входа через них ещё нет.
    ============================================================ */
-const ENTER_KEY = "statsai_entered";
-function enter(){
-  try{ localStorage.setItem(ENTER_KEY, "1"); }catch(e){}
-  location.href = "/";
+function enter(){ location.href = "/"; }
+
+const errMsg = document.getElementById("errMsg");
+function showErr(text){
+  errMsg.textContent = text;
+  errMsg.hidden = !text;
 }
-document.querySelectorAll(".soc").forEach(b => b.addEventListener("click", enter));
+
+document.querySelectorAll(".soc").forEach(b => b.addEventListener("click", () => {
+  showErr("Поки що вхід тільки поштою або ніком");
+}));
 
 /* ============ живые реакции формы ============ */
 const shell = document.querySelector(".shell");
@@ -1021,28 +1030,54 @@ function markBad(input){
   input.addEventListener("input", () => f.classList.remove("bad"), { once: true });
 }
 
+function shake(){
+  shell.classList.remove("shake"); void shell.offsetWidth;
+  shell.classList.add("shake");
+}
+
 /* пустые поля — карточка вздрагивает и подсвечивает, что не заполнено */
-goBtn.addEventListener("click", () => {
+goBtn.addEventListener("click", async () => {
   if (goBtn.classList.contains("busy") || goBtn.classList.contains("done")) return;
+  showErr("");
 
   const reg = document.querySelector('.tabs button.on').dataset.tab === "up";
   const nick = document.getElementById("nick");
   const empty = (reg ? [nick, em, pw] : [em, pw]).filter(i => !i.value.trim());
   if (empty.length){
     empty.forEach(markBad);
-    shell.classList.remove("shake"); void shell.offsetWidth;
-    shell.classList.add("shake");
+    shake();
     empty[0].focus();
     return;
   }
 
-  // всё заполнено: крутилка, потом галочка
   goBtn.classList.add("busy");
-  setTimeout(() => {
+  const body = reg
+    ? { email: em.value.trim(), nickname: nick.value.trim(), password: pw.value }
+    : { login: em.value.trim(), password: pw.value };
+  let res, data = {};
+  try {
+    res = await fetch("/api/auth/" + (reg ? "register" : "login"), {
+      method: "POST", credentials: "same-origin",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body)
+    });
+    data = await res.json().catch(() => ({}));
+  } catch(e){
     goBtn.classList.remove("busy");
-    goBtn.classList.add("done");
-    setTimeout(enter, 700);          // показали галочку — и в журнал
-  }, 1100);
+    showErr("Сервер не відповідає");
+    shake();
+    return;
+  }
+  goBtn.classList.remove("busy");
+
+  if (!res.ok){
+    showErr(data.error || "Не вийшло — спробуй ще раз");
+    markBad(em); markBad(pw);
+    shake();
+    return;
+  }
+  goBtn.classList.add("done");
+  setTimeout(enter, 700);            // показали галочку — и в журнал
 });
 
 /* наклон карточки за курсором — совсем чуть-чуть, только на мыши */
