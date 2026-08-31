@@ -1,0 +1,171 @@
+/* ============================================================
+   Оформлення: набір тем.
+
+   Кожна тема задає лише 13 кольорів — решта змінних виводиться
+   з них нижче. Так теми лишаються короткими, а вигляд —
+   узгодженим: підкладки, лінії й підсвітка завжди в тон.
+
+   Світлі й темні теми відрізняються ще й базою: data-theme
+   лишається "light" або "dark", його ставить themes.js.
+   ============================================================ */
+
+/* ---------- похідні: однакові для всіх тем ---------- */
+:root[data-skin]{
+  --accent-soft: color-mix(in srgb, var(--accent) 13%, transparent);
+  --up-soft:     color-mix(in srgb, var(--up) 13%, transparent);
+  --down-soft:   color-mix(in srgb, var(--down) 13%, transparent);
+  --be-soft:     color-mix(in srgb, var(--be) 13%, transparent);
+
+  --card: var(--panel);
+  --side-bg: var(--panel-2);
+  --shell-bg: var(--panel-2);
+  --seg-bg: var(--panel);
+  --seg-on-bg: var(--panel-2);
+  --seg-on-line: var(--line);
+  --day-off-bg: var(--panel-2);
+  --mark-bg: var(--panel-2);
+  --mark-line: var(--line);
+  --side-line: var(--line);
+
+  --ov-eq-line: var(--accent);
+  --ov-eq-fill: color-mix(in srgb, var(--accent) 14%, transparent);
+  --ov-grid: var(--line-soft);
+  --grid-line: var(--line-soft);
+  --bar-track: var(--line-soft);
+
+  /* дві м'які плями на тлі: акцент зліва зверху, нейтральна справа */
+  --glow: radial-gradient(58% 44% at 16% -4%,
+            color-mix(in srgb, var(--accent) 12%, transparent), transparent 68%),
+          radial-gradient(48% 38% at 98% 6%,
+            color-mix(in srgb, var(--text) 6%, transparent), transparent 72%);
+}
+
+/* ============================ темні ============================ */
+
+:root[data-skin="night"]{
+  --bg:#050505; --panel:#0d0d0e; --panel-2:#111112;
+  --line:rgba(255,255,255,.08); --line-soft:rgba(255,255,255,.045);
+  --text:#f2f2f3; --dim:#8c8c90; --faint:#5c5c61;
+  --accent:#40e094; --accent-ink:#06130d;
+  --up:#40e094; --down:#ff6e60; --be:#efc258;
+}
+
+:root[data-skin="graphite"]{
+  --bg:#101012; --panel:#17171a; --panel-2:#1c1c20;
+  --line:rgba(255,255,255,.09); --line-soft:rgba(255,255,255,.05);
+  --text:#ececef; --dim:#96969e; --faint:#64646d;
+  --accent:#f0a13c; --accent-ink:#1a1005;
+  --up:#59c98a; --down:#ef6a5e; --be:#e0b352;
+}
+
+:root[data-skin="midnight"]{
+  --bg:#070b14; --panel:#0d1421; --panel-2:#111a2b;
+  --line:rgba(150,190,255,.11); --line-soft:rgba(150,190,255,.055);
+  --text:#e6edf7; --dim:#8496b0; --faint:#566579;
+  --accent:#38bdf8; --accent-ink:#04202e;
+  --up:#34d399; --down:#fb7185; --be:#fbbf24;
+}
+
+:root[data-skin="wine"]{
+  --bg:#120a12; --panel:#1b101c; --panel-2:#221426;
+  --line:rgba(255,190,230,.11); --line-soft:rgba(255,190,230,.05);
+  --text:#f3e9f2; --dim:#a894a6; --faint:#756470;
+  --accent:#f472b6; --accent-ink:#2a0716;
+  --up:#6ee7b7; --down:#fb7185; --be:#fcd34d;
+}
+
+:root[data-skin="pine"]{
+  --bg:#06110d; --panel:#0c1a14; --panel-2:#10221a;
+  --line:rgba(160,255,210,.10); --line-soft:rgba(160,255,210,.05);
+  --text:#e7f4ec; --dim:#86a397; --faint:#5b7268;
+  --accent:#a3e635; --accent-ink:#16210a;
+  --up:#4ade80; --down:#f87171; --be:#facc15;
+}
+
+/* ============================ світлі ============================ */
+
+:root[data-skin="day"]{
+  --bg:#f2f4f8; --panel:#ffffff; --panel-2:#f6f8fb;
+  --line:#dde3ec; --line-soft:#eaeef5;
+  --text:#171b24; --dim:#5a6373; --faint:#99a2b3;
+  --accent:#2b62e3; --accent-ink:#ffffff;
+  --up:#128a53; --down:#c94430; --be:#9c7514;
+}
+
+:root[data-skin="paper"]{
+  --bg:#f6f2ea; --panel:#fffdf8; --panel-2:#f3eee4;
+  --line:#e3dbcc; --line-soft:#eee8dd;
+  --text:#241f18; --dim:#6b6155; --faint:#a49a8b;
+  --accent:#c2410c; --accent-ink:#fffdf8;
+  --up:#15803d; --down:#b91c1c; --be:#a16207;
+}
+
+:root[data-skin="fog"]{
+  --bg:#eef1f5; --panel:#ffffff; --panel-2:#f4f6f9;
+  --line:#d9dfe7; --line-soft:#e8ecf1;
+  --text:#1c2430; --dim:#5d6875; --faint:#97a1ae;
+  --accent:#475569; --accent-ink:#ffffff;
+  --up:#0f766e; --down:#be123c; --be:#a16207;
+}
+
+:root[data-skin="sand"]{
+  --bg:#f4f1e8; --panel:#fffefa; --panel-2:#f0ece0;
+  --line:#ded8c6; --line-soft:#ebe6d9;
+  --text:#262218; --dim:#6d6552; --faint:#a39a83;
+  --accent:#4d7c0f; --accent-ink:#fffefa;
+  --up:#3f6212; --down:#9f1239; --be:#92400e;
+}
+
+/* ============================ своя ============================ */
+/* Людина обирає два кольори — тло й акцент. Решту виводимо:
+   підкладки трохи світліші (або темніші) за тло, лінії — з тексту. */
+:root[data-skin="custom"]{
+  --bg: var(--seed-bg);
+  --panel:   color-mix(in srgb, var(--seed-bg) 92%, var(--seed-ink));
+  --panel-2: color-mix(in srgb, var(--seed-bg) 86%, var(--seed-ink));
+  --line:      color-mix(in srgb, var(--seed-ink) 15%, transparent);
+  --line-soft: color-mix(in srgb, var(--seed-ink) 8%, transparent);
+  --text: var(--seed-ink);
+  --dim:   color-mix(in srgb, var(--seed-ink) 62%, var(--seed-bg));
+  --faint: color-mix(in srgb, var(--seed-ink) 40%, var(--seed-bg));
+  --accent: var(--seed-accent);
+  --accent-ink: var(--seed-bg);
+}
+
+/* ---------- вікно вибору ---------- */
+.th-grp{display:flex; flex-direction:column; gap:9px}
+.th-grid{display:grid; grid-template-columns:repeat(auto-fill,minmax(148px,1fr)); gap:9px}
+
+.th-card{position:relative; display:flex; flex-direction:column; gap:9px; padding:11px;
+  border-radius:var(--r); cursor:pointer; text-align:left; font:inherit;
+  border:1px solid var(--line-soft); background:var(--card); color:var(--text);
+  transition:border-color .18s, transform .18s}
+.th-card:hover{transform:translateY(-1px)}
+.th-card.on{border-color:color-mix(in srgb, var(--accent) 55%, transparent)}
+.th-card .nm{font-size:13px; font-weight:600; display:flex; align-items:center; gap:7px}
+.th-card .nm i{font-style:normal; font-family:var(--mono); font-size:9px; letter-spacing:.1em;
+  text-transform:uppercase; color:var(--faint)}
+.th-card.on .nm i{color:var(--accent)}
+
+/* мініатюра: смужка тла, на ній підкладка, лінія й три кольори */
+.th-prev{height:52px; border-radius:var(--r-sm); overflow:hidden; position:relative;
+  border:1px solid rgba(128,128,128,.18)}
+.th-prev .sheet{position:absolute; left:8px; right:8px; top:9px; height:20px; border-radius:5px}
+.th-prev .bar{position:absolute; left:12px; top:14px; width:34px; height:4px; border-radius:99px}
+.th-prev .dots{position:absolute; left:8px; bottom:8px; display:flex; gap:4px}
+.th-prev .dots i{width:11px; height:11px; border-radius:50%}
+
+.th-custom{display:flex; flex-wrap:wrap; align-items:flex-end; gap:14px;
+  padding:14px; border-radius:var(--r); background:var(--panel-2);
+  border:1px solid var(--line-soft)}
+.th-pick{display:flex; flex-direction:column; gap:6px}
+.th-pick span{font-family:var(--mono); font-size:9.5px; letter-spacing:.12em;
+  text-transform:uppercase; color:var(--faint)}
+.th-pick input[type="color"]{width:56px; height:34px; padding:2px; cursor:pointer;
+  border:1px solid var(--line); border-radius:var(--r-sm); background:var(--panel)}
+.th-base{display:inline-flex; padding:3px; border-radius:99px;
+  background:var(--panel); border:1px solid var(--line)}
+.th-base button{border:0; background:transparent; color:var(--dim); font:inherit;
+  font-size:12.5px; padding:6px 14px; border-radius:99px; cursor:pointer}
+.th-base button.on{background:var(--panel-2); color:var(--text);
+  box-shadow:inset 0 0 0 1px var(--line)}

@@ -1,0 +1,65 @@
+/* Калькулятор ризику. Окремий файл, кольори — з поточної теми. */
+
+.ck{display:flex; flex-direction:column; gap:16px}
+
+/* ---------- інструменти ---------- */
+.ck-pairs{display:flex; flex-wrap:wrap; gap:0; padding:3px; border-radius:99px;
+  background:var(--panel); border:1px solid var(--line)}
+.ck-pair{border:0; background:transparent; color:var(--dim); font:inherit; font-size:12.5px;
+  padding:7px 13px; border-radius:99px; cursor:pointer; white-space:nowrap;
+  transition:color .18s, background .18s}
+.ck-pair:hover{color:var(--text)}
+.ck-pair.on{background:var(--panel-2); color:var(--text); box-shadow:inset 0 0 0 1px var(--line)}
+
+/* ---------- поля ---------- */
+.ck-grid{display:grid; grid-template-columns:repeat(auto-fit,minmax(160px,1fr)); gap:10px}
+.ck-grid-2{grid-template-columns:repeat(auto-fit,minmax(150px,1fr))}
+.ck-f{position:relative; display:flex; flex-direction:column; gap:6px}
+.ck-f span{font-family:var(--mono); font-size:9.5px; letter-spacing:.12em;
+  text-transform:uppercase; color:var(--faint)}
+.ck-f input{width:100%; box-sizing:border-box; background:var(--panel-2); color:var(--text);
+  border:1px solid var(--line); border-radius:var(--r-sm); padding:10px 30px 10px 12px;
+  font-family:var(--mono); font-size:15px; font-variant-numeric:tabular-nums}
+.ck-f input:focus{outline:none; border-color:color-mix(in srgb, var(--accent) 55%, transparent)}
+.ck-f i{position:absolute; right:12px; bottom:11px; font-style:normal;
+  font-family:var(--mono); font-size:12px; color:var(--faint); pointer-events:none}
+
+/* ---------- головна цифра ---------- */
+.ck-out{display:flex; align-items:center; gap:16px; padding:16px 18px;
+  border-radius:var(--r); background:var(--panel-2);
+  border:1px solid color-mix(in srgb, var(--accent) 30%, transparent)}
+.ck-out.off{border-color:var(--line-soft)}
+.ck-lots{display:flex; align-items:baseline; gap:9px; min-width:0}
+.ck-lots b{font-family:var(--mono); font-size:40px; font-weight:500; line-height:1;
+  letter-spacing:-.02em; font-variant-numeric:tabular-nums; color:var(--text)}
+.ck-out.off .ck-lots b{color:var(--faint)}
+.ck-lots span{font-family:var(--mono); font-size:11px; letter-spacing:.14em;
+  text-transform:uppercase; color:var(--faint)}
+.ck-side{margin-left:auto; display:flex; flex-direction:column; align-items:flex-end; gap:5px}
+.ck-side i{font-style:normal; font-family:var(--mono); font-size:11px; letter-spacing:.1em;
+  text-transform:uppercase; padding:4px 11px; border-radius:99px}
+.ck-side i.up{color:var(--up); background:var(--up-soft);
+  border:1px solid color-mix(in srgb, var(--up) 34%, transparent)}
+.ck-side i.down{color:var(--down); background:var(--down-soft);
+  border:1px solid color-mix(in srgb, var(--down) 34%, transparent)}
+.ck-side small{font-family:var(--mono); font-size:10.5px; color:var(--faint)}
+
+/* ---------- рядки з цифрами ---------- */
+.ck-rows{display:flex; flex-direction:column}
+.ck-r{display:flex; align-items:baseline; justify-content:space-between; gap:14px;
+  padding:9px 0; border-bottom:1px solid var(--line-soft)}
+.ck-r:last-child{border-bottom:none}
+.ck-r span{font-size:13px; color:var(--dim)}
+.ck-r b{font-family:var(--mono); font-size:14px; font-weight:500;
+  font-variant-numeric:tabular-nums; color:var(--text)}
+.ck-r b.up{color:var(--up)}
+.ck-r b.warn{color:var(--down)}
+
+.ck-tp{display:flex; flex-direction:column; gap:12px; padding-top:15px;
+  border-top:1px dashed var(--line)}
+
+@media (max-width:560px){
+  .ck-lots b{font-size:32px}
+  .ck-out{flex-wrap:wrap}
+  .ck-side{margin-left:0; align-items:flex-start}
+}
