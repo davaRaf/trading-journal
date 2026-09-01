@@ -59,10 +59,11 @@ uk: {
   ovTitle: "Огляд", ovEmptyTitle: "Журнал порожній",
   ovEmptyHint: "Додай першу угоду — статистика збереться сама.<br>Старі угоди можна завантажити через «Імпорт» ліворуч унизу.",
   ovEmptyBtn: "+ New Trade", ovBestWorst: "Найкраща · найгірша",
-  ovLastWeek: "Останній тиждень", ovWholeMonth: "весь місяць",
+  ovLastWeek: "Поточний тиждень", ovWholeMonth: "весь місяць",
   ovPnlTitle: "Прибуток / збиток", ovDrawdown: "просадка",
   ovPeriodMonth: "Місяць", ovPeriodQuarter: "Квартал", ovPeriodYear: "Рік",
   ovYearSummary: "Підсумок року", ovQuarterSummary: "Підсумок кварталу", ovMonthSummary: "Підсумок місяця",
+  ovMonthLive: "Місяць (поточний)",
   ovQuarterWord: "квартал", ovMonthWord: "місяць",
 
   // ---- бічна колонка огляду ----
@@ -368,10 +369,11 @@ ru: {
   ovTitle: "Обзор", ovEmptyTitle: "Журнал пуст",
   ovEmptyHint: "Добавь первую сделку — статистика соберётся сама.<br>Старые сделки можно загрузить через «Импорт» слева внизу.",
   ovEmptyBtn: "+ New Trade", ovBestWorst: "Лучшая · худшая",
-  ovLastWeek: "Последняя неделя", ovWholeMonth: "весь месяц",
+  ovLastWeek: "Текущая неделя", ovWholeMonth: "весь месяц",
   ovPnlTitle: "Прибыль / убыток", ovDrawdown: "просадка",
   ovPeriodMonth: "Месяц", ovPeriodQuarter: "Квартал", ovPeriodYear: "Год",
   ovYearSummary: "Итог года", ovQuarterSummary: "Итог квартала", ovMonthSummary: "Итог месяца",
+  ovMonthLive: "Месяц (текущий)",
   ovQuarterWord: "квартал", ovMonthWord: "месяц",
 
   railNoData: "Нет данных", railSessions: "Сессии", railInstruments: "Инструменты",
@@ -659,10 +661,11 @@ en: {
   ovTitle: "Overview", ovEmptyTitle: "Journal is empty",
   ovEmptyHint: "Add your first trade — the stats will build themselves.<br>Old trades can be loaded via «Import» in the bottom left.",
   ovEmptyBtn: "+ New Trade", ovBestWorst: "Best · worst",
-  ovLastWeek: "Last week", ovWholeMonth: "whole month",
+  ovLastWeek: "Current week", ovWholeMonth: "whole month",
   ovPnlTitle: "Profit / Loss", ovDrawdown: "drawdown",
   ovPeriodMonth: "Month", ovPeriodQuarter: "Quarter", ovPeriodYear: "Year",
   ovYearSummary: "Year total", ovQuarterSummary: "Quarter total", ovMonthSummary: "Month total",
+  ovMonthLive: "Month (current)",
   ovQuarterWord: "quarter", ovMonthWord: "month",
 
   railNoData: "No data", railSessions: "Sessions", railInstruments: "Instruments",

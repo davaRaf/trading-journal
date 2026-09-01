@@ -330,7 +330,8 @@ function ovPeriod(){
     return {list, lab:T.ovQuarterSummary, when:["I","II","III","IV"][q]+" "+T.ovQuarterWord+" "+y};
   }
   const mk=isoMonth(now);
-  return {list:S.trades.filter(t=>monKey(t)===mk), lab:T.ovMonthSummary, when:T.months[now.getMonth()]+" "+y};
+  const monthOver = now.getDate()===new Date(now.getFullYear(),now.getMonth()+1,0).getDate();
+  return {list:S.trades.filter(t=>monKey(t)===mk), lab: monthOver?T.ovMonthSummary:T.ovMonthLive, when:T.months[now.getMonth()]+" "+y};
 }
 
 function ovSign(r){ return r>0.0001?"pos":r<-0.0001?"neg":"be"; }
@@ -346,14 +347,8 @@ function ovWord(n){
 /* последняя неделя — крупный ряд сверху, в клетке светится исход дня */
 function ovWeekHtml(){
   const byDay=groupBy(S.trades, dayKey);
-  /* якорь недели — сегодня; если за неделю сделок нет, показываем неделю последней сделки */
-  let now=new Date();
-  const recent=[...byDay.keys()].sort();
-  const lastKey=recent[recent.length-1];
-  if(lastKey){
-    const weekAgo=isoDay(new Date(now.getFullYear(),now.getMonth(),now.getDate()-6));
-    if(lastKey<weekAgo) now=new Date(+lastKey.slice(0,4),+lastKey.slice(5,7)-1,+lastKey.slice(8,10));
-  }
+  /* якорь недели — всегда сьогодні, навіть якщо за ці 7 днів угод не було */
+  const now=new Date();
   let cells="", n=0, sum=0;
   for(let i=6;i>=0;i--){
     const d=new Date(now.getFullYear(),now.getMonth(),now.getDate()-i);
