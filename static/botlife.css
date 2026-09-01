@@ -1,21 +1,47 @@
-/* Живий помічник: менша кнопка, підстрибування, хмаринка з чатом
-   і питання, що спливає поруч. Підключається після assistant.css. */
+/* Живий помічник: кнопка з характером, хмаринка з чатом і питання,
+   що спливає поруч. Підключається після assistant.css. */
 
-/* ---------- кнопка ---------- */
-.as-fab{width:60px; height:60px; right:20px; bottom:20px}
-@media (max-width:560px){ .as-fab{width:52px; height:52px; right:12px; bottom:12px} }
+/* ================= кнопка ================= */
+.as-fab{width:60px; height:60px; right:20px; bottom:20px;
+  /* власна анімація: майже весь цикл спокій, наприкінці — стрибок.
+     Постійне ворушіння втомлює, а зовсім нерухома кнопка виглядає
+     мертвою — тож рух рідкий, але помітний. */
+  animation:blIdle 7s cubic-bezier(.3,.8,.4,1) infinite}
+.as-fab:hover{animation-play-state:paused; transform:translateY(-3px) scale(1.06)}
+.as-fab:active{animation-play-state:paused; transform:translateY(0) scale(.94)}
 
-/* стрибок — коротко й нечасто, щоб не набридало */
-.as-fab.bl-hop{animation:blHop .9s cubic-bezier(.28,.84,.42,1)}
-@keyframes blHop{
-  0%,100%{transform:translateY(0)}
-  22%{transform:translateY(-12px) scale(1.04)}
-  40%{transform:translateY(0) scale(.97)}
-  56%{transform:translateY(-5px) scale(1.01)}
-  74%{transform:translateY(0)}
+@keyframes blIdle{
+  0%,58%   {transform:translateY(0) scale(1)}
+  62%      {transform:translateY(2px)  scale(1.06,.94)}   /* присідання */
+  70%      {transform:translateY(-13px) scale(.94,1.08)}  /* стрибок */
+  78%      {transform:translateY(0)    scale(1.07,.93)}   /* приземлення */
+  85%      {transform:translateY(-4px) scale(.98,1.03)}   /* відскок */
+  92%,100% {transform:translateY(0)    scale(1)}
 }
 
-/* ---------- питання, що спливає ---------- */
+/* м'яке кільце, що розходиться — щоб кнопка «дихала» й між стрибками */
+.as-fab::after{content:""; position:absolute; inset:0; border-radius:50%;
+  border:2px solid var(--accent); opacity:0; pointer-events:none;
+  animation:blRing 7s ease-out infinite}
+@keyframes blRing{
+  0%,66%{transform:scale(1); opacity:0}
+  72%{transform:scale(1); opacity:.45}
+  100%{transform:scale(1.7); opacity:0}
+}
+
+/* коли поруч спливає питання — стрибок окремо, поза чергою */
+.as-fab.bl-hop{animation:blHop .9s cubic-bezier(.28,.84,.42,1), blRing 7s ease-out infinite}
+@keyframes blHop{
+  0%,100%{transform:translateY(0)}
+  20%{transform:translateY(-14px) scale(.94,1.08)}
+  42%{transform:translateY(0) scale(1.08,.92)}
+  62%{transform:translateY(-6px) scale(.99,1.02)}
+  80%{transform:translateY(0)}
+}
+
+@media (max-width:560px){ .as-fab{width:52px; height:52px; right:12px; bottom:12px} }
+
+/* ================= питання, що спливає ================= */
 .bl-say{position:fixed; right:88px; bottom:30px; z-index:46; max-width:270px;
   text-align:left; font:inherit; font-size:13.5px; line-height:1.45;
   padding:12px 15px; border-radius:16px 16px 4px 16px;
@@ -25,16 +51,15 @@
   transition:opacity .22s, transform .22s cubic-bezier(.16,1,.3,1)}
 .bl-say.in{opacity:1; transform:none}
 .bl-say:hover{border-color:color-mix(in srgb, var(--accent) 55%, transparent)}
-/* хвостик у бік кнопки */
 .bl-say::after{content:""; position:absolute; right:-6px; bottom:10px;
   width:11px; height:11px; background:var(--panel);
   border-right:1px solid var(--line); border-bottom:1px solid var(--line);
   transform:rotate(-45deg)}
 @media (max-width:560px){ .bl-say{right:74px; bottom:20px; max-width:56vw} }
 
-/* ---------- хмаринка з чатом ---------- */
+/* ================= хмаринка з чатом ================= */
 .bl-cloud{position:fixed; right:20px; bottom:92px; z-index:47;
-  width:min(390px, calc(100vw - 32px)); max-height:min(560px, calc(100vh - 130px));
+  width:min(390px, calc(100vw - 32px)); height:min(520px, calc(100vh - 130px));
   display:flex; flex-direction:column; overflow:hidden;
   background:var(--panel); border:1px solid var(--line);
   border-radius:18px 18px 6px 18px;
@@ -44,30 +69,44 @@
 .bl-cloud.in{opacity:1; transform:none}
 @media (max-width:560px){
   .bl-cloud{right:12px; left:12px; width:auto; bottom:78px;
-    max-height:calc(100vh - 110px)}
+    height:calc(100vh - 110px)}
 }
 
-/* шапка й підвал усередині хмаринки — компактніші, ніж у панелі */
-.bl-cloud .m-head{padding:13px 16px; border-bottom:1px solid var(--line-soft);
+/* ---- шапка ---- */
+.bl-cloud .m-head{padding:12px 14px; border-bottom:1px solid var(--line-soft);
   display:flex; align-items:center; gap:10px; flex:none}
-.bl-cloud .m-head h2{margin:0; font-size:14.5px; font-weight:600}
+.bl-cloud .m-head h2{margin:0; font-size:14px; font-weight:600}
 .bl-cloud .m-head .x{margin-left:auto; border:0; background:transparent;
   color:var(--faint); font-size:19px; line-height:1; cursor:pointer; padding:2px 4px}
 .bl-cloud .m-head .x:hover{color:var(--text)}
 
+/* ---- листування ---- */
 .bl-cloud .m-body{flex:1; min-height:0; display:flex; padding:0}
 .bl-cloud .as-body{flex:1; min-height:0}
-.bl-cloud .as-log{padding:14px 16px 4px; gap:10px}
-.bl-cloud .as-bubble{font-size:13.5px; padding:10px 13px}
-.bl-cloud .as-hint{font-size:13px; padding:9px 12px}
+.bl-cloud .as-log{padding:14px 14px 6px; gap:9px}
+.bl-cloud .as-bubble{font-size:13.5px; padding:9px 12px; max-width:92%}
 
-.bl-cloud .m-foot{flex:none; padding:11px 14px 13px; border-top:1px solid var(--line-soft);
-  display:block}
-.bl-cloud .as-input{width:100%; box-sizing:border-box; font-size:13.5px; padding:9px 11px}
-.bl-cloud .as-actions{display:flex; align-items:center; gap:8px; margin-top:9px}
-.bl-cloud .as-actions .btn{font-size:12.5px; padding:7px 13px}
+/* Порожній стан. Раніше чотири підказки стояли стовпчиком на всю ширину
+   й з'їдали весь чат — не лишалось місця навіть побачити, куди прийде
+   відповідь. Тепер вступ одним рядком, а питання — компактними чипами. */
+.bl-cloud .as-empty{font-size:12.5px; line-height:1.5; display:flex;
+  flex-direction:column; height:100%}
+.bl-cloud .as-empty p{margin:0 0 10px; color:var(--faint); font-size:12px}
+.bl-cloud .as-hints{flex-direction:row; flex-wrap:wrap; gap:6px}
+.bl-cloud .as-hint{font-size:12px; padding:7px 11px; border-radius:99px;
+  background:transparent; border-color:var(--line-soft); color:var(--dim)}
+.bl-cloud .as-hint:hover{background:var(--accent-soft)}
+
+/* ---- поле вводу ---- */
+.bl-cloud .m-foot{flex:none; padding:10px 12px 12px; border-top:1px solid var(--line-soft);
+  display:flex; flex-direction:column; gap:8px}
+.bl-cloud .as-input{width:100%; box-sizing:border-box; font-size:13.5px;
+  padding:9px 11px; min-height:38px; height:38px}
+.bl-cloud .as-actions{display:flex; align-items:center; gap:8px}
+.bl-cloud .as-actions .btn{font-size:12.5px; padding:7px 12px}
 
 @media (prefers-reduced-motion:reduce){
   .bl-say, .bl-cloud{transition:none}
-  .as-fab.bl-hop{animation:none}
+  .as-fab, .as-fab.bl-hop{animation:none}
+  .as-fab::after{animation:none; opacity:0}
 }
