@@ -90,9 +90,9 @@ function html(list){
   const good = byNet.filter(x => x.st.net > 0).slice(0, SHOW);
   const bad  = byNet.filter(x => x.st.net < 0).slice(-SHOW).reverse();
 
-  return '<div class="card lk"><h3>' + esc(T.lkTitle) + "</h3>"
+  return '<div class="card lk"><h3>' + esc(T.lkTitle)
+    + '<i class="lk-hint">' + T.lkNote.replace("%d", min) + "</i></h3>"
     + '<div class="in">'
-    + '<p class="lk-note">' + T.lkNote.replace("%d", min) + "</p>"
     + '<div class="lk-cols">'
     +   block(T.lkWorks, T.lkWorksHint, good)
     +   block(T.lkEats, T.lkEatsHint, bad)

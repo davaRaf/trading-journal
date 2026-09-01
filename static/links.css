@@ -1,10 +1,19 @@
 /* Зв'язки в «Аналітиці». Кольори — з поточної теми. */
 
-.lk .lk-note{margin:0 0 14px; font-size:12.5px; line-height:1.55; color:var(--dim)}
-.lk .lk-note b{color:var(--text); font-family:var(--mono)}
+/* пояснення блока тепер поруч із заголовком "Зв'язки", через тире —
+   а не окремим абзацом над колонками */
+.lk-hint{font-style:normal; font-family:var(--sans); font-size:12px; letter-spacing:normal;
+  text-transform:none; font-weight:400; color:var(--faint); line-height:1.4}
+.lk-hint::before{content:"— "}
+.lk-hint b{color:var(--dim); font-family:var(--mono); font-weight:600}
 
-.lk-cols{display:grid; grid-template-columns:repeat(auto-fit,minmax(340px,1fr)); gap:18px}
+.lk-cols{display:grid; grid-template-columns:repeat(auto-fit,minmax(340px,1fr)); gap:16px 28px}
 .lk-col{min-width:0}
+/* вертикальна риска між колонками, лише коли вони й справді поруч —
+   інакше в стовпчик (вузька картка) риска зліва виглядала б зайвою */
+@container (min-width:700px){
+  .lk-col+.lk-col{border-left:1px solid var(--line-soft); padding-left:28px}
+}
 
 .lk-t{display:flex; align-items:baseline; gap:10px; margin-bottom:9px;
   font-size:13.5px; font-weight:600; color:var(--text)}
