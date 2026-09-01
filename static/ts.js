@@ -25,8 +25,19 @@ let hotShot = null;        /* слот, куди піде Ctrl+V */
 
 function D(){ return DICT[window.LANG] || DICT.uk; }
 
-/* ---------------- сервер ---------------- */
+/* ---------------- сервер ----------------
+   У публічному демо сервера немає — там ТС живе в браузері, як і угоди.
+   Скрін у демо лишається картинкою всередині документа: класти його
+   нікуди. */
+const DEMO_KEY = "statsai_ts_demo";
+function demo(){ return typeof DEMO !== "undefined" && DEMO; }
+
 async function load(){
+  if (demo()){
+    try{ TS = JSON.parse(localStorage.getItem(DEMO_KEY) || "null"); }catch(e){ TS = null; }
+    if (S.view === "ts") render();
+    return;
+  }
   try{
     const r = await api("GET", "/api/ts");
     TS = (r && r.ts && Object.keys(r.ts).length) ? r.ts : null;
@@ -36,6 +47,10 @@ async function load(){
 
 let saveTimer = null;
 function save(){
+  if (demo()){
+    try{ localStorage.setItem(DEMO_KEY, JSON.stringify(TS)); }catch(e){}
+    return;
+  }
   clearTimeout(saveTimer);
   saveTimer = setTimeout(() => {
     api("POST", "/api/ts", {ts: TS}).catch(() => {});
@@ -79,10 +94,13 @@ function add(path, label){
   return '<button class="ts-add" type="button" onclick="__ts.add(\'' + path + '\')">+ '
     + esc(label) + "</button>";
 }
+/* Ім'я файлу на сервері або сама картинка (демо) */
+function tsShotSrc(f){ return /^data:/.test(f) ? f : "/tsshot/" + f; }
+
 function shot(path, label, mini){
   const f = get(path);
   const inner = f
-    ? '<img alt="" src="/tsshot/' + esc(f) + '"><div class="over"><span>' + esc(D().shotReplace)
+    ? '<img alt="" src="' + esc(tsShotSrc(f)) + '"><div class="over"><span>' + esc(D().shotReplace)
       + '</span></div><button class="rm" type="button">×</button>'
     : '<div class="ph"><b>+</b>' + esc(label || D().shotAdd) + "<em>" + esc(D().shotHint) + "</em></div>";
   return '<div class="ts-shot' + (f ? " has" : "") + (mini ? " mini" : "")
@@ -337,8 +355,8 @@ function secRaw(){
   return card(D().secRaw,
     (n.text ? '<div class="ts-raw">' + esc(n.text) + "</div>" : "")
     + (rest.length ? '<p class="ts-sub2">' + esc(D().rawShots) + '</p><div class="ts-shots">'
-        + rest.map(s => '<div class="ts-shot has mini"><img alt="" src="/tsshot/'
-            + esc(s.file) + '"></div>').join("") + "</div>" : ""));
+        + rest.map(s => '<div class="ts-shot has mini"><img alt="" src="'
+            + esc(tsShotSrc(s.file)) + '"></div>').join("") + "</div>" : ""));
 }
 
 function vFull(){
@@ -420,6 +438,12 @@ function shrink(url, cb){
 }
 
 async function upload(el, dataUrl){
+  if (demo()){
+    set(el.dataset.p, dataUrl);
+    TS.updated = today();
+    save(); render();
+    return;
+  }
   el.classList.add("busy");
   try{
     const r = await api("POST", "/api/ts/shot", {data: dataUrl});
@@ -701,7 +725,7 @@ function finish(){
     notion: keep.notion || null,
   };
   checked = {};
-  api("POST", "/api/ts", {ts: TS}).catch(() => {});
+  save();
   askClose();
   render();
 }
@@ -716,7 +740,7 @@ async function pull(){
     const r = await api("POST", "/api/ts/notion", {url: url});
     TS = r.ts;
     TS.updated = today();
-    await api("POST", "/api/ts", {ts: TS});
+    save();
   }catch(e){
     pullErr = D().pullErr;
   }
@@ -753,7 +777,8 @@ window.__ts = {
   },
   async wipe(){
     if (!confirm(D().confirmDelete)) return;
-    try{ await api("POST", "/api/ts/clear"); }catch(e){}
+    if (demo()){ try{ localStorage.removeItem(DEMO_KEY); }catch(e){} }
+    else { try{ await api("POST", "/api/ts/clear"); }catch(e){} }
     TS = null; checked = {};
     render();
   },
