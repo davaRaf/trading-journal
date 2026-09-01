@@ -280,7 +280,8 @@ def _score(field, name, ptype):
         best += 10 if ptype in ("rich_text", "title") else -5
     elif field in ("pair", "position", "result", "session", "bias",
                    "direction_type", "entry_model", "setup"):
-        best += 10 if ptype in ("select", "status", "title", "rich_text", "multi_select") else -5
+        best += 10 if ptype in ("select", "status", "title", "rich_text",
+                               "multi_select", "relation") else -5
     return best
 
 
@@ -401,8 +402,29 @@ def norm_pair(v):
     return s.upper() if TICKER_LIKE.match(s) else s
 
 
+# Одна сесія під двома іменами — те саме, що один інструмент під двома:
+# статистика розповзається. «NEW YORK» і «NY» у журналі власника прийшли
+# з різних таблиць Notion.
+SESSION_SAME = {
+    "NEW YORK": "NY", "NEWYORK": "NY", "NEW-YORK": "NY", "НЬЮ-ЙОРК": "NY",
+    "LONDON OPEN": "LONDON", "ЛОНДОН": "LONDON", "ФРАНКФУРТ": "FRANKFURT",
+    "FRANKFURT OPEN": "FRANKFURT", "ASIA": "ASIA", "АЗІЯ": "ASIA", "АЗИЯ": "ASIA",
+    "POWER HOUR": "PH",
+}
+
+
+def norm_session(v):
+    """Сесію зводимо до великих літер і до одного імені."""
+    s = re.sub(r"\s+", " ", str(v if v is not None else "").strip())
+    if not s:
+        return ""
+    up = s.upper()
+    return SESSION_SAME.get(up, up if len(up) <= 14 else s)
+
+
 NORMALIZE = {
     "pair": norm_pair,
+    "session": norm_session,
     "date": norm_date, "position": norm_side, "bias": norm_side,
     "result": norm_result, "direction_type": norm_dirtype,
     "rr": norm_num, "risk": norm_num,
