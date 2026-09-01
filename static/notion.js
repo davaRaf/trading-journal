@@ -27,6 +27,25 @@ let tables = [];       // усі таблиці, які знайшли за по
 let picked = [];       // які з них переносимо
 let chosen = null;     // за якою звіряємо колонки
 let batch = null;      // остання партія — її можна скасувати
+let connected = false; // чи вже підключали Notion раніше — міняє підпис кнопки в сайдбарі
+
+/* Кнопка в сайдбарі: поки не підключали — «Підключити Notion», після
+   першого перенесення — інший підпис і підказка. Викликається і звідси,
+   і з i18n.js після зміни мови, щоб підпис лишався правильним. */
+function paintBtn(){
+  const nb = document.getElementById("notionBtn");
+  if (!nb) return;
+  const b = nb.querySelector("span b"), i = nb.querySelector("span i");
+  if (connected){
+    if (b) b.textContent = T.sdNotionConnectedTitle;
+    if (i) i.textContent = T.sdNotionConnectedSub;
+    nb.setAttribute("data-tip", T.sdNotionConnectedTip);
+  } else {
+    if (b) b.textContent = T.sdNotionConnect;
+    if (i) i.textContent = T.sdNotionSub;
+    nb.setAttribute("data-tip", T.sdNotionTip);
+  }
+}
 
 /* ---- інструменти з імпорту показуємо в підказках форми ---- */
 function rememberPairs(list){
@@ -365,6 +384,7 @@ function drawProgress(j){
 
 async function finish(j){
   rememberPairs(j.newAssets);
+  connected = true; paintBtn();
   try{ await reload(); render(); }catch(e){}
 
   const line = (k, v) => '<div class="nt-stat"><b>' + v + "</b><span>" + k + "</span></div>";
@@ -484,6 +504,7 @@ window.__notion = {
   },
   allTables(){ picked = tables.slice(); stepTables([]); },
   setMap(sel){ const f = sel.dataset.f; if (sel.value) mapping[f] = sel.value; else delete mapping[f]; },
+  refreshBtn: paintBtn,
 };
 
 /* Рідну кнопку «Імпорт» лишаємо на місці — просто додаємо в те саме
@@ -495,14 +516,30 @@ window.openImport = function(){
   tabs("file");
 };
 
-/* Один раз після входу пропонуємо перенести журнал — щоб новачок не
-   сидів перед порожнім екраном і не забивав угоди руками. */
+/* Один раз після реєстрації пропонуємо перенести журнал — щоб новачок не
+   сидів перед порожнім екраном і не забивав угоди руками. Раніше рішення
+   трималось лише на localStorage — на новому браузері чи після його
+   очищення вікно вилазило знов, навіть якщо угоди вже давно перенесені.
+   Тепер головний критерій — чи є в акаунті хоч одна угода: є хоч одна —
+   людина вже не новачок, більше не пропонуємо, з якого б пристрою вона
+   не зайшла. Кнопка в сайдбарі водночас оновлює підпис на «підключено». */
 window.addEventListener("load", () => {
-  setTimeout(() => {
+  setTimeout(async () => {
+    if (typeof DEMO !== "undefined" && DEMO) return;
+    try{
+      state = await call("GET", "/api/notion/state");
+      link = state.url || link;
+      connected = !!(state.url || (state.last && state.last.id));
+      paintBtn();
+    }catch(e){}
+
     let seen = "1";
     try{ seen = localStorage.getItem(SEEN_KEY) || ""; }catch(e){}
     if (seen === "1") return;
-    if (typeof DEMO !== "undefined" && DEMO) return;
+    if (typeof S !== "undefined" && S.trades && S.trades.length){
+      try{ localStorage.setItem(SEEN_KEY, "1"); }catch(e){}
+      return;
+    }
     try{ localStorage.setItem(SEEN_KEY, "1"); }catch(e){}
     open();
   }, 1200);

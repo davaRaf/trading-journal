@@ -316,6 +316,8 @@ uk: {
   sdCalcTip: "Порахувати розмір позиції під свій ризик",
   sdNotionConnect: "Підключити Notion", sdNotionSub: "перенести свої угоди сюди",
   sdNotionTip: "Перенести свої угоди з Notion — записи, нотатки й скріншоти",
+  sdNotionConnectedTitle: "Notion підключено", sdNotionConnectedSub: "перенести ще раз / оновити",
+  sdNotionConnectedTip: "Notion уже підключено — можна перенести нові угоди ще раз",
   sdTelegramTip: "Нагадування про новини та питання про емоції",
   sdLangTip: "Мова інтерфейсу",
   sdLogout: "Вийти", sdLogoutTip: "Вийти з акаунта",
@@ -609,6 +611,8 @@ ru: {
   sdCalcTip: "Посчитать размер позиции под свой риск",
   sdNotionConnect: "Подключить Notion", sdNotionSub: "перенести свои сделки сюда",
   sdNotionTip: "Перенести свои сделки из Notion — записи, заметки и скриншоты",
+  sdNotionConnectedTitle: "Notion подключён", sdNotionConnectedSub: "перенести ещё раз / обновить",
+  sdNotionConnectedTip: "Notion уже подключён — можно перенести новые сделки ещё раз",
   sdTelegramTip: "Напоминания о новостях и вопросы об эмоциях",
   sdLangTip: "Язык интерфейса",
   sdLogout: "Выйти", sdLogoutTip: "Выйти из аккаунта",
@@ -901,6 +905,8 @@ en: {
   sdCalcTip: "Work out position size for your risk",
   sdNotionConnect: "Connect Notion", sdNotionSub: "bring your trades over",
   sdNotionTip: "Import your trades from Notion — entries, notes and screenshots",
+  sdNotionConnectedTitle: "Notion connected", sdNotionConnectedSub: "import again / refresh",
+  sdNotionConnectedTip: "Notion is already connected — you can import new trades again",
   sdTelegramTip: "Reminders about news and questions about emotions",
   sdLangTip: "Interface language",
   sdLogout: "Log out", sdLogoutTip: "Log out of your account",
@@ -959,6 +965,8 @@ function applyLang(code){
     const b = nb.querySelector("span b"); if(b) b.textContent = T.sdNotionConnect;
     const i = nb.querySelector("span i"); if(i) i.textContent = T.sdNotionSub;
   }
+  // якщо Notion уже підключено — власний підпис кнопки з notion.js
+  if (window.__notion && window.__notion.refreshBtn) window.__notion.refreshBtn();
 
   const tb = document.getElementById("telegramBtn");
   if(tb) setTip(tb, T.sdTelegramTip);
