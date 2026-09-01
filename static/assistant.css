@@ -66,7 +66,11 @@
 .as-fab:hover{transform:translateY(-2px) scale(1.05)}
 .as-fab:active{transform:translateY(0) scale(.96)}
 .as-fab:focus-visible{outline:2px solid var(--accent); outline-offset:3px}
-.as-fab-ic{display:block; animation:asBotFloat 2.6s ease-in-out infinite}
+/* чисто білий силует на синьому тлі світлої теми виглядав пласко — беремо
+   темно-синій, той самий колір, що й тло, лише затемнений; у темній темі
+   тло й так яскраве, там лишається штатний accent-ink */
+.as-fab-ic{display:block; color:#10234e; animation:asBotFloat 2.6s ease-in-out infinite}
+:root[data-theme="dark"] .as-fab-ic{color:var(--accent-ink)}
 .as-fab-eyes{transform-box:fill-box; transform-origin:center;
   animation:asBotBlink 4.2s ease-in-out infinite}
 /* зсув очей за мишкою рахує JS (assistant.js); transition — щоб рух був
