@@ -58,7 +58,7 @@
    екран-віконце var(--accent) (зливається з тлом кнопки) */
 .as-fab{position:fixed; right:22px; bottom:22px; z-index:45;
   display:flex; align-items:center; justify-content:center;
-  width:66px; height:66px; padding:0; border-radius:50%;
+  width:76px; height:76px; padding:0; border-radius:50%;
   background:var(--accent); color:var(--accent-ink,#fff);
   border:none; cursor:pointer;
   box-shadow:var(--shadow-badge), 0 10px 30px -10px var(--accent);
@@ -80,7 +80,7 @@ body:has(.pnl-wrap) .as-fab, body:has(.modal:not([hidden])) .as-fab{
 
 @media (max-width:560px){
   .as-bubble{max-width:94%}
-  .as-fab{right:14px; bottom:14px; width:58px; height:58px}
+  .as-fab{right:14px; bottom:14px; width:64px; height:64px}
 }
 @media (prefers-reduced-motion:reduce){
   .as-fab{transition:opacity .18s}
