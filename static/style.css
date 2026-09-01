@@ -1328,10 +1328,15 @@ body::after{
 :root[data-nav="flat"] .nav a.on{background:var(--panel-2);border:none;color:var(--text);font-weight:600}
 :root[data-nav="flat"] .nav a.on .ic{opacity:1;color:var(--up)}
 :root[data-nav="flat"] .side .grp{gap:1px;padding-top:20px;border-top:1px solid var(--line-soft)}
-:root[data-nav="flat"] .side .lab{padding:0 0 6px}
-:root[data-nav="flat"] .conn-head{padding:6px 0}
-:root[data-nav="flat"] .mini{background:none;border:none;padding:6px 0;color:var(--faint);font-size:13px}
-:root[data-nav="flat"] .mini:hover{background:none;color:var(--text)}
+/* лейбл і calc/conn нижче мають той самий горизонтальний відступ 8px, щоб
+   іконки рядків лишались під літерою "В" підпису — інакше знову розʼїдеться */
+:root[data-nav="flat"] .side .lab{padding:0 8px 6px}
+/* та ж скругленість і підсвітка на ховері, що й у nav-плиток вище —
+   щоб calc/conn не виглядали чужорідно поруч з новою навігацією */
+:root[data-nav="flat"] .conn-head{padding:6px 8px;border-radius:10px}
+:root[data-nav="flat"] .conn-head:hover{background:var(--panel-2)}
+:root[data-nav="flat"] .mini{background:none;border:none;padding:7px 8px;border-radius:10px;color:var(--faint);font-size:13px}
+:root[data-nav="flat"] .mini:hover{background:var(--panel-2);color:var(--text)}
 :root[data-nav="flat"] .side-foot{padding-top:18px;border-top:1px solid var(--line-soft)}
 :root[data-nav="flat"] #themeBtn{justify-content:flex-start}
 
