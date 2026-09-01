@@ -20,14 +20,21 @@ def enabled():
     return bool(GEMINI_API_KEY)
 
 
-def ask(prompt, model=MODEL, max_tokens=900, timeout=30):
-    """Возвращает текст ответа или None, если модель недоступна."""
+def ask(prompt, model=MODEL, max_tokens=900, timeout=30, system=None):
+    """Возвращает текст ответа или None, если модель недоступна.
+
+    system — правила, которые модель должна слушать всегда; идут отдельным
+    полем API (systemInstruction), а не текстом внутри prompt, поэтому их
+    нельзя перебить тем, что написано в данных пользователя.
+    """
     if not enabled():
         return None
     payload = {
         "contents": [{"parts": [{"text": prompt}]}],
         "generationConfig": {"temperature": 0.2, "maxOutputTokens": max_tokens},
     }
+    if system:
+        payload["systemInstruction"] = {"parts": [{"text": system}]}
     req = urllib.request.Request(
         URL % model, data=json.dumps(payload, ensure_ascii=False).encode("utf-8"),
         headers={"Content-Type": "application/json", "x-goog-api-key": GEMINI_API_KEY})
