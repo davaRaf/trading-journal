@@ -54,23 +54,27 @@
 .as-review{white-space:nowrap}
 
 /* ---------- кнопка-«бульбашка», що висить поверх сторінки ---------- */
-/* сама іконка — маскот-«бот» у кольорах теми: рамка/вушка currentColor,
-   екран-віконце var(--accent) (зливається з тлом кнопки) */
+/* маскот білий в обох темах; глибину/глянець дають градієнт тіла (SVG
+   #asBotBody), м'яка підсвітка-«блік» (ellipse в SVG) і тінь під іконкою
+   нижче — щоб плоска заливка не виглядала дешево */
 .as-fab{position:fixed; right:22px; bottom:22px; z-index:45;
   display:flex; align-items:center; justify-content:center;
   width:76px; height:76px; padding:0; border-radius:50%;
-  background:var(--accent); color:var(--accent-ink,#fff);
+  background:linear-gradient(155deg,
+    color-mix(in srgb, var(--accent) 72%, #fff) 0%,
+    var(--accent) 45%,
+    color-mix(in srgb, var(--accent) 85%, #000) 100%);
+  color:var(--accent-ink,#fff);
   border:none; cursor:pointer;
-  box-shadow:var(--shadow-badge), 0 10px 30px -10px var(--accent);
+  box-shadow:var(--shadow-badge), 0 10px 30px -10px var(--accent),
+    inset 0 1px 0 rgba(255,255,255,.4), inset 0 -8px 14px -10px rgba(0,0,0,.32);
   transition:transform .16s, box-shadow .16s, opacity .18s}
 .as-fab:hover{transform:translateY(-2px) scale(1.05)}
 .as-fab:active{transform:translateY(0) scale(.96)}
 .as-fab:focus-visible{outline:2px solid var(--accent); outline-offset:3px}
-/* чисто білий силует на синьому тлі світлої теми виглядав пласко — беремо
-   темно-синій, той самий колір, що й тло, лише затемнений; у темній темі
-   тло й так яскраве, там лишається штатний accent-ink */
-.as-fab-ic{display:block; color:#10234e; animation:asBotFloat 2.6s ease-in-out infinite}
-:root[data-theme="dark"] .as-fab-ic{color:var(--accent-ink)}
+.as-fab-ic{display:block; color:#fff;
+  filter:drop-shadow(0 2px 3px rgba(0,0,0,.25));
+  animation:asBotFloat 2.6s ease-in-out infinite}
 .as-fab-eyes{transform-box:fill-box; transform-origin:center;
   animation:asBotBlink 4.2s ease-in-out infinite}
 /* зсув очей за мишкою рахує JS (assistant.js); transition — щоб рух був
