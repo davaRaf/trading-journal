@@ -13,6 +13,7 @@
 <link rel="stylesheet" href="/static/import.css?v=1">
 <link rel="stylesheet" href="/static/themes.css?v=1">
 <link rel="stylesheet" href="/static/calc.css?v=1">
+<link rel="stylesheet" href="/static/links.css?v=1">
 <link rel="stylesheet" href="/static/assistant.css?v=2">
 <script>
 /* тема применяется до отрисовки, чтобы не мигало */
@@ -71,8 +72,8 @@ try{document.documentElement.setAttribute("data-nav",localStorage.getItem("tj_na
   <div class="side-foot">
     <button class="mini" id="telegramBtn" data-tip="Нагадування про новини та питання про емоції" onclick="openTelegram()"><svg class="ic" width="14" height="14" viewBox="0 0 24 24" fill="none"><path d="M21 4L3 11l6 2.2L19 6.5l-7.5 8.3.4 5.2 2.6-3.6 4.2 3.1L21 4z" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/></svg> <span>Telegram</span></button>
     <button class="mini" id="langBtn" data-tip="Мова інтерфейсу" onclick="cycleLang()"><svg class="ic" width="14" height="14" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="9" stroke="currentColor" stroke-width="1.7"/><path d="M3 12h18M12 3c2.5 2.6 4 6 4 9s-1.5 6.4-4 9c-2.5-2.6-4-6-4-9s1.5-6.4 4-9z" stroke="currentColor" stroke-width="1.6"/></svg> <span id="langBtnLabel">УКР</span></button>
-    <button class="mini" id="logoutBtn" data-tip="Вийти з акаунта" onclick="logout()"><svg class="ic" width="14" height="14" viewBox="0 0 24 24" fill="none"><path d="M15 17l5-5-5-5M20 12H9" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/><path d="M12 20H6a2 2 0 01-2-2V6a2 2 0 012-2h6" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></svg> <span>Вийти</span></button>
     <button class="mini" id="skinBtn" data-tip="Теми оформлення: світлі, темні й своя" onclick="__skin.open()"><svg class="ic" width="14" height="14" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="8.6" stroke="currentColor" stroke-width="1.7"/><path d="M12 3.4a8.6 8.6 0 000 17.2z" fill="currentColor" opacity=".55"/></svg> <span>Оформлення</span></button>
+    <button class="mini" id="logoutBtn" data-tip="Вийти з акаунта" onclick="logout()"><svg class="ic" width="14" height="14" viewBox="0 0 24 24" fill="none"><path d="M15 17l5-5-5-5M20 12H9" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/><path d="M12 20H6a2 2 0 01-2-2V6a2 2 0 012-2h6" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></svg> <span>Вийти</span></button>
   </div>
 </aside>
 
@@ -94,6 +95,7 @@ try{document.documentElement.setAttribute("data-nav",localStorage.getItem("tj_na
 <script src="/static/sharelink.js?v=2"></script>
 <script src="/static/notion.js?v=1"></script>
 <script src="/static/calc.js?v=1"></script>
+<script src="/static/links.js?v=1"></script>
 <script src="/static/share.js"></script>
 <script src="/static/themes.js?v=1"></script>
 </body>

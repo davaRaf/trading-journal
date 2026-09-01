@@ -573,11 +573,20 @@ function plChart(list, opts){
     '<div class="plwrap" data-pl="'+id+'">'+svg+'<div class="pltip" hidden></div></div></div>'+xax+"</div></div>";
 }
 
-/* прибыль/убыток за текущий год — «Огляд» */
+/* прибыль/убыток за выбранный период — «Огляд».
+   Раньше здесь всегда стоял год: переключаешь на месяц, цифры сверху
+   меняются, а график остаётся годовым — и не сходится с ними. */
 function ovEquityHtml(){
-  const y=String(new Date().getFullYear());
-  return plChart(S.trades.filter(t=>(t.date||"").slice(0,4)===y),
-    {title:T.ovPnlTitle});
+  const per=ovEquityPeriod();
+  return plChart(per.list, per.opts);
+}
+function ovEquityPeriod(){
+  const per=ovPeriod();
+  if(S.ovPeriod==="month")
+    return {list:per.list, opts:{title:T.ovPnlTitle+" · "+T.ovMonthWord, ym:isoMonth(new Date())}};
+  if(S.ovPeriod==="quarter")
+    return {list:per.list, opts:{title:T.ovPnlTitle+" · "+T.ovQuarterWord}};
+  return {list:per.list, opts:{title:T.ovPnlTitle+" · "+T.railYearWord}};
 }
 
 /* колонка-компаньон: где, чем и по какой модели торгуем за год */
@@ -1041,6 +1050,7 @@ function vAnalytics(){
   h+='<div class="card"><h3>'+T.anResultsPrefix+' '+esc(DIMS().find(d=>d.k===S.dim).label)+"</h3>"+
     '<div class="ahead"><span>'+T.anColName+'</span><span>'+T.kCount+'</span><span>'+T.kWinRate+'</span><span>'+T.kAvgRRShort+'</span><span>'+T.kNetPct+'</span></div>'+
     (rows||'<div class="empty">'+T.anNoData+'</div>')+"</div>";
+  h+=window.__links ? __links.html(list) : "";      /* зв'язки, static/links.js */
   return h;
 }
 

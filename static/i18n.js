@@ -63,7 +63,7 @@ uk: {
   ovPnlTitle: "Прибуток / збиток", ovDrawdown: "просадка",
   ovPeriodMonth: "Місяць", ovPeriodQuarter: "Квартал", ovPeriodYear: "Рік",
   ovYearSummary: "Підсумок року", ovQuarterSummary: "Підсумок кварталу", ovMonthSummary: "Підсумок місяця",
-  ovQuarterWord: "квартал",
+  ovQuarterWord: "квартал", ovMonthWord: "місяць",
 
   // ---- бічна колонка огляду ----
   railNoData: "Немає даних", railSessions: "Сесії", railInstruments: "Інструменти",
@@ -364,7 +364,7 @@ ru: {
   ovPnlTitle: "Прибыль / убыток", ovDrawdown: "просадка",
   ovPeriodMonth: "Месяц", ovPeriodQuarter: "Квартал", ovPeriodYear: "Год",
   ovYearSummary: "Итог года", ovQuarterSummary: "Итог квартала", ovMonthSummary: "Итог месяца",
-  ovQuarterWord: "квартал",
+  ovQuarterWord: "квартал", ovMonthWord: "месяц",
 
   railNoData: "Нет данных", railSessions: "Сессии", railInstruments: "Инструменты",
   railSetups: "Сетапы", railYearWord: "год", railNetPctWord: "итог, %",
@@ -647,7 +647,7 @@ en: {
   ovPnlTitle: "Profit / Loss", ovDrawdown: "drawdown",
   ovPeriodMonth: "Month", ovPeriodQuarter: "Quarter", ovPeriodYear: "Year",
   ovYearSummary: "Year total", ovQuarterSummary: "Quarter total", ovMonthSummary: "Month total",
-  ovQuarterWord: "quarter",
+  ovQuarterWord: "quarter", ovMonthWord: "month",
 
   railNoData: "No data", railSessions: "Sessions", railInstruments: "Instruments",
   railSetups: "Setups", railYearWord: "year", railNetPctWord: "total, %",

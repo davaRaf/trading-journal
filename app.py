@@ -301,6 +301,9 @@ class H(BaseHTTPRequestHandler):
         self.send_response(200)
         self.send_header("Content-Type", ctype)
         self.send_header("Content-Length", str(len(data)))
+        # Без этого браузер сам решает, сколько держать файл в кэше, и после
+        # правки в js/css показывает старую версию — правки будто не применились.
+        self.send_header("Cache-Control", "no-store")
         self.end_headers()
         self.wfile.write(data)
 

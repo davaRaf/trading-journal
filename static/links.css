@@ -1,0 +1,38 @@
+/* Зв'язки в «Аналітиці». Кольори — з поточної теми. */
+
+.lk .lk-note{margin:0 0 14px; font-size:12.5px; line-height:1.55; color:var(--dim)}
+.lk .lk-note b{color:var(--text); font-family:var(--mono)}
+
+.lk-cols{display:grid; grid-template-columns:repeat(auto-fit,minmax(340px,1fr)); gap:18px}
+.lk-col{min-width:0}
+
+.lk-t{display:flex; align-items:baseline; gap:10px; margin-bottom:9px;
+  font-size:13.5px; font-weight:600; color:var(--text)}
+.lk-t i{font-style:normal; font-family:var(--mono); font-size:9.5px; letter-spacing:.12em;
+  text-transform:uppercase; color:var(--faint)}
+
+.lk-head,.lk-row{display:grid; grid-template-columns:minmax(0,1.5fr) minmax(0,1fr) 46px 62px 74px;
+  gap:10px; align-items:baseline}
+.lk-head{font-family:var(--mono); font-size:9px; letter-spacing:.13em; text-transform:uppercase;
+  color:var(--faint); padding-bottom:7px; border-bottom:1px solid var(--line-soft)}
+.lk-head span:nth-child(n+3),.lk-row span:nth-child(n+3){text-align:right}
+
+.lk-row{padding:9px 0; border-bottom:1px solid var(--line-soft)}
+.lk-row:last-child{border-bottom:none}
+.lk-row .nm{font-size:13px; font-weight:500; color:var(--text);
+  overflow:hidden; text-overflow:ellipsis; white-space:nowrap}
+.lk-row .of{font-size:11.5px; color:var(--faint);
+  overflow:hidden; text-overflow:ellipsis; white-space:nowrap}
+.lk-row .n,.lk-row .wr{font-family:var(--mono); font-size:12px; color:var(--dim);
+  font-variant-numeric:tabular-nums}
+.lk-row .net{font-family:var(--mono); font-size:13px; font-weight:500;
+  font-variant-numeric:tabular-nums}
+.lk-row .net.pos{color:var(--up)}
+.lk-row .net.neg{color:var(--down)}
+
+.lk-empty{padding:18px 0; font-size:13px; color:var(--faint)}
+
+@media (max-width:640px){
+  .lk-head,.lk-row{grid-template-columns:minmax(0,1fr) 42px 58px 68px}
+  .lk-head span:nth-child(2),.lk-row .of{display:none}
+}

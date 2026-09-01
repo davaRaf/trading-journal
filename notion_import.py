@@ -362,7 +362,47 @@ def norm_date(v):
     return ""
 
 
+# Кириллические двойники латинских букв. В тикере их не видно глазом,
+# но «USD\САD» с кириллическими С и А — это уже другой инструмент.
+LOOKALIKE = {"А":"A","В":"B","Е":"E","К":"K","М":"M","Н":"H","О":"O","Р":"P",
+             "С":"C","Т":"T","У":"Y","Х":"X","І":"I","Ї":"I","а":"a","е":"e",
+             "о":"o","р":"p","с":"c","у":"y","х":"x","і":"i"}
+
+# Хвосты вида «(1)», «(2)», «#3» и одиночная цифра через пробел.
+# Двузначное число без скобок не трогаем: «GER 40» — это название, а не копия.
+PAIR_TAIL = re.compile(r"\s*[\(\[]\s*\d{1,2}\s*[\)\]]\s*$|\s+#\d{1,2}\s*$|\s+\d\s*$")
+TICKER_LIKE = re.compile(r"^[A-Za-z0-9./\-]{2,12}$")
+
+
+def norm_pair(v):
+    """
+    Инструмент к одному виду.
+
+    В Notion один и тот же актив нередко записан как «US100», «US100 (1)»
+    и «US100 (2)». Для статистики это три разных инструмента: и разрезы,
+    и профит-фактор, и всё остальное разъезжается на ровном месте.
+    Поэтому хвост убираем, кириллические двойники чиним, обратный слэш
+    приводим к прямому.
+    """
+    s = str(v if v is not None else "").strip()
+    if not s:
+        return ""
+    s = s.replace("\\", "/")
+    s = re.sub(r"\s+", " ", s)
+    prev = None
+    while prev != s:                      # «US100 (1) (2)» тоже встречается
+        prev = s
+        s = PAIR_TAIL.sub("", s).strip()
+    # Двойники меняем, только если из этого выходит тикер. Иначе испортим
+    # обычное слово: «Bitcoin спот» стало бы «Bitcoin cпoт».
+    swapped = "".join(LOOKALIKE.get(ch, ch) for ch in s)
+    if TICKER_LIKE.match(swapped):
+        s = swapped
+    return s.upper() if TICKER_LIKE.match(s) else s
+
+
 NORMALIZE = {
+    "pair": norm_pair,
     "date": norm_date, "position": norm_side, "bias": norm_side,
     "result": norm_result, "direction_type": norm_dirtype,
     "rr": norm_num, "risk": norm_num,
