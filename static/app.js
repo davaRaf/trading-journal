@@ -1266,7 +1266,7 @@ function openForm(id, presetDay){
       seg("result",[{v:"Win",t:"TP",cls:"win"},{v:"Loss",t:"SL",cls:"loss"},
                     {v:"BE-",t:"BE\u2212",cls:"bek"},{v:"BE+",t:"BE+",cls:"bepk"}],t?t.result:"","big res")+"</div>"+
     '<div class="frow">'+
-      '<div class="f"><label>RR — у скільки разів ціль далі за стоп</label>'+
+      '<div class="f"><label>RR</label>'+
         '<input id="fld_rr" type="number" step="0.1" min="0" placeholder="2.5" oninput="calcOutcome()" value="'+(t&&t.rr!=null?t.rr:"")+'"></div>'+
       '<div class="f"><label>Ризик, % від депозиту</label>'+
         pick("risk",["0.5","1","1.5","2"],(t&&t.risk!=null?String(t.risk):"1"),"свій ризик",true)+"</div>"+
@@ -1366,7 +1366,10 @@ function autoDirType(){
 
 /* вставка скрина из буфера обмена */
 function onPasteShot(e){
-  if($("#modal").hidden || !$("#shotsEdit")) return;
+  /* Форма угоди тепер виїжджає панеллю, а не лежить у #modal — стара
+     перевірка обривала вставку ще до буфера. Досить того, що форма
+     на екрані: #shotsEdit існує тільки поки вона відкрита. */
+  if(!$("#shotsEdit")) return;
   const items=[...(e.clipboardData||{}).items||[]].filter(i=>i.type.startsWith("image/"));
   if(!items.length) return;
   e.preventDefault();
