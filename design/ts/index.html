@@ -9,7 +9,6 @@
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Geist+Mono:wght@400;500&family=Geist:wght@400;500;600;700&display=swap">
 <style>
 /* ================= темы ================= */
-/* Те самые наборы, что в приложении: 13 цветов, остальное выводится. */
 :root{
   --r:14px; --r-sm:10px;
   --sans:"Geist","Segoe UI",system-ui,sans-serif;
@@ -68,8 +67,7 @@
 body{margin:0; background:var(--bg); color:var(--text); font-family:var(--sans);
   font-size:14px; line-height:1.5; transition:background .3s, color .3s}
 
-/* ---- полоска выбора темы, только для пробника ---- */
-.skins{position:fixed; top:0; left:0; right:0; z-index:40; display:flex; gap:0;
+.skins{position:fixed; top:0; left:0; right:0; z-index:40; display:flex;
   align-items:center; padding:9px 18px; background:var(--panel);
   border-bottom:1px solid var(--line-soft)}
 .skins .cap{font-family:var(--mono); font-size:9px; letter-spacing:.15em;
@@ -78,10 +76,9 @@ body{margin:0; background:var(--bg); color:var(--text); font-family:var(--sans);
   padding:6px 13px; border-radius:99px; cursor:pointer}
 .skins button.on{background:var(--panel-2); color:var(--text); box-shadow:inset 0 0 0 1px var(--line)}
 
-.page{max-width:980px; margin:0 auto; padding:74px 22px 90px}
+.page{max-width:1000px; margin:0 auto; padding:74px 22px 90px}
 
-/* ---- шапка раздела, как в журнале ---- */
-.vhead{display:flex; align-items:baseline; gap:14px; margin-bottom:22px}
+.vhead{display:flex; align-items:baseline; gap:14px; margin-bottom:10px; flex-wrap:wrap}
 .vhead h1{margin:0; font-size:26px; font-weight:650; letter-spacing:-.02em}
 .vhead .sub{font-family:var(--mono); font-size:11px; color:var(--faint)}
 .sys{display:inline-flex; padding:3px; border-radius:99px; background:var(--panel-2);
@@ -90,42 +87,70 @@ body{margin:0; background:var(--bg); color:var(--text); font-family:var(--sans);
   padding:6px 14px; border-radius:99px; cursor:pointer}
 .sys button.on{background:var(--panel); color:var(--text); box-shadow:inset 0 0 0 1px var(--line)}
 
-.card{background:var(--card); border:1px solid var(--line-soft); border-radius:var(--r);
-  padding:28px 30px; margin-bottom:18px}
-.h3{font-family:var(--mono); font-size:9px; letter-spacing:.2em; text-transform:uppercase;
-  color:var(--faint); margin:0 0 18px}
-.neg{color:var(--down)} .pos{color:var(--up)} .mid{color:var(--be)}
+/* оглавление разделов */
+.toc{display:flex; gap:7px; flex-wrap:wrap; margin:16px 0 22px}
+.toc a{font-family:var(--mono); font-size:11px; letter-spacing:.06em; text-decoration:none;
+  color:var(--dim); padding:6px 12px; border-radius:99px; background:var(--panel-2);
+  border:1px solid var(--line-soft)}
+.toc a:hover{color:var(--text); border-color:var(--line)}
 
-/* ---- что торгую + таймфреймы ---- */
-.assets{display:flex; gap:9px; flex-wrap:wrap; margin-bottom:26px}
+.card{background:var(--card); border:1px solid var(--line-soft); border-radius:var(--r);
+  padding:28px 30px; margin-bottom:18px; scroll-margin-top:70px}
+.h3{font-family:var(--mono); font-size:9px; letter-spacing:.2em; text-transform:uppercase;
+  color:var(--faint); margin:0 0 18px; display:flex; align-items:center; gap:10px}
+.h3 s{flex:1; height:1px; background:var(--line-soft); text-decoration:none}
+.sub2{font-family:var(--mono); font-size:9px; letter-spacing:.18em; text-transform:uppercase;
+  color:var(--faint); margin:26px 0 12px}
+.neg{color:var(--down)} .pos{color:var(--up)} .mid{color:var(--be)}
+.empty-v{color:var(--faint); font-style:normal}
+
+/* ---- активы ---- */
+.assets{display:flex; gap:9px; flex-wrap:wrap}
 .assets b{font-family:var(--mono); font-size:15px; font-weight:500; padding:9px 17px;
   border-radius:99px; background:var(--panel-2); border:1px solid var(--line)}
+.assets b i{font-style:normal; color:var(--faint); font-size:12px; margin-left:8px}
 
-.flow{display:flex; align-items:stretch; gap:0; flex-wrap:wrap}
-.fstep{flex:1 1 150px; padding:0 22px; border-left:1px solid var(--line-soft)}
-.fstep:first-child{padding-left:0; border-left:none}
-.fstep .k{font-family:var(--mono); font-size:9px; letter-spacing:.15em; text-transform:uppercase;
-  color:var(--faint)}
-.fstep .tf{font-family:var(--mono); font-size:26px; margin-top:9px; line-height:1}
-.fstep .d{font-size:12.5px; color:var(--dim); margin-top:7px; line-height:1.45}
+/* ---- таймфреймы со скринами ---- */
+.tfs{display:flex; flex-direction:column; gap:14px}
+.tfrow{display:grid; grid-template-columns:104px 1fr 188px; gap:20px; align-items:start;
+  padding:16px 0; border-top:1px solid var(--line-soft)}
+.tfrow:first-child{border-top:none; padding-top:4px}
+.tfrow .tf{font-family:var(--mono); font-size:28px; line-height:1}
+.tfrow .role{font-family:var(--mono); font-size:9px; letter-spacing:.14em; text-transform:uppercase;
+  color:var(--faint); margin-top:8px}
+.tfrow .what{font-size:13.5px; color:var(--dim); line-height:1.6}
+.tfrow .what b{color:var(--text); font-weight:600}
+.tfrow .what ul{margin:8px 0 0; padding-left:17px; display:flex; flex-direction:column; gap:5px}
 
-/* ---- риск ---- */
+.shot{border:1px dashed var(--line); border-radius:var(--r-sm); overflow:hidden;
+  background:var(--panel-2); cursor:pointer; transition:border-color .18s}
+.shot:hover{border-color:color-mix(in srgb, var(--accent) 55%, transparent)}
+.shot .ph{display:flex; flex-direction:column; align-items:center; justify-content:center;
+  gap:6px; height:112px; color:var(--faint); font-size:12px}
+.shot .ph b{font-size:20px; font-weight:400; line-height:1}
+.shot img{width:100%; display:block}
+.shot.has{border-style:solid; border-color:var(--line)}
+
+/* ---- цифры ---- */
 .three{display:flex; gap:50px; flex-wrap:wrap}
 .three div .k{font-family:var(--mono); font-size:9.5px; letter-spacing:.15em;
   text-transform:uppercase; color:var(--faint)}
 .three div .n{font-family:var(--mono); font-size:34px; line-height:1; margin-top:10px;
   letter-spacing:-.02em}
 
-.lines{margin-top:26px; padding-top:24px; border-top:1px solid var(--line-soft);
-  display:flex; flex-direction:column; gap:15px}
-.line{display:grid; grid-template-columns:126px 1fr; gap:20px; align-items:baseline}
+.lines{display:flex; flex-direction:column; gap:0}
+.line{display:grid; grid-template-columns:168px 1fr; gap:20px; align-items:baseline;
+  padding:12px 0; border-bottom:1px solid var(--line-soft)}
+.line:last-child{border-bottom:none}
 .line .k{font-size:12.5px; color:var(--faint)}
-.line .v{font-size:14px; line-height:1.55}
+.line .v{font-size:14px; line-height:1.6}
 .line .v b{font-weight:600}
 .line .v span{color:var(--dim)}
+.line .v ul{margin:4px 0 0; padding-left:17px; display:flex; flex-direction:column; gap:5px;
+  color:var(--dim)}
 
-.said{margin-top:24px; padding-top:22px; border-top:1px solid var(--line-soft);
-  font-size:14px; line-height:1.6; color:var(--dim)}
+.said{padding:16px 18px; border-radius:var(--r-sm); background:var(--panel-2);
+  border-left:2px solid var(--accent); font-size:14px; line-height:1.6; color:var(--dim)}
 .said b{color:var(--text)}
 
 /* ---- чек-лист ---- */
@@ -135,6 +160,7 @@ body{margin:0; background:var(--bg); color:var(--text); font-family:var(--sans);
 .q label:last-of-type{border-bottom:none}
 .q input{width:18px; height:18px; accent-color:var(--accent); flex:none}
 .q .t{font-size:14.5px}
+.q .t em{font-style:normal; color:var(--faint); font-size:12.5px; display:block; margin-top:2px}
 .q label:has(input:checked) .t{color:var(--dim)}
 .gate{display:flex; align-items:baseline; gap:14px; margin-top:20px; padding-top:18px;
   border-top:1px solid var(--line)}
@@ -151,7 +177,7 @@ body{margin:0; background:var(--bg); color:var(--text); font-family:var(--sans);
 .cmp .v{font-family:var(--mono); font-size:16px; text-align:right; white-space:nowrap}
 .cmp .v em{font-style:normal; display:block; font-size:11.5px; color:var(--faint); margin-top:4px}
 
-/* ---- большая кнопка «с нуля» ---- */
+/* ---- кнопка «с нуля» ---- */
 .start{display:flex; align-items:center; gap:22px; width:100%; text-align:left;
   padding:26px 30px; border-radius:var(--r); cursor:pointer; font:inherit; color:var(--text);
   background:var(--card); border:1px dashed var(--line);
@@ -165,41 +191,44 @@ body{margin:0; background:var(--bg); color:var(--text); font-family:var(--sans);
 .start .tx span{font-size:13px; color:var(--dim)}
 .start .go{margin-left:auto; font-family:var(--mono); font-size:12px; color:var(--faint)}
 
-/* ================= полноэкранный опрос ================= */
-.ask{position:fixed; inset:0; z-index:60; background:var(--bg);
-  display:none; flex-direction:column}
+/* ================= опрос ================= */
+.ask{position:fixed; inset:0; z-index:60; background:var(--bg); display:none; flex-direction:column}
 .ask.on{display:flex}
 .ask-top{display:flex; align-items:center; gap:16px; padding:20px 26px}
 .ask-back{border:0; background:transparent; color:var(--faint); font:inherit; font-size:13px;
   cursor:pointer; padding:6px 0}
 .ask-back:hover{color:var(--text)}
-.dots{display:flex; gap:6px; margin:0 auto}
-.dots i{width:22px; height:3px; border-radius:99px; background:var(--line)}
+.dots{display:flex; gap:5px; margin:0 auto; flex-wrap:wrap; max-width:60%; justify-content:center}
+.dots i{width:18px; height:3px; border-radius:99px; background:var(--line)}
 .dots i.on{background:var(--accent)}
 .dots i.done{background:color-mix(in srgb, var(--accent) 45%, transparent)}
 .ask-close{border:0; background:transparent; color:var(--faint); font:inherit; font-size:20px;
   cursor:pointer; line-height:1}
 
-.ask-body{flex:1; display:flex; align-items:center; justify-content:center; padding:0 26px 40px}
-.ask-in{width:100%; max-width:640px; opacity:0; transform:translateY(10px);
-  animation:up .34s cubic-bezier(.16,1,.3,1) forwards}
+.ask-body{flex:1; display:flex; align-items:center; justify-content:center;
+  padding:0 26px 40px; overflow-y:auto}
+.ask-in{width:100%; max-width:680px; opacity:0; transform:translateY(10px);
+  animation:up .34s cubic-bezier(.16,1,.3,1) forwards; padding:30px 0}
 @keyframes up{to{opacity:1; transform:none}}
 .ask-n{font-family:var(--mono); font-size:11px; letter-spacing:.15em; text-transform:uppercase;
   color:var(--faint); margin-bottom:14px}
 .ask-q{font-size:30px; font-weight:650; letter-spacing:-.02em; line-height:1.2; margin:0 0 10px}
-.ask-h{font-size:14px; color:var(--dim); margin:0 0 28px; line-height:1.55}
+.ask-h{font-size:14px; color:var(--dim); margin:0 0 26px; line-height:1.55}
 
 .opts{display:flex; gap:10px; flex-wrap:wrap}
 .opt{border:1px solid var(--line); background:var(--panel); color:var(--text); font:inherit;
-  font-size:16px; padding:15px 24px; border-radius:var(--r-sm); cursor:pointer;
+  font-size:15.5px; padding:14px 22px; border-radius:var(--r-sm); cursor:pointer;
   transition:border-color .18s, background .18s, transform .15s}
 .opt:hover{border-color:color-mix(in srgb, var(--accent) 50%, transparent); transform:translateY(-1px)}
 .opt.on{background:var(--accent-soft); border-color:color-mix(in srgb, var(--accent) 60%, transparent)}
-.opt small{display:block; font-size:12px; color:var(--faint); margin-top:4px}
+.opt small{display:block; font-size:12px; color:var(--faint); margin-top:3px}
+
+.multi{font-family:var(--mono); font-size:10px; letter-spacing:.12em; text-transform:uppercase;
+  color:var(--accent); margin-bottom:12px}
 
 .ask-inp{width:100%; background:var(--panel); color:var(--text); border:1px solid var(--line);
   border-radius:var(--r-sm); padding:15px 17px; font:inherit; font-size:16px; line-height:1.55}
-textarea.ask-inp{min-height:110px; resize:vertical}
+textarea.ask-inp{min-height:120px; resize:vertical}
 
 .ask-foot{display:flex; align-items:center; gap:16px; margin-top:26px}
 .next{border:0; background:var(--accent); color:var(--accent-ink); font:inherit; font-size:15px;
@@ -209,13 +238,17 @@ textarea.ask-inp{min-height:110px; resize:vertical}
   cursor:pointer}
 .later:hover{color:var(--dim)}
 
-/* итог опроса */
 .done-l{display:flex; flex-direction:column; gap:2px; margin:26px 0}
-.done-l div{display:grid; grid-template-columns:190px 1fr; gap:18px; padding:11px 0;
+.done-l div{display:grid; grid-template-columns:210px 1fr; gap:18px; padding:11px 0;
   border-bottom:1px solid var(--line-soft); font-size:14px}
 .done-l div:last-child{border-bottom:none}
 .done-l .k{color:var(--faint); font-size:12.5px}
 .done-l .v b{font-weight:600}
+
+@media (max-width:760px){
+  .tfrow{grid-template-columns:1fr; gap:12px}
+  .line{grid-template-columns:1fr; gap:4px}
+}
 </style>
 </head>
 <body>
@@ -234,68 +267,209 @@ textarea.ask-inp{min-height:110px; resize:vertical}
 
   <div class="vhead">
     <h1>Моя ТС</h1>
-    <span class="sub">підтягнуто з Notion · 31 серпня</span>
+    <span class="sub">підтягнуто з Notion · 1 вересня</span>
     <span class="sys"><button class="on">ТС (us100)</button><button>ТС</button></span>
   </div>
 
-  <!-- 1. что торгую и таймфреймы -->
-  <div class="card">
-    <p class="h3">Що торгую</p>
-    <div class="assets"><b>Nasdaq</b><b>SPX 500</b></div>
+  <div class="toc">
+    <a href="#market">Ринок і час</a>
+    <a href="#tf">Таймфрейми</a>
+    <a href="#entry">Вхід</a>
+    <a href="#risk">Ризик</a>
+    <a href="#manage">Супровід</a>
+    <a href="#no">Коли не входжу</a>
+    <a href="#check">Чек-лист</a>
+    <a href="#real">Проти журналу</a>
+  </div>
 
-    <p class="h3">Таймфрейми</p>
-    <div class="flow">
-      <div class="fstep"><div class="k">Контекст</div><div class="tf">4H</div>
-        <div class="d">напрямок, таргети й POI</div></div>
-      <div class="fstep"><div class="k">Підтвердження</div><div class="tf">15M</div>
-        <div class="d">злам у вигляді cisd у мій бік</div></div>
-      <div class="fstep"><div class="k">Вхід</div><div class="tf">1M</div>
-        <div class="d">точка входу</div></div>
+  <!-- 1. рынок и время -->
+  <div class="card" id="market">
+    <p class="h3">Ринок і час<s></s></p>
+
+    <div class="assets">
+      <b>Nasdaq <i>NQ</i></b><b>SPX 500 <i>ES</i></b><b>GER40 <i>DAX</i></b>
+    </div>
+
+    <p class="sub2">Вікна</p>
+    <div class="lines">
+      <div class="line"><div class="k">Frankfurt</div>
+        <div class="v"><b>08:00 – 09:00</b> <span>· інформаційний, входів не беру</span></div></div>
+      <div class="line"><div class="k">London open</div>
+        <div class="v"><b>08:50 – 11:00</b> <span>· основне вікно</span></div></div>
+      <div class="line"><div class="k">New York</div>
+        <div class="v"><b>15:30 – 16:30</b> <span>· друге основне</span></div></div>
+      <div class="line"><div class="k">Power Hour</div>
+        <div class="v"><b>21:00 – 22:00</b> <span>· якщо до 21:30 входу немає — скіп</span></div></div>
+      <div class="line"><div class="k">GER40 окремо</div>
+        <div class="v"><b>08:00–08:15</b> <span>·</span> <b>08:50–11:00</b> <span>·</span> <b>15:30–16:30</b></div></div>
+    </div>
+
+    <p class="sub2">Дні та новини</p>
+    <div class="lines">
+      <div class="line"><div class="k">Торгую</div>
+        <div class="v">Пн — Пт <span>· у п'ятницю після 18:00 не входжу</span></div></div>
+      <div class="line"><div class="k">Червоні новини</div>
+        <div class="v">не входжу за <b>15 хв</b> до і <b>15 хв</b> після<br>
+          <span>якщо вже в позиції — див. «Супровід»</span></div></div>
     </div>
   </div>
 
-  <!-- 2. риск -->
-  <div class="card">
-    <p class="h3">Ризик</p>
+  <!-- 2. таймфреймы -->
+  <div class="card" id="tf">
+    <p class="h3">Таймфрейми · що дивлюсь на кожному<s></s></p>
+
+    <div class="tfs">
+      <div class="tfrow">
+        <div><div class="tf">1D</div><div class="role">Контекст</div></div>
+        <div class="what"><b>Куди ринок іде взагалі.</b>
+          <ul><li>глобальний напрямок, місячні цілі</li>
+              <li>великі імбаланси й ліквідність</li>
+              <li>чи не в проблемній зоні ціна</li></ul></div>
+        <div class="shot has"><img alt="" src="data:image/svg+xml;utf8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='320' height='170'%3E%3Crect width='320' height='170' fill='%23121a16'/%3E%3Cpolyline points='0,120 40,110 80,118 120,95 160,100 200,78 240,84 280,60 320,66' fill='none' stroke='%2340e094' stroke-width='3'/%3E%3C/svg%3E"></div>
+      </div>
+
+      <div class="tfrow">
+        <div><div class="tf">4H</div><div class="role">Напрямок</div></div>
+        <div class="what"><b>Лонг чи шорт сьогодні.</b>
+          <ul><li>таргети й POI, до яких працюю</li>
+              <li>ордер-флоу</li></ul></div>
+        <div class="shot has"><img alt="" src="data:image/svg+xml;utf8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='320' height='170'%3E%3Crect width='320' height='170' fill='%23121a16'/%3E%3Cpolyline points='0,60 40,70 80,58 120,86 160,80 200,104 240,96 280,120 320,112' fill='none' stroke='%23ff6e60' stroke-width='3'/%3E%3C/svg%3E"></div>
+      </div>
+
+      <div class="tfrow">
+        <div><div class="tf">1H</div><div class="role">Всередині дня</div></div>
+        <div class="what"><b>Як ціна працює в межах дня.</b>
+          <ul><li>зняття фракталу, робота з зонами</li>
+              <li>підтвердження до молодших ТФ</li></ul></div>
+        <div class="shot"><div class="ph"><b>+</b>вставити скрін</div></div>
+      </div>
+
+      <div class="tfrow">
+        <div><div class="tf">15M</div><div class="role">Підтвердження</div></div>
+        <div class="what"><b>Ключовий. Без нього входу немає.</b>
+          <ul><li>злам структури — <b>cisd</b> у мій бік</li>
+              <li>fvg і фрактали, робота з відкритими зонами</li>
+              <li>виняток: якщо на 1H ціна заходить у POI — злам можу ігнорувати</li></ul></div>
+        <div class="shot"><div class="ph"><b>+</b>вставити скрін</div></div>
+      </div>
+
+      <div class="tfrow">
+        <div><div class="tf">1M</div><div class="role">Вхід</div></div>
+        <div class="what"><b>Сама точка входу.</b>
+          <ul><li>cisd на 1m після тесту зони</li>
+              <li>стоп за структуру, не за свічку</li></ul></div>
+        <div class="shot"><div class="ph"><b>+</b>вставити скрін</div></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 3. вход -->
+  <div class="card" id="entry">
+    <p class="h3">Вхід<s></s></p>
+    <div class="lines">
+      <div class="line"><div class="k">Моделі входу</div>
+        <div class="v"><b>cisd</b> <span>— злам характеру, основна</span><br>
+          <b>inversion</b> <span>— інверсія зони</span><br>
+          <b>bos</b> <span>— пробій структури</span></div></div>
+      <div class="line"><div class="k">Біас визначаю</div>
+        <div class="v">на <b>4H</b>, звіряю з сесійним наративом<br>
+          <span>проти загального тренду входжу тільки з підтвердженням інверсії</span></div></div>
+      <div class="line"><div class="k">Де стоп</div>
+        <div class="v">за структуру, що зламалась <span>· не за тінь свічки</span></div></div>
+      <div class="line"><div class="k">Де ціль</div>
+        <div class="v">найближчий <b>4H імбаланс</b> або денний фрактал</div></div>
+      <div class="line"><div class="k">Скільки угод</div>
+        <div class="v">не більше <b>3</b> на день <span>· після двох поспіль стопів — пауза</span></div></div>
+    </div>
+  </div>
+
+  <!-- 4. риск -->
+  <div class="card" id="risk">
+    <p class="h3">Ризик<s></s></p>
     <div class="three">
       <div><div class="k">Мінімальний RR</div><div class="n">2.0</div></div>
       <div><div class="k">Ризик на угоду</div><div class="n">1%</div></div>
       <div><div class="k">Ліміт за день</div><div class="n neg">2%</div></div>
+      <div><div class="k">Ліміт за тиждень</div><div class="n neg">5%</div></div>
     </div>
-
+    <p class="sub2">Окремі випадки</p>
     <div class="lines">
-      <div class="line"><div class="k">Вікна</div>
-        <div class="v"><b>08:50–11:00</b> <span>і</span> <b>15:30–16:30</b><br>
-          <span>Power Hour 21:00–22:00 — якщо до 21:30 входу немає, скіп</span></div></div>
-      <div class="line"><div class="k">Беззбиток</div>
-        <div class="v">на першій <b>15m FTA</b><br>
-          <span>червоні новини: є мінімальний RR — закриваю, немає — БУ</span></div></div>
       <div class="line"><div class="k">Реверс</div>
         <div class="v">тільки <b>0.5%</b></div></div>
+      <div class="line"><div class="k">Після серії збитків</div>
+        <div class="v">три стопи поспіль — наступний день на <b>0.5%</b></div></div>
+      <div class="line"><div class="k">Після серії тейків</div>
+        <div class="v">розмір не збільшую <span>· ризик завжди однаковий</span></div></div>
     </div>
-
-    <div class="said"><b>Сідати за графіки з холодною головою.</b>
-      Головне — зберегти капітал, а не взяти багато угод.</div>
   </div>
 
-  <!-- 3. чек-лист -->
-  <div class="card">
-    <p class="h3">Чек-лист перед входом</p>
+  <!-- 5. сопровождение -->
+  <div class="card" id="manage">
+    <p class="h3">Супровід угоди<s></s></p>
+    <div class="lines">
+      <div class="line"><div class="k">Беззбиток</div>
+        <div class="v">на першій <b>15m FTA</b><br>
+          <span>перед ТП є FTA — знімаю раніше</span></div></div>
+      <div class="line"><div class="k">Часткова фіксація</div>
+        <div class="v">не роблю <span class="empty-v">· заповнити</span></div></div>
+      <div class="line"><div class="k">Червоні новини в позиції</div>
+        <div class="v">є мінімальний RR — закриваю<br><span>немає — переводжу в БУ</span></div></div>
+      <div class="line"><div class="k">Закриваю руками</div>
+        <div class="v">якщо структура зламалась проти мене на <b>15m</b></div></div>
+      <div class="line"><div class="k">Після входу</div>
+        <div class="v">ставлю алерти й відходжу від графіка</div></div>
+    </div>
+  </div>
+
+  <!-- 6. когда не вхожу -->
+  <div class="card" id="no">
+    <p class="h3">Коли не входжу<s></s></p>
+    <div class="lines">
+      <div class="line"><div class="k">За ринком</div>
+        <div class="v"><ul>
+          <li>немає зламу 15m у мій бік</li>
+          <li>RR до цілі менше 2.0</li>
+          <li>ціна в проблемній зоні старшого контексту</li>
+          <li>рванa структура, зони «не красиві»</li></ul></div></div>
+      <div class="line"><div class="k">За часом</div>
+        <div class="v"><ul>
+          <li>поза своїми вікнами</li>
+          <li>Power Hour: до 21:30 входу немає — скіп</li>
+          <li>15 хв навколо червоної новини</li></ul></div></div>
+      <div class="line"><div class="k">За собою</div>
+        <div class="v"><ul>
+          <li>денний ліміт вибрано</li>
+          <li>сідаю не з холодною головою</li>
+          <li>хочеться відігратись</li></ul></div></div>
+    </div>
+
+    <p class="sub2">Нагадування</p>
+    <div class="said"><b>Сідати за графіки з холодною головою.</b>
+      Головне — зберегти капітал, а не взяти багато угод.
+      Взяв позу — поставив алерти й відійшов.</div>
+  </div>
+
+  <!-- 7. чек-лист -->
+  <div class="card" id="check">
+    <p class="h3">Чек-лист перед входом<s></s></p>
     <div class="q">
-      <label><input type="checkbox" checked><span class="t">Контекст 4H за мене</span></label>
-      <label><input type="checkbox" checked><span class="t">Є злам 15m у мій бік</span></label>
+      <label><input type="checkbox" checked><span class="t">Контекст 1D і 4H за мене
+        <em>ціна не в проблемній зоні старшого ТФ</em></span></label>
+      <label><input type="checkbox" checked><span class="t">Є злам 15m (cisd) у мій бік</span></label>
       <label><input type="checkbox"><span class="t">RR до цілі не менше 2.0</span></label>
       <label><input type="checkbox" checked><span class="t">Ми у своєму вікні</span></label>
       <label><input type="checkbox"><span class="t">Червоних новин поруч немає</span></label>
       <label><input type="checkbox" checked><span class="t">Денний ліміт не вибраний</span></label>
+      <label><input type="checkbox" checked><span class="t">Стоп стоїть за структуру</span></label>
+      <label><input type="checkbox"><span class="t">Голова холодна</span></label>
     </div>
-    <div class="gate"><b class="neg">2 з 6</b>
+    <div class="gate"><b class="neg">3 з 8</b>
       <span>не закрито — за твоїми ж правилами входу немає</span></div>
   </div>
 
-  <!-- 4. сверка -->
-  <div class="card">
-    <p class="h3">Що виходить насправді · 213 угод</p>
+  <!-- 8. сверка -->
+  <div class="card" id="real">
+    <p class="h3">Що виходить насправді · 214 угод<s></s></p>
     <div class="cmp">
       <div class="r">
         <div class="nm">RR нижче мінімального<i>у ТС — не менше 2.0</i></div>
@@ -306,27 +480,29 @@ textarea.ask-inp{min-height:110px; resize:vertical}
         <div class="v neg">5 днів<em>найгірший −3.0%</em></div>
       </div>
       <div class="r">
-        <div class="nm">Торгуєш поза списком<i>у ТС лише Nasdaq і SPX</i></div>
-        <div class="v mid">GER40 · 75<em>більше, ніж US100</em></div>
+        <div class="nm">Більше 3 угод за день<i>у ТС — не більше трьох</i></div>
+        <div class="v mid">10 днів<em>найбільше 6</em></div>
       </div>
       <div class="r">
         <div class="nm">Ризик на угоду<i>у ТС — 1%</i></div>
         <div class="v pos">0.99%<em>тримаєш</em></div>
       </div>
+      <div class="r">
+        <div class="nm">Модель входу<i>у ТС основна — cisd</i></div>
+        <div class="v mid">108 з 214<em>решта bos 54, inversion 46</em></div>
+      </div>
     </div>
   </div>
 
-  <!-- 5. кнопка «с нуля» -->
   <button class="start" onclick="askOpen()">
     <span class="ic">+</span>
     <span class="tx"><b>Заповнити ТС з нуля</b>
-      <span>Якщо Notion не підключений — десять питань, по одному на екран</span></span>
+      <span>Якщо Notion не підключений — питання по одному на екран</span></span>
     <span class="go">почати →</span>
   </button>
 
 </div>
 
-<!-- ================= опрос ================= -->
 <div class="ask" id="ask">
   <div class="ask-top">
     <button class="ask-back" onclick="askPrev()">← назад</button>
@@ -347,43 +523,78 @@ document.querySelectorAll(".skins button").forEach(b => b.onclick = () => {
     ["day","paper"].includes(s) ? "light" : "dark");
 });
 
-/* ---------- опрос по одному вопросу на экран ----------
-   Одиночный выбор сразу уводит дальше — так меньше кликов.
-   Множественный и текст ждут кнопки. */
+/* ---------- опрос ----------
+   Одиночный выбор сразу уводит дальше. Где вариантов может быть
+   несколько — ждём «Далі». */
 const Q = [
-  {k:"assets", t:"Чим торгуєш?", h:"Можна кілька. Потім журнал підкаже, якщо торгуєш тим, чого тут немає.",
-   multi:true, opts:["US100","GER40","ES500","EUR/USD","GBP/USD","XAUUSD","BTCUSD"], pre:["US100","GER40"]},
-  {k:"ctx", t:"Де дивишся напрямок?", h:"Старший таймфрейм: контекст, цілі, зони.",
-   opts:["1D","4H","1H"], pre:"4H"},
-  {k:"conf", t:"Де шукаєш підтвердження?", h:"Той, на якому вирішуєш, що рух почався.",
-   opts:["1H","15M","5M"], pre:"15M"},
-  {k:"entry", t:"Де входиш?", h:"Таймфрейм самої точки входу.",
-   opts:["5M","3M","1M"], pre:"1M"},
-  {k:"hours", t:"О котрій торгуєш?", h:"Можна кілька вікон.",
-   multi:true, opts:["Frankfurt","London","New York","Power Hour","Азія"], pre:["London","New York"]},
-  {k:"risk", t:"Скільки ризикуєш в одній угоді?", h:"Від депозиту. Це головна цифра — з неї рахується все інше.",
-   opts:["0.5%","1%","1.5%","2%"], pre:"1%"},
-  {k:"rr", t:"Нижче якого RR не входиш?", h:"Якщо до цілі менше — угоди немає.",
+  {k:"assets", t:"Чим торгуєш?", h:"Можна кілька.",
+   multi:true, opts:["US100","GER40","ES500","EUR/USD","GBP/USD","XAUUSD","BTCUSD","US30","JP225"],
+   pre:["US100","GER40"]},
+
+  {k:"ctx", t:"На чому дивишся контекст?", h:"Старші таймфрейми: куди ринок іде взагалі. Можна кілька.",
+   multi:true, opts:["1W","1D","4H"], pre:["1D","4H"]},
+  {k:"conf", t:"Де шукаєш підтвердження?", h:"Той таймфрейм, на якому вирішуєш, що рух почався. Можна кілька.",
+   multi:true, opts:["4H","1H","30M","15M","5M"], pre:["1H","15M"]},
+  {k:"entry", t:"Де входиш?", h:"Таймфрейм самої точки входу. Можна кілька.",
+   multi:true, opts:["15M","5M","3M","1M"], pre:["1M"]},
+
+  {k:"hours", t:"У які вікна торгуєш?", h:"Можна кілька.",
+   multi:true, opts:["Frankfurt","London open","New York","Power Hour","Азія","Весь день"],
+   pre:["London open","New York"]},
+  {k:"days", t:"Які дні пропускаєш?", h:"Можна кілька. Якщо торгуєш усі — просто далі.",
+   multi:true, opts:["Понеділок","П'ятниця","Дні з червоними новинами","Останній день місяця"],
+   pre:[]},
+
+  {k:"model", t:"Твої моделі входу", h:"Можна кілька.",
+   multi:true, opts:["cisd","bos","inversion","fvg","order block","liquidity sweep"],
+   pre:["cisd"]},
+  {k:"stop", t:"Де ставиш стоп?", h:"",
+   opts:["за структуру","за тінь свічки","за межу зони","фіксований у пунктах"], pre:"за структуру"},
+  {k:"target", t:"Де ціль?", h:"",
+   opts:["найближчий імбаланс","денний фрактал","фіксований RR","попередній екстремум"],
+   pre:"найближчий імбаланс"},
+
+  {k:"risk", t:"Скільки ризикуєш в одній угоді?", h:"Від депозиту. З цієї цифри рахується все інше.",
+   opts:["0.25%","0.5%","1%","1.5%","2%"], pre:"1%"},
+  {k:"rr", t:"Нижче якого RR не входиш?", h:"",
    opts:["1.5","2","2.5","3"], pre:"2"},
   {k:"day", t:"Після якої втрати зупиняєшся на день?", h:"Журнал попередить, коли ліміт майже вибрано.",
-   opts:["1%","2%","3%","без ліміту"], pre:"2%"},
-  {k:"be", t:"Коли переводиш у беззбиток?", h:"",
-   opts:["на першій 15m FTA","на половині шляху до цілі","не переводжу"], pre:"на першій 15m FTA"},
+   opts:["1%","2%","3%","5%","без ліміту"], pre:"2%"},
+  {k:"maxtrades", t:"Скільки угод за день максимум?", h:"",
+   opts:["1","2","3","5","без обмеження"], pre:"3"},
+
+  {k:"be", t:"Коли переводиш у беззбиток?", h:"Можна кілька — у різних ситуаціях по-різному.",
+   multi:true, opts:["на першій 15m FTA","після 1h фракталу","на межі сесії",
+     "на половині шляху до цілі","після зняття ліквідності","перед червоними новинами",
+     "через N хвилин у позиції","коли RR дійшов до 1","не переводжу"],
+   pre:["на першій 15m FTA"]},
+  {k:"partial", t:"Фіксуєш частинами?", h:"",
+   opts:["ні, закриваю все одразу","половину на RR 1","третину на кожній цілі","за ситуацією"],
+   pre:"ні, закриваю все одразу"},
+  {k:"manual", t:"Коли закриваєш руками?", h:"Можна кілька.",
+   multi:true, opts:["структура зламалась проти","червона новина","кінець сесії",
+     "не йде за планом","не закриваю руками"],
+   pre:["структура зламалась проти"]},
+
   {k:"skip", t:"Коли пропускаєш вхід?", h:"Своїми словами. Це найкорисніше — і ніде більше не зберігається.",
-   text:true, ph:"Наприклад: якщо до 21:30 входу немає — скіп. Якщо поруч червона новина — не входжу."},
+   text:true, ph:"Наприклад: якщо до 21:30 входу немає — скіп. Якщо зони не красиві — не входжу."},
+  {k:"mind", t:"Що нагадати собі перед торгівлею?", h:"Побачиш це щоразу, коли відкриєш ТС.",
+   text:true, ph:"Наприклад: головне — зберегти капітал, а не взяти багато угод."},
 ];
 
 let step = 0;
 const answers = {};
 
-function askOpen(){ step = 0; Q.forEach(q => answers[q.k] = q.pre || (q.multi ? [] : "")); draw(); document.getElementById("ask").classList.add("on"); }
+function askOpen(){
+  step = 0;
+  Q.forEach(q => answers[q.k] = q.pre !== undefined ? (Array.isArray(q.pre) ? q.pre.slice() : q.pre)
+                                                    : (q.multi ? [] : ""));
+  draw();
+  document.getElementById("ask").classList.add("on");
+}
 function askClose(){ document.getElementById("ask").classList.remove("on"); }
 function askPrev(){ if (step > 0){ step--; draw(); } else askClose(); }
 function askNext(){ if (step < Q.length){ step++; draw(); } }
-
-function dots(){
-  return Q.map((q,i) => '<i class="' + (i === step ? "on" : i < step ? "done" : "") + '"></i>').join("");
-}
 
 function pick(k, v){
   const q = Q.find(x => x.k === k);
@@ -395,28 +606,30 @@ function pick(k, v){
   } else {
     answers[k] = v;
     draw();
-    setTimeout(askNext, 180);        /* видно, что выбор принят, и уходим дальше */
+    setTimeout(askNext, 180);
   }
 }
 
 function draw(){
-  document.getElementById("dots").innerHTML = dots();
+  document.getElementById("dots").innerHTML =
+    Q.map((q, i) => '<i class="' + (i === step ? "on" : i < step ? "done" : "") + '"></i>').join("");
   const box = document.getElementById("askIn");
 
   if (step >= Q.length){
-    const l = (k, v) => '<div><span class="k">' + k + '</span><span class="v"><b>' + v + "</b></span></div>";
+    const j = k => { const v = answers[k]; return Array.isArray(v) ? v.join(" · ") : (v || "—"); };
+    const l = (k, v) => '<div><span class="k">' + k + '</span><span class="v"><b>' + (v || "—") + "</b></span></div>";
     box.innerHTML = '<div class="ask-in">'
       + '<div class="ask-n">готово</div>'
       + '<h2 class="ask-q">Це твоя ТС</h2>'
       + '<p class="ask-h">Тепер журнал звірятиме з нею кожну угоду.</p>'
       + '<div class="done-l">'
-      +   l("Торгую", (answers.assets || []).join(" · ") || "—")
-      +   l("Таймфрейми", [answers.ctx, answers.conf, answers.entry].filter(Boolean).join(" → "))
-      +   l("Вікна", (answers.hours || []).join(" · ") || "—")
-      +   l("Ризик на угоду", answers.risk || "—")
-      +   l("Мінімальний RR", answers.rr || "—")
-      +   l("Ліміт за день", answers.day || "—")
-      +   l("Беззбиток", answers.be || "—")
+      +   l("Торгую", j("assets")) + l("Контекст", j("ctx"))
+      +   l("Підтвердження", j("conf")) + l("Вхід", j("entry"))
+      +   l("Вікна", j("hours")) + l("Моделі", j("model"))
+      +   l("Стоп", j("stop")) + l("Ціль", j("target"))
+      +   l("Ризик на угоду", j("risk")) + l("Мінімальний RR", j("rr"))
+      +   l("Ліміт за день", j("day")) + l("Угод за день", j("maxtrades"))
+      +   l("Беззбиток", j("be")) + l("Часткова фіксація", j("partial"))
       + "</div>"
       + '<div class="ask-foot"><button class="next" onclick="askClose()">Зберегти</button>'
       + '<button class="later" onclick="step=0;draw()">Пройти ще раз</button></div>'
@@ -425,12 +638,14 @@ function draw(){
   }
 
   const q = Q[step];
-  let body;
+  let body = "";
+  if (q.multi) body += '<div class="multi">можна кілька</div>';
   if (q.text){
-    body = '<textarea class="ask-inp" placeholder="' + q.ph + '">' + (answers[q.k] || "") + "</textarea>";
+    body += '<textarea class="ask-inp" placeholder="' + q.ph + '" '
+         + 'oninput="answers[\'' + q.k + '\']=this.value">' + (answers[q.k] || "") + "</textarea>";
   } else {
     const sel = v => q.multi ? (answers[q.k] || []).includes(v) : answers[q.k] === v;
-    body = '<div class="opts">' + q.opts.map(v =>
+    body += '<div class="opts">' + q.opts.map(v =>
       '<button class="opt' + (sel(v) ? " on" : "") + '" onclick="pick(\'' + q.k + "','" + v + "')\">"
       + v + "</button>").join("") + "</div>";
   }
