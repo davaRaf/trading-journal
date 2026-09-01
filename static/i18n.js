@@ -965,9 +965,11 @@ function applyLang(code){
   const tb = document.getElementById("telegramBtn");
   if(tb) setTip(tb, T.sdTelegramTip);
 
-  const lb = document.getElementById("langBtn");
-  if(lb) setTip(lb, T.sdLangTip);
-  setText("langBtnLabel", T.label);
+  const langs = document.getElementById("langs");
+  if(langs){
+    setTip(langs, T.sdLangTip);
+    langs.querySelectorAll("button").forEach(b => b.classList.toggle("on", b.dataset.lang === LANG));
+  }
 
   const lo = document.getElementById("logoutBtn");
   if(lo){ setTip(lo, T.sdLogoutTip); const sp = lo.querySelector("span"); if(sp) sp.textContent = T.sdLogout; }
@@ -991,13 +993,6 @@ function applyLang(code){
   }
 }
 window.applyLang = applyLang;
-
-const LANG_ORDER = ["uk", "ru", "en"];
-function cycleLang(){
-  const i = LANG_ORDER.indexOf(LANG);
-  applyLang(LANG_ORDER[(i + 1) % LANG_ORDER.length]);
-}
-window.cycleLang = cycleLang;
 
 (function(){
   let saved = "uk";

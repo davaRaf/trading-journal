@@ -1048,6 +1048,15 @@ body:has(.ovw){font-size:14px;line-height:1.6;font-weight:300}
 .mini:hover{color:var(--text);background:var(--panel-2);border-color:var(--line)}
 .mini .ic{opacity:.5;flex:none}
 
+/* перемикач мови — одразу три варіанти, а не циклічна кнопка наосліп */
+.langs{display:flex;gap:2px;padding:3px;border-radius:10px;background:var(--panel-2);
+  border:1px solid var(--line-soft)}
+.langs button{flex:1;border:0;background:transparent;color:var(--faint);cursor:pointer;
+  font-family:var(--mono);font-size:10px;letter-spacing:.08em;padding:6px 0;border-radius:7px;
+  transition:.18s}
+.langs button:hover{color:var(--dim)}
+.langs button.on{background:var(--panel);color:var(--text)}
+
 /* ---- фирменный знак в сайдбаре ---- */
 :root{ --logo-green:#40e094 }
 .brand .mark .logo{
