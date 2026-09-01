@@ -314,11 +314,10 @@ uk: {
   sdNavNews: "Новини", sdNavNewsTip: "Економічний календар на тиждень",
   sdYourJournal: "Ваш журнал",
   sdCalcTip: "Порахувати розмір позиції під свій ризик",
-  sdNotionConnect: "Підключити Notion", sdNotionSub: "перенести свої угоди сюди",
   sdNotionTip: "Перенести свої угоди з Notion — записи, нотатки й скріншоти",
-  sdNotionConnectedTitle: "Notion підключено", sdNotionConnectedSub: "перенести ще раз / оновити",
   sdNotionConnectedTip: "Notion уже підключено — можна перенести нові угоди ще раз",
   sdTelegramTip: "Нагадування про новини та питання про емоції",
+  connLabel: "Підключення", connConnected: "Підключено", connNotConnected: "Не підключено",
   sdLangTip: "Мова інтерфейсу",
   sdLogout: "Вийти", sdLogoutTip: "Вийти з акаунта",
   sdSkinTip: "Теми оформлення: світлі, темні й своя",
@@ -609,11 +608,10 @@ ru: {
   sdNavNews: "Новости", sdNavNewsTip: "Экономический календарь на неделю",
   sdYourJournal: "Ваш журнал",
   sdCalcTip: "Посчитать размер позиции под свой риск",
-  sdNotionConnect: "Подключить Notion", sdNotionSub: "перенести свои сделки сюда",
   sdNotionTip: "Перенести свои сделки из Notion — записи, заметки и скриншоты",
-  sdNotionConnectedTitle: "Notion подключён", sdNotionConnectedSub: "перенести ещё раз / обновить",
   sdNotionConnectedTip: "Notion уже подключён — можно перенести новые сделки ещё раз",
   sdTelegramTip: "Напоминания о новостях и вопросы об эмоциях",
+  connLabel: "Подключения", connConnected: "Подключено", connNotConnected: "Не подключено",
   sdLangTip: "Язык интерфейса",
   sdLogout: "Выйти", sdLogoutTip: "Выйти из аккаунта",
   sdSkinTip: "Темы оформления: светлые, тёмные и своя",
@@ -903,11 +901,10 @@ en: {
   sdNavNews: "News", sdNavNewsTip: "Economic calendar for the week",
   sdYourJournal: "Your journal",
   sdCalcTip: "Work out position size for your risk",
-  sdNotionConnect: "Connect Notion", sdNotionSub: "bring your trades over",
   sdNotionTip: "Import your trades from Notion — entries, notes and screenshots",
-  sdNotionConnectedTitle: "Notion connected", sdNotionConnectedSub: "import again / refresh",
   sdNotionConnectedTip: "Notion is already connected — you can import new trades again",
   sdTelegramTip: "Reminders about news and questions about emotions",
+  connLabel: "Connections", connConnected: "Connected", connNotConnected: "Not connected",
   sdLangTip: "Interface language",
   sdLogout: "Log out", sdLogoutTip: "Log out of your account",
   sdSkinTip: "Appearance: light, dark and custom themes",
@@ -959,14 +956,11 @@ function applyLang(code){
   const cb = document.getElementById("calcBtn");
   if(cb){ setTip(cb, T.sdCalcTip); const sp = cb.querySelector("span"); if(sp) sp.textContent = T.ckTitle; }
 
-  const nb = document.getElementById("notionBtn");
-  if(nb){
-    setTip(nb, T.sdNotionTip);
-    const b = nb.querySelector("span b"); if(b) b.textContent = T.sdNotionConnect;
-    const i = nb.querySelector("span i"); if(i) i.textContent = T.sdNotionSub;
-  }
-  // якщо Notion уже підключено — власний підпис кнопки з notion.js
+  setText("connTitle", T.connLabel);
+  // самі статуси (Підключено/Не підключено) і підказки — за кешованим
+  // станом, без повторного запиту на сервер
   if (window.__notion && window.__notion.refreshBtn) window.__notion.refreshBtn();
+  if (window.paintTelegramStatus) window.paintTelegramStatus();
 
   const tb = document.getElementById("telegramBtn");
   if(tb) setTip(tb, T.sdTelegramTip);

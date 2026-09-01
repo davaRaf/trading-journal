@@ -1702,6 +1702,33 @@ async function unlinkTelegram(){
   if(!confirm(T.confirmUnlinkTg)) return;
   try{ await api("POST","/api/telegram/unlink"); }catch(e){}
   closeModal();
+  refreshTelegramStatus();
+}
+
+/* ---------- розділ «Підключення» (Notion + Telegram) у сайдбарі ---------- */
+function toggleConn(){
+  const box=document.getElementById("conn"); if(!box) return;
+  const open=!box.classList.contains("open");
+  box.classList.toggle("open",open);
+  if(open){
+    refreshTelegramStatus();
+    if(window.__notion && window.__notion.refreshState) window.__notion.refreshState();
+  }
+}
+
+let telegramLinked=false;
+function paintTelegramStatus(){
+  const el=document.getElementById("telegramStatus"), row=document.getElementById("telegramBtn");
+  if(!el) return;
+  el.textContent = telegramLinked ? T.connConnected : T.connNotConnected;
+  if(row) row.classList.toggle("connected", telegramLinked);
+}
+window.paintTelegramStatus=paintTelegramStatus;
+async function refreshTelegramStatus(){
+  let user=null;
+  try{ user=(await api("GET","/api/auth/me")).user; }catch(e){ return; }
+  telegramLinked=!!(user && user.telegram_linked);
+  paintTelegramStatus();
 }
 
 function markDemo(){
@@ -1733,4 +1760,5 @@ function markDemo(){
   if(S.view==="monthly"){ S.view="journal"; location.hash="journal"; }
   render();
   if(window.Sparks) Sparks.start();
+  if(!DEMO) refreshTelegramStatus();
 })();

@@ -27,25 +27,18 @@ let tables = [];       // усі таблиці, які знайшли за по
 let picked = [];       // які з них переносимо
 let chosen = null;     // за якою звіряємо колонки
 let batch = null;      // остання партія — її можна скасувати
-let connected = false; // чи вже підключали Notion раніше — міняє підпис кнопки в сайдбарі
+let connected = false; // чи вже підключали Notion раніше — міняє статус у рядку «Підключення»
 
-/* Кнопка в сайдбарі: поки не підключали — «Підключити Notion», після
-   першого перенесення — інший підпис і підказка. Викликається і звідси,
-   і з i18n.js після зміни мови, щоб підпис лишався правильним. */
+/* Рядок у розділі «Підключення»: статус текстом (Підключено/Не
+   підключено), без блимаючих індикаторів. Викликається і звідси, і з
+   i18n.js після зміни мови, щоб статус лишався правильним. */
 function paintBtn(){
   const nb = document.getElementById("notionBtn");
   if (!nb) return;
-  const b = nb.querySelector("span b"), i = nb.querySelector("span i");
+  const st = document.getElementById("notionStatus");
   nb.classList.toggle("connected", connected);
-  if (connected){
-    if (b) b.textContent = T.sdNotionConnectedTitle;
-    if (i) i.textContent = T.sdNotionConnectedSub;
-    nb.setAttribute("data-tip", T.sdNotionConnectedTip);
-  } else {
-    if (b) b.textContent = T.sdNotionConnect;
-    if (i) i.textContent = T.sdNotionSub;
-    nb.setAttribute("data-tip", T.sdNotionTip);
-  }
+  if (st) st.textContent = connected ? T.connConnected : T.connNotConnected;
+  nb.setAttribute("data-tip", connected ? T.sdNotionConnectedTip : T.sdNotionTip);
 }
 
 /* ---- інструменти з імпорту показуємо в підказках форми ---- */
@@ -506,6 +499,7 @@ window.__notion = {
   allTables(){ picked = tables.slice(); stepTables([]); },
   setMap(sel){ const f = sel.dataset.f; if (sel.value) mapping[f] = sel.value; else delete mapping[f]; },
   refreshBtn: paintBtn,
+  refreshState: checkState,
 };
 
 /* Рідну кнопку «Імпорт» лишаємо на місці — просто додаємо в те саме
@@ -524,15 +518,22 @@ window.openImport = function(){
    Тепер головний критерій — чи є в акаунті хоч одна угода: є хоч одна —
    людина вже не новачок, більше не пропонуємо, з якого б пристрою вона
    не зайшла. Кнопка в сайдбарі водночас оновлює підпис на «підключено». */
+/* Перевірка стану на сервері — і для кнопки/статусу, і для рішення
+   про автопоказ вікна нижче. Викликається також вручну (refreshState),
+   коли розділ «Підключення» розкривають — раптом підключили деінде. */
+async function checkState(){
+  if (typeof DEMO !== "undefined" && DEMO) return;
+  try{
+    state = await call("GET", "/api/notion/state");
+    link = state.url || link;
+    connected = !!(state.url || (state.last && state.last.id));
+    paintBtn();
+  }catch(e){}
+}
+
 window.addEventListener("load", () => {
   setTimeout(async () => {
-    if (typeof DEMO !== "undefined" && DEMO) return;
-    try{
-      state = await call("GET", "/api/notion/state");
-      link = state.url || link;
-      connected = !!(state.url || (state.last && state.last.id));
-      paintBtn();
-    }catch(e){}
+    await checkState();
 
     let seen = "1";
     try{ seen = localStorage.getItem(SEEN_KEY) || ""; }catch(e){}
