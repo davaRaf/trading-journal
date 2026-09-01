@@ -1,354 +1,451 @@
 <!doctype html>
-<html lang="uk" data-theme="dark">
+<html lang="uk" data-theme="dark" data-skin="night">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>StatsAI — панель ТС</title>
+<title>StatsAI — Моя ТС</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Geist+Mono:wght@400;500&family=Geist:wght@400;500;600;700&display=swap">
 <style>
+/* ================= темы ================= */
+/* Те самые наборы, что в приложении: 13 цветов, остальное выводится. */
 :root{
-  --bg:#050505; --panel:#0d0d0e; --panel-2:#111112;
-  --line:rgba(255,255,255,.08); --line-soft:rgba(255,255,255,.045);
-  --text:#f2f2f3; --dim:#8c8c90; --faint:#5c5c61;
-  --accent:#40e094; --up:#40e094; --down:#ff6e60; --be:#efc258;
-  --up-soft:rgba(64,224,148,.13); --down-soft:rgba(255,110,96,.13); --be-soft:rgba(239,194,88,.12);
-  --card:#0d0d0e; --r:14px; --r-sm:10px;
+  --r:14px; --r-sm:10px;
   --sans:"Geist","Segoe UI",system-ui,sans-serif;
   --mono:"Geist Mono","Geist",monospace;
 }
+:root[data-skin="night"]{
+  --bg:#050505; --panel:#0d0d0e; --panel-2:#111112;
+  --line:rgba(255,255,255,.08); --line-soft:rgba(255,255,255,.045);
+  --text:#f2f2f3; --dim:#8c8c90; --faint:#5c5c61;
+  --accent:#40e094; --accent-ink:#06130d;
+  --up:#40e094; --down:#ff6e60; --be:#efc258;
+}
+:root[data-skin="graphite"]{
+  --bg:#101012; --panel:#17171a; --panel-2:#1c1c20;
+  --line:rgba(255,255,255,.09); --line-soft:rgba(255,255,255,.05);
+  --text:#ececef; --dim:#96969e; --faint:#64646d;
+  --accent:#f0a13c; --accent-ink:#1a1005;
+  --up:#59c98a; --down:#ef6a5e; --be:#e0b352;
+}
+:root[data-skin="midnight"]{
+  --bg:#070b14; --panel:#0d1421; --panel-2:#111a2b;
+  --line:rgba(150,190,255,.11); --line-soft:rgba(150,190,255,.055);
+  --text:#e6edf7; --dim:#8496b0; --faint:#566579;
+  --accent:#38bdf8; --accent-ink:#04202e;
+  --up:#34d399; --down:#fb7185; --be:#fbbf24;
+}
+:root[data-skin="pine"]{
+  --bg:#06110d; --panel:#0c1a14; --panel-2:#10221a;
+  --line:rgba(160,255,210,.10); --line-soft:rgba(160,255,210,.05);
+  --text:#e7f4ec; --dim:#86a397; --faint:#5b7268;
+  --accent:#a3e635; --accent-ink:#16210a;
+  --up:#4ade80; --down:#f87171; --be:#facc15;
+}
+:root[data-skin="day"]{
+  --bg:#f2f4f8; --panel:#ffffff; --panel-2:#f6f8fb;
+  --line:#dde3ec; --line-soft:#eaeef5;
+  --text:#171b24; --dim:#5a6373; --faint:#99a2b3;
+  --accent:#2b62e3; --accent-ink:#ffffff;
+  --up:#128a53; --down:#c94430; --be:#9c7514;
+}
+:root[data-skin="paper"]{
+  --bg:#f6f2ea; --panel:#fffdf8; --panel-2:#f3eee4;
+  --line:#e3dbcc; --line-soft:#eee8dd;
+  --text:#241f18; --dim:#6b6155; --faint:#a49a8b;
+  --accent:#c2410c; --accent-ink:#fffdf8;
+  --up:#15803d; --down:#b91c1c; --be:#a16207;
+}
+:root{
+  --card:var(--panel);
+  --up-soft:color-mix(in srgb, var(--up) 13%, transparent);
+  --down-soft:color-mix(in srgb, var(--down) 13%, transparent);
+  --accent-soft:color-mix(in srgb, var(--accent) 13%, transparent);
+}
+
 *{box-sizing:border-box}
 body{margin:0; background:var(--bg); color:var(--text); font-family:var(--sans);
-  font-size:14px; line-height:1.5; padding:30px 20px 80px}
-.wrap{max-width:860px; margin:0 auto}
+  font-size:14px; line-height:1.5; transition:background .3s, color .3s}
 
-h1{font-size:23px; font-weight:650; margin:0 0 8px; letter-spacing:-.02em}
-.lead{margin:0 0 10px; color:var(--dim); font-size:13.5px}
-.lead b{color:var(--text)}
+/* ---- полоска выбора темы, только для пробника ---- */
+.skins{position:fixed; top:0; left:0; right:0; z-index:40; display:flex; gap:0;
+  align-items:center; padding:9px 18px; background:var(--panel);
+  border-bottom:1px solid var(--line-soft)}
+.skins .cap{font-family:var(--mono); font-size:9px; letter-spacing:.15em;
+  text-transform:uppercase; color:var(--faint); margin-right:12px}
+.skins button{border:0; background:transparent; color:var(--dim); font:inherit; font-size:12.5px;
+  padding:6px 13px; border-radius:99px; cursor:pointer}
+.skins button.on{background:var(--panel-2); color:var(--text); box-shadow:inset 0 0 0 1px var(--line)}
 
-.vhead{margin:46px 0 8px; display:flex; align-items:baseline; gap:12px}
-.vhead h2{margin:0; font-size:17px; font-weight:650}
-.vhead i{font-style:normal; font-family:var(--mono); font-size:9.5px; letter-spacing:.14em;
-  text-transform:uppercase; color:var(--faint)}
-.why{margin:0 0 16px; color:var(--dim); font-size:13px}
+.page{max-width:980px; margin:0 auto; padding:74px 22px 90px}
+
+/* ---- шапка раздела, как в журнале ---- */
+.vhead{display:flex; align-items:baseline; gap:14px; margin-bottom:22px}
+.vhead h1{margin:0; font-size:26px; font-weight:650; letter-spacing:-.02em}
+.vhead .sub{font-family:var(--mono); font-size:11px; color:var(--faint)}
+.sys{display:inline-flex; padding:3px; border-radius:99px; background:var(--panel-2);
+  border:1px solid var(--line); margin-left:auto}
+.sys button{border:0; background:transparent; color:var(--dim); font:inherit; font-size:12.5px;
+  padding:6px 14px; border-radius:99px; cursor:pointer}
+.sys button.on{background:var(--panel); color:var(--text); box-shadow:inset 0 0 0 1px var(--line)}
 
 .card{background:var(--card); border:1px solid var(--line-soft); border-radius:var(--r);
-  padding:26px 28px}
+  padding:28px 30px; margin-bottom:18px}
+.h3{font-family:var(--mono); font-size:9px; letter-spacing:.2em; text-transform:uppercase;
+  color:var(--faint); margin:0 0 18px}
 .neg{color:var(--down)} .pos{color:var(--up)} .mid{color:var(--be)}
 
-/* ======== А: минимализм ======== */
-/* Три цифры, которые решают, входить или нет. Всё остальное — строками. */
-.three{display:flex; gap:44px; flex-wrap:wrap; padding-bottom:24px;
-  border-bottom:1px solid var(--line-soft)}
+/* ---- что торгую + таймфреймы ---- */
+.assets{display:flex; gap:9px; flex-wrap:wrap; margin-bottom:26px}
+.assets b{font-family:var(--mono); font-size:15px; font-weight:500; padding:9px 17px;
+  border-radius:99px; background:var(--panel-2); border:1px solid var(--line)}
+
+.flow{display:flex; align-items:stretch; gap:0; flex-wrap:wrap}
+.fstep{flex:1 1 150px; padding:0 22px; border-left:1px solid var(--line-soft)}
+.fstep:first-child{padding-left:0; border-left:none}
+.fstep .k{font-family:var(--mono); font-size:9px; letter-spacing:.15em; text-transform:uppercase;
+  color:var(--faint)}
+.fstep .tf{font-family:var(--mono); font-size:26px; margin-top:9px; line-height:1}
+.fstep .d{font-size:12.5px; color:var(--dim); margin-top:7px; line-height:1.45}
+
+/* ---- риск ---- */
+.three{display:flex; gap:50px; flex-wrap:wrap}
 .three div .k{font-family:var(--mono); font-size:9.5px; letter-spacing:.15em;
   text-transform:uppercase; color:var(--faint)}
 .three div .n{font-family:var(--mono); font-size:34px; line-height:1; margin-top:10px;
   letter-spacing:-.02em}
 
-.lines{margin-top:24px; display:flex; flex-direction:column; gap:16px}
-.line{display:grid; grid-template-columns:132px 1fr; gap:20px; align-items:baseline}
+.lines{margin-top:26px; padding-top:24px; border-top:1px solid var(--line-soft);
+  display:flex; flex-direction:column; gap:15px}
+.line{display:grid; grid-template-columns:126px 1fr; gap:20px; align-items:baseline}
 .line .k{font-size:12.5px; color:var(--faint)}
 .line .v{font-size:14px; line-height:1.55}
 .line .v b{font-weight:600}
 .line .v span{color:var(--dim)}
 
-.flow{display:flex; align-items:center; gap:9px; flex-wrap:wrap;
-  font-family:var(--mono); font-size:13px}
-.flow em{font-style:normal; color:var(--faint)}
-.flow b{font-weight:500}
-
-.said{margin-top:26px; padding-top:22px; border-top:1px solid var(--line-soft);
+.said{margin-top:24px; padding-top:22px; border-top:1px solid var(--line-soft);
   font-size:14px; line-height:1.6; color:var(--dim)}
 .said b{color:var(--text)}
 
-/* ======== Б: чек-лист ======== */
+/* ---- чек-лист ---- */
 .q{display:flex; flex-direction:column}
-.q label{display:flex; align-items:center; gap:14px; padding:15px 0;
+.q label{display:flex; align-items:center; gap:14px; padding:14px 0;
   border-bottom:1px solid var(--line-soft); cursor:pointer}
 .q label:last-of-type{border-bottom:none}
 .q input{width:18px; height:18px; accent-color:var(--accent); flex:none}
 .q .t{font-size:14.5px}
 .q label:has(input:checked) .t{color:var(--dim)}
-.gate{display:flex; align-items:baseline; gap:14px; margin-top:22px; padding-top:20px;
+.gate{display:flex; align-items:baseline; gap:14px; margin-top:20px; padding-top:18px;
   border-top:1px solid var(--line)}
 .gate b{font-family:var(--mono); font-size:19px}
 .gate span{font-size:13px; color:var(--dim)}
 
-/* ======== В: сверка ======== */
+/* ---- сверка ---- */
 .cmp{display:flex; flex-direction:column}
 .cmp .r{display:grid; grid-template-columns:1fr auto; gap:24px; align-items:baseline;
-  padding:15px 0; border-bottom:1px solid var(--line-soft)}
+  padding:14px 0; border-bottom:1px solid var(--line-soft)}
 .cmp .r:last-child{border-bottom:none}
 .cmp .nm{font-size:14px}
 .cmp .nm i{display:block; font-style:normal; font-size:12.5px; color:var(--faint); margin-top:3px}
 .cmp .v{font-family:var(--mono); font-size:16px; text-align:right; white-space:nowrap}
 .cmp .v em{font-style:normal; display:block; font-size:11.5px; color:var(--faint); margin-top:4px}
 
-/* ======== Заполнение с нуля ======== */
-.steps{display:flex; flex-direction:column; gap:30px}
-.step{padding-top:22px; border-top:1px solid var(--line-soft)}
-.step:first-child{padding-top:0; border-top:none}
-.step h3{margin:0 0 4px; font-size:15px; font-weight:650}
-.step p{margin:0 0 18px; font-size:12.5px; color:var(--faint)}
+/* ---- большая кнопка «с нуля» ---- */
+.start{display:flex; align-items:center; gap:22px; width:100%; text-align:left;
+  padding:26px 30px; border-radius:var(--r); cursor:pointer; font:inherit; color:var(--text);
+  background:var(--card); border:1px dashed var(--line);
+  transition:border-color .2s, background .2s, transform .2s}
+.start:hover{border-color:color-mix(in srgb, var(--accent) 55%, transparent);
+  background:var(--panel-2); transform:translateY(-1px)}
+.start .ic{width:46px; height:46px; border-radius:14px; flex:none; display:flex;
+  align-items:center; justify-content:center; background:var(--accent-soft); color:var(--accent);
+  font-size:26px; line-height:1}
+.start .tx b{display:block; font-size:16px; font-weight:650; margin-bottom:4px}
+.start .tx span{font-size:13px; color:var(--dim)}
+.start .go{margin-left:auto; font-family:var(--mono); font-size:12px; color:var(--faint)}
 
-.ask{margin-bottom:20px}
-.ask .qq{font-size:14px; margin-bottom:10px}
-.ask .qq em{font-style:normal; color:var(--faint); font-size:12.5px; display:block; margin-top:3px}
+/* ================= полноэкранный опрос ================= */
+.ask{position:fixed; inset:0; z-index:60; background:var(--bg);
+  display:none; flex-direction:column}
+.ask.on{display:flex}
+.ask-top{display:flex; align-items:center; gap:16px; padding:20px 26px}
+.ask-back{border:0; background:transparent; color:var(--faint); font:inherit; font-size:13px;
+  cursor:pointer; padding:6px 0}
+.ask-back:hover{color:var(--text)}
+.dots{display:flex; gap:6px; margin:0 auto}
+.dots i{width:22px; height:3px; border-radius:99px; background:var(--line)}
+.dots i.on{background:var(--accent)}
+.dots i.done{background:color-mix(in srgb, var(--accent) 45%, transparent)}
+.ask-close{border:0; background:transparent; color:var(--faint); font:inherit; font-size:20px;
+  cursor:pointer; line-height:1}
 
-.chips{display:flex; gap:7px; flex-wrap:wrap}
-.chip{border:1px solid var(--line); background:var(--panel-2); color:var(--dim);
-  font:inherit; font-size:13px; padding:8px 15px; border-radius:99px; cursor:pointer}
-.chip.on{background:var(--up-soft); color:var(--text);
-  border-color:rgba(64,224,148,.45)}
-.chip.add{border-style:dashed; color:var(--faint)}
+.ask-body{flex:1; display:flex; align-items:center; justify-content:center; padding:0 26px 40px}
+.ask-in{width:100%; max-width:640px; opacity:0; transform:translateY(10px);
+  animation:up .34s cubic-bezier(.16,1,.3,1) forwards}
+@keyframes up{to{opacity:1; transform:none}}
+.ask-n{font-family:var(--mono); font-size:11px; letter-spacing:.15em; text-transform:uppercase;
+  color:var(--faint); margin-bottom:14px}
+.ask-q{font-size:30px; font-weight:650; letter-spacing:-.02em; line-height:1.2; margin:0 0 10px}
+.ask-h{font-size:14px; color:var(--dim); margin:0 0 28px; line-height:1.55}
 
-.inp{width:100%; background:var(--panel-2); color:var(--text); border:1px solid var(--line);
-  border-radius:var(--r-sm); padding:11px 14px; font:inherit; font-size:14px}
-.inp::placeholder{color:var(--faint)}
-textarea.inp{min-height:74px; resize:vertical; line-height:1.55}
+.opts{display:flex; gap:10px; flex-wrap:wrap}
+.opt{border:1px solid var(--line); background:var(--panel); color:var(--text); font:inherit;
+  font-size:16px; padding:15px 24px; border-radius:var(--r-sm); cursor:pointer;
+  transition:border-color .18s, background .18s, transform .15s}
+.opt:hover{border-color:color-mix(in srgb, var(--accent) 50%, transparent); transform:translateY(-1px)}
+.opt.on{background:var(--accent-soft); border-color:color-mix(in srgb, var(--accent) 60%, transparent)}
+.opt small{display:block; font-size:12px; color:var(--faint); margin-top:4px}
 
-.tfpick{display:grid; grid-template-columns:repeat(3,1fr); gap:12px}
-.tfpick > div .k{font-family:var(--mono); font-size:9.5px; letter-spacing:.14em;
-  text-transform:uppercase; color:var(--faint); margin-bottom:8px}
+.ask-inp{width:100%; background:var(--panel); color:var(--text); border:1px solid var(--line);
+  border-radius:var(--r-sm); padding:15px 17px; font:inherit; font-size:16px; line-height:1.55}
+textarea.ask-inp{min-height:110px; resize:vertical}
 
-.prog{display:flex; align-items:center; gap:14px; margin-bottom:24px}
-.prog .bar{flex:1; height:4px; border-radius:99px; background:var(--panel-2); overflow:hidden}
-.prog .bar i{display:block; height:100%; width:33%; background:var(--accent); border-radius:99px}
-.prog span{font-family:var(--mono); font-size:11.5px; color:var(--faint)}
+.ask-foot{display:flex; align-items:center; gap:16px; margin-top:26px}
+.next{border:0; background:var(--accent); color:var(--accent-ink); font:inherit; font-size:15px;
+  font-weight:600; padding:14px 30px; border-radius:var(--r-sm); cursor:pointer}
+.next:hover{filter:brightness(1.08)}
+.later{border:0; background:transparent; color:var(--faint); font:inherit; font-size:13.5px;
+  cursor:pointer}
+.later:hover{color:var(--dim)}
 
-.skip{margin-top:22px; padding-top:20px; border-top:1px solid var(--line-soft);
-  font-size:13px; color:var(--faint)}
-.skip b{color:var(--dim)}
-
-.note{margin:34px 0 0; padding:18px 20px; border-radius:var(--r);
-  background:var(--panel-2); border:1px solid var(--line-soft);
-  font-size:13.5px; color:var(--dim); line-height:1.65}
-.note b{color:var(--text)}
-.note code{font-family:var(--mono); font-size:12.5px; background:var(--panel);
-  padding:1px 6px; border-radius:5px; border:1px solid var(--line-soft)}
-.note + .note{margin-top:14px}
+/* итог опроса */
+.done-l{display:flex; flex-direction:column; gap:2px; margin:26px 0}
+.done-l div{display:grid; grid-template-columns:190px 1fr; gap:18px; padding:11px 0;
+  border-bottom:1px solid var(--line-soft); font-size:14px}
+.done-l div:last-child{border-bottom:none}
+.done-l .k{color:var(--faint); font-size:12.5px}
+.done-l .v b{font-weight:600}
 </style>
 </head>
 <body>
-<div class="wrap">
 
-<h1>Панель «Моя ТС»</h1>
-<p class="lead">Перероблено на мінімалізм: менше рамок, більше повітря, великим —
-тільки те, що вирішує. Наповнення справжнє, з твоєї сторінки <b>«ТС (us100)»</b> у Notion.</p>
-
-<!-- ================= А ================= -->
-<div class="vhead"><h2>А — правила</h2><i>основний екран</i></div>
-<p class="why">Три цифри, які вирішують, входити чи ні. Решта — короткими рядками, без плиток
-і вкладених рамок.</p>
-
-<div class="card">
-  <div class="three">
-    <div><div class="k">Мінімальний RR</div><div class="n">2.0</div></div>
-    <div><div class="k">Ризик на угоду</div><div class="n">1%</div></div>
-    <div><div class="k">Ліміт за день</div><div class="n neg">2%</div></div>
-  </div>
-
-  <div class="lines">
-    <div class="line"><div class="k">Торгую</div>
-      <div class="v"><b>Nasdaq</b> <span>·</span> <b>SPX 500</b></div></div>
-
-    <div class="line"><div class="k">Таймфрейми</div>
-      <div class="v flow"><b>4H</b><em>напрямок</em><em>→</em><b>15M</b><em>злам</em><em>→</em><b>1M</b><em>вхід</em></div></div>
-
-    <div class="line"><div class="k">Вікна</div>
-      <div class="v"><b>08:50–11:00</b> <span>і</span> <b>15:30–16:30</b><br>
-        <span>Power Hour 21:00–22:00 — якщо до 21:30 входу немає, скіп</span></div></div>
-
-    <div class="line"><div class="k">Беззбиток</div>
-      <div class="v">на першій <b>15m FTA</b><br>
-        <span>червоні новини: є мінімальний RR — закриваю, немає — БУ</span></div></div>
-
-    <div class="line"><div class="k">Реверс</div>
-      <div class="v">тільки <b>0.5%</b></div></div>
-  </div>
-
-  <div class="said">
-    <b>Сідати за графіки з холодною головою.</b> Головне — зберегти капітал,
-    а не взяти багато угод.
-  </div>
+<div class="skins">
+  <span class="cap">Тема</span>
+  <button class="on" data-s="night">Ніч</button>
+  <button data-s="graphite">Графіт</button>
+  <button data-s="midnight">Опівніч</button>
+  <button data-s="pine">Хвоя</button>
+  <button data-s="day">День</button>
+  <button data-s="paper">Папір</button>
 </div>
 
-<!-- ================= Б ================= -->
-<div class="vhead"><h2>Б — перед входом</h2><i>ті самі правила як питання</i></div>
-<p class="why">Конспект читають раз і забувають. Питання доводиться закрити — і видно,
-коли входиш проти власних правил.</p>
+<div class="page">
 
-<div class="card">
-  <div class="q">
-    <label><input type="checkbox" checked><span class="t">Контекст 4H за мене</span></label>
-    <label><input type="checkbox" checked><span class="t">Є злам 15m у мій бік</span></label>
-    <label><input type="checkbox"><span class="t">RR до цілі не менше 2.0</span></label>
-    <label><input type="checkbox" checked><span class="t">Ми у своєму вікні</span></label>
-    <label><input type="checkbox"><span class="t">Червоних новин поруч немає</span></label>
-    <label><input type="checkbox" checked><span class="t">Денний ліміт не вибраний</span></label>
-  </div>
-  <div class="gate">
-    <b class="neg">2 з 6</b>
-    <span>не закрито — за твоїми ж правилами входу немає</span>
-  </div>
-</div>
-
-<!-- ================= В ================= -->
-<div class="vhead"><h2>В — що виходить насправді</h2><i>правила проти журналу</i></div>
-<p class="why">Правила лежать у Notion, угоди — тут. Зіставити руками ніхто не буде.
-Пораховано по твоїх 213 угодах.</p>
-
-<div class="card">
-  <div class="cmp">
-    <div class="r">
-      <div class="nm">RR нижче мінімального<i>у ТС — не менше 2.0</i></div>
-      <div class="v neg">76 угод<em>36% усіх</em></div>
-    </div>
-    <div class="r">
-      <div class="nm">Денний ліміт перевищено<i>у ТС — не більше 2%</i></div>
-      <div class="v neg">5 днів<em>найгірший −3.0%</em></div>
-    </div>
-    <div class="r">
-      <div class="nm">Торгуєш поза списком<i>у ТС лише Nasdaq і SPX</i></div>
-      <div class="v mid">GER40 · 75<em>більше, ніж US100</em></div>
-    </div>
-    <div class="r">
-      <div class="nm">Ризик на угоду<i>у ТС — 1%</i></div>
-      <div class="v pos">0.99%<em>тримаєш</em></div>
-    </div>
-  </div>
-</div>
-
-<!-- ================= З НУЛЯ ================= -->
-<div class="vhead"><h2>Г — заповнити з нуля</h2><i>якщо ТС немає в Notion</i></div>
-<p class="why">Дев'ять питань, розбитих на три кроки. Майже все — натиснути, а не писати:
-поля з варіантами підставляються з того, чим людина вже торгувала в журналі.</p>
-
-<div class="card">
-  <div class="prog"><div class="bar"><i></i></div><span>крок 1 з 3</span></div>
-
-  <div class="steps">
-
-    <div class="step">
-      <h3>Гроші</h3>
-      <p>З цього починається все інше — і саме це журнал зможе перевіряти щодня.</p>
-
-      <div class="ask">
-        <div class="qq">Скільки ризикую в одній угоді?</div>
-        <div class="chips">
-          <button class="chip">0.5%</button><button class="chip on">1%</button>
-          <button class="chip">1.5%</button><button class="chip">2%</button>
-          <button class="chip add">своє</button>
-        </div>
-      </div>
-
-      <div class="ask">
-        <div class="qq">Нижче якого RR не входжу?
-          <em>у твоїх угодах середній RR — 2.4</em></div>
-        <div class="chips">
-          <button class="chip">1.5</button><button class="chip on">2</button>
-          <button class="chip">2.5</button><button class="chip">3</button>
-          <button class="chip add">своє</button>
-        </div>
-      </div>
-
-      <div class="ask">
-        <div class="qq">Після якої втрати зупиняюся на день?</div>
-        <div class="chips">
-          <button class="chip">1%</button><button class="chip on">2%</button>
-          <button class="chip">3%</button><button class="chip">без ліміту</button>
-        </div>
-      </div>
-    </div>
-
-    <div class="step">
-      <h3>Коли входжу</h3>
-      <p>Варіанти підставлені з твого журналу — можна лише позначити.</p>
-
-      <div class="ask">
-        <div class="qq">Чим торгую?</div>
-        <div class="chips">
-          <button class="chip on">US100</button><button class="chip on">GER40</button>
-          <button class="chip">ES500</button><button class="chip">EUR/USD</button>
-          <button class="chip">GBP/USD</button><button class="chip add">додати</button>
-        </div>
-      </div>
-
-      <div class="ask">
-        <div class="qq">Таймфрейми</div>
-        <div class="tfpick">
-          <div><div class="k">Контекст</div>
-            <div class="chips"><button class="chip on">4H</button><button class="chip">1D</button></div></div>
-          <div><div class="k">Підтвердження</div>
-            <div class="chips"><button class="chip on">15M</button><button class="chip">1H</button></div></div>
-          <div><div class="k">Вхід</div>
-            <div class="chips"><button class="chip on">1M</button><button class="chip">5M</button></div></div>
-        </div>
-      </div>
-
-      <div class="ask">
-        <div class="qq">Модель входу
-          <em>у журналі найчастіше: cisd — 107 угод</em></div>
-        <div class="chips">
-          <button class="chip on">cisd</button><button class="chip">bos</button>
-          <button class="chip">inversion</button><button class="chip add">додати</button>
-        </div>
-      </div>
-
-      <div class="ask">
-        <div class="qq">У які години торгую?</div>
-        <div class="chips">
-          <button class="chip on">Frankfurt</button><button class="chip on">London</button>
-          <button class="chip on">New York</button><button class="chip">Power Hour</button>
-          <button class="chip">Азія</button>
-        </div>
-      </div>
-    </div>
-
-    <div class="step">
-      <h3>Коли не входжу</h3>
-      <p>Найкорисніший крок: більшість збитків беруться саме звідси.</p>
-
-      <div class="ask">
-        <div class="qq">Коли переводжу в беззбиток?</div>
-        <div class="chips">
-          <button class="chip on">перша 15m FTA</button><button class="chip">половина шляху до цілі</button>
-          <button class="chip">не переводжу</button><button class="chip add">своє</button>
-        </div>
-      </div>
-
-      <div class="ask">
-        <div class="qq">Коли пропускаю вхід?
-          <em>своїми словами — це ніде більше не зберігається</em></div>
-        <textarea class="inp" placeholder="Наприклад: якщо до 21:30 входу немає — скіп. Якщо поруч червона новина — не входжу."></textarea>
-      </div>
-    </div>
-
+  <div class="vhead">
+    <h1>Моя ТС</h1>
+    <span class="sub">підтягнуто з Notion · 31 серпня</span>
+    <span class="sys"><button class="on">ТС (us100)</button><button>ТС</button></span>
   </div>
 
-  <div class="skip">
-    <b>Можна не заповнювати все відразу.</b> Достатньо першого кроку — трьох цифр:
-    їх вистачить, щоб журнал уже почав перевіряти угоди проти правил.
+  <!-- 1. что торгую и таймфреймы -->
+  <div class="card">
+    <p class="h3">Що торгую</p>
+    <div class="assets"><b>Nasdaq</b><b>SPX 500</b></div>
+
+    <p class="h3">Таймфрейми</p>
+    <div class="flow">
+      <div class="fstep"><div class="k">Контекст</div><div class="tf">4H</div>
+        <div class="d">напрямок, таргети й POI</div></div>
+      <div class="fstep"><div class="k">Підтвердження</div><div class="tf">15M</div>
+        <div class="d">злам у вигляді cisd у мій бік</div></div>
+      <div class="fstep"><div class="k">Вхід</div><div class="tf">1M</div>
+        <div class="d">точка входу</div></div>
+    </div>
   </div>
+
+  <!-- 2. риск -->
+  <div class="card">
+    <p class="h3">Ризик</p>
+    <div class="three">
+      <div><div class="k">Мінімальний RR</div><div class="n">2.0</div></div>
+      <div><div class="k">Ризик на угоду</div><div class="n">1%</div></div>
+      <div><div class="k">Ліміт за день</div><div class="n neg">2%</div></div>
+    </div>
+
+    <div class="lines">
+      <div class="line"><div class="k">Вікна</div>
+        <div class="v"><b>08:50–11:00</b> <span>і</span> <b>15:30–16:30</b><br>
+          <span>Power Hour 21:00–22:00 — якщо до 21:30 входу немає, скіп</span></div></div>
+      <div class="line"><div class="k">Беззбиток</div>
+        <div class="v">на першій <b>15m FTA</b><br>
+          <span>червоні новини: є мінімальний RR — закриваю, немає — БУ</span></div></div>
+      <div class="line"><div class="k">Реверс</div>
+        <div class="v">тільки <b>0.5%</b></div></div>
+    </div>
+
+    <div class="said"><b>Сідати за графіки з холодною головою.</b>
+      Головне — зберегти капітал, а не взяти багато угод.</div>
+  </div>
+
+  <!-- 3. чек-лист -->
+  <div class="card">
+    <p class="h3">Чек-лист перед входом</p>
+    <div class="q">
+      <label><input type="checkbox" checked><span class="t">Контекст 4H за мене</span></label>
+      <label><input type="checkbox" checked><span class="t">Є злам 15m у мій бік</span></label>
+      <label><input type="checkbox"><span class="t">RR до цілі не менше 2.0</span></label>
+      <label><input type="checkbox" checked><span class="t">Ми у своєму вікні</span></label>
+      <label><input type="checkbox"><span class="t">Червоних новин поруч немає</span></label>
+      <label><input type="checkbox" checked><span class="t">Денний ліміт не вибраний</span></label>
+    </div>
+    <div class="gate"><b class="neg">2 з 6</b>
+      <span>не закрито — за твоїми ж правилами входу немає</span></div>
+  </div>
+
+  <!-- 4. сверка -->
+  <div class="card">
+    <p class="h3">Що виходить насправді · 213 угод</p>
+    <div class="cmp">
+      <div class="r">
+        <div class="nm">RR нижче мінімального<i>у ТС — не менше 2.0</i></div>
+        <div class="v neg">76 угод<em>36% усіх</em></div>
+      </div>
+      <div class="r">
+        <div class="nm">Денний ліміт перевищено<i>у ТС — не більше 2%</i></div>
+        <div class="v neg">5 днів<em>найгірший −3.0%</em></div>
+      </div>
+      <div class="r">
+        <div class="nm">Торгуєш поза списком<i>у ТС лише Nasdaq і SPX</i></div>
+        <div class="v mid">GER40 · 75<em>більше, ніж US100</em></div>
+      </div>
+      <div class="r">
+        <div class="nm">Ризик на угоду<i>у ТС — 1%</i></div>
+        <div class="v pos">0.99%<em>тримаєш</em></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 5. кнопка «с нуля» -->
+  <button class="start" onclick="askOpen()">
+    <span class="ic">+</span>
+    <span class="tx"><b>Заповнити ТС з нуля</b>
+      <span>Якщо Notion не підключений — десять питань, по одному на екран</span></span>
+    <span class="go">почати →</span>
+  </button>
+
 </div>
 
-<div class="note">
-  <b>Звідки береться ТС, коли вона в Notion.</b> Твоє посилання веде на таблицю <code>Main</code>.
-  Її рядки — це сторінки: «Trading Journal (August 2026)», «Journal 2026» і поряд «ТС», «ТС (us100)».
-  Ми вже заходимо всередину рядків, коли шукаємо таблиці з угодами — сторінку ТС я прочитав
-  тим самим способом. <b>Другого посилання не знадобилось.</b>
+<!-- ================= опрос ================= -->
+<div class="ask" id="ask">
+  <div class="ask-top">
+    <button class="ask-back" onclick="askPrev()">← назад</button>
+    <div class="dots" id="dots"></div>
+    <button class="ask-close" onclick="askClose()">×</button>
+  </div>
+  <div class="ask-body"><div id="askIn"></div></div>
 </div>
 
-<div class="note">
-  <b>Як це буде в людей.</b> Якщо ТС лежить у тій самій базі, що й журнал — знайдемо самі:
-  у майстрі з'явиться рядок «Знайшли ще: ТС, ТС (us100) — підтягнути як систему?» з галочкою.
-  Впізнаємо за назвою (ТС, TS, System, Стратегія) і за вмістом — <code>Minimal RR</code>,
-  <code>Risk per trade</code>, <code>Max Daily Loss</code>.<br><br>
-  Якщо ТС лежить окремо — тоді або друге посилання, або крок «Г»: заповнити руками.
-  Третього шляху немає: у чужий Notion ми без посилання не потрапимо.
-</div>
+<script>
+/* ---------- темы ---------- */
+document.querySelectorAll(".skins button").forEach(b => b.onclick = () => {
+  document.querySelectorAll(".skins button").forEach(x => x.classList.remove("on"));
+  b.classList.add("on");
+  const s = b.dataset.s;
+  document.documentElement.setAttribute("data-skin", s);
+  document.documentElement.setAttribute("data-theme",
+    ["day","paper"].includes(s) ? "light" : "dark");
+});
 
-</div>
+/* ---------- опрос по одному вопросу на экран ----------
+   Одиночный выбор сразу уводит дальше — так меньше кликов.
+   Множественный и текст ждут кнопки. */
+const Q = [
+  {k:"assets", t:"Чим торгуєш?", h:"Можна кілька. Потім журнал підкаже, якщо торгуєш тим, чого тут немає.",
+   multi:true, opts:["US100","GER40","ES500","EUR/USD","GBP/USD","XAUUSD","BTCUSD"], pre:["US100","GER40"]},
+  {k:"ctx", t:"Де дивишся напрямок?", h:"Старший таймфрейм: контекст, цілі, зони.",
+   opts:["1D","4H","1H"], pre:"4H"},
+  {k:"conf", t:"Де шукаєш підтвердження?", h:"Той, на якому вирішуєш, що рух почався.",
+   opts:["1H","15M","5M"], pre:"15M"},
+  {k:"entry", t:"Де входиш?", h:"Таймфрейм самої точки входу.",
+   opts:["5M","3M","1M"], pre:"1M"},
+  {k:"hours", t:"О котрій торгуєш?", h:"Можна кілька вікон.",
+   multi:true, opts:["Frankfurt","London","New York","Power Hour","Азія"], pre:["London","New York"]},
+  {k:"risk", t:"Скільки ризикуєш в одній угоді?", h:"Від депозиту. Це головна цифра — з неї рахується все інше.",
+   opts:["0.5%","1%","1.5%","2%"], pre:"1%"},
+  {k:"rr", t:"Нижче якого RR не входиш?", h:"Якщо до цілі менше — угоди немає.",
+   opts:["1.5","2","2.5","3"], pre:"2"},
+  {k:"day", t:"Після якої втрати зупиняєшся на день?", h:"Журнал попередить, коли ліміт майже вибрано.",
+   opts:["1%","2%","3%","без ліміту"], pre:"2%"},
+  {k:"be", t:"Коли переводиш у беззбиток?", h:"",
+   opts:["на першій 15m FTA","на половині шляху до цілі","не переводжу"], pre:"на першій 15m FTA"},
+  {k:"skip", t:"Коли пропускаєш вхід?", h:"Своїми словами. Це найкорисніше — і ніде більше не зберігається.",
+   text:true, ph:"Наприклад: якщо до 21:30 входу немає — скіп. Якщо поруч червона новина — не входжу."},
+];
+
+let step = 0;
+const answers = {};
+
+function askOpen(){ step = 0; Q.forEach(q => answers[q.k] = q.pre || (q.multi ? [] : "")); draw(); document.getElementById("ask").classList.add("on"); }
+function askClose(){ document.getElementById("ask").classList.remove("on"); }
+function askPrev(){ if (step > 0){ step--; draw(); } else askClose(); }
+function askNext(){ if (step < Q.length){ step++; draw(); } }
+
+function dots(){
+  return Q.map((q,i) => '<i class="' + (i === step ? "on" : i < step ? "done" : "") + '"></i>').join("");
+}
+
+function pick(k, v){
+  const q = Q.find(x => x.k === k);
+  if (q.multi){
+    const a = answers[k];
+    const i = a.indexOf(v);
+    if (i >= 0) a.splice(i, 1); else a.push(v);
+    draw();
+  } else {
+    answers[k] = v;
+    draw();
+    setTimeout(askNext, 180);        /* видно, что выбор принят, и уходим дальше */
+  }
+}
+
+function draw(){
+  document.getElementById("dots").innerHTML = dots();
+  const box = document.getElementById("askIn");
+
+  if (step >= Q.length){
+    const l = (k, v) => '<div><span class="k">' + k + '</span><span class="v"><b>' + v + "</b></span></div>";
+    box.innerHTML = '<div class="ask-in">'
+      + '<div class="ask-n">готово</div>'
+      + '<h2 class="ask-q">Це твоя ТС</h2>'
+      + '<p class="ask-h">Тепер журнал звірятиме з нею кожну угоду.</p>'
+      + '<div class="done-l">'
+      +   l("Торгую", (answers.assets || []).join(" · ") || "—")
+      +   l("Таймфрейми", [answers.ctx, answers.conf, answers.entry].filter(Boolean).join(" → "))
+      +   l("Вікна", (answers.hours || []).join(" · ") || "—")
+      +   l("Ризик на угоду", answers.risk || "—")
+      +   l("Мінімальний RR", answers.rr || "—")
+      +   l("Ліміт за день", answers.day || "—")
+      +   l("Беззбиток", answers.be || "—")
+      + "</div>"
+      + '<div class="ask-foot"><button class="next" onclick="askClose()">Зберегти</button>'
+      + '<button class="later" onclick="step=0;draw()">Пройти ще раз</button></div>'
+      + "</div>";
+    return;
+  }
+
+  const q = Q[step];
+  let body;
+  if (q.text){
+    body = '<textarea class="ask-inp" placeholder="' + q.ph + '">' + (answers[q.k] || "") + "</textarea>";
+  } else {
+    const sel = v => q.multi ? (answers[q.k] || []).includes(v) : answers[q.k] === v;
+    body = '<div class="opts">' + q.opts.map(v =>
+      '<button class="opt' + (sel(v) ? " on" : "") + '" onclick="pick(\'' + q.k + "','" + v + "')\">"
+      + v + "</button>").join("") + "</div>";
+  }
+
+  const needBtn = q.multi || q.text;
+  box.innerHTML = '<div class="ask-in">'
+    + '<div class="ask-n">питання ' + (step + 1) + " з " + Q.length + "</div>"
+    + '<h2 class="ask-q">' + q.t + "</h2>"
+    + (q.h ? '<p class="ask-h">' + q.h + "</p>" : "")
+    + body
+    + '<div class="ask-foot">'
+    +   (needBtn ? '<button class="next" onclick="askNext()">Далі</button>' : "")
+    +   '<button class="later" onclick="askNext()">пропустити</button>'
+    + "</div></div>";
+}
+</script>
 </body>
 </html>
