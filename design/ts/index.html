@@ -8,14 +8,11 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Geist+Mono:wght@400;500&family=Geist:wght@400;500;600;700&display=swap">
 <style>
-/* Палитра из приложения, тёмная тема «Ніч» — чтобы вариант можно было
-   перенести в журнал без переделки. */
 :root{
   --bg:#050505; --panel:#0d0d0e; --panel-2:#111112;
   --line:rgba(255,255,255,.08); --line-soft:rgba(255,255,255,.045);
   --text:#f2f2f3; --dim:#8c8c90; --faint:#5c5c61;
-  --accent:#40e094; --accent-ink:#06130d;
-  --up:#40e094; --down:#ff6e60; --be:#efc258;
+  --accent:#40e094; --up:#40e094; --down:#ff6e60; --be:#efc258;
   --up-soft:rgba(64,224,148,.13); --down-soft:rgba(255,110,96,.13); --be-soft:rgba(239,194,88,.12);
   --card:#0d0d0e; --r:14px; --r-sm:10px;
   --sans:"Geist","Segoe UI",system-ui,sans-serif;
@@ -23,236 +20,333 @@
 }
 *{box-sizing:border-box}
 body{margin:0; background:var(--bg); color:var(--text); font-family:var(--sans);
-  font-size:14px; line-height:1.5; padding:28px 20px 70px}
-.wrap{max-width:1120px; margin:0 auto}
+  font-size:14px; line-height:1.5; padding:30px 20px 80px}
+.wrap{max-width:860px; margin:0 auto}
 
-h1{font-size:22px; font-weight:650; margin:0 0 6px; letter-spacing:-.02em}
-.lead{margin:0 0 26px; color:var(--dim); font-size:13.5px; max-width:760px}
+h1{font-size:23px; font-weight:650; margin:0 0 8px; letter-spacing:-.02em}
+.lead{margin:0 0 10px; color:var(--dim); font-size:13.5px}
 .lead b{color:var(--text)}
 
-.vhead{display:flex; align-items:baseline; gap:12px; margin:34px 0 12px}
-.vhead h2{margin:0; font-size:16px; font-weight:650}
+.vhead{margin:46px 0 8px; display:flex; align-items:baseline; gap:12px}
+.vhead h2{margin:0; font-size:17px; font-weight:650}
 .vhead i{font-style:normal; font-family:var(--mono); font-size:9.5px; letter-spacing:.14em;
   text-transform:uppercase; color:var(--faint)}
-.why{margin:0 0 14px; color:var(--dim); font-size:13px; max-width:760px}
+.why{margin:0 0 16px; color:var(--dim); font-size:13px}
 
 .card{background:var(--card); border:1px solid var(--line-soft); border-radius:var(--r);
-  padding:18px 20px}
-.sub{font-family:var(--mono); font-size:9px; letter-spacing:.2em; text-transform:uppercase;
-  color:var(--faint); margin:0 0 12px}
+  padding:26px 28px}
+.neg{color:var(--down)} .pos{color:var(--up)} .mid{color:var(--be)}
 
-/* переключатель систем */
-.sys{display:inline-flex; padding:3px; border-radius:99px; background:var(--panel);
-  border:1px solid var(--line); margin-bottom:16px}
-.sys button{border:0; background:transparent; color:var(--dim); font:inherit; font-size:12.5px;
-  padding:7px 15px; border-radius:99px; cursor:pointer}
-.sys button.on{background:var(--panel-2); color:var(--text); box-shadow:inset 0 0 0 1px var(--line)}
+/* ======== А: минимализм ======== */
+/* Три цифры, которые решают, входить или нет. Всё остальное — строками. */
+.three{display:flex; gap:44px; flex-wrap:wrap; padding-bottom:24px;
+  border-bottom:1px solid var(--line-soft)}
+.three div .k{font-family:var(--mono); font-size:9.5px; letter-spacing:.15em;
+  text-transform:uppercase; color:var(--faint)}
+.three div .n{font-family:var(--mono); font-size:34px; line-height:1; margin-top:10px;
+  letter-spacing:-.02em}
 
-/* ---------- А: конспект ---------- */
-.nums{display:grid; grid-template-columns:repeat(auto-fit,minmax(150px,1fr)); gap:1px;
-  background:var(--line-soft); border:1px solid var(--line-soft); border-radius:var(--r-sm);
-  overflow:hidden; margin-bottom:16px}
-.num{background:var(--card); padding:13px 15px}
-.num .l{font-family:var(--mono); font-size:9px; letter-spacing:.14em; text-transform:uppercase;
-  color:var(--faint)}
-.num .v{font-family:var(--mono); font-size:21px; margin-top:7px; line-height:1}
-.num .v.warn{color:var(--down)}
+.lines{margin-top:24px; display:flex; flex-direction:column; gap:16px}
+.line{display:grid; grid-template-columns:132px 1fr; gap:20px; align-items:baseline}
+.line .k{font-size:12.5px; color:var(--faint)}
+.line .v{font-size:14px; line-height:1.55}
+.line .v b{font-weight:600}
+.line .v span{color:var(--dim)}
 
-.cols{display:grid; grid-template-columns:repeat(auto-fit,minmax(280px,1fr)); gap:18px}
-.blk h4{margin:0 0 9px; font-size:13px; font-weight:600}
-.blk ul{margin:0; padding-left:17px; display:flex; flex-direction:column; gap:6px;
-  font-size:13px; color:var(--dim); line-height:1.5}
-.blk ul b{color:var(--text); font-weight:600}
+.flow{display:flex; align-items:center; gap:9px; flex-wrap:wrap;
+  font-family:var(--mono); font-size:13px}
+.flow em{font-style:normal; color:var(--faint)}
+.flow b{font-weight:500}
 
-.tf{display:flex; flex-direction:column; gap:0}
-.tf div{display:grid; grid-template-columns:64px 1fr; gap:12px; padding:8px 0;
-  border-bottom:1px solid var(--line-soft); font-size:13px; color:var(--dim)}
-.tf div:last-child{border-bottom:none}
-.tf span{font-family:var(--mono); font-size:12px; color:var(--text)}
+.said{margin-top:26px; padding-top:22px; border-top:1px solid var(--line-soft);
+  font-size:14px; line-height:1.6; color:var(--dim)}
+.said b{color:var(--text)}
 
-.win{display:flex; flex-direction:column; gap:0}
-.win div{display:grid; grid-template-columns:110px 1fr; gap:12px; padding:8px 0;
-  border-bottom:1px solid var(--line-soft); font-size:13px}
-.win div:last-child{border-bottom:none}
-.win b{font-weight:600}
-.win span{font-family:var(--mono); font-size:12.5px; color:var(--dim)}
+/* ======== Б: чек-лист ======== */
+.q{display:flex; flex-direction:column}
+.q label{display:flex; align-items:center; gap:14px; padding:15px 0;
+  border-bottom:1px solid var(--line-soft); cursor:pointer}
+.q label:last-of-type{border-bottom:none}
+.q input{width:18px; height:18px; accent-color:var(--accent); flex:none}
+.q .t{font-size:14.5px}
+.q label:has(input:checked) .t{color:var(--dim)}
+.gate{display:flex; align-items:baseline; gap:14px; margin-top:22px; padding-top:20px;
+  border-top:1px solid var(--line)}
+.gate b{font-family:var(--mono); font-size:19px}
+.gate span{font-size:13px; color:var(--dim)}
 
-.mind{padding:13px 15px; border-radius:var(--r-sm); background:var(--panel-2);
-  border-left:2px solid var(--accent); font-size:13px; color:var(--dim); line-height:1.55}
-.mind b{color:var(--text)}
+/* ======== В: сверка ======== */
+.cmp{display:flex; flex-direction:column}
+.cmp .r{display:grid; grid-template-columns:1fr auto; gap:24px; align-items:baseline;
+  padding:15px 0; border-bottom:1px solid var(--line-soft)}
+.cmp .r:last-child{border-bottom:none}
+.cmp .nm{font-size:14px}
+.cmp .nm i{display:block; font-style:normal; font-size:12.5px; color:var(--faint); margin-top:3px}
+.cmp .v{font-family:var(--mono); font-size:16px; text-align:right; white-space:nowrap}
+.cmp .v em{font-style:normal; display:block; font-size:11.5px; color:var(--faint); margin-top:4px}
 
-/* ---------- Б: чек-лист ---------- */
-.chk{display:flex; flex-direction:column; gap:8px}
-.chk label{display:flex; align-items:flex-start; gap:11px; padding:12px 14px;
-  border-radius:var(--r-sm); background:var(--panel-2); border:1px solid var(--line-soft);
-  cursor:pointer; transition:border-color .18s, background .18s}
-.chk label:hover{border-color:rgba(255,255,255,.14)}
-.chk input{margin-top:2px; width:16px; height:16px; accent-color:var(--accent); flex:none}
-.chk .t{font-size:13.5px}
-.chk .h{display:block; font-size:12px; color:var(--faint); margin-top:3px}
-.chk label:has(input:checked){border-color:rgba(64,224,148,.4); background:var(--up-soft)}
-.gate{display:flex; align-items:center; gap:12px; margin-top:14px; padding:13px 16px;
-  border-radius:var(--r-sm); background:var(--panel-2); border:1px solid var(--line-soft)}
-.gate b{font-family:var(--mono); font-size:15px}
-.gate .no{color:var(--down)} .gate .yes{color:var(--up)}
-.gate span{font-size:12.5px; color:var(--dim)}
+/* ======== Заполнение с нуля ======== */
+.steps{display:flex; flex-direction:column; gap:30px}
+.step{padding-top:22px; border-top:1px solid var(--line-soft)}
+.step:first-child{padding-top:0; border-top:none}
+.step h3{margin:0 0 4px; font-size:15px; font-weight:650}
+.step p{margin:0 0 18px; font-size:12.5px; color:var(--faint)}
 
-/* ---------- В: сверка с журналом ---------- */
-.chk2{display:flex; flex-direction:column}
-.chk2 .r{display:grid; grid-template-columns:1fr 92px 132px; gap:14px; align-items:baseline;
-  padding:11px 0; border-bottom:1px solid var(--line-soft)}
-.chk2 .r:last-child{border-bottom:none}
-.chk2 .nm{font-size:13.5px}
-.chk2 .nm i{display:block; font-style:normal; font-size:12px; color:var(--faint); margin-top:2px}
-.chk2 .want{font-family:var(--mono); font-size:12.5px; color:var(--dim); text-align:right}
-.chk2 .fact{font-family:var(--mono); font-size:13px; text-align:right}
-.chk2 .fact.ok{color:var(--up)} .chk2 .fact.bad{color:var(--down)} .chk2 .fact.mid{color:var(--be)}
-.chk2 .fact em{font-style:normal; display:block; font-size:11px; color:var(--faint); margin-top:2px}
+.ask{margin-bottom:20px}
+.ask .qq{font-size:14px; margin-bottom:10px}
+.ask .qq em{font-style:normal; color:var(--faint); font-size:12.5px; display:block; margin-top:3px}
 
-.note{margin:26px 0 0; padding:15px 17px; border-radius:var(--r);
+.chips{display:flex; gap:7px; flex-wrap:wrap}
+.chip{border:1px solid var(--line); background:var(--panel-2); color:var(--dim);
+  font:inherit; font-size:13px; padding:8px 15px; border-radius:99px; cursor:pointer}
+.chip.on{background:var(--up-soft); color:var(--text);
+  border-color:rgba(64,224,148,.45)}
+.chip.add{border-style:dashed; color:var(--faint)}
+
+.inp{width:100%; background:var(--panel-2); color:var(--text); border:1px solid var(--line);
+  border-radius:var(--r-sm); padding:11px 14px; font:inherit; font-size:14px}
+.inp::placeholder{color:var(--faint)}
+textarea.inp{min-height:74px; resize:vertical; line-height:1.55}
+
+.tfpick{display:grid; grid-template-columns:repeat(3,1fr); gap:12px}
+.tfpick > div .k{font-family:var(--mono); font-size:9.5px; letter-spacing:.14em;
+  text-transform:uppercase; color:var(--faint); margin-bottom:8px}
+
+.prog{display:flex; align-items:center; gap:14px; margin-bottom:24px}
+.prog .bar{flex:1; height:4px; border-radius:99px; background:var(--panel-2); overflow:hidden}
+.prog .bar i{display:block; height:100%; width:33%; background:var(--accent); border-radius:99px}
+.prog span{font-family:var(--mono); font-size:11.5px; color:var(--faint)}
+
+.skip{margin-top:22px; padding-top:20px; border-top:1px solid var(--line-soft);
+  font-size:13px; color:var(--faint)}
+.skip b{color:var(--dim)}
+
+.note{margin:34px 0 0; padding:18px 20px; border-radius:var(--r);
   background:var(--panel-2); border:1px solid var(--line-soft);
-  font-size:13px; color:var(--dim); line-height:1.6}
+  font-size:13.5px; color:var(--dim); line-height:1.65}
 .note b{color:var(--text)}
-.note code{font-family:var(--mono); font-size:12px; background:var(--panel);
+.note code{font-family:var(--mono); font-size:12.5px; background:var(--panel);
   padding:1px 6px; border-radius:5px; border:1px solid var(--line-soft)}
+.note + .note{margin-top:14px}
 </style>
 </head>
 <body>
 <div class="wrap">
 
 <h1>Панель «Моя ТС»</h1>
-<p class="lead">Три варіанти. Усе наповнення — <b>справжнє, з твоєї сторінки «ТС (us100)» у Notion</b>:
-мінімальний RR, ризик, денний ліміт, правило беззбитку, вікна сесій і таймфрейми.
-Тобто панель не треба заповнювати руками — вона підтягується так само, як угоди.</p>
-
-<div class="sys">
-  <button class="on">ТС (us100)</button>
-  <button>ТС</button>
-  <button>+ додати з Notion</button>
-</div>
+<p class="lead">Перероблено на мінімалізм: менше рамок, більше повітря, великим —
+тільки те, що вирішує. Наповнення справжнє, з твоєї сторінки <b>«ТС (us100)»</b> у Notion.</p>
 
 <!-- ================= А ================= -->
-<div class="vhead"><h2>А — конспект</h2><i>усе на одному екрані</i></div>
-<p class="why">Щоб перед торгівлею перечитати правила за десять секунд, а не гортати Notion.</p>
+<div class="vhead"><h2>А — правила</h2><i>основний екран</i></div>
+<p class="why">Три цифри, які вирішують, входити чи ні. Решта — короткими рядками, без плиток
+і вкладених рамок.</p>
 
 <div class="card">
-  <div class="nums">
-    <div class="num"><div class="l">Мін. RR</div><div class="v">2.0</div></div>
-    <div class="num"><div class="l">Ризик на угоду</div><div class="v">1%</div></div>
-    <div class="num"><div class="l">Ліміт за день</div><div class="v warn">2%</div></div>
-    <div class="num"><div class="l">Реверс</div><div class="v">0.5%</div></div>
+  <div class="three">
+    <div><div class="k">Мінімальний RR</div><div class="n">2.0</div></div>
+    <div><div class="k">Ризик на угоду</div><div class="n">1%</div></div>
+    <div><div class="k">Ліміт за день</div><div class="n neg">2%</div></div>
   </div>
 
-  <div class="cols">
-    <div class="blk">
-      <h4>Коли ставлю в беззбиток</h4>
-      <ul>
-        <li>перша <b>15m FTA</b></li>
-        <li>перед ТП є FTA — знімаю раніше</li>
-        <li>червоні новини: є мінімальний RR — закриваю, немає — БУ</li>
-      </ul>
-    </div>
-    <div class="blk">
-      <h4>Активи</h4>
-      <ul><li>Nasdaq (NQ)</li><li>SPX 500 (ES)</li></ul>
-    </div>
+  <div class="lines">
+    <div class="line"><div class="k">Торгую</div>
+      <div class="v"><b>Nasdaq</b> <span>·</span> <b>SPX 500</b></div></div>
+
+    <div class="line"><div class="k">Таймфрейми</div>
+      <div class="v flow"><b>4H</b><em>напрямок</em><em>→</em><b>15M</b><em>злам</em><em>→</em><b>1M</b><em>вхід</em></div></div>
+
+    <div class="line"><div class="k">Вікна</div>
+      <div class="v"><b>08:50–11:00</b> <span>і</span> <b>15:30–16:30</b><br>
+        <span>Power Hour 21:00–22:00 — якщо до 21:30 входу немає, скіп</span></div></div>
+
+    <div class="line"><div class="k">Беззбиток</div>
+      <div class="v">на першій <b>15m FTA</b><br>
+        <span>червоні новини: є мінімальний RR — закриваю, немає — БУ</span></div></div>
+
+    <div class="line"><div class="k">Реверс</div>
+      <div class="v">тільки <b>0.5%</b></div></div>
   </div>
 
-  <p class="sub" style="margin-top:20px">Таймфрейми</p>
-  <div class="tf">
-    <div><span>1D / 1W</span>загальний контекст, глобальні цілі</div>
-    <div><span>4H</span>напрямок, таргети й POI</div>
-    <div><span>1H</span>робота ціни всередині дня, зняття фракталу</div>
-    <div><span>15M</span>ключовий: злам у вигляді cisd у мій бік</div>
-    <div><span>3–5M</span>уточнення</div>
-    <div><span>1M</span>вхід</div>
-  </div>
-
-  <p class="sub" style="margin-top:20px">Вікна</p>
-  <div class="win">
-    <div><b>Frankfurt</b><span>08:00 – 09:00 · інформаційний</span></div>
-    <div><b>GER40</b><span>08:00–08:15 · 08:50–11:00 · 15:30–16:30</span></div>
-    <div><b>New York</b><span>15:30 – 16:15</span></div>
-    <div><b>Power Hour</b><span>21:00 – 22:00 · до 21:30 немає входу — СКІП</span></div>
-  </div>
-
-  <div class="mind" style="margin-top:20px">
-    <b>Сідати за графіки з холодною головою.</b> Головне — зберегти капітал, а не взяти багато угод.
-    Взяв позу — поставив алерти й відійшов.
+  <div class="said">
+    <b>Сідати за графіки з холодною головою.</b> Головне — зберегти капітал,
+    а не взяти багато угод.
   </div>
 </div>
 
 <!-- ================= Б ================= -->
-<div class="vhead"><h2>Б — чек-лист перед входом</h2><i>ті самі правила, але як питання</i></div>
-<p class="why">Конспект читають раз і забувають. Питання доводиться закрити — і видно, коли входиш
-проти власних правил.</p>
+<div class="vhead"><h2>Б — перед входом</h2><i>ті самі правила як питання</i></div>
+<p class="why">Конспект читають раз і забувають. Питання доводиться закрити — і видно,
+коли входиш проти власних правил.</p>
 
 <div class="card">
-  <div class="chk">
-    <label><input type="checkbox" checked><span class="t">Контекст 1D/4H за мене
-      <span class="h">напрямок і ціль визначені на старшому таймфреймі</span></span></label>
-    <label><input type="checkbox" checked><span class="t">Є злам 15m (cisd) у мій бік
-      <span class="h">або тест POI на старшому — тоді злам можна ігнорувати</span></span></label>
-    <label><input type="checkbox"><span class="t">RR до цілі не менше 2.0
-      <span class="h">менше — угоди немає</span></span></label>
-    <label><input type="checkbox" checked><span class="t">Ми у своєму вікні
-      <span class="h">Frankfurt, London, NY 15:30–16:15 або Power Hour</span></span></label>
-    <label><input type="checkbox"><span class="t">Немає червоних новин поруч
-      <span class="h">інакше — закриваю по мінімальному RR або БУ</span></span></label>
-    <label><input type="checkbox" checked><span class="t">Денний ліміт не вибраний
-      <span class="h">сьогодні −1.0% із дозволених 2%</span></span></label>
+  <div class="q">
+    <label><input type="checkbox" checked><span class="t">Контекст 4H за мене</span></label>
+    <label><input type="checkbox" checked><span class="t">Є злам 15m у мій бік</span></label>
+    <label><input type="checkbox"><span class="t">RR до цілі не менше 2.0</span></label>
+    <label><input type="checkbox" checked><span class="t">Ми у своєму вікні</span></label>
+    <label><input type="checkbox"><span class="t">Червоних новин поруч немає</span></label>
+    <label><input type="checkbox" checked><span class="t">Денний ліміт не вибраний</span></label>
   </div>
-
   <div class="gate">
-    <b class="no">2 з 6 не закрито</b>
-    <span>За твоїми ж правилами входу немає. Найчастіше ламається саме RR.</span>
+    <b class="neg">2 з 6</b>
+    <span>не закрито — за твоїми ж правилами входу немає</span>
   </div>
 </div>
 
 <!-- ================= В ================= -->
-<div class="vhead"><h2>В — ТС проти журналу</h2><i>що написано і що виходить насправді</i></div>
-<p class="why">Найцінніше, чого немає ніде: правила лежать у Notion, угоди — тут. Зіставити їх
-руками ніхто не буде, а машина зіставить. Цифри нижче пораховані по твоїх 213 угодах.</p>
+<div class="vhead"><h2>В — що виходить насправді</h2><i>правила проти журналу</i></div>
+<p class="why">Правила лежать у Notion, угоди — тут. Зіставити руками ніхто не буде.
+Пораховано по твоїх 213 угодах.</p>
 
 <div class="card">
-  <div class="chk2">
+  <div class="cmp">
     <div class="r">
-      <div class="nm">Мінімальний RR<i>угод із RR нижче правила</i></div>
-      <div class="want">не менше 2.0</div>
-      <div class="fact bad">76 угод<em>36% усіх</em></div>
+      <div class="nm">RR нижче мінімального<i>у ТС — не менше 2.0</i></div>
+      <div class="v neg">76 угод<em>36% усіх</em></div>
     </div>
     <div class="r">
-      <div class="nm">Ризик на угоду<i>середній по журналу</i></div>
-      <div class="want">1%</div>
-      <div class="fact ok">0.99%<em>тримаєш</em></div>
+      <div class="nm">Денний ліміт перевищено<i>у ТС — не більше 2%</i></div>
+      <div class="v neg">5 днів<em>найгірший −3.0%</em></div>
     </div>
     <div class="r">
-      <div class="nm">Ліміт втрати за день<i>днів із перевищенням</i></div>
-      <div class="want">не більше 2%</div>
-      <div class="fact bad">5 днів<em>найгірший −3.0%</em></div>
+      <div class="nm">Торгуєш поза списком<i>у ТС лише Nasdaq і SPX</i></div>
+      <div class="v mid">GER40 · 75<em>більше, ніж US100</em></div>
     </div>
     <div class="r">
-      <div class="nm">Активи поза списком<i>у ТС лише NQ і ES</i></div>
-      <div class="want">US100, ES500</div>
-      <div class="fact mid">GER40 · 75<em>більше, ніж основних</em></div>
-    </div>
-    <div class="r">
-      <div class="nm">Модель входу<i>у ТС — злам 15m cisd</i></div>
-      <div class="want">cisd</div>
-      <div class="fact mid">107 з 213<em>решта — bos 54, inversion 46</em></div>
+      <div class="nm">Ризик на угоду<i>у ТС — 1%</i></div>
+      <div class="v pos">0.99%<em>тримаєш</em></div>
     </div>
   </div>
 </div>
 
+<!-- ================= З НУЛЯ ================= -->
+<div class="vhead"><h2>Г — заповнити з нуля</h2><i>якщо ТС немає в Notion</i></div>
+<p class="why">Дев'ять питань, розбитих на три кроки. Майже все — натиснути, а не писати:
+поля з варіантами підставляються з того, чим людина вже торгувала в журналі.</p>
+
+<div class="card">
+  <div class="prog"><div class="bar"><i></i></div><span>крок 1 з 3</span></div>
+
+  <div class="steps">
+
+    <div class="step">
+      <h3>Гроші</h3>
+      <p>З цього починається все інше — і саме це журнал зможе перевіряти щодня.</p>
+
+      <div class="ask">
+        <div class="qq">Скільки ризикую в одній угоді?</div>
+        <div class="chips">
+          <button class="chip">0.5%</button><button class="chip on">1%</button>
+          <button class="chip">1.5%</button><button class="chip">2%</button>
+          <button class="chip add">своє</button>
+        </div>
+      </div>
+
+      <div class="ask">
+        <div class="qq">Нижче якого RR не входжу?
+          <em>у твоїх угодах середній RR — 2.4</em></div>
+        <div class="chips">
+          <button class="chip">1.5</button><button class="chip on">2</button>
+          <button class="chip">2.5</button><button class="chip">3</button>
+          <button class="chip add">своє</button>
+        </div>
+      </div>
+
+      <div class="ask">
+        <div class="qq">Після якої втрати зупиняюся на день?</div>
+        <div class="chips">
+          <button class="chip">1%</button><button class="chip on">2%</button>
+          <button class="chip">3%</button><button class="chip">без ліміту</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="step">
+      <h3>Коли входжу</h3>
+      <p>Варіанти підставлені з твого журналу — можна лише позначити.</p>
+
+      <div class="ask">
+        <div class="qq">Чим торгую?</div>
+        <div class="chips">
+          <button class="chip on">US100</button><button class="chip on">GER40</button>
+          <button class="chip">ES500</button><button class="chip">EUR/USD</button>
+          <button class="chip">GBP/USD</button><button class="chip add">додати</button>
+        </div>
+      </div>
+
+      <div class="ask">
+        <div class="qq">Таймфрейми</div>
+        <div class="tfpick">
+          <div><div class="k">Контекст</div>
+            <div class="chips"><button class="chip on">4H</button><button class="chip">1D</button></div></div>
+          <div><div class="k">Підтвердження</div>
+            <div class="chips"><button class="chip on">15M</button><button class="chip">1H</button></div></div>
+          <div><div class="k">Вхід</div>
+            <div class="chips"><button class="chip on">1M</button><button class="chip">5M</button></div></div>
+        </div>
+      </div>
+
+      <div class="ask">
+        <div class="qq">Модель входу
+          <em>у журналі найчастіше: cisd — 107 угод</em></div>
+        <div class="chips">
+          <button class="chip on">cisd</button><button class="chip">bos</button>
+          <button class="chip">inversion</button><button class="chip add">додати</button>
+        </div>
+      </div>
+
+      <div class="ask">
+        <div class="qq">У які години торгую?</div>
+        <div class="chips">
+          <button class="chip on">Frankfurt</button><button class="chip on">London</button>
+          <button class="chip on">New York</button><button class="chip">Power Hour</button>
+          <button class="chip">Азія</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="step">
+      <h3>Коли не входжу</h3>
+      <p>Найкорисніший крок: більшість збитків беруться саме звідси.</p>
+
+      <div class="ask">
+        <div class="qq">Коли переводжу в беззбиток?</div>
+        <div class="chips">
+          <button class="chip on">перша 15m FTA</button><button class="chip">половина шляху до цілі</button>
+          <button class="chip">не переводжу</button><button class="chip add">своє</button>
+        </div>
+      </div>
+
+      <div class="ask">
+        <div class="qq">Коли пропускаю вхід?
+          <em>своїми словами — це ніде більше не зберігається</em></div>
+        <textarea class="inp" placeholder="Наприклад: якщо до 21:30 входу немає — скіп. Якщо поруч червона новина — не входжу."></textarea>
+      </div>
+    </div>
+
+  </div>
+
+  <div class="skip">
+    <b>Можна не заповнювати все відразу.</b> Достатньо першого кроку — трьох цифр:
+    їх вистачить, щоб журнал уже почав перевіряти угоди проти правил.
+  </div>
+</div>
+
 <div class="note">
-  <b>Звідки береться наповнення.</b> Сторінки «ТС» і «ТС (us100)» лежать у тій самій базі Notion,
-  що й угоди — рядками таблиці <code>Main</code>. Ми вже вміємо їх читати: текст зі сторінки
-  забирається так само, як нотатки до угоди. Числа на кшталт <code>Minimal RR: 2</code>,
-  <code>Risk per trade: 1%</code>, <code>Max Daily Loss: 2%</code> дістаються з тексту
-  простим розбором — вони записані однаково.<br><br>
-  <b>Що обрати.</b> А і Б доповнюють одне одного: конспект — щоб пам'ятати, чек-лист — щоб
-  не порушувати. В — окрема цінність і головна причина тримати ТС у журналі, а не в Notion:
-  тільки тут видно, де правила й реальність розходяться.
+  <b>Звідки береться ТС, коли вона в Notion.</b> Твоє посилання веде на таблицю <code>Main</code>.
+  Її рядки — це сторінки: «Trading Journal (August 2026)», «Journal 2026» і поряд «ТС», «ТС (us100)».
+  Ми вже заходимо всередину рядків, коли шукаємо таблиці з угодами — сторінку ТС я прочитав
+  тим самим способом. <b>Другого посилання не знадобилось.</b>
+</div>
+
+<div class="note">
+  <b>Як це буде в людей.</b> Якщо ТС лежить у тій самій базі, що й журнал — знайдемо самі:
+  у майстрі з'явиться рядок «Знайшли ще: ТС, ТС (us100) — підтягнути як систему?» з галочкою.
+  Впізнаємо за назвою (ТС, TS, System, Стратегія) і за вмістом — <code>Minimal RR</code>,
+  <code>Risk per trade</code>, <code>Max Daily Loss</code>.<br><br>
+  Якщо ТС лежить окремо — тоді або друге посилання, або крок «Г»: заповнити руками.
+  Третього шляху немає: у чужий Notion ми без посилання не потрапимо.
 </div>
 
 </div>
