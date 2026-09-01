@@ -54,9 +54,10 @@
 .as-review{white-space:nowrap}
 
 /* ---------- кнопка-«бульбашка», що висить поверх сторінки ---------- */
-/* маскот білий в обох темах; глибину/глянець дають градієнт тіла (SVG
-   #asBotBody), м'яка підсвітка-«блік» (ellipse в SVG) і тінь під іконкою
-   нижче — щоб плоска заливка не виглядала дешево */
+/* колір маскота — окремі змінні (не currentColor теми): світла тема білий,
+   темна чорний; --bot-hi/--bot-lo — два стопи градієнта тіла (SVG #asBotBody) */
+:root{--bot-hi:#ffffff; --bot-lo:#dfe6f5; --bot-ink:#ffffff}
+:root[data-theme="dark"]{--bot-hi:#32363f; --bot-lo:#06070a; --bot-ink:#06070a}
 .as-fab{position:fixed; right:22px; bottom:22px; z-index:45;
   display:flex; align-items:center; justify-content:center;
   width:76px; height:76px; padding:0; border-radius:50%;
@@ -66,13 +67,13 @@
     color-mix(in srgb, var(--accent) 85%, #000) 100%);
   color:var(--accent-ink,#fff);
   border:none; cursor:pointer;
-  box-shadow:var(--shadow-badge), 0 10px 30px -10px var(--accent),
+  box-shadow:var(--shadow-badge), 0 5px 12px -6px color-mix(in srgb, var(--accent) 55%, transparent),
     inset 0 1px 0 rgba(255,255,255,.4), inset 0 -8px 14px -10px rgba(0,0,0,.32);
   transition:transform .16s, box-shadow .16s, opacity .18s}
 .as-fab:hover{transform:translateY(-2px) scale(1.05)}
 .as-fab:active{transform:translateY(0) scale(.96)}
 .as-fab:focus-visible{outline:2px solid var(--accent); outline-offset:3px}
-.as-fab-ic{display:block; color:#fff;
+.as-fab-ic{display:block; color:var(--bot-ink);
   filter:drop-shadow(0 2px 3px rgba(0,0,0,.25));
   animation:asBotFloat 2.6s ease-in-out infinite}
 .as-fab-eyes{transform-box:fill-box; transform-origin:center;
