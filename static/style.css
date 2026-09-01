@@ -134,6 +134,12 @@ html:has(.pnl-wrap){overflow-y:hidden}
 
 /* ================= main ================= */
 .main{flex:1;min-width:0;padding:clamp(16px,3vw,36px)}
+/* первая заставка, пока грузятся сделки: наш же знак, тихо пульсує замість
+   порожньої сторінки. render() перезапише #main і сам його прибере. */
+.page-loader{display:grid;place-items:center;min-height:60vh}
+.pl-logo{width:56px;height:auto;color:var(--text);animation:plPulse 1.4s ease-in-out infinite}
+@keyframes plPulse{0%,100%{opacity:.32;transform:scale(.92)} 50%{opacity:1;transform:scale(1)}}
+@media (prefers-reduced-motion:reduce){.pl-logo{animation:none;opacity:.8}}
 /* содержимое держим по центру свободного места, а не у левого края */
 .page{max-width:1320px;margin:0 auto}
 .vhead{display:flex;align-items:center;gap:14px;flex-wrap:wrap;margin-bottom:18px}
