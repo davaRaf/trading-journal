@@ -185,7 +185,7 @@ function open(kind, arg){
         + t.name + '</button>').join("") + '</div>'
     + '<div class="sh-out" id="shOut" hidden></div>'
     + '</div>'
-    + '<div class="m-foot"><button class="btn go" id="shGo">' + T.slCreateBtn + '</button>'
+    + '<div class="m-foot"><button class="btn primary" id="shGo">' + T.slCreateBtn + '</button>'
     + (kind === "trade" || kind === "day"
         ? '<button class="btn" id="shImg">' + T.slImgBtn + '</button>' : "")
     + '<span class="sp"></span></div>'
