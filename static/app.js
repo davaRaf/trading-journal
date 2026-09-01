@@ -589,11 +589,20 @@ function plChart(list, opts){
     '<div class="plwrap" data-pl="'+id+'">'+svg+'<div class="pltip" hidden></div></div></div>'+xax+"</div></div>";
 }
 
-/* прибыль/убыток за текущий год — «Огляд» */
+/* прибыль/убыток за выбранный период — «Огляд».
+   Раньше здесь всегда стоял год: переключаешь на месяц, цифры сверху
+   меняются, а график остаётся годовым — и не сходится с ними. */
 function ovEquityHtml(){
-  const y=String(new Date().getFullYear());
-  return plChart(S.trades.filter(t=>(t.date||"").slice(0,4)===y),
-    {title:"Прибуток / збиток"});
+  const per=ovEquityPeriod();
+  return plChart(per.list, per.opts);
+}
+function ovEquityPeriod(){
+  const per=ovPeriod();
+  if(S.ovPeriod==="month")
+    return {list:per.list, opts:{title:"Прибуток / збиток · місяць", ym:isoMonth(new Date())}};
+  if(S.ovPeriod==="quarter")
+    return {list:per.list, opts:{title:"Прибуток / збиток · квартал"}};
+  return {list:per.list, opts:{title:"Прибуток / збиток · рік"}};
 }
 
 /* колонка-компаньон: где, чем и по какой модели торгуем за год */
@@ -1058,6 +1067,7 @@ function vAnalytics(){
   h+='<div class="card"><h3>Результати · '+esc(DIMS.find(d=>d.k===S.dim).label)+"</h3>"+
     '<div class="ahead"><span>Назва</span><span>Угод</span><span>Win Rate</span><span>Сер. RR</span><span>Підсумок, %</span></div>'+
     (rows||'<div class="empty">Немає даних — поле не заповнене в жодній угоді</div>')+"</div>";
+  h+=window.__links ? __links.html(list) : "";      /* зв'язки, static/links.js */
   return h;
 }
 
