@@ -128,4 +128,32 @@ const Assistant = (function(){
 })();
 
 window.Assistant = Assistant;
+
+/* маскот на кнопці стежить очима за курсором: зсуваємо тільки внутрішню
+   групу .as-fab-face, обмежуючи зсув, щоб очі не вилазили за межі "екрана" */
+(function(){
+  if (window.matchMedia && matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+  const MAX = 3.2;        // граничний зсув в одиницях viewBox іконки (0..40)
+  const REACH = 160;      // px від кнопки, на якому зсув вже максимальний
+  let mx = null, my = null, raf = null;
+
+  function apply(){
+    raf = null;
+    const btn = document.getElementById("asFabBtn");
+    const face = btn && btn.querySelector(".as-fab-face");
+    if (!btn || !face || mx == null) return;
+    const r = btn.getBoundingClientRect();
+    const cx = r.left + r.width / 2, cy = r.top + r.height / 2;
+    const dx = mx - cx, dy = my - cy;
+    const len = Math.hypot(dx, dy) || 1;
+    const k = Math.min(1, len / REACH);
+    const ox = (dx / len) * MAX * k, oy = (dy / len) * MAX * k;
+    face.style.transform = "translate(" + ox.toFixed(2) + "px," + oy.toFixed(2) + "px)";
+  }
+
+  document.addEventListener("mousemove", e => {
+    mx = e.clientX; my = e.clientY;
+    if (!raf) raf = requestAnimationFrame(apply);
+  }, {passive:true});
+})();
 function openAssistant(){ Assistant.open(); }
