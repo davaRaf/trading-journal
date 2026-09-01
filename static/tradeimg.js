@@ -1,9 +1,13 @@
 /* ============================================================
-   Картинка однієї угоди — щоб скопіювати й кинути в чат.
+   Картинка угоди й картинка дня — щоб скопіювати й кинути в чат.
 
    Посилання показує лише пораховані цифри. Тут навпаки: усе, як воно
    є в журналі — як заходив, що записав, і самі графіки. Малюємо на
    canvas, бо картинку можна покласти в буфер, а сторінку — ні.
+
+   Графік входу (наймолодший таймфрейм) іде окремо й на всю ширину:
+   на маленькій плитці не видно того, заради чого картинку й шлють —
+   як набиралась позиція.
 
    Кольори беруться з поточної теми, тому картинка виглядає так само,
    як журнал на екрані.
@@ -12,10 +16,11 @@
 
 const W = 1080;
 const PAD = 56;
+const GAP = 16;
 const MONO = '"Geist Mono","IBM Plex Mono",ui-monospace,Consolas,monospace';
 const SANS = '"Geist","IBM Plex Sans","Segoe UI",system-ui,sans-serif';
 
-/* ---------- дрібниці малювання ---------- */
+/* ---------- дрібниці ---------- */
 function wrap(ctx, text, maxW){
   const out = [];
   for (const para of String(text || "").split("\n")){
@@ -40,58 +45,96 @@ function loadImg(src){
   });
 }
 
-/* ---------- сам малюнок ---------- */
+/* Скріншоти впорядковані від старшого таймфрейму до молодшого.
+   Останній — це вхід: саме його показуємо великим. */
+async function shotsOf(t, limit){
+  const list = (t.screenshots || []).slice()
+    .sort((a, b) => TF_ORDER.indexOf(a.tf) - TF_ORDER.indexOf(b.tf))
+    .slice(0, limit);
+  const out = [];
+  for (const s of list){
+    const im = await loadImg(shotSrc(s));
+    if (im) out.push({im, tf: s.tf || ""});
+  }
+  return out;
+}
+
+function split(imgs){
+  if (imgs.length <= 1) return {grid: [], big: imgs[0] || null};
+  return {grid: imgs.slice(0, -1), big: imgs[imgs.length - 1]};
+}
+
+function shotsHeight(imgs, w){
+  const {grid, big} = split(imgs);
+  const iw = (w - GAP) / 2;
+  let h = 0;
+  for (let r = 0; r * 2 < grid.length; r++){
+    const row = grid.slice(r * 2, r * 2 + 2);
+    h += Math.max(...row.map(g => Math.round(iw * g.im.height / g.im.width))) + 28 + 14;
+  }
+  if (big) h += Math.round(w * big.im.height / big.im.width) + 32 + 14;
+  return h;
+}
+
+function drawShots(ctx, C, imgs, x, w, y){
+  const {grid, big} = split(imgs);
+  const iw = (w - GAP) / 2;
+  for (let r = 0; r * 2 < grid.length; r++){
+    const row = grid.slice(r * 2, r * 2 + 2);
+    const rh = Math.max(...row.map(g => Math.round(iw * g.im.height / g.im.width)));
+    row.forEach((g, i) => {
+      const gx = x + i * (iw + GAP);
+      const gh = Math.round(iw * g.im.height / g.im.width);
+      ctx.font = "500 19px " + MONO; ctx.fillStyle = C.faint;
+      ctx.fillText((g.tf || "chart").toUpperCase(), gx, y + 14);
+      ctx.save(); roundRect(ctx, gx, y + 28, iw, gh, 10); ctx.clip();
+      ctx.drawImage(g.im, gx, y + 28, iw, gh); ctx.restore();
+      ctx.strokeStyle = C.line; ctx.lineWidth = 1;
+      roundRect(ctx, gx, y + 28, iw, gh, 10); ctx.stroke();
+    });
+    y += rh + 28 + 14;
+  }
+  if (big){
+    const gh = Math.round(w * big.im.height / big.im.width);
+    ctx.font = "500 21px " + MONO; ctx.fillStyle = C.accent;
+    /* «Вхід» пишемо, лише коли графіків кілька: якщо він один, то це просто
+       єдиний графік, а не наймолодший таймфрейм */
+    ctx.fillText(grid.length
+      ? T.tiEntryShot + (big.tf ? "  ·  " + big.tf.toUpperCase() : "")
+      : (big.tf || "chart").toUpperCase(), x, y + 15);
+    ctx.save(); roundRect(ctx, x, y + 32, w, gh, 12); ctx.clip();
+    ctx.drawImage(big.im, x, y + 32, w, gh); ctx.restore();
+    ctx.strokeStyle = withAlpha(C.accent, .5); ctx.lineWidth = 1.5;
+    roundRect(ctx, x, y + 32, w, gh, 12); ctx.stroke(); ctx.lineWidth = 1;
+    y += gh + 32 + 14;
+  }
+  return y;
+}
+
+/* ============================ одна угода ============================ */
 async function buildTradeImage(t){
   await document.fonts.ready;
   const C = themeColors();
   const r = netR(t);
-  const dark = document.documentElement.getAttribute("data-theme") !== "light";
-
-  /* скріншоти вантажимо заздалегідь: без них не порахувати висоту */
-  const shots = (t.screenshots || []).slice()
-    .sort((a,b) => TF_ORDER.indexOf(a.tf) - TF_ORDER.indexOf(b.tf))
-    .slice(0, 4);
-  const imgs = [];
-  for (const s of shots){
-    const im = await loadImg(shotSrc(s));
-    if (im) imgs.push({im, tf: s.tf || ""});
-  }
-
-  /* ---- рахуємо висоту ---- */
-  const probe = document.createElement("canvas").getContext("2d");
   const inner = W - PAD * 2;
+  const imgs = await shotsOf(t, 5);
 
-  /* інструмент, напрямок і дата вже стоять у шапці — не повторюємо */
-  const facts = [["Сесія", t.session || "—"], ["Біас", t.bias || "—"],
-    ["Модель входу", t.entry_model || "—"], ["Сетап", t.setup || "—"],
-    ["Прод. / Розв.", dirType(t) || "—"]];
+  const probe = document.createElement("canvas").getContext("2d");
+  probe.font = "26px " + SANS;
+
+  const facts = [["Сесія", t.session], ["Біас", t.bias],
+    ["Модель входу", t.entry_model], ["Сетап", t.setup],
+    ["Прод. / Розв.", dirType(t)]].map(([k, v]) => [k, v || "—"]);
   const rows = Math.ceil(facts.length / 2);
 
-  const texts = [["Як заходив", t.entry_details], ["Нотатки", t.notes],
-                 ["Помилки", t.mistakes], ["Коментар", t.comments]]
-    .filter(x => (x[1] || "").trim());
-  probe.font = "26px " + SANS;
-  const blocks = texts.map(([k, v]) => ({k, lines: wrap(probe, v.trim(), inner)}));
+  const blocks = [[T.tiHowEntered, t.entry_details], [T.tiNotes, t.notes],
+                  [T.tiMistakes, t.mistakes]]
+    .filter(x => (x[1] || "").trim())
+    .map(([k, v]) => ({k, lines: wrap(probe, v.trim(), inner)}));
 
-  /* картинки кладемо по дві в ряд */
-  const cols = imgs.length > 1 ? 2 : 1;
-  const cw = imgs.length ? (inner - (cols - 1) * 18) / cols : 0;
-  let shotsH = 0;
-  const geom = imgs.map((g, i) => {
-    const h = Math.round(cw * g.im.height / g.im.width);
-    return {h, col: i % cols, row: Math.floor(i / cols)};
-  });
-  for (let row = 0; row * cols < imgs.length; row++){
-    const inRow = geom.filter(g => g.row === row);
-    shotsH += Math.max(...inRow.map(g => g.h)) + 30 + 18;   // +подпись +отступ
-  }
-
-  let H = PAD + 120            /* шапка */
-        + 132                  /* три цифри */
-        + rows * 58 + 34       /* як торгував */
+  let H = PAD + 120 + 132 + rows * 58 + 34
         + blocks.reduce((a, b) => a + 34 + b.lines.length * 38 + 18, 0)
-        + (imgs.length ? 44 + shotsH : 0)
-        + 74;                  /* підпис знизу */
+        + (imgs.length ? 44 + shotsHeight(imgs, inner) : 0) + 74;
 
   const cv = document.createElement("canvas");
   const dpr = 2;
@@ -99,39 +142,32 @@ async function buildTradeImage(t){
   const ctx = cv.getContext("2d");
   ctx.scale(dpr, dpr);
 
-  /* ---- тло ---- */
   ctx.fillStyle = C.bg; ctx.fillRect(0, 0, W, H);
+  ctx.textBaseline = "alphabetic";
   ctx.fillStyle = C.panel;
   roundRect(ctx, PAD - 26, PAD - 26, W - (PAD - 26) * 2, H - (PAD - 26) * 2, 26);
   ctx.fill();
   ctx.strokeStyle = C.lineSoft; ctx.lineWidth = 1; ctx.stroke();
 
   let y = PAD + 24;
-
-  /* ---- шапка: інструмент, напрямок, дата, підсумок ---- */
-  ctx.textBaseline = "alphabetic";
   ctx.font = "600 46px " + SANS; ctx.fillStyle = C.text;
-  const pair = t.pair || "Угода";
+  const pair = t.pair || "—";
   ctx.fillText(pair, PAD, y + 18);
   const pw = ctx.measureText(pair).width;
 
   if (t.position){
-    const long = t.position === "Long";
-    const col = long ? C.up : C.down;
+    const col = t.position === "Long" ? C.up : C.down;
     ctx.font = "500 20px " + MONO;
     const label = t.position.toUpperCase();
     const bw = ctx.measureText(label).width + 30;
     ctx.fillStyle = withAlpha(col, .14);
     roundRect(ctx, PAD + pw + 20, y - 8, bw, 34, 17); ctx.fill();
-    ctx.fillStyle = col;
-    ctx.fillText(label, PAD + pw + 35, y + 16);
+    ctx.fillStyle = col; ctx.fillText(label, PAD + pw + 35, y + 16);
   }
 
   ctx.font = "500 42px " + MONO;
   ctx.fillStyle = r > 0 ? C.up : r < 0 ? C.down : C.be;
-  ctx.textAlign = "right";
-  ctx.fillText(fmtR(r), W - PAD, y + 16);
-  ctx.textAlign = "left";
+  ctx.textAlign = "right"; ctx.fillText(fmtR(r), W - PAD, y + 16); ctx.textAlign = "left";
 
   y += 46;
   ctx.font = "22px " + MONO; ctx.fillStyle = C.faint;
@@ -141,15 +177,14 @@ async function buildTradeImage(t){
   ctx.strokeStyle = C.lineSoft; ctx.beginPath();
   ctx.moveTo(PAD, y); ctx.lineTo(W - PAD, y); ctx.stroke();
 
-  /* ---- три цифри ---- */
   y += 44;
-  const nums = [["Результат", resLabel(t.result) || "—"],
-                ["RR", (t.rr != null && t.rr !== "") ? String(r1(t.rr)) : "—"],
-                ["Ризик", (t.risk != null && t.risk !== "") ? r1(t.risk) + "%" : "—"]];
-  nums.forEach(([k, v], i) => {
+  [["Результат", resLabel(t.result) || "—"],
+   ["RR", (t.rr != null && t.rr !== "") ? String(r1(t.rr)) : "—"],
+   [T.tiRisk, (t.risk != null && t.risk !== "") ? r1(t.risk) + "%" : "—"]
+  ].forEach(([k, v], i) => {
     const x = PAD + i * (inner / 3);
     ctx.font = "20px " + MONO; ctx.fillStyle = C.faint;
-    ctx.fillText(k.toUpperCase(), x, y);
+    ctx.fillText(String(k).toUpperCase(), x, y);
     ctx.font = "500 40px " + MONO; ctx.fillStyle = C.text;
     ctx.fillText(v, x, y + 48);
   });
@@ -157,7 +192,6 @@ async function buildTradeImage(t){
   ctx.strokeStyle = C.lineSoft; ctx.beginPath();
   ctx.moveTo(PAD, y); ctx.lineTo(W - PAD, y); ctx.stroke();
 
-  /* ---- як торгував ---- */
   y += 40;
   ctx.font = "20px " + MONO; ctx.fillStyle = C.faint;
   ctx.fillText(T.tiHowTraded, PAD, y);
@@ -170,64 +204,36 @@ async function buildTradeImage(t){
     ctx.fillText(k, x, yy + 26);
     ctx.font = "500 25px " + SANS;
     ctx.fillStyle = v === "—" ? C.faint : C.text;
-    ctx.textAlign = "right";
-    ctx.fillText(v, x + inner / 2 - 10, yy + 26);
-    ctx.textAlign = "left";
+    ctx.textAlign = "right"; ctx.fillText(v, x + inner / 2 - 10, yy + 26); ctx.textAlign = "left";
     ctx.strokeStyle = C.lineSoft; ctx.beginPath();
     ctx.moveTo(x, yy + 44); ctx.lineTo(x + inner / 2 - 10, yy + 44); ctx.stroke();
   });
   y += rows * 58 + 12;
 
-  /* ---- записи ---- */
   for (const b of blocks){
     y += 22;
     ctx.font = "20px " + MONO; ctx.fillStyle = C.faint;
-    ctx.fillText(b.k.toUpperCase(), PAD, y);
+    ctx.fillText(String(b.k).toUpperCase(), PAD, y);
     y += 30;
-    ctx.font = "26px " + SANS; ctx.fillStyle = C.dim;
+    ctx.font = "26px " + SANS;
+    ctx.fillStyle = b.k === T.tiMistakes ? C.down : C.dim;
     for (const line of b.lines){ ctx.fillText(line, PAD, y + 26); y += 38; }
     y += 4;
   }
 
-  /* ---- графіки ---- */
   if (imgs.length){
     y += 32;
     ctx.font = "20px " + MONO; ctx.fillStyle = C.faint;
     ctx.fillText(T.tiCharts, PAD, y);
-    y += 24;
-    let rowTop = y, row = 0;
-    imgs.forEach((g, i) => {
-      const gm = geom[i];
-      if (gm.row !== row){
-        const prev = geom.filter(x => x.row === row);
-        rowTop += Math.max(...prev.map(x => x.h)) + 30 + 18;
-        row = gm.row;
-      }
-      const x = PAD + gm.col * (cw + 18);
-      ctx.font = "500 20px " + MONO; ctx.fillStyle = C.accent;
-      ctx.fillText((g.tf || "chart").toUpperCase(), x, rowTop + 20);
-      ctx.save();
-      roundRect(ctx, x, rowTop + 30, cw, gm.h, 10); ctx.clip();
-      ctx.drawImage(g.im, x, rowTop + 30, cw, gm.h);
-      ctx.restore();
-      ctx.strokeStyle = C.line; ctx.lineWidth = 1;
-      roundRect(ctx, x, rowTop + 30, cw, gm.h, 10); ctx.stroke();
-    });
-    const last = geom.filter(x => x.row === row);
-    y = rowTop + Math.max(...last.map(x => x.h)) + 30 + 18;
+    y = drawShots(ctx, C, imgs, PAD, inner, y + 24);
   }
 
-  /* ---- підпис ---- */
   ctx.font = "20px " + MONO; ctx.fillStyle = C.faint;
   ctx.fillText(T.tiMadeIn, PAD, H - PAD + 6);
-
   return cv;
 }
 
-/* ---------- картинка дня ---------- */
-/* День — це не просто список рядків. Тут кожна угода йде своїм блоком:
-   як заходив, що записав і графіки. Виходить довго, зате це те, що
-   справді можна комусь показати. */
+/* ============================== день ============================== */
 async function buildDayImage(dk){
   await document.fonts.ready;
   const C = themeColors();
@@ -237,50 +243,24 @@ async function buildDayImage(dk){
   const title = d.getDate() + " " + T.monthsGen[d.getMonth()] + " " + d.getFullYear();
 
   const inner = W - PAD * 2;
+  const CW = inner - 40;
   const probe = document.createElement("canvas").getContext("2d");
 
-  /* готуємо кожну угоду: текст і графіки */
   const cards = [];
   for (const t of list){
     probe.font = "24px " + SANS;
     const texts = [[T.tiHowEntered, t.entry_details], [T.tiNotes, t.notes],
                    [T.tiMistakes, t.mistakes]]
       .filter(x => (x[1] || "").trim())
-      .map(([k, v]) => ({k, lines: wrap(probe, v.trim(), inner - 40)}));
-
-    /* у дні з шістьма угодами всі графіки дали б полотно на кілька екранів —
-       беремо до чотирьох на угоду, старші таймфрейми першими */
-    const shots = (t.screenshots || []).slice()
-      .sort((a, b) => TF_ORDER.indexOf(a.tf) - TF_ORDER.indexOf(b.tf))
-      .slice(0, 4);
-    const imgs = [];
-    for (const sh of shots){
-      const im = await loadImg(shotSrc(sh));
-      if (im) imgs.push({im, tf: sh.tf || ""});
-    }
-    cards.push({t, texts, imgs});
+      .map(([k, v]) => ({k, lines: wrap(probe, v.trim(), CW)}));
+    /* у дні з шістьма угодами всі графіки дали б полотно на кілька екранів */
+    const imgs = await shotsOf(t, 4);
+    let h = 92 + texts.reduce((a, b) => a + 30 + b.lines.length * 34 + 12, 0);
+    if (imgs.length) h += shotsHeight(imgs, CW) + 12;
+    cards.push({t, texts, imgs, h: h + 26});
   }
 
-  /* висота: шапка + показники + блоки угод */
-  const CW = inner - 40;                 /* ширина картинки всередині блоку */
-  const cols = 2;
-  const iw = (CW - 16) / cols;
-  let H = PAD + 108 + 118 + 20;
-  for (const c of cards){
-    let h = 92;                                          /* заголовок угоди */
-    h += c.texts.reduce((a, b) => a + 30 + b.lines.length * 34 + 12, 0);
-    if (c.imgs.length){
-      const rows = Math.ceil(c.imgs.length / cols);
-      for (let r = 0; r < rows; r++){
-        const inRow = c.imgs.slice(r * cols, r * cols + cols);
-        h += Math.max(...inRow.map(g => Math.round(iw * g.im.height / g.im.width))) + 28 + 14;
-      }
-      h += 12;
-    }
-    c.h = h + 26;
-    H += c.h + 18;
-  }
-  H += 74;
+  let H = PAD + 108 + 118 + 20 + cards.reduce((a, c) => a + c.h + 18, 0) + 74;
 
   const cv = document.createElement("canvas");
   const dpr = 2;
@@ -291,7 +271,6 @@ async function buildDayImage(dk){
   ctx.fillStyle = C.bg; ctx.fillRect(0, 0, W, H);
   ctx.textBaseline = "alphabetic";
 
-  /* ---- шапка ---- */
   let y = PAD + 20;
   ctx.font = "600 46px " + SANS; ctx.fillStyle = C.text;
   ctx.fillText(title, PAD, y + 18);
@@ -304,10 +283,10 @@ async function buildDayImage(dk){
   ctx.moveTo(PAD, y); ctx.lineTo(W - PAD, y); ctx.stroke();
 
   y += 44;
-  const nums = [[T.slTradesTitle, String(st.n)], ["WIN RATE", fmtPct(st.wr)],
-                ["RR", st.avgRR != null ? String(r1(st.avgRR)) : "\u2014"],
-                ["TP / SL / BE", st.wins + " / " + st.losses + " / " + st.be]];
-  nums.forEach(([k, v], i) => {
+  [[T.slTradesTitle, String(st.n)], ["WIN RATE", fmtPct(st.wr)],
+   ["RR", st.avgRR != null ? String(r1(st.avgRR)) : "—"],
+   ["TP / SL / BE", st.wins + " / " + st.losses + " / " + st.be]
+  ].forEach(([k, v], i) => {
     const x = PAD + i * (inner / 4);
     ctx.font = "20px " + MONO; ctx.fillStyle = C.faint;
     ctx.fillText(String(k).toUpperCase(), x, y);
@@ -316,19 +295,15 @@ async function buildDayImage(dk){
   });
   y += 78;
 
-  /* ---- блок на кожну угоду ---- */
   for (const c of cards){
     const t = c.t, r = netR(t);
     ctx.fillStyle = C.panel;
     roundRect(ctx, PAD, y, inner, c.h, 18); ctx.fill();
     ctx.strokeStyle = C.lineSoft; ctx.stroke();
 
-    /* смужка кольору результату збоку */
     ctx.fillStyle = r > 0 ? C.up : r < 0 ? C.down : C.be;
-    ctx.save();
-    roundRect(ctx, PAD, y, inner, c.h, 18); ctx.clip();
-    ctx.fillRect(PAD, y, 5, c.h);
-    ctx.restore();
+    ctx.save(); roundRect(ctx, PAD, y, inner, c.h, 18); ctx.clip();
+    ctx.fillRect(PAD, y, 5, c.h); ctx.restore();
 
     let iy = y + 22;
     const ix = PAD + 20;
@@ -336,7 +311,7 @@ async function buildDayImage(dk){
     ctx.font = "22px " + MONO; ctx.fillStyle = C.faint;
     ctx.fillText((t.date || "").slice(11, 16), ix, iy + 24);
     ctx.font = "600 30px " + SANS; ctx.fillStyle = C.text;
-    ctx.fillText(t.pair || "\u2014", ix + 80, iy + 24);
+    ctx.fillText(t.pair || "—", ix + 80, iy + 24);
     ctx.font = "500 26px " + MONO;
     ctx.fillStyle = r > 0 ? C.up : r < 0 ? C.down : C.be;
     ctx.textAlign = "right"; ctx.fillText(fmtR(r), PAD + inner - 20, iy + 24);
@@ -346,11 +321,10 @@ async function buildDayImage(dk){
 
     iy += 40;
     ctx.font = "22px " + SANS; ctx.fillStyle = C.faint;
-    const meta = [t.position, t.session, t.entry_model, t.setup,
-                  (t.rr != null && t.rr !== "") ? "RR " + r1(t.rr) : "",
-                  (t.risk != null && t.risk !== "") ? T.tiRisk + " " + r1(t.risk) + "%" : ""]
-      .filter(Boolean).join("  \u00b7  ");
-    ctx.fillText(meta, ix, iy + 20);
+    ctx.fillText([t.position, t.session, t.entry_model, t.setup,
+      (t.rr != null && t.rr !== "") ? "RR " + r1(t.rr) : "",
+      (t.risk != null && t.risk !== "") ? T.tiRisk + " " + r1(t.risk) + "%" : ""
+    ].filter(Boolean).join("  ·  "), ix, iy + 20);
     iy += 44;
 
     for (const b of c.texts){
@@ -363,27 +337,7 @@ async function buildDayImage(dk){
       iy += 12;
     }
 
-    if (c.imgs.length){
-      const rows = Math.ceil(c.imgs.length / cols);
-      for (let rr = 0; rr < rows; rr++){
-        const inRow = c.imgs.slice(rr * cols, rr * cols + cols);
-        const rh = Math.max(...inRow.map(g => Math.round(iw * g.im.height / g.im.width)));
-        inRow.forEach((g, i) => {
-          const gx = ix + i * (iw + 16);
-          const gh = Math.round(iw * g.im.height / g.im.width);
-          ctx.font = "500 19px " + MONO; ctx.fillStyle = C.accent;
-          ctx.fillText((g.tf || "chart").toUpperCase(), gx, iy + 14);
-          ctx.save();
-          roundRect(ctx, gx, iy + 28, iw, gh, 10); ctx.clip();
-          ctx.drawImage(g.im, gx, iy + 28, iw, gh);
-          ctx.restore();
-          ctx.strokeStyle = C.line;
-          roundRect(ctx, gx, iy + 28, iw, gh, 10); ctx.stroke();
-        });
-        iy += rh + 28 + 14;
-      }
-    }
-
+    if (c.imgs.length) drawShots(ctx, C, c.imgs, ix, CW, iy);
     y += c.h + 18;
   }
 
@@ -392,7 +346,7 @@ async function buildDayImage(dk){
   return cv;
 }
 
-/* ---------- вікно ---------- */
+/* ============================== вікно ============================== */
 async function openImage(kind, arg){
   let t = null;
   if (kind === "trade"){
@@ -402,7 +356,7 @@ async function openImage(kind, arg){
 
   openModal('<div class="m-head"><b>' + (kind === "day" ? T.tiTitleDay : T.tiTitle)
     + '</b><span class="sp"></span>'
-    + '<button class="btn" onclick="closeModal()">Закрити</button></div>'
+    + '<button class="btn" onclick="closeModal()">' + T.mrClose + '</button></div>'
     + '<div class="m-body"><div class="sharewrap" id="tiWrap">'
     + '<div class="empty">' + T.tiDrawing + '</div></div></div>'
     + '<div class="m-foot"><button class="btn primary" id="tiCopy">' + T.tiCopy + '</button>'
@@ -416,12 +370,12 @@ async function openImage(kind, arg){
     if (w) w.innerHTML = '<div class="empty">' + T.tiFail + esc(e.message) + "</div>";
     return;
   }
-  const wrap = document.getElementById("tiWrap");
-  if (!wrap) return;
-  wrap.innerHTML = "";
+  const wrapEl = document.getElementById("tiWrap");
+  if (!wrapEl) return;
+  wrapEl.innerHTML = "";
   cv.style.width = "100%"; cv.style.height = "auto"; cv.style.display = "block";
   cv.style.borderRadius = "10px";
-  wrap.appendChild(cv);
+  wrapEl.appendChild(cv);
 
   const msg = s => { const m = document.getElementById("tiMsg"); if (m) m.textContent = s; };
   document.getElementById("tiCopy").onclick = async () => {
