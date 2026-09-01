@@ -121,6 +121,12 @@ uk: {
   yrColMonth: "Місяць", yrColQuarter: "Квартал", yrNoData: "Немає даних", yrBreakdown: "розбір →",
   anTitle: "Аналітика", anSampleSuffix: "угод у вибірці", anResultsPrefix: "Результати ·",
   anColName: "Назва", anNoData: "Немає даних — поле не заповнене в жодній угоді",
+  lkTitle: "Зв'язки", lkCombo: "Сполучення", lkFields: "Поля",
+  lkNote: "Перебрали сполучення полів за вас. Показані ті, де не менше <b>%d</b> угод — на меншому відсоток нічого не означає.",
+  lkEmptyRow: "Замало угод для висновку",
+  lkEmptyCard: "Поки замало угод: щоб сполучення щось означало, потрібно хоча б %d угод у кожному.",
+  lkWorks: "Що працює", lkWorksHint: "найбільший плюс",
+  lkEats: "Що з'їдає", lkEatsHint: "найбільший мінус",
 
   // ---- тема (застаріла кнопка) ----
   themeLight: "Світла тема", themeDark: "Темна тема",
@@ -426,6 +432,12 @@ ru: {
   yrColMonth: "Месяц", yrColQuarter: "Квартал", yrNoData: "Нет данных", yrBreakdown: "разбор →",
   anTitle: "Аналитика", anSampleSuffix: "сделок в выборке", anResultsPrefix: "Результаты ·",
   anColName: "Название", anNoData: "Нет данных — поле не заполнено ни в одной сделке",
+  lkTitle: "Связки", lkCombo: "Сочетание", lkFields: "Поля",
+  lkNote: "Перебрали сочетания полей за вас. Показаны те, где не меньше <b>%d</b> сделок — на меньшем процент ничего не значит.",
+  lkEmptyRow: "Мало сделок для вывода",
+  lkEmptyCard: "Пока мало сделок: чтобы сочетание что-то значило, нужно хотя бы %d сделок в каждом.",
+  lkWorks: "Что работает", lkWorksHint: "наибольший плюс",
+  lkEats: "Что съедает", lkEatsHint: "наибольший минус",
 
   themeLight: "Светлая тема", themeDark: "Тёмная тема",
   themeToLight: "Переключить на светлую", themeToDark: "Переключить на тёмную",
@@ -719,6 +731,12 @@ en: {
   yrColMonth: "Month", yrColQuarter: "Quarter", yrNoData: "No data", yrBreakdown: "breakdown →",
   anTitle: "Analytics", anSampleSuffix: "trades in sample", anResultsPrefix: "Results ·",
   anColName: "Name", anNoData: "No data — this field isn't filled in on any trade",
+  lkTitle: "Links", lkCombo: "Combination", lkFields: "Fields",
+  lkNote: "We went through field combinations for you. Shown are those with at least <b>%d</b> trades — anything smaller and the percentage means nothing.",
+  lkEmptyRow: "Not enough trades to draw a conclusion",
+  lkEmptyCard: "Not enough trades yet: for a combination to mean anything, you need at least %d trades in each.",
+  lkWorks: "What's working", lkWorksHint: "biggest gain",
+  lkEats: "What's costing you", lkEatsHint: "biggest loss",
 
   themeLight: "Light theme", themeDark: "Dark theme",
   themeToLight: "Switch to light", themeToDark: "Switch to dark",

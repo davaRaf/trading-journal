@@ -13,7 +13,7 @@ const S = {
   mMonth: isoMonth(now),        // Monthly
   qYear: now.getFullYear(),     // Quarterly
   yYear: now.getFullYear(),     // Yearly
-  dim: "setup",                 // Analytics
+  dim: "pair",                  // Analytics — інструменти завжди заповнені, на відміну від сетапу
   filters: {},
   formShots: [],
   all: [], mRep:null, ovPeriod:"month",

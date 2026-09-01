@@ -70,10 +70,10 @@ function row(x){
 function block(title, hint, rows){
   return '<div class="lk-col"><div class="lk-t">' + esc(title)
     + '<i>' + esc(hint) + "</i></div>"
-    + '<div class="lk-head"><span>Сполучення</span><span>Поля</span>'
-    + "<span>Угод</span><span>Win Rate</span><span>Підсумок</span></div>"
+    + '<div class="lk-head"><span>' + esc(T.lkCombo) + '</span><span>' + esc(T.lkFields) + '</span>'
+    + "<span>" + esc(T.kCount) + "</span><span>" + esc(T.kWinRate) + "</span><span>" + esc(T.kNetPct) + "</span></div>"
     + (rows.length ? rows.map(row).join("")
-        : '<div class="lk-empty">Замало угод для висновку</div>')
+        : '<div class="lk-empty">' + esc(T.lkEmptyRow) + "</div>")
     + "</div>";
 }
 
@@ -82,21 +82,19 @@ function html(list){
   if (!list || list.length < 12) return "";
   const {rows, min} = collect(list);
   if (!rows.length){
-    return '<div class="card lk"><h3>Зв\'язки</h3>'
-      + '<div class="empty">Поки замало угод: щоб сполучення щось означало, '
-      + "потрібно хоча б " + min + " угод у кожному.</div></div>";
+    return '<div class="card lk"><h3>' + esc(T.lkTitle) + "</h3>"
+      + '<div class="empty">' + esc(T.lkEmptyCard.replace("%d", min)) + "</div></div>";
   }
 
   const byNet = rows.slice().sort((x, y) => y.st.net - x.st.net);
   const good = byNet.filter(x => x.st.net > 0).slice(0, SHOW);
   const bad  = byNet.filter(x => x.st.net < 0).slice(-SHOW).reverse();
 
-  return '<div class="card lk"><h3>Зв\'язки</h3>'
-    + '<p class="lk-note">Перебрали сполучення полів за вас. Показані ті, де '
-    + "не менше <b>" + min + "</b> угод — на меншому відсоток нічого не означає.</p>"
+  return '<div class="card lk"><h3>' + esc(T.lkTitle) + "</h3>"
+    + '<p class="lk-note">' + T.lkNote.replace("%d", min) + "</p>"
     + '<div class="lk-cols">'
-    +   block("Що працює", "найбільший плюс", good)
-    +   block("Що з'їдає", "найбільший мінус", bad)
+    +   block(T.lkWorks, T.lkWorksHint, good)
+    +   block(T.lkEats, T.lkEatsHint, bad)
     + "</div></div>";
 }
 
