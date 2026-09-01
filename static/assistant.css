@@ -67,7 +67,16 @@
 .as-fab:hover{transform:translateY(-2px) scale(1.05)}
 .as-fab:active{transform:translateY(0) scale(.96)}
 .as-fab:focus-visible{outline:2px solid var(--accent); outline-offset:3px}
-.as-fab-ic{display:block; color:var(--bot-ink); animation:asBotFloat 2.6s ease-in-out infinite}
+/* м'яка світна пляма замість рамки — той самий прийом, що на референсі:
+   просто коло-«блоб» плюс два овальні очі поверх нього */
+.as-fab-glow{position:absolute; width:60%; height:60%; left:50%; top:46%;
+  transform:translate(-50%,-50%); border-radius:50%; pointer-events:none;
+  background:radial-gradient(circle at 50% 42%,
+    color-mix(in srgb, var(--bot-ink) 95%, transparent) 0%,
+    color-mix(in srgb, var(--bot-ink) 40%, transparent) 45%,
+    transparent 72%);
+  animation:asBotFloat 2.6s ease-in-out infinite}
+.as-fab-ic{position:relative; z-index:1; display:block; color:var(--bot-ink); animation:asBotFloat 2.6s ease-in-out infinite}
 .as-fab-eyes{transform-box:fill-box; transform-origin:center;
   animation:asBotBlink 4.2s ease-in-out infinite}
 /* зсув очей за мишкою рахує JS (assistant.js); transition — щоб рух був
