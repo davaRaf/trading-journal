@@ -224,12 +224,121 @@ async function buildTradeImage(t){
   return cv;
 }
 
-/* ---------- вікно ---------- */
-async function openTradeImage(id){
-  const t = (S.all.length ? S.all : S.trades).find(x => x.id === id);
-  if (!t) return;
+/* ---------- картинка дня ---------- */
+async function buildDayImage(dk){
+  await document.fonts.ready;
+  const C = themeColors();
+  const list = sortAsc(S.all.filter(t => dayKey(t) === dk));
+  const st = calc(list);
+  const d = new Date(dk + "T00:00");
+  const title = d.getDate() + " " + T.monthsGen[d.getMonth()] + " " + d.getFullYear();
 
-  openModal('<div class="m-head"><b>' + T.tiTitle + '</b><span class="sp"></span>'
+  const inner = W - PAD * 2;
+  const probe = document.createElement("canvas").getContext("2d");
+  probe.font = "24px " + SANS;
+
+  /* помилки збираємо разом: у дні їх зазвичай одна-дві, і саме вони
+     пояснюють підсумок краще за будь-які цифри */
+  const notes = list.filter(t => (t.mistakes || "").trim())
+    .map(t => ({tm: (t.date || "").slice(11, 16), tx: t.mistakes.trim()}));
+  const noteLines = notes.reduce((a, n) => a + wrap(probe, n.tm + "  " + n.tx, inner).length, 0);
+
+  let H = PAD + 108 + 118 + 34 + list.length * 54
+        + (notes.length ? 46 + noteLines * 34 + 10 : 0) + 74;
+
+  const cv = document.createElement("canvas");
+  const dpr = 2;
+  cv.width = W * dpr; cv.height = H * dpr;
+  const ctx = cv.getContext("2d");
+  ctx.scale(dpr, dpr);
+
+  ctx.fillStyle = C.bg; ctx.fillRect(0, 0, W, H);
+  ctx.fillStyle = C.panel;
+  roundRect(ctx, PAD - 26, PAD - 26, W - (PAD - 26) * 2, H - (PAD - 26) * 2, 26);
+  ctx.fill();
+  ctx.strokeStyle = C.lineSoft; ctx.lineWidth = 1; ctx.stroke();
+
+  let y = PAD + 24;
+  ctx.textBaseline = "alphabetic";
+  ctx.font = "600 44px " + SANS; ctx.fillStyle = C.text;
+  ctx.fillText(title, PAD, y + 18);
+  ctx.font = "500 42px " + MONO;
+  ctx.fillStyle = st.net > 0 ? C.up : st.net < 0 ? C.down : C.be;
+  ctx.textAlign = "right"; ctx.fillText(fmtR(st.net), W - PAD, y + 18); ctx.textAlign = "left";
+
+  y += 66;
+  ctx.strokeStyle = C.lineSoft; ctx.beginPath();
+  ctx.moveTo(PAD, y); ctx.lineTo(W - PAD, y); ctx.stroke();
+
+  y += 44;
+  const nums = [[T.slTradesTitle, String(st.n)],
+                ["WIN RATE", fmtPct(st.wr)],
+                ["RR", st.avgRR != null ? String(r1(st.avgRR)) : "\u2014"],
+                ["TP / SL / BE", st.wins + " / " + st.losses + " / " + st.be]];
+  nums.forEach(([k, v], i) => {
+    const x = PAD + i * (inner / 4);
+    ctx.font = "20px " + MONO; ctx.fillStyle = C.faint;
+    ctx.fillText(String(k).toUpperCase(), x, y);
+    ctx.font = "500 34px " + MONO; ctx.fillStyle = C.text;
+    ctx.fillText(v, x, y + 44);
+  });
+  y += 78;
+  ctx.strokeStyle = C.lineSoft; ctx.beginPath();
+  ctx.moveTo(PAD, y); ctx.lineTo(W - PAD, y); ctx.stroke();
+
+  /* ---- самі угоди ---- */
+  y += 34;
+  for (const t of list){
+    const r = netR(t);
+    ctx.font = "22px " + MONO; ctx.fillStyle = C.faint;
+    ctx.fillText((t.date || "").slice(11, 16), PAD, y + 22);
+    ctx.font = "600 26px " + SANS; ctx.fillStyle = C.text;
+    ctx.fillText(t.pair || "\u2014", PAD + 96, y + 22);
+    ctx.font = "22px " + SANS; ctx.fillStyle = C.faint;
+    ctx.fillText([t.position, t.session].filter(Boolean).join("  \u00b7  "), PAD + 260, y + 22);
+    ctx.font = "500 22px " + MONO; ctx.fillStyle = C.dim;
+    ctx.textAlign = "right";
+    ctx.fillText(resLabel(t.result) || "", W - PAD - 130, y + 22);
+    ctx.font = "500 26px " + MONO;
+    ctx.fillStyle = r > 0 ? C.up : r < 0 ? C.down : C.be;
+    ctx.fillText(fmtR(r), W - PAD, y + 22);
+    ctx.textAlign = "left";
+    y += 54;
+    ctx.strokeStyle = C.lineSoft; ctx.beginPath();
+    ctx.moveTo(PAD, y - 16); ctx.lineTo(W - PAD, y - 16); ctx.stroke();
+  }
+
+  /* ---- помилки ---- */
+  if (notes.length){
+    y += 26;
+    ctx.font = "20px " + MONO; ctx.fillStyle = C.faint;
+    ctx.fillText(T.tiMistakes, PAD, y);
+    y += 28;
+    ctx.font = "24px " + SANS;
+    for (const n of notes){
+      for (const line of wrap(probe, n.tm + "  " + n.tx, inner)){
+        ctx.fillStyle = C.down;
+        ctx.fillText(line, PAD, y + 22);
+        y += 34;
+      }
+    }
+  }
+
+  ctx.font = "20px " + MONO; ctx.fillStyle = C.faint;
+  ctx.fillText(T.tiMadeIn, PAD, H - PAD + 6);
+  return cv;
+}
+
+/* ---------- вікно ---------- */
+async function openImage(kind, arg){
+  let t = null;
+  if (kind === "trade"){
+    t = (S.all.length ? S.all : S.trades).find(x => x.id === arg);
+    if (!t) return;
+  }
+
+  openModal('<div class="m-head"><b>' + (kind === "day" ? T.tiTitleDay : T.tiTitle)
+    + '</b><span class="sp"></span>'
     + '<button class="btn" onclick="closeModal()">Закрити</button></div>'
     + '<div class="m-body"><div class="sharewrap" id="tiWrap">'
     + '<div class="empty">' + T.tiDrawing + '</div></div></div>'
@@ -238,7 +347,7 @@ async function openTradeImage(id){
     + '<span class="sp"></span><span class="hint" id="tiMsg"></span></div>');
 
   let cv;
-  try{ cv = await buildTradeImage(t); }
+  try{ cv = kind === "day" ? await buildDayImage(arg) : await buildTradeImage(t); }
   catch(e){
     const w = document.getElementById("tiWrap");
     if (w) w.innerHTML = '<div class="empty">' + T.tiFail + esc(e.message) + "</div>";
@@ -262,12 +371,14 @@ async function openTradeImage(id){
   document.getElementById("tiSave").onclick = () => {
     const a = document.createElement("a");
     a.href = cv.toDataURL("image/png");
-    a.download = "trade-" + (t.pair || "") + "-" + (t.date || "").slice(0, 10) + ".png";
+    a.download = kind === "day"
+      ? "day-" + arg + ".png"
+      : "trade-" + (t.pair || "") + "-" + (t.date || "").slice(0, 10) + ".png";
     a.click();
     msg(T.tiSaved);
   };
 }
 
-window.__tradeImg = {open: openTradeImage};
+window.__tradeImg = {open: openImage};
 
 })();

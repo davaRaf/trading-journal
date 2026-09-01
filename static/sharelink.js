@@ -177,7 +177,7 @@ function open(kind, arg){
     + '<button class="btn" onclick="closeModal()">' + T.mrClose + '</button></div>'
     + '<div class="m-body sh-body">'
     + '<p class="sh-note">' + T.slNote
-    + (kind === "trade" ? " " + T.slNoteImg : "") + '</p>'
+    + (kind === "trade" || kind === "day" ? " " + T.slNoteImg : "") + '</p>'
     + '<div class="sh-what"><b>' + esc(data.title) + '</b><span>' + esc(data.kind) + '</span></div>'
     + '<div class="sh-lab">' + T.slDurationLabel + '</div>'
     + '<div class="sh-ttl">' + TTL().map(t =>
@@ -186,12 +186,13 @@ function open(kind, arg){
     + '<div class="sh-out" id="shOut" hidden></div>'
     + '</div>'
     + '<div class="m-foot"><button class="btn go" id="shGo">' + T.slCreateBtn + '</button>'
-    + (kind === "trade" ? '<button class="btn" id="shImg">' + T.slImgBtn + '</button>' : "")
+    + (kind === "trade" || kind === "day"
+        ? '<button class="btn" id="shImg">' + T.slImgBtn + '</button>' : "")
     + '<span class="sp"></span></div>'
   );
 
   const img = document.getElementById("shImg");
-  if (img) img.onclick = () => __tradeImg.open(arg);
+  if (img) img.onclick = () => __tradeImg.open(kind, arg);
 
   document.querySelectorAll(".sh-chip").forEach(b => b.onclick = () => {
     lastTtl = b.dataset.t;
