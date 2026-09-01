@@ -807,8 +807,9 @@ table.simple.mini td:last-child{white-space:nowrap;font-weight:600}
 }
 
 /* ---- плашка демо-режима (журнал открыт без app.py) ---- */
+/* верхній правий кут, а не нижній — там уже живе кнопка помічника (.as-fab) */
 .demo-badge{
-  position:fixed; right:16px; bottom:16px; z-index:60;
+  position:fixed; right:16px; top:16px; z-index:60;
   display:flex; align-items:center; gap:10px;
   padding:8px 10px 8px 12px; border-radius:var(--r);
   background:var(--panel); border:1px solid var(--line);
