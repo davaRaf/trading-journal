@@ -24,6 +24,8 @@ import llm
 import notion_import as notion
 import notion_public as npub
 import tg_api
+import ts_notion
+import ts_store
 from calendar_feed import calendar_events
 
 ROOT   = config.ROOT
@@ -349,6 +351,23 @@ class H(BaseHTTPRequestHandler):
                 return self._json({"error": "auth required"}, 401)
             return self._json(db.list_trades(uid))
 
+        # ---- торгова стратегія (ts_store.py, ts_notion.py) ----
+        if p == "/api/ts":
+            uid = self._uid()
+            if not uid:
+                return self._json({"error": "auth required"}, 401)
+            return self._json({"ts": ts_store.get(uid)})
+
+        if p.startswith("/tsshot/"):
+            uid = self._uid()
+            name = os.path.basename(p[len("/tsshot/"):])
+            if not uid or not ts_store.owns_shot(uid, name):
+                self.send_response(404); self.end_headers(); return
+            ext = name.rsplit(".", 1)[-1].lower()
+            ctype = {"png": "image/png", "jpg": "image/jpeg", "jpeg": "image/jpeg",
+                     "webp": "image/webp", "gif": "image/gif"}.get(ext, "application/octet-stream")
+            return self._file(os.path.join(SHOTS, name), ctype)
+
         if p == "/api/calendar":
             events, warn = calendar_events()
             return self._json({"events": events, "warning": warn})
@@ -553,6 +572,32 @@ class H(BaseHTTPRequestHandler):
                             "when": datetime.datetime.now().strftime("%Y-%m-%d %H:%M")}
             notion_save(uid, conf)
             return self._json(job.snapshot(), 202)
+
+        # ---- торгова стратегія ----
+        if p == "/api/ts":
+            data = dict((body or {}).get("ts") or {})
+            ts_store.put(uid, data)
+            ts_store.sweep(uid, data, SHOTS)      # старі скріни за собою прибираємо
+            return self._json({"ok": True})
+
+        if p == "/api/ts/clear":
+            ts_store.sweep(uid, {}, SHOTS)
+            ts_store.clear(uid)
+            return self._json({"ok": True})
+
+        if p == "/api/ts/shot":
+            try:
+                name = ts_store.save_shot(uid, (body or {}).get("data") or "", SHOTS)
+            except ValueError as e:
+                return self._json({"error": str(e)}, 400)
+            return self._json({"file": name})
+
+        if p == "/api/ts/notion":
+            try:
+                draft = ts_notion.read((body or {}).get("url") or "", uid, SHOTS)
+            except Exception as e:
+                return self._json({"error": str(e) or "не вдалось прочитати сторінку"}, 400)
+            return self._json({"ts": draft})
 
         if p == "/api/trades":
             if not isinstance(body, dict) or not str(body.get("pair", "")).strip():
