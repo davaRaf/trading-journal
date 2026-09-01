@@ -25,7 +25,7 @@ const COMBOS = [
 const SHOW = 6;         // скільки показуємо з кожного боку
 
 function label(k){
-  const d = (typeof DIMS !== "undefined") && DIMS.find(x => x.k === k);
+  const d = (typeof DIMS === "function") && DIMS().find(x => x.k === k);
   return d ? d.label : k;
 }
 

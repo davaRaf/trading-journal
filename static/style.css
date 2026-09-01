@@ -136,7 +136,9 @@ html:has(.pnl-wrap){overflow-y:hidden}
 .main{flex:1;min-width:0;padding:clamp(16px,3vw,36px)}
 /* первая заставка, пока грузятся сделки: наш же знак, тихо пульсує замість
    порожньої сторінки. render() перезапише #main і сам його прибере. */
-.page-loader{display:grid;place-items:center;min-height:60vh}
+/* fixed — щоб центрувати рівно по екрану, а не в зоні праворуч від
+   сайдбара (там через ширину .side і padding .main центр «плив») */
+.page-loader{position:fixed;inset:0;display:grid;place-items:center;pointer-events:none;z-index:5}
 .pl-logo{width:56px;height:auto;aspect-ratio:902/1315;color:var(--text);display:block;animation:plPulse 1.4s ease-in-out infinite}
 @keyframes plPulse{0%,100%{opacity:.32;transform:scale(.92)} 50%{opacity:1;transform:scale(1)}}
 @media (prefers-reduced-motion:reduce){.pl-logo{animation:none;opacity:.8}}
