@@ -331,23 +331,64 @@ TEXT_BLOCKS = ("text", "header", "sub_header", "sub_sub_header", "quote",
 
 
 def row_content(pid):
-    """Заметки и картинки внутри карточки сделки."""
+    """
+    Заметки и картинки внутри карточки сделки — в том порядке, в каком
+    они лежат на странице.
+
+    Порядок важен: люди подписывают графики заголовком блока, а сами
+    картинки кладут внутрь. Выглядит это так:
+
+        callout «1D»       -> картинка
+        callout «15m»      -> картинка
+        callout «1m - 5m»  -> три картинки
+
+    Значит подпись родителя и есть таймфрейм. Раньше мы её теряли,
+    и у всех перенесённых скриншотов таймфрейм был пустой.
+    """
     rm = load_page(pid)
+    blocks = rm.get("block") or {}
     text, images = [], []
-    for key, rec in (rm.get("block") or {}).items():
-        b = _unwrap(rec)
-        if key == pid:
-            continue
+
+    def title_of(b):
+        return _plain((b.get("properties") or {}).get("title"))
+
+    def walk(key, label, depth):
+        b = _unwrap(blocks.get(key) or {})
         bt = b.get("type") or ""
         props = b.get("properties") or {}
-        if bt in TEXT_BLOCKS:
-            s = _plain(props.get("title"))
-            if s:
-                text.append(("• " if "list" in bt else "") + s)
-        elif bt == "image":
+
+        if bt == "image":
             src = _plain(props.get("source")) or (b.get("format") or {}).get("display_source") or ""
             if src:
-                images.append({"url": signed(src, key), "caption": _plain(props.get("caption"))})
+                cap = _plain(props.get("caption")) or label
+                images.append({"url": signed(src, key), "caption": cap})
+            return
+
+        own = title_of(b)
+        if bt in TEXT_BLOCKS and own:
+            text.append(("• " if "list" in bt else "") + own)
+
+        kids = b.get("content") or []
+        if not kids or depth > 2:
+            return
+        # подпись этого блока становится подписью для картинок внутри
+        sub = own or label
+        missing = [k for k in kids if k not in blocks]
+        if missing:
+            try:
+                more = _post("loadPageChunk", {"pageId": key, "limit": 100,
+                                               "cursor": {"stack": []}, "chunkNumber": 0,
+                                               "verticalColumns": False})
+                blocks.update((more.get("recordMap") or {}).get("block") or {})
+            except NotionError:
+                pass
+        for k in kids:
+            walk(k, sub, depth + 1)
+
+    page = _unwrap(blocks.get(pid) or {})
+    for key in (page.get("content") or []):
+        walk(key, "", 0)
+
     return "\n".join(text).strip(), images
 
 
