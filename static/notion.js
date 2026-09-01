@@ -36,6 +36,7 @@ function paintBtn(){
   const nb = document.getElementById("notionBtn");
   if (!nb) return;
   const b = nb.querySelector("span b"), i = nb.querySelector("span i");
+  nb.classList.toggle("connected", connected);
   if (connected){
     if (b) b.textContent = T.sdNotionConnectedTitle;
     if (i) i.textContent = T.sdNotionConnectedSub;
