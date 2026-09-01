@@ -46,11 +46,18 @@ function loadImg(src){
 }
 
 /* Скріншоти впорядковані від старшого таймфрейму до молодшого.
-   Останній — це вхід: саме його показуємо великим. */
+   Останній — це вхід: саме його показуємо великим.
+
+   Обрізаємо не з кінця, а з середини: раніше зайві відкидались після
+   сортування, і першим вилітав якраз вхід — той графік, заради якого
+   картинку й роблять. */
 async function shotsOf(t, limit){
-  const list = (t.screenshots || []).slice()
-    .sort((a, b) => TF_ORDER.indexOf(a.tf) - TF_ORDER.indexOf(b.tf))
-    .slice(0, limit);
+  let list = (t.screenshots || []).slice()
+    .sort((a, b) => TF_ORDER.indexOf(a.tf) - TF_ORDER.indexOf(b.tf));
+  if (list.length > limit){
+    const entry = list[list.length - 1];
+    list = list.slice(0, limit - 1).concat([entry]);
+  }
   const out = [];
   for (const s of list){
     const im = await loadImg(shotSrc(s));
