@@ -54,45 +54,27 @@
 .as-review{white-space:nowrap}
 
 /* ---------- кнопка-«бульбашка», що висить поверх сторінки ---------- */
-/* колір маскота — окремі змінні (не currentColor теми): світла тема білий,
-   темна чорний; --bot-hi/--bot-lo — два стопи градієнта тіла (SVG #asBotBody) */
-:root{--bot-hi:#ffffff; --bot-lo:#dfe6f5; --bot-ink:#ffffff}
-:root[data-theme="dark"]{--bot-hi:#32363f; --bot-lo:#06070a; --bot-ink:#06070a}
 .as-fab{position:fixed; right:22px; bottom:22px; z-index:45;
-  display:flex; align-items:center; justify-content:center;
-  width:76px; height:76px; padding:0; border-radius:50%;
-  background:linear-gradient(155deg,
-    color-mix(in srgb, var(--accent) 72%, #fff) 0%,
-    var(--accent) 45%,
-    color-mix(in srgb, var(--accent) 85%, #000) 100%);
-  color:var(--accent-ink,#fff);
-  border:none; cursor:pointer;
-  box-shadow:var(--shadow-badge), 0 5px 12px -6px color-mix(in srgb, var(--accent) 55%, transparent),
-    inset 0 1px 0 rgba(255,255,255,.4), inset 0 -8px 14px -10px rgba(0,0,0,.32);
+  display:flex; align-items:center; gap:9px;
+  padding:13px 20px 13px 17px; border-radius:999px;
+  background:var(--accent); color:var(--accent-ink,#fff);
+  border:none; font:inherit; font-size:14px; font-weight:600; cursor:pointer;
+  box-shadow:var(--shadow-badge), 0 10px 30px -10px var(--accent);
   transition:transform .16s, box-shadow .16s, opacity .18s}
-.as-fab:hover{transform:translateY(-2px) scale(1.05)}
-.as-fab:active{transform:translateY(0) scale(.96)}
+.as-fab:hover{transform:translateY(-2px)}
+.as-fab:active{transform:translateY(0)}
 .as-fab:focus-visible{outline:2px solid var(--accent); outline-offset:3px}
-.as-fab-ic{display:block; color:var(--bot-ink);
-  filter:drop-shadow(0 2px 3px rgba(0,0,0,.25));
-  animation:asBotFloat 2.6s ease-in-out infinite}
-.as-fab-eyes{transform-box:fill-box; transform-origin:center;
-  animation:asBotBlink 4.2s ease-in-out infinite}
-/* зсув очей за мишкою рахує JS (assistant.js); transition — щоб рух був
-   плавним між кадрами, а не смикався слідом за подіями mousemove */
-.as-fab-face{transition:transform .12s ease-out}
-@keyframes asBotFloat{0%,100%{transform:translateY(0)} 50%{transform:translateY(-3px)}}
-@keyframes asBotBlink{0%,88%,100%{transform:scaleY(1)} 92%{transform:scaleY(.15)}}
+.as-fab .ic{flex:none}
 /* поки відкрита будь-яка панель — кнопка не заважає */
 body:has(.pnl-wrap) .as-fab, body:has(.modal:not([hidden])) .as-fab{
   opacity:0; pointer-events:none; transform:translateY(8px)}
 
 @media (max-width:560px){
   .as-bubble{max-width:94%}
-  .as-fab{right:14px; bottom:14px; width:64px; height:64px}
+  .as-fab{right:14px; bottom:14px; padding:13px; gap:0}
+  .as-fab span{display:none}
 }
 @media (prefers-reduced-motion:reduce){
   .as-fab{transition:opacity .18s}
   .as-fab:hover{transform:none}
-  .as-fab-ic, .as-fab-eyes, .as-fab-face{animation:none; transition:none}
 }
