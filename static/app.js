@@ -1631,7 +1631,10 @@ let tickedView=null;                 /* цифры отсчитываются п
 let bootRendered=false;              /* перший рендер іде одразу після заставки-лоадера — своя
                                          плавна поява карток тут зайва: між лоадером і готовим
                                          виглядом інакше проскакує ще один «порожній» кадр */
+let dataReady=false;                 /* поки reload() не завершився — жоден виклик render() не
+                                         чіпає #main: там і далі стоїть заставка-лоадер із розмітки */
 function render(){
+  if(!dataReady) return;
   const v=VIEWS[S.view]?S.view:"dashboard";
   document.querySelectorAll(".nav a").forEach(a=>a.classList.toggle("on",a.dataset.v===v));
   if(window.PL) PL.reset();
@@ -1725,6 +1728,7 @@ function markDemo(){
       return;
     }
   }
+  dataReady=true;
   S.view=location.hash.slice(1)||"dashboard";
   if(S.view==="monthly"){ S.view="journal"; location.hash="journal"; }
   render();
