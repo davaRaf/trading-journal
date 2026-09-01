@@ -37,6 +37,7 @@ async function buildMonthImage(ym){
   const [Y,M] = ym.split("-").map(Number);
   const list = S.trades.filter(t=>monKey(t)===ym);
   const st = calc(list);
+  const MONTHS = T.months, WDS = T.wds;
 
   /* выводы считаем заранее — от них зависит высота */
   const topOf = key => {
@@ -48,11 +49,11 @@ async function buildMonthImage(ym){
   const lines = [];
   {
     const ses = topOf("session"), dir = topOf("direction_type"), pr = topOf("pair");
-    if(ses) lines.push(["Найкраща сесія", ses[0].n+" · "+ses[0].cnt+" уг", ses[0].net]);
-    if(ses && ses.length>1) lines.push(["Найгірша сесія", ses[ses.length-1].n+" · "+ses[ses.length-1].cnt+" уг", ses[ses.length-1].net]);
-    if(pr) lines.push(["Найкращий актив", pr[0].n+" · "+pr[0].cnt+" уг", pr[0].net]);
-    if(dir) dir.forEach(d=> lines.push([d.n==="Reversal"?"Розвороти":"За біасом", d.cnt+" угод", d.net]));
-    if(st.be) lines.push(["Беззбитки", "врятували "+r1(st.beSaved)+"%, забрали "+r1(st.beLost)+"%", st.beSaved-st.beLost]);
+    if(ses) lines.push([T.siBestSession, ses[0].n+" · "+ses[0].cnt+" "+T.abbrTrades, ses[0].net]);
+    if(ses && ses.length>1) lines.push([T.siWorstSession, ses[ses.length-1].n+" · "+ses[ses.length-1].cnt+" "+T.abbrTrades, ses[ses.length-1].net]);
+    if(pr) lines.push([T.siBestAsset, pr[0].n+" · "+pr[0].cnt+" "+T.abbrTrades, pr[0].net]);
+    if(dir) dir.forEach(d=> lines.push([d.n==="Reversal"?T.siReversals:T.siWithBias, d.cnt+" "+T.wordTradeMany, d.net]));
+    if(st.be) lines.push([T.siBeLine, T.siBeSavedPrefix+r1(st.beSaved)+"%, "+T.siBeTookPrefix+r1(st.beLost)+"%", st.beSaved-st.beLost]);
   }
   const shown = lines.slice(0,6);
 
@@ -78,7 +79,7 @@ async function buildMonthImage(ym){
 
   /* ---------- шапка ---------- */
   x.fillStyle = C.accent; x.font = "500 22px "+MONO;
-  x.fillText("ПІДСУМКИ МІСЯЦЯ", P, y);
+  x.fillText(T.siMonthResultsHeader, P, y);
   y += 58;
   x.fillStyle = C.text; x.font = "700 76px "+SANS;
   x.fillText(MONTHS[M-1]+" "+Y, P, y);
@@ -96,10 +97,10 @@ async function buildMonthImage(ym){
 
   /* ---------- показатели ---------- */
   const cells = [
-    ["Угод", String(st.n), C.text],
-    ["Winrate", fmtPct(st.wr), C.text],
-    ["Profit Factor", st.pfTxt, C.text],
-    ["Середній RR", st.avgRR!=null?String(r1(st.avgRR)):"—", C.text],
+    [T.kCount, String(st.n), C.text],
+    [T.siWinrate, fmtPct(st.wr), C.text],
+    [T.kProfitFactor, st.pfTxt, C.text],
+    [T.kAvgRR, st.avgRR!=null?String(r1(st.avgRR)):"—", C.text],
   ];
   const cw = (SHARE_W-P*2-3*14)/4, ch = 108;
   cells.forEach((c,i)=>{
@@ -135,7 +136,7 @@ async function buildMonthImage(ym){
 
   /* ---------- календарь ---------- */
   x.fillStyle = C.faint; x.font = "500 18px "+MONO;
-  x.fillText("КАЛЕНДАР", P, y); y += 26;
+  x.fillText(T.siCalendarHeader, P, y); y += 26;
 
   const gap = 8, cols = 7;
   const cellW = (SHARE_W-P*2 - gap*(cols-1))/cols, cellH = 84;
@@ -168,14 +169,14 @@ async function buildMonthImage(ym){
       x.font = "600 22px "+MONO;
       x.fillText(fmtR(net), cx+10, cy+56);
       x.fillStyle = C.faint; x.font = "400 14px "+MONO;
-      x.fillText(dl.length+" уг", cx+10, cy+74);
+      x.fillText(dl.length+" "+T.abbrTrades, cx+10, cy+74);
     }
   }
   y += rows*(cellH+gap) + 34;
 
   /* ---------- кривая ---------- */
   x.fillStyle = C.faint; x.font = "500 18px "+MONO;
-  x.fillText("НАКОПИЧЕНИЙ РЕЗУЛЬТАТ", P, y); y += 20;
+  x.fillText(T.siCumulativeHeader, P, y); y += 20;
 
   const chH = 210, chW = SHARE_W-P*2;
   x.fillStyle = C.panel; roundRect(x,P,y,chW,chH,10); x.fill();
@@ -204,13 +205,13 @@ async function buildMonthImage(ym){
     x.strokeStyle = C.panel; x.lineWidth = 3; x.stroke();
   }else{
     x.fillStyle = C.faint; x.font = "400 20px "+SANS;
-    x.fillText("Мало угод для графіка", P+26, y+chH/2);
+    x.fillText(T.siNotEnoughTrades, P+26, y+chH/2);
   }
   y += chH + 40;
 
   /* ---------- выводы ---------- */
   x.fillStyle = C.faint; x.font = "500 18px "+MONO;
-  x.fillText("ЩО ПОКАЗАВ МІСЯЦЬ", P, y); y += 28;
+  x.fillText(T.siWhatMonthShowedHeader, P, y); y += 28;
 
   shown.forEach((l,i)=>{
     const ly = y+i*52;
@@ -233,7 +234,7 @@ async function buildMonthImage(ym){
   x.beginPath(); x.moveTo(P,SHARE_H-92); x.lineTo(SHARE_W-P,SHARE_H-92); x.stroke();
   x.fillStyle = C.faint; x.font = "400 19px "+MONO;
   x.fillText("Trading Journal", P, SHARE_H-52);
-  const per = st.n ? "на угоду "+fmtR(st.net/st.n) : "";
+  const per = st.n ? T.siPerTrade+" "+fmtR(st.net/st.n) : "";
   const pw = x.measureText(per).width;
   x.fillText(per, SHARE_W-P-pw, SHARE_H-52);
 
@@ -242,14 +243,14 @@ async function buildMonthImage(ym){
 
 /* ---------- окно «поделиться» ---------- */
 async function openShare(ym){
-  openModal('<div class="m-head"><h2>Картинка за місяць</h2><button class="x" onclick="closeModal()">×</button></div>'+
-    '<div class="m-body"><div class="sharewrap" id="shareWrap"><div class="empty">Малюю…</div></div></div>'+
-    '<div class="m-foot"><button class="btn primary" id="copyImg">Скопіювати картинку</button>'+
-    '<button class="btn" id="dlImg">Завантажити файлом</button>'+
+  openModal('<div class="m-head"><h2>'+T.siModalTitle+'</h2><button class="x" onclick="closeModal()">×</button></div>'+
+    '<div class="m-body"><div class="sharewrap" id="shareWrap"><div class="empty">'+T.siDrawing+'</div></div></div>'+
+    '<div class="m-foot"><button class="btn primary" id="copyImg">'+T.siCopyImgBtn+'</button>'+
+    '<button class="btn" id="dlImg">'+T.siDownloadBtn+'</button>'+
     '<span class="sp"></span><span class="hint" id="shareMsg"></span></div>');
   let cv;
   try{ cv = await buildMonthImage(ym); }
-  catch(e){ $("#shareWrap").innerHTML='<div class="empty">Не вдалося намалювати: '+esc(e.message)+"</div>"; return; }
+  catch(e){ $("#shareWrap").innerHTML='<div class="empty">'+T.siDrawFailed+esc(e.message)+"</div>"; return; }
   const wrap = $("#shareWrap");
   wrap.innerHTML = "";
   cv.style.width = "100%"; cv.style.height = "auto"; cv.style.display = "block";
@@ -261,13 +262,13 @@ async function openShare(ym){
     try{
       const blob = await new Promise(r=>cv.toBlob(r,"image/png"));
       await navigator.clipboard.write([new ClipboardItem({"image/png":blob})]);
-      msg("Скопійовано — встав у Telegram через Ctrl+V");
-    }catch(e){ msg("Копіювання недоступне, збережи файлом"); }
+      msg(T.siCopiedMsg);
+    }catch(e){ msg(T.siCopyUnavailable); }
   };
   $("#dlImg").onclick = () => {
     const a = document.createElement("a");
     a.href = cv.toDataURL("image/png");
     a.download = "stats-"+ym+".png";
-    a.click(); msg("Файл збережено");
+    a.click(); msg(T.siFileSaved);
   };
 }

@@ -1,0 +1,977 @@
+/* ============================================================
+   Мова інтерфейсу: uk (за замовчуванням) / ru / en.
+
+   Спільний словник для всього застосунку, окрім static/login.html —
+   там свій незалежний I18N/LANG/T (щоб сторінка входу лишалась
+   самодостатньою). Тут ключ localStorage той самий — statsai_lang,
+   тож вибір мови спільний між входом і самим журналом.
+
+   Значення uk скопійовані як є з попереднього хардкоду — типова мова
+   не змінюється. Інші файли (app.js, ui.js, notion.js…) звертаються
+   до глобальних LANG / T / applyLang() напряму: у класичних <script>
+   верхньорівневі let/const спільні для всіх тегів на сторінці, доки
+   цей файл підключений першим.
+   ============================================================ */
+
+const I18N = {
+
+uk: {
+  htmlLang: "uk",
+  label: "УКР",
+  tagline: "помічник трейдера",
+
+  // ---- спільне ----
+  months: ["Січень","Лютий","Березень","Квітень","Травень","Червень","Липень","Серпень","Вересень","Жовтень","Листопад","Грудень"],
+  monShort: ["січ","лют","бер","кві","тра","чер","лип","сер","вер","жов","лис","гру"],
+  monthsGen: ["січня","лютого","березня","квітня","травня","червня","липня","серпня","вересня","жовтня","листопада","грудня"],
+  wds: ["Пн","Вт","Ср","Чт","Пт","Сб","Нд"],
+  wdSun: ["Нд","Пн","Вт","Ср","Чт","Пт","Сб"],
+  emotions: ["Спокій","Впевненість","Жадібність","Страх","Азарт","Помста","Нудьга"],
+  wordTrade: "угода", wordTradeFew: "угоди", wordTradeMany: "угод", wordTradePl: "угоди",
+  abbrTrades: "уг", abbrPieces: "шт",
+  colTotal: "Підсумок", tradeDefaultName: "Угода", tlEmpty: "Угод немає",
+  kEmptyChart: "Замало угод для графіка", eqMax: "макс", eqMin: "мін",
+
+  // ---- поля угоди (спільні лейбли) ----
+  fPair: "Інструмент", fSession: "Сесія", fPosition: "Напрямок", fEntryModel: "Модель входу",
+  fBias: "Біас", fSetup: "Сетап", fDirType: "Продовження / Розворот", fDirTypeFilter: "Прод. / Розв.",
+  fMistakes: "Помилки", fEmotion: "Емоція", fResult: "Результат", fRisk: "Ризик",
+  fDate: "Дата", fNotes: "Нотатки", fEntryDetails: "Як заходив",
+  flModel: "Модель", flClear: "Скинути ×", flPeriod: "Період",
+  flPeriodTip: "Показати угоди за проміжок дат", impDirTypeShort: "Прод./Розв.",
+
+  // ---- KPI ----
+  kCount: "Угод", kCountTip: "Скільки угод потрапило у вибірку",
+  kWinRate: "Win Rate", kWinRateTip: "Частка прибуткових угод: TP до всіх закритих",
+  kNetPct: "Підсумок, %", kNetPctTip: "Сумарний результат у відсотках від депозиту",
+  kAvgRR: "Середній RR", kAvgRRShort: "Сер. RR", kAvgRRTip: "Середнє відношення цілі до стопа",
+  kProfitFactor: "Profit Factor", kProfitFactorTip: "Сума прибутків поділена на суму збитків. Більше 1 — плюс",
+  kResSplit: "TP / SL / BE", kResSplitTip: "Скільки угод дійшло до цілі, до стопа, у беззбиток",
+  kBeSplit: "BE− / BE+", kBeSplitTip: "Беззбиток, після якого ціна пішла проти / дійшла б до цілі",
+  kAvgRisk: "Середній ризик", kAvgRiskTip: "Середній ризик на угоду, % від депозиту",
+
+  // ---- календар (тултипи) ----
+  calTpTip: "Тейк-профіт", calSlTip: "Стоп-лос", calRevSuffix: "вхід проти біасу",
+  calBePlusTip: "Беззбиток, потім ціна дійшла б до цілі",
+  calBeMinusTip: "Беззбиток, потім ціна пішла проти",
+
+  // ---- огляд ----
+  ovTitle: "Огляд", ovEmptyTitle: "Журнал порожній",
+  ovEmptyHint: "Додай першу угоду — статистика збереться сама.<br>Старі угоди можна завантажити через «Імпорт» ліворуч унизу.",
+  ovEmptyBtn: "+ New Trade", ovBestWorst: "Найкраща · найгірша",
+  ovLastWeek: "Останній тиждень", ovWholeMonth: "весь місяць",
+  ovPnlTitle: "Прибуток / збиток", ovDrawdown: "просадка",
+  ovPeriodMonth: "Місяць", ovPeriodQuarter: "Квартал", ovPeriodYear: "Рік",
+  ovYearSummary: "Підсумок року", ovQuarterSummary: "Підсумок кварталу", ovMonthSummary: "Підсумок місяця",
+  ovQuarterWord: "квартал",
+
+  // ---- бічна колонка огляду ----
+  railNoData: "Немає даних", railSessions: "Сесії", railInstruments: "Інструменти",
+  railSetups: "Сетапи", railYearWord: "рік", railNetPctWord: "підсумок, %",
+
+  // ---- журнал ----
+  jrTitle: "Журнал", jrCalTab: "Календар", jrCalTabTip: "Місяць клітинками",
+  jrTableTab: "Список", jrTableTabTip: "Угоди місяця таблицею",
+  jrAllTab: "Усі угоди", jrAllTabTip: "Усі угоди з фільтрами",
+  jrShareBtn: "Картинка для каналу", jrShareBtnTip: "Зібрати картинку з підсумками місяця",
+  jrMistakesPrefix: "Помилки:", jrAddDayBtn: "+ Угода на цей день",
+  jrPrevMonth: "Попередній місяць", jrNextMonth: "Наступний місяць",
+  jrPickDayTip: "Вибрати день у календарі", jrTodayTip: "Повернутись до поточного дня", jrToday: "Сьогодні",
+  jrMonthTrades: "Угоди місяця", jrMonthEmpty: "За цей місяць угод немає",
+  jrTypeCol: "Тип", jrTotalCol: "Підсумок", jrMonthEquity: "Еквіті місяця",
+
+  // ---- картка угоди ----
+  tcEdit: "Змінити", tcDelete: "Видалити", tcHowTraded: "Як торгував", tcWhatWrote: "Що записав",
+  tcCharts: "Графіки", tcComments: "Коментарі", tcNoScreens: "скриншотів немає",
+  tcNotFilled: "не заповнено:", closeEscTip: "Закрити · Esc",
+  confirmDeleteTrade: "Видалити угоду? Статистика перерахується.",
+
+  // ---- беззбитки ----
+  beTitle: "Беззбитки · врятували чи забрали",
+  beVerdictPos: "Беззбиток у плюсі: врятував більше, ніж забрав. Лишаємо як є.",
+  beVerdictNeg: "Беззбиток у мінусі: забрав більше, ніж урятував. Переносиш стоп зарано.",
+  beVerdictZero: "Беззбиток вийшов у нуль.",
+  beMinusLabel: "BE− · врятували від стопу",
+  beMinusDesc: "угод — ціна пішла проти, стоп забрав би гроші",
+  bePlusLabel: "BE+ · забрали тейк",
+  bePlusDesc: "угод — ціна дійшла б до цілі без тебе",
+  beNetLabel: "Чистий ефект", beShareLabel: "Частка беззбитків", beOf: "з",
+  beHint: "BE− — тапнуло в беззбиток, далі пішло проти: беззбиток спрацював на твою користь. BE+ — тапнуло в беззбиток, а далі ціна дійшла до цілі: угода була б прибутковою.",
+
+  bwTitle: "Найкраще / найгірше",
+  dtBestTag: "найкращий", dtWorstTag: "найгірший", dtColCount: "Уг.",
+
+  // ---- розбір місяця ----
+  mrNoTrades: "Цього місяця угод не було", mrDynamics: "Динаміка місяця",
+  mrDaysSection: "Дні", mrAllDays: "Усі торгові дні", mrColDay: "День", mrExtremeDays: "Крайні дні",
+  mrCutsSection: "Розрізи", mrAsset: "Актив", mrCostly: "Що коштувало грошей",
+  mrMistakeCol: "Помилка", mrWithVsWithout: "З помилкою проти без",
+  mrWithMark: "З позначкою", mrWithoutMark: "Без позначки",
+  mrNoMistakesHint: "За місяць помилок не позначено.",
+  mrRiskSection: "Розмір ризику", mrRiskDeviation: "Відхилення від 1%",
+  mrRisk1: "Ризик 1%", mrRiskOther: "Інший ризик",
+  mrBeSectionShort: "Беззбитки", mrAllTradesSection: "Усі угоди місяця",
+  mrOpenInJournal: "Відкрити в журналі", mrClose: "Закрити",
+
+  // ---- квартали / роки / аналітика ----
+  qtTitle: "Квартали", qBestMonth: "Best month", qWorstMonth: "Worst month", qTrades: "Trades",
+  yrTitle: "Роки", yrEquityTitle: "Еквіті року · %",
+  yrMonthsTitle: "Місяці · клік по місяцю відкриває розбір",
+  yrColMonth: "Місяць", yrColQuarter: "Квартал", yrNoData: "Немає даних", yrBreakdown: "розбір →",
+  anTitle: "Аналітика", anSampleSuffix: "угод у вибірці", anResultsPrefix: "Результати ·",
+  anColName: "Назва", anNoData: "Немає даних — поле не заповнене в жодній угоді",
+
+  // ---- тема (застаріла кнопка) ----
+  themeLight: "Світла тема", themeDark: "Темна тема",
+  themeToLight: "Перемкнути на світлу", themeToDark: "Перемкнути на темну",
+
+  // ---- форма угоди ----
+  fmEditTitle: "Змінити угоду", fmNewTitle: "Нова угода", fmOwnValueTip: "Своє значення",
+  fmOwnPairPh: "свій інструмент", fmDateTime: "Дата й час", fmOwnSessionPh: "своя сесія",
+  fmDirectionLabel: "Напрямок угоди", fmContextSection: "Контекст", fmBiasLabel: "Біас дня",
+  fmEntryTypeLabel: "Тип входу", fmAutoWillFill: "підставиться сам", fmAutoFilled: "підставлено само",
+  fmAutoManual: "обрано вручну", fmContinuation: "Продовження", fmReversal: "Розворот",
+  fmOwnModelPh: "своя модель", fmOwnSetupPh: "свій сетап", fmResultSection: "Результат",
+  fmFinishedAs: "Чим завершилася", fmRRLabel: "RR — у скільки разів ціль далі за стоп",
+  fmRiskLabel: "Ризик, % від депозиту", fmOwnRiskPh: "свій ризик",
+  fmShotsSection: "Скриншоти за таймфреймами",
+  fmEntryDetailsPh: "тест 4h імб, 1m цисд, ціль 15m фрактал", fmThoughtsLabel: "Думки про угоду",
+  fmMistakeLabel: "Помилка, якщо була", fmMistakeEmptyPh: "порожньо, якщо помилок немає",
+  fmEmotionLabel: "Емоція під час угоди", fmEmotionAutotag: "не вкажеш — запитає бот у Telegram",
+  fmEmotionPh: "або своїми словами", fmCancel: "Скасувати", fmSave: "Зберегти", fmSaving: "Зберігаю…",
+
+  calcChooseResult: "Обери результат — покажу, скільки це у відсотках",
+  calcTakePrefix: "Тейк за ризику ", calcTakeMid: "% і RR ",
+  calcStopMsg: "Стоп забирає ризик повністю",
+  calcBePlusMsg: "Беззбиток, але ціна дійшла б до цілі",
+  calcBeMinusMsg: "Беззбиток, далі пішло проти",
+
+  shotRemoveTip: "Прибрати", shotPickFileTip: "Обрати файл", shotFileWord: "файл",
+  shotDragHint: "Перетягни картинки сюди або <b>обери файли</b> — розкладемо по таймфреймах",
+  shotTfHint: "Скопіюй графік у TradingView (<b>Ctrl+Alt+S</b>) → клікни потрібний таймфрейм → <b>Ctrl+V</b>. Зберігати картинку на комп'ютер не потрібно.",
+
+  alertNeedPair: "Вкажи інструмент", alertNeedDate: "Вкажи дату",
+  alertNeedResult: "Вкажи результат — TP / SL / BE− / BE+",
+  alertNeedRR: "Для TP потрібен RR — інакше результат порахується як 0R",
+  alertSaveFail: "Не збереглося: ",
+
+  imTitle: "Імпорт угод",
+  imHint: "Підходить файл <b>JSON</b> (масив угод) або <b>CSV</b> (перший рядок — заголовки). Після завантаження зістав колонки з полями журналу — назви, що збігаються, підставляться самі.",
+  imGoBtn: "Імпортувати", imParseError: "Не вдалося розібрати файл: ",
+  imFoundRows: "Знайдено рядків: ", imSkipOption: "— пропустити —",
+  imNothingToImport: "Нічого імпортувати", imImporting: "Імпортую…", imImportedCount: "Імпортовано угод: ",
+
+  confirmLogout: "Вийти з журналу?",
+  tgLinkedPrefix: "Прив'язано:",
+  tgLinkedDesc: "Нагадую про важливі новини за 30 хвилин і вранці, а після угоди без емоції питаю, що ти відчував.",
+  tgUnlink: "Відв'язати",
+  tgNotLinkedDesc: "Прив'яжи Telegram — і бот нагадає про важливі новини та запитає про емоцію після кожної угоди, якщо не вкажеш її тут.",
+  tgGetCode: "Отримати код", tgPreparing: "Готую код…", tgCodeValid: "Код діє 15 хвилин.",
+  tgOpenBotPrefix: "Відкрити @", tgManualPrefix: "Або надішли боту вручну:",
+  tgCodeError: "Не вийшло отримати код. Перевір, чи запущено bot.py",
+  confirmUnlinkTg: "Відв'язати Telegram?",
+
+  demoLabel: "Демо", demoDesc: "Угоди зберігаються лише у вашому браузері", demoReset: "Скинути",
+  dmQuotaAlert: "Демо-режим: скриншоти не помістилися в пам'ять браузера й не збережені.\nСамі угоди на місці. Повноцінно скриншоти працюють у локальній версії (app.py).",
+
+  initServerError: "Сервер не відповідає. Запусти app.py",
+
+  // ---- Notion ----
+  ntServerReplied: "сервер відповів",
+  ntStep1Lead: "Перенесемо журнал із Notion цілком — угоди, нотатки зі сторінок і скріншоти. Нічого копіювати руками не треба.",
+  ntStep1Li1: "У Notion відкрий свою таблицю з угодами → <b>Share</b> → увімкни <b>Publish to web</b>.",
+  ntStep1Li2: "Натисни <b>Copy web link</b> і встав посилання сюди.",
+  ntLinkLabel: "Посилання на таблицю",
+  ntLinkNote: "Посилання має вести саме на таблицю — ту, де рядки й колонки. Читаємо тільки для себе, нічого в Notion не змінюємо.",
+  ntReadBtn: "Прочитати", ntPasteLink: "Встав посилання на таблицю", ntReading: "Читаю…",
+  ntLastImportPrefix: "Останнє перенесення:",
+  ntLastImportUndo: "Якщо щось пішло не так — його можна прибрати, журнал лишиться як був.",
+  ntCancelImport: "Скасувати перенесення",
+  ntHaveAlready: "У журналі вже є",
+  ntHaveWillAdd: "— перенесені додадуться до них. Якщо це чужі або демонстраційні, приберіть їх до перенесення.",
+  ntNoTitle: "без назви", ntRowsWord: "рядків", ntLooksLikeJournal: "схоже на журнал", ntFieldsWord: "полів",
+  ntFoundTablesPrefix: "За посиланням знайшлося таблиць:",
+  ntFoundTablesHint: "Познач ті, де лежать угоди — перенесемо все за один раз.",
+  ntOtherLink: "Інше посилання", ntMarkAll: "Позначити всі", ntNext: "Далі",
+  ntMarkOneTable: "Познач хоча б одну таблицю", ntDontTransfer: "— не переносити —", ntTableWord: "Таблиця",
+  ntNotIncluded: "Не потрапили в журнал:",
+  ntNotIncludedHint: "Якщо щось із цього потрібне — постав його у відповідне поле вище.",
+  ntTransferFromPrefix: "Переносимо з", ntTablesWord: "таблиць",
+  ntColumnsMatchedBy: "Колонки звіряємо за",
+  ntColumnsMatchedByRest: "де вони інші — підберемо для тієї таблиці окремо.",
+  ntColumnsAutoMatched: "Колонки звірені самі —", ntOfWord: "з",
+  ntCheckAndFix: "Перевір і поправ, де не вгадало.",
+  ntPreviewTitle: "Як це виглядатиме",
+  ntOptNotes: "Переносити нотатки зі сторінок", ntOptShots: "Переносити скріншоти",
+  ntOptSkip: "Пропускати вже перенесені угоди",
+  ntOtherTable: "Інша таблиця", ntTransferAll: "Перенести все",
+  ntBackupHint: "Перед перенесенням варто зберегти копію журналу: відкоту в імпорту немає.",
+  ntSaveBackup: "Зберегти копію", ntNoRowsInTable: "У таблиці немає рядків.",
+  ntNeedPairColumn: "Вкажи, у якій колонці лежить інструмент — без нього угоду не записати",
+  ntTransferring: "Переношу…", ntPreparing: "готуємось",
+  ntTransferringHint: "Переношу журнал. Вікно можна не закривати — скріншоти качаються по одному.",
+  ntTryAgain: "Спробувати ще", ntInProgress: "Триває…",
+  ntWhatFailed: "Що не вийшло", ntNewAssets: "Нові інструменти",
+  ntNewAssetsHint: "Вони вже в статистиці й у підказках форми нової угоди.",
+  ntDone: "Готово", ntTransferred: "перенесено", ntSkipped: "пропущено", ntShotsWord: "скріншотів",
+  ntSomethingWrong: "Щось не так? Перенесення можна прибрати цілком — журнал стане таким, як був.",
+  ntTabFile: "Файл",
+  ntDemoUnavailable: "У демоверсії перенесення з Notion недоступне: воно працює тільки там, де є сервер журналу.",
+  ntGotIt: "Зрозуміло", ntOneMoment: "Хвилинку…",
+  ntConfirmUndo: "Прибрати всі угоди цього перенесення? Журнал стане таким, як був.",
+  ntUndoneCount: "Прибрано угод:", ntUndoneHint: "Журнал такий, як був до перенесення.",
+
+  // ---- калькулятор ризику ----
+  ckTitle: "Калькулятор ризику", ckOwnPair: "своє…",
+  ckDeposit: "Депозит", ckEntryPrice: "Ціна входу", ckEntryPh: "напр. 23150",
+  ckStopPrice: "Ціна стопу", ckStopPh: "напр. 23110",
+  ckLotsWord: "лотів", ckExactPrefix: "точно", ckRoundedDown: "округлили вниз",
+  ckRiskAmount: "Сума ризику", ckStopDistance: "Дистанція до стопу",
+  ckPointsWord: "пункт", ckPointsWordPl: "пунктів",
+  ckProfitAtTake: "Заробиш при тейку", ckTakePrice: "Ціна тейку",
+  ckPlannedRR: "Плановий RR", ckPointPrice: "Ціна пункту", ckLossAtStop: "Втратиш при стопі",
+  ckPointPriceHint1: "Ціна пункту в різних брокерів різна — перевір у свого",
+  ckPointPriceHint2: "й виправ, якщо не збігається. Для",
+  ckUsuallyWord: "звично", ckWillRemember: "Ми запам'ятаємо виправлене.",
+  ckClear: "Очистити", ckDone: "Готово", ckPromptName: "Назва інструмента",
+  ckNoteIndex: "індекс, CFD", ckNoteOz: "1 лот = 100 унцій", ckNoteLot100k: "1 лот = 100 000",
+  ckNoteRateDep: "залежить від курсу", ckNoteBtc: "1 лот = 1 BTC",
+
+  // ---- новини ----
+  nwImpactHigh: "Червоні", nwImpactMed: "Помаранчеві", nwImpactLow: "Жовті",
+  nwLoading: "Завантаження календаря…", nwNoEvents: "Подій немає.",
+  nwRetryHint: "Спробуй оновити сторінку за кілька хвилин.", nwAttention: "Увага.",
+  nwWeekAll1: "увесь", nwWeekAll2: "тиждень",
+  nwImportance: "Важливість", nwAll: "Усі", nwCurrency: "Валюта",
+  nwNoFiltered: "За цим фільтром подій немає.",
+  nwHoliday: "вихідний", nwSoon: "скоро", nwForecast: "прогноз", nwPrevious: "було",
+  nwFetchError: "не вдалося отримати календар: ",
+
+  // ---- помічник ----
+  asHint1: "Який у мене вінрейт цього тижня?", asHint2: "Де я найбільше зливаю?",
+  asHint3: "Як перестати відігруватися після стопа?", asHint4: "Що робити, коли не тримаю угоду до цілі?",
+  asIntro: "Питай звичайними словами — про свої угоди рахую по журналу, про торгівлю загалом просто розповім.",
+  asEmptyAnswer: "Порожня відповідь.", asAskFailed: "Не вийшло запитати: ",
+  asReviewMsg: "Подивись, що я роблю не так", asNothingFound: "Поки що зачіпок немає — журнал рівний.",
+  asReviewFailed: "Не вийшло зібрати розбір: ", asTitle: "Помічник",
+  asInputPh: "Спитати про журнал або про торгівлю…", asInputAria: "Питання до помічника",
+  asReviewTip: "Знайти збої в роботі: серії стопів, поспіх, ризик",
+  asReviewBtn: "Розбір помилок", asAskBtn: "Спитати",
+
+  // ---- поділитися посиланням ----
+  slTtl1h: "1 година", slTtl24h: "24 години", slTtl7d: "7 днів", slTtl30d: "30 днів", slTtlForever: "без обмеження",
+  slWinRate: "Win rate", slTotal: "Підсумок",
+  slKindDay: "день", slKindWeek: "тиждень", slKindMonth: "місяць", slKindYear: "рік", slKindTrade: "угода",
+  slTradesTitle: "Угоди", slByDays: "По днях", slByMonths: "По місяцях",
+  slDetails: "Деталі", slEntryBlock: "Вхід",
+  slShareTitle: "Поділитися",
+  slNote: "Надсилаються лише пораховані цифри — самі угоди й скриншоти за посиланням недоступні.",
+  slDurationLabel: "Скільки посилання діє", slCreateBtn: "Створити посилання", slCreating: "Створюю…",
+  slCopyBtn: "Копіювати", slOpenBtn: "Відкрити", slCopiedCheck: "Скопійовано ✓", slDoneBtn: "Готово",
+  slCreateError: "Не вдалося створити посилання: ",
+  slDay: "День", slWeek: "Тиждень", slShareCap: "Поділитися", slShareDay: "Поділитися днем",
+
+  // ---- картинка для каналу (canvas) ----
+  siBestSession: "Найкраща сесія", siWorstSession: "Найгірша сесія", siBestAsset: "Найкращий актив",
+  siReversals: "Розвороти", siWithBias: "За біасом",
+  siBeLine: "Беззбитки", siBeSavedPrefix: "врятували ", siBeTookPrefix: "забрали ",
+  siMonthResultsHeader: "ПІДСУМКИ МІСЯЦЯ", siWinrate: "Winrate",
+  siCalendarHeader: "КАЛЕНДАР", siCumulativeHeader: "НАКОПИЧЕНИЙ РЕЗУЛЬТАТ",
+  siNotEnoughTrades: "Мало угод для графіка", siWhatMonthShowedHeader: "ЩО ПОКАЗАВ МІСЯЦЬ",
+  siPerTrade: "на угоду",
+  siModalTitle: "Картинка за місяць", siDrawing: "Малюю…",
+  siCopyImgBtn: "Скопіювати картинку", siDownloadBtn: "Завантажити файлом",
+  siDrawFailed: "Не вдалося намалювати: ",
+  siCopiedMsg: "Скопійовано — встав у Telegram через Ctrl+V",
+  siCopyUnavailable: "Копіювання недоступне, збережи файлом", siFileSaved: "Файл збережено",
+
+  // ---- ui.js (пагінація, дата-пікер) ----
+  uiPagiLabel: "Сторінки", uiPagiPrev: "‹ Назад", uiPagiNext: "Далі ›",
+  uiResetBtn: "Скинути", uiNoPeriod: "Період не вибрано",
+
+  // ---- теми оформлення ----
+  thNight: "Ніч", thGraphite: "Графіт", thMidnight: "Опівніч", thWine: "Вино", thPine: "Хвоя",
+  thDay: "День", thPaper: "Папір", thFog: "Туман", thSand: "Пісок",
+  thSelected: "обрана", thCustom: "Своя", thModalTitle: "Оформлення",
+  thDarkGroup: "Темні", thLightGroup: "Світлі",
+  thBase: "Основа", thBaseDark: "Темна", thBaseLight: "Світла", thBg: "Тло", thAccent: "Акцент",
+  thNoteHint: "Два кольори — решту підберемо: підкладки, лінії й підсвітку.",
+
+  // ---- бічна панель (index.html) ----
+  sdNewTradeTip: "Записати угоду · відкриється панель знизу",
+  sdNavDashTip: "Підсумки тижня, місяця й року",
+  sdNavJournalTip: "Календар місяця й усі угоди",
+  sdNavAnalyticsTip: "Розрізи: сетапи, сесії, моделі",
+  sdNavNews: "Новини", sdNavNewsTip: "Економічний календар на тиждень",
+  sdYourJournal: "Ваш журнал",
+  sdCalcTip: "Порахувати розмір позиції під свій ризик",
+  sdNotionConnect: "Підключити Notion", sdNotionSub: "перенести свої угоди сюди",
+  sdNotionTip: "Перенести свої угоди з Notion — записи, нотатки й скріншоти",
+  sdTelegramTip: "Нагадування про новини та питання про емоції",
+  sdLangTip: "Мова інтерфейсу",
+  sdLogout: "Вийти", sdLogoutTip: "Вийти з акаунта",
+  sdSkinTip: "Теми оформлення: світлі, темні й своя",
+  sdAssistantTip: "Спитати про журнал, торгівлю чи знайти свої помилки",
+  sdAssistantAria: "Відкрити помічника",
+
+  // ---- share.html (публічна сторінка) ----
+  shLoadingMsg: "Завантаження…", shValidUntilPrefix: "діє до", shNoLimit: "без обмеження часу",
+  shKindDefault: "статистика", shMadeIn: "зроблено в",
+  shLinkBroken: "Посилання не працює", shLinkBrokenDesc: "Його або видалили, або вийшов термін дії.",
+  shOpenFailed: "Не вдалося відкрити",
+},
+
+ru: {
+  htmlLang: "ru",
+  label: "РУС",
+  tagline: "помощник трейдера",
+
+  months: ["Январь","Февраль","Март","Апрель","Май","Июнь","Июль","Август","Сентябрь","Октябрь","Ноябрь","Декабрь"],
+  monShort: ["янв","фев","мар","апр","май","июн","июл","авг","сен","окт","ноя","дек"],
+  monthsGen: ["января","февраля","марта","апреля","мая","июня","июля","августа","сентября","октября","ноября","декабря"],
+  wds: ["Пн","Вт","Ср","Чт","Пт","Сб","Вс"],
+  wdSun: ["Вс","Пн","Вт","Ср","Чт","Пт","Сб"],
+  emotions: ["Спокойствие","Уверенность","Жадность","Страх","Азарт","Месть","Скука"],
+  wordTrade: "сделка", wordTradeFew: "сделки", wordTradeMany: "сделок", wordTradePl: "сделки",
+  abbrTrades: "сд", abbrPieces: "шт",
+  colTotal: "Итог", tradeDefaultName: "Сделка", tlEmpty: "Сделок нет",
+  kEmptyChart: "Маловато сделок для графика", eqMax: "макс", eqMin: "мин",
+
+  fPair: "Инструмент", fSession: "Сессия", fPosition: "Направление", fEntryModel: "Модель входа",
+  fBias: "Биас", fSetup: "Сетап", fDirType: "Продолжение / Разворот", fDirTypeFilter: "Прод. / Разв.",
+  fMistakes: "Ошибки", fEmotion: "Эмоция", fResult: "Результат", fRisk: "Риск",
+  fDate: "Дата", fNotes: "Заметки", fEntryDetails: "Как заходил",
+  flModel: "Модель", flClear: "Сбросить ×", flPeriod: "Период",
+  flPeriodTip: "Показать сделки за промежуток дат", impDirTypeShort: "Прод./Разв.",
+
+  kCount: "Сделок", kCountTip: "Сколько сделок попало в выборку",
+  kWinRate: "Win Rate", kWinRateTip: "Доля прибыльных сделок: TP от всех закрытых",
+  kNetPct: "Итог, %", kNetPctTip: "Суммарный результат в процентах от депозита",
+  kAvgRR: "Средний RR", kAvgRRShort: "Ср. RR", kAvgRRTip: "Среднее отношение цели к стопу",
+  kProfitFactor: "Profit Factor", kProfitFactorTip: "Сумма прибылей делённая на сумму убытков. Больше 1 — плюс",
+  kResSplit: "TP / SL / BE", kResSplitTip: "Сколько сделок дошло до цели, до стопа, в безубыток",
+  kBeSplit: "BE− / BE+", kBeSplitTip: "Безубыток, после которого цена пошла против / дошла бы до цели",
+  kAvgRisk: "Средний риск", kAvgRiskTip: "Средний риск на сделку, % от депозита",
+
+  calTpTip: "Тейк-профит", calSlTip: "Стоп-лосс", calRevSuffix: "вход против биаса",
+  calBePlusTip: "Безубыток, потом цена дошла бы до цели",
+  calBeMinusTip: "Безубыток, потом цена пошла против",
+
+  ovTitle: "Обзор", ovEmptyTitle: "Журнал пуст",
+  ovEmptyHint: "Добавь первую сделку — статистика соберётся сама.<br>Старые сделки можно загрузить через «Импорт» слева внизу.",
+  ovEmptyBtn: "+ New Trade", ovBestWorst: "Лучшая · худшая",
+  ovLastWeek: "Последняя неделя", ovWholeMonth: "весь месяц",
+  ovPnlTitle: "Прибыль / убыток", ovDrawdown: "просадка",
+  ovPeriodMonth: "Месяц", ovPeriodQuarter: "Квартал", ovPeriodYear: "Год",
+  ovYearSummary: "Итог года", ovQuarterSummary: "Итог квартала", ovMonthSummary: "Итог месяца",
+  ovQuarterWord: "квартал",
+
+  railNoData: "Нет данных", railSessions: "Сессии", railInstruments: "Инструменты",
+  railSetups: "Сетапы", railYearWord: "год", railNetPctWord: "итог, %",
+
+  jrTitle: "Журнал", jrCalTab: "Календарь", jrCalTabTip: "Месяц клетками",
+  jrTableTab: "Список", jrTableTabTip: "Сделки месяца таблицей",
+  jrAllTab: "Все сделки", jrAllTabTip: "Все сделки с фильтрами",
+  jrShareBtn: "Картинка для канала", jrShareBtnTip: "Собрать картинку с итогами месяца",
+  jrMistakesPrefix: "Ошибки:", jrAddDayBtn: "+ Сделка на этот день",
+  jrPrevMonth: "Предыдущий месяц", jrNextMonth: "Следующий месяц",
+  jrPickDayTip: "Выбрать день в календаре", jrTodayTip: "Вернуться к текущему дню", jrToday: "Сегодня",
+  jrMonthTrades: "Сделки месяца", jrMonthEmpty: "За этот месяц сделок нет",
+  jrTypeCol: "Тип", jrTotalCol: "Итог", jrMonthEquity: "Эквити месяца",
+
+  tcEdit: "Изменить", tcDelete: "Удалить", tcHowTraded: "Как торговал", tcWhatWrote: "Что записал",
+  tcCharts: "Графики", tcComments: "Комментарии", tcNoScreens: "скриншотов нет",
+  tcNotFilled: "не заполнено:", closeEscTip: "Закрыть · Esc",
+  confirmDeleteTrade: "Удалить сделку? Статистика пересчитается.",
+
+  beTitle: "Безубытки · спасли или отняли",
+  beVerdictPos: "Безубыток в плюсе: спас больше, чем отнял. Оставляем как есть.",
+  beVerdictNeg: "Безубыток в минусе: отнял больше, чем спас. Переносишь стоп рано.",
+  beVerdictZero: "Безубыток вышел в ноль.",
+  beMinusLabel: "BE− · спасли от стопа",
+  beMinusDesc: "сделок — цена пошла против, стоп забрал бы деньги",
+  bePlusLabel: "BE+ · отняли тейк",
+  bePlusDesc: "сделок — цена дошла бы до цели без тебя",
+  beNetLabel: "Чистый эффект", beShareLabel: "Доля безубытков", beOf: "из",
+  beHint: "BE− — тронуло безубыток, дальше пошло против: безубыток сыграл в твою пользу. BE+ — тронуло безубыток, а дальше цена дошла до цели: сделка была бы прибыльной.",
+
+  bwTitle: "Лучшее / худшее",
+  dtBestTag: "лучший", dtWorstTag: "худший", dtColCount: "Сд.",
+
+  mrNoTrades: "В этом месяце сделок не было", mrDynamics: "Динамика месяца",
+  mrDaysSection: "Дни", mrAllDays: "Все торговые дни", mrColDay: "День", mrExtremeDays: "Крайние дни",
+  mrCutsSection: "Разрезы", mrAsset: "Актив", mrCostly: "Что стоило денег",
+  mrMistakeCol: "Ошибка", mrWithVsWithout: "С ошибкой против без",
+  mrWithMark: "С отметкой", mrWithoutMark: "Без отметки",
+  mrNoMistakesHint: "За месяц ошибок не отмечено.",
+  mrRiskSection: "Размер риска", mrRiskDeviation: "Отклонение от 1%",
+  mrRisk1: "Риск 1%", mrRiskOther: "Другой риск",
+  mrBeSectionShort: "Безубытки", mrAllTradesSection: "Все сделки месяца",
+  mrOpenInJournal: "Открыть в журнале", mrClose: "Закрыть",
+
+  qtTitle: "Кварталы", qBestMonth: "Best month", qWorstMonth: "Worst month", qTrades: "Trades",
+  yrTitle: "Годы", yrEquityTitle: "Эквити года · %",
+  yrMonthsTitle: "Месяцы · клик по месяцу открывает разбор",
+  yrColMonth: "Месяц", yrColQuarter: "Квартал", yrNoData: "Нет данных", yrBreakdown: "разбор →",
+  anTitle: "Аналитика", anSampleSuffix: "сделок в выборке", anResultsPrefix: "Результаты ·",
+  anColName: "Название", anNoData: "Нет данных — поле не заполнено ни в одной сделке",
+
+  themeLight: "Светлая тема", themeDark: "Тёмная тема",
+  themeToLight: "Переключить на светлую", themeToDark: "Переключить на тёмную",
+
+  fmEditTitle: "Изменить сделку", fmNewTitle: "Новая сделка", fmOwnValueTip: "Своё значение",
+  fmOwnPairPh: "свой инструмент", fmDateTime: "Дата и время", fmOwnSessionPh: "своя сессия",
+  fmDirectionLabel: "Направление сделки", fmContextSection: "Контекст", fmBiasLabel: "Биас дня",
+  fmEntryTypeLabel: "Тип входа", fmAutoWillFill: "подставится сам", fmAutoFilled: "подставлено само",
+  fmAutoManual: "выбрано вручную", fmContinuation: "Продолжение", fmReversal: "Разворот",
+  fmOwnModelPh: "своя модель", fmOwnSetupPh: "свой сетап", fmResultSection: "Результат",
+  fmFinishedAs: "Чем завершилась", fmRRLabel: "RR — во сколько раз цель дальше стопа",
+  fmRiskLabel: "Риск, % от депозита", fmOwnRiskPh: "свой риск",
+  fmShotsSection: "Скриншоты по таймфреймам",
+  fmEntryDetailsPh: "тест 4h имб, 1m цисд, цель 15m фрактал", fmThoughtsLabel: "Мысли о сделке",
+  fmMistakeLabel: "Ошибка, если была", fmMistakeEmptyPh: "пусто, если ошибок нет",
+  fmEmotionLabel: "Эмоция во время сделки", fmEmotionAutotag: "не укажешь — спросит бот в Telegram",
+  fmEmotionPh: "или своими словами", fmCancel: "Отмена", fmSave: "Сохранить", fmSaving: "Сохраняю…",
+
+  calcChooseResult: "Выбери результат — покажу, сколько это в процентах",
+  calcTakePrefix: "Тейк при риске ", calcTakeMid: "% и RR ",
+  calcStopMsg: "Стоп забирает риск полностью",
+  calcBePlusMsg: "Безубыток, но цена дошла бы до цели",
+  calcBeMinusMsg: "Безубыток, дальше пошло против",
+
+  shotRemoveTip: "Убрать", shotPickFileTip: "Выбрать файл", shotFileWord: "файл",
+  shotDragHint: "Перетащи картинки сюда или <b>выбери файлы</b> — разложим по таймфреймам",
+  shotTfHint: "Скопируй график в TradingView (<b>Ctrl+Alt+S</b>) → кликни нужный таймфрейм → <b>Ctrl+V</b>. Сохранять картинку на компьютер не нужно.",
+
+  alertNeedPair: "Укажи инструмент", alertNeedDate: "Укажи дату",
+  alertNeedResult: "Укажи результат — TP / SL / BE− / BE+",
+  alertNeedRR: "Для TP нужен RR — иначе результат посчитается как 0R",
+  alertSaveFail: "Не сохранилось: ",
+
+  imTitle: "Импорт сделок",
+  imHint: "Подходит файл <b>JSON</b> (массив сделок) или <b>CSV</b> (первая строка — заголовки). После загрузки сопоставь колонки с полями журнала — совпадающие названия подставятся сами.",
+  imGoBtn: "Импортировать", imParseError: "Не удалось разобрать файл: ",
+  imFoundRows: "Найдено строк: ", imSkipOption: "— пропустить —",
+  imNothingToImport: "Нечего импортировать", imImporting: "Импортирую…", imImportedCount: "Импортировано сделок: ",
+
+  confirmLogout: "Выйти из журнала?",
+  tgLinkedPrefix: "Привязано:",
+  tgLinkedDesc: "Напоминаю о важных новостях за 30 минут и утром, а после сделки без эмоции спрашиваю, что ты чувствовал.",
+  tgUnlink: "Отвязать",
+  tgNotLinkedDesc: "Привяжи Telegram — и бот напомнит о важных новостях и спросит об эмоции после каждой сделки, если не укажешь её здесь.",
+  tgGetCode: "Получить код", tgPreparing: "Готовлю код…", tgCodeValid: "Код действует 15 минут.",
+  tgOpenBotPrefix: "Открыть @", tgManualPrefix: "Или отправь боту вручную:",
+  tgCodeError: "Не вышло получить код. Проверь, запущен ли bot.py",
+  confirmUnlinkTg: "Отвязать Telegram?",
+
+  demoLabel: "Демо", demoDesc: "Сделки сохраняются только в вашем браузере", demoReset: "Сбросить",
+  dmQuotaAlert: "Демо-режим: скриншоты не поместились в память браузера и не сохранены.\nСами сделки на месте. Полноценно скриншоты работают в локальной версии (app.py).",
+
+  initServerError: "Сервер не отвечает. Запусти app.py",
+
+  ntServerReplied: "сервер ответил",
+  ntStep1Lead: "Перенесём журнал из Notion целиком — сделки, заметки со страниц и скриншоты. Ничего копировать руками не нужно.",
+  ntStep1Li1: "В Notion открой свою таблицу со сделками → <b>Share</b> → включи <b>Publish to web</b>.",
+  ntStep1Li2: "Нажми <b>Copy web link</b> и вставь ссылку сюда.",
+  ntLinkLabel: "Ссылка на таблицу",
+  ntLinkNote: "Ссылка должна вести именно на таблицу — ту, где строки и колонки. Читаем только для себя, ничего в Notion не меняем.",
+  ntReadBtn: "Прочитать", ntPasteLink: "Вставь ссылку на таблицу", ntReading: "Читаю…",
+  ntLastImportPrefix: "Последнее перенесение:",
+  ntLastImportUndo: "Если что-то пошло не так — его можно убрать, журнал останется как был.",
+  ntCancelImport: "Отменить перенесение",
+  ntHaveAlready: "В журнале уже есть",
+  ntHaveWillAdd: "— перенесённые добавятся к ним. Если это чужие или демонстрационные — уберите их до перенесения.",
+  ntNoTitle: "без названия", ntRowsWord: "строк", ntLooksLikeJournal: "похоже на журнал", ntFieldsWord: "полей",
+  ntFoundTablesPrefix: "По ссылке нашлось таблиц:",
+  ntFoundTablesHint: "Отметь те, где лежат сделки — перенесём всё за один раз.",
+  ntOtherLink: "Другая ссылка", ntMarkAll: "Отметить все", ntNext: "Далее",
+  ntMarkOneTable: "Отметь хотя бы одну таблицу", ntDontTransfer: "— не переносить —", ntTableWord: "Таблица",
+  ntNotIncluded: "Не попали в журнал:",
+  ntNotIncludedHint: "Если что-то из этого нужно — поставь его в соответствующее поле выше.",
+  ntTransferFromPrefix: "Переносим из", ntTablesWord: "таблиц",
+  ntColumnsMatchedBy: "Колонки сверяем по",
+  ntColumnsMatchedByRest: "где они другие — подберём для той таблицы отдельно.",
+  ntColumnsAutoMatched: "Колонки сверены сами —", ntOfWord: "из",
+  ntCheckAndFix: "Проверь и поправь, где не угадало.",
+  ntPreviewTitle: "Как это будет выглядеть",
+  ntOptNotes: "Переносить заметки со страниц", ntOptShots: "Переносить скриншоты",
+  ntOptSkip: "Пропускать уже перенесённые сделки",
+  ntOtherTable: "Другая таблица", ntTransferAll: "Перенести всё",
+  ntBackupHint: "Перед перенесением стоит сохранить копию журнала: отката у импорта нет.",
+  ntSaveBackup: "Сохранить копию", ntNoRowsInTable: "В таблице нет строк.",
+  ntNeedPairColumn: "Укажи, в какой колонке лежит инструмент — без него сделку не записать",
+  ntTransferring: "Переношу…", ntPreparing: "готовимся",
+  ntTransferringHint: "Переношу журнал. Окно можно не закрывать — скриншоты качаются по одному.",
+  ntTryAgain: "Попробовать ещё", ntInProgress: "Идёт…",
+  ntWhatFailed: "Что не получилось", ntNewAssets: "Новые инструменты",
+  ntNewAssetsHint: "Они уже в статистике и в подсказках формы новой сделки.",
+  ntDone: "Готово", ntTransferred: "перенесено", ntSkipped: "пропущено", ntShotsWord: "скриншотов",
+  ntSomethingWrong: "Что-то не так? Перенесение можно убрать целиком — журнал станет таким, как был.",
+  ntTabFile: "Файл",
+  ntDemoUnavailable: "В демоверсии перенесение из Notion недоступно: оно работает только там, где есть сервер журнала.",
+  ntGotIt: "Понятно", ntOneMoment: "Минутку…",
+  ntConfirmUndo: "Убрать все сделки этого перенесения? Журнал станет таким, как был.",
+  ntUndoneCount: "Убрано сделок:", ntUndoneHint: "Журнал такой, как был до перенесения.",
+
+  ckTitle: "Калькулятор риска", ckOwnPair: "своё…",
+  ckDeposit: "Депозит", ckEntryPrice: "Цена входа", ckEntryPh: "напр. 23150",
+  ckStopPrice: "Цена стопа", ckStopPh: "напр. 23110",
+  ckLotsWord: "лотов", ckExactPrefix: "точно", ckRoundedDown: "округлили вниз",
+  ckRiskAmount: "Сумма риска", ckStopDistance: "Дистанция до стопа",
+  ckPointsWord: "пункт", ckPointsWordPl: "пунктов",
+  ckProfitAtTake: "Заработаешь при тейке", ckTakePrice: "Цена тейка",
+  ckPlannedRR: "Плановый RR", ckPointPrice: "Цена пункта", ckLossAtStop: "Потеряешь при стопе",
+  ckPointPriceHint1: "Цена пункта у разных брокеров разная — проверь у своего",
+  ckPointPriceHint2: "и поправь, если не совпадает. Для",
+  ckUsuallyWord: "обычно", ckWillRemember: "Мы запомним исправленное.",
+  ckClear: "Очистить", ckDone: "Готово", ckPromptName: "Название инструмента",
+  ckNoteIndex: "индекс, CFD", ckNoteOz: "1 лот = 100 унций", ckNoteLot100k: "1 лот = 100 000",
+  ckNoteRateDep: "зависит от курса", ckNoteBtc: "1 лот = 1 BTC",
+
+  nwImpactHigh: "Красные", nwImpactMed: "Оранжевые", nwImpactLow: "Жёлтые",
+  nwLoading: "Загрузка календаря…", nwNoEvents: "Событий нет.",
+  nwRetryHint: "Попробуй обновить страницу через пару минут.", nwAttention: "Внимание.",
+  nwWeekAll1: "вся", nwWeekAll2: "неделя",
+  nwImportance: "Важность", nwAll: "Все", nwCurrency: "Валюта",
+  nwNoFiltered: "По этому фильтру событий нет.",
+  nwHoliday: "выходной", nwSoon: "скоро", nwForecast: "прогноз", nwPrevious: "было",
+  nwFetchError: "не удалось получить календарь: ",
+
+  asHint1: "Какой у меня винрейт на этой неделе?", asHint2: "Где я больше всего сливаю?",
+  asHint3: "Как перестать отыгрываться после стопа?", asHint4: "Что делать, когда не держу сделку до цели?",
+  asIntro: "Спрашивай обычными словами — про свои сделки считаю по журналу, про торговлю вообще просто расскажу.",
+  asEmptyAnswer: "Пустой ответ.", asAskFailed: "Не вышло спросить: ",
+  asReviewMsg: "Посмотри, что я делаю не так", asNothingFound: "Пока зацепок нет — журнал ровный.",
+  asReviewFailed: "Не вышло собрать разбор: ", asTitle: "Помощник",
+  asInputPh: "Спросить о журнале или о торговле…", asInputAria: "Вопрос помощнику",
+  asReviewTip: "Найти сбои в работе: серии стопов, спешка, риск",
+  asReviewBtn: "Разбор ошибок", asAskBtn: "Спросить",
+
+  slTtl1h: "1 час", slTtl24h: "24 часа", slTtl7d: "7 дней", slTtl30d: "30 дней", slTtlForever: "без ограничения",
+  slWinRate: "Win rate", slTotal: "Итог",
+  slKindDay: "день", slKindWeek: "неделя", slKindMonth: "месяц", slKindYear: "год", slKindTrade: "сделка",
+  slTradesTitle: "Сделки", slByDays: "По дням", slByMonths: "По месяцам",
+  slDetails: "Детали", slEntryBlock: "Вход",
+  slShareTitle: "Поделиться",
+  slNote: "Отправляются только посчитанные цифры — сами сделки и скриншоты по ссылке недоступны.",
+  slDurationLabel: "Сколько действует ссылка", slCreateBtn: "Создать ссылку", slCreating: "Создаю…",
+  slCopyBtn: "Копировать", slOpenBtn: "Открыть", slCopiedCheck: "Скопировано ✓", slDoneBtn: "Готово",
+  slCreateError: "Не удалось создать ссылку: ",
+  slDay: "День", slWeek: "Неделя", slShareCap: "Поделиться", slShareDay: "Поделиться днём",
+
+  siBestSession: "Лучшая сессия", siWorstSession: "Худшая сессия", siBestAsset: "Лучший актив",
+  siReversals: "Развороты", siWithBias: "По биасу",
+  siBeLine: "Безубытки", siBeSavedPrefix: "спасли ", siBeTookPrefix: "отняли ",
+  siMonthResultsHeader: "ИТОГИ МЕСЯЦА", siWinrate: "Winrate",
+  siCalendarHeader: "КАЛЕНДАРЬ", siCumulativeHeader: "НАКОПЛЕННЫЙ РЕЗУЛЬТАТ",
+  siNotEnoughTrades: "Маловато сделок для графика", siWhatMonthShowedHeader: "ЧТО ПОКАЗАЛ МЕСЯЦ",
+  siPerTrade: "на сделку",
+  siModalTitle: "Картинка за месяц", siDrawing: "Рисую…",
+  siCopyImgBtn: "Скопировать картинку", siDownloadBtn: "Скачать файлом",
+  siDrawFailed: "Не удалось нарисовать: ",
+  siCopiedMsg: "Скопировано — вставь в Telegram через Ctrl+V",
+  siCopyUnavailable: "Копирование недоступно, сохрани файлом", siFileSaved: "Файл сохранён",
+
+  uiPagiLabel: "Страницы", uiPagiPrev: "‹ Назад", uiPagiNext: "Далее ›",
+  uiResetBtn: "Сбросить", uiNoPeriod: "Период не выбран",
+
+  thNight: "Ночь", thGraphite: "Графит", thMidnight: "Полночь", thWine: "Вино", thPine: "Хвоя",
+  thDay: "День", thPaper: "Бумага", thFog: "Туман", thSand: "Песок",
+  thSelected: "выбрана", thCustom: "Своя", thModalTitle: "Оформление",
+  thDarkGroup: "Тёмные", thLightGroup: "Светлые",
+  thBase: "Основа", thBaseDark: "Тёмная", thBaseLight: "Светлая", thBg: "Фон", thAccent: "Акцент",
+  thNoteHint: "Два цвета — остальное подберём: подложки, линии и подсветку.",
+
+  sdNewTradeTip: "Записать сделку · откроется панель снизу",
+  sdNavDashTip: "Итоги недели, месяца и года",
+  sdNavJournalTip: "Календарь месяца и все сделки",
+  sdNavAnalyticsTip: "Разрезы: сетапы, сессии, модели",
+  sdNavNews: "Новости", sdNavNewsTip: "Экономический календарь на неделю",
+  sdYourJournal: "Ваш журнал",
+  sdCalcTip: "Посчитать размер позиции под свой риск",
+  sdNotionConnect: "Подключить Notion", sdNotionSub: "перенести свои сделки сюда",
+  sdNotionTip: "Перенести свои сделки из Notion — записи, заметки и скриншоты",
+  sdTelegramTip: "Напоминания о новостях и вопросы об эмоциях",
+  sdLangTip: "Язык интерфейса",
+  sdLogout: "Выйти", sdLogoutTip: "Выйти из аккаунта",
+  sdSkinTip: "Темы оформления: светлые, тёмные и своя",
+  sdAssistantTip: "Спросить о журнале, торговле или найти свои ошибки",
+  sdAssistantAria: "Открыть помощника",
+
+  shLoadingMsg: "Загрузка…", shValidUntilPrefix: "действует до", shNoLimit: "без ограничения времени",
+  shKindDefault: "статистика", shMadeIn: "сделано в",
+  shLinkBroken: "Ссылка не работает", shLinkBrokenDesc: "Её либо удалили, либо истёк срок действия.",
+  shOpenFailed: "Не удалось открыть",
+},
+
+en: {
+  htmlLang: "en",
+  label: "ENG",
+  tagline: "trading assistant",
+
+  months: ["January","February","March","April","May","June","July","August","September","October","November","December"],
+  monShort: ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"],
+  monthsGen: ["January","February","March","April","May","June","July","August","September","October","November","December"],
+  wds: ["Mon","Tue","Wed","Thu","Fri","Sat","Sun"],
+  wdSun: ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"],
+  emotions: ["Calm","Confidence","Greed","Fear","Excitement","Revenge","Boredom"],
+  wordTrade: "trade", wordTradeFew: "trades", wordTradeMany: "trades", wordTradePl: "trades",
+  abbrTrades: "tr", abbrPieces: "pcs",
+  colTotal: "Total", tradeDefaultName: "Trade", tlEmpty: "No trades",
+  kEmptyChart: "Not enough trades for a chart", eqMax: "max", eqMin: "min",
+
+  fPair: "Instrument", fSession: "Session", fPosition: "Direction", fEntryModel: "Entry model",
+  fBias: "Bias", fSetup: "Setup", fDirType: "Continuation / Reversal", fDirTypeFilter: "Cont. / Rev.",
+  fMistakes: "Mistakes", fEmotion: "Emotion", fResult: "Result", fRisk: "Risk",
+  fDate: "Date", fNotes: "Notes", fEntryDetails: "How you entered",
+  flModel: "Model", flClear: "Clear ×", flPeriod: "Period",
+  flPeriodTip: "Show trades over a date range", impDirTypeShort: "Cont./Rev.",
+
+  kCount: "Trades", kCountTip: "How many trades made it into the sample",
+  kWinRate: "Win Rate", kWinRateTip: "Share of profitable trades: TP out of all closed",
+  kNetPct: "Total, %", kNetPctTip: "Total result as a percentage of the deposit",
+  kAvgRR: "Average RR", kAvgRRShort: "Avg. RR", kAvgRRTip: "Average target-to-stop ratio",
+  kProfitFactor: "Profit Factor", kProfitFactorTip: "Sum of profits divided by sum of losses. Above 1 is positive",
+  kResSplit: "TP / SL / BE", kResSplitTip: "How many trades reached target, stop, or breakeven",
+  kBeSplit: "BE− / BE+", kBeSplitTip: "Breakeven after which price went against / would have reached target",
+  kAvgRisk: "Average risk", kAvgRiskTip: "Average risk per trade, % of deposit",
+
+  calTpTip: "Take-profit", calSlTip: "Stop-loss", calRevSuffix: "entry against bias",
+  calBePlusTip: "Breakeven, then price would have reached target",
+  calBeMinusTip: "Breakeven, then price went against",
+
+  ovTitle: "Overview", ovEmptyTitle: "Journal is empty",
+  ovEmptyHint: "Add your first trade — the stats will build themselves.<br>Old trades can be loaded via «Import» in the bottom left.",
+  ovEmptyBtn: "+ New Trade", ovBestWorst: "Best · worst",
+  ovLastWeek: "Last week", ovWholeMonth: "whole month",
+  ovPnlTitle: "Profit / Loss", ovDrawdown: "drawdown",
+  ovPeriodMonth: "Month", ovPeriodQuarter: "Quarter", ovPeriodYear: "Year",
+  ovYearSummary: "Year total", ovQuarterSummary: "Quarter total", ovMonthSummary: "Month total",
+  ovQuarterWord: "quarter",
+
+  railNoData: "No data", railSessions: "Sessions", railInstruments: "Instruments",
+  railSetups: "Setups", railYearWord: "year", railNetPctWord: "total, %",
+
+  jrTitle: "Journal", jrCalTab: "Calendar", jrCalTabTip: "Month as cells",
+  jrTableTab: "List", jrTableTabTip: "Month's trades as a table",
+  jrAllTab: "All Trades", jrAllTabTip: "All trades with filters",
+  jrShareBtn: "Image for channel", jrShareBtnTip: "Build an image with the month's totals",
+  jrMistakesPrefix: "Mistakes:", jrAddDayBtn: "+ Trade on this day",
+  jrPrevMonth: "Previous month", jrNextMonth: "Next month",
+  jrPickDayTip: "Pick a day on the calendar", jrTodayTip: "Back to today", jrToday: "Today",
+  jrMonthTrades: "Month's trades", jrMonthEmpty: "No trades this month",
+  jrTypeCol: "Type", jrTotalCol: "Total", jrMonthEquity: "Month equity",
+
+  tcEdit: "Edit", tcDelete: "Delete", tcHowTraded: "How you traded", tcWhatWrote: "What you wrote down",
+  tcCharts: "Charts", tcComments: "Comments", tcNoScreens: "no screenshots",
+  tcNotFilled: "not filled in:", closeEscTip: "Close · Esc",
+  confirmDeleteTrade: "Delete the trade? Stats will be recalculated.",
+
+  beTitle: "Breakevens · saved or cost you",
+  beVerdictPos: "Breakeven is net positive: saved more than it cost. Leave it as is.",
+  beVerdictNeg: "Breakeven is net negative: cost more than it saved. You're moving the stop too early.",
+  beVerdictZero: "Breakeven came out at zero.",
+  beMinusLabel: "BE− · saved from the stop",
+  beMinusDesc: "trades — price went against, the stop would have taken money",
+  bePlusLabel: "BE+ · cost you the take",
+  bePlusDesc: "trades — price would have reached target without you",
+  beNetLabel: "Net effect", beShareLabel: "Share of breakevens", beOf: "of",
+  beHint: "BE− — touched breakeven, then went against: breakeven worked in your favor. BE+ — touched breakeven, then price reached target: the trade would have been profitable.",
+
+  bwTitle: "Best / worst",
+  dtBestTag: "best", dtWorstTag: "worst", dtColCount: "Trd.",
+
+  mrNoTrades: "No trades this month", mrDynamics: "Month dynamics",
+  mrDaysSection: "Days", mrAllDays: "All trading days", mrColDay: "Day", mrExtremeDays: "Extreme days",
+  mrCutsSection: "Breakdowns", mrAsset: "Asset", mrCostly: "What cost you money",
+  mrMistakeCol: "Mistake", mrWithVsWithout: "With mistake vs. without",
+  mrWithMark: "Marked", mrWithoutMark: "Not marked",
+  mrNoMistakesHint: "No mistakes were marked this month.",
+  mrRiskSection: "Risk size", mrRiskDeviation: "Deviation from 1%",
+  mrRisk1: "1% risk", mrRiskOther: "Other risk",
+  mrBeSectionShort: "Breakevens", mrAllTradesSection: "All trades this month",
+  mrOpenInJournal: "Open in journal", mrClose: "Close",
+
+  qtTitle: "Quarters", qBestMonth: "Best month", qWorstMonth: "Worst month", qTrades: "Trades",
+  yrTitle: "Years", yrEquityTitle: "Year equity · %",
+  yrMonthsTitle: "Months · click a month for a breakdown",
+  yrColMonth: "Month", yrColQuarter: "Quarter", yrNoData: "No data", yrBreakdown: "breakdown →",
+  anTitle: "Analytics", anSampleSuffix: "trades in sample", anResultsPrefix: "Results ·",
+  anColName: "Name", anNoData: "No data — this field isn't filled in on any trade",
+
+  themeLight: "Light theme", themeDark: "Dark theme",
+  themeToLight: "Switch to light", themeToDark: "Switch to dark",
+
+  fmEditTitle: "Edit Trade", fmNewTitle: "New Trade", fmOwnValueTip: "Custom value",
+  fmOwnPairPh: "your instrument", fmDateTime: "Date & time", fmOwnSessionPh: "your session",
+  fmDirectionLabel: "Trade direction", fmContextSection: "Context", fmBiasLabel: "Bias of the day",
+  fmEntryTypeLabel: "Entry type", fmAutoWillFill: "fills in automatically", fmAutoFilled: "filled in automatically",
+  fmAutoManual: "chosen manually", fmContinuation: "Continuation", fmReversal: "Reversal",
+  fmOwnModelPh: "your model", fmOwnSetupPh: "your setup", fmResultSection: "Result",
+  fmFinishedAs: "How it finished", fmRRLabel: "RR — how many times farther the target is than the stop",
+  fmRiskLabel: "Risk, % of deposit", fmOwnRiskPh: "your risk",
+  fmShotsSection: "Screenshots by timeframe",
+  fmEntryDetailsPh: "e.g. 4h imbalance, 1m CISD, target 15m fractal", fmThoughtsLabel: "Thoughts on the trade",
+  fmMistakeLabel: "Mistake, if any", fmMistakeEmptyPh: "leave empty if no mistakes",
+  fmEmotionLabel: "Emotion during the trade", fmEmotionAutotag: "skip it — the Telegram bot will ask",
+  fmEmotionPh: "or in your own words", fmCancel: "Cancel", fmSave: "Save", fmSaving: "Saving…",
+
+  calcChooseResult: "Pick a result — I'll show what that means in percent",
+  calcTakePrefix: "Take at ", calcTakeMid: "% risk and RR ",
+  calcStopMsg: "The stop takes the full risk",
+  calcBePlusMsg: "Breakeven, but price would have reached target",
+  calcBeMinusMsg: "Breakeven, then it went against you",
+
+  shotRemoveTip: "Remove", shotPickFileTip: "Choose file", shotFileWord: "file",
+  shotDragHint: "Drag images here or <b>choose files</b> — we'll sort them by timeframe",
+  shotTfHint: "Copy the chart in TradingView (<b>Ctrl+Alt+S</b>) → click the timeframe you need → <b>Ctrl+V</b>. No need to save the image to your computer.",
+
+  alertNeedPair: "Enter an instrument", alertNeedDate: "Enter a date",
+  alertNeedResult: "Choose a result — TP / SL / BE− / BE+",
+  alertNeedRR: "TP needs an RR — otherwise the result will count as 0R",
+  alertSaveFail: "Couldn't save: ",
+
+  imTitle: "Import Trades",
+  imHint: "A <b>JSON</b> file (array of trades) or <b>CSV</b> (first row is headers) works. After uploading, match the columns to journal fields — matching names fill in automatically.",
+  imGoBtn: "Import", imParseError: "Couldn't parse the file: ",
+  imFoundRows: "Rows found: ", imSkipOption: "— skip —",
+  imNothingToImport: "Nothing to import", imImporting: "Importing…", imImportedCount: "Trades imported: ",
+
+  confirmLogout: "Log out of the journal?",
+  tgLinkedPrefix: "Linked:",
+  tgLinkedDesc: "I remind you about important news 30 minutes ahead and in the morning, and after a trade with no emotion set I ask what you felt.",
+  tgUnlink: "Unlink",
+  tgNotLinkedDesc: "Link Telegram — the bot will remind you about important news and ask about your emotion after each trade if you don't set it here.",
+  tgGetCode: "Get code", tgPreparing: "Preparing code…", tgCodeValid: "The code is valid for 15 minutes.",
+  tgOpenBotPrefix: "Open @", tgManualPrefix: "Or send the bot manually:",
+  tgCodeError: "Couldn't get a code. Check that bot.py is running",
+  confirmUnlinkTg: "Unlink Telegram?",
+
+  demoLabel: "Demo", demoDesc: "Trades are stored only in your browser", demoReset: "Reset",
+  dmQuotaAlert: "Demo mode: screenshots didn't fit in the browser's storage and weren't saved.\nThe trades themselves are fine. Screenshots work fully in the local version (app.py).",
+
+  initServerError: "The server isn't responding. Start app.py",
+
+  ntServerReplied: "the server replied",
+  ntStep1Lead: "We'll bring your whole Notion journal over — trades, page notes, and screenshots. Nothing needs copying by hand.",
+  ntStep1Li1: "In Notion, open your trades table → <b>Share</b> → turn on <b>Publish to web</b>.",
+  ntStep1Li2: "Click <b>Copy web link</b> and paste the link here.",
+  ntLinkLabel: "Link to the table",
+  ntLinkNote: "The link needs to point to the table itself — the one with rows and columns. We only read it for you; nothing in Notion gets changed.",
+  ntReadBtn: "Read", ntPasteLink: "Paste a link to the table", ntReading: "Reading…",
+  ntLastImportPrefix: "Last import:",
+  ntLastImportUndo: "If something went wrong, you can remove it — the journal will stay as it was.",
+  ntCancelImport: "Undo import",
+  ntHaveAlready: "Your journal already has",
+  ntHaveWillAdd: "— the imported ones will be added to them. If those are someone else's or demo trades, remove them before importing.",
+  ntNoTitle: "untitled", ntRowsWord: "rows", ntLooksLikeJournal: "looks like a journal", ntFieldsWord: "fields",
+  ntFoundTablesPrefix: "Found tables at this link:",
+  ntFoundTablesHint: "Mark the ones with trades in them — we'll import everything in one go.",
+  ntOtherLink: "Different link", ntMarkAll: "Mark all", ntNext: "Next",
+  ntMarkOneTable: "Mark at least one table", ntDontTransfer: "— don't import —", ntTableWord: "Table",
+  ntNotIncluded: "Didn't make it into the journal:",
+  ntNotIncludedHint: "If any of this is needed, put it into the matching field above.",
+  ntTransferFromPrefix: "Importing from", ntTablesWord: "tables",
+  ntColumnsMatchedBy: "Columns are matched against",
+  ntColumnsMatchedByRest: "where they differ, we'll match them for that table separately.",
+  ntColumnsAutoMatched: "Columns matched automatically —", ntOfWord: "of",
+  ntCheckAndFix: "Check and fix anything that guessed wrong.",
+  ntPreviewTitle: "How this will look",
+  ntOptNotes: "Import notes from pages", ntOptShots: "Import screenshots",
+  ntOptSkip: "Skip trades already imported",
+  ntOtherTable: "Different table", ntTransferAll: "Import everything",
+  ntBackupHint: "It's worth saving a copy of the journal before importing: there's no undo for import.",
+  ntSaveBackup: "Save a copy", ntNoRowsInTable: "The table has no rows.",
+  ntNeedPairColumn: "Tell us which column holds the instrument — a trade can't be saved without it",
+  ntTransferring: "Importing…", ntPreparing: "getting ready",
+  ntTransferringHint: "Importing the journal. You can leave this window open — screenshots download one at a time.",
+  ntTryAgain: "Try again", ntInProgress: "In progress…",
+  ntWhatFailed: "What didn't work", ntNewAssets: "New instruments",
+  ntNewAssetsHint: "They're already in your stats and in the new-trade form's suggestions.",
+  ntDone: "Done", ntTransferred: "imported", ntSkipped: "skipped", ntShotsWord: "screenshots",
+  ntSomethingWrong: "Something wrong? The import can be fully undone — the journal will go back to how it was.",
+  ntTabFile: "File",
+  ntDemoUnavailable: "Notion import isn't available in demo mode: it only works where there's a journal server.",
+  ntGotIt: "Got it", ntOneMoment: "One moment…",
+  ntConfirmUndo: "Remove all trades from this import? The journal will go back to how it was.",
+  ntUndoneCount: "Trades removed:", ntUndoneHint: "The journal is back to how it was before the import.",
+
+  ckTitle: "Risk Calculator", ckOwnPair: "custom…",
+  ckDeposit: "Deposit", ckEntryPrice: "Entry price", ckEntryPh: "e.g. 23150",
+  ckStopPrice: "Stop price", ckStopPh: "e.g. 23110",
+  ckLotsWord: "lots", ckExactPrefix: "exact", ckRoundedDown: "rounded down",
+  ckRiskAmount: "Risk amount", ckStopDistance: "Distance to stop",
+  ckPointsWord: "point", ckPointsWordPl: "points",
+  ckProfitAtTake: "You'll make at take", ckTakePrice: "Take price",
+  ckPlannedRR: "Planned RR", ckPointPrice: "Point value", ckLossAtStop: "You'll lose at stop",
+  ckPointPriceHint1: "Point value differs between brokers — check with yours",
+  ckPointPriceHint2: "and fix it if it doesn't match. For",
+  ckUsuallyWord: "usually", ckWillRemember: "We'll remember the corrected value.",
+  ckClear: "Clear", ckDone: "Done", ckPromptName: "Instrument name",
+  ckNoteIndex: "index, CFD", ckNoteOz: "1 lot = 100 oz", ckNoteLot100k: "1 lot = 100,000",
+  ckNoteRateDep: "depends on the rate", ckNoteBtc: "1 lot = 1 BTC",
+
+  nwImpactHigh: "Red", nwImpactMed: "Orange", nwImpactLow: "Yellow",
+  nwLoading: "Loading the calendar…", nwNoEvents: "No events.",
+  nwRetryHint: "Try refreshing the page in a few minutes.", nwAttention: "Heads up.",
+  nwWeekAll1: "whole", nwWeekAll2: "week",
+  nwImportance: "Importance", nwAll: "All", nwCurrency: "Currency",
+  nwNoFiltered: "No events match this filter.",
+  nwHoliday: "holiday", nwSoon: "soon", nwForecast: "forecast", nwPrevious: "previous",
+  nwFetchError: "couldn't fetch the calendar: ",
+
+  asHint1: "What's my win rate this week?", asHint2: "Where am I losing the most?",
+  asHint3: "How do I stop revenge trading after a stop?", asHint4: "What should I do when I don't hold a trade to target?",
+  asIntro: "Ask in plain language — for questions about your own trades I work from the journal, for trading in general I'll just tell you.",
+  asEmptyAnswer: "Empty answer.", asAskFailed: "Couldn't get an answer: ",
+  asReviewMsg: "Show me what I'm doing wrong", asNothingFound: "No red flags yet — the journal looks solid.",
+  asReviewFailed: "Couldn't put the review together: ", asTitle: "Assistant",
+  asInputPh: "Ask about the journal or your trading…", asInputAria: "Question for the assistant",
+  asReviewTip: "Find patterns: strings of stops, rushing, risk",
+  asReviewBtn: "Review mistakes", asAskBtn: "Ask",
+
+  slTtl1h: "1 hour", slTtl24h: "24 hours", slTtl7d: "7 days", slTtl30d: "30 days", slTtlForever: "no limit",
+  slWinRate: "Win rate", slTotal: "Total",
+  slKindDay: "day", slKindWeek: "week", slKindMonth: "month", slKindYear: "year", slKindTrade: "trade",
+  slTradesTitle: "Trades", slByDays: "By day", slByMonths: "By month",
+  slDetails: "Details", slEntryBlock: "Entry",
+  slShareTitle: "Share",
+  slNote: "Only the calculated numbers are sent — the trades themselves and screenshots aren't reachable via the link.",
+  slDurationLabel: "How long the link lasts", slCreateBtn: "Create link", slCreating: "Creating…",
+  slCopyBtn: "Copy", slOpenBtn: "Open", slCopiedCheck: "Copied ✓", slDoneBtn: "Done",
+  slCreateError: "Couldn't create the link: ",
+  slDay: "Day", slWeek: "Week", slShareCap: "Share", slShareDay: "Share the day",
+
+  siBestSession: "Best session", siWorstSession: "Worst session", siBestAsset: "Best asset",
+  siReversals: "Reversals", siWithBias: "With the bias",
+  siBeLine: "Breakevens", siBeSavedPrefix: "saved ", siBeTookPrefix: "cost ",
+  siMonthResultsHeader: "MONTH RESULTS", siWinrate: "Winrate",
+  siCalendarHeader: "CALENDAR", siCumulativeHeader: "CUMULATIVE RESULT",
+  siNotEnoughTrades: "Not enough trades for a chart", siWhatMonthShowedHeader: "WHAT THE MONTH SHOWED",
+  siPerTrade: "per trade",
+  siModalTitle: "Image for the month", siDrawing: "Drawing…",
+  siCopyImgBtn: "Copy image", siDownloadBtn: "Download as file",
+  siDrawFailed: "Couldn't draw it: ",
+  siCopiedMsg: "Copied — paste it in Telegram with Ctrl+V",
+  siCopyUnavailable: "Copying isn't available, save it as a file", siFileSaved: "File saved",
+
+  uiPagiLabel: "Pages", uiPagiPrev: "‹ Back", uiPagiNext: "Next ›",
+  uiResetBtn: "Reset", uiNoPeriod: "No period selected",
+
+  thNight: "Night", thGraphite: "Graphite", thMidnight: "Midnight", thWine: "Wine", thPine: "Pine",
+  thDay: "Day", thPaper: "Paper", thFog: "Fog", thSand: "Sand",
+  thSelected: "selected", thCustom: "Custom", thModalTitle: "Appearance",
+  thDarkGroup: "Dark", thLightGroup: "Light",
+  thBase: "Base", thBaseDark: "Dark", thBaseLight: "Light", thBg: "Background", thAccent: "Accent",
+  thNoteHint: "Two colors — we'll work out the rest: panels, lines and highlights.",
+
+  sdNewTradeTip: "Log a trade · opens the panel from the bottom",
+  sdNavDashTip: "Totals for the week, month and year",
+  sdNavJournalTip: "Month calendar and all trades",
+  sdNavAnalyticsTip: "Breakdowns: setups, sessions, models",
+  sdNavNews: "News", sdNavNewsTip: "Economic calendar for the week",
+  sdYourJournal: "Your journal",
+  sdCalcTip: "Work out position size for your risk",
+  sdNotionConnect: "Connect Notion", sdNotionSub: "bring your trades over",
+  sdNotionTip: "Import your trades from Notion — entries, notes and screenshots",
+  sdTelegramTip: "Reminders about news and questions about emotions",
+  sdLangTip: "Interface language",
+  sdLogout: "Log out", sdLogoutTip: "Log out of your account",
+  sdSkinTip: "Appearance: light, dark and custom themes",
+  sdAssistantTip: "Ask about the journal, trading, or find your mistakes",
+  sdAssistantAria: "Open the assistant",
+
+  shLoadingMsg: "Loading…", shValidUntilPrefix: "valid until", shNoLimit: "no time limit",
+  shKindDefault: "stats", shMadeIn: "made with",
+  shLinkBroken: "This link doesn't work", shLinkBrokenDesc: "It was either removed or has expired.",
+  shOpenFailed: "Couldn't open it",
+},
+
+};
+
+let LANG = "uk", T = I18N.uk;
+
+/* Переключити мову: оновити T/LANG, застосувати статичні шматки бічної
+   панелі (якщо вона є на сторінці), перемалювати #main через render()
+   застосунку (якщо він уже підключений і завантажив дані) і запам'ятати
+   вибір у тому самому ключі, що й на сторінці входу. */
+function applyLang(code){
+  LANG = I18N[code] ? code : "uk";
+  T = I18N[LANG];
+  try{ window.T = T; window.LANG = LANG; }catch(e){}
+  document.documentElement.setAttribute("lang", T.htmlLang);
+  try{ localStorage.setItem("statsai_lang", LANG); }catch(e){}
+
+  const setText = (id, txt) => { const el = document.getElementById(id); if(el) el.textContent = txt; };
+  const setTip  = (el, txt) => { if(el) el.setAttribute("data-tip", txt); };
+
+  setText("brandTagline", T.tagline);
+
+  const ntb = document.getElementById("newTradeBtn");
+  if(ntb){ setTip(ntb, T.sdNewTradeTip); const sp = ntb.querySelector("span"); if(sp) sp.textContent = T.fmNewTitle; }
+
+  const navMap = {
+    dashboard: [T.ovTitle, T.sdNavDashTip],
+    journal:   [T.jrTitle, T.sdNavJournalTip],
+    analytics: [T.anTitle, T.sdNavAnalyticsTip],
+    news:      [T.sdNavNews, T.sdNavNewsTip],
+  };
+  Object.keys(navMap).forEach(k => {
+    const a = document.querySelector('.nav a[data-v="'+k+'"]');
+    if(a){ setTip(a, navMap[k][1]); const sp = a.querySelector("span"); if(sp) sp.textContent = navMap[k][0]; }
+  });
+
+  setText("journalLab", T.sdYourJournal);
+
+  const cb = document.getElementById("calcBtn");
+  if(cb){ setTip(cb, T.sdCalcTip); const sp = cb.querySelector("span"); if(sp) sp.textContent = T.ckTitle; }
+
+  const nb = document.getElementById("notionBtn");
+  if(nb){
+    setTip(nb, T.sdNotionTip);
+    const b = nb.querySelector("span b"); if(b) b.textContent = T.sdNotionConnect;
+    const i = nb.querySelector("span i"); if(i) i.textContent = T.sdNotionSub;
+  }
+
+  const tb = document.getElementById("telegramBtn");
+  if(tb) setTip(tb, T.sdTelegramTip);
+
+  const lb = document.getElementById("langBtn");
+  if(lb) setTip(lb, T.sdLangTip);
+  setText("langBtnLabel", T.label);
+
+  const lo = document.getElementById("logoutBtn");
+  if(lo){ setTip(lo, T.sdLogoutTip); const sp = lo.querySelector("span"); if(sp) sp.textContent = T.sdLogout; }
+
+  const sk = document.getElementById("skinBtn");
+  if(sk){ setTip(sk, T.sdSkinTip); const sp = sk.querySelector("span"); if(sp) sp.textContent = T.thModalTitle; }
+
+  const af = document.getElementById("asFabBtn");
+  if(af){
+    setTip(af, T.sdAssistantTip);
+    af.setAttribute("aria-label", T.sdAssistantAria);
+    const sp = af.querySelector("span"); if(sp) sp.textContent = T.asTitle;
+  }
+
+  setText("shLoadingMsg", T.shLoadingMsg);
+
+  // #main перемальовується самим застосунком — так підхоплюється увесь
+  // поточний екран, а не тільки статичні шматки навколо нього.
+  if (typeof render === "function"){
+    try{ render(); }catch(e){}
+  }
+}
+window.applyLang = applyLang;
+
+const LANG_ORDER = ["uk", "ru", "en"];
+function cycleLang(){
+  const i = LANG_ORDER.indexOf(LANG);
+  applyLang(LANG_ORDER[(i + 1) % LANG_ORDER.length]);
+}
+window.cycleLang = cycleLang;
+
+(function(){
+  let saved = "uk";
+  try{ saved = localStorage.getItem("statsai_lang") || "uk"; }catch(e){}
+  applyLang(saved);
+})();

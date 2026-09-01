@@ -47,8 +47,7 @@
       try { localStorage.setItem(KEY, JSON.stringify(trades)); } catch (e2) {}
       if (!warnedQuota) {
         warnedQuota = true;
-        alert("Демо-режим: скриншоти не помістилися в пам'ять браузера й не збережені.\n" +
-              "Самі угоди на місці. Повноцінно скриншоти працюють у локальній версії (app.py).");
+        alert(T.dmQuotaAlert);
       }
     }
   }

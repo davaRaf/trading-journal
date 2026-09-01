@@ -177,3 +177,18 @@ git push -u origin моя-ветка
 
 Дальше Vercel сам пересобирает демо при каждом пуше в `main` и делает отдельную
 ссылку-превью для каждого pull request.
+
+## Как подключить Railway (боевой сервер)
+
+Railway держит `app.py` постоянно запущенным (нужно для Telegram-бота `bot.py`
+и Postgres-соединений) — в отличие от Vercel, который отдаёт только статику демо.
+
+1. [railway.app](https://railway.app) → войти через GitHub.
+2. **New Project → Deploy from GitHub repo** → выбрать `trading-journal`.
+3. Настройки сборки и старта берутся из `railway.json` (NIXPACKS, `python app.py`).
+4. В **Variables** задать: `DATABASE_URL`, `BOT_TOKEN`, `GEMINI_API_KEY` (значения — из
+   локального `.env`, см. `.env.example`). `PORT` подставляет сам Railway.
+5. **Deploy**.
+
+Бот (`bot.py`) на Railway отдельным процессом не поднимается — он работает
+локально командой `start-bot.bat`, пока это не понадобится изменить.

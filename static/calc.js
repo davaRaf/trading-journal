@@ -16,16 +16,16 @@ const KEY = "statsai_calc";
 
 /* крок — це «один пункт» для інструмента, ціна — скільки коштує рух
    на один пункт при обсязі 1 лот */
-const PRESETS = [
-  {id:"US100",  name:"US100",  step:1,      price:1,   note:"індекс, CFD"},
-  {id:"GER40",  name:"GER40",  step:1,      price:1,   note:"індекс, CFD"},
-  {id:"ES500",  name:"ES500",  step:1,      price:1,   note:"індекс, CFD"},
-  {id:"XAUUSD", name:"XAUUSD", step:0.01,   price:1,   note:"1 лот = 100 унцій"},
-  {id:"EURUSD", name:"EURUSD", step:0.0001, price:10,  note:"1 лот = 100 000"},
-  {id:"GBPUSD", name:"GBPUSD", step:0.0001, price:10,  note:"1 лот = 100 000"},
-  {id:"USDJPY", name:"USDJPY", step:0.01,   price:6.7, note:"залежить від курсу"},
-  {id:"BTCUSD", name:"BTCUSD", step:1,      price:1,   note:"1 лот = 1 BTC"},
-];
+function PRESETS(){ return [
+  {id:"US100",  name:"US100",  step:1,      price:1,   note:T.ckNoteIndex},
+  {id:"GER40",  name:"GER40",  step:1,      price:1,   note:T.ckNoteIndex},
+  {id:"ES500",  name:"ES500",  step:1,      price:1,   note:T.ckNoteIndex},
+  {id:"XAUUSD", name:"XAUUSD", step:0.01,   price:1,   note:T.ckNoteOz},
+  {id:"EURUSD", name:"EURUSD", step:0.0001, price:10,  note:T.ckNoteLot100k},
+  {id:"GBPUSD", name:"GBPUSD", step:0.0001, price:10,  note:T.ckNoteLot100k},
+  {id:"USDJPY", name:"USDJPY", step:0.01,   price:6.7, note:T.ckNoteRateDep},
+  {id:"BTCUSD", name:"BTCUSD", step:1,      price:1,   note:T.ckNoteBtc},
+]; }
 
 const DEF = {balance:10000, risk:1, pair:"US100", entry:"", stop:"", rr:2, lotStep:0.01};
 
@@ -38,7 +38,7 @@ function save(s){ try{ localStorage.setItem(KEY, JSON.stringify(s)); }catch(e){}
 let S2 = load();
 
 function preset(id){
-  return PRESETS.find(p => p.id === id) || {id:id, name:id, step:1, price:1, note:""};
+  return PRESETS().find(p => p.id === id) || {id:id, name:id, step:1, price:1, note:""};
 }
 /* виправлену вартість пункту тримаємо окремо на кожен інструмент */
 function pointPrice(id){
@@ -108,70 +108,70 @@ function draw(){
   const p = preset(S2.pair);
   const over = c.money != null && c.real != null && c.real > c.money + 1e-9;
 
-  const pairs = PRESETS.map(x =>
+  const pairs = PRESETS().map(x =>
     '<button class="ck-pair' + (x.id === S2.pair ? " on" : "") + '"'
     + ' onclick="__calc.pair(\'' + x.id + '\')">' + esc(x.name) + "</button>").join("");
 
   /* ціну пункту не дублюємо: вона нижче полем, яке можна виправити */
   const rows = [
-    ["Сума ризику", fmtMoney(c.money)],
-    ["Дистанція до стопу", c.dist == null ? "—" : fmtNum(c.dist, c.dist < 10 ? 1 : 0)
-      + " пункт" + (c.dist >= 2 ? "ів" : "")],
+    [T.ckRiskAmount, fmtMoney(c.money)],
+    [T.ckStopDistance, c.dist == null ? "—" : fmtNum(c.dist, c.dist < 10 ? 1 : 0)
+      + " " + (c.dist >= 2 ? T.ckPointsWordPl : T.ckPointsWord)],
   ];
 
-  const h = '<div class="m-head"><h2>Калькулятор ризику</h2>'
+  const h = '<div class="m-head"><h2>' + T.ckTitle + '</h2>'
     + '<button class="x" onclick="closeModal()">×</button></div>'
     + '<div class="m-body"><div class="ck">'
 
     + '<div class="ck-pairs">' + pairs
-    +   '<button class="ck-pair' + (PRESETS.some(x => x.id === S2.pair) ? "" : " on")
-    +   '" onclick="__calc.own()">своє…</button></div>'
+    +   '<button class="ck-pair' + (PRESETS().some(x => x.id === S2.pair) ? "" : " on")
+    +   '" onclick="__calc.own()">' + T.ckOwnPair + '</button></div>'
 
     + '<div class="ck-grid">'
-    +   field("Депозит", "balance", {suf:"$"})
-    +   field("Ризик", "risk", {suf:"%"})
-    +   field("Ціна входу", "entry", {ph:"напр. 23150"})
-    +   field("Ціна стопу", "stop", {ph:"напр. 23110"})
+    +   field(T.ckDeposit, "balance", {suf:"$"})
+    +   field(T.fRisk, "risk", {suf:"%"})
+    +   field(T.ckEntryPrice, "entry", {ph:T.ckEntryPh})
+    +   field(T.ckStopPrice, "stop", {ph:T.ckStopPh})
     + "</div>"
 
     /* головна цифра */
     + '<div class="ck-out' + (c.lots ? "" : " off") + '">'
     +   '<div class="ck-lots"><b>' + (c.lots ? fmtNum(c.lots, 2) : "—") + "</b>"
-    +     "<span>лотів</span></div>"
+    +     "<span>" + T.ckLotsWord + "</span></div>"
     +   '<div class="ck-side">' + (c.side ? '<i class="' + (c.side === "Long" ? "up" : "down")
     +     '">' + c.side + "</i>" : "")
-    +     (c.exact ? '<small>точно ' + fmtNum(c.exact, 4) + ", округлили вниз</small>" : "")
+    +     (c.exact ? '<small>' + T.ckExactPrefix + ' ' + fmtNum(c.exact, 4) + ", " + T.ckRoundedDown + "</small>" : "")
     +   "</div></div>"
 
     + '<div class="ck-rows">' + rows.map(r =>
         '<div class="ck-r"><span>' + esc(r[0]) + "</span><b>" + esc(r[1]) + "</b></div>").join("")
-    +   '<div class="ck-r"><span>Втратиш при стопі</span><b class="' + (over ? "warn" : "")
+    +   '<div class="ck-r"><span>' + T.ckLossAtStop + '</span><b class="' + (over ? "warn" : "")
     +     '">' + fmtMoney(c.real) + "</b></div>"
     + "</div>"
 
     + '<div class="ck-tp">'
     +   '<div class="ck-grid ck-grid-2">'
-    +     field("Плановий RR", "rr", {suf:"R"})
-    +     '<label class="ck-f"><span>Ціна пункту</span>'
+    +     field(T.ckPlannedRR, "rr", {suf:"R"})
+    +     '<label class="ck-f"><span>' + T.ckPointPrice + '</span>'
     +       '<input inputmode="decimal" autocomplete="off" value="' + esc(c.vpp) + '"'
     +       ' oninput="__calc.price(this.value)"><i>$</i></label>'
     +   "</div>"
     +   '<div class="ck-rows">'
-    +     '<div class="ck-r"><span>Ціна тейку</span><b>'
+    +     '<div class="ck-r"><span>' + T.ckTakePrice + '</span><b>'
     +       (c.tp == null ? "—" : fmtNum(c.tp, c.step < 1 ? 4 : 1)) + "</b></div>"
-    +     '<div class="ck-r"><span>Заробиш при тейку</span><b class="up">'
+    +     '<div class="ck-r"><span>' + T.ckProfitAtTake + '</span><b class="up">'
     +       (c.profit == null ? "—" : "+" + fmtMoney(c.profit)) + "</b></div>"
     +   "</div>"
     + "</div>"
 
-    + '<p class="nt-note">Ціна пункту в різних брокерів різна — перевір у свого '
-    +   "й виправ, якщо не збігається. Для «" + esc(p.name) + "» "
-    +   (p.note ? "звично: " + esc(p.note) + ". " : "")
-    +   "Ми запам'ятаємо виправлене.</p>"
+    + '<p class="nt-note">' + T.ckPointPriceHint1 + ' '
+    +   T.ckPointPriceHint2 + " «" + esc(p.name) + "» "
+    +   (p.note ? T.ckUsuallyWord + ": " + esc(p.note) + ". " : "")
+    +   T.ckWillRemember + "</p>"
     + "</div></div>"
-    + '<div class="m-foot"><button class="btn ghost" onclick="__calc.clear()">Очистити</button>'
+    + '<div class="m-foot"><button class="btn ghost" onclick="__calc.clear()">' + T.ckClear + '</button>'
     + '<span class="sp"></span>'
-    + '<button class="btn primary" onclick="closeModal()">Готово</button></div>';
+    + '<button class="btn primary" onclick="closeModal()">' + T.ckDone + '</button></div>';
 
   openModal(h);
 }
@@ -190,13 +190,13 @@ function refresh(){
   const side = box.querySelector(".ck-side");
   if (side) side.innerHTML = (c.side ? '<i class="' + (c.side === "Long" ? "up" : "down") + '">'
       + c.side + "</i>" : "")
-    + (c.exact ? '<small>точно ' + fmtNum(c.exact, 4) + ", округлили вниз</small>" : "");
+    + (c.exact ? '<small>' + T.ckExactPrefix + ' ' + fmtNum(c.exact, 4) + ", " + T.ckRoundedDown + "</small>" : "");
 
   const rs = box.querySelectorAll(".ck > .ck-rows .ck-r b");
   if (rs.length >= 3){
     rs[0].textContent = fmtMoney(c.money);
     rs[1].textContent = c.dist == null ? "—" : fmtNum(c.dist, c.dist < 10 ? 1 : 0)
-      + " пункт" + (c.dist >= 2 ? "ів" : "");
+      + " " + (c.dist >= 2 ? T.ckPointsWordPl : T.ckPointsWord);
     rs[2].textContent = fmtMoney(c.real);
     rs[2].classList.toggle("warn", over);
   }
@@ -212,7 +212,7 @@ window.__calc = {
   set(k, v){ S2[k] = v; save(S2); refresh(); },
   pair(id){ S2.pair = id; S2.step = preset(id).step; save(S2); draw(); },
   own(){
-    const v = prompt("Назва інструмента", S2.pair || "");
+    const v = prompt(T.ckPromptName, S2.pair || "");
     if (!v) return;
     S2.pair = v.trim().toUpperCase();
     save(S2); draw();

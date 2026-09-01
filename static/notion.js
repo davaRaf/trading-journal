@@ -52,7 +52,7 @@ async function call(method, url, body){
   });
   let data = {};
   try{ data = await res.json(); }catch(e){}
-  if (!res.ok) throw new Error(data.error || ("сервер відповів " + res.status));
+  if (!res.ok) throw new Error(data.error || (T.ntServerReplied + " " + res.status));
   return data;
 }
 
@@ -85,22 +85,19 @@ function busy(sel, text){
 function stepLink(){
   paint(
     '<div class="nt">'
-    + '<p class="nt-lead">Перенесемо журнал із Notion цілком — угоди, нотатки зі сторінок '
-    + 'і скріншоти. Нічого копіювати руками не треба.</p>'
+    + '<p class="nt-lead">' + T.ntStep1Lead + '</p>'
     + '<ol class="nt-steps">'
-    + '<li>У Notion відкрий свою таблицю з угодами → <b>Share</b> → '
-    +   'увімкни <b>Publish to web</b>.</li>'
-    + '<li>Натисни <b>Copy web link</b> і встав посилання сюди.</li>'
+    + '<li>' + T.ntStep1Li1 + '</li>'
+    + '<li>' + T.ntStep1Li2 + '</li>'
     + '</ol>'
-    + '<label class="nt-lab">Посилання на таблицю</label>'
+    + '<label class="nt-lab">' + T.ntLinkLabel + '</label>'
     + '<input id="ntUrl" class="nt-inp" type="url" autocomplete="off" spellcheck="false"'
     +   ' value="' + esc(link) + '" placeholder="https://…notion.site/…">'
-    + '<p class="nt-note">Посилання має вести саме на таблицю — ту, де рядки й колонки. '
-    + 'Читаємо тільки для себе, нічого в Notion не змінюємо.</p>'
+    + '<p class="nt-note">' + T.ntLinkNote + '</p>'
     + lastHtml()
     + '</div>',
-    '<span class="sp"></span><button class="btn" onclick="closeModal()">Скасувати</button>'
-    + '<button class="btn primary" id="ntGo">Прочитати</button>'
+    '<span class="sp"></span><button class="btn" onclick="closeModal()">' + T.fmCancel + '</button>'
+    + '<button class="btn primary" id="ntGo">' + T.ntReadBtn + '</button>'
   );
   const input = document.getElementById("ntUrl");
   const go = () => read((input.value || "").trim());
@@ -110,15 +107,15 @@ function stepLink(){
 }
 
 async function read(url){
-  if (!url) return err("Встав посилання на таблицю");
-  busy("#ntGo", "Читаю…");
+  if (!url) return err(T.ntPasteLink);
+  busy("#ntGo", T.ntReading);
   let r;
   try{
     r = await call("POST", "/api/notion/preview", {url});
   }catch(e){
     err(e.message);
     const b = document.getElementById("ntGo");
-    if (b){ b.disabled = false; b.textContent = "Прочитати"; }
+    if (b){ b.disabled = false; b.textContent = T.ntReadBtn; }
     return;
   }
   link = url;
@@ -147,10 +144,9 @@ function soak(r){
 function lastHtml(){
   const l = state && state.last;
   if (!l || !l.id) return "";
-  return '<div class="nt-safe"><p>Останнє перенесення: <b>' + (l.count || 0)
-    + "</b> угод" + (l.when ? ", " + esc(l.when) : "") + ". Якщо щось пішло не так — "
-    + "його можна прибрати, журнал лишиться як був.</p>"
-    + '<button class="btn" onclick="__notion.undo(\'' + l.id + '\')">Скасувати перенесення</button></div>';
+  return '<div class="nt-safe"><p>' + T.ntLastImportPrefix + ' <b>' + (l.count || 0)
+    + "</b> " + T.wordTradeMany + (l.when ? ", " + esc(l.when) : "") + ". " + T.ntLastImportUndo + "</p>"
+    + '<button class="btn" onclick="__notion.undo(\'' + l.id + '\')">' + T.ntCancelImport + '</button></div>';
 }
 
 /* Скільки вже лежить у журналі — щоб перенесені не змішалися з чужими
@@ -158,8 +154,7 @@ function lastHtml(){
 function haveHtml(){
   const n = (typeof S !== "undefined" && S.all) ? S.all.length : 0;
   if (!n) return "";
-  return '<p class="nt-note">У журналі вже є <b>' + n + "</b> угод — перенесені "
-    + "додадуться до них. Якщо це чужі або демонстраційні, приберіть їх до перенесення.</p>";
+  return '<p class="nt-note">' + T.ntHaveAlready + ' <b>' + n + "</b> " + T.wordTradeMany + " " + T.ntHaveWillAdd + "</p>";
 }
 
 /* ---------- крок 2: яку таблицю переносимо ---------- */
@@ -167,32 +162,32 @@ function stepTables(notes){
   const same = (a, b) => a && b && a.collection === b.collection;
   const rows = tables.map((t, i) => {
     const on = picked.some(p => same(p, t));
-    const name = esc(t.title || "без назви")
+    const name = esc(t.title || T.ntNoTitle)
       + (t.path && t.path !== t.title ? ' <em>' + esc(t.path) + "</em>" : "");
     return '<label class="nt-tbl-row' + (on ? " on" : "") + '">'
       + '<input type="checkbox"' + (on ? " checked" : "")
       + ' onchange="__notion.pickTable(' + i + ', this.checked)">'
       + '<b>' + name + "</b>"
-      + '<span>' + (t.rows || 0) + " рядків</span>"
-      + '<i>' + (t.matched >= 3 ? "схоже на журнал" : "полів: " + t.matched) + "</i></label>";
+      + '<span>' + (t.rows || 0) + " " + T.ntRowsWord + "</span>"
+      + '<i>' + (t.matched >= 3 ? T.ntLooksLikeJournal : T.ntFieldsWord + ": " + t.matched) + "</i></label>";
   }).join("");
 
   paint(
     '<div class="nt">'
-    + '<p class="nt-lead">За посиланням знайшлося таблиць: <b>' + tables.length
-    + "</b>. Познач ті, де лежать угоди — перенесемо все за один раз.</p>"
+    + '<p class="nt-lead">' + T.ntFoundTablesPrefix + ' <b>' + tables.length
+    + "</b>. " + T.ntFoundTablesHint + "</p>"
     + (notes.length ? '<p class="nt-note">' + notes.map(esc).join(". ") + ".</p>" : "")
     + '<div class="nt-tbls">' + rows + "</div>"
     + '</div>',
-    '<button class="btn ghost" onclick="__notion.back()">Інше посилання</button>'
-    + '<span class="sp"></span><button class="btn" onclick="__notion.allTables()">Позначити всі</button>'
-    + '<button class="btn primary" id="ntNext" onclick="__notion.toMap()">Далі</button>'
+    '<button class="btn ghost" onclick="__notion.back()">' + T.ntOtherLink + '</button>'
+    + '<span class="sp"></span><button class="btn" onclick="__notion.allTables()">' + T.ntMarkAll + '</button>'
+    + '<button class="btn primary" id="ntNext" onclick="__notion.toMap()">' + T.ntNext + '</button>'
   );
 }
 
 async function toMap(){
-  if (!picked.length) return err("Познач хоча б одну таблицю");
-  busy("#ntNext", "Читаю…");
+  if (!picked.length) return err(T.ntMarkOneTable);
+  busy("#ntNext", T.ntReading);
   const best = picked.slice().sort((a, b) => b.matched - a.matched)[0];
   try{
     soak(await call("POST", "/api/notion/preview", {url: link, table: best}));
@@ -203,7 +198,7 @@ async function toMap(){
 /* ---------- крок 2: звірка колонок ---------- */
 function drawMap(){
   const fields = (state && state.fields) || [];
-  const opts = (cur) => '<option value="">— не переносити</option>'
+  const opts = (cur) => '<option value="">' + T.ntDontTransfer + '</option>'
     + columns.map(c => '<option value="' + esc(c.name) + '"'
         + (c.name === cur ? " selected" : "") + ">" + esc(c.name)
         + " · " + esc(c.type) + "</option>").join("");
@@ -214,44 +209,44 @@ function drawMap(){
   ).join("");
 
   const found = fields.filter(f => mapping[f.k]).length;
-  const what = (title ? "«" + esc(title) + "»" : "Таблиця")
-             + (total ? ", рядків: " + total : "");
+  const what = (title ? "«" + esc(title) + "»" : T.ntTableWord)
+             + (total ? ", " + T.ntRowsWord + ": " + total : "");
 
   /* Показуємо, що лишилось поза журналом — щоб було видно, що нічого
      не загубилось, і за потреби можна це кудись покласти. */
   const taken = new Set(fields.map(f => mapping[f.k]).filter(Boolean));
   const left = columns.filter(c => !taken.has(c.name)).map(c => c.name);
   const leftHtml = left.length
-    ? '<p class="nt-note">Не потрапили в журнал: ' + left.map(esc).join(", ")
-      + ". Якщо щось із цього потрібне — постав його у відповідне поле вище.</p>"
+    ? '<p class="nt-note">' + T.ntNotIncluded + ' ' + left.map(esc).join(", ")
+      + ". " + T.ntNotIncludedHint + "</p>"
     : "";
 
   const many = picked.length > 1
-    ? '<p class="nt-note">Переносимо з ' + picked.length
-      + " таблиць. Колонки звіряємо за «" + esc(title)
-      + "»; де вони інші — підберемо для тієї таблиці окремо.</p>"
+    ? '<p class="nt-note">' + T.ntTransferFromPrefix + ' ' + picked.length
+      + " " + T.ntTablesWord + ". " + T.ntColumnsMatchedBy + " «" + esc(title)
+      + "»; " + T.ntColumnsMatchedByRest + "</p>"
     : "";
 
   paint(
     '<div class="nt">'
-    + '<p class="nt-lead">' + what + ". Колонки звірені самі — <b>" + found + " з "
-    + fields.length + "</b>. Перевір і поправ, де не вгадало.</p>"
+    + '<p class="nt-lead">' + what + ". " + T.ntColumnsAutoMatched + " <b>" + found + " " + T.ntOfWord + " "
+    + fields.length + "</b>. " + T.ntCheckAndFix + "</p>"
     + many
     + '<div class="nt-map">' + rowsHtml + "</div>"
     + leftHtml
-    + '<div class="nt-sub">Як це виглядатиме</div>'
+    + '<div class="nt-sub">' + T.ntPreviewTitle + '</div>'
     + '<div class="nt-prev">' + preview() + "</div>"
     + haveHtml()
     + safeHtml()
     + '<div class="nt-opts">'
-    +   optChk("ntNotes", "Переносити нотатки зі сторінок", true)
-    +   optChk("ntShots", "Переносити скріншоти", true)
-    +   optChk("ntSkip",  "Пропускати вже перенесені угоди", true)
+    +   optChk("ntNotes", T.ntOptNotes, true)
+    +   optChk("ntShots", T.ntOptShots, true)
+    +   optChk("ntSkip",  T.ntOptSkip, true)
     + "</div></div>",
     '<button class="btn ghost" onclick="__notion.' + (tables.length > 1 ? "toTables" : "back")
-    + '()">' + (tables.length > 1 ? "Інша таблиця" : "Інше посилання") + "</button>"
-    + '<span class="sp"></span><button class="btn" onclick="closeModal()">Скасувати</button>'
-    + '<button class="btn primary" id="ntRun" onclick="__notion.run()">Перенести все</button>'
+    + '()">' + (tables.length > 1 ? T.ntOtherTable : T.ntOtherLink) + "</button>"
+    + '<span class="sp"></span><button class="btn" onclick="closeModal()">' + T.fmCancel + '</button>'
+    + '<button class="btn primary" id="ntRun" onclick="__notion.run()">' + T.ntTransferAll + '</button>'
   );
 }
 
@@ -259,9 +254,8 @@ function drawMap(){
    за крок до того, як вона знадобиться. */
 function safeHtml(){
   if (typeof exportData !== "function") return "";
-  return '<div class="nt-safe"><p>Перед перенесенням варто зберегти копію журналу: '
-    + "відкоту в імпорту немає.</p>"
-    + '<button class="btn" onclick="exportData()">Зберегти копію</button></div>';
+  return '<div class="nt-safe"><p>' + T.ntBackupHint + "</p>"
+    + '<button class="btn" onclick="exportData()">' + T.ntSaveBackup + '</button></div>';
 }
 
 function optChk(id, label, on){
@@ -270,10 +264,10 @@ function optChk(id, label, on){
 }
 
 function preview(){
-  if (!sample.length) return '<div class="nt-empty">У таблиці немає рядків.</div>';
+  if (!sample.length) return '<div class="nt-empty">' + T.ntNoRowsInTable + '</div>';
   const cell = v => esc(v === null || v === undefined || v === "" ? "—" : String(v));
   return '<table class="nt-tbl"><thead><tr>'
-    + "<th>Дата</th><th>Інструмент</th><th>Напрямок</th><th>Результат</th><th>RR</th><th>Ризик</th>"
+    + "<th>" + T.fDate + "</th><th>" + T.fPair + "</th><th>" + T.fPosition + "</th><th>" + T.fResult + "</th><th>RR</th><th>" + T.fRisk + "</th>"
     + "</tr></thead><tbody>"
     + sample.map(t => "<tr><td>" + cell((t.date || "").replace("T", " "))
         + "</td><td>" + cell(t.pair) + "</td><td>" + cell(t.position)
@@ -284,13 +278,13 @@ function preview(){
 
 /* ---------- крок 3: перенесення ---------- */
 async function run(){
-  if (!mapping.pair) return err("Вкажи, у якій колонці лежить інструмент — без нього угоду не записати");
+  if (!mapping.pair) return err(T.ntNeedPairColumn);
   const opts = {
     notes: document.getElementById("ntNotes").checked,
     shots: document.getElementById("ntShots").checked,
     skipExisting: document.getElementById("ntSkip").checked,
   };
-  busy("#ntRun", "Переношу…");
+  busy("#ntRun", T.ntTransferring);
   let job;
   try{
     job = await call("POST", "/api/notion/import",
@@ -301,7 +295,7 @@ async function run(){
 }
 
 function watch(jid){
-  drawProgress({state: "running", step: "готуємось", done: 0, total: 0});
+  drawProgress({state: "running", step: T.ntPreparing, done: 0, total: 0});
   clearInterval(poll);
   poll = setInterval(async () => {
     let j;
@@ -320,14 +314,13 @@ function drawProgress(j){
   paint(
     '<div class="nt">'
     + (bad ? '<div class="nt-err">' + esc(j.error) + "</div>"
-           : '<p class="nt-lead">Переношу журнал. Вікно можна не закривати — '
-             + "скріншоти качаються по одному.</p>")
+           : '<p class="nt-lead">' + T.ntTransferringHint + "</p>")
     + '<div class="nt-bar"><i style="width:' + pct + '%"></i></div>'
-    + '<div class="nt-prog"><b>' + (j.total ? j.done + " з " + j.total : "…") + "</b>"
+    + '<div class="nt-prog"><b>' + (j.total ? j.done + " " + T.ntOfWord + " " + j.total : "…") + "</b>"
     + "<span>" + esc(j.step || "") + "</span></div>"
     + '</div>',
-    bad ? '<span class="sp"></span><button class="btn" onclick="__notion.back()">Спробувати ще</button>'
-        : '<span class="sp"></span><button class="btn" disabled>Триває…</button>'
+    bad ? '<span class="sp"></span><button class="btn" onclick="__notion.back()">' + T.ntTryAgain + '</button>'
+        : '<span class="sp"></span><button class="btn" disabled>' + T.ntInProgress + '</button>'
   );
 }
 
@@ -337,29 +330,28 @@ async function finish(j){
 
   const line = (k, v) => '<div class="nt-stat"><b>' + v + "</b><span>" + k + "</span></div>";
   const warn = (j.warnings || []).length
-    ? '<div class="nt-sub">Що не вийшло</div><ul class="nt-warn">'
+    ? '<div class="nt-sub">' + T.ntWhatFailed + '</div><ul class="nt-warn">'
       + j.warnings.map(w => "<li>" + esc(w) + "</li>").join("") + "</ul>"
     : "";
   const assets = (j.newAssets || []).length
-    ? '<div class="nt-sub">Нові інструменти</div><div class="nt-tags">'
+    ? '<div class="nt-sub">' + T.ntNewAssets + '</div><div class="nt-tags">'
       + j.newAssets.map(a => "<i>" + esc(a) + "</i>").join("") + "</div>"
-      + '<p class="nt-note">Вони вже в статистиці й у підказках форми нової угоди.</p>'
+      + '<p class="nt-note">' + T.ntNewAssetsHint + '</p>'
     : "";
 
   const back = (j.batch && j.added)
-    ? '<button class="btn ghost" onclick="__notion.undo(\'' + j.batch + '\')">Скасувати перенесення</button>'
+    ? '<button class="btn ghost" onclick="__notion.undo(\'' + j.batch + '\')">' + T.ntCancelImport + '</button>'
     : "";
 
   paint(
-    '<div class="nt"><p class="nt-lead">Готово.</p>'
-    + '<div class="nt-stats">' + line("перенесено", j.added)
-      + line("пропущено", j.skipped) + line("скріншотів", j.shots) + "</div>"
+    '<div class="nt"><p class="nt-lead">' + T.ntDone + '.</p>'
+    + '<div class="nt-stats">' + line(T.ntTransferred, j.added)
+      + line(T.ntSkipped, j.skipped) + line(T.ntShotsWord, j.shots) + "</div>"
     + assets + warn
-    + (j.added ? '<p class="nt-note">Щось не так? Перенесення можна прибрати цілком — '
-        + "журнал стане таким, як був.</p>" : "")
+    + (j.added ? '<p class="nt-note">' + T.ntSomethingWrong + "</p>" : "")
     + "</div>",
     back + '<span class="sp"></span>'
-    + '<button class="btn primary" onclick="closeModal()">Закрити</button>'
+    + '<button class="btn primary" onclick="closeModal()">' + T.mrClose + '</button>'
   );
 }
 
@@ -380,7 +372,7 @@ function tabs(active){
   if (!t){
     t = document.createElement("div");
     t.className = "nt-tabs";
-    t.innerHTML = '<button data-t="file" onclick="__notion.tab(\'file\')">Файл</button>'
+    t.innerHTML = '<button data-t="file" onclick="__notion.tab(\'file\')">' + T.ntTabFile + '</button>'
                 + '<button data-t="notion" onclick="__notion.tab(\'notion\')">Notion</button>';
     head.querySelector("h2").after(t);
   }
@@ -406,17 +398,16 @@ function tab(which){
 /* ---------- вхід ---------- */
 async function openNotion(){
   if (typeof DEMO !== "undefined" && DEMO){
-    return paint('<div class="nt"><div class="nt-err">У демоверсії перенесення з Notion недоступне: '
-      + "воно працює тільки там, де є сервер журналу.</div></div>",
-      '<span class="sp"></span><button class="btn" onclick="closeModal()">Зрозуміло</button>');
+    return paint('<div class="nt"><div class="nt-err">' + T.ntDemoUnavailable + '</div></div>',
+      '<span class="sp"></span><button class="btn" onclick="closeModal()">' + T.ntGotIt + '</button>');
   }
-  paint('<div class="nt"><p class="nt-lead">Хвилинку…</p></div>', "");
+  paint('<div class="nt"><p class="nt-lead">' + T.ntOneMoment + '</p></div>', "");
   try{
     state = await call("GET", "/api/notion/state");
     link = state.url || link;
   }catch(e){
     return paint('<div class="nt"><div class="nt-err">' + esc(e.message) + "</div></div>",
-      '<span class="sp"></span><button class="btn" onclick="closeModal()">Закрити</button>');
+      '<span class="sp"></span><button class="btn" onclick="closeModal()">' + T.mrClose + '</button>');
   }
   stepLink();
 }
@@ -429,18 +420,18 @@ function open(){
 }
 
 async function undo(id){
-  if (!confirm("Прибрати всі угоди цього перенесення? Журнал стане таким, як був.")) return;
+  if (!confirm(T.ntConfirmUndo)) return;
   let r;
   try{ r = await call("POST", "/api/notion/undo/" + id, {}); }
   catch(e){ return err(e.message); }
   batch = null;
   try{ state = await call("GET", "/api/notion/state"); }catch(e){}
   try{ await reload(); render(); }catch(e){}
-  paint('<div class="nt"><p class="nt-lead">Прибрано угод: <b>' + (r.removed || 0)
-    + "</b>. Журнал такий, як був до перенесення.</p></div>",
+  paint('<div class="nt"><p class="nt-lead">' + T.ntUndoneCount + ' <b>' + (r.removed || 0)
+    + "</b>. " + T.ntUndoneHint + "</p></div>",
     '<span class="sp"></span>'
-    + '<button class="btn" onclick="__notion.back()">Спробувати ще</button>'
-    + '<button class="btn primary" onclick="closeModal()">Закрити</button>');
+    + '<button class="btn" onclick="__notion.back()">' + T.ntTryAgain + '</button>'
+    + '<button class="btn primary" onclick="closeModal()">' + T.mrClose + '</button>');
 }
 
 window.__notion = {

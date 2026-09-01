@@ -7,11 +7,8 @@
    ============================================================ */
 (function(){
 
-const WD = ["Нд","Пн","Вт","Ср","Чт","Пт","Сб"];
-const MON = ["січня","лютого","березня","квітня","травня","червня",
-             "липня","серпня","вересня","жовтня","листопада","грудня"];
 const IMPACT = {High:"h", Medium:"m", Low:"l", Holiday:"l"};
-const NAME   = {h:"Червоні", m:"Помаранчеві", l:"Жовті"};
+function NAME(){ return {h:T.nwImpactHigh, m:T.nwImpactMed, l:T.nwImpactLow}; }
 
 let events = null;       // null — ще не завантажено
 let warning = null;
@@ -33,7 +30,7 @@ async function load(){
       .filter(e => !isNaN(e._d))
       .sort((a,b) => a._d - b._d);
   }catch(err){
-    warning = "не вдалося отримати календар: " + err.message;
+    warning = T.nwFetchError + err.message;
     events = [];
   }
   if (S.view === "news") render();
@@ -49,11 +46,11 @@ window.__news = {
 function vNews(){
   if (events === null){
     load();
-    return '<div class="nw-empty">Завантаження календаря…</div>';
+    return '<div class="nw-empty">'+T.nwLoading+'</div>';
   }
   if (!events.length){
-    return '<div class="nw-empty">Подій немає.<br>'
-         + (warning ? esc(warning) : "Спробуй оновити сторінку за кілька хвилин.") + '</div>';
+    return '<div class="nw-empty">'+T.nwNoEvents+'<br>'
+         + (warning ? esc(warning) : T.nwRetryHint) + '</div>';
   }
 
   const days = [...new Set(events.map(e => dkey(e._d)))].sort();
@@ -66,12 +63,12 @@ function vNews(){
   let h = "";
 
   if (warning)
-    h += '<div class="nw-warn"><b>Увага.</b> ' + esc(warning) + '</div>';
+    h += '<div class="nw-warn"><b>'+T.nwAttention+'</b> ' + esc(warning) + '</div>';
 
   /* ---- дні тижня ---- */
   h += '<div class="nw-days">'
      + '<button class="nw-week' + (day==="all" ? " on" : "") + '" onclick="__news.day(\'all\')">'
-     + '<span class="wd">увесь</span><span class="dt">тиждень</span></button>';
+     + '<span class="wd">'+T.nwWeekAll1+'</span><span class="dt">'+T.nwWeekAll2+'</span></button>';
   for (const d of days){
     const dd = new Date(d + "T00:00");
     const of = events.filter(e => dkey(e._d) === d);
@@ -80,21 +77,21 @@ function vNews(){
                   || (of.length ? '<i class="l"></i>' : "");
     h += '<button class="nw-day' + (d===day?" on":"") + (d===today?" today":"") + '"'
        + ' onclick="__news.day(\''+d+'\')">'
-       + '<span class="wd">'+WD[dd.getDay()]+'</span>'
+       + '<span class="wd">'+T.wdSun[dd.getDay()]+'</span>'
        + '<span class="dt">'+dd.getDate()+'</span>'
        + '<span class="dots">'+dots+'</span></button>';
   }
   h += '</div>';
 
   /* ---- фільтри сегментами ---- */
-  h += '<div class="nw-filters"><div class="nw-grp"><span class="lab">Важливість</span>'
-     + chip("all", "Усі", inScope.length, impact, "imp", "all")
-     + ["h","m","l"].map(i => chip(i, NAME[i], cnt(i), impact, "imp", i)).join("")
+  h += '<div class="nw-filters"><div class="nw-grp"><span class="lab">'+T.nwImportance+'</span>'
+     + chip("all", T.nwAll, inScope.length, impact, "imp", "all")
+     + ["h","m","l"].map(i => chip(i, NAME()[i], cnt(i), impact, "imp", i)).join("")
      + '</div>';
 
   const curs = [...new Set(events.map(e => e.country))].filter(c => c && c !== "All").sort();
-  h += '<div class="nw-grp"><span class="lab">Валюта</span>'
-     + chip("all", "Усі", inScope.length, cur, "cur", "all")
+  h += '<div class="nw-grp"><span class="lab">'+T.nwCurrency+'</span>'
+     + chip("all", T.nwAll, inScope.length, cur, "cur", "all")
      + curs.map(c => chip(c, c, inScope.filter(e => e.country===c).length, cur, "cur", c)).join("")
      + '</div></div>';
 
@@ -113,7 +110,7 @@ function chip(id, label, n, active, kind, val){
 }
 
 function rows(items){
-  if (!items.length) return '<div class="nw-empty">За цим фільтром подій немає.</div>';
+  if (!items.length) return '<div class="nw-empty">'+T.nwNoFiltered+'</div>';
   const now = new Date();
   const next = items.find(e => e._d > now);
 
@@ -124,11 +121,11 @@ function rows(items){
       + '<div class="tm">'+t+'</div>'
       + '<div class="cur">'+esc(e.country||"—")+'</div>'
       + '<div class="ttl">'+esc(e.title)
-        + '<small>'+(e.impact==="Holiday" ? "вихідний" : NAME[e._i].toLowerCase())+'</small></div>'
+        + '<small>'+(e.impact==="Holiday" ? T.nwHoliday : NAME()[e._i].toLowerCase())+'</small></div>'
       + '<div class="num">'
-        + (e===next ? '<div class="badge">скоро</div>' : "")
-        + '<div><span>прогноз</span>'+(esc(e.forecast)||"—")+'</div>'
-        + '<div><span>було</span>'+(esc(e.previous)||"—")+'</div>'
+        + (e===next ? '<div class="badge">'+T.nwSoon+'</div>' : "")
+        + '<div><span>'+T.nwForecast+'</span>'+(esc(e.forecast)||"—")+'</div>'
+        + '<div><span>'+T.nwPrevious+'</span>'+(esc(e.previous)||"—")+'</div>'
       + '</div></div>';
   };
 
@@ -141,8 +138,8 @@ function rows(items){
     const k = dkey(e._d);
     if (k !== last){
       last = k;
-      out += '<div class="nw-dayhead"><b>' + WD[e._d.getDay()] + ", "
-           + e._d.getDate() + " " + MON[e._d.getMonth()] + '</b>'
+      out += '<div class="nw-dayhead"><b>' + T.wdSun[e._d.getDay()] + ", "
+           + e._d.getDate() + " " + T.monthsGen[e._d.getMonth()] + '</b>'
            + '<span>' + items.filter(x => dkey(x._d)===k).length + '</span>'
            + '<div class="rule"></div></div>';
     }

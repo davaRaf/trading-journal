@@ -8,16 +8,13 @@
    ============================================================ */
 (function(){
 
-const TTL = [
-  { id:"1h",      name:"1 година" },
-  { id:"24h",     name:"24 години" },
-  { id:"7d",      name:"7 днів" },
-  { id:"30d",     name:"30 днів" },
-  { id:"forever", name:"без обмеження" },
-];
-const MONTHS_G = ["січня","лютого","березня","квітня","травня","червня",
-                  "липня","серпня","вересня","жовтня","листопада","грудня"];
-const WD_UA = ["Нд","Пн","Вт","Ср","Чт","Пт","Сб"];
+function TTL(){ return [
+  { id:"1h",      name:T.slTtl1h },
+  { id:"24h",     name:T.slTtl24h },
+  { id:"7d",      name:T.slTtl7d },
+  { id:"30d",     name:T.slTtl30d },
+  { id:"forever", name:T.slTtlForever },
+]; }
 
 let lastTtl = "7d";
 try{ lastTtl = localStorage.getItem("share_ttl") || "7d"; }catch(e){}
@@ -27,12 +24,12 @@ try{ lastTtl = localStorage.getItem("share_ttl") || "7d"; }catch(e){}
 function statsOf(list){
   const st = calc(list);
   return [
-    { k:"Угод",         v:String(st.n) },
-    { k:"Win rate",     v:fmtPct(st.wr) },
-    { k:"Підсумок",     v:fmtR(st.net), cls: st.net>0 ? "pos" : st.net<0 ? "neg" : "" },
-    { k:"Середній RR",  v: st.rr==null ? "—" : String(r1(st.rr)) },
-    { k:"TP / SL / BE", v: st.wins+" / "+st.losses+" / "+st.be },
-    { k:"BE− / BE+",    v: st.beM+" / "+st.beP },
+    { k:T.kCount,         v:String(st.n) },
+    { k:T.slWinRate,     v:fmtPct(st.wr) },
+    { k:T.slTotal,     v:fmtR(st.net), cls: st.net>0 ? "pos" : st.net<0 ? "neg" : "" },
+    { k:T.kAvgRR,  v: st.rr==null ? "—" : String(r1(st.rr)) },
+    { k:T.kResSplit, v: st.wins+" / "+st.losses+" / "+st.be },
+    { k:T.kBeSplit,    v: st.beM+" / "+st.beP },
   ];
 }
 
@@ -52,16 +49,16 @@ function daySnapshot(dk){
   const list = sortAsc(S.all.filter(t => dayKey(t) === dk));
   const d = new Date(dk + "T00:00");
   return {
-    kind: "день",
-    title: d.getDate() + " " + MONTHS_G[d.getMonth()] + " " + d.getFullYear(),
+    kind: T.slKindDay,
+    title: d.getDate() + " " + T.monthsGen[d.getMonth()] + " " + d.getFullYear(),
     total: calc(list).net,
     kpis: statsOf(list),
     blocks: [
-      list.length ? { title:"Угоди", items: list.map(t => ({
+      list.length ? { title:T.slTradesTitle, items: list.map(t => ({
         name: (t.date||"").slice(11,16) + "  ·  " + (t.pair||"") + "  ·  " + resLabel(t.result),
         value: netR(t),
       })) } : null,
-      sliceBlock("Сесії", list, "session"),
+      sliceBlock(T.railSessions, list, "session"),
     ].filter(Boolean),
   };
 }
@@ -79,19 +76,19 @@ function weekSnapshot(anchor){
   const days = groupBy(list, dayKey);
   const byDay = Object.keys(days).sort().map(dd => {
     const dt = new Date(dd + "T00:00");
-    return { name: WD_UA[dt.getDay()] + ", " + dt.getDate() + " " + MONTHS_G[dt.getMonth()],
+    return { name: T.wdSun[dt.getDay()] + ", " + dt.getDate() + " " + T.monthsGen[dt.getMonth()],
              value: calc(days[dd]).net };
   });
   return {
-    kind: "тиждень",
-    title: mon.getDate() + " " + MONTHS_G[mon.getMonth()] + " — "
-         + sun.getDate() + " " + MONTHS_G[sun.getMonth()],
+    kind: T.slKindWeek,
+    title: mon.getDate() + " " + T.monthsGen[mon.getMonth()] + " — "
+         + sun.getDate() + " " + T.monthsGen[sun.getMonth()],
     total: calc(list).net,
     kpis: statsOf(list),
     blocks: [
-      byDay.length ? { title:"По днях", items: byDay } : null,
-      sliceBlock("Сетапи", list, "setup"),
-      sliceBlock("Інструменти", list, "pair"),
+      byDay.length ? { title:T.slByDays, items: byDay } : null,
+      sliceBlock(T.railSetups, list, "setup"),
+      sliceBlock(T.railInstruments, list, "pair"),
     ].filter(Boolean),
   };
 }
@@ -103,15 +100,15 @@ function monthSnapshot(mk){
   const byDay = Object.keys(days).sort()
     .map(d => ({ name: d.slice(8) + "." + d.slice(5,7), value: calc(days[d]).net }));
   return {
-    kind: "місяць",
-    title: MONTHS[+m - 1] + " " + y,
+    kind: T.slKindMonth,
+    title: T.months[+m - 1] + " " + y,
     total: calc(list).net,
     kpis: statsOf(list),
     blocks: [
-      sliceBlock("Сетапи", list, "setup"),
-      sliceBlock("Інструменти", list, "pair"),
-      sliceBlock("Сесії", list, "session"),
-      byDay.length ? { title:"По днях", items: byDay } : null,
+      sliceBlock(T.railSetups, list, "setup"),
+      sliceBlock(T.railInstruments, list, "pair"),
+      sliceBlock(T.railSessions, list, "session"),
+      byDay.length ? { title:T.slByDays, items: byDay } : null,
     ].filter(Boolean),
   };
 }
@@ -120,16 +117,16 @@ function yearSnapshot(y){
   const list = S.all.filter(t => (t.date||"").slice(0,4) === String(y));
   const months = groupBy(list, monKey);
   const byMonth = Object.keys(months).sort()
-    .map(mk => ({ name: MONTHS[+mk.slice(5,7) - 1], value: calc(months[mk]).net }));
+    .map(mk => ({ name: T.months[+mk.slice(5,7) - 1], value: calc(months[mk]).net }));
   return {
-    kind: "рік",
+    kind: T.slKindYear,
     title: String(y),
     total: calc(list).net,
     kpis: statsOf(list),
     blocks: [
-      byMonth.length ? { title:"По місяцях", items: byMonth } : null,
-      sliceBlock("Сетапи", list, "setup"),
-      sliceBlock("Інструменти", list, "pair"),
+      byMonth.length ? { title:T.slByMonths, items: byMonth } : null,
+      sliceBlock(T.railSetups, list, "setup"),
+      sliceBlock(T.railInstruments, list, "pair"),
     ].filter(Boolean),
   };
 }
@@ -139,28 +136,28 @@ function tradeSnapshot(id){
   if (!t) return null;
   const net = netR(t);
   const info = [
-    ["Інструмент", t.pair], ["Дата", (t.date||"").replace("T", " ")],
-    ["Напрямок", t.position], ["Біас", t.bias],
-    ["Тип входу", dirType(t)], ["Модель", t.entry_model],
-    ["Сетап", t.setup],
-    ["Ризик", t.risk==null ? "" : t.risk + "%"],
+    [T.fPair, t.pair], [T.fDate, (t.date||"").replace("T", " ")],
+    [T.fPosition, t.position], [T.fBias, t.bias],
+    [T.fmEntryTypeLabel, dirType(t)], [T.flModel, t.entry_model],
+    [T.fSetup, t.setup],
+    [T.fRisk, t.risk==null ? "" : t.risk + "%"],
     ["RR", t.rr==null ? "" : String(t.rr)],
   ].filter(([, v]) => v).map(([name, text]) => ({ name, text }));
 
   return {
-    kind: "угода",
+    kind: T.slKindTrade,
     title: t.pair + " · " + resLabel(t.result),
     total: net,
     kpis: [
-      { k:"Результат", v:resLabel(t.result) },
-      { k:"Підсумок",  v:fmtR(net), cls: net>0 ? "pos" : net<0 ? "neg" : "" },
+      { k:T.fResult, v:resLabel(t.result) },
+      { k:T.slTotal,  v:fmtR(net), cls: net>0 ? "pos" : net<0 ? "neg" : "" },
       { k:"RR",        v: t.rr==null ? "—" : String(t.rr) },
-      { k:"Ризик",     v: t.risk==null ? "—" : t.risk + "%" },
+      { k:T.fRisk,     v: t.risk==null ? "—" : t.risk + "%" },
     ],
     blocks: [
-      { title:"Деталі", items: info },
+      { title:T.slDetails, items: info },
       (t.entry_details||"").trim()
-        ? { title:"Вхід", items:[{ name:t.entry_details, text:"" }] } : null,
+        ? { title:T.slEntryBlock, items:[{ name:t.entry_details, text:"" }] } : null,
     ].filter(Boolean),
   };
 }
@@ -176,19 +173,18 @@ function open(kind, arg){
   if (!data) return;
 
   openModal(
-    '<div class="m-head"><b>Поділитися</b><span class="sp"></span>'
-    + '<button class="btn" onclick="closeModal()">Закрити</button></div>'
+    '<div class="m-head"><b>' + T.slShareTitle + '</b><span class="sp"></span>'
+    + '<button class="btn" onclick="closeModal()">' + T.mrClose + '</button></div>'
     + '<div class="m-body sh-body">'
-    + '<p class="sh-note">Надсилаються лише пораховані цифри — самі угоди й скриншоти '
-    + 'за посиланням недоступні.</p>'
+    + '<p class="sh-note">' + T.slNote + '</p>'
     + '<div class="sh-what"><b>' + esc(data.title) + '</b><span>' + esc(data.kind) + '</span></div>'
-    + '<div class="sh-lab">Скільки посилання діє</div>'
-    + '<div class="sh-ttl">' + TTL.map(t =>
+    + '<div class="sh-lab">' + T.slDurationLabel + '</div>'
+    + '<div class="sh-ttl">' + TTL().map(t =>
         '<button class="sh-chip' + (t.id===lastTtl ? " on" : "") + '" data-t="' + t.id + '">'
         + t.name + '</button>').join("") + '</div>'
     + '<div class="sh-out" id="shOut" hidden></div>'
     + '</div>'
-    + '<div class="m-foot"><button class="btn go" id="shGo">Створити посилання</button>'
+    + '<div class="m-foot"><button class="btn go" id="shGo">' + T.slCreateBtn + '</button>'
     + '<span class="sp"></span></div>'
   );
 
@@ -199,7 +195,7 @@ function open(kind, arg){
   });
 
   document.getElementById("shGo").onclick = async function(){
-    this.disabled = true; this.textContent = "Створюю…";
+    this.disabled = true; this.textContent = T.slCreating;
     try{
       const res = await fetch("/api/share", {
         method:"POST", headers:{"Content-Type":"application/json"},
@@ -211,18 +207,18 @@ function open(kind, arg){
       const out = document.getElementById("shOut");
       out.hidden = false;
       out.innerHTML = '<input class="sh-url" id="shUrl" readonly value="' + esc(url) + '">'
-        + '<button class="btn" id="shCopy">Копіювати</button>'
-        + '<a class="btn" href="' + esc(r.url) + '" target="_blank" rel="noopener">Відкрити</a>';
+        + '<button class="btn" id="shCopy">' + T.slCopyBtn + '</button>'
+        + '<a class="btn" href="' + esc(r.url) + '" target="_blank" rel="noopener">' + T.slOpenBtn + '</a>';
       document.getElementById("shUrl").select();
       document.getElementById("shCopy").onclick = async () => {
         try{ await navigator.clipboard.writeText(url); }
         catch(e){ document.getElementById("shUrl").select(); document.execCommand("copy"); }
-        document.getElementById("shCopy").textContent = "Скопійовано ✓";
+        document.getElementById("shCopy").textContent = T.slCopiedCheck;
       };
-      this.textContent = "Готово";
+      this.textContent = T.slDoneBtn;
     }catch(err){
-      this.disabled = false; this.textContent = "Створити посилання";
-      alert("Не вдалося створити посилання: " + err.message);
+      this.disabled = false; this.textContent = T.slCreateBtn;
+      alert(T.slCreateError + err.message);
     }
   };
 }
@@ -283,15 +279,15 @@ function mountBar(){
   const year = mk ? mk.slice(0,4) : String(new Date().getFullYear());
 
   const btns = [];
-  if (hasDay(d))     btns.push(mkBtn("День",    "day",   d));
-  if (hasWeek(d))    btns.push(mkBtn("Тиждень", "week",  d));
-  if (hasMonth(mk))  btns.push(mkBtn("Місяць",  "month", mk));
-  if (hasYear(year)) btns.push(mkBtn("Рік",     "year",  year));
+  if (hasDay(d))     btns.push(mkBtn(T.slDay,    "day",   d));
+  if (hasWeek(d))    btns.push(mkBtn(T.slWeek, "week",  d));
+  if (hasMonth(mk))  btns.push(mkBtn(T.ovPeriodMonth,  "month", mk));
+  if (hasYear(year)) btns.push(mkBtn(T.ovPeriodYear,     "year",  year));
   if (!btns.length) return;
 
   const bar = document.createElement("div");
   bar.className = "sh-bar";
-  bar.innerHTML = '<span class="sh-cap">Поділитися</span>';
+  bar.innerHTML = '<span class="sh-cap">' + T.slShareCap + '</span>';
   btns.forEach(b => bar.appendChild(b));
 
   /* у журналі кнопки живуть у шапці розділу — поруч із «Картинка для каналу»,
@@ -322,7 +318,7 @@ function mountDayPanel(){
   if (!panel || panel.querySelector(".sh-day")) return;
   const d = curDay();
   if (!hasDay(d)) return;
-  const b = mkBtn("Поділитися днем", "day", d, "sh-day");
+  const b = mkBtn(T.slShareDay, "day", d, "sh-day");
   const add = panel.querySelector(".addday");
   add ? panel.insertBefore(b, add) : panel.appendChild(b);
 }
@@ -336,7 +332,7 @@ function mountTradeCard(){
     if (!del) return;
     const m = del.getAttribute("onclick").match(/delTrade\('([^']+)'\)/);
     if (!m) return;
-    const b = mkBtn("Поділитися", "trade", m[1], "sh-trade");
+    const b = mkBtn(T.slShareCap, "trade", m[1], "sh-trade");
     foot.insertBefore(b, del);
   });
 }

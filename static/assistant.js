@@ -3,12 +3,9 @@
 "use strict";
 
 const Assistant = (function(){
-  const HINTS = [
-    "Який у мене вінрейт цього тижня?",
-    "Де я найбільше зливаю?",
-    "Як перестати відігруватися після стопа?",
-    "Що робити, коли не тримаю угоду до цілі?",
-  ];
+  function HINTS(){ return [
+    T.asHint1, T.asHint2, T.asHint3, T.asHint4,
+  ]; }
   let log = [];          // {who:"me"|"ai", text}
   let busy = false;
 
@@ -24,9 +21,8 @@ const Assistant = (function(){
   function bodyHtml(){
     if(!log.length){
       return '<div class="as-empty">' +
-        "<p>Питай звичайними словами — про свої угоди рахую по журналу, " +
-        "про торгівлю загалом просто розповім.</p>" +
-        '<div class="as-hints">' + HINTS.map(h =>
+        "<p>" + T.asIntro + "</p>" +
+        '<div class="as-hints">' + HINTS().map(h =>
           '<button type="button" class="as-hint" data-q="' + esc(h) + '">' + esc(h) + "</button>"
         ).join("") + "</div></div>";
     }
@@ -62,9 +58,9 @@ const Assistant = (function(){
     paint();
     try{
       const r = await api("POST", "/api/assistant/ask", {question: text, history});
-      log.push({who:"ai", text: r.answer || "Порожня відповідь."});
+      log.push({who:"ai", text: r.answer || T.asEmptyAnswer});
     }catch(e){
-      log.push({who:"ai", text: "Не вийшло запитати: " + e.message});
+      log.push({who:"ai", text: T.asAskFailed + e.message});
     }
     busy = false;
     paint();
@@ -76,16 +72,16 @@ const Assistant = (function(){
     if(busy) return;
     const history = log.slice(-8);   // за нею помічник впізнає мову розмови
     busy = true;
-    log.push({who:"me", text:"Подивись, що я роблю не так"});
+    log.push({who:"me", text:T.asReviewMsg});
     paint();
     try{
       const r = await api("POST", "/api/assistant/review", {history});
       const facts = (r.facts || []).map(f => "• " + f).join("\n");
       log.push({who:"ai", text: r.text
         ? r.text + (facts ? "\n\n" + facts : "")
-        : (facts || "Поки що зачіпок немає — журнал рівний.")});
+        : (facts || T.asNothingFound)});
     }catch(e){
-      log.push({who:"ai", text: "Не вийшло зібрати розбір: " + e.message});
+      log.push({who:"ai", text: T.asReviewFailed + e.message});
     }
     busy = false;
     paint();
@@ -93,18 +89,18 @@ const Assistant = (function(){
 
   function open(){
     const h =
-      '<div class="m-head"><h2>Помічник</h2>' +
-        '<button class="x" onclick="closeModal()" aria-label="Закрити">×</button></div>' +
+      '<div class="m-head"><h2>' + T.asTitle + '</h2>' +
+        '<button class="x" onclick="closeModal()" aria-label="' + T.mrClose + '">×</button></div>' +
       '<div class="m-body as-body">' +
         '<div class="as-log" aria-live="polite"></div>' +
       "</div>" +
       '<div class="m-foot as-foot">' +
-        '<textarea class="as-input" rows="3" placeholder="Спитати про журнал або про торгівлю…" ' +
-          'aria-label="Питання до помічника"></textarea>' +
+        '<textarea class="as-input" rows="3" placeholder="' + T.asInputPh + '" ' +
+          'aria-label="' + T.asInputAria + '"></textarea>' +
         '<div class="as-actions">' +
-          '<button class="btn as-review" type="button" data-tip="Знайти збої в роботі: серії стопів, поспіх, ризик">Розбір помилок</button>' +
+          '<button class="btn as-review" type="button" data-tip="' + T.asReviewTip + '">' + T.asReviewBtn + '</button>' +
           '<span class="sp"></span>' +
-          '<button class="btn primary as-send" type="button">Спитати</button>' +
+          '<button class="btn primary as-send" type="button">' + T.asAskBtn + '</button>' +
         "</div>" +
       "</div>";
     Sheet.open(h, {cls:"as-panel"});

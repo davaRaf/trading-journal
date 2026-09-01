@@ -276,10 +276,10 @@ const Pagi = (function(){
     const btn = n => typeof n === "number"
       ? '<button class="pg num'+(n===p?" on":"")+'" '+go(n)+'>'+n+"</button>"
       : '<span class="pg gap">…</span>';
-    return '<nav class="pagi" aria-label="Сторінки">'+
-      '<button class="pg step" '+(p>1?go(p-1):'disabled')+'>‹ Назад</button>'+
+    return '<nav class="pagi" aria-label="'+T.uiPagiLabel+'">'+
+      '<button class="pg step" '+(p>1?go(p-1):'disabled')+'>'+T.uiPagiPrev+'</button>'+
       numbers(p, pages).map(btn).join("")+
-      '<button class="pg step" '+(p<pages?go(p+1):'disabled')+'>Далі ›</button></nav>';
+      '<button class="pg step" '+(p<pages?go(p+1):'disabled')+'>'+T.uiPagiNext+'</button></nav>';
   }
   function go(key, n){
     if(typeof S === "undefined") return;
@@ -384,7 +384,7 @@ const DatePicker = (function(){
     const dim = new Date(Y,M+1,0).getDate();
     const prev = new Date(Y,M,0).getDate();
     const today = iso(new Date());
-    let h = WDS.map(w=>'<span class="dp-wd">'+w+"</span>").join("");
+    let h = T.wds.map(w=>'<span class="dp-wd">'+w+"</span>").join("");
     for(let i=first;i>0;i--) h += '<span class="dp-day off">'+(prev-i+1)+"</span>";
     for(let d=1;d<=dim;d++){
       const key = Y+"-"+String(M+1).padStart(2,"0")+"-"+String(d).padStart(2,"0");
@@ -399,11 +399,11 @@ const DatePicker = (function(){
     return h;
   }
   function paint(){
-    pop.querySelector(".dp-title").textContent = MONTHS[view.getMonth()]+" "+view.getFullYear();
+    pop.querySelector(".dp-title").textContent = T.months[view.getMonth()]+" "+view.getFullYear();
     pop.querySelector(".dp-grid").innerHTML = grid();
     const foot = pop.querySelector(".dp-foot");
     if(foot){
-      const txt = sel.from || sel.to ? (human(sel.from)||"…")+" — "+(human(sel.to)||"…") : "Період не вибрано";
+      const txt = sel.from || sel.to ? (human(sel.from)||"…")+" — "+(human(sel.to)||"…") : T.uiNoPeriod;
       foot.querySelector(".dp-val").textContent = txt;
     }
   }
@@ -448,8 +448,8 @@ const DatePicker = (function(){
       '<span class="dp-title"></span><button class="dp-nav" data-m="1">›</button></div>'+
       '<div class="dp-grid"></div>'+
       (opts.mode === "range"
-        ? '<div class="dp-foot"><span class="dp-val"></span><button class="dp-clear">Скинути</button></div>'
-        : '<div class="dp-foot"><span class="dp-val">&nbsp;</span><button class="dp-clear">Сьогодні</button></div>');
+        ? '<div class="dp-foot"><span class="dp-val"></span><button class="dp-clear">'+T.uiResetBtn+'</button></div>'
+        : '<div class="dp-foot"><span class="dp-val">&nbsp;</span><button class="dp-clear">'+T.jrToday+'</button></div>');
     document.body.appendChild(pop);
     paint(); place();
     requestAnimationFrame(()=>pop && pop.classList.add("in"));
