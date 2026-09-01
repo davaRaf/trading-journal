@@ -1628,16 +1628,25 @@ async function exportData(){
 /* ================= рендер ================= */
 const VIEWS={dashboard:vDashboard,journal:vJournal,monthly:vJournal,quarterly:vQuarterly,yearly:vYearly,analytics:vAnalytics};
 let tickedView=null;                 /* цифры отсчитываются при смене раздела, а не при каждой перерисовке */
+let bootRendered=false;              /* перший рендер іде одразу після заставки-лоадера — своя
+                                         плавна поява карток тут зайва: між лоадером і готовим
+                                         виглядом інакше проскакує ще один «порожній» кадр */
 function render(){
   const v=VIEWS[S.view]?S.view:"dashboard";
   document.querySelectorAll(".nav a").forEach(a=>a.classList.toggle("on",a.dataset.v===v));
   if(window.PL) PL.reset();
   /* «enter» только при смене раздела: перерисовка после правки угоди
      не должна каждый раз моргать всей страницей */
-  const fresh = tickedView!==v;
+  const fresh = tickedView!==v && bootRendered;
   $("#main").innerHTML='<div class="page'+(fresh?" enter":"")+'">'+VIEWS[v]()+"</div>";
-  /* блоки появляются тихо, как в макете */
-  requestAnimationFrame(()=>document.querySelectorAll(".page .rise,.ovw .rail").forEach(el=>el.classList.add("in")));
+  /* блоки появляются тихо, как в макете — крім найпершого рендера: там
+     одразу показуємо готовий вигляд без окремої появи */
+  if(bootRendered){
+    requestAnimationFrame(()=>document.querySelectorAll(".page .rise,.ovw .rail").forEach(el=>el.classList.add("in")));
+  }else{
+    document.querySelectorAll(".page .rise,.ovw .rail").forEach(el=>el.classList.add("in"));
+    bootRendered=true;
+  }
   tickedView=v;
   if(window.Ticker) Ticker.run($("#main"), fresh);
   if(window.PL) PL.mount();
