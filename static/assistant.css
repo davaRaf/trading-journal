@@ -54,27 +54,33 @@
 .as-review{white-space:nowrap}
 
 /* ---------- кнопка-«бульбашка», що висить поверх сторінки ---------- */
+/* сама іконка — маскот-«бот» у кольорах теми: рамка/вушка currentColor,
+   екран-віконце var(--accent) (зливається з тлом кнопки) */
 .as-fab{position:fixed; right:22px; bottom:22px; z-index:45;
-  display:flex; align-items:center; gap:9px;
-  padding:13px 20px 13px 17px; border-radius:999px;
+  display:flex; align-items:center; justify-content:center;
+  width:58px; height:58px; padding:0; border-radius:50%;
   background:var(--accent); color:var(--accent-ink,#fff);
-  border:none; font:inherit; font-size:14px; font-weight:600; cursor:pointer;
+  border:none; cursor:pointer;
   box-shadow:var(--shadow-badge), 0 10px 30px -10px var(--accent);
   transition:transform .16s, box-shadow .16s, opacity .18s}
-.as-fab:hover{transform:translateY(-2px)}
-.as-fab:active{transform:translateY(0)}
+.as-fab:hover{transform:translateY(-2px) scale(1.05)}
+.as-fab:active{transform:translateY(0) scale(.96)}
 .as-fab:focus-visible{outline:2px solid var(--accent); outline-offset:3px}
-.as-fab .ic{flex:none}
+.as-fab-ic{display:block; animation:asBotFloat 2.6s ease-in-out infinite}
+.as-fab-eyes{transform-box:fill-box; transform-origin:center;
+  animation:asBotBlink 4.2s ease-in-out infinite}
+@keyframes asBotFloat{0%,100%{transform:translateY(0)} 50%{transform:translateY(-3px)}}
+@keyframes asBotBlink{0%,88%,100%{transform:scaleY(1)} 92%{transform:scaleY(.15)}}
 /* поки відкрита будь-яка панель — кнопка не заважає */
 body:has(.pnl-wrap) .as-fab, body:has(.modal:not([hidden])) .as-fab{
   opacity:0; pointer-events:none; transform:translateY(8px)}
 
 @media (max-width:560px){
   .as-bubble{max-width:94%}
-  .as-fab{right:14px; bottom:14px; padding:13px; gap:0}
-  .as-fab span{display:none}
+  .as-fab{right:14px; bottom:14px; width:52px; height:52px}
 }
 @media (prefers-reduced-motion:reduce){
   .as-fab{transition:opacity .18s}
   .as-fab:hover{transform:none}
+  .as-fab-ic, .as-fab-eyes{animation:none}
 }
