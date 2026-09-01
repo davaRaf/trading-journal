@@ -37,11 +37,50 @@ function rememberPairs(list){
   try{ localStorage.setItem(PAIRS_KEY, JSON.stringify(all)); }catch(e){}
   applyPairs(all);
 }
+/* Той самий розбір, що й на сервері: «US100 (1)» і «US100 (2)» — це один
+   інструмент. Інакше у формі нової угоди підказки роздвоюються. */
+function tidyPair(v){
+  let s = String(v || "").trim().replace(/\\/g, "/").replace(/\s+/g, " ");
+  let prev = null;
+  while (prev !== s){
+    prev = s;
+    s = s.replace(/\s*[([]\s*\d{1,2}\s*[)\]]\s*$|\s+#\d{1,2}\s*$|\s+\d\s*$/, "").trim();
+  }
+  /* кириличні двійники латинських літер: «USD\САD» оком не відрізнити,
+     а це вже інший інструмент. Міняємо лише коли виходить тикер. */
+  const LOOK = {"А":"A","В":"B","Е":"E","К":"K","М":"M","Н":"H","О":"O","Р":"P",
+                "С":"C","Т":"T","У":"Y","Х":"X","І":"I","а":"a","е":"e","о":"o",
+                "р":"p","с":"c","у":"y","х":"x","і":"i"};
+  const swapped = [...s].map(ch => LOOK[ch] || ch).join("");
+  const ticker = /^[A-Za-z0-9./-]{2,12}$/;
+  if (ticker.test(swapped)) s = swapped;
+  return ticker.test(s) ? s.toUpperCase() : s;
+}
+
 function applyPairs(list){
   if (typeof PAIRS_ACTIVE === "undefined") return;
-  for (const p of list) if (p && !PAIRS_ACTIVE.includes(p)) PAIRS_ACTIVE.push(p);
+  for (const raw of list){
+    const p = tidyPair(raw);
+    if (p && !PAIRS_ACTIVE.includes(p)) PAIRS_ACTIVE.push(p);
+  }
 }
-try{ applyPairs(JSON.parse(localStorage.getItem(PAIRS_KEY) || "[]")); }catch(e){}
+
+/* Підказки будуємо з журналу, а не лише зі старого списку: якщо в базі
+   назви вже звели докупи, підказки підуть слідом самі. */
+function pairsFromJournal(){
+  if (typeof S === "undefined" || !S.all) return [];
+  return [...new Set(S.all.map(t => tidyPair(t.pair)).filter(Boolean))];
+}
+
+try{
+  const saved = JSON.parse(localStorage.getItem(PAIRS_KEY) || "[]");
+  const tidy = [...new Set(saved.map(tidyPair).filter(Boolean))];
+  if (tidy.length !== saved.length || tidy.some((v, i) => v !== saved[i]))
+    localStorage.setItem(PAIRS_KEY, JSON.stringify(tidy));   // чистимо старий список
+  applyPairs(tidy);
+}catch(e){}
+
+window.addEventListener("load", () => setTimeout(() => applyPairs(pairsFromJournal()), 1500));
 
 /* ---------- звернення до сервера ---------- */
 async function call(method, url, body){

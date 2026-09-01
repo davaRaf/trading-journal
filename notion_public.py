@@ -215,6 +215,59 @@ def _date_str(d):
     return (day + "T" + tm) if (day and tm) else day
 
 
+# ------------------------------------------------------------------ связи
+
+# Notion хранит связь как ссылку на страницу: в значении лежит только id.
+# Название приходится спрашивать отдельно — зато можно пачкой.
+_REL = {}
+
+
+def rel_ids(rich):
+    out = []
+    for seg in rich or []:
+        if not isinstance(seg, list) or len(seg) < 2:
+            continue
+        for m in (seg[1] if isinstance(seg[1], list) else []):
+            if isinstance(m, list) and len(m) > 1 and m[0] == "p":
+                out.append(m[1])
+    return out
+
+
+def resolve_relations(ids, space, chunk=60):
+    """Дотягиваем названия связанных страниц. Спрашиваем пачками и запоминаем:
+       сетапов и сессий в журнале десяток, а угод — сотни."""
+    todo = [i for i in dict.fromkeys(ids) if i and i not in _REL]
+    for k in range(0, len(todo), chunk):
+        part = todo[k:k + chunk]
+        body = {"requests": [{"pointer": {"table": "block", "id": i, "spaceId": space},
+                              "version": -1} for i in part]}
+        try:
+            res = _post("syncRecordValues", body, space)
+        except NotionError:
+            for i in part:
+                _REL[i] = ""
+            continue
+        blocks = ((res.get("recordMap") or {}).get("block") or {})
+        for i in part:
+            rec = _unwrap(blocks.get(i) or {})
+            _REL[i] = _plain((rec.get("properties") or {}).get("title")) if rec else ""
+    return _REL
+
+
+def prefetch_relations(blocks, ids, schema, space):
+    """Собираем все связи со всех строк разом — и один раз спрашиваем."""
+    rel_cols = [k for k, v in (schema or {}).items() if (v or {}).get("type") == "relation"]
+    if not rel_cols:
+        return
+    want = []
+    for bid in ids:
+        props = (_unwrap(blocks.get(bid) or {}).get("properties") or {})
+        for k in rel_cols:
+            want += rel_ids(props.get(k))
+    if want:
+        resolve_relations(want, space)
+
+
 def _files(rich):
     """Вложения: [["имя.png", [["a", "https://…"]]]]"""
     out = []
@@ -251,6 +304,10 @@ def row_props(block, schema):
         ptype = meta.get("type") or ""
         if ptype in ("file", "files"):
             files += [{"url": f["url"], "caption": name} for f in _files(rich)]
+            continue
+        if ptype == "relation":
+            # у человека так лежат сессия, направление и сетап — раньше терялись
+            out[name] = ", ".join(x for x in (_REL.get(i, "") for i in rel_ids(rich)) if x)
             continue
         out[name] = _plain(rich)
     return out, files
@@ -307,6 +364,7 @@ def describe(t, rm=None, path=""):
 
     ids, total = rows_of(res)
     blocks = (res.get("recordMap") or {}).get("block") or {}
+    prefetch_relations(blocks, ids[:PROBE], schema, t["space"])
     seen, row_ids = [], []
     for bid in ids[:PROBE]:
         props, _f = row_props(_unwrap(blocks.get(bid) or {}), schema)
@@ -442,6 +500,8 @@ def run_public_import(job, tables, mapping, opts, shots_dir, known_pairs, existi
             schema, title = schema_of(rm, src["collection"])
             if not schema:
                 continue
+            job.step = "читаємо звʼязки"
+            prefetch_relations(rm.get("block") or {}, ids, schema, src["space"])
 
             # Своё сопоставление, если общее к этой таблице не подходит
             types = {(v.get("name") or k): (v.get("type") or "") for k, v in schema.items()}
