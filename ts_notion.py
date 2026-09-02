@@ -86,6 +86,11 @@ _TF_UNIT_NUM = re.compile(                    # запис MetaTrader: H1, M15, 
     r"(?<![%s])([HMDWhmdwМмГгЧчДдТтНн])\s*(\d{1,3})(?![%s])" % (_LETTER, _LETTER))
 # кирилиця в тому ж записі: М15, Г1, Д1, Т1
 _CYR_UNIT = {"М": "M", "Г": "H", "Ч": "H", "Д": "D", "Т": "W", "Н": "W"}
+# «D/4h», «1h/15m», «М5/М3»: коли таймфрейми перелічують через скісну, одна
+# з частин часто без числа — сама лише буква. «D» тут означає денний.
+_TF_BARE = re.compile(
+    r"(?<![%s])([DWHMdwhmДдТтГгЧчМм])\s*(?=/)"      # буква перед скісною
+    r"|(?<=/)\s*([DWHMdwhmДдТтГгЧчМм])(?![%s])" % (_LETTER, _LETTER))
 _TF_WORDS = [
     (r"\b(daily|денний|дневной|добов\w*)\b", "1D"),
     (r"\b(weekly|тижневий|недельный)\b", "1W"),
@@ -123,6 +128,10 @@ def _tf_split(line):
         letter = m.group(1).upper()
         letter = _CYR_UNIT.get(letter, letter)
         add("%d%s" % (int(m.group(2)), letter), m.span())
+    for m in _TF_BARE.finditer(line):
+        letter = (m.group(1) or m.group(2)).upper()
+        letter = _CYR_UNIT.get(letter, letter)
+        add("1" + letter, m.span())
     for pat, tf in _TF_WORDS:
         m = re.search(pat, line, re.I)
         if m:
@@ -131,7 +140,8 @@ def _tf_split(line):
     rest = line
     for a, b in sorted(cuts, reverse=True):       # з кінця, щоб не з'їхали межі
         rest = rest[:a] + " " + rest[b:]
-    rest = re.sub(r"\s+", " ", rest).strip(" \t:—–-•,;")
+    # «/» теж прибираємо: від «D/4h» лишався смітник «/ -» на початку опису
+    rest = re.sub(r"\s+", " ", rest).strip(" \t:—–-•,;/")
     return tfs, rest
 
 
@@ -149,11 +159,19 @@ def _hits(line, table):
 
 def parse(text):
     """З рядків сторінки збираємо чернетку стратегії."""
-    lines = [l.strip(" \t•-—") for l in (text or "").split("\n")]
-    lines = [l for l in lines if l]
+    # запам'ятовуємо, чи був рядок пунктом списку: під таймфреймом майже
+    # завжди йде перелік, і без цієї позначки в розділ потрапляв самий заголовок
+    lines, is_item = [], []
+    for raw in (text or "").split("\n"):
+        s = raw.strip()
+        if not s:
+            continue
+        is_item.append(bool(re.match(r"^[•·*\-—–]\s+|^\d+[.)]\s+", s)))
+        lines.append(s.strip(" \t•·*-—–"))
 
     assets, models, tf_seen = [], [], []
     tf_text = {}                       # таймфрейм -> що по ньому написано
+    tf_role_src = {}                   # вступний рядок таймфрейму — з нього беремо роль
     # заздалегідь знаємо, у якому рядку є таймфрейм: щоб під заголовком
     # «H1» забрати опис із наступних рядків і зупинитись на сусідньому ТФ
     split = [_tf_split(l) for l in lines]
@@ -174,21 +192,35 @@ def parse(text):
 
         found, rest = split[i]
         if found:
-            # опис у тому ж рядку; якщо рядок — сам лише заголовок, беремо
-            # наступні рядки до сусіднього таймфрейму
+            # «1h – На нім я знаходжу:» і нижче пункти — забираємо і те, й те
+            items = []
+            for j in range(i + 1, len(lines)):
+                if split[j][0] or not is_item[j]:
+                    break
+                items.append(lines[j])
+                if len(items) >= 12:
+                    break
+
             note = rest
-            if not note:
+            if not note and not items:
+                # рядок — самий лише заголовок, а опис нижче звичайним текстом
                 tail = []
                 for j in range(i + 1, min(i + 4, len(lines))):
                     if split[j][0]:
                         break
                     tail.append(lines[j])
                 note = " ".join(tail)
+            if items:
+                note = (note + ":\n" if note else "") + "\n".join("• " + x for x in items)
+
             for tf in found:
                 if tf not in tf_seen:
                     tf_seen.append(tf)
                 if note and not tf_text.get(tf):
-                    tf_text[tf] = note[:300]
+                    tf_text[tf] = note[:800]
+                    # роль шукаємо у вступному рядку, а не в пунктах: там про
+                    # неї і пишуть («(entry)», «контекст»), а список лише збиває
+                    tf_role_src.setdefault(tf, rest)
 
         # вікна сесій: назва сесії поруч із проміжком часу
         tm = TIME_RE.search(line)
@@ -250,7 +282,7 @@ def parse(text):
         note = tf_text.get(tf, "")
         role = ""
         for pat, name in roles:
-            if re.search(pat, note, re.I):
+            if re.search(pat, tf_role_src.get(tf, "") or note, re.I):
                 role = name
                 break
         tfs.append({"tf": tf, "role": role, "what": note, "shot": ""})

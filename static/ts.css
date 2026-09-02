@@ -88,7 +88,9 @@
 .ts-tf .n{font-family:var(--mono); font-size:26px; line-height:1}
 .ts-tf .role{font-family:var(--mono); font-size:9px; letter-spacing:.13em; text-transform:uppercase;
   color:var(--faint); margin-top:7px}
-.ts-tf .what{font-size:13.5px; color:var(--dim); line-height:1.6}
+/* під таймфреймом зазвичай перелік — зберігаємо переноси, інакше пункти
+   злипаються в один абзац і читати їх неможливо */
+.ts-tf .what{font-size:13.5px; color:var(--dim); line-height:1.6; white-space:pre-wrap}
 
 /* цифри ризику */
 .ts-three{display:flex; gap:44px; flex-wrap:wrap}
