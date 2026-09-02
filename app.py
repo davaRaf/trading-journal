@@ -715,5 +715,11 @@ class H(BaseHTTPRequestHandler):
 
 if __name__ == "__main__":
     db.init()
+    if config.RUN_BOT and config.BOT_TOKEN:
+        # бот живе поруч із сайтом: на безкоштовному хостингу другий
+        # процес тримати ніде, а опитування Телеграма нікому не заважає
+        import bot
+        threading.Thread(target=bot.main, daemon=True).start()
+        print("Telegram bot -> у тому самому процесі")
     print("Trading Journal -> http://localhost:%d/  (Ctrl+C stop)" % PORT)
-    ThreadingHTTPServer(("127.0.0.1", PORT), H).serve_forever()
+    ThreadingHTTPServer((config.HOST, PORT), H).serve_forever()

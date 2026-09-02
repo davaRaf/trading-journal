@@ -44,8 +44,22 @@ function blank(){
           shots: {}, fact: {}, marks: {}, trades: {}};
 }
 
+/* У публічному демо сервера немає — розбори дня живуть у браузері,
+   як і угоди. Скрін там лишається картинкою всередині запису:
+   класти його нікуди. */
+const DEMO_KEY = "statsai_day_demo";
+function demo(){ return typeof DEMO !== "undefined" && DEMO; }
+function demoAll(){
+  try{ return JSON.parse(localStorage.getItem(DEMO_KEY) || "{}"); }catch(e){ return {}; }
+}
+
 async function load(){
   const want = DATE;
+  if (demo()){
+    N = demoAll()[want] || null;
+    if (S.view === "day") render();
+    return;
+  }
   try{
     const r = await api("GET", "/api/day/" + want);
     if (DATE !== want) return;                 /* встигли перегорнути далі */
@@ -55,6 +69,13 @@ async function load(){
 }
 
 async function loadStats(){
+  if (demo()){
+    const all = demoAll();
+    STATS = Object.keys(all).map(k => ({date: k, data: all[k],
+      match: (all[k].marks || {}).match || "", hold: (all[k].marks || {}).hold || ""}));
+    if (S.view === "day") render();
+    return;
+  }
   try{
     const r = await api("GET", "/api/day/stats");
     STATS = r.notes || [];
@@ -64,11 +85,17 @@ async function loadStats(){
 
 let saveTimer = null;
 function save(){
+  STATS = null;                                /* підсумок доведеться перерахувати */
+  if (demo()){
+    const all = demoAll();
+    all[DATE] = N;
+    try{ localStorage.setItem(DEMO_KEY, JSON.stringify(all)); }catch(e){}
+    return;
+  }
   clearTimeout(saveTimer);
   const date = DATE, body = N;
   saveTimer = setTimeout(() => {
     api("POST", "/api/day/" + date, {day: body}).catch(() => {});
-    STATS = null;                              /* підсумок доведеться перерахувати */
   }, 400);
 }
 
@@ -98,7 +125,8 @@ function shotBox(key, cap){
   const f = (N.shots || {})[key];
   const d = D();
   return '<div class="dv-shot' + (f ? " has" : "") + '" data-shot="' + key + '">'
-    + (f ? '<img alt="" src="/dnshot/' + esc(f) + '"><button class="rm" type="button">×</button>'
+    + (f ? '<img alt="" src="' + esc(/^data:/.test(f) ? f : "/dnshot/" + f)
+           + '"><button class="rm" type="button">×</button>'
          : '<div class="ph"><b>+</b>' + esc(cap) + "<em>" + esc(d.shotHint) + "</em></div>")
     + "</div>";
 }
@@ -118,6 +146,12 @@ function shrink(url, cb){
 }
 
 async function upload(el, dataUrl){
+  if (demo()){
+    if (!N.shots) N.shots = {};
+    N.shots[el.dataset.shot] = dataUrl;
+    save(); render();
+    return;
+  }
   el.classList.add("busy");
   try{
     const r = await api("POST", "/api/day/shot", {data: dataUrl});
