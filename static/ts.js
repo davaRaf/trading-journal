@@ -585,7 +585,18 @@ function askOpen(){
   document.body.style.overflow = "hidden";
   drawAsk();
 }
-function askClose(){
+/* Чи є що втрачати: опитування нічого не зберігає до самого кінця, тож
+   вийти посеред нього — це стерти всі відповіді. Але коли ще нічого не
+   відповіли, перепитувати нема про що. */
+function askDirty(){
+  return Object.keys(answers || {}).some(k => {
+    const v = answers[k];
+    return Array.isArray(v) ? v.length > 0 : String(v || "").trim() !== "";
+  });
+}
+
+function askClose(force){
+  if (!force && askDirty() && !confirm(D().confirmQuitAsk)) return;
   if (askBox && askBox.parentNode) askBox.parentNode.removeChild(askBox);
   askBox = null;
   document.body.style.overflow = "";
@@ -764,7 +775,7 @@ function finish(){
   };
   checked = {};
   save();
-  askClose();
+  askClose(true);          // збережено — питати «точно вийти?» тут нема сенсу
   render();
 }
 
@@ -894,6 +905,7 @@ uk: {
   gateOk: "усе закрито — за твоїми правилами вхід є", gateBad: "поки не все закрито — за твоїми ж правилами входу немає",
   btnAsk: "Пройти опитування", btnDelete: "Видалити ТС",
   confirmDelete: "Видалити стратегію? Скріни до неї теж зникнуть.",
+  confirmQuitAsk: "Вийти з опитування? Відповіді не збережуться.",
 
   realFew: "Замало угод для звірки — потрібно хоча б п'ять",
   realNeed: "Щоб звіряти, заповни хоча б мінімальний RR, ризик або ліміт за день",
@@ -997,6 +1009,7 @@ ru: {
   gateOk: "всё закрыто — по твоим правилам вход есть", gateBad: "пока закрыто не всё — по твоим же правилам входа нет",
   btnAsk: "Пройти опрос", btnDelete: "Удалить ТС",
   confirmDelete: "Удалить стратегию? Скрины к ней тоже пропадут.",
+  confirmQuitAsk: "Выйти из опроса? Ответы не сохранятся.",
 
   realFew: "Мало сделок для сверки — нужно хотя бы пять",
   realNeed: "Чтобы сверять, заполни хотя бы минимальный RR, риск или лимит за день",
@@ -1100,6 +1113,7 @@ en: {
   gateOk: "all ticked — by your rules the entry is valid", gateBad: "not everything is ticked — by your own rules there is no entry",
   btnAsk: "Run the questions", btnDelete: "Delete system",
   confirmDelete: "Delete the system? Its screenshots go too.",
+  confirmQuitAsk: "Leave the questionnaire? Your answers will be lost.",
 
   realFew: "Too few trades to compare — five at least",
   realNeed: "To compare, fill in at least the minimum RR, the risk or the daily limit",
