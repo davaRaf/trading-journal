@@ -33,6 +33,17 @@ Telegram — их страница входа, которая возвращае
 
 `oauth.py`, маршруты в `app.py`, кнопки в `static/login.html`. Ключи — см. README.
 
+**Состояние на хостинге (02.09.2026):**
+- **Google** — включён и опубликован (Google Auth Platform → «In production»), заходить
+  может любой аккаунт Google. Страницы `/privacy` и `/terms` нужны именно для этого.
+- **Discord** — код готов, но приложение в discord.com/developers ещё не создано
+  (портал требует капчу при создании). Создать `StatsAI`, в OAuth2 → Redirects добавить
+  `https://trading-journal-production-440c.up.railway.app/auth/discord/callback`,
+  затем на Railway задать `DISCORD_CLIENT_ID` и `DISCORD_CLIENT_SECRET` — кнопка
+  появится сама после перезапуска.
+- **Telegram** — включён; если виджет отвечает «Bot domain invalid», в @BotFather:
+  `/setdomain` → `@statsai_trader_bot` → `trading-journal-production-440c.up.railway.app`.
+
 ---
 
 ## 02.09.2026 — Раздел «Аналіз дня»
