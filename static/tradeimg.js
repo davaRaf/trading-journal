@@ -139,9 +139,14 @@ async function buildTradeImage(t){
     .filter(x => (x[1] || "").trim())
     .map(([k, v]) => ({k, lines: wrap(probe, v.trim(), inner)}));
 
-  let H = PAD + 120 + 132 + rows * 58 + 34
-        + blocks.reduce((a, b) => a + 34 + b.lines.length * 38 + 18, 0)
-        + (imgs.length ? 44 + shotsHeight(imgs, inner) : 0) + 74;
+  /* Висота рахується рівно за тим, що малюємо нижче: до першого рядка
+     фактів іде 346px, кожен блок тексту з'їдає 56 + рядки. Раніше тут
+     стояли приблизні числа — і на угодах із нотатками підпис унизу
+     налізав на останній рядок. */
+  let H = PAD + 346 + rows * 58
+        + blocks.reduce((a, b) => a + 56 + b.lines.length * 38, 0)
+        + (imgs.length ? 56 + shotsHeight(imgs, inner) : 0)
+        + 96;
 
   const cv = document.createElement("canvas");
   const dpr = 2;

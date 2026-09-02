@@ -209,7 +209,16 @@ function tradesHtml(){
       +   (t.entry_model ? " <i>· " + esc(t.entry_model) + "</i>" : "") + "</span>"
       + '<button class="fl ' + f + '" onclick="__dv.flag(\'' + t.id + '\')">'
       +   esc(f === "plan" ? d.byPlan : f === "off" ? d.offPlan : d.markIt) + "</button>"
-      + '<span class="r ' + clsR(r) + '">' + fmtR(r) + "</span></div>";
+      + '<span class="r ' + clsR(r) + '">' + fmtR(r) + "</span>"
+      /* поділитись саме цією угодою, а не всім днем */
+      + '<button class="dv-sh" type="button" title="' + esc(d.shareTip)
+      +   '" onclick="__dv.share(\'' + t.id + '\')">'
+      +   '<svg width="15" height="15" viewBox="0 0 24 24" fill="none">'
+      +   '<rect x="3" y="4" width="18" height="14" rx="2.5" stroke="currentColor" stroke-width="1.7"/>'
+      +   '<path d="M3 14.5l4.5-4 3.5 3 4-4.5L21 14" stroke="currentColor" stroke-width="1.7" '
+      +   'stroke-linecap="round" stroke-linejoin="round"/>'
+      +   '<circle cx="8.5" cy="8.5" r="1.4" fill="currentColor"/></svg></button>'
+      + "</div>";
   }).join("") + "</div>"
     + '<div class="dv-auto"><b>' + esc(d.autoTag) + "</b>" + esc(d.tradesAuto) + "</div>";
 }
@@ -447,6 +456,12 @@ window.__dv = {
     N.levels[i].dcls = cycle[N.levels[i].dcls || ""];
     save(); render();
   },
+  /* Зведення по одній угоді: та сама картинка, що й у журналі —
+     з деталями входу й скрінами. День цілком тут не потрібен. */
+  share(id){
+    if (window.Share) Share.open("trade", id);
+    else if (window.__tradeImg) __tradeImg.open("trade", id);
+  },
   flag(id){
     if (!N.trades) N.trades = {};
     const cycle = {"": "plan", plan: "off", off: ""};
@@ -520,6 +535,7 @@ uk: {
   tradesAuto: "Угоди підтягуються з журналу — тут їх не набирають",
   noTrades: "За цей день угод у журналі немає",
   byPlan: "за планом", offPlan: "поза планом", markIt: "позначити",
+  shareTip: "Поділитись зведенням саме по цій угоді",
   markMatch: "Ринок пішов за планом", markHold: "Тримався плану",
 
   waitTitle: "Вечір · ще попереду",
@@ -578,6 +594,7 @@ ru: {
   tradesAuto: "Сделки подтягиваются из журнала — тут их не набирают",
   noTrades: "За этот день сделок в журнале нет",
   byPlan: "по плану", offPlan: "вне плана", markIt: "отметить",
+  shareTip: "Поделиться сводкой именно по этой сделке",
   markMatch: "Рынок пошёл по плану", markHold: "Держался плана",
 
   waitTitle: "Вечер · ещё впереди",
@@ -636,6 +653,7 @@ en: {
   tradesAuto: "Trades come from the journal — no typing here",
   noTrades: "No trades in the journal for this day",
   byPlan: "by plan", offPlan: "off plan", markIt: "mark",
+  shareTip: "Share a summary of this trade alone",
   markMatch: "Market went as planned", markHold: "Held to the plan",
 
   waitTitle: "Evening · still ahead",

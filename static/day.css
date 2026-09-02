@@ -113,7 +113,7 @@ textarea.dv-in{min-height:84px; resize:vertical}
 
 /* ---------- угоди дня ---------- */
 .dv-trs{display:flex; flex-direction:column}
-.dv-tr{display:grid; grid-template-columns:1fr auto auto; gap:12px; align-items:center;
+.dv-tr{display:grid; grid-template-columns:1fr auto auto auto; gap:12px; align-items:center;
   padding:11px 0; border-bottom:1px solid var(--line-soft); position:relative}
 .dv-tr:last-child{border-bottom:none}
 .dv-tr .nm{font-size:13.5px; min-width:0}
@@ -125,6 +125,14 @@ textarea.dv-in{min-height:84px; resize:vertical}
 .dv-tr .fl:hover{color:var(--text)}
 .dv-tr .fl.plan{background:var(--up-soft); border-color:transparent; color:var(--up)}
 .dv-tr .fl.off{background:var(--down-soft); border-color:transparent; color:var(--down)}
+/* поділитись однією угодою: показуємо, тільки коли ведеш по рядку —
+   щоб іконка не мигтіла в очах над кожним рядком */
+.dv-sh{border:0; background:transparent; color:var(--faint); padding:4px; cursor:pointer;
+  border-radius:6px; display:flex; align-items:center; opacity:0; transition:opacity .15s, color .15s}
+.dv-tr:hover .dv-sh{opacity:1}
+.dv-sh:hover{color:var(--accent); background:var(--panel-2)}
+.dv-sh:focus-visible{opacity:1}
+
 .dv-tr.off::before{content:""; position:absolute; left:-12px; top:8px; bottom:8px; width:2px;
   border-radius:2px; background:var(--down)}
 
