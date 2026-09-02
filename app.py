@@ -188,6 +188,57 @@ def share_shot_ok(rec, name):
     return False
 
 
+# Превью посилання в мессенджері — як у TradingView: заголовок, рядок
+# цифр і картинка входу. Telegram і Discord скриптів не виконують, тому
+# теги Open Graph вставляє сервер, а не сторінка.
+TF_ORDER = ["1W", "1D", "4H", "2H", "1H", "30M", "15M", "5M", "3M", "1M"]
+
+
+def tf_rank(tf):
+    t = str(tf or "").upper().replace(" ", "")
+    return TF_ORDER.index(t) if t in TF_ORDER else len(TF_ORDER)
+
+
+def share_preview_shot(rec):
+    """Скрін для превью — наймолодший таймфрейм першої угоди зі скрінами:
+    саме на ньому видно, як набиралась позиція."""
+    for t in (rec.get("data") or {}).get("trades") or []:
+        shots = [sh for sh in (t.get("shots") or []) if sh.get("file")]
+        if shots:
+            return max(shots, key=lambda sh: tf_rank(sh.get("tf")))["file"]
+    return None
+
+
+def share_og(rec, sid, base):
+    d = rec.get("data") or {}
+    title = (d.get("title") or "StatsAI") + " · StatsAI"
+    # перші два показники читаються самі (TP, +3.1%), решті потрібен підпис (RR 3.1)
+    kpis = [k for k in (d.get("kpis") or [])[:4] if k.get("v")]
+    bits = [str(k["v"]) for k in kpis[:2]] + ["%s %s" % (k.get("k"), k["v"]) for k in kpis[2:]]
+    if d.get("kind"):
+        bits.insert(0, str(d["kind"]))
+    desc = " · ".join(bits) or "StatsAI"
+    shot = share_preview_shot(rec)
+    esc_ = lambda x: str(x).replace("&", "&amp;").replace('"', "&quot;").replace("<", "&lt;")
+    tags = [
+        '<meta property="og:type" content="website">',
+        '<meta property="og:site_name" content="StatsAI">',
+        '<meta property="og:title" content="%s">' % esc_(title),
+        '<meta property="og:description" content="%s">' % esc_(desc),
+        '<meta property="og:url" content="%s/s/%s">' % (base, sid),
+        '<meta name="twitter:title" content="%s">' % esc_(title),
+        '<meta name="twitter:description" content="%s">' % esc_(desc),
+    ]
+    if shot:
+        img = "%s/api/share/%s/shot/%s" % (base, sid, shot)
+        tags += ['<meta property="og:image" content="%s">' % img,
+                 '<meta name="twitter:image" content="%s">' % img,
+                 '<meta name="twitter:card" content="summary_large_image">']
+    else:
+        tags += ['<meta name="twitter:card" content="summary">']
+    return "\n".join(tags)
+
+
 def share_read(sid):
     """Отдаёт снимок или None, если его нет либо срок вышел."""
     if not re.fullmatch(r"[A-Za-z0-9_-]{6,32}", sid or ""):
@@ -407,7 +458,30 @@ class H(BaseHTTPRequestHandler):
                 return self._json({"error": "посилання не знайдено або прострочене"}, 404)
             return self._json(rec)
         if p.startswith("/s/"):
-            return self._file(os.path.join(STATIC, "share.html"), "text/html; charset=utf-8")
+            sid = p[len("/s/"):].strip("/")
+            rec = share_read(sid)
+            try:
+                with open(os.path.join(STATIC, "share.html"), "rb") as f:
+                    html = f.read().decode("utf-8")
+            except Exception:
+                self.send_response(404); self.end_headers(); return
+            if rec:
+                proto = self.headers.get("X-Forwarded-Proto") or "http"
+                host = self.headers.get("X-Forwarded-Host") or self.headers.get("Host") or ""
+                base = "%s://%s" % (proto, host)
+                d = rec.get("data") or {}
+                html = html.replace("<title>StatsAI</title>",
+                                    "<title>%s · StatsAI</title>" % (d.get("title") or "StatsAI")
+                                    .replace("<", "&lt;"), 1)
+                html = html.replace("</head>", share_og(rec, sid, base) + "\n</head>", 1)
+            data = html.encode("utf-8")
+            self.send_response(200)
+            self.send_header("Content-Type", "text/html; charset=utf-8")
+            self.send_header("Content-Length", str(len(data)))
+            self.send_header("Cache-Control", "no-store")
+            self.end_headers()
+            self.wfile.write(data)
+            return
 
         if p == "/api/auth/me":
             uid = self._uid()
