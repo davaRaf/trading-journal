@@ -73,9 +73,70 @@ def _pct(line):
 
 # --------------------------------------------------------------- розбір ----
 
+# Таймфрейм пишуть як заманеться: «1H» і «H1», «15M» і «M15», з пробілом і без,
+# словами й кирилицею. Раніше розуміли тільки «1H» — а хто веде ТС у записі
+# MetaTrader («H1», «M15»), той не отримував у розділах нічого.
+_LETTER = "0-9A-Za-zА-Яа-яЇїІіЄєҐґ"          # що не має стояти впритул до запису
+_TF_NUM_UNIT = re.compile(
+    r"(?<![%s])(\d{1,3})\s*"
+    r"(хвилин\w*|минут\w*|мин|min\w*|годин\w*|часов\w*|час|hour\w*|"
+    r"денн\w*|дневн\w*|дн\w*|day\w*|тижн\w*|недел\w*|week\w*|[mмhгdдwт])"
+    r"(?![%s])" % (_LETTER, _LETTER), re.I)
+_TF_UNIT_NUM = re.compile(                    # запис MetaTrader: H1, M15, D1, W1
+    r"(?<![%s])([HMDWhmdwМмГгЧчДдТтНн])\s*(\d{1,3})(?![%s])" % (_LETTER, _LETTER))
+# кирилиця в тому ж записі: М15, Г1, Д1, Т1
+_CYR_UNIT = {"М": "M", "Г": "H", "Ч": "H", "Д": "D", "Т": "W", "Н": "W"}
+_TF_WORDS = [
+    (r"\b(daily|денний|дневной|добов\w*)\b", "1D"),
+    (r"\b(weekly|тижневий|недельный)\b", "1W"),
+    (r"\b(hourly|часовик|годинний)\b", "1H"),
+]
+
+
+def _unit_letter(u):
+    u = u.lower()
+    if re.match(r"хвилин|минут|мин|min|[mм]$", u):
+        return "M"
+    if re.match(r"годин|часов|час|hour|[hг]$", u):
+        return "H"
+    if re.match(r"денн|дневн|дн|day|[dд]$", u):
+        return "D"
+    if re.match(r"тижн|недел|week|[wт]$", u):
+        return "W"
+    return ""
+
+
+def _tf_split(line):
+    """Таймфрейми рядка + те, що в ньому лишилось (це і є опис)."""
+    tfs, cuts = [], []
+
+    def add(tf, span):
+        if tf not in tfs:
+            tfs.append(tf)
+        cuts.append(span)
+
+    for m in _TF_NUM_UNIT.finditer(line):
+        letter = _unit_letter(m.group(2))
+        if letter:
+            add("%d%s" % (int(m.group(1)), letter), m.span())
+    for m in _TF_UNIT_NUM.finditer(line):
+        letter = m.group(1).upper()
+        letter = _CYR_UNIT.get(letter, letter)
+        add("%d%s" % (int(m.group(2)), letter), m.span())
+    for pat, tf in _TF_WORDS:
+        m = re.search(pat, line, re.I)
+        if m:
+            add(tf, m.span())
+
+    rest = line
+    for a, b in sorted(cuts, reverse=True):       # з кінця, щоб не з'їхали межі
+        rest = rest[:a] + " " + rest[b:]
+    rest = re.sub(r"\s+", " ", rest).strip(" \t:—–-•,;")
+    return tfs, rest
+
+
 def _tfs_in(line):
-    up = line.upper()
-    return [tf for tf in TFS if re.search(r"(?<![0-9A-Z])" + tf + r"(?![0-9A-Z])", up)]
+    return _tf_split(line)[0]
 
 
 def _hits(line, table):
@@ -92,12 +153,16 @@ def parse(text):
     lines = [l for l in lines if l]
 
     assets, models, tf_seen = [], [], []
+    tf_text = {}                       # таймфрейм -> що по ньому написано
+    # заздалегідь знаємо, у якому рядку є таймфрейм: щоб під заголовком
+    # «H1» забрати опис із наступних рядків і зупинитись на сусідньому ТФ
+    split = [_tf_split(l) for l in lines]
     windows, manage, no_market, mind = [], [], [], []
     risk = {"per": "", "rr": "", "day": "", "week": ""}
     maxtrades = ""
     stop = target = bias = ""
 
-    for line in lines:
+    for i, line in enumerate(lines):
         low = line.lower()
 
         for a in _hits(line, ASSETS):
@@ -106,9 +171,24 @@ def parse(text):
         for m in _hits(line, MODELS):
             if m not in models:
                 models.append(m)
-        for tf in _tfs_in(line):
-            if tf not in tf_seen:
-                tf_seen.append(tf)
+
+        found, rest = split[i]
+        if found:
+            # опис у тому ж рядку; якщо рядок — сам лише заголовок, беремо
+            # наступні рядки до сусіднього таймфрейму
+            note = rest
+            if not note:
+                tail = []
+                for j in range(i + 1, min(i + 4, len(lines))):
+                    if split[j][0]:
+                        break
+                    tail.append(lines[j])
+                note = " ".join(tail)
+            for tf in found:
+                if tf not in tf_seen:
+                    tf_seen.append(tf)
+                if note and not tf_text.get(tf):
+                    tf_text[tf] = note[:300]
 
         # вікна сесій: назва сесії поруч із проміжком часу
         tm = TIME_RE.search(line)
@@ -160,7 +240,20 @@ def parse(text):
     # таймфрейми: старший — контекст, наймолодший — вхід
     order = {tf: i for i, tf in enumerate(TFS)}
     tf_seen.sort(key=lambda x: order.get(x, 99))
-    tfs = [{"tf": tf, "role": "", "what": "", "shot": ""} for tf in tf_seen]
+    # роль беремо тільки якщо вона написана словами: вигадувати «контекст»
+    # за старшинством таймфрейму не можна — у кожного своя система
+    roles = [(r"контекст|структур|structure|напрям|тренд|bias", "контекст"),
+             (r"вхід|вход|entry|тригер|триггер|trigger", "вхід"),
+             (r"підтвердж|подтвержд|confirm", "підтвердження")]
+    tfs = []
+    for tf in tf_seen:
+        note = tf_text.get(tf, "")
+        role = ""
+        for pat, name in roles:
+            if re.search(pat, note, re.I):
+                role = name
+                break
+        tfs.append({"tf": tf, "role": role, "what": note, "shot": ""})
 
     return {
         "assets": assets,
