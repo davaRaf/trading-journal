@@ -641,6 +641,10 @@ class H(BaseHTTPRequestHandler):
                 return self._json({"error": "завдання не знайдено"}, 404)
             return self._json(job.snapshot())
 
+        # публічні сторінки: їх вимагає Google для входу через акаунт
+        if p in ("/privacy", "/terms"):
+            return self._file(os.path.join(STATIC, p.strip("/") + ".html"), "text/html; charset=utf-8")
+
         if p == "/login":
             return self._file(os.path.join(STATIC, "login.html"), "text/html; charset=utf-8")
 
