@@ -35,6 +35,9 @@ DATA_DIR      = os.environ.get("DATA_DIR", os.path.join(ROOT, "data"))
 BOT_TOKEN     = os.environ.get("BOT_TOKEN", "")
 BOT_USERNAME  = os.environ.get("BOT_USERNAME", "")
 SESSION_SECRET = os.environ.get("SESSION_SECRET", "")
+# Адрес журнала — бот вставляет его в сообщения. Меняется вместе с хостингом,
+# поэтому берём из окружения, а не зашиваем в текст.
+SITE_URL      = os.environ.get("SITE_URL", "https://trading-journal-production-440c.up.railway.app/")
 # Разовый ключ для переноса скриншотов на новый сервер (tools/upload_shots.py).
 # Пока пустой — точка загрузки просто не существует. После переезда убрать.
 ADMIN_TOKEN   = os.environ.get("ADMIN_TOKEN", "")
