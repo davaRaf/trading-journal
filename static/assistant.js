@@ -133,8 +133,8 @@ window.Assistant = Assistant;
    групу .as-fab-face, обмежуючи зсув, щоб очі не вилазили за межі "екрана" */
 (function(){
   if (window.matchMedia && matchMedia("(prefers-reduced-motion: reduce)").matches) return;
-  const MAX = 3.2;        // граничний зсув в одиницях viewBox іконки (0..40)
-  const REACH = 160;      // px від кнопки, на якому зсув вже максимальний
+  const MAX = 6;          // граничний зсув в одиницях viewBox іконки (0..40)
+  const REACH = 140;      // px від кнопки, на якому зсув вже максимальний
   let mx = null, my = null, raf = null;
 
   function apply(){
@@ -155,5 +155,27 @@ window.Assistant = Assistant;
     mx = e.clientX; my = e.clientY;
     if (!raf) raf = requestAnimationFrame(apply);
   }, {passive:true});
+})();
+
+/* час від часу маскот показує вираз обличчя: happy / wink / surprised / yawn,
+   тримає його якийсь час і повертається до нейтрального (позіхання — довше за решту) */
+(function(){
+  if (window.matchMedia && matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+  const HOLD = {happy:1100, wink:1100, surprised:1100, yawn:2100};
+  const EMOTIONS = Object.keys(HOLD);
+
+  function schedule(){
+    const delay = 6000 + Math.random() * 9000; // раз на 6-15с
+    setTimeout(() => {
+      const btn = document.getElementById("asFabBtn");
+      if (btn){
+        const em = EMOTIONS[Math.floor(Math.random() * EMOTIONS.length)];
+        btn.dataset.em = em;
+        setTimeout(() => { delete btn.dataset.em; }, HOLD[em]);
+      }
+      schedule();
+    }, delay);
+  }
+  schedule();
 })();
 function openAssistant(){ Assistant.open(); }

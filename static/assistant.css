@@ -79,6 +79,29 @@
 .as-fab-ic{position:relative; z-index:1; display:block; color:var(--bot-ink); animation:asBotFloat 2.6s ease-in-out infinite}
 .as-fab-eyes{transform-box:fill-box; transform-origin:center;
   animation:asBotBlink 4.2s ease-in-out infinite}
+
+/* ---------- рот і випадкові емоції: happy / wink / surprised / yawn ---------- */
+.as-fab-mouth *{opacity:0; transition:opacity .18s}
+.as-fab-mouth .mouth-neutral{opacity:1}
+.eye-l-w, .eye-r-w, .eye-l-s, .eye-r-s{opacity:0; transition:opacity .18s}
+
+.as-fab[data-em="happy"] .mouth-neutral{opacity:0}
+.as-fab[data-em="happy"] .mouth-smile{opacity:1}
+
+.as-fab[data-em="wink"] .mouth-neutral{opacity:0}
+.as-fab[data-em="wink"] .mouth-smile{opacity:1}
+.as-fab[data-em="wink"] .eye-r-n{opacity:0}
+.as-fab[data-em="wink"] .eye-r-w{opacity:1}
+
+.as-fab[data-em="surprised"] .mouth-neutral{opacity:0}
+.as-fab[data-em="surprised"] .mouth-open{opacity:1}
+.as-fab[data-em="surprised"] .eye-l-n, .as-fab[data-em="surprised"] .eye-r-n{opacity:0}
+.as-fab[data-em="surprised"] .eye-l-s, .as-fab[data-em="surprised"] .eye-r-s{opacity:1}
+
+.as-fab[data-em="yawn"] .mouth-neutral{opacity:0}
+.as-fab[data-em="yawn"] .mouth-yawn{opacity:1}
+.as-fab[data-em="yawn"] .eye-l-n, .as-fab[data-em="yawn"] .eye-r-n{opacity:0}
+.as-fab[data-em="yawn"] .eye-l-w, .as-fab[data-em="yawn"] .eye-r-w{opacity:1}
 /* зсув очей за мишкою рахує JS (assistant.js); transition — щоб рух був
    плавним між кадрами, а не смикався слідом за подіями mousemove */
 .as-fab-face{transition:transform .12s ease-out}

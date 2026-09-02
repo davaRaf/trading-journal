@@ -110,9 +110,8 @@ function shot(path, label, mini){
 /* ================= порожній стан ================= */
 function vNone(){
   const d = D();
-  return '<div class="vhead"><h1>' + esc(d.title) + '</h1>'
-    + '<span class="sub">' + esc(d.subNone) + "</span></div>"
-    + '<div class="ts-none">'
+  /* заголовка «Моя ТС» тут немає: порожній стан має власний — «Ще немає торгової стратегії» */
+  return '<div class="ts-none">'
     +   "<h2>" + esc(d.noneTitle) + "</h2>"
     +   '<p class="lead">' + d.noneLead + "</p>"
     +   '<div class="ts-ways">'
@@ -814,7 +813,7 @@ uk: {
   emptyMind: "що нагадати собі перед торгівлею",
   remove: "прибрати", back: "назад",
 
-  subNone: "ще не додана", subHand: "зібрана вручну", subNotion: "підтягнуто з Notion",
+  subHand: "зібрана вручну", subNotion: "підтягнуто з Notion",
   noneTitle: "Ще немає торгової стратегії",
   noneLead: "Журнал уміє звіряти кожну угоду з твоїми ж правилами — але спершу має їх знати. "
           + "<b>Двома способами:</b> зібрати тут, відповідаючи на питання, або підтягнути готову з Notion.",
@@ -916,7 +915,7 @@ ru: {
   emptyMind: "что напомнить себе перед торговлей",
   remove: "убрать", back: "назад",
 
-  subNone: "ещё не добавлена", subHand: "собрана вручную", subNotion: "подтянуто из Notion",
+  subHand: "собрана вручную", subNotion: "подтянуто из Notion",
   noneTitle: "Ещё нет торговой стратегии",
   noneLead: "Журнал умеет сверять каждую сделку с твоими же правилами — но сначала должен их знать. "
           + "<b>Двумя способами:</b> собрать здесь, отвечая на вопросы, или подтянуть готовую из Notion.",
@@ -1018,7 +1017,7 @@ en: {
   emptyMind: "what to remind yourself before trading",
   remove: "remove", back: "back",
 
-  subNone: "not set up yet", subHand: "built by hand", subNotion: "pulled from Notion",
+  subHand: "built by hand", subNotion: "pulled from Notion",
   noneTitle: "No trading system yet",
   noneLead: "The journal can check every trade against your own rules — but it has to know them first. "
           + "<b>Two ways:</b> build it here by answering questions, or pull a ready one from Notion.",

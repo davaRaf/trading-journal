@@ -96,15 +96,22 @@ try{document.documentElement.setAttribute("data-nav",localStorage.getItem("tj_na
 
 <main id="main" class="main"><div class="page-loader" aria-hidden="true"><svg class="pl-logo"><use href="#logomark"/></svg></div></main>
 
-<button class="as-fab" id="asFabBtn" type="button" onclick="openAssistant()"
-        data-tip="Спитати про журнал, торгівлю чи знайти свої помилки"
-        aria-label="Відкрити помічника">
-  <span class="as-fab-glow" aria-hidden="true"></span>
+<button class="as-fab" id="asFabBtn" type="button" onclick="openAssistant()">
   <svg class="as-fab-ic" width="38" height="38" viewBox="0 0 40 40" fill="none" aria-hidden="true">
     <g class="as-fab-face">
       <g class="as-fab-eyes">
-        <ellipse cx="11" cy="20" rx="5" ry="7.5" fill="currentColor" transform="rotate(-8 11 20)"/>
-        <ellipse cx="29" cy="20" rx="5" ry="7.5" fill="currentColor" transform="rotate(8 29 20)"/>
+        <ellipse class="eye-l-n" cx="11" cy="20" rx="5" ry="7.5" fill="currentColor" transform="rotate(-8 11 20)"/>
+        <ellipse class="eye-r-n" cx="29" cy="20" rx="5" ry="7.5" fill="currentColor" transform="rotate(8 29 20)"/>
+        <ellipse class="eye-l-s" cx="11" cy="20" rx="6" ry="9.5" fill="currentColor" transform="rotate(-8 11 20)"/>
+        <ellipse class="eye-r-s" cx="29" cy="20" rx="6" ry="9.5" fill="currentColor" transform="rotate(8 29 20)"/>
+        <path class="eye-l-w" d="M6 20.5 Q11 24.5 16 20.5" stroke="currentColor" stroke-width="2.8" stroke-linecap="round" fill="none"/>
+        <path class="eye-r-w" d="M24 20.5 Q29 24.5 34 20.5" stroke="currentColor" stroke-width="2.8" stroke-linecap="round" fill="none"/>
+      </g>
+      <g class="as-fab-mouth">
+        <path class="mouth-neutral" d="M14 34 Q20 37 26 34" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" fill="none"/>
+        <path class="mouth-smile" d="M13 33 Q20 38.5 27 33" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" fill="none"/>
+        <ellipse class="mouth-open" cx="20" cy="34.5" rx="3.6" ry="4.2" fill="currentColor"/>
+        <ellipse class="mouth-yawn" cx="20" cy="34.5" rx="4.6" ry="5.2" fill="currentColor"/>
       </g>
     </g>
   </svg>

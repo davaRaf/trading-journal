@@ -6,7 +6,12 @@
    ============================================================ */
 
 /* ---------- коли стратегії ще немає ---------- */
-.ts-none{max-width:840px}
+/* без шапки «Моя ТС» блок лишається сам на сторінці — тримаємо його по висоті
+   посередині. margin-block:auto, а не justify-content:center: коли контент вищий
+   за екран, авто-відступи стають нулем і верх не йде за межу прокрутки */
+.main:has(.ts-none){display:flex; flex-direction:column}
+.page:has(.ts-none){flex:1; display:flex; flex-direction:column}
+.ts-none{max-width:840px; margin-block:auto}
 .ts-none h2{font-size:clamp(24px,3.4vw,32px); font-weight:650; letter-spacing:-.025em;
   margin:0 0 12px; line-height:1.16}
 .ts-none .lead{font-size:15px; color:var(--dim); line-height:1.65; margin:0}
