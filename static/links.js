@@ -67,9 +67,8 @@ function row(x){
     + "</div>";
 }
 
-function block(title, hint, rows){
-  return '<div class="lk-col"><div class="lk-t">' + esc(title)
-    + '<i>' + esc(hint) + "</i></div>"
+function block(title, rows){
+  return '<div class="lk-col"><div class="lk-t">' + esc(title) + "</div>"
     + '<div class="lk-head"><span>' + esc(T.lkCombo) + '</span><span>' + esc(T.lkFields) + '</span>'
     + "<span>" + esc(T.kCount) + "</span><span>" + esc(T.kWinRate) + "</span><span>" + esc(T.kNetPct) + "</span></div>"
     + (rows.length ? rows.map(row).join("")
@@ -94,8 +93,8 @@ function html(list){
     + '<i class="lk-hint">' + T.lkNote.replace("%d", min) + "</i></h3>"
     + '<div class="in">'
     + '<div class="lk-cols">'
-    +   block(T.lkWorks, T.lkWorksHint, good)
-    +   block(T.lkEats, T.lkEatsHint, bad)
+    +   block(T.lkWorks, good)
+    +   block(T.lkEats, bad)
     + "</div></div></div>";
 }
 

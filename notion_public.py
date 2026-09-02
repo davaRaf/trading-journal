@@ -313,6 +313,28 @@ def row_props(block, schema):
     return out, files
 
 
+def looks_like_pair(v):
+    """Похоже ли это на инструмент, а не на кусок текста из соседней колонки.
+
+    В таблицах Notion между сделками попадаются строки-разделители вроде
+    «1 Месяц» — заголовок месяца, а не сделка. У них заполнено только название,
+    и раньше они приезжали в журнал наравне с настоящими сделками.
+
+    Тикеры пишут латиницей и коротко: «NAS 100», «GER40», «S&P 500».
+    Кириллица, длинная фраза или полное отсутствие латиницы — не инструмент.
+    """
+    v = (v or "").strip()
+    if not v:
+        return False
+    if re.search(r"[Ѐ-ӿ]", v):      # кириллица
+        return False
+    if len(v) > 16:
+        return False
+    if len(v.split()) > 3:
+        return False
+    return bool(re.search(r"[A-Za-z]", v))
+
+
 def map_simple(props, mapping):
     """{колонка: значение} + сопоставление -> наша сделка."""
     t = {}
@@ -557,6 +579,7 @@ def run_public_import(job, tables, mapping, opts, shots_dir, known_pairs, existi
 
         job.total = sum(len(p[0]) for p in plans)
         batch = []
+        odd = []          # названия, не похожие на инструмент, — покажем в конце
 
         for ids, rm, schema, use, tname in plans:
             blocks = rm.get("block") or {}
@@ -570,7 +593,17 @@ def run_public_import(job, tables, mapping, opts, shots_dir, known_pairs, existi
                 t = map_simple(props, use)
                 t["notion_id"] = bid
                 t["import_id"] = job.batch
-                if not (t.get("pair") or "").strip():
+                # Строка-разделитель отличается от сделки двумя вещами: в поле
+                # инструмента у неё текст, и нет ни даты, ни результата. Первое
+                # ловит только явный мусор («1 Месяц»), латинское «August 2026»
+                # прошло бы насквозь — поэтому вторая проверка и главная.
+                empty = (not (t.get("date") or "").strip()
+                         and not (t.get("result") or "").strip())
+                if empty or not looks_like_pair(t.get("pair")):
+                    # не молча: пусть человек видит, что мы не взяли и почему
+                    name = (t.get("pair") or "").strip()
+                    if name and name not in odd:
+                        odd.append(name)
                     job.skipped += 1
                     continue
 
@@ -613,6 +646,11 @@ def run_public_import(job, tables, mapping, opts, shots_dir, known_pairs, existi
 
         if batch:
             sink(batch)
+        if odd:
+            shown = ", ".join("«%s»" % x for x in odd[:5])
+            more = " та ще %d" % (len(odd) - 5) if len(odd) > 5 else ""
+            job.warnings.append("пропустили рядки, де замість інструмента текст: "
+                                + shown + more)
         job.step = "готово"
         job.state = "done"
     except NotionError as ex:

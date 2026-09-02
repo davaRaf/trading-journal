@@ -47,6 +47,17 @@ function r1(v){ return Math.round(v*100)/100; }
 function fmtR(v){ if(v==null||isNaN(v)) return "—"; const x=r1(v); return (x>0?"+":"")+x+"%"; }
 function clsR(v){ return v>0.0001?"pos":v<-0.0001?"neg":"beclr"; }
 function fmtPct(v){ return v==null?"—":(Math.round(v*10)/10)+"%"; }
+/* Похоже ли это на тикер, а не на кусок текста из соседней колонки.
+   Тикеры пишутся латиницей и коротко: «NAS 100», «GER40», «S&P 500».
+   Кириллица, длинная фраза или отсутствие латинских букв — повод переспросить. */
+function looksLikePair(v){
+  v=(v||"").trim();
+  if(!v) return false;
+  if(/[Ѐ-ӿ]/.test(v)) return false;    // кириллица
+  if(v.length>16) return false;
+  if(v.split(/\s+/).length>3) return false;
+  return /[A-Za-z]/.test(v);                     // хоть одна латинская буква
+}
 function num(v){ const x=parseFloat(v); return isNaN(x)?null:x; }
 /* в интерфейсе результат называется TP / SL / BE, внутри хранится Win / Loss / BE */
 const RES_LABEL={Win:"TP",Loss:"SL","BE-":"BE\u2212","BE+":"BE+",BE:"BE"};
@@ -344,21 +355,27 @@ function ovWord(n){
   return a===1&&b!==11 ? T.wordTrade : (a>=2&&a<=4&&!(b>=12&&b<=14)) ? T.wordTradeFew : T.wordTradeMany;
 }
 
-/* последняя неделя — крупный ряд сверху, в клетке светится исход дня */
+/* поточний тиждень — крупний ряд зверху, в клітинці світиться результат дня */
 function ovWeekHtml(){
   const byDay=groupBy(S.trades, dayKey);
-  /* якорь недели — всегда сьогодні, навіть якщо за ці 7 днів угод не було */
+  /* тиждень календарний: з понеділка по неділю, а не сім останніх днів */
   const now=new Date();
+  const today=new Date(now.getFullYear(),now.getMonth(),now.getDate());
+  const monday=new Date(today.getFullYear(),today.getMonth(),today.getDate()-((today.getDay()+6)%7));
   let cells="", n=0, sum=0;
-  for(let i=6;i>=0;i--){
-    const d=new Date(now.getFullYear(),now.getMonth(),now.getDate()-i);
+  for(let i=0;i<7;i++){
+    const d=new Date(monday.getFullYear(),monday.getMonth(),monday.getDate()+i);
     const key=isoDay(d), list=byDay.get(key)||[];
     const r=list.reduce((a,t)=>a+netR(t),0);
     n+=list.length; sum+=r;
     const wd=T.wds[(d.getDay()+6)%7];
     if(!list.length){
-      cells+='<div class="day off"><span class="wd">'+wd+'</span><span class="dn">'+d.getDate()+
-        '</span><span class="bot"><span class="dr">·</span></span></div>';
+      /* будній день без угод — пропуск. Вихідні не рахуємо, сьогодні і решту
+         тижня теж: ці дні ще не минули, угода може з'явитись */
+      const weekend=d.getDay()===0||d.getDay()===6;
+      const skip=!weekend&&d<today;
+      cells+='<div class="day off'+(skip?" skip":"")+'"><span class="wd">'+wd+'</span><span class="dn">'+d.getDate()+
+        '</span><span class="bot"><span class="dr">'+(skip?T.ovSkip:"·")+'</span></span></div>';
       continue;
     }
     const cnt={};
@@ -382,15 +399,17 @@ function ovWeekHtml(){
 
 /* восемь показателей hairline-сеткой */
 function ovStatsHtml(st){
+  /* порожній період показуємо нулями, а не прочерками: у тій же сітці поруч
+     стоять «0» і «0 / 0 / 0», і прочерки читались як збій, а не як «нічого» */
   const rows=[
     [T.kCount, String(st.n), "", T.kCountTip],
-    [T.kWinRate, st.wr==null?"·":fmtPct(st.wr), "", T.kWinRateTip],
+    [T.kWinRate, fmtPct(st.wr==null?0:st.wr), "", T.kWinRateTip],
     [T.kNetPct, ovFmt(st.net), clsR(st.net), T.kNetPctTip],
-    [T.kAvgRR, st.avgRR==null?"·":String(r1(st.avgRR)), "", T.kAvgRRTip],
-    [T.kProfitFactor, st.pfTxt, "", T.kProfitFactorTip],
+    [T.kAvgRR, String(r1(st.avgRR==null?0:st.avgRR)), "", T.kAvgRRTip],
+    [T.kProfitFactor, st.pfTxt==="—"?"0":st.pfTxt, "", T.kProfitFactorTip],
     [T.kResSplit, st.wins+" / "+st.losses+" / "+st.be, "", T.kResSplitTip],
     [T.kBeSplit, st.beM+" / "+st.beP, "", T.kBeSplitTip],
-    [T.kAvgRisk, (st.avgRisk==null?"·":r1(st.avgRisk))+"%", "", T.kAvgRiskTip],
+    [T.kAvgRisk, r1(st.avgRisk==null?0:st.avgRisk)+"%", "", T.kAvgRiskTip],
   ];
   return '<div class="stats">'+rows.map(([l,v,c,tip])=>
     '<div class="st"'+(tip?' data-tip="'+esc(tip)+'"':"")+
@@ -627,6 +646,14 @@ function vDashboard(){
   const best=rs.length?Math.max(...rs):null, worst=rs.length?Math.min(...rs):null;
   const btns=OV_PERIODS().map(([k,l])=>
     '<button class="'+(S.ovPeriod===k?"on":"")+'" onclick="ovSetPeriod(\''+k+'\')">'+l+"</button>").join("");
+  /* період порожній, а журнал ні — не показуємо самі нулі, а кажемо чому
+     і коли була остання угода (дату цифрами: відмінок місяця в трьох мовах різний) */
+  let note="";
+  if(!per.list.length && S.trades.length){
+    const last=S.trades.map(dayKey).filter(Boolean).sort().pop();
+    note='<div class="pnote">'+T.ovPeriodEmpty+
+      (last ? " · "+T.ovLastTradeOn+" "+last.split("-").reverse().join(".") : "")+"</div>";
+  }
 
   return '<div class="ovw">'+
     '<div class="ohead"><h1>'+T.ovTitle+'</h1><div class="per">'+btns+"</div></div>"+
@@ -634,10 +661,10 @@ function vDashboard(){
       ovWeekHtml()+
       '<div class="shell rise"><div class="core">'+
         '<div class="sum"><div><div class="lab">'+per.lab+"</div>"+
-        '<div class="big '+clsR(st.net)+'">'+(per.list.length?ovFmt(st.net):"—")+"</div></div>"+
+        '<div class="big '+clsR(st.net)+'">'+ovFmt(st.net)+"</div>"+note+"</div>"+
         '<div class="when">'+per.when+"</div>"+
         '<div class="right"><div class="lab">'+T.ovBestWorst+'</div>'+
-        '<div class="v">'+(best==null?"—":ovFmt(best)+" · "+ovFmt(worst))+"</div></div></div>"+
+        '<div class="v">'+ovFmt(best==null?0:best)+" · "+ovFmt(worst==null?0:worst)+"</div></div></div>"+
         ovStatsHtml(st)+
       "</div></div>"+
       ovEquityHtml()+
@@ -1199,6 +1226,12 @@ function openForm(id, presetDay){
   const models=[...new Set(["cisd",...topVals("entry_model",4)])];
   const setups=topVals("setup",4);
   const mistakes=topVals("mistakes",5);
+  /* інструменти беремо з журналу, як моделі й сетапи. Жорсткий PAIRS_ACTIVE
+     підсовував US100/ES500, яких у журналі немає, тож свій індекс щоразу
+     вписували руками — звідси «NAS 100» і «NAS100» поруч. Список лишаємо
+     тільки як підказку для порожнього журналу */
+  const ownPairs=topVals("pair",5);
+  const pairs=ownPairs.length?ownPairs:PAIRS_ACTIVE;
 
   let h='<div class="m-head"><h2>'+(t?T.fmEditTitle:T.fmNewTitle)+
     '</h2><button class="x" onclick="closeModal()">×</button></div>';
@@ -1209,7 +1242,7 @@ function openForm(id, presetDay){
   '<section class="fcard"><h4>'+T.tradeDefaultName+'</h4><div class="fbody">'+
     '<div class="frow">'+
       '<div class="f"><label>'+T.fPair+' <i>*</i></label>'+
-        pick("pair",PAIRS_ACTIVE,t?t.pair:"",T.fmOwnPairPh)+"</div>"+
+        pick("pair",pairs,t?t.pair:"",T.fmOwnPairPh)+"</div>"+
       '<div class="f"><label>'+T.fmDateTime+' <i>*</i></label>'+
         '<input id="fld_date" type="datetime-local" value="'+esc(dt)+'"></div>'+
     "</div>"+
@@ -1463,7 +1496,8 @@ function resizeImage(file){
 async function saveTrade(id){
   const g=k=>{ const el=$("#fld_"+k); return el?el.value.trim():""; };
   const t={
-    pair:g("pair"), date:g("date"), session:g("session"), position:g("position"),
+    /* подвійні пробіли всередині назви теж плодять двійників («NAS  100») */
+    pair:g("pair").replace(/\s+/g," "), date:g("date"), session:g("session"), position:g("position"),
     entry_model:g("entry_model"), bias:g("bias"), setup:g("setup"),
     direction_type:g("direction_type"), result:g("result"),
     rr:g("rr"), risk:g("risk"),
@@ -1472,6 +1506,9 @@ async function saveTrade(id){
     screenshots:S.formShots,
   };
   if(!t.pair){ alert(T.alertNeedPair); return; }
+  /* «1 Месяц» колись приїхало сюди з чужої колонки Notion. Не забороняємо —
+     перепитуємо: раптом інструмент і справді так зветься */
+  if(!looksLikePair(t.pair) && !confirm(T.alertOddPair.replace("%s", t.pair))) return;
   if(!t.date){ alert(T.alertNeedDate); return; }
   if(!t.result){ alert(T.alertNeedResult); return; }
   if(t.result==="Win" && !num(t.rr)){ alert(T.alertNeedRR); return; }

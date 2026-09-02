@@ -57,6 +57,11 @@
 /* колір маскота окремими змінними: світла тема білий, темна чорний */
 :root{--bot-ink:#ffffff}
 :root[data-theme="dark"]{--bot-ink:#06070a}
+/* назва кнопки для читалок екрана. Саме текстом, а не aria-label: браузер
+   показував той label підказкою біля іконки — власне те, що просили прибрати */
+.as-fab-name{position:absolute; width:1px; height:1px; margin:-1px; padding:0;
+  overflow:hidden; clip-path:inset(50%); white-space:nowrap; border:0}
+
 .as-fab{position:fixed; right:22px; bottom:22px; z-index:45;
   display:flex; align-items:center; justify-content:center;
   width:76px; height:76px; padding:0; border-radius:50%;
