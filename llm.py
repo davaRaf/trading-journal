@@ -20,18 +20,22 @@ def enabled():
     return bool(GEMINI_API_KEY)
 
 
-def ask(prompt, model=MODEL, max_tokens=900, timeout=30, system=None):
+def ask(prompt, model=MODEL, max_tokens=900, timeout=30, system=None, temperature=0.2):
     """Возвращает текст ответа или None, если модель недоступна.
 
     system — правила, которые модель должна слушать всегда; идут отдельным
     полем API (systemInstruction), а не текстом внутри prompt, поэтому их
     нельзя перебить тем, что написано в данных пользователя.
+
+    temperature — насколько модель вольна в словах. По умолчанию 0.2: там, где
+    она пересказывает цифры, разнообразие только вредит. Для живой болтовни
+    (бот в Telegram) поднимаем, иначе одна и та же мысль звучит слово в слово.
     """
     if not enabled():
         return None
     payload = {
         "contents": [{"parts": [{"text": prompt}]}],
-        "generationConfig": {"temperature": 0.2, "maxOutputTokens": max_tokens},
+        "generationConfig": {"temperature": temperature, "maxOutputTokens": max_tokens},
     }
     if system:
         payload["systemInstruction"] = {"parts": [{"text": system}]}
