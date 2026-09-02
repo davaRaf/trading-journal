@@ -21,6 +21,7 @@ import config
 import db
 import emotions
 import filestore
+import share_store
 import llm
 import notion_import as notion
 import notion_public as npub
@@ -158,21 +159,10 @@ def _share_path(sid):
 
 
 def share_create(payload, ttl_key):
-    sid = secrets.token_urlsafe(9)          # 12 символов, хватает с запасом
+    """Знімок кладеться в базу (share_store.py): файли на хостингу зникають
+    при кожному оновленні коду, а роздане посилання має жити свій термін."""
     ttl = SHARE_TTL.get(ttl_key, SHARE_TTL["7d"])
-    rec = {
-        "id": sid,
-        "created": int(time.time()),
-        "expires": int(time.time()) + ttl if ttl else 0,
-        "ttl": ttl_key,
-        "data": payload,
-    }
-    with _share_lock:
-        tmp = _share_path(sid) + ".tmp"
-        with open(tmp, "w", encoding="utf-8") as f:
-            json.dump(rec, f, ensure_ascii=False)
-        os.replace(tmp, _share_path(sid))
-    return rec
+    return share_store.create(payload, ttl_key, ttl)
 
 
 def share_shot_ok(rec, name):
@@ -240,9 +230,18 @@ def share_og(rec, sid, base):
 
 
 def share_read(sid):
-    """Отдаёт снимок или None, если его нет либо срок вышел."""
+    """Отдаёт снимок или None, если его нет либо срок вышел.
+
+    Спершу база; старі посилання, роздані ще з файлів, дочитуємо з диска,
+    щоб не зламались у людей, кому їх уже відправили."""
     if not re.fullmatch(r"[A-Za-z0-9_-]{6,32}", sid or ""):
         return None
+    try:
+        rec = share_store.read(sid)
+    except Exception:
+        rec = None
+    if rec:
+        return rec
     path = _share_path(sid)
     if not os.path.exists(path):
         return None
