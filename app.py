@@ -23,6 +23,7 @@ import emotions
 import llm
 import notion_import as notion
 import notion_public as npub
+import day_store
 import tg_api
 import ts_notion
 import ts_store
@@ -351,6 +352,31 @@ class H(BaseHTTPRequestHandler):
                 return self._json({"error": "auth required"}, 401)
             return self._json(db.list_trades(uid))
 
+        # ---- аналіз дня (day_store.py) ----
+        if p.startswith("/api/day/"):
+            uid = self._uid()
+            if not uid:
+                return self._json({"error": "auth required"}, 401)
+            rest = p[len("/api/day/"):]
+            if rest == "list":
+                return self._json({"days": day_store.days(uid)})
+            if rest == "stats":
+                since = (datetime.date.today() - datetime.timedelta(days=30)).isoformat()
+                return self._json({"notes": day_store.notes_since(uid, since), "since": since})
+            if not day_store.valid_date(rest):
+                return self._json({"error": "bad date"}, 400)
+            return self._json({"day": day_store.get(uid, rest)})
+
+        if p.startswith("/dnshot/"):
+            uid = self._uid()
+            name = os.path.basename(p[len("/dnshot/"):])
+            if not uid or not day_store.owns_shot(uid, name):
+                self.send_response(404); self.end_headers(); return
+            ext = name.rsplit(".", 1)[-1].lower()
+            ctype = {"png": "image/png", "jpg": "image/jpeg", "jpeg": "image/jpeg",
+                     "webp": "image/webp", "gif": "image/gif"}.get(ext, "application/octet-stream")
+            return self._file(os.path.join(SHOTS, name), ctype)
+
         # ---- торгова стратегія (ts_store.py, ts_notion.py) ----
         if p == "/api/ts":
             uid = self._uid()
@@ -572,6 +598,25 @@ class H(BaseHTTPRequestHandler):
                             "when": datetime.datetime.now().strftime("%Y-%m-%d %H:%M")}
             notion_save(uid, conf)
             return self._json(job.snapshot(), 202)
+
+        # ---- аналіз дня ----
+        if p == "/api/day/shot":
+            try:
+                name = day_store.save_shot(uid, (body or {}).get("data") or "", SHOTS)
+            except ValueError as e:
+                return self._json({"error": str(e)}, 400)
+            return self._json({"file": name})
+
+        if p.startswith("/api/day/"):
+            date = p[len("/api/day/"):]
+            if not day_store.valid_date(date):
+                return self._json({"error": "bad date"}, 400)
+            data = (body or {}).get("day")
+            if data is None:
+                day_store.drop(uid, date)
+            else:
+                day_store.put(uid, date, dict(data))
+            return self._json({"ok": True})
 
         # ---- торгова стратегія ----
         if p == "/api/ts":

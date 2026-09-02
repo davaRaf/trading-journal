@@ -1,0 +1,192 @@
+/* ============================================================
+   Розділ «Аналіз дня».
+   Свій файл, усе під префіксом .dv — щоб не чіпати style.css.
+   ============================================================ */
+
+.dv-nav{display:flex; align-items:center; gap:6px; margin-left:auto}
+.dv-nav button{border:1px solid var(--line); background:var(--panel-2); color:var(--dim);
+  font:inherit; font-size:13px; padding:7px 12px; border-radius:var(--r-sm); cursor:pointer}
+.dv-nav button:hover{color:var(--text); border-color:var(--faint)}
+.dv-nav .day{font-family:var(--mono); font-size:13px; padding:7px 14px; color:var(--text)}
+.dv-hint{font-size:12.5px; color:var(--faint); margin:-8px 0 16px; line-height:1.55}
+
+/* ---------- рамка розвороту ---------- */
+.dv-sp{background:var(--card); border:1px solid var(--line); border-radius:var(--r);
+  overflow:hidden; box-shadow:var(--shadow)}
+.dv-head{display:grid; grid-template-columns:1fr 1fr; border-bottom:1px solid var(--line)}
+.dv-head span{padding:14px 24px; font-family:var(--mono); font-size:10px; letter-spacing:.18em;
+  text-transform:uppercase; color:var(--faint); display:flex; align-items:center; gap:10px}
+.dv-head span:first-child{border-right:1px solid var(--line-soft)}
+.dv-head b{font-family:var(--sans); font-size:11px; letter-spacing:0; text-transform:none;
+  padding:2px 9px; border-radius:99px; font-weight:500}
+.dv-head b.plan{background:var(--accent-soft); color:var(--accent)}
+.dv-head b.fact{background:var(--panel-2); color:var(--dim)}
+
+.dv-pair{display:grid; grid-template-columns:1fr 1fr; border-top:1px solid var(--line-soft)}
+.dv-pair:first-of-type{border-top:none}
+.dv-cell{padding:20px 24px; min-width:0}
+.dv-cell:first-child{border-right:1px solid var(--line-soft)}
+
+.dv-two{display:grid; grid-template-columns:1fr 1fr}
+.dv-two .col{min-width:0}
+.dv-two .col.left{border-right:1px solid var(--line-soft)}
+.dv-blk{padding:20px 24px; border-top:1px solid var(--line-soft)}
+.dv-blk:first-child{border-top:none}
+
+/* назва блока: звичайними словами, номер тримає пару */
+.dv-pt{display:flex; align-items:baseline; gap:10px; margin:0 0 13px; font-size:15px;
+  font-weight:600; letter-spacing:-.01em; flex-wrap:wrap}
+.dv-pt b{font-family:var(--mono); font-size:11px; font-weight:500; color:var(--faint);
+  padding:3px 7px; border-radius:6px; background:var(--panel-2); letter-spacing:.06em}
+.dv-pt i{font-style:normal; font-size:12.5px; color:var(--faint); font-weight:400}
+
+/* ---------- поля ---------- */
+.dv-f{cursor:text; border-radius:6px; padding:2px 6px; margin:0 -6px; display:inline-block;
+  min-width:60px; font-size:14px; line-height:1.6; transition:background .15s, box-shadow .15s}
+.dv-f:hover{background:var(--panel-2); box-shadow:inset 0 0 0 1px var(--line-soft)}
+.dv-f.blank{color:var(--faint)}
+.dv-f.wide{display:block; margin:0}
+.dv-in{width:100%; box-sizing:border-box; background:var(--panel-2); color:var(--text);
+  border:1px solid color-mix(in srgb, var(--accent) 50%, transparent); border-radius:var(--r-sm);
+  padding:9px 11px; font:inherit; font-size:14px; line-height:1.55}
+.dv-in:focus{outline:none}
+textarea.dv-in{min-height:84px; resize:vertical}
+
+.dv-pick{display:flex; gap:8px; flex-wrap:wrap}
+.dv-pick button{border:1px solid var(--line); background:var(--panel-2); color:var(--dim);
+  font:inherit; font-size:14px; padding:9px 18px; border-radius:99px; cursor:pointer}
+.dv-pick button:hover{color:var(--text)}
+.dv-pick button.on{border-color:transparent; color:var(--accent-ink,#fff); background:var(--accent)}
+.dv-pick button.on.down{background:var(--down)}
+.dv-pick button.on.flat{background:var(--dim)}
+
+.dv-add{border:1px dashed var(--line); background:transparent; color:var(--faint); font:inherit;
+  font-size:12.5px; padding:7px 13px; border-radius:99px; cursor:pointer; margin-top:11px}
+.dv-add:hover{color:var(--text); border-color:var(--faint)}
+
+.dv-auto{display:flex; align-items:center; gap:9px; font-size:12.5px; color:var(--faint);
+  margin-top:10px; line-height:1.5}
+.dv-auto b{font-family:var(--mono); font-size:9px; letter-spacing:.14em; text-transform:uppercase;
+  padding:3px 8px; border-radius:99px; background:var(--panel-2); color:var(--dim);
+  font-weight:500; flex:none}
+
+/* ---------- біас ---------- */
+.dv-bias{display:flex; align-items:center; gap:14px; margin-bottom:12px}
+.dv-say{font-size:14px; color:var(--dim); line-height:1.65}
+
+/* ---------- рівні ---------- */
+.dv-lv{display:flex; flex-direction:column}
+.dv-lvr{display:grid; grid-template-columns:96px 108px 1fr auto; gap:12px; align-items:baseline;
+  padding:9px 0; border-bottom:1px solid var(--line-soft)}
+.dv-lvr:last-child{border-bottom:none}
+.dv-lvr .p{font-family:var(--mono); font-size:15px}
+.dv-lvr .t{font-family:var(--mono); font-size:12px; color:var(--faint)}
+.dv-lvr .n{font-size:13px; color:var(--dim); min-width:0}
+
+.dv-lvd{display:flex; flex-direction:column}
+.dv-lvr2{display:grid; grid-template-columns:96px 20px 1fr; gap:12px; align-items:center;
+  padding:9px 0; border-bottom:1px solid var(--line-soft)}
+.dv-lvr2:last-child{border-bottom:none}
+.dv-lvr2 .p{font-family:var(--mono); font-size:15px}
+.dv-lvr2 .n{font-size:13px; color:var(--dim); min-width:0}
+.dv-hit{width:18px; height:18px; border-radius:50%; position:relative; padding:0; cursor:pointer;
+  border:1px solid var(--line); background:transparent; transition:border-color .15s}
+.dv-hit:hover{border-color:var(--faint)}
+.dv-hit::after{position:absolute; inset:0; display:flex; align-items:center; justify-content:center;
+  font-size:10px}
+.dv-lvr2.ok .dv-hit{background:var(--up-soft); border-color:transparent}
+.dv-lvr2.ok .dv-hit::after{content:"✓"; color:var(--up)}
+.dv-lvr2.mid .dv-hit{background:var(--be-soft); border-color:transparent}
+.dv-lvr2.mid .dv-hit::after{content:"~"; color:var(--be)}
+.dv-lvr2.no .dv-hit{background:var(--down-soft); border-color:transparent}
+.dv-lvr2.no .dv-hit::after{content:"×"; color:var(--down); font-size:12px}
+
+/* ---------- сценарії ---------- */
+.dv-sc{display:flex; flex-direction:column; gap:10px}
+.dv-scr{display:flex; gap:13px; padding:13px 15px; border-radius:var(--r-sm);
+  background:var(--panel-2); border:1px solid var(--line-soft)}
+.dv-scr.main{border-color:color-mix(in srgb, var(--accent) 38%, transparent)}
+.dv-scr .k{font-family:var(--mono); font-size:15px; line-height:1.4; color:var(--faint);
+  flex:none; width:16px}
+.dv-scr.main .k{color:var(--accent)}
+.dv-scr .tx{flex:1; min-width:0; font-size:13.5px; line-height:1.6; color:var(--dim)}
+
+/* ---------- угоди дня ---------- */
+.dv-trs{display:flex; flex-direction:column}
+.dv-tr{display:grid; grid-template-columns:1fr auto auto; gap:12px; align-items:center;
+  padding:11px 0; border-bottom:1px solid var(--line-soft); position:relative}
+.dv-tr:last-child{border-bottom:none}
+.dv-tr .nm{font-size:13.5px; min-width:0}
+.dv-tr .nm i{font-style:normal; color:var(--faint); font-size:12.5px}
+.dv-tr .r{font-family:var(--mono); font-size:14px; min-width:60px; text-align:right}
+.dv-tr .r.pos{color:var(--up)} .dv-tr .r.neg{color:var(--down)}
+.dv-tr .fl{border:1px solid var(--line); background:transparent; color:var(--faint); font:inherit;
+  font-size:11.5px; padding:4px 10px; border-radius:99px; cursor:pointer; white-space:nowrap}
+.dv-tr .fl:hover{color:var(--text)}
+.dv-tr .fl.plan{background:var(--up-soft); border-color:transparent; color:var(--up)}
+.dv-tr .fl.off{background:var(--down-soft); border-color:transparent; color:var(--down)}
+.dv-tr.off::before{content:""; position:absolute; left:-12px; top:8px; bottom:8px; width:2px;
+  border-radius:2px; background:var(--down)}
+
+/* ---------- оцінка й висновок ---------- */
+.dv-marks{display:flex; gap:30px; flex-wrap:wrap}
+.dv-marks .k{font-family:var(--mono); font-size:9.5px; letter-spacing:.14em; text-transform:uppercase;
+  color:var(--faint); margin-bottom:9px}
+.dv-lesson{padding:15px 17px; border-radius:var(--r-sm); background:var(--panel-2);
+  border-left:2px solid var(--accent); font-size:14px; line-height:1.65; color:var(--dim)}
+
+/* ---------- права колонка, поки день іде ---------- */
+.dv-wait{position:sticky; top:20px; padding:24px}
+.dv-wait .ttl{font-size:16px; font-weight:650; letter-spacing:-.015em; margin-bottom:8px}
+.dv-wait .sub{font-size:13.5px; color:var(--dim); line-height:1.6; margin:0 0 18px}
+.dv-wait ul{list-style:none; margin:0 0 20px; padding:0; display:flex; flex-direction:column; gap:12px}
+.dv-wait li{display:flex; gap:12px; font-size:13.5px; color:var(--dim); line-height:1.5}
+.dv-wait li span{width:20px; height:20px; border-radius:50%; flex:none; background:var(--panel-2);
+  display:flex; align-items:center; justify-content:center; font-size:10px; color:var(--faint);
+  font-family:var(--mono)}
+.dv-wait li b{color:var(--text); font-weight:600}
+.dv-wait .go{width:100%; border:0; border-radius:var(--r-sm); font:inherit; font-size:14.5px;
+  font-weight:600; padding:13px 18px; cursor:pointer; background:var(--accent);
+  color:var(--accent-ink,#fff)}
+.dv-wait .go:hover{filter:brightness(1.08)}
+.dv-wait .go[disabled]{background:var(--panel-2); color:var(--faint); cursor:default; filter:none}
+.dv-wait .note{font-size:12px; color:var(--faint); margin:10px 0 0; text-align:center}
+
+/* ---------- слот під скрін ---------- */
+.dv-shot{position:relative; border:1px dashed var(--line); border-radius:var(--r-sm);
+  overflow:hidden; background:var(--panel-2); cursor:pointer; transition:border-color .18s}
+.dv-shot:hover{border-color:color-mix(in srgb, var(--accent) 50%, transparent)}
+.dv-shot.has{border-style:solid; border-color:var(--line-soft)}
+.dv-shot.busy{opacity:.55; pointer-events:none}
+.dv-shot img{width:100%; display:block}
+.dv-shot .ph{display:flex; flex-direction:column; align-items:center; justify-content:center;
+  gap:7px; height:180px; color:var(--faint); font-size:13.5px; text-align:center; padding:12px}
+.dv-shot .ph b{font-size:23px; font-weight:400; line-height:1}
+.dv-shot .ph em{font-style:normal; font-size:11px; font-family:var(--mono); letter-spacing:.05em;
+  opacity:.75}
+.dv-shot:hover .ph em{opacity:1}
+.dv-shot .rm{position:absolute; top:8px; right:8px; width:22px; height:22px; border:0;
+  border-radius:50%; background:rgba(0,0,0,.55); color:#fff; font:inherit; font-size:15px;
+  line-height:1; cursor:pointer; opacity:0; transition:opacity .18s}
+.dv-shot:hover .rm{opacity:1}
+
+/* ---------- смуга за місяць ---------- */
+.dv-strip{display:flex; margin-top:16px; border:1px solid var(--line); border-radius:var(--r);
+  overflow:hidden; background:var(--card); flex-wrap:wrap; box-shadow:var(--shadow)}
+.dv-strip .s{flex:1; min-width:190px; padding:18px 22px; border-left:1px solid var(--line-soft)}
+.dv-strip .s:first-child{border-left:none}
+.dv-strip .s .k{font-family:var(--mono); font-size:9px; letter-spacing:.16em; text-transform:uppercase;
+  color:var(--faint)}
+.dv-strip .s .v{font-family:var(--mono); font-size:25px; line-height:1; margin-top:10px}
+.dv-strip .s .v.neg{color:var(--down)} .dv-strip .s .v.pos{color:var(--up)}
+.dv-strip .s .n{font-size:12.5px; color:var(--faint); margin-top:8px; line-height:1.5}
+
+@media (max-width:900px){
+  .dv-head{grid-template-columns:1fr}
+  .dv-head span:first-child{border-right:none; border-bottom:1px solid var(--line-soft)}
+  .dv-pair, .dv-two{grid-template-columns:1fr}
+  .dv-cell:first-child, .dv-two .col.left{border-right:none;
+    border-bottom:1px solid var(--line-soft)}
+  .dv-wait{position:static}
+  .dv-lvr{grid-template-columns:1fr; gap:4px}
+}
