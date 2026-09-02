@@ -271,7 +271,7 @@ uk: {
   slTtl1h: "1 година", slTtl24h: "24 години", slTtl7d: "7 днів", slTtl30d: "30 днів", slTtlForever: "без обмеження",
   slWinRate: "Win rate", slTotal: "Підсумок",
   slKindDay: "день", slKindWeek: "тиждень", slKindMonth: "місяць", slKindYear: "рік", slKindTrade: "угода",
-  slTradesTitle: "Угоди", slByDays: "По днях", slByMonths: "По місяцях",
+  slShareTrade: "Поділитись угодою", slTradesTitle: "Угоди", slByDays: "По днях", slByMonths: "По місяцях",
   slDetails: "Деталі", slEntryBlock: "Вхід",
   slShareTitle: "Поділитися",
   slNote: "Надсилаються лише пораховані цифри — самі угоди й скриншоти за посиланням недоступні.",
@@ -334,6 +334,7 @@ uk: {
 
   // ---- share.html (публічна сторінка) ----
   shLoadingMsg: "Завантаження…", shValidUntilPrefix: "діє до", shNoLimit: "без обмеження часу",
+  shExpandHint: "Натисни на угоду, щоб побачити, як людина її набирала — деталі й скріни.",
   shKindDefault: "статистика", shMadeIn: "зроблено в",
   shLinkBroken: "Посилання не працює", shLinkBrokenDesc: "Його або видалили, або вийшов термін дії.",
   shOpenFailed: "Не вдалося відкрити",
@@ -577,7 +578,7 @@ ru: {
   slTtl1h: "1 час", slTtl24h: "24 часа", slTtl7d: "7 дней", slTtl30d: "30 дней", slTtlForever: "без ограничения",
   slWinRate: "Win rate", slTotal: "Итог",
   slKindDay: "день", slKindWeek: "неделя", slKindMonth: "месяц", slKindYear: "год", slKindTrade: "сделка",
-  slTradesTitle: "Сделки", slByDays: "По дням", slByMonths: "По месяцам",
+  slShareTrade: "Поделиться сделкой", slTradesTitle: "Сделки", slByDays: "По дням", slByMonths: "По месяцам",
   slDetails: "Детали", slEntryBlock: "Вход",
   slShareTitle: "Поделиться",
   slNote: "Отправляются только посчитанные цифры — сами сделки и скриншоты по ссылке недоступны.",
@@ -635,6 +636,7 @@ ru: {
   sdAssistantAria: "Открыть помощника",
 
   shLoadingMsg: "Загрузка…", shValidUntilPrefix: "действует до", shNoLimit: "без ограничения времени",
+  shExpandHint: "Нажми на сделку, чтобы увидеть, как человек её набирал — детали и скрины.",
   shKindDefault: "статистика", shMadeIn: "сделано в",
   shLinkBroken: "Ссылка не работает", shLinkBrokenDesc: "Её либо удалили, либо истёк срок действия.",
   shOpenFailed: "Не удалось открыть",
@@ -878,7 +880,7 @@ en: {
   slTtl1h: "1 hour", slTtl24h: "24 hours", slTtl7d: "7 days", slTtl30d: "30 days", slTtlForever: "no limit",
   slWinRate: "Win rate", slTotal: "Total",
   slKindDay: "day", slKindWeek: "week", slKindMonth: "month", slKindYear: "year", slKindTrade: "trade",
-  slTradesTitle: "Trades", slByDays: "By day", slByMonths: "By month",
+  slShareTrade: "Share trade", slTradesTitle: "Trades", slByDays: "By day", slByMonths: "By month",
   slDetails: "Details", slEntryBlock: "Entry",
   slShareTitle: "Share",
   slNote: "Only the calculated numbers are sent — the trades themselves and screenshots aren't reachable via the link.",
@@ -936,6 +938,7 @@ en: {
   sdAssistantAria: "Open the assistant",
 
   shLoadingMsg: "Loading…", shValidUntilPrefix: "valid until", shNoLimit: "no time limit",
+  shExpandHint: "Tap a trade to see how it was taken — the details and the charts.",
   shKindDefault: "stats", shMadeIn: "made with",
   shLinkBroken: "This link doesn't work", shLinkBrokenDesc: "It was either removed or has expired.",
   shOpenFailed: "Couldn't open it",

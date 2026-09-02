@@ -175,6 +175,19 @@ def share_create(payload, ttl_key):
     return rec
 
 
+def share_shot_ok(rec, name):
+    """Чи згадана ця картинка в самому знімку.
+
+    Знімок бачить будь-хто, кому дали посилання, тому й картинки віддаємо
+    без входу — але рівно ті, що в ньому перелічені. Підставити чуже ім'я
+    не вийде: перевіряємо по списку."""
+    for t in (rec.get("data") or {}).get("trades") or []:
+        for sh in t.get("shots") or []:
+            if sh.get("file") == name:
+                return True
+    return False
+
+
 def share_read(sid):
     """Отдаёт снимок или None, если его нет либо срок вышел."""
     if not re.fullmatch(r"[A-Za-z0-9_-]{6,32}", sid or ""):
@@ -373,6 +386,21 @@ class H(BaseHTTPRequestHandler):
         p = unquote(urlparse(self.path).path)
 
         # ---- открыто всем: страница по ссылке и её снимок ----
+        # картинка зі знімка: /api/share/<id>/shot/<файл>
+        m = re.match(r"^/api/share/([A-Za-z0-9_-]{6,32})/shot/([\w.\-]{4,120})$", p)
+        if m:
+            rec = share_read(m.group(1))
+            name = os.path.basename(m.group(2))
+            if not rec or not share_shot_ok(rec, name):
+                self.send_response(404); self.end_headers(); return
+            path = shot_path(name)
+            if not path:
+                self.send_response(404); self.end_headers(); return
+            ext = name.rsplit(".", 1)[-1].lower()
+            ctype = {"png": "image/png", "jpg": "image/jpeg", "jpeg": "image/jpeg",
+                     "webp": "image/webp", "gif": "image/gif"}.get(ext, "application/octet-stream")
+            return self._file(path, ctype)
+
         if p.startswith("/api/share/"):
             rec = share_read(p[len("/api/share/"):])
             if rec is None:

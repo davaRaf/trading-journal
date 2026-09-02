@@ -27,10 +27,41 @@ function statsOf(list){
     { k:T.kCount,         v:String(st.n) },
     { k:T.slWinRate,     v:fmtPct(st.wr) },
     { k:T.slTotal,     v:fmtR(st.net), cls: st.net>0 ? "pos" : st.net<0 ? "neg" : "" },
-    { k:T.kAvgRR,  v: st.rr==null ? "—" : String(r1(st.rr)) },
+    /* у calc() поле зветься avgRR — через st.rr тут завжди був прочерк */
+    { k:T.kAvgRR,  v: st.avgRR==null ? "—" : String(r1(st.avgRR)) },
     { k:T.kResSplit, v: st.wins+" / "+st.losses+" / "+st.be },
     { k:T.kBeSplit,    v: st.beM+" / "+st.beP },
   ];
+}
+
+/* Угода цілком — щоб той, кому дали посилання, міг її розгорнути:
+   як заходив, що записав, і самі скріни. Без цього зі знімка дня видно
+   лише «US100 · TP», а найцікавіше лишається вдома. */
+function tradeDetail(t){
+  const info = [
+    [T.fSession, t.session], [T.fPosition, t.position], [T.fBias, t.bias],
+    [T.fmEntryTypeLabel, dirType(t)], [T.flModel, t.entry_model], [T.fSetup, t.setup],
+    [T.fRisk, t.risk == null ? "" : t.risk + "%"], ["RR", t.rr == null ? "" : String(t.rr)],
+    [T.fEmotion, t.emotion],
+  ].filter(([, v]) => v).map(([k, v]) => ({k: k, v: String(v)}));
+
+  const texts = [[T.slEntryBlock, t.entry_details], [T.tiNotes, t.notes],
+                 [T.tiMistakes, t.mistakes]]
+    .filter(([, v]) => (v || "").trim())
+    .map(([k, v]) => ({k: k, v: v.trim()}));
+
+  return {
+    id: t.id,
+    time: (t.date || "").slice(11, 16),
+    pair: t.pair || "",
+    result: resLabel(t.result),
+    cls: t.result === "Win" ? "pos" : t.result === "Loss" ? "neg" : "be",
+    net: netR(t),
+    info: info,
+    texts: texts,
+    shots: (t.screenshots || []).filter(s => s.file)
+      .map(s => ({tf: s.tf || "", file: s.file})),
+  };
 }
 
 /* розріз: що дало найбільше і найменше */
@@ -53,11 +84,8 @@ function daySnapshot(dk){
     title: d.getDate() + " " + T.monthsGen[d.getMonth()] + " " + d.getFullYear(),
     total: calc(list).net,
     kpis: statsOf(list),
+    trades: list.map(tradeDetail),
     blocks: [
-      list.length ? { title:T.slTradesTitle, items: list.map(t => ({
-        name: (t.date||"").slice(11,16) + "  ·  " + (t.pair||"") + "  ·  " + resLabel(t.result),
-        value: netR(t),
-      })) } : null,
       sliceBlock(T.railSessions, list, "session"),
     ].filter(Boolean),
   };
@@ -135,15 +163,6 @@ function tradeSnapshot(id){
   const t = S.all.find(x => x.id === id);
   if (!t) return null;
   const net = netR(t);
-  const info = [
-    [T.fPair, t.pair], [T.fDate, (t.date||"").replace("T", " ")],
-    [T.fPosition, t.position], [T.fBias, t.bias],
-    [T.fmEntryTypeLabel, dirType(t)], [T.flModel, t.entry_model],
-    [T.fSetup, t.setup],
-    [T.fRisk, t.risk==null ? "" : t.risk + "%"],
-    ["RR", t.rr==null ? "" : String(t.rr)],
-  ].filter(([, v]) => v).map(([name, text]) => ({ name, text }));
-
   return {
     kind: T.slKindTrade,
     title: t.pair + " · " + resLabel(t.result),
@@ -154,11 +173,9 @@ function tradeSnapshot(id){
       { k:"RR",        v: t.rr==null ? "—" : String(t.rr) },
       { k:T.fRisk,     v: t.risk==null ? "—" : t.risk + "%" },
     ],
-    blocks: [
-      { title:T.slDetails, items: info },
-      (t.entry_details||"").trim()
-        ? { title:T.slEntryBlock, items:[{ name:t.entry_details, text:"" }] } : null,
-    ].filter(Boolean),
+    /* та сама розгортка, що й у знімку дня: скріни та все, що записано */
+    trades: [tradeDetail(t)],
+    blocks: [],
   };
 }
 
@@ -329,16 +346,19 @@ function mountDayPanel(){
   add ? panel.insertBefore(b, add) : panel.appendChild(b);
 }
 
-/* ---- кнопка в картці угоди ---- */
+/* ---- кнопка біля угоди ----
+   Угоду видно у двох місцях: карткою в бічній панелі й розгорнутим рядком
+   у списку журналу. Кнопка потрібна в обох — інакше людина шукає її там,
+   де відкрила угоду, і не знаходить. Ставимо поруч із «Видалити»: у ній
+   лежить id угоди, більше його взяти нізвідки. */
 function mountTradeCard(){
-  document.querySelectorAll(".m-foot").forEach(foot => {
+  document.querySelectorAll(".m-foot, .dact").forEach(foot => {
     if (foot.querySelector(".sh-trade")) return;
-    // картку впізнаємо за кнопкою «Видалити» — у ній лежить id угоди
     const del = foot.querySelector(".danger[onclick*='delTrade']");
     if (!del) return;
     const m = del.getAttribute("onclick").match(/delTrade\('([^']+)'\)/);
     if (!m) return;
-    const b = mkBtn(T.slShareCap, "trade", m[1], "sh-trade");
+    const b = mkBtn(T.slShareTrade, "trade", m[1], "sh-trade");
     foot.insertBefore(b, del);
   });
 }
