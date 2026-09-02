@@ -31,7 +31,7 @@ from calendar_feed import calendar_events
 
 ROOT   = config.ROOT
 STATIC = os.path.join(ROOT, "static")
-DATA   = os.path.join(ROOT, "data")
+DATA   = config.DATA_DIR
 SHOTS  = os.path.join(DATA, "screenshots")
 PORT   = config.PORT
 
@@ -513,6 +513,30 @@ class H(BaseHTTPRequestHandler):
 
         # ---- дальше всё только для своих ----
         uid = self._uid()
+        # ---- разовая заливка скриншотов при переезде ----
+        # Работает, только если задан ADMIN_TOKEN. Нужна один раз: перенести
+        # накопленные картинки со старой машины. После переезда переменную убрать.
+        if p == "/api/admin/upload-shot":
+            token = config.ADMIN_TOKEN
+            if not token or self.headers.get("X-Admin-Token") != token:
+                return self._json({"error": "no"}, 404)
+            name = os.path.basename(str((body or {}).get("name") or ""))
+            data = (body or {}).get("data") or ""
+            if not name or not re.match(r"^[\w.\-]{4,120}$", name):
+                return self._json({"error": "bad name"}, 400)
+            dest = os.path.join(SHOTS, name)
+            if os.path.exists(dest):
+                return self._json({"ok": True, "skipped": True})
+            try:
+                raw = base64.b64decode(data)
+            except Exception:
+                return self._json({"error": "bad data"}, 400)
+            if len(raw) > 8 * 1024 * 1024:
+                return self._json({"error": "too big"}, 400)
+            with open(dest, "wb") as f:
+                f.write(raw)
+            return self._json({"ok": True})
+
         if p.startswith("/api/") and not uid:
             return self._json({"error": "auth required"}, 401)
 

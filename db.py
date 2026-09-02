@@ -5,6 +5,7 @@ Postgres (Neon). Соединения короткоживущие: и сайт,
 """
 import datetime
 import secrets
+import threading
 
 import psycopg
 from psycopg.rows import dict_row
@@ -22,10 +23,46 @@ FIELDS = TEXT_FIELDS + NUM_FIELDS
 LINK_CODE_TTL = datetime.timedelta(minutes=15)
 
 
+# Пул соединений.
+#
+# Раньше каждый запрос открывал соединение и тут же закрывал. Пока
+# пользователь один — незаметно, но на полусотне человек это упирается:
+# рукопожатие с Postgres стоит дороже самого запроса, а у базы кончается
+# лимит соединений.
+#
+# Пул держит несколько соединений открытыми и выдаёт их по кругу.
+# psycopg_pool необязателен: если его нет (старое окружение), работаем
+# по-прежнему, только медленнее.
+try:
+    from psycopg_pool import ConnectionPool
+except ImportError:
+    ConnectionPool = None
+
+_pool = None
+_pool_lock = threading.Lock()
+
+
+def _get_pool():
+    global _pool
+    if _pool is None:
+        with _pool_lock:
+            if _pool is None:
+                _pool = ConnectionPool(
+                    DATABASE_URL,
+                    min_size=1, max_size=8,
+                    max_idle=300,               # Neon рвёт простаивающие сам
+                    kwargs={"row_factory": dict_row},
+                    check=ConnectionPool.check_connection,
+                    open=True)
+    return _pool
+
+
 def connect():
     if not DATABASE_URL:
         raise RuntimeError("DATABASE_URL не задан — заполни .env (см. .env.example)")
-    return psycopg.connect(DATABASE_URL, row_factory=dict_row)
+    if ConnectionPool is None:
+        return psycopg.connect(DATABASE_URL, row_factory=dict_row)
+    return _get_pool().connection()
 
 
 def now():

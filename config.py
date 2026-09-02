@@ -28,9 +28,16 @@ def load_dotenv(path=None):
 load_dotenv()
 
 DATABASE_URL  = os.environ.get("DATABASE_URL", "")
+# Де лежать скріншоти, посилання-снімки й налаштування Notion. На хостингу
+# сюди підставляють теку тому (volume) — інакше файли зникнуть при першому
+# ж оновленні коду: у контейнерів файлова система тимчасова.
+DATA_DIR      = os.environ.get("DATA_DIR", os.path.join(ROOT, "data"))
 BOT_TOKEN     = os.environ.get("BOT_TOKEN", "")
 BOT_USERNAME  = os.environ.get("BOT_USERNAME", "")
 SESSION_SECRET = os.environ.get("SESSION_SECRET", "")
+# Разовый ключ для переноса скриншотов на новый сервер (tools/upload_shots.py).
+# Пока пустой — точка загрузки просто не существует. После переезда убрать.
+ADMIN_TOKEN   = os.environ.get("ADMIN_TOKEN", "")
 GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY", "")
 PORT          = int(os.environ.get("PORT", 8172))
 # На своєму комп'ютері слухаємо тільки себе, на хостингу — усі інтерфейси,
