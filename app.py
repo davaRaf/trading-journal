@@ -13,6 +13,7 @@ import secrets
 import threading
 import time
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+import urllib.parse
 from urllib.parse import urlparse, unquote
 
 import assistant
@@ -25,6 +26,7 @@ import share_store
 import llm
 import notion_import as notion
 import notion_public as npub
+import oauth
 import day_store
 import tg_api
 import ts_notion
@@ -431,6 +433,15 @@ class H(BaseHTTPRequestHandler):
     def _uid(self):
         return auth.current_user_id(self)
 
+    def _base(self):
+        """Зовнішня адреса сайту: з PUBLIC_URL, інакше з заголовків — за
+        проксі хостингу схема приходить в X-Forwarded-Proto."""
+        if config.PUBLIC_URL:
+            return config.PUBLIC_URL
+        proto = self.headers.get("X-Forwarded-Proto") or "http"
+        host = self.headers.get("X-Forwarded-Host") or self.headers.get("Host") or "localhost"
+        return "%s://%s" % (proto, host)
+
     # ---------- GET ----------
     def do_GET(self):
         p = unquote(urlparse(self.path).path)
@@ -480,6 +491,61 @@ class H(BaseHTTPRequestHandler):
             self.send_header("Cache-Control", "no-store")
             self.end_headers()
             self.wfile.write(data)
+            return
+
+        # ---- вхід через сервіси (oauth.py) ----
+        if p == "/api/auth/providers":
+            on = oauth.enabled()
+            return self._json({"providers": on,
+                               "telegram_bot": config.BOT_USERNAME if on.get("telegram") else "",
+                               "telegram_bot_id": (config.BOT_TOKEN.split(":")[0]
+                                                   if on.get("telegram") else "")})
+
+        m = re.match(r"^/auth/(google|discord)$", p)
+        if m:
+            prov = m.group(1)
+            if not oauth.enabled().get(prov):
+                return self._redirect("/login?err=off")
+            url, state = oauth.start_url(prov, self._base())
+            self.send_response(302)
+            self.send_header("Location", url)
+            self.send_header("Set-Cookie", oauth.state_cookie(state))
+            self.end_headers()
+            return
+
+        m = re.match(r"^/auth/(google|discord|telegram)/callback$", p)
+        if m:
+            prov = m.group(1)
+            q = {k: v[0] for k, v in urllib.parse.parse_qs(urlparse(self.path).query).items()}
+            try:
+                if prov == "telegram":
+                    ext_id, email, name, tg_user = oauth.telegram_profile(q)
+                else:
+                    cookies = self.headers.get("Cookie") or ""
+                    st = ""
+                    for part in cookies.split(";"):
+                        k, _, v = part.strip().partition("=")
+                        if k == "oauth_state":
+                            st = v
+                    if q.get("error") or not oauth.check_state(q.get("state"), st):
+                        raise ValueError("вхід скасовано або сплив час")
+                    ext_id, email, name = oauth.fetch_profile(prov, q.get("code", ""), self._base())
+                    tg_user = ""
+                if not ext_id:
+                    raise ValueError("сервіс не віддав профіль")
+                user = oauth.find_or_create_user(prov, ext_id, email, name, tg_user)
+            except Exception as ex:
+                print("oauth %s: %s" % (prov, ex))
+                self.send_response(302)
+                self.send_header("Location", "/login?err=oauth")
+                self.send_header("Set-Cookie", oauth.clear_state_cookie())
+                self.end_headers()
+                return
+            self.send_response(302)
+            self.send_header("Location", "/")
+            self.send_header("Set-Cookie", auth.cookie_header(auth.make_session(user["id"])))
+            self.send_header("Set-Cookie", oauth.clear_state_cookie())
+            self.end_headers()
             return
 
         if p == "/api/auth/me":

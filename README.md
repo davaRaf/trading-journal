@@ -288,6 +288,29 @@ Railway держит `app.py` включённым всё время — это 
    на отдельном томе — **для скриншотов это не требуется, они в базе** (см. ниже).
 5. **Settings → Networking → Generate Domain.**
 
+### Вход через Google, Discord и Telegram
+
+Кнопки на странице входа работают, когда заданы ключи. Без ключей кнопка сервиса
+просто не показывается — лучше не показать, чем показать и не работать.
+
+| Переменная | Откуда |
+|---|---|
+| `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET` | [console.cloud.google.com](https://console.cloud.google.com) → APIs & Services → Credentials → **Create OAuth client ID** (Web application). В **Authorized redirect URIs** добавить `https://АДРЕС/auth/google/callback` |
+| `DISCORD_CLIENT_ID`, `DISCORD_CLIENT_SECRET` | [discord.com/developers](https://discord.com/developers/applications) → New Application → OAuth2. В **Redirects** добавить `https://АДРЕС/auth/discord/callback` |
+| Telegram | ключей не нужно — работает через бота (`BOT_TOKEN`, `BOT_USERNAME`). Один раз в @BotFather: `/setdomain` → выбрать бота → вписать домен сайта, иначе Telegram откажет |
+| `PUBLIC_URL` | необязательно: внешний адрес сайта для обратных ссылок, если хостинг не отдаёт `X-Forwarded-Proto` |
+
+Как это устроено — `oauth.py`. Человека, который уже заходил, узнаём по таблице
+`identities` (сервис + id). Если сервис отдал почту, а такой аккаунт уже есть — входим
+в него, второй не плодим. Вход через Telegram заодно привязывает бота: напоминания
+пойдут сразу.
+
+### Телефоны и планшеты
+
+До 900px боковая панель прячется: сверху шапка (лого, «Нова угода», меню), снизу
+вкладки с разделами, всё остальное из панели — в шторке по кнопке меню. Это
+`static/mobile.css` и `static/mobile.js`; на широком экране они ничего не меняют.
+
 ### Тома не нужны
 
 Скриншоты лежат в базе (`filestore.py`, таблица `files`), а файл на диске — только кэш.

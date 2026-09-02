@@ -1,0 +1,138 @@
+/* ============================================================
+   Планшети й телефони.
+
+   На широкому екрані ліворуч стоїть панель на 216px. На телефоні вона
+   зʼїдає пів екрана і ламає сторінку, тож до 900px ховаємо її, а замість
+   неї — шапка зверху (лого + «Нова угода» + меню) і панель вкладок
+   знизу з шістьма розділами. Усе, що було в бічній панелі (калькулятор,
+   підключення, мова, оформлення, вихід), живе в шторці «меню».
+
+   Файл підключається останнім і тільки додає правила під @media, тому
+   на десктопі нічого не змінює.
+   ============================================================ */
+
+.mtop, .mtabs, .mmenu-wrap{display:none}
+
+@media (max-width:900px){
+  body{display:block; padding-bottom:calc(64px + env(safe-area-inset-bottom))}
+  .side{display:none}
+  .main{padding:14px 14px 24px}
+
+  /* ---- шапка ---- */
+  .mtop{display:flex; align-items:center; gap:10px; position:sticky; top:0; z-index:40;
+    padding:10px 14px; background:var(--side-bg); border-bottom:1px solid var(--side-line)}
+  .mtop .mlogo{display:flex; align-items:center; gap:8px; font-weight:650; font-size:15px;
+    letter-spacing:-.01em}
+  .mtop .mlogo .mark{width:30px; height:30px; border-radius:9px; background:var(--mark-bg);
+    border:1px solid var(--mark-line); display:grid; place-items:center; color:var(--text)}
+  .mtop .mlogo .mark svg{height:17px; width:auto}
+  .mtop .mlogo i{color:var(--accent); font-style:normal}
+  .mtop .sp{flex:1}
+  .mtop .mnew{display:flex; align-items:center; gap:6px; background:var(--accent);
+    color:var(--accent-ink,#fff); border-radius:10px; padding:8px 12px; font-weight:600; font-size:13.5px}
+  .mtop .mburger{width:38px; height:38px; border-radius:10px; border:1px solid var(--line);
+    background:var(--panel); display:grid; place-items:center; color:var(--dim)}
+
+  /* ---- вкладки знизу ---- */
+  .mtabs{display:grid; grid-template-columns:repeat(6,1fr); position:fixed; left:0; right:0; bottom:0;
+    z-index:40; background:var(--side-bg); border-top:1px solid var(--side-line);
+    padding:6px 4px calc(6px + env(safe-area-inset-bottom))}
+  .mtabs a{display:flex; flex-direction:column; align-items:center; gap:3px; padding:6px 2px;
+    border-radius:10px; color:var(--dim); font-size:10.5px; line-height:1.1; text-align:center;
+    white-space:nowrap; overflow:hidden; text-overflow:ellipsis}
+  .mtabs a .ic{opacity:.55}
+  .mtabs a.on{color:var(--text); background:var(--panel-2)}
+  .mtabs a.on .ic{opacity:1; color:var(--accent)}
+
+  /* ---- шторка меню ---- */
+  .mmenu-wrap{display:block; position:fixed; inset:0; z-index:60; visibility:hidden}
+  .mmenu-wrap.in{visibility:visible}
+  .mmenu-wrap .ov{position:absolute; inset:0; background:rgba(0,0,0,.55); opacity:0; transition:opacity .2s}
+  .mmenu-wrap.in .ov{opacity:1}
+  .mmenu{position:absolute; top:0; right:0; bottom:0; width:min(320px, 88vw); background:var(--side-bg);
+    border-left:1px solid var(--side-line); padding:16px 14px calc(16px + env(safe-area-inset-bottom));
+    overflow-y:auto; display:flex; flex-direction:column; gap:18px;
+    transform:translateX(100%); transition:transform .24s cubic-bezier(.16,1,.3,1)}
+  .mmenu-wrap.in .mmenu{transform:none}
+  .mmenu .mhead{display:flex; align-items:center; justify-content:space-between}
+  .mmenu .mhead b{font-size:15px}
+  .mmenu .x{width:34px; height:34px; border-radius:9px; border:1px solid var(--line); color:var(--dim);
+    display:grid; place-items:center; font-size:18px}
+  /* всередині шторки живуть оригінальні блоки бічної панелі — їх стилі й так є */
+  .mmenu .grp, .mmenu .conn, .mmenu .side-foot{display:flex; flex-direction:column; gap:10px}
+  .mmenu .side-foot{margin-top:auto}
+
+  /* ---- вміст ---- */
+  .vhead{gap:10px}
+  .vhead h1{font-size:22px}
+  .vhead .right{width:100%; margin-left:0}
+  .kpis{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .ovw, .jgrid, .split{grid-template-columns:minmax(0,1fr)}
+  /* показники місяця на огляді стояли в чотири колонки й вилазили за картку */
+  .ovw .stats{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .card .in{padding:14px}
+  .card h3{padding:11px 14px; font-size:12px}
+  .sh-bar{flex-wrap:wrap}
+
+  /* панелі збоку — на весь екран */
+  .pnl-wrap[data-side="right"] .pnl{width:100%; border-radius:0; border:none}
+
+  /* календар журналу: клітинки тісніші */
+  .cal{gap:4px; padding:10px}
+
+  /* «Моя ТС» */
+  .ts-ways{grid-template-columns:1fr}
+  .ts-tf{grid-template-columns:1fr; gap:10px}
+  .ts-line{grid-template-columns:1fr; gap:4px}
+  .ts-mods{grid-template-columns:1fr}
+  .ts-three{gap:22px}
+  .ts-three .n{font-size:26px}
+  .ts-cmp .r{grid-template-columns:1fr; gap:6px}
+  .ts-cmp .v{text-align:left}
+
+  /* «Аналіз дня» */
+  .dv-head, .dv-pair, .dv-two{grid-template-columns:1fr}
+  .dv-head span:first-child, .dv-cell:first-child, .dv-two .col.left{border-right:none;
+    border-bottom:1px solid var(--line-soft)}
+  .dv-wait{position:static}
+  .dv-lvr{grid-template-columns:1fr; gap:4px}
+  .dv-nav{width:100%; margin-left:0; justify-content:space-between}
+  .dv-strip .s{min-width:140px}
+
+  /* Аналітика, зв'язки: розрізи переносяться в кілька рядків, а не тягнуться вбік */
+  .dims{flex-wrap:wrap; gap:6px}
+  .dims .pill{flex:none; padding:7px 12px; font-size:12.5px}
+  .lk-cols{grid-template-columns:1fr}
+
+  /* помічник — нижче за вкладки не ховається */
+  /* помічник і бейдж демо — вище за вкладки, інакше затуляють «Новини».
+     !important, бо їхні власні файли задають позицію жорстко */
+  .as-fab{bottom:calc(78px + env(safe-area-inset-bottom)) !important; right:12px !important;
+    width:52px !important; height:52px !important}
+  .demo-badge{bottom:calc(78px + env(safe-area-inset-bottom)) !important}
+}
+
+@media (max-width:560px){
+  .main{padding:12px 10px 24px}
+  /* кнопки внизу картки й розгорнутого рядка: у три в ряд не влазять —
+     переносяться і ділять ширину */
+  .m-foot, .dact{flex-wrap:wrap; gap:8px}
+  .m-foot .btn, .dact .btn{flex:1 1 auto; padding:9px 10px; font-size:13.5px; white-space:nowrap}
+  .m-foot .sp{display:none}
+  /* поле для посилання Notion і кнопка — одне під одним */
+  .ts-paste{flex-direction:column}
+  .ts-paste button{width:100%}
+  .kpis{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .trow{grid-template-columns:minmax(0,1fr) auto; gap:3px 10px}
+  .ts-shots .ts-shot.mini, .shots .shot.mini{width:calc(50% - 5px)}
+  .dv-tr{grid-template-columns:1fr auto; row-gap:6px}
+  .dv-tr .r{grid-column:2}
+  .dv-strip .s{min-width:100%; border-left:none; border-top:1px solid var(--line-soft)}
+  .dv-strip .s:first-child{border-top:none}
+}
+
+/* планшет у книжковій орієнтації: панель лишається, але вужча */
+@media (min-width:901px) and (max-width:1100px){
+  .side{width:188px; padding:16px 10px}
+  .main{padding:18px}
+}

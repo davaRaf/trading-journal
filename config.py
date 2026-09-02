@@ -42,6 +42,15 @@ SITE_URL      = os.environ.get("SITE_URL", "https://trading-journal-production-4
 # Пока пустой — точка загрузки просто не существует. После переезда убрать.
 ADMIN_TOKEN   = os.environ.get("ADMIN_TOKEN", "")
 GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY", "")
+# Вхід через сервіси (oauth.py). Кнопка на сторінці входу показується,
+# тільки якщо є обидва ключі. Telegram окремих ключів не потребує.
+GOOGLE_CLIENT_ID     = os.environ.get("GOOGLE_CLIENT_ID", "")
+GOOGLE_CLIENT_SECRET = os.environ.get("GOOGLE_CLIENT_SECRET", "")
+DISCORD_CLIENT_ID    = os.environ.get("DISCORD_CLIENT_ID", "")
+DISCORD_CLIENT_SECRET = os.environ.get("DISCORD_CLIENT_SECRET", "")
+# Зовнішня адреса сайту для зворотних посилань OAuth (https://…). Якщо
+# порожня — береться з заголовків запиту.
+PUBLIC_URL    = os.environ.get("PUBLIC_URL", "").rstrip("/")
 PORT          = int(os.environ.get("PORT", 8172))
 # На своєму комп'ютері слухаємо тільки себе, на хостингу — усі інтерфейси,
 # інакше платформа не достукається до сервера й вважатиме його мертвим.

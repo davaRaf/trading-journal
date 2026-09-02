@@ -256,6 +256,7 @@ body{
   color:var(--text); font:inherit; font-size:13.5px;
   transition:background .2s var(--ease), border-color .2s var(--ease), transform .12s var(--ease);
 }
+.soc[hidden]{display:none}   /* display:flex інакше перебиває hidden — кнопка без ключів лишалась на екрані */
 .soc:hover{background:var(--surface-3); border-color:rgba(var(--pos-rgb),.4)}
 .soc:active{transform:translateY(1px)}
 .soc:focus-visible{outline:2px solid rgb(var(--pos-rgb)); outline-offset:2px}
@@ -1017,9 +1018,41 @@ function showErr(text){
   errMsg.hidden = !text;
 }
 
+/* ---- вхід через сервіси ----
+   Google і Discord — звичайний перехід на /auth/<сервіс>, далі все робить
+   сервер. Telegram — сторінка oauth.telegram.org, яка повертає підписані
+   дані на наш колбек. Кнопки сервісів без ключів ховаємо: краще не
+   показати, ніж показати й не працювати. */
+let PROV = null;
+fetch("/api/auth/providers").then(r => r.json()).then(j => {
+  PROV = j || {};
+  document.querySelectorAll(".soc").forEach(b => {
+    const k = (b.dataset.svc || "").toLowerCase();
+    if (PROV.providers && PROV.providers[k] === false) b.hidden = true;
+  });
+  const anyOn = PROV.providers && Object.values(PROV.providers).some(Boolean);
+  const divider = document.querySelector(".or, .divider");
+  if (!anyOn && divider) divider.hidden = true;
+}).catch(() => {});
+
 document.querySelectorAll(".soc").forEach(b => b.addEventListener("click", () => {
-  showErr("Поки що вхід тільки поштою або ніком");
+  const k = (b.dataset.svc || "").toLowerCase();
+  if (k === "google" || k === "discord"){ location.href = "/auth/" + k; return; }
+  if (k === "telegram"){
+    if (!PROV || !PROV.telegram_bot_id){ showErr("Вхід через Telegram ще не налаштований"); return; }
+    const back = location.origin + "/auth/telegram/callback";
+    location.href = "https://oauth.telegram.org/auth?bot_id=" + encodeURIComponent(PROV.telegram_bot_id)
+      + "&origin=" + encodeURIComponent(location.origin)
+      + "&request_access=write&return_to=" + encodeURIComponent(back);
+  }
 }));
+
+/* якщо повернулись із помилкою — скажемо словами */
+(function(){
+  const err = new URLSearchParams(location.search).get("err");
+  if (err === "oauth") showErr("Не вдалось увійти через сервіс. Спробуй ще раз або зайди поштою.");
+  if (err === "off") showErr("Цей спосіб входу ще не увімкнено.");
+})();
 
 /* ============ живые реакции формы ============ */
 const shell = document.querySelector(".shell");
