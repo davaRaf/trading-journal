@@ -248,13 +248,19 @@ body{margin:0; background:var(--bg); color:var(--text); font-family:var(--sans);
 .lvr2 .p{font-family:var(--mono); font-size:15.5px}
 .lvr2 .p.up{color:var(--up)} .lvr2 .p.down{color:var(--down)}
 .lvr2 .n{font-size:13px; color:var(--dim)}
-.lvr2 .ic{width:16px; height:16px; border-radius:50%; align-self:center; position:relative}
+.lvr2 .ic{width:18px; height:18px; border-radius:50%; align-self:center; position:relative;
+  border:1px solid var(--line); background:transparent; padding:0; cursor:pointer;
+  transition:border-color .15s}
+.lvr2 .ic:hover{border-color:var(--faint)}
+.lvr2.ok .ic, .lvr2.mid .ic, .lvr2.no .ic{border-color:transparent}
 .lvr2.ok .ic{background:var(--up-soft)}
 .lvr2.mid .ic{background:var(--be-soft)}
 .lvr2 .ic::after{content:"✓"; position:absolute; inset:0; display:flex; align-items:center;
   justify-content:center; font-size:10px}
 .lvr2.ok .ic::after{color:var(--up)}
 .lvr2.mid .ic::after{content:"~"; color:var(--be)}
+.lvr2.no .ic{background:var(--down-soft)}
+.lvr2.no .ic::after{content:"×"; color:var(--down); font-size:12px}
 
 @media (max-width:900px){
   .sphead{grid-template-columns:1fr}
@@ -697,14 +703,17 @@ function skipEd(side){
 }
 
 /* ---- вечірні поля ---- */
+/* Рядки показуємо завжди, скільки їх є ліворуч: якщо ховати порожні,
+   увечері виявляється, що написати нема куди. Кружечок — перемикач:
+   дійшло / наполовину / ні. */
 function levelsDoneEd(){
   let h = '<div class="lvd">';
   for (let i = 0; i < levelsN(); i++){
     const price = v("levels." + i + ".p", "l");
-    if (!price && mine()) continue;
     const cls = v("levels." + i + ".dcls", "r") || "";
     h += '<div class="lvr2 ' + cls + '"><span class="p">' + (price || "—") + "</span>"
-      + '<span class="ic"></span><span class="n">'
+      + '<button class="ic" type="button" title="дійшло / наполовину / ні" onclick="__day.hit('
+      + i + ')"></button><span class="n">'
       + fld("levels." + i + ".did", "r", "що з ним сталось") + "</span></div>";
   }
   return h + "</div>";
@@ -917,6 +926,12 @@ window.__day = {
   side(val){ MY["bias.side"] = (MY["bias.side"] === val ? "" : val); keep(); draw(); },
   mark(path, val){ MY[path] = val; keep(); draw(); },
   more(){ MY.levelsN = levelsN() + 1; keep(); draw(); },
+  hit(i){
+    const path = "levels." + i + ".dcls";
+    const cycle = {"": "ok", ok: "mid", mid: "no", no: ""};
+    MY[path] = cycle[v(path, "r") || ""];
+    keep(); draw();
+  },
   clear(){
     MY = {};
     try{ localStorage.removeItem(MY_KEY); }catch(e){}
