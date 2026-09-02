@@ -473,7 +473,7 @@ function open(){
 }
 
 async function undo(id){
-  if (!confirm(T.ntConfirmUndo)) return;
+  if (!await Ask.yes(T.ntConfirmUndo, {ok:T.askYes, cancel:T.askNo, danger:true})) return;
   let r;
   try{ r = await call("POST", "/api/notion/undo/" + id, {}); }
   catch(e){ return err(e.message); }

@@ -504,6 +504,9 @@ document.addEventListener("mouseover", e => {
 });
 
 document.addEventListener("keydown", e => {
+  /* поки висить питання «точно вийти?», Escape належить йому: цей обробник
+     зареєстрований раніше й інакше відкрив би ще одне таке саме питання */
+  if (window.Ask && Ask.isOpen()) return;
   if (e.key === "Escape" && askBox){ e.stopPropagation(); askClose(); }
 }, true);
 
@@ -595,8 +598,8 @@ function askDirty(){
   });
 }
 
-function askClose(force){
-  if (!force && askDirty() && !confirm(D().confirmQuitAsk)) return;
+async function askClose(force){
+  if (!force && askDirty() && !await Ask.yes(D().confirmQuitAsk, {ok:T.askYes, cancel:T.askNo, danger:true})) return;
   if (askBox && askBox.parentNode) askBox.parentNode.removeChild(askBox);
   askBox = null;
   document.body.style.overflow = "";
@@ -825,7 +828,7 @@ window.__ts = {
     save(); render();
   },
   async wipe(){
-    if (!confirm(D().confirmDelete)) return;
+    if (!await Ask.yes(D().confirmDelete, {ok:T.askYes, cancel:T.askNo, danger:true})) return;
     if (demo()){ try{ localStorage.removeItem(DEMO_KEY); }catch(e){} }
     else { try{ await api("POST", "/api/ts/clear"); }catch(e){} }
     TS = null; checked = {};

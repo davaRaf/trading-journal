@@ -1186,7 +1186,7 @@ function findTrade(id){ return (S.all.length?S.all:S.trades).find(x=>x.id===id);
 /* клик по строке — карточка выезжает справа */
 function openTradeRow(id){ openTrade(id); }
 async function delTrade(id){
-  if(!confirm(T.confirmDeleteTrade)) return;
+  if(!await Ask.yes(T.confirmDeleteTrade, {ok:T.askYes, cancel:T.askNo, danger:true})) return;
   await api("DELETE","/api/trades/"+id);
   await reload(); closeModal(); render();
 }
@@ -1508,7 +1508,7 @@ async function saveTrade(id){
   if(!t.pair){ alert(T.alertNeedPair); return; }
   /* «1 Месяц» колись приїхало сюди з чужої колонки Notion. Не забороняємо —
      перепитуємо: раптом інструмент і справді так зветься */
-  if(!looksLikePair(t.pair) && !confirm(T.alertOddPair.replace("%s", t.pair))) return;
+  if(!looksLikePair(t.pair) && !await Ask.yes(T.alertOddPair.replace("%s", t.pair), {ok:T.askYes, cancel:T.askNo})) return;
   if(!t.date){ alert(T.alertNeedDate); return; }
   if(!t.result){ alert(T.alertNeedResult); return; }
   if(t.result==="Win" && !num(t.rr)){ alert(T.alertNeedRR); return; }
@@ -1700,7 +1700,7 @@ $("#modal").addEventListener("click",e=>{ if(e.target.id==="modal")closeModal();
 
 /* ---------- аккаунт и Telegram ---------- */
 async function logout(){
-  if(!confirm(T.confirmLogout)) return;
+  if(!await Ask.yes(T.confirmLogout, {ok:T.askYes, cancel:T.askNo, danger:true})) return;
   try{ await api("POST","/api/auth/logout"); }catch(e){}
   location.href="/login";
 }
@@ -1736,7 +1736,7 @@ async function linkTelegram(){
 }
 
 async function unlinkTelegram(){
-  if(!confirm(T.confirmUnlinkTg)) return;
+  if(!await Ask.yes(T.confirmUnlinkTg, {ok:T.askYes, cancel:T.askNo, danger:true})) return;
   try{ await api("POST","/api/telegram/unlink"); }catch(e){}
   closeModal();
   refreshTelegramStatus();

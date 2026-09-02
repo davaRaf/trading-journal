@@ -88,6 +88,7 @@ uk: {
   tcCharts: "Графіки", tcComments: "Коментарі", tcNoScreens: "скриншотів немає",
   tcNotFilled: "не заповнено:", closeEscTip: "Закрити · Esc",
   confirmDeleteTrade: "Видалити угоду? Статистика перерахується.",
+  askYes: "Так", askNo: "Скасувати",
 
   // ---- беззбитки ----
   beTitle: "Беззбитки · врятували чи забрали",
@@ -405,6 +406,7 @@ ru: {
   tcCharts: "Графики", tcComments: "Комментарии", tcNoScreens: "скриншотов нет",
   tcNotFilled: "не заполнено:", closeEscTip: "Закрыть · Esc",
   confirmDeleteTrade: "Удалить сделку? Статистика пересчитается.",
+  askYes: "Да", askNo: "Отмена",
 
   beTitle: "Безубытки · спасли или отняли",
   beVerdictPos: "Безубыток в плюсе: спас больше, чем отнял. Оставляем как есть.",
@@ -707,6 +709,7 @@ en: {
   tcCharts: "Charts", tcComments: "Comments", tcNoScreens: "no screenshots",
   tcNotFilled: "not filled in:", closeEscTip: "Close · Esc",
   confirmDeleteTrade: "Delete the trade? Stats will be recalculated.",
+  askYes: "Yes", askNo: "Cancel",
 
   beTitle: "Breakevens · saved or cost you",
   beVerdictPos: "Breakeven is net positive: saved more than it cost. Leave it as is.",

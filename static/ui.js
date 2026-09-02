@@ -368,6 +368,71 @@ const Sheet  = { open:(html,o)=>Panel.open(html, Object.assign({side:"right"},  
 const Drawer = { open:(html,o)=>Panel.open(html, Object.assign({side:"bottom"}, o)), close:Panel.close };
 window.Panel = Panel; window.Sheet = Sheet; window.Drawer = Drawer;
 
+/* ================= shadcn/ui · Alert Dialog =================
+   Замена браузерному confirm(): тот выглядит чужим окном системы и в
+   каждом браузере по-своему. Здесь то же самое, но нашим оформлением.
+
+   Возвращает промис: `if (!await Ask.yes(текст)) return;` — на месте
+   старого `if (!confirm(текст)) return;`. Из-за промиса вызывающая
+   функция обязана быть async. */
+const Ask = (function(){
+  let box = null, done = null;
+
+  function close(answer){
+    if (!box) return;
+    const b = box; box = null;
+    b.classList.remove("in");
+    setTimeout(() => { if (b.parentNode) b.parentNode.removeChild(b); }, 180);
+    document.removeEventListener("keydown", onKey, true);
+    const f = done; done = null;
+    if (f) f(answer);
+  }
+
+  /* Escape перехоплюємо на фазі захоплення: інакше його першим упіймає те,
+     що під діалогом (опитування має свій обробник), і закриється не те.
+     Enter не чіпаємо: фокус стоїть на кнопці, і браузер натисне саме її —
+     на небезпечній дії це «Скасувати», як і має бути. */
+  function onKey(e){
+    if (e.key === "Escape"){ e.stopPropagation(); close(false); }
+  }
+
+  /* text — о чём спрашиваем; o.ok / o.cancel — подписи кнопок;
+     o.danger — действие необратимое, красим главную кнопку красным */
+  function yes(text, o){
+    o = o || {};
+    close(false);                       // второй вопрос поверх первого не копим
+    return new Promise(resolve => {
+      done = resolve;
+      box = document.createElement("div");
+      box.className = "askwrap";
+      box.innerHTML =
+        '<div class="askbox" role="alertdialog" aria-modal="true">' +
+          '<p class="asktext"></p>' +
+          '<div class="askfoot">' +
+            '<button class="btn askno"></button>' +
+            '<button class="btn askyes' + (o.danger ? " danger" : " primary") + '"></button>' +
+          "</div></div>";
+      /* подписи ставим текстом: в вопросе бывают кавычки и имена файлов */
+      box.querySelector(".asktext").textContent = text;
+      box.querySelector(".askno").textContent = o.cancel || "Скасувати";
+      box.querySelector(".askyes").textContent = o.ok || "Так";
+      box.querySelector(".askno").onclick = () => close(false);
+      box.querySelector(".askyes").onclick = () => close(true);
+      box.onmousedown = e => { if (e.target === box) close(false); };
+      document.body.appendChild(box);
+      document.addEventListener("keydown", onKey, true);
+      requestAnimationFrame(() => {
+        box.classList.add("in");
+        const btn = box.querySelector(o.danger ? ".askno" : ".askyes");
+        if (btn) btn.focus();           // на опасном действии курсор на «отмене»
+      });
+    });
+  }
+
+  return { yes, isOpen: () => !!box };
+})();
+window.Ask = Ask;
+
 /* ================= shadcn/ui · Date Picker =================
    Календарь в поповере: один день или период. Месяцы и дни недели берём
    из журнала, чтобы подписи были те же самые. */
