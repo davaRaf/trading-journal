@@ -19,6 +19,7 @@ import time
 from psycopg.types.json import Jsonb
 
 import db
+import filestore
 
 SCHEMA = """
 CREATE TABLE IF NOT EXISTS strategies (
@@ -85,8 +86,17 @@ def save_shot(user_id, data_url, shots_dir):
         raise ValueError("завеликий файл")
     ext = m.group(1).lower().replace("jpeg", "jpg")
     name = "ts%d_%x.%s" % (int(user_id), int(time.time() * 1000), ext)
-    with open(os.path.join(shots_dir, name), "wb") as f:
-        f.write(raw)
+    # у базі — надовго, на диску — кешем: у контейнерів файлова система
+    # тимчасова, і після оновлення коду картинки зникли б
+    try:
+        filestore.put(name, raw)
+    except Exception:
+        pass
+    try:
+        with open(os.path.join(shots_dir, name), "wb") as f:
+            f.write(raw)
+    except OSError:
+        pass
     return name
 
 
@@ -125,10 +135,14 @@ def sweep(user_id, data, shots_dir):
     try:
         names = os.listdir(shots_dir)
     except OSError:
-        return
-    for n in names:
-        if n.startswith(pref) and n not in keep:
-            try:
-                os.remove(os.path.join(shots_dir, n))
-            except OSError:
-                pass
+        names = []
+    gone = [n for n in names if n.startswith(pref) and n not in keep]
+    for n in gone:
+        try:
+            os.remove(os.path.join(shots_dir, n))
+        except OSError:
+            pass
+    try:
+        filestore.delete(gone)
+    except Exception:
+        pass

@@ -20,6 +20,7 @@ import auth
 import config
 import db
 import emotions
+import filestore
 import llm
 import notion_import as notion
 import notion_public as npub
@@ -67,15 +68,43 @@ def save_screenshots(trade):
             except Exception:
                 continue
             name = "%s_%d_%s.%s" % (trade["id"], int(time.time() * 1000) % 100000000 + i, tf, ext)
-            with open(os.path.join(SHOTS, name), "wb") as f:
-                f.write(raw)
+            keep_file(name, raw)
             out.append({"tf": s.get("tf") or "", "file": name})
         elif s.get("file"):
             out.append({"tf": s.get("tf") or "", "file": s["file"]})
     trade["screenshots"] = out
 
 
+def keep_file(name, raw):
+    """Картинка живёт в базе, на диске остаётся кэшем: у контейнеров на
+       хостинге файловая система временная, а база — нет."""
+    try:
+        filestore.put(name, raw)
+    except Exception:
+        pass
+    try:
+        with open(os.path.join(SHOTS, name), "wb") as f:
+            f.write(raw)
+    except OSError:
+        pass
+
+
+def shot_path(name):
+    """Путь к картинке: с диска, а если его там нет — вытащив из базы."""
+    path = os.path.join(SHOTS, os.path.basename(name))
+    if os.path.exists(path):
+        return path
+    try:
+        return filestore.cache(SHOTS, name)
+    except Exception:
+        return None
+
+
 def delete_files(names):
+    try:
+        filestore.delete([os.path.basename(n) for n in names if n])
+    except Exception:
+        pass
     for n in names:
         p = os.path.join(SHOTS, os.path.basename(n))
         if os.path.exists(p):
@@ -206,6 +235,17 @@ def add_trades(user_id, items):
         t["screenshots"] = it.get("screenshots") or []
         batch.append(t)
     db.insert_trades(user_id, batch)
+    # Перенос качает картинки прямо на диск. Забираем их в базу, иначе после
+    # первого же обновления кода на хостинге они пропадут.
+    for t in batch:
+        for sh in t["screenshots"]:
+            name = sh.get("file")
+            if not name:
+                continue
+            try:
+                filestore.ingest(os.path.join(SHOTS, name), name)
+            except Exception:
+                pass
 
 
 def drop_import(user_id, batch):
@@ -375,7 +415,10 @@ class H(BaseHTTPRequestHandler):
             ext = name.rsplit(".", 1)[-1].lower()
             ctype = {"png": "image/png", "jpg": "image/jpeg", "jpeg": "image/jpeg",
                      "webp": "image/webp", "gif": "image/gif"}.get(ext, "application/octet-stream")
-            return self._file(os.path.join(SHOTS, name), ctype)
+            path = shot_path(name)
+            if not path:
+                self.send_response(404); self.end_headers(); return
+            return self._file(path, ctype)
 
         # ---- торгова стратегія (ts_store.py, ts_notion.py) ----
         if p == "/api/ts":
@@ -392,7 +435,10 @@ class H(BaseHTTPRequestHandler):
             ext = name.rsplit(".", 1)[-1].lower()
             ctype = {"png": "image/png", "jpg": "image/jpeg", "jpeg": "image/jpeg",
                      "webp": "image/webp", "gif": "image/gif"}.get(ext, "application/octet-stream")
-            return self._file(os.path.join(SHOTS, name), ctype)
+            path = shot_path(name)
+            if not path:
+                self.send_response(404); self.end_headers(); return
+            return self._file(path, ctype)
 
         if p == "/api/calendar":
             events, warn = calendar_events()
@@ -455,7 +501,10 @@ class H(BaseHTTPRequestHandler):
             ext = name.rsplit(".", 1)[-1].lower()
             ctype = {"png":"image/png","jpg":"image/jpeg","jpeg":"image/jpeg",
                      "webp":"image/webp","gif":"image/gif"}.get(ext, "application/octet-stream")
-            return self._file(os.path.join(SHOTS, name), ctype)
+            path = shot_path(name)
+            if not path:
+                self.send_response(404); self.end_headers(); return
+            return self._file(path, ctype)
 
         if p in ("/", "/index.html"):
             if not self._uid():
