@@ -61,6 +61,7 @@
   --up-soft:color-mix(in srgb, var(--up) 13%, transparent);
   --down-soft:color-mix(in srgb, var(--down) 13%, transparent);
   --accent-soft:color-mix(in srgb, var(--accent) 13%, transparent);
+  --be-soft:color-mix(in srgb, var(--be) 15%, transparent);
 }
 
 *{box-sizing:border-box}
@@ -205,7 +206,58 @@ body{margin:0; background:var(--bg); color:var(--text); font-family:var(--sans);
   opacity:0; transition:opacity .18s}
 .shot:hover .rm{opacity:1}
 
-/* ---------- А: розворот ---------- */
+/* ---------- А: розворот ----------
+   Головне тут — рядки стоять парами: ліва й права половина однієї
+   теми починаються на одній висоті. Інакше колонки з'їжджають і
+   доводиться шукати очима, що чому відповідає. */
+.sp{background:var(--card); border:1px solid var(--line-soft); border-radius:var(--r);
+  overflow:hidden}
+.sphead{display:grid; grid-template-columns:1fr 1fr; border-bottom:1px solid var(--line)}
+.sphead span{padding:15px 26px; font-family:var(--mono); font-size:10px; letter-spacing:.18em;
+  text-transform:uppercase; color:var(--faint); display:flex; align-items:center; gap:10px}
+.sphead span:first-child{border-right:1px solid var(--line-soft)}
+.sphead b{font-family:var(--sans); font-size:11px; letter-spacing:0; text-transform:none;
+  padding:2px 9px; border-radius:99px; font-weight:500}
+.sphead b.plan{background:var(--accent-soft); color:var(--accent)}
+.sphead b.fact{background:var(--panel-2); color:var(--dim)}
+.sphead i{margin-left:auto; font-style:normal; letter-spacing:.1em}
+
+.pair{display:grid; grid-template-columns:1fr 1fr; border-top:1px solid var(--line-soft)}
+.pair:first-of-type{border-top:none}
+.cell{padding:22px 26px; min-width:0}
+.cell:first-child{border-right:1px solid var(--line-soft)}
+
+/* назва пари: звичайними словами, а не дрібним капслоком */
+.pt{display:flex; align-items:baseline; gap:10px; margin:0 0 14px; font-size:15px;
+  font-weight:600; letter-spacing:-.01em; flex-wrap:wrap}
+.pt b{font-family:var(--mono); font-size:11px; font-weight:500; color:var(--faint);
+  padding:3px 7px; border-radius:6px; background:var(--panel-2); letter-spacing:.06em}
+.pt i{font-style:normal; font-size:12.5px; color:var(--faint); font-weight:400}
+
+/* що сталось із рівнями */
+.lvd{display:flex; flex-direction:column}
+.lvr2{display:grid; grid-template-columns:88px 20px 1fr; gap:14px; align-items:baseline;
+  padding:10px 0; border-bottom:1px solid var(--line-soft)}
+.lvr2:last-child{border-bottom:none}
+.lvr2 .p{font-family:var(--mono); font-size:15.5px}
+.lvr2 .p.up{color:var(--up)} .lvr2 .p.down{color:var(--down)}
+.lvr2 .n{font-size:13px; color:var(--dim)}
+.lvr2 .ic{width:16px; height:16px; border-radius:50%; align-self:center; position:relative}
+.lvr2.ok .ic{background:var(--up-soft)}
+.lvr2.mid .ic{background:var(--be-soft)}
+.lvr2 .ic::after{content:"✓"; position:absolute; inset:0; display:flex; align-items:center;
+  justify-content:center; font-size:10px}
+.lvr2.ok .ic::after{color:var(--up)}
+.lvr2.mid .ic::after{content:"~"; color:var(--be)}
+
+@media (max-width:900px){
+  .sphead{grid-template-columns:1fr}
+  .sphead span:first-child{border-right:none; border-bottom:1px solid var(--line-soft)}
+  .pair{grid-template-columns:1fr}
+  .cell:first-child{border-right:none; border-bottom:1px solid var(--line-soft)}
+}
+
+/* ---------- А: старий розворот (лишився для порівняння) ---------- */
 .spread{display:grid; grid-template-columns:1fr 1fr; background:var(--card);
   border:1px solid var(--line-soft); border-radius:var(--r); overflow:hidden}
 .spread>div{padding:24px 26px; min-width:0}
@@ -327,10 +379,15 @@ const DAY = {
   bias: {side: "Long", cls: "up", tf: "4H",
     why: "Учора забрали лоу вівторка й повернулись у діапазон. Чекаю викуп до денного імбалансу — "
        + "проти цього руху сьогодні не працюю."},
+  /* did — що з рівнем сталось насправді: без цього права колонка
+     не має чим відповісти на ліву */
   levels: [
-    {p: "23 620", t: "Ціль",        n: "фрактал п'ятниці, туди тягну", cls: "up"},
-    {p: "23 480", t: "POI",         n: "4H імбаланс — звідси працюю",  cls: ""},
-    {p: "23 350", t: "Ліквідність", n: "лоу азії, має бути зняте",     cls: "down"},
+    {p: "23 620", t: "Ціль",        n: "фрактал п'ятниці, туди тягну", cls: "up",
+     did: "дійшли о 11:20 — але вже без мене", dcls: "mid"},
+    {p: "23 480", t: "POI",         n: "4H імбаланс — звідси працюю",  cls: "",
+     did: "рух пішов саме звідси", dcls: "ok"},
+    {p: "23 350", t: "Ліквідність", n: "лоу азії, має бути зняте",     cls: "down",
+     did: "знято о 09:12, як і чекав", dcls: "ok"},
   ],
   plans: [
     {k: "А", main: true, rr: "RR 2.4",
@@ -491,33 +548,58 @@ function strip(){
 }
 
 /* ---- А: розворот ---- */
+function levelsDone(){
+  return '<div class="lvd">' + DAY.levels.map(l =>
+    '<div class="lvr2 ' + l.dcls + '"><span class="p ' + l.cls + '">' + l.p + "</span>"
+    + '<span class="ic"></span><span class="n">' + l.did + "</span></div>").join("") + "</div>";
+}
+
+/* Пара рядків: ліворуч ранок, праворуч вечір. Номер стоїть в обох
+   половинах — око саме склеює їх у пару, і не треба гадати, що чому
+   відповідає. */
+function pair(n, lt, lsub, lbody, rt, rsub, rbody){
+  const t = (num, ti, sub) => '<div class="pt"><b>' + num + "</b>" + ti
+    + (sub ? "<i>" + sub + "</i>" : "") + "</div>";
+  return '<div class="pair">'
+    + '<div class="cell">' + t(n, lt, lsub) + lbody + "</div>"
+    + '<div class="cell">' + t(n, rt, rsub) + rbody + "</div>"
+    + "</div>";
+}
+
 function vA(){
   const f = DAY.fact;
-  return '<p class="why">Ліворуч — те, що написав зранку, праворуч — те, що вийшло. '
-    + 'Читається як розворот книжки: очі самі порівнюють рядок із рядком.</p>'
-    + '<div class="spread">'
-    +   '<div><p class="h3">Ранок <b class="plan">план</b><s></s>08:40</p>'
-    +     '<div class="row first">' + shot("a-plan", "Розмітка зранку · 15M", chartMorning()) + "</div>"
-    +     '<div class="row"><p class="sub2">Куди дивлюсь</p>' + biasHtml() + "</div>"
-    +     '<div class="row"><p class="sub2">Рівні на сьогодні</p>' + levelsHtml() + "</div>"
-    +     '<div class="row"><p class="sub2">Сценарії</p>' + plansHtml() + "</div>"
-    +     '<div class="row"><p class="sub2">Чого сьогодні не роблю</p><ul class="ul">'
-    +       DAY.skip.map(s => "<li>" + s + "</li>").join("") + "</ul></div>"
-    +     '<div class="row"><p class="sub2">Новини</p><div class="news">'
-    +       DAY.news.map(n => '<div class="nw"><span class="d"></span><span class="t">' + n.t
-    +         '</span><span class="n">' + n.n + "</span></div>").join("") + "</div></div>"
-    +   "</div>"
-    +   '<div><p class="h3">Вечір <b class="fact">факт</b><s></s>18:00</p>'
-    +     '<div class="row first">' + shot("a-fact", "Той самий графік увечері", chartEvening()) + "</div>"
-    +     '<div class="row"><p class="sub2">Що ринок зробив</p><p class="say">' + f.text + "</p></div>"
-    +     '<div class="row"><p class="sub2">Який сценарій зіграв</p><div class="sc">'
-    +       '<div class="scr won"><span class="k">' + f.played + '</span>'
-    +       '<span class="tx">Пішло за основним сценарієм<span class="tag">зіграв</span></span></div>'
-    +     "</div></div>"
-    +     '<div class="row"><p class="sub2">Угоди дня</p>' + tradesHtml() + "</div>"
-    +     '<div class="row"><p class="sub2">Оцінка</p>' + marksHtml() + "</div>"
-    +     '<div class="row"><p class="sub2">Висновок</p><div class="lesson">' + f.lesson + "</div></div>"
-    +   "</div>"
+  return '<p class="why">Ліворуч — те, що написав зранку, праворуч — що з цього вийшло. '
+    + 'Рядки стоять парами й пронумеровані: <b>01</b> ліворуч завжди відповідає <b>01</b> праворуч.</p>'
+    + '<div class="sp">'
+    +   '<div class="sphead"><span>Ранок <b class="plan">план</b><i>08:40</i></span>'
+    +     '<span>Вечір <b class="fact">факт</b><i>18:00</i></span></div>'
+
+    +   pair("01", "Графік зранку", "як бачив ринок",
+            shot("a-plan", "Розмітка зранку · 15M", chartMorning()),
+            "Той самий графік увечері", "як усе закінчилось",
+            shot("a-fact", "Кінець дня · 15M", chartEvening()))
+
+    +   pair("02", "Куди дивився", "лонг чи шорт і чому", biasHtml(),
+            "Куди ринок пішов", "своїми словами",
+            '<p class="say">' + f.text + "</p>")
+
+    +   pair("03", "Рівні, які відмітив", "ціна, яку чекав", levelsHtml(),
+            "Що з ними сталось", "по кожному рівню", levelsDone())
+
+    +   pair("04", "Що планував робити", "сценарії на день", plansHtml(),
+            "Що зробив насправді", "угоди дня",
+            '<div class="sc"><div class="scr won"><span class="k">' + f.played + "</span>"
+            + '<span class="tx">Зіграв основний сценарій<span class="tag">за планом</span></span></div></div>'
+            + '<div style="margin-top:14px">' + tradesHtml() + "</div>")
+
+    +   pair("05", "Чого не робити", "правила на день",
+            '<ul class="ul">' + DAY.skip.map(x => "<li>" + x + "</li>").join("") + "</ul>"
+            + '<div class="news" style="margin-top:14px">'
+            + DAY.news.map(n => '<div class="nw"><span class="d"></span><span class="t">' + n.t
+                + '</span><span class="n">' + n.n + "</span></div>").join("") + "</div>",
+            "Чи втримався", "і що з цього винести",
+            marksHtml() + '<div class="lesson" style="margin-top:16px">' + f.lesson + "</div>")
+
     + "</div>" + strip();
 }
 
