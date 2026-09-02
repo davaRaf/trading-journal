@@ -549,10 +549,10 @@ function QS(){
     {k:"entry", multi:true, opts:["15M","5M","3M","1M"], t:q.entry, h:q.entryH},
     {k:"hours", multi:true, opts:q.hoursOpts, t:q.hours, h:q.hoursH},
     {k:"days",  multi:true, opts:q.daysOpts, t:q.days, h:q.daysH},
-    {k:"model", multi:true, opts:["cisd","bos","inversion","fvg","order block","liquidity sweep"], t:q.model, h:q.modelH},
+    {k:"model", multi:true, own:true, opts:["cisd","bos","inversion"], t:q.model, h:q.modelH},
     {k:"stop",  opts:q.stopOpts, t:q.stop, h:""},
     {k:"target",opts:q.targetOpts, t:q.target, h:""},
-    {k:"risk",  opts:["0.25%","0.5%","1%","1.5%","2%"], t:q.risk, h:q.riskH},
+    {k:"risk",  multi:true, opts:["0.25%","0.5%","1%","1.5%","2%"], t:q.risk, h:q.riskH},
     {k:"rr",    opts:["1.5","2","2.5","3"], t:q.rr, h:""},
     {k:"day",   opts:["1%","2%","3%","5%",q.noLimit], t:q.day, h:q.dayH},
     {k:"maxtrades", opts:["1","2","3","5",q.noLimit], t:q.maxtrades, h:""},
@@ -573,7 +573,8 @@ function askOpen(){
   if (TS){
     answers.assets = (TS.assets || []).slice();
     answers.model = (TS.models || []).map(m => m.name).filter(Boolean);
-    answers.risk = (TS.risk || {}).per || "";
+    /* ризик тепер із кількох варіантів — розбираємо збережений рядок назад */
+    answers.risk = ((TS.risk || {}).per || "").split(",").map(s => s.trim()).filter(Boolean);
     answers.rr = (TS.risk || {}).rr || "";
     answers.day = (TS.risk || {}).day || "";
     answers.maxtrades = TS.maxtrades || "";
@@ -592,18 +593,43 @@ function askClose(){
 function askPrev(){ if (step > 0){ step--; drawAsk(); } else askClose(); }
 function askNext(){ step++; drawAsk(); }
 
-function pick(k, v){
+function pick(k, v, el){
   const q = QS().find(x => x.k === k);
   if (q.multi){
     const a = answers[k] || (answers[k] = []);
     const i = a.indexOf(v);
     if (i >= 0) a.splice(i, 1); else a.push(v);
-    drawAsk();
+    /* Перемикаємо саму кнопку, а не малюємо панель наново: повний
+       перемальовок скидав прокрутку і смикав екран на кожному кліку.
+       Крім класу «on» у питанні з кількома відповідями нічого не змінюється. */
+    if (el) el.classList.toggle("on", i < 0);
+    else drawAsk();
   } else {
     answers[k] = v;
     drawAsk();
     setTimeout(askNext, 170);
   }
+}
+
+/* Свій варіант відповіді. Кнопку збираємо через DOM, а не рядком розмітки:
+   у назві може бути будь-що, включно з лапками, і склеювання зламало б onclick. */
+function own(k, inp){
+  const v = (inp.value || "").trim();
+  if (!v) return;
+  const a = answers[k] || (answers[k] = []);
+  if (!a.includes(v)){
+    a.push(v);
+    const box = inp.closest(".ts-ask-in").querySelector(".ts-opts");
+    if (box){
+      const b = document.createElement("button");
+      b.className = "ts-opt on";
+      b.textContent = v;
+      b.onclick = () => pick(k, v, b);
+      box.appendChild(b);
+    }
+  }
+  inp.value = "";
+  inp.focus();
 }
 
 function drawAsk(){
@@ -644,9 +670,21 @@ function drawAsk(){
          + '" oninput="__ts.text(\'' + q.k + "',this.value)\">" + esc(answers[q.k] || "") + "</textarea>";
   } else {
     const sel = v => q.multi ? (answers[q.k] || []).includes(v) : answers[q.k] === v;
-    body += '<div class="ts-opts">' + q.opts.map(v =>
+    /* дописані самим користувачем варіанти теж показуємо кнопками — інакше
+       при поверненні до питання свій варіант зник би з очей */
+    const opts = q.multi
+      ? q.opts.concat((answers[q.k] || []).filter(v => !q.opts.includes(v)))
+      : q.opts;
+    body += '<div class="ts-opts">' + opts.map(v =>
       '<button class="ts-opt' + (sel(v) ? " on" : "") + '" onclick="__ts.pick(\'' + q.k + "','"
-      + String(v).replace(/'/g, "\\'") + "')\">" + esc(v) + "</button>").join("") + "</div>";
+      + String(v).replace(/'/g, "\\'") + "',this)\">" + esc(v) + "</button>").join("") + "</div>";
+    if (q.own){
+      body += '<div class="ts-own"><input class="ts-own-inp" placeholder="' + esc(d.ownPh)
+           + '" onkeydown="if(event.key===\'Enter\'){event.preventDefault();__ts.own(\''
+           + q.k + '\',this)}">'
+           + '<button class="ts-own-add" onclick="__ts.own(\'' + q.k
+           + '\',this.previousElementSibling)">+</button></div>';
+    }
   }
 
   const needBtn = q.multi || q.text;
@@ -714,7 +752,8 @@ function finish(){
     stop: {v: a.stop || "", shot: (keep.stop || {}).shot || ""},
     target: {v: a.target || "", shot: (keep.target || {}).shot || ""},
     maxtrades: a.maxtrades || "",
-    risk: {per: a.risk || "", rr: a.rr || "", day: a.day || "", week: (keep.risk || {}).week || ""},
+    risk: {per: (a.risk || []).join(", "), rr: a.rr || "", day: a.day || "",
+           week: (keep.risk || {}).week || ""},
     riskCases: keep.riskCases || [],
     manage: manage,
     no: {market: (a.skip || "").split("\n").map(s => s.trim()).filter(Boolean),
@@ -749,7 +788,7 @@ async function pull(){
 
 /* ================= назовні ================= */
 window.__ts = {
-  ask: askOpen, close: askClose, prev: askPrev, next: askNext, pick: pick, finish: finish,
+  ask: askOpen, close: askClose, prev: askPrev, next: askNext, pick: pick, own: own, finish: finish,
   again(){ step = 0; drawAsk(); },
   text(k, v){ answers[k] = v; },
   tick(i, v){ checked[i] = v; render(); },
@@ -882,12 +921,13 @@ uk: {
     conf: "Де шукаєш підтвердження?", confH: "Той таймфрейм, на якому вирішуєш, що рух почався.",
     entry: "Де входиш?", entryH: "Таймфрейм самої точки входу.",
     hours: "У які вікна торгуєш?", hoursH: "Можна кілька.",
-    hoursOpts: ["Frankfurt","London open","New York","Power Hour","Азія","Весь день"],
+    hoursOpts: ["Frankfurt","London open","NYSE open","New York","Power Hour","Азія","Весь день"],
     days: "Які дні пропускаєш?", daysH: "Якщо торгуєш усі — просто далі.",
     daysOpts: ["Понеділок","П'ятниця","Дні з червоними новинами","Останній день місяця"],
     model: "Твої моделі входу", modelH: "Можна кілька.",
     stop: "Де ставиш стоп?", stopOpts: ["за структуру","за тінь свічки","за межу зони","фіксований у пунктах"],
-    target: "Де ціль?", targetOpts: ["найближчий імбаланс","денний фрактал","фіксований RR","попередній екстремум"],
+    ownPh: "свій варіант",
+    target: "Де ціль?", targetOpts: ["найближчий імбаланс","PDH / PDL","PWH / PWL","денний фрактал","фіксований RR","попередній екстремум"],
     risk: "Скільки ризикуєш в одній угоді?", riskH: "Від депозиту. З цієї цифри рахується все інше.",
     rr: "Нижче якого RR не входиш?",
     day: "Після якої втрати зупиняєшся на день?", dayH: "Журнал попередить, коли ліміт майже вибрано.",
@@ -984,12 +1024,13 @@ ru: {
     conf: "Где ищешь подтверждение?", confH: "Тот таймфрейм, на котором решаешь, что движение началось.",
     entry: "Где входишь?", entryH: "Таймфрейм самой точки входа.",
     hours: "В какие окна торгуешь?", hoursH: "Можно несколько.",
-    hoursOpts: ["Frankfurt","London open","New York","Power Hour","Азия","Весь день"],
+    hoursOpts: ["Frankfurt","London open","NYSE open","New York","Power Hour","Азия","Весь день"],
     days: "Какие дни пропускаешь?", daysH: "Если торгуешь все — просто дальше.",
     daysOpts: ["Понедельник","Пятница","Дни с красными новостями","Последний день месяца"],
     model: "Твои модели входа", modelH: "Можно несколько.",
     stop: "Где ставишь стоп?", stopOpts: ["за структуру","за тень свечи","за границу зоны","фиксированный в пунктах"],
-    target: "Где цель?", targetOpts: ["ближайший имбаланс","дневной фрактал","фиксированный RR","предыдущий экстремум"],
+    ownPh: "свой вариант",
+    target: "Где цель?", targetOpts: ["ближайший имбаланс","PDH / PDL","PWH / PWL","дневной фрактал","фиксированный RR","предыдущий экстремум"],
     risk: "Сколько рискуешь в одной сделке?", riskH: "От депозита. С этой цифры считается всё остальное.",
     rr: "Ниже какого RR не входишь?",
     day: "После какой потери останавливаешься на день?", dayH: "Журнал предупредит, когда лимит почти выбран.",
@@ -1086,12 +1127,13 @@ en: {
     conf: "Where do you look for confirmation?", confH: "The timeframe where you decide the move has started.",
     entry: "Where do you enter?", entryH: "The timeframe of the entry itself.",
     hours: "Which windows do you trade?", hoursH: "Pick as many as you like.",
-    hoursOpts: ["Frankfurt","London open","New York","Power Hour","Asia","All day"],
+    hoursOpts: ["Frankfurt","London open","NYSE open","New York","Power Hour","Asia","All day"],
     days: "Which days do you skip?", daysH: "If you trade them all — just move on.",
     daysOpts: ["Monday","Friday","Days with red news","Last day of the month"],
     model: "Your entry models", modelH: "Pick as many as you like.",
     stop: "Where do you put the stop?", stopOpts: ["behind structure","behind the wick","behind the zone edge","fixed in points"],
-    target: "Where is the target?", targetOpts: ["nearest imbalance","daily fractal","fixed RR","previous extreme"],
+    ownPh: "your own option",
+    target: "Where is the target?", targetOpts: ["nearest imbalance","PDH / PDL","PWH / PWL","daily fractal","fixed RR","previous extreme"],
     risk: "How much do you risk per trade?", riskH: "Of the account. Everything else is counted from this.",
     rr: "Below which RR do you stay out?",
     day: "After what loss do you stop for the day?", dayH: "The journal warns you when the limit is nearly used up.",

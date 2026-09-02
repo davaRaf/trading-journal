@@ -226,6 +226,18 @@ textarea.ts-in{min-height:74px; resize:vertical}
 .ts-opt:hover{border-color:color-mix(in srgb, var(--accent) 50%, transparent); transform:translateY(-1px)}
 .ts-opt.on{background:var(--accent-soft); border-color:color-mix(in srgb, var(--accent) 60%, transparent)}
 
+/* своя відповідь у питанні з готовими варіантами */
+.ts-own{display:flex; gap:9px; margin-top:12px; max-width:420px}
+.ts-own-inp{flex:1; min-width:0; background:var(--panel); color:var(--text);
+  border:1px solid var(--line); border-radius:var(--r-sm); padding:12px 15px;
+  font:inherit; font-size:15px}
+.ts-own-inp:focus{outline:none; border-color:var(--accent)}
+.ts-own-add{border:1px solid var(--line); background:var(--panel); color:var(--text);
+  font:inherit; font-size:19px; line-height:1; width:48px; border-radius:var(--r-sm);
+  cursor:pointer; transition:border-color .18s, background .18s}
+.ts-own-add:hover{border-color:color-mix(in srgb, var(--accent) 55%, transparent);
+  background:var(--accent-soft)}
+
 .ts-ask-inp{width:100%; box-sizing:border-box; background:var(--panel); color:var(--text);
   border:1px solid var(--line); border-radius:var(--r-sm); padding:14px 16px; font:inherit;
   font-size:16px; line-height:1.55}
