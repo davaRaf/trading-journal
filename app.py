@@ -24,6 +24,8 @@ import emotions
 import filestore
 import share_store
 import llm
+from psycopg.types.json import Jsonb
+
 import notion_import as notion
 import notion_public as npub
 import oauth
@@ -267,29 +269,43 @@ def share_read(sid):
 # notion_import.py. Последнюю ссылку и сверку колонок помним для каждого
 # пользователя отдельно: журналы у всех свои.
 # ---------------------------------------------------------------------------
-NOTION_DIR = os.path.join(DATA, "notion")
-os.makedirs(NOTION_DIR, exist_ok=True)
 _jobs = {}
 _jobs_lock = threading.Lock()
 
+# Посилання, назва бази і звірка колонок — у базі, а не файлом: на хостингу
+# диск контейнера стирається при кожному оновленні коду, і статус «підключено»
+# зникав разом із файлом.
+_NOTION_SCHEMA = """
+CREATE TABLE IF NOT EXISTS notion_conf (
+  user_id BIGINT PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
+  data    JSONB NOT NULL DEFAULT '{}'::jsonb
+);
+"""
+_notion_ready = False
 
-def notion_file(uid):
-    return os.path.join(NOTION_DIR, "user_%d.json" % uid)
+
+def _notion_init():
+    global _notion_ready
+    if _notion_ready:
+        return
+    with db.connect() as conn:
+        conn.execute(_NOTION_SCHEMA)
+    _notion_ready = True
 
 
 def notion_conf(uid):
-    try:
-        with open(notion_file(uid), "r", encoding="utf-8") as f:
-            return json.load(f)
-    except Exception:
-        return {}
+    _notion_init()
+    with db.connect() as conn:
+        row = conn.execute("SELECT data FROM notion_conf WHERE user_id=%s", (uid,)).fetchone()
+    return dict(row["data"]) if row and row["data"] else {}
 
 
 def notion_save(uid, conf):
-    tmp = notion_file(uid) + ".tmp"
-    with open(tmp, "w", encoding="utf-8") as f:
-        json.dump(conf, f, ensure_ascii=False, indent=1)
-    os.replace(tmp, notion_file(uid))
+    _notion_init()
+    with db.connect() as conn:
+        conn.execute("INSERT INTO notion_conf (user_id, data) VALUES (%s,%s) "
+                     "ON CONFLICT (user_id) DO UPDATE SET data=EXCLUDED.data",
+                     (uid, Jsonb(conf or {})))
 
 
 def add_trades(user_id, items):
@@ -628,6 +644,9 @@ class H(BaseHTTPRequestHandler):
                 "title": conf.get("title") or "",
                 "last": last,
                 "mapping": conf.get("mapping") or {},
+                # угоди з Notion уже в журналі — значить, підключали, навіть якщо
+                # запис про посилання не зберігся
+                "imported": bool(db.notion_known(uid)[1]),
                 "fields": [{"k": k, "label": notion.LABELS[k]} for k in notion.FIELDS],
             })
 

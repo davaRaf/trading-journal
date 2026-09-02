@@ -526,7 +526,7 @@ async function checkState(){
   try{
     state = await call("GET", "/api/notion/state");
     link = state.url || link;
-    connected = !!(state.url || (state.last && state.last.id));
+    connected = !!(state.url || (state.last && state.last.id) || state.imported);
     paintBtn();
   }catch(e){}
 }
