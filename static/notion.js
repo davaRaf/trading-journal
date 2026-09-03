@@ -27,6 +27,7 @@ let tables = [];       // усі таблиці, які знайшли за по
 let picked = [];       // які з них переносимо
 let chosen = null;     // за якою звіряємо колонки
 let batch = null;      // остання партія — її можна скасувати
+let sources = [];      // з яких баз зібрано журнал: кожне перенесення окремо
 let connected = false; // чи вже підключали Notion раніше — міняє статус у рядку «Підключення»
 
 /* Рядок у розділі «Підключення»: статус текстом (Підключено/Не
@@ -134,19 +135,26 @@ function busy(sel, text){
 }
 
 /* ---------- крок 1: посилання ---------- */
-function stepLink(){
+/* info — короткий рядок про те, що щойно сталося (наприклад, прибрали
+   перенесення). Показуємо тут, а не окремим екраном: людина одразу бачить
+   оновлений список баз. */
+function stepLink(info){
+  /* Друга й наступні бази: поле лишаємо порожнім. Підставлене старе
+     посилання тут заважає — воно веде саме туди, звідки вже перенесли. */
+  const again = sources.length > 0;
   paint(
     '<div class="nt">'
-    + '<p class="nt-lead">' + T.ntStep1Lead + '</p>'
+    + (info ? '<div class="nt-ok">' + esc(info) + "</div>" : "")
+    + '<p class="nt-lead">' + (again ? T.ntAddMoreLead : T.ntStep1Lead) + '</p>'
     + '<ol class="nt-steps">'
     + '<li>' + T.ntStep1Li1 + '</li>'
     + '<li>' + T.ntStep1Li2 + '</li>'
     + '</ol>'
     + '<label class="nt-lab">' + T.ntLinkLabel + '</label>'
     + '<input id="ntUrl" class="nt-inp" type="url" autocomplete="off" spellcheck="false"'
-    +   ' value="' + esc(link) + '" placeholder="https://…notion.site/…">'
+    +   ' value="' + esc(again ? "" : link) + '" placeholder="https://…notion.site/…">'
     + '<p class="nt-note">' + T.ntLinkNote + '</p>'
-    + lastHtml()
+    + sourcesHtml()
     + '</div>',
     '<span class="sp"></span><button class="btn" onclick="closeModal()">' + T.fmCancel + '</button>'
     + '<button class="btn primary" id="ntGo">' + T.ntReadBtn + '</button>'
@@ -191,14 +199,40 @@ function soak(r){
   if (r.fields) state = Object.assign(state || {}, {fields: r.fields});
 }
 
-/* Останнє перенесення можна скасувати — і зараз, і згодом.
-   Без цього будь-яка помилка у звірці колонок необоротна. */
-function lastHtml(){
-  const l = state && state.last;
-  if (!l || !l.id) return "";
-  return '<div class="nt-safe"><p>' + T.ntLastImportPrefix + ' <b>' + (l.count || 0)
-    + "</b> " + T.wordTradeMany + (l.when ? ", " + esc(l.when) : "") + ". " + T.ntLastImportUndo + "</p>"
-    + '<button class="btn" onclick="__notion.undo(\'' + l.id + '\')">' + T.ntCancelImport + '</button></div>';
+/* З яких баз зібрано журнал.
+
+   Місяці в Notion часто лежать не в одній таблиці, а в різних журналах —
+   тоді тутешній журнал є сумою кількох перенесень. Раніше пам'ятали лише
+   останнє: переніс другу базу — і першу вже нічим було прибрати.
+
+   Натиснути на рядок = перечитати ту саму базу: нові угоди з неї
+   додадуться, старі не задвояться (кожна пам'ятає свій id у Notion). */
+function sourcesHtml(){
+  if (!sources.length) return "";
+  const rows = sources.map((s, i) =>
+    '<div class="nt-src">'
+    + '<button type="button" class="nt-src-go" onclick="__notion.useSource(' + i + ')">'
+    +   "<b>" + esc(s.title || T.ntNoTitle) + "</b>"
+    +   "<span>" + (s.count || 0) + " " + word(s.count || 0) + "</span>"
+    +   "<i>" + esc([s.when, shortLink(s.url)].filter(Boolean).join(" · ")) + "</i>"
+    + "</button>"
+    + '<button type="button" class="btn nt-src-x" onclick="__notion.undo(\'' + esc(s.id) + '\')">'
+    +   T.ntSrcRemove
+    + "</button></div>").join("");
+
+  return '<div class="nt-srcs"><div class="nt-sub">' + T.ntSourcesTitle + "</div>"
+    + rows + '<p class="nt-note">' + T.ntSourcesHint + "</p></div>";
+}
+
+/* «2 угоди», а не «2 угод»: у журналі буває і одна база, і дві.
+   Рахунок слів уже написаний в app.js, беремо його, якщо він доїхав. */
+function word(n){
+  return typeof ovWord === "function" ? ovWord(n) : T.wordTradeMany;
+}
+
+function shortLink(u){
+  const s = String(u || "").replace(/^https?:\/\//, "").replace(/^www\./, "");
+  return s.length > 46 ? s.slice(0, 45) + "…" : s;
 }
 
 /* Скільки вже лежить у журналі — щоб перенесені не змішалися з чужими
@@ -379,6 +413,7 @@ function drawProgress(j){
 async function finish(j){
   rememberPairs(j.newAssets);
   connected = true; paintBtn();
+  await refresh();          // щоб у списку баз одразу була й ця
   try{ await reload(); render(); }catch(e){}
 
   const line = (k, v) => '<div class="nt-stat"><b>' + v + "</b><span>" + k + "</span></div>";
@@ -457,6 +492,7 @@ async function openNotion(){
   paint('<div class="nt"><p class="nt-lead">' + T.ntOneMoment + '</p></div>', "");
   try{
     state = await call("GET", "/api/notion/state");
+    sources = state.sources || [];
     link = state.url || link;
   }catch(e){
     return paint('<div class="nt"><div class="nt-err">' + esc(e.message) + "</div></div>",
@@ -479,19 +515,26 @@ async function undo(id){
   try{ r = await call("POST", "/api/notion/undo/" + id, {}); }
   catch(e){ return err(e.message); }
   batch = null;
-  try{ state = await call("GET", "/api/notion/state"); }catch(e){}
+  await refresh();
   try{ await reload(); render(); }catch(e){}
-  paint('<div class="nt"><p class="nt-lead">' + T.ntUndoneCount + ' <b>' + (r.removed || 0)
-    + "</b>. " + T.ntUndoneHint + "</p></div>",
-    '<span class="sp"></span>'
-    + '<button class="btn" onclick="__notion.back()">' + T.ntTryAgain + '</button>'
-    + '<button class="btn primary" onclick="closeModal()">' + T.mrClose + '</button>');
+  /* Повертаємось на перший крок, а не на окремий екран «готово»: там
+     одразу видно оновлений список баз — що лишилось у журналі. */
+  stepLink(T.ntUndoneCount + " " + (r.removed || 0) + ". " + T.ntUndoneHint);
 }
 
 window.__notion = {
   open, tab, run, toMap, undo,
   back: stepLink,
   toTables(){ stepTables([]); },
+  /* Натиснули на вже перенесену базу — читаємо її ще раз: у Notion
+     могли з'явитися нові угоди. Старі не задвояться. */
+  useSource(i){
+    const s = sources[i];
+    if (!s || !s.url) return;
+    const inp = document.getElementById("ntUrl");
+    if (inp) inp.value = s.url;
+    read(s.url);
+  },
   pickTable(i, on){
     const t = tables[i];
     picked = picked.filter(p => p.collection !== t.collection);
@@ -522,14 +565,19 @@ window.openImport = function(){
 /* Перевірка стану на сервері — і для кнопки/статусу, і для рішення
    про автопоказ вікна нижче. Викликається також вручну (refreshState),
    коли розділ «Підключення» розкривають — раптом підключили деінде. */
-async function checkState(){
-  if (typeof DEMO !== "undefined" && DEMO) return;
+async function refresh(){
   try{
     state = await call("GET", "/api/notion/state");
-    link = state.url || link;
-    connected = !!(state.url || (state.last && state.last.id) || state.imported);
+    sources = state.sources || [];
+    connected = !!(state.url || sources.length || state.imported);
     paintBtn();
   }catch(e){}
+}
+
+async function checkState(){
+  if (typeof DEMO !== "undefined" && DEMO) return;
+  await refresh();
+  link = (state && state.url) || link;
 }
 
 window.addEventListener("load", () => {

@@ -284,6 +284,18 @@ def count_import(user_id, batch):
     return row["n"]
 
 
+def count_imports(user_id):
+    """Сколько сделок принесло каждое перенесение — одним запросом.
+
+    Журнал часто собран из нескольких баз Notion (у человека месяцы лежат
+    в разных таблицах), и список источников считает их все сразу."""
+    with connect() as conn:
+        rows = conn.execute('SELECT "import_id" AS b, count(*) AS n FROM trades '
+                            "WHERE user_id=%s AND \"import_id\"<>'' "
+                            'GROUP BY "import_id"', (user_id,)).fetchall()
+    return {r["b"]: r["n"] for r in rows}
+
+
 def drop_import(user_id, batch):
     """Убирает сделки одного переноса. Возвращает (сколько убрали, какие
     файлы скриншотов больше никому не нужны)."""

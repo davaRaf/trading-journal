@@ -298,7 +298,24 @@ def notion_conf(uid):
     _notion_init()
     with db.connect() as conn:
         row = conn.execute("SELECT data FROM notion_conf WHERE user_id=%s", (uid,)).fetchone()
-    return dict(row["data"]) if row and row["data"] else {}
+    return _with_sources(dict(row["data"]) if row and row["data"] else {})
+
+
+def _with_sources(conf):
+    """Старая запись про единственное перенесение становится первой строкой
+    списка баз.
+
+    Сворачиваем её сразу при чтении: `url` и `title` в conf описывают именно
+    её, а следующий же импорт их перезапишет — тогда старый журнал получил бы
+    имя и ссылку нового."""
+    src = [dict(s) for s in (conf.get("sources") or [])
+           if isinstance(s, dict) and s.get("id")]
+    last = conf.get("last") or {}
+    if last.get("id") and not any(s["id"] == last["id"] for s in src):
+        src.append({"id": last["id"], "url": conf.get("url") or "",
+                    "title": conf.get("title") or "", "when": last.get("when") or ""})
+    conf["sources"] = src
+    return conf
 
 
 def notion_save(uid, conf):
@@ -307,6 +324,40 @@ def notion_save(uid, conf):
         conn.execute("INSERT INTO notion_conf (user_id, data) VALUES (%s,%s) "
                      "ON CONFLICT (user_id) DO UPDATE SET data=EXCLUDED.data",
                      (uid, Jsonb(conf or {})))
+
+
+# Сколько перенесений помним. Каждое — это одна база Notion, из которой
+# брали сделки; больше двух-трёх не бывает, запас взят с потолка.
+NOTION_SOURCES_MAX = 20
+
+
+def notion_sources(uid, conf=None):
+    """Из каких баз собран журнал: по записи на каждое перенесение.
+
+    Раньше помнили только последнее — и человек, перенёсший второй журнал
+    (у многих месяцы лежат в разных таблицах Notion), терял возможность
+    откатить первый. Теперь помним все.
+
+    Количество сделок считаем по журналу, а не по записанному числу: цифра
+    верна, даже если браузер закрыли посреди переноса. Перенесение, от
+    которого в журнале ничего не осталось, из списка выпадает само.
+    """
+    conf = notion_conf(uid) if conf is None else conf
+    counts = db.count_imports(uid)
+    out = []
+    for s in conf.get("sources") or []:
+        n = counts.get(s["id"]) or 0
+        if n:
+            out.append(dict(s, count=n))
+    out.sort(key=lambda s: s.get("when") or "", reverse=True)
+    return out
+
+
+def notion_add_source(conf, rec):
+    src = [s for s in (conf.get("sources") or []) if s["id"] != rec["id"]]
+    src.append(rec)
+    conf["sources"] = src[-NOTION_SOURCES_MAX:]
+    return conf
 
 
 def add_trades(user_id, items):
@@ -343,9 +394,10 @@ def drop_import(user_id, batch):
         return 0
     delete_files(orphan_files)
     conf = notion_conf(user_id)
+    conf["sources"] = [s for s in conf.get("sources") or [] if s["id"] != batch]
     if (conf.get("last") or {}).get("id") == batch:
         conf.pop("last", None)
-        notion_save(user_id, conf)
+    notion_save(user_id, conf)
     return removed
 
 
@@ -713,16 +765,14 @@ class H(BaseHTTPRequestHandler):
             if not uid:
                 return self._json({"error": "auth required"}, 401)
             conf = notion_conf(uid)
-            last = conf.get("last") or None
-            if last and last.get("id"):
-                # считаем по журналу, а не по записанному числу: цифра верна,
-                # даже если браузер закрыли посреди перенесения
-                last = dict(last, count=db.count_import(uid, last["id"]))
-                if not last["count"]:
-                    last = None
+            sources = notion_sources(uid, conf)
+            # `last` оставлен для окна, которое браузер мог взять из кэша:
+            # в новом список источников заменяет его целиком
+            last = sources[0] if sources else None
             return self._json({
                 "url": conf.get("url") or "",
                 "title": conf.get("title") or "",
+                "sources": sources,
                 "last": last,
                 "mapping": conf.get("mapping") or {},
                 # угоди з Notion уже в журналі — значить, підключали, навіть якщо
@@ -962,10 +1012,15 @@ class H(BaseHTTPRequestHandler):
             if not tables or not mapping.get("pair"):
                 return self._json({"error": "потрібні таблиця і колонка з інструментом"}, 400)
             conf = notion_conf(uid)
-            conf.update({"url": url, "mapping": mapping, "title": body.get("title") or ""})
+            title = body.get("title") or ""
+            conf.update({"url": url, "mapping": mapping, "title": title})
             job = start_import(uid, tables, mapping, body.get("options") or {})
-            conf["last"] = {"id": job.batch, "count": 0,
-                            "when": datetime.datetime.now().strftime("%Y-%m-%d %H:%M")}
+            when = datetime.datetime.now().strftime("%Y-%m-%d %H:%M")
+            # запись про базу кладём до того, как перенос закончится: браузер
+            # могут закрыть посреди работы, а сделки уже поедут в журнал
+            notion_add_source(conf, {"id": job.batch, "url": url, "title": title,
+                                     "when": when, "mapping": mapping})
+            conf["last"] = {"id": job.batch, "count": 0, "when": when}
             notion_save(uid, conf)
             return self._json(job.snapshot(), 202)
 

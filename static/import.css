@@ -35,6 +35,30 @@
 .nt-empty{padding:26px 20px; text-align:center; color:var(--faint); font-size:13.5px;
   line-height:1.6; border:1px dashed var(--line); border-radius:var(--r)}
 
+.nt-ok{padding:11px 14px; border-radius:var(--r); font-size:13.5px; line-height:1.5;
+  color:var(--up); background:var(--up-soft);
+  border:1px solid color-mix(in srgb, var(--up) 34%, transparent)}
+
+/* ---------- з яких баз зібрано журнал ---------- */
+/* Місяці в Notion часто лежать у різних журналах, тому перенесень буває
+   кілька. Кожне — рядок: натиснути = перечитати, «Прибрати» = відкотити. */
+.nt-srcs{display:flex; flex-direction:column; gap:8px}
+.nt-src{display:flex; align-items:center; gap:8px}
+.nt-src-go{flex:1 1 auto; min-width:0; display:grid; grid-template-columns:1fr auto;
+  gap:3px 12px; text-align:left; font:inherit; color:var(--text); cursor:pointer;
+  background:var(--card); border:1px solid var(--line-soft); border-radius:var(--r);
+  padding:11px 14px; transition:border-color .18s, background .18s}
+.nt-src-go:hover{background:var(--panel-2);
+  border-color:color-mix(in srgb, var(--up) 45%, transparent)}
+.nt-src-go b{min-width:0; font-size:14px; font-weight:600;
+  overflow:hidden; text-overflow:ellipsis; white-space:nowrap}
+.nt-src-go span{font-family:var(--mono); font-size:11px; color:var(--faint);
+  white-space:nowrap}
+.nt-src-go i{grid-column:1 / -1; font-style:normal; font-family:var(--mono);
+  font-size:10.5px; color:var(--faint);
+  overflow:hidden; text-overflow:ellipsis; white-space:nowrap}
+.nt-src-x{flex:none}
+
 /* ---------- список баз ---------- */
 .nt-dbs{display:flex; flex-direction:column; gap:8px}
 .nt-db{display:flex; align-items:baseline; gap:10px; width:100%; text-align:left;
