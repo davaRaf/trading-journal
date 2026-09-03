@@ -8,14 +8,23 @@
 <link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600&family=Archivo:wght@400;500;600&display=swap" rel="stylesheet">
 <style>
 /* ============================================================
-   Пробник: як вести ранковий план, коли активів кілька.
+   Ранковий план, коли активів кілька. Обраний варіант: кожен актив —
+   своя картка, картки одна під одною. Нічого не перемикається, увесь
+   ранок видно згори вниз.
 
-   Зараз «Аналіз дня» мовчки припускає, що актив один: один скрін
-   розмітки, один напрям, один список рівнів. А людина з ранку
-   розбирає US100 і GER40 — і незрозуміло, куди дівати другий.
+   Що тут вирішено, крім самих карток:
 
-   Тут три відповіді на це. Пульт унизу перемикає між ними, дані
-   всередині однакові, щоб порівнювати було чесно.
+   • Скріни по таймфреймах. Один графік розмітки нічого не пояснює:
+     людина дивиться 1D для контексту, 1H для зони, 15m для входу.
+     Тому в кожного активу окремі слоти під таймфрейми, як у «Моїй ТС»
+     і в картці угоди.
+
+   • Звідки беруться активи. Список підказує «Моя ТС»: якщо там
+     написано, що людина торгує US100 і золото — саме вони й
+     пропонуються. Далі йдуть інструменти, які вже є в журналі. Руками
+     вписати теж можна.
+
+   • Правила дня спільні: вони не про актив, а про поведінку.
 
    Це макет: цифри зашиті, сервер не потрібен, застосунок із кореня
    репозиторію він не чіпає.
@@ -34,7 +43,7 @@
 }
 *{box-sizing:border-box}
 body{margin:0; background:var(--bg); color:var(--text); font-family:var(--sans);
-  font-size:15px; -webkit-font-smoothing:antialiased; padding:28px 24px 300px}
+  font-size:15px; -webkit-font-smoothing:antialiased; padding:28px 24px 120px}
 button{font:inherit; cursor:pointer; border:none; background:none; color:inherit}
 [hidden]{display:none !important}
 
@@ -42,33 +51,60 @@ button{font:inherit; cursor:pointer; border:none; background:none; color:inherit
 .vhead{display:flex; align-items:baseline; gap:12px; margin-bottom:6px}
 .vhead h1{margin:0; font-size:24px; letter-spacing:-.01em}
 .vhead .sub{font-family:var(--mono); font-size:11.5px; letter-spacing:.06em; color:var(--faint)}
-.hint{color:var(--dim); font-size:13.5px; margin:0 0 20px}
+.hint{color:var(--dim); font-size:13.5px; margin:0 0 22px; line-height:1.55; max-width:78ch}
 
-/* ---------- спільні дрібниці ---------- */
+/* ---------- картка активу ---------- */
+.stack{display:flex; flex-direction:column; gap:14px}
+.acard{background:var(--panel); border:1px solid var(--line); border-radius:14px; overflow:hidden}
+.ahead{display:flex; align-items:center; gap:10px; padding:13px 18px;
+  border-bottom:1px solid var(--line-soft); background:var(--panel-2)}
+.ahead .nm{font-family:var(--mono); font-size:14.5px; font-weight:600; letter-spacing:.02em}
+.ahead .from{font-family:var(--mono); font-size:9px; letter-spacing:.14em; text-transform:uppercase;
+  color:var(--accent); background:var(--accent-soft); padding:3px 8px; border-radius:99px}
+.ahead .tag{font-family:var(--mono); font-size:10px; letter-spacing:.1em; padding:3px 9px;
+  border-radius:99px}
+.ahead .tag.long{background:var(--up-soft); color:var(--up)}
+.ahead .tag.short{background:var(--down-soft); color:var(--down)}
+.ahead .sp{flex:1}
+.ahead .x{color:var(--faint); font-size:16px; line-height:1; padding:4px 8px; border-radius:6px}
+.ahead .x:hover{color:var(--text); background:var(--panel-3)}
+.abody{padding:18px}
+
 .blk{border-top:1px solid var(--line-soft); padding:18px 0}
 .blk:first-child{border-top:none; padding-top:0}
+.blk:last-child{padding-bottom:0}
 .pt{display:flex; align-items:baseline; gap:9px; margin-bottom:12px}
 .pt b{font-family:var(--mono); font-size:10px; letter-spacing:.14em; color:var(--accent);
   background:var(--accent-soft); padding:3px 7px; border-radius:99px; font-weight:600}
 .pt span{font-size:14.5px; font-weight:600}
 .pt i{font-style:normal; font-size:12px; color:var(--faint)}
 
-.shot{border:1px dashed var(--line); border-radius:10px; height:132px; display:grid;
-  place-items:center; color:var(--faint); font-size:12.5px; background:var(--panel-2)}
-.shot.has{border-style:solid; background:linear-gradient(160deg,#12181c,#0c1014); color:var(--dim)}
-.shot.has::after{content:"скрін розмітки"; font-family:var(--mono); font-size:10px;
-  letter-spacing:.14em; text-transform:uppercase}
+/* ---------- скріни по таймфреймах ---------- */
+.tfs{display:grid; grid-template-columns:repeat(auto-fill,minmax(190px,1fr)); gap:10px}
+.tf{display:flex; flex-direction:column; gap:7px}
+.tf .cap{display:flex; align-items:center; gap:7px}
+.tf .code{font-family:var(--mono); font-size:11px; letter-spacing:.08em; padding:4px 9px;
+  border-radius:7px; background:var(--panel-3); border:1px solid var(--line-soft); color:var(--text)}
+.tf .code.pick{color:var(--faint); border-style:dashed}
+.tf .role{font-size:12px; color:var(--faint)}
+.tf .box{border:1px solid var(--line); border-radius:10px; aspect-ratio:16/10; display:grid;
+  place-items:center; font-size:12px; color:var(--dim);
+  background:linear-gradient(160deg,#12181c,#0c1014)}
+.tf .box.empty{border-style:dashed; background:var(--panel-2); color:var(--faint)}
+.tf .box.empty:hover{border-color:var(--faint); color:var(--dim)}
+.tf .box .mk{font-family:var(--mono); font-size:9px; letter-spacing:.16em; text-transform:uppercase}
 
-.side-pick{display:flex; gap:6px; margin-bottom:9px}
+/* ---------- напрям, рівні, сценарії ---------- */
+.side-pick{display:flex; gap:6px; margin-bottom:10px}
 .side-pick span{font-family:var(--mono); font-size:11px; letter-spacing:.08em;
-  padding:5px 11px; border-radius:99px; border:1px solid var(--line); color:var(--faint)}
+  padding:5px 12px; border-radius:99px; border:1px solid var(--line); color:var(--faint)}
 .side-pick span.on.long{background:var(--up-soft); border-color:transparent; color:var(--up)}
 .side-pick span.on.short{background:var(--down-soft); border-color:transparent; color:var(--down)}
 .why{font-size:13.5px; color:var(--dim); line-height:1.55}
 
 .lv{display:flex; flex-direction:column; gap:6px}
-.lvr{display:grid; grid-template-columns:96px 1fr 1.3fr; gap:10px; align-items:center;
-  padding:8px 10px; border:1px solid var(--line-soft); border-radius:9px; background:var(--panel-2)}
+.lvr{display:grid; grid-template-columns:100px 1fr 1.3fr; gap:10px; align-items:center;
+  padding:9px 11px; border:1px solid var(--line-soft); border-radius:9px; background:var(--panel-2)}
 .lvr .p{font-family:var(--mono); font-size:13.5px}
 .lvr .t{font-size:13px}
 .lvr .n{font-size:12.5px; color:var(--faint)}
@@ -82,51 +118,33 @@ button{font:inherit; cursor:pointer; border:none; background:none; color:inherit
 .sc div b{display:block; font-family:var(--mono); font-size:10px; letter-spacing:.14em;
   text-transform:uppercase; color:var(--faint); margin-bottom:4px; font-weight:500}
 
-.card{background:var(--panel); border:1px solid var(--line); border-radius:14px; padding:22px}
+/* ---------- додати актив ---------- */
+.addwrap{position:relative; align-self:flex-start}
+.addbig{display:flex; align-items:center; gap:9px; padding:13px 18px; border-radius:12px;
+  border:1px dashed var(--line); color:var(--dim); font-size:13.5px; background:var(--panel)}
+.addbig:hover{color:var(--text); border-color:var(--faint)}
+.pop{position:absolute; left:0; top:calc(100% + 8px); z-index:20; width:290px;
+  background:var(--panel); border:1px solid var(--line); border-radius:12px; padding:12px;
+  box-shadow:0 24px 60px -20px rgba(0,0,0,.75)}
+.pop .grp{margin-bottom:12px}
+.pop .grp:last-child{margin-bottom:0}
+.pop .lbl{font-family:var(--mono); font-size:9px; letter-spacing:.16em; text-transform:uppercase;
+  color:var(--faint); margin-bottom:7px; display:flex; align-items:center; gap:6px}
+.pop .lbl em{font-style:normal; color:var(--accent)}
+.pop .chips{display:flex; flex-wrap:wrap; gap:6px}
+.pop .chips button{font-family:var(--mono); font-size:12px; padding:6px 11px; border-radius:8px;
+  background:var(--panel-2); border:1px solid var(--line-soft); color:var(--text)}
+.pop .chips button:hover{border-color:var(--accent); color:var(--accent)}
+.pop .chips button[disabled]{opacity:.35; cursor:default; border-color:var(--line-soft)}
+.pop .own{display:flex; gap:7px}
+.pop .own input{flex:1; min-width:0; background:var(--panel-2); border:1px solid var(--line);
+  border-radius:8px; padding:8px 10px; color:var(--text); font:inherit; font-size:13px}
+.pop .own input:focus{outline:none; border-color:var(--accent)}
+.pop .own button{padding:8px 12px; border-radius:8px; background:var(--accent);
+  color:var(--accent-ink); font-size:13px; font-weight:500}
 
-/* ---------- А: вкладки по активу ---------- */
-.tabs{display:flex; gap:6px; align-items:center; margin-bottom:18px; flex-wrap:wrap}
-.tab{display:flex; align-items:center; gap:8px; padding:8px 14px; border-radius:10px;
-  border:1px solid var(--line); background:var(--panel-2); color:var(--dim); font-size:13.5px}
-.tab .dot{width:7px; height:7px; border-radius:50%; background:var(--faint)}
-.tab.long .dot{background:var(--up)} .tab.short .dot{background:var(--down)}
-.tab.on{background:var(--panel-3); color:var(--text); border-color:var(--line);
-  box-shadow:inset 0 0 0 1px var(--line)}
-.tab .n{font-family:var(--mono); font-size:11px; color:var(--faint)}
-.tabadd{padding:8px 12px; border-radius:10px; border:1px dashed var(--line);
-  color:var(--faint); font-size:13px}
-.tabadd:hover{color:var(--text); border-color:var(--faint)}
-
-/* ---------- Б: активи один під одним ---------- */
-.stack{display:flex; flex-direction:column; gap:14px}
-.acard{background:var(--panel); border:1px solid var(--line); border-radius:14px; overflow:hidden}
-.ahead{display:flex; align-items:center; gap:10px; padding:13px 18px;
-  border-bottom:1px solid var(--line-soft); background:var(--panel-2)}
-.ahead .nm{font-family:var(--mono); font-size:14px; font-weight:600; letter-spacing:.02em}
-.ahead .tag{font-family:var(--mono); font-size:10px; letter-spacing:.1em; padding:3px 9px;
-  border-radius:99px}
-.ahead .tag.long{background:var(--up-soft); color:var(--up)}
-.ahead .tag.short{background:var(--down-soft); color:var(--down)}
-.ahead .sp{flex:1}
-.ahead .x{color:var(--faint); font-size:16px; line-height:1; padding:4px 8px; border-radius:6px}
-.ahead .x:hover{color:var(--text); background:var(--panel-3)}
-.abody{padding:18px}
-.acols{display:grid; grid-template-columns:260px 1fr; gap:18px}
-
-/* ---------- В: один план, ярлик активу в рядку ---------- */
-.chip{font-family:var(--mono); font-size:10px; letter-spacing:.08em; padding:3px 8px;
-  border-radius:6px; background:var(--panel-3); color:var(--dim); border:1px solid var(--line-soft);
-  white-space:nowrap}
-.chip.us{color:#7fb2ff} .chip.ger{color:#ffc48a} .chip.xau{color:#ffe08a}
-.lvr.tagged{grid-template-columns:auto 96px 1fr 1.3fr}
-.shots-row{display:grid; grid-template-columns:repeat(3,1fr); gap:10px}
-.shots-row .one{display:flex; flex-direction:column; gap:7px}
-.shots-row .one .cap{display:flex; align-items:center; gap:7px; font-size:12.5px; color:var(--dim)}
-.sc.tagged div{display:flex; gap:10px; align-items:flex-start}
-.sc.tagged div .tx{flex:1}
-
-/* ---------- спільний хвіст ---------- */
-.common{margin-top:18px; border:1px solid var(--line); border-radius:14px; background:var(--panel);
+/* ---------- спільне на день ---------- */
+.common{margin-top:14px; border:1px solid var(--line); border-radius:14px; background:var(--panel);
   padding:18px 20px}
 .common .ttl{display:flex; align-items:baseline; gap:9px; margin-bottom:10px}
 .common .ttl b{font-family:var(--mono); font-size:10px; letter-spacing:.14em; color:var(--faint);
@@ -134,34 +152,11 @@ button{font:inherit; cursor:pointer; border:none; background:none; color:inherit
 .common .ttl span{font-size:14.5px; font-weight:600}
 .common ul{margin:0; padding-left:18px; color:var(--dim); font-size:13.5px; line-height:1.75}
 
-/* ---------- пульт ---------- */
-.rc{position:fixed; left:16px; bottom:16px; z-index:90; width:320px; background:var(--panel);
-  border:1px solid var(--line); border-radius:12px; padding:14px; font-size:13px;
-  box-shadow:0 24px 60px -20px rgba(0,0,0,.7); transition:transform .3s var(--ease)}
-.rc.hid{transform:translateY(calc(100% + 26px))}
-.rc .h{font-family:var(--mono); font-size:9px; letter-spacing:.16em; text-transform:uppercase;
-  color:var(--faint); margin-bottom:10px}
-.rc .opts{display:grid; gap:6px}
-.rc .opts button{text-align:left; padding:10px 12px; border-radius:9px; font-size:13px;
-  background:var(--panel-2); color:var(--dim); line-height:1.4; border:1px solid transparent}
-.rc .opts button b{display:block; color:var(--text); font-weight:600; font-size:13.5px;
-  margin-bottom:2px}
-.rc .opts button:hover{background:var(--panel-3)}
-.rc .opts button.on{background:var(--accent-soft); border-color:rgba(64,224,148,.35)}
-.rc .opts button.on b{color:var(--accent)}
-.rc .fold{width:100%; margin-top:10px; padding:8px; border-radius:8px; background:var(--panel-2);
-  color:var(--dim); font-size:12.5px}
-.rc .fold:hover{color:var(--text)}
-.rcfold{position:fixed; left:16px; bottom:16px; z-index:89; padding:9px 13px; border-radius:10px;
-  background:var(--panel); border:1px solid var(--line); color:var(--dim); font-size:12.5px}
-
 @media (max-width:900px){
-  body{padding:18px 14px 320px}
-  .acols{grid-template-columns:1fr}
+  body{padding:18px 14px 80px}
   .lvr{grid-template-columns:1fr; gap:4px}
-  .lvr.tagged{grid-template-columns:1fr}
-  .shots-row{grid-template-columns:1fr}
-  .rc{left:12px; right:12px; width:auto}
+  .tfs{grid-template-columns:1fr}
+  .pop{width:min(290px,calc(100vw - 40px))}
 }
 </style>
 </head>
@@ -169,48 +164,60 @@ button{font:inherit; cursor:pointer; border:none; background:none; color:inherit
 
 <div class="page">
   <div class="vhead"><h1>Аналіз дня</h1><span class="sub">ЧТ, 3 ВЕРЕСНЯ · РАНОК</span></div>
-  <p class="hint" id="hint"></p>
+  <p class="hint">Кожен актив — своя картка. Скріни всередині розкладені по таймфреймах:
+    старший для контексту, молодший для входу. Активи підказує ваша ТС.</p>
   <div id="view"></div>
 </div>
-
-<div class="rc" id="rc">
-  <div class="h">Пробник · кілька активів зранку</div>
-  <div class="opts">
-    <button data-v="a" class="on"><b>А. Вкладки по активу</b>Кожен актив — свій план. Перемикаєшся вгорі, сторінка не росте.</button>
-    <button data-v="b"><b>Б. Активи один під одним</b>Усе видно відразу, без перемикання. Довша сторінка.</button>
-    <button data-v="c"><b>В. Один план, ярлик активу</b>Нічого не дублюється: актив проставляється в рядку.</button>
-  </div>
-  <button class="fold" id="fold">Заховати пульт</button>
-</div>
-<button class="rcfold" id="rcfold" hidden>Пульт</button>
 
 <script>
 const esc = s => String(s == null ? "" : s).replace(/[&<>"]/g,
   c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
 
-/* Один і той самий ранок, розказаний трьома способами. Дані спільні,
-   щоб різниця була саме в подачі, а не в наповненні. */
-const ASSETS = [
-  {key:"us", nm:"US100", side:"long", why:"Тижневий у лонг, вчора зняли лоу і повернулись у діапазон. Чекаю продовження вгору.",
+/* Що написано в «Моїй ТС» — звідси й береться перелік активів. */
+const FROM_TS = ["US100", "GER40", "XAUUSD"];
+/* Що вже зустрічалось у журналі, але в ТС не записано. */
+const FROM_JOURNAL = ["US30", "EURUSD", "BTCUSD"];
+
+const COMMON = ["Не входити за 15 хвилин до новин о 15:30",
+                "Не більше 3 угод за день",
+                "Після двох стопів поспіль — вимикаю термінал"];
+
+/* Ранок, як він виглядає заповненим. shots — по таймфреймах:
+   код таймфрейму, навіщо він і чи вже вставлено скрін. */
+let assets = [
+  {nm:"US100", ts:true, side:"long",
+   why:"Тижневий у лонг, вчора зняли лоу і повернулись у діапазон. Чекаю продовження вгору.",
+   shots:[["1D","контекст",true],["1H","зона",true],["15m","вхід",true]],
    levels:[["23 480","денний лоу","звідси йшов імпульс"],
            ["23 610","POC вчорашнього дня","тут стояв обʼєм"],
            ["23 745","ціль","хай понеділка"]],
    plans:[["Основний","Зняття 23 480 → CISD на 1m → вхід на ретесті"],
           ["Запасний","Якщо зразу пішли вгору — чекаю відкату до 23 610"]]},
-  {key:"ger", nm:"GER40", side:"short", why:"Проти індексів США: не пробили хай тижня з третьої спроби, зверху ліквідність зняли.",
+  {nm:"GER40", ts:true, side:"short",
+   why:"Проти індексів США: не пробили хай тижня з третьої спроби, зверху ліквідність зняли.",
+   shots:[["1D","контекст",true],["1H","зона",true],["","",false]],
    levels:[["24 190","хай тижня","звідси розворот"],
            ["24 020","денний VWAP","перша ціль"]],
    plans:[["Основний","Ретест 24 190 знизу → шорт від рівня"],
           ["Запасний","Пробили вгору — сьогодні не торгую GER40"]]},
 ];
-const COMMON = ["Не входити за 15 хвилин до новин о 15:30",
-                "Не більше 3 угод за день",
-                "Після двох стопів поспіль — вимикаю термінал"];
-
-let tab = 0;
 
 const pt = (n, ttl, sub) => '<div class="pt"><b>' + n + '</b><span>' + esc(ttl)
   + '</span><i>' + esc(sub) + '</i></div>';
+
+/* Слоти під скріни. Заповнені показують таймфрейм і навіщо він,
+   порожній чекає вставки, останній — «додати ще таймфрейм». */
+function shots(a, ai){
+  const cells = a.shots.map((s, i) => s[2]
+    ? '<div class="tf"><div class="cap"><span class="code">' + esc(s[0]) + '</span>'
+      + '<span class="role">' + esc(s[1]) + '</span></div>'
+      + '<div class="box"><span class="mk">розмітка ' + esc(a.nm) + '</span></div></div>'
+    : '<div class="tf"><div class="cap"><span class="code pick">таймфрейм</span></div>'
+      + '<div class="box empty">клік, Ctrl+V або перетягни</div></div>').join("");
+  return '<div class="tfs">' + cells
+    + '<div class="tf"><div class="cap"><span class="code pick">+ таймфрейм</span></div>'
+    + '<div class="box empty">ще один графік</div></div></div>';
+}
 
 const sideRow = a =>
   '<div class="side-pick">'
@@ -228,108 +235,71 @@ const plans = a => '<div class="sc">'
   + a.plans.map(p => '<div><b>' + esc(p[0]) + '</b>' + esc(p[1]) + '</div>').join("")
   + '</div>';
 
-const common = () => '<div class="common"><div class="ttl"><b>Спільне на день</b>'
-  + '<span>Чого не робити</span></div><ul>'
-  + COMMON.map(x => '<li>' + esc(x) + '</li>').join("") + '</ul></div>';
-
-/* ---------- А: вкладки ---------- */
-function viewA(){
-  const a = ASSETS[tab];
-  return '<div class="tabs">'
-    + ASSETS.map((x, i) => '<button class="tab ' + x.side + (i === tab ? " on" : "")
-        + '" onclick="pick(' + i + ')"><span class="dot"></span>' + esc(x.nm)
-        + '<span class="n">' + x.levels.length + ' рівні</span></button>').join("")
-    + '<button class="tabadd">+ актив</button></div>'
-    + '<div class="card">'
-    +   '<div class="blk">' + pt("01", "Графік зранку", "скрін розмітки " + a.nm)
-    +     '<div class="shot has"></div></div>'
+function card(a, i){
+  return '<div class="acard">'
+    + '<div class="ahead"><span class="nm">' + esc(a.nm) + '</span>'
+    +   (a.ts ? '<span class="from">з вашої ТС</span>' : '')
+    +   '<span class="tag ' + a.side + '">' + (a.side === "long" ? "Лонг" : "Шорт") + '</span>'
+    +   '<span class="sp"></span>'
+    +   '<button class="x" onclick="drop(' + i + ')" title="Прибрати актив">×</button></div>'
+    + '<div class="abody">'
+    +   '<div class="blk">' + pt("01", "Графіки зранку", "по таймфреймах") + shots(a, i) + '</div>'
     +   '<div class="blk">' + pt("02", "Куди дивишся", "лонг чи шорт і чому") + sideRow(a) + '</div>'
     +   '<div class="blk">' + pt("03", "Рівні, які відмітив", "ціна і що це") + levels(a) + '</div>'
     +   '<div class="blk">' + pt("04", "Що плануєш робити", "сценарії на день") + plans(a) + '</div>'
-    + '</div>'
-    + common();
+    + '</div></div>';
 }
 
-/* ---------- Б: один під одним ---------- */
-function viewB(){
-  return '<div class="stack">'
-    + ASSETS.map(a => '<div class="acard">'
-      + '<div class="ahead"><span class="nm">' + esc(a.nm) + '</span>'
-      +   '<span class="tag ' + a.side + '">' + (a.side === "long" ? "Лонг" : "Шорт") + '</span>'
-      +   '<span class="sp"></span><button class="x">×</button></div>'
-      + '<div class="abody"><div class="acols">'
-      +   '<div><div class="shot has"></div></div>'
-      +   '<div>'
-      +     '<div class="blk">' + pt("01", "Куди дивишся", "і чому") + sideRow(a) + '</div>'
-      +     '<div class="blk">' + pt("02", "Рівні", "ціна і що це") + levels(a) + '</div>'
-      +     '<div class="blk">' + pt("03", "Сценарії", "що робиш") + plans(a) + '</div>'
-      +   '</div>'
-      + '</div></div></div>').join("")
-    + '<button class="add" style="align-self:flex-start">+ додати актив</button></div>'
-    + common();
+/* Вибір активу. Спершу те, що людина сама написала в ТС: журнал не
+   вигадує за неї список інструментів, а бере її ж слова. */
+function popup(){
+  const taken = assets.map(a => a.nm);
+  const chips = (list, ts) => list.map(nm =>
+    '<button onclick="pickAsset(\'' + nm + '\',' + (ts ? 1 : 0) + ')"'
+    + (taken.indexOf(nm) >= 0 ? " disabled" : "") + '>' + esc(nm) + '</button>').join("");
+  return '<div class="pop" id="pop">'
+    + '<div class="grp"><div class="lbl"><em>◆</em> з вашої ТС</div>'
+    +   '<div class="chips">' + chips(FROM_TS, true) + '</div></div>'
+    + '<div class="grp"><div class="lbl">вже були в журналі</div>'
+    +   '<div class="chips">' + chips(FROM_JOURNAL, false) + '</div></div>'
+    + '<div class="grp"><div class="lbl">свій</div><div class="own">'
+    +   '<input id="ownNm" placeholder="напр. USDJPY" aria-label="Свій інструмент">'
+    +   '<button onclick="addOwn()">Додати</button></div></div>'
+    + '</div>';
 }
 
-/* ---------- В: один план, ярлики ---------- */
-function viewC(){
-  const chip = a => '<span class="chip ' + a.key + '">' + esc(a.nm) + '</span>';
-  return '<div class="card">'
-    + '<div class="blk">' + pt("01", "Графіки зранку", "скрін на кожен актив")
-    +   '<div class="shots-row">'
-    +     ASSETS.map(a => '<div class="one"><div class="cap">' + chip(a)
-          + '<span>розмітка</span></div><div class="shot has"></div></div>').join("")
-    +     '<div class="one"><div class="cap"><span class="chip">+ актив</span></div>'
-    +       '<div class="shot">вставити скрін</div></div>'
-    +   '</div></div>'
-    + '<div class="blk">' + pt("02", "Куди дивишся", "по кожному активу")
-    +   ASSETS.map(a => '<div style="display:flex;gap:12px;align-items:flex-start;margin-bottom:12px">'
-        + chip(a) + '<div style="flex:1">' + sideRow(a) + '</div></div>').join("")
-    + '</div>'
-    + '<div class="blk">' + pt("03", "Рівні, які відмітив", "ярлик активу в рядку")
-    +   '<div class="lv">'
-    +     ASSETS.map(a => a.levels.map(l =>
-          '<div class="lvr tagged">' + chip(a)
-          + '<span class="p">' + esc(l[0]) + '</span>'
-          + '<span class="t">' + esc(l[1]) + '</span>'
-          + '<span class="n">' + esc(l[2]) + '</span></div>').join("")).join("")
-    +   '</div><button class="add">+ додати рівень</button></div>'
-    + '<div class="blk">' + pt("04", "Що плануєш робити", "сценарії на день")
-    +   '<div class="sc tagged">'
-    +     ASSETS.map(a => a.plans.map(p => '<div>' + chip(a)
-          + '<div class="tx"><b>' + esc(p[0]) + '</b>' + esc(p[1]) + '</div></div>').join("")).join("")
-    +   '</div></div>'
-    + '</div>'
-    + common();
-}
-
-const HINTS = {
-  a: "Активи вгорі вкладками. Клацаєш — бачиш повний план саме цього активу. Правила дня спільні, вони внизу.",
-  b: "Кожен актив своєю карткою, одна під одною. Нічого не перемикаєш, але сторінка довша.",
-  c: "План один на день, а актив проставляється ярликом у кожному рядку. Найкоротше, але коли активів більше трьох — рябить.",
-};
-const VIEWS = {a: viewA, b: viewB, c: viewC};
-let cur = "a";
+let popOpen = false;
 
 function draw(){
-  document.getElementById("hint").textContent = HINTS[cur];
-  document.getElementById("view").innerHTML = VIEWS[cur]();
+  document.getElementById("view").innerHTML =
+    '<div class="stack">'
+    + assets.map(card).join("")
+    + '<div class="addwrap">'
+    +   '<button class="addbig" onclick="togglePop()">+ додати актив</button>'
+    +   (popOpen ? popup() : "")
+    + '</div></div>'
+    + '<div class="common"><div class="ttl"><b>Спільне на день</b>'
+    +   '<span>Чого не робити</span></div><ul>'
+    +   COMMON.map(x => '<li>' + esc(x) + '</li>').join("") + '</ul></div>';
 }
-function pick(i){ tab = i; draw(); }
-window.pick = pick;
 
-document.querySelectorAll(".rc .opts button").forEach(b => {
-  b.onclick = () => {
-    document.querySelectorAll(".rc .opts button").forEach(x => x.classList.toggle("on", x === b));
-    cur = b.dataset.v; tab = 0; draw();
-  };
+function togglePop(){ popOpen = !popOpen; draw(); }
+function pickAsset(nm, ts){
+  assets.push({nm: nm, ts: !!ts, side: "", why: "",
+               shots: [["", "", false]], levels: [["", "", ""]], plans: [["Основний", ""]]});
+  popOpen = false; draw();
+}
+function addOwn(){
+  const v = (document.getElementById("ownNm").value || "").trim().toUpperCase();
+  if (v) pickAsset(v, 0); else document.getElementById("ownNm").focus();
+}
+function drop(i){ assets.splice(i, 1); draw(); }
+window.togglePop = togglePop; window.pickAsset = pickAsset;
+window.addOwn = addOwn; window.drop = drop;
+
+document.addEventListener("click", e => {
+  if (popOpen && !e.target.closest(".addwrap")){ popOpen = false; draw(); }
 });
-document.getElementById("fold").onclick = () => {
-  document.getElementById("rc").classList.add("hid");
-  document.getElementById("rcfold").toggleAttribute("hidden", false);
-};
-document.getElementById("rcfold").onclick = () => {
-  document.getElementById("rc").classList.remove("hid");
-  document.getElementById("rcfold").toggleAttribute("hidden", true);
-};
 
 draw();
 </script>
