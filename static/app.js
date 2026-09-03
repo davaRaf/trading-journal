@@ -1545,9 +1545,14 @@ async function saveTrade(id){
   if(t.result==="Win" && !num(t.rr)){ alert(T.alertNeedRR); return; }
   const btn=document.querySelector(".m-foot .primary"); if(btn){btn.disabled=true;btn.textContent=T.fmSaving;}
   try{
+    let saved=null;
     if(id) await api("PUT","/api/trades/"+id,t);
-    else   await api("POST","/api/trades",t);
+    else   saved=await api("POST","/api/trades",t);
     await reload(); closeModal(); render();
+    /* Звірка з ТС — уже після того, як форма закрилась: людина не має
+       чекати ні на сервер, ні на модель. Правки чужих полів не чіпаємо:
+       мова про щойно зроблений вхід, а не про виправлену давню угоду. */
+    if(saved && saved.id && window.Watch) Watch.afterTrade(saved.id);
   }catch(err){ alert(T.alertSaveFail+err.message); if(btn){btn.disabled=false;btn.textContent=T.fmSave;} }
 }
 

@@ -124,7 +124,64 @@ const Assistant = (function(){
     }
   }
 
-  return { open, reset: () => { log = []; } };
+  /* ---------- репліка: коли помічник каже сам ----------
+     Не сповіщення й не модалка: фраза виїжджає над кнопкою, живе
+     недовго й зникає. Нічого не блокує — людина може її просто не
+     помітити, і це нормально. */
+  let sayTimer = null;
+
+  function hush(){
+    const box = document.querySelector(".as-say");
+    if(!box) return;
+    clearTimeout(sayTimer);
+    box.classList.remove("in");
+    setTimeout(() => box.remove(), 240);   // під час анімації зникнення
+  }
+
+  /* text — головна фраза, opts.facts — короткі рядки під нею,
+     opts.actions — до двох кнопок {label, main, run}. */
+  function say(text, opts){
+    opts = opts || {};
+    if(!text && !(opts.facts || []).length) return;
+    hush();
+    const box = document.createElement("div");
+    box.className = "as-say";
+    box.innerHTML =
+      '<button type="button" class="x" aria-label="' + esc(T.mrClose) + '">×</button>'
+      + (opts.cap ? '<span class="cap">' + esc(opts.cap) + "</span>" : "")
+      + '<p class="tx">' + esc(text || "") + "</p>"
+      + ((opts.facts || []).length
+          ? '<ul class="facts">' + opts.facts.map(f => "<li>" + esc(f) + "</li>").join("") + "</ul>"
+          : "")
+      + '<div class="acts"></div>';
+    document.body.appendChild(box);
+
+    const acts = box.querySelector(".acts");
+    (opts.actions || []).slice(0, 2).forEach(a => {
+      const b = document.createElement("button");
+      b.type = "button";
+      b.textContent = a.label;
+      if(a.main) b.className = "main";
+      b.onclick = () => { hush(); if(a.run) a.run(); };
+      acts.appendChild(b);
+    });
+    if(!acts.children.length) acts.remove();
+    box.querySelector(".x").onclick = hush;
+
+    requestAnimationFrame(() => box.classList.add("in"));
+    /* мовчазне зникнення: довгий текст читають довше */
+    const life = Math.min(40000, 9000 + (text || "").length * 55);
+    sayTimer = setTimeout(hush, life);
+  }
+
+  /* Питання в чат від імені людини — коли вона натиснула «розібратись». */
+  function bring(question){
+    hush();
+    open();
+    send(question);
+  }
+
+  return { open, say, hush, bring, reset: () => { log = []; } };
 })();
 
 window.Assistant = Assistant;

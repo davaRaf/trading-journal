@@ -31,6 +31,7 @@ import notion_public as npub
 import oauth
 import day_store
 import tg_api
+import ts_check
 import ts_notion
 import ts_store
 from calendar_feed import calendar_events
@@ -897,6 +898,11 @@ class H(BaseHTTPRequestHandler):
             history = [m for m in raw if isinstance(m, dict)][-16:] if isinstance(raw, list) else []
             return self._json({"answer": assistant.ask(uid, question, history)})
 
+        if p == "/api/assistant/nudge":
+            lang = str((body or {}).get("lang") or "uk")
+            return self._json(assistant.nudge(
+                uid, lang if lang in ("uk", "ru", "en") else "uk"))
+
         if p == "/api/assistant/review":
             if not llm.enabled():
                 return self._json({"error": "помічник вимкнений — немає GEMINI_API_KEY"}, 503)
@@ -982,6 +988,20 @@ class H(BaseHTTPRequestHandler):
             ts_store.put(uid, data)
             ts_store.sweep(uid, data, SHOTS)      # старі скріни за собою прибираємо
             return self._json({"ok": True})
+
+        # Звірка щойно записаної угоди з ТС. Окремим запитом, а не всередині
+        # POST /api/trades: збереження має бути миттєвим, а тут ще й модель.
+        if p == "/api/ts/check":
+            tid = str((body or {}).get("id") or "").strip()
+            trade = db.get_trade(tid, uid) if tid else None
+            ts = ts_store.get(uid)
+            if not trade or not ts:
+                return self._json({"items": [], "text": ""})
+            day = ts_check.same_day(db.list_trades(uid), trade)
+            items = ts_check.check(ts, trade, day)
+            lang = str((body or {}).get("lang") or "uk")
+            text = ts_check.say(items, lang if lang in ("uk", "ru", "en") else "uk")
+            return self._json({"items": items, "text": text})
 
         if p == "/api/ts/clear":
             ts_store.sweep(uid, {}, SHOTS)
