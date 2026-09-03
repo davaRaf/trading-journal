@@ -12,9 +12,27 @@ function NAME(){ return {h:T.nwImpactHigh, m:T.nwImpactMed, l:T.nwImpactLow}; }
 
 let events = null;       // null — ще не завантажено
 let warning = null;
-let day = "all";         // "all" — увесь тиждень
-let impact = "all";
-let cur = "all";
+
+/* Фільтри переживають перезавантаження: між розділами вони й так жили в
+   пам'яті, а от після F5 скидались — і людина щоразу заново тикала свій
+   день і «червоні». Тримаємо їх у localStorage, як режим журналу й тему. */
+const FKEY = "tj_news_filters";
+function readFilters(){
+  try{
+    const v = JSON.parse(localStorage.getItem(FKEY) || "{}");
+    return (v && typeof v === "object") ? v : {};
+  }catch(e){ return {}; }
+}
+function pick(v){ return typeof v === "string" && v ? v : "all"; }
+
+const saved = readFilters();
+let day = pick(saved.day);        // "all" — увесь тиждень
+let impact = pick(saved.impact);
+let cur = pick(saved.cur);
+
+function keep(){
+  try{ localStorage.setItem(FKEY, JSON.stringify({day, impact, cur})); }catch(e){}
+}
 
 const dkey = d => d.getFullYear() + "-" + String(d.getMonth()+1).padStart(2,"0")
                 + "-" + String(d.getDate()).padStart(2,"0");
@@ -38,9 +56,9 @@ async function load(){
 
 /* ---- обробники живуть тут, а не в розмітці ---- */
 window.__news = {
-  day(v){ day = v; render(); },
-  imp(v){ impact = v; render(); },
-  cur(v){ cur = v; render(); },
+  day(v){ day = v; keep(); render(); },
+  imp(v){ impact = v; keep(); render(); },
+  cur(v){ cur = v; keep(); render(); },
 };
 
 function vNews(){
@@ -55,7 +73,10 @@ function vNews(){
 
   const days = [...new Set(events.map(e => dkey(e._d)))].sort();
   const today = dkey(new Date());
-  if (day !== "all" && !days.includes(day)) day = days.includes(today) ? today : "all";
+  if (day !== "all" && !days.includes(day)){
+    day = days.includes(today) ? today : "all";
+    keep();
+  }
 
   const inScope = day === "all" ? events : events.filter(e => dkey(e._d) === day);
   const cnt = i => inScope.filter(e => e._i === i).length;
@@ -90,6 +111,8 @@ function vNews(){
      + '</div>';
 
   const curs = [...new Set(events.map(e => e.country))].filter(c => c && c !== "All").sort();
+  /* валюти на новому тижні можуть бути інші: інакше список мовчки порожній */
+  if (cur !== "all" && !curs.includes(cur)){ cur = "all"; keep(); }
   h += '<div class="nw-grp"><span class="lab">'+T.nwCurrency+'</span>'
      + chip("all", T.nwAll, inScope.length, cur, "cur", "all")
      + curs.map(c => chip(c, c, inScope.filter(e => e.country===c).length, cur, "cur", c)).join("")
