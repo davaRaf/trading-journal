@@ -42,7 +42,10 @@ function pad(n){ return (n<10?"0":"")+n; }
 function isoDay(d){ return d.getFullYear()+"-"+pad(d.getMonth()+1)+"-"+pad(d.getDate()); }
 function isoMonth(d){ return d.getFullYear()+"-"+pad(d.getMonth()+1); }
 function esc(s){ return String(s==null?"":s).replace(/[&<>"']/g, c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c])); }
-function shotSrc(s){ return s.file?"/shots/"+esc(s.file):(s.data||""); }
+function shotSrc(s){
+  if(!s.file) return s.data||"";
+  return window.Pub&&Pub.on ? Pub.shot(s.file) : "/shots/"+esc(s.file);
+}
 function r1(v){ return Math.round(v*100)/100; }
 function fmtR(v){ if(v==null||isNaN(v)) return "—"; const x=r1(v); return (x>0?"+":"")+x+"%"; }
 function clsR(v){ return v>0.0001?"pos":v<-0.0001?"neg":"beclr"; }
@@ -139,6 +142,13 @@ async function api(method,url,body){
      біля кожної кнопки, щоб жоден запис не проліз повз неї. */
   if(DEMO && window.Guest && Guest.on && method!=="GET"){
     Guest.block(); throw new Error("guest");
+  }
+  /* Чужий журнал: писати не можна взагалі, а читаємо тільки те, що для
+     нього призначено. Підміна адреси стоїть тут одна на всі розділи. */
+  if(window.Pub && Pub.on){
+    if(method!=="GET"){ Pub.block(); throw new Error("pub"); }
+    url = Pub.url(url);
+    if(!url) throw new Error("pub");
   }
   if(DEMO) return DemoStore.handle(method,url,body);
   const res=await fetch(url,{method,credentials:"same-origin",headers:{"Content-Type":"application/json"},body:body?JSON.stringify(body):undefined});
@@ -1691,9 +1701,16 @@ let bootRendered=false;              /* перший рендер іде одр�
                                          виглядом інакше проскакує ще один «порожній» кадр */
 let dataReady=false;                 /* поки reload() не завершився — жоден виклик render() не
                                          чіпає #main: там і далі стоїть заставка-лоадер із розмітки */
+/* У чужому журналі своїх розділів немає: «Аналіз дня» і «Моя ТС» читають
+   особисте, тому на них не пускаємо навіть за адресою з решіткою. */
+const PUB_VIEWS={dashboard:1,journal:1,monthly:1,quarterly:1,yearly:1,analytics:1,news:1};
+function viewAllowed(v){
+  if(!VIEWS[v]) return false;
+  return window.Pub&&Pub.on ? !!PUB_VIEWS[v] : true;
+}
 function render(){
   if(!dataReady) return;
-  const v=VIEWS[S.view]?S.view:"dashboard";
+  const v=viewAllowed(S.view)?S.view:"dashboard";
   document.querySelectorAll(".nav a").forEach(a=>a.classList.toggle("on",a.dataset.v===v));
   if(window.PL) PL.reset();
   /* «enter» только при смене раздела: перерисовка после правки угоди
@@ -1800,9 +1817,15 @@ function markDemo(){
 
 (async function init(){
   markTheme(); markLayout();
+  /* /u/<нік> — чужий журнал: режим вмикається до першого запиту, бо він
+     міняє й адресу, за якою беруться угоди. */
+  if(window.Pub && Pub.detect()) Pub.start();
   try{
     await reload();
   }catch(e){
+    /* У чужому журналі свої причини не відкритись — закритий журнал і
+       відсутній акаунт. Pub пояснює їх сам, демо тут ні до чого. */
+    if(window.Pub && Pub.on){ if(Pub.fail(e)) return; }
     /* Дві різні причини сюди потрапити. 401 — людина просто не увійшла:
        показуємо їй журнал на демо-даних і кличемо завести свій. Будь-яка
        інша помилка — сервера немає (публічне демо), там усе як було. */
@@ -1822,5 +1845,5 @@ function markDemo(){
   if(S.view==="monthly"){ S.view="journal"; location.hash="journal"; }
   render();
   if(window.Sparks) Sparks.start();
-  if(!DEMO) refreshTelegramStatus();
+  if(!DEMO && !(window.Pub && Pub.on)) refreshTelegramStatus();
 })();

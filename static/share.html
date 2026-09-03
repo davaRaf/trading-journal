@@ -284,6 +284,7 @@ document.addEventListener("click", e => {
 
 function render(rec){
   const d = rec.data || {};
+  const owner = (rec.owner && rec.owner.nick) || "";
   const rows = (title, items) => !items || !items.length ? "" :
     '<div class="sect">'+esc(title)+'</div><div class="rows">'
     + items.map(r => '<div class="row"><span class="l">'+esc(r.name)+'</span>'
@@ -308,9 +309,16 @@ function render(rec){
     + (d.blocks || []).map(b => rows(b.title, b.items)).join("")
     /* Знімок подивились — далі показуємо, звідки він. Це єдине місце,
        де людина, яка про журнал ще не чула, сама вирішує зайти. */
-    + '<div class="cta"><div class="t">'+esc(T.shCtaTitle)+'</div>'
-      + '<p>'+esc(T.shCtaText)+'</p>'
-      + '<div class="btns"><a class="b" href="/">'+esc(T.shCtaLook)+'</a>'
+    + '<div class="cta"><div class="t">'
+      + esc(owner ? T.pubCtaTitle.replace("%s", "@"+owner) : T.shCtaTitle)+'</div>'
+      + '<p>'+esc(owner ? T.pubCtaText : T.shCtaText)+'</p>'
+      /* Хазяїн знімка стоїть першим, але тільки поки його журнал
+         відкритий: сервер віддає owner саме на цю мить. */
+      + '<div class="btns">'
+      + (owner
+          ? '<a class="b" href="/u/'+esc(encodeURIComponent(owner))+'">'
+            + esc(T.pubCtaAll.replace("%s", "@"+owner))+'</a>'
+          : '<a class="b" href="/">'+esc(T.shCtaLook)+'</a>')
       + '<a class="b pri" href="/login#signup">'+esc(T.shCtaMake)+'</a></div></div>'
     + '<div class="foot"><span>'+esc(until)+'</span>'
       + '<span>'+T.shMadeIn+' <a href="/">StatsAI</a></span></div>';

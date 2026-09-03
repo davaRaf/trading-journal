@@ -1,0 +1,105 @@
+/* ============================================================
+   Чужий журнал: полоса зверху й сторінка-заглушка.
+   Правила діють тільки при data-pub на <html> — у своєму журналі
+   цього файлу наче немає. Кольори — лише токенами тем.
+   ============================================================ */
+
+.pbar{display:none}
+
+html[data-pub] .pbar{
+  display:flex; align-items:center; gap:12px;
+  position:fixed; left:0; right:0; top:0; z-index:45;
+  padding:9px 16px; background:var(--text); color:var(--panel);
+  font-size:13.5px; line-height:1.3;
+}
+html[data-pub] .pbar b{
+  font-family:var(--mono); font-size:11px; letter-spacing:.04em;
+  font-weight:500; padding:3px 8px; border-radius:99px;
+  background:rgba(255,255,255,.16); white-space:nowrap;
+}
+html[data-pub] .pbar .tx{min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap}
+html[data-pub] .pbar .sp{flex:1}
+html[data-pub] .pbar .pgo{
+  background:var(--panel); color:var(--text); border-radius:8px; padding:6px 12px;
+  font-size:13px; font-weight:500; text-decoration:none; white-space:nowrap;
+}
+html[data-pub] body.has-pbar .side,
+html[data-pub] body.has-pbar .main{padding-top:52px}
+
+/* Помічник відповідає по своїх угодах — у чужому журналі йому нічого
+   сказати, тому кнопки просто немає. */
+html[data-pub] .as-fab{display:none}
+
+/* Вікно «увійдіть» вузьке всередині (.gate-w — 380px), а коробка модалки
+   лишалась на всі 860: збоку висіла порожнеча. Підганяємо коробку під
+   вміст — це те саме вікно, що показує гість. */
+.modal-box:has(.gate-w){max-width:420px}
+
+/* ---- сторінка-заглушка: журнал закритий або потрібен акаунт ---- */
+html[data-pub-stop] .side{display:none}
+html[data-pub-stop] .main{padding:0}
+
+.pstop{
+  max-width:420px; margin:0 auto; min-height:100vh;
+  display:flex; flex-direction:column; justify-content:center; padding:32px 24px;
+}
+.pstop-mk{
+  width:40px; height:40px; border-radius:12px; background:var(--accent-soft);
+  display:grid; place-items:center; color:var(--accent); margin-bottom:16px;
+}
+.pstop h1{margin:0 0 8px; font-size:23px; letter-spacing:-.02em; line-height:1.25}
+.pstop p{margin:0 0 22px; font-size:14px; line-height:1.6; color:var(--dim)}
+.pstop-btns{display:flex; gap:9px; flex-wrap:wrap}
+.pstop-btns .btn{
+  display:inline-flex; align-items:center; justify-content:center; text-decoration:none;
+  border-radius:9px; padding:10px 16px; font-size:13.5px; font-weight:500;
+  border:1px solid var(--line); background:var(--panel); color:var(--text);
+  transition:border-color .15s, filter .15s;
+}
+.pstop-btns .btn:hover{border-color:var(--faint)}
+.pstop-btns .btn.primary{background:var(--accent); border-color:var(--accent); color:var(--accent-ink)}
+.pstop-btns .btn.primary:hover{filter:brightness(1.06)}
+
+/* ---- вікно «відкритий журнал» у себе ---- */
+.pp-lead{margin:0 0 16px; font-size:13.5px; line-height:1.6; color:var(--dim)}
+.pp-sw{
+  display:flex; align-items:center; gap:11px; cursor:pointer;
+  padding:12px 14px; border:1px solid var(--line); border-radius:var(--r-sm);
+  background:var(--panel-2); transition:border-color .15s, background .15s;
+}
+.pp-sw:hover{border-color:var(--faint)}
+.pp-sw input{width:17px; height:17px; accent-color:var(--accent); cursor:pointer; flex:none}
+.pp-sw b{font-size:14px; font-weight:500}
+
+.pp-link{margin-top:14px; transition:opacity .18s}
+.pp-link.off{opacity:.55}
+.pp-cap{
+  font-family:var(--mono); font-size:9px; letter-spacing:.16em; text-transform:uppercase;
+  color:var(--faint); margin-bottom:7px;
+}
+.pp-row{display:flex; gap:8px}
+.pp-url{
+  flex:1; min-width:0; font-family:var(--mono); font-size:12.5px;
+  padding:9px 11px; border:1px solid var(--line); border-radius:9px;
+  background:var(--panel-2); color:var(--text);
+}
+.pp-note{margin-top:8px; font-size:12.5px; line-height:1.5; color:var(--dim)}
+
+.pp-what{list-style:none; margin:18px 0 0; padding:0; display:grid; gap:9px}
+.pp-what li{
+  position:relative; padding-left:20px; font-size:12.5px; line-height:1.55; color:var(--dim);
+}
+.pp-what li::before{
+  position:absolute; left:0; top:0; font-family:var(--mono); font-size:12px;
+}
+.pp-what li.yes::before{content:"+"; color:var(--accent)}
+.pp-what li.no::before{content:"−"; color:var(--faint)}
+
+@media (max-width:900px){
+  /* як і в гостя: полоса стає над мобільною шапкою */
+  html[data-pub] .pbar .tx{display:none}
+  html[data-pub] body.has-pbar{padding-top:38px}
+  html[data-pub] body.has-pbar .side,
+  html[data-pub] body.has-pbar .main{padding-top:14px}
+  html[data-pub] .mtop{top:38px}
+}

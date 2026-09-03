@@ -149,6 +149,10 @@ ALTER TABLE trades ADD COLUMN IF NOT EXISTS emotion_raw TEXT;
 ALTER TABLE trades ADD COLUMN IF NOT EXISTS "notion_id" TEXT NOT NULL DEFAULT '';
 ALTER TABLE trades ADD COLUMN IF NOT EXISTS "import_id" TEXT NOT NULL DEFAULT '';
 CREATE INDEX IF NOT EXISTS trades_import ON trades (user_id, "import_id");
+
+-- Журнал можно открыть другим: тогда его смотрят по ссылке /u/<ник>.
+-- По умолчанию закрыт: открытость человек включает сам.
+ALTER TABLE users ADD COLUMN IF NOT EXISTS public_journal BOOLEAN NOT NULL DEFAULT FALSE;
 """
 
 
@@ -198,6 +202,24 @@ def get_user_by_login(login):
         return conn.execute(
             "SELECT * FROM users WHERE email_norm=%s OR lower(nickname)=%s LIMIT 1",
             (key, key)).fetchone()
+
+
+def get_user_by_nick(nick):
+    """Хозяин открытого журнала по нику из ссылки /u/<ник>.
+    Ник ищем без учёта регистра — так же, как при входе."""
+    key = (nick or "").strip().lower()
+    if not key:
+        return None
+    with connect() as conn:
+        return conn.execute(
+            "SELECT * FROM users WHERE lower(nickname)=%s LIMIT 1", (key,)).fetchone()
+
+
+def set_public(user_id, on):
+    with connect() as conn:
+        conn.execute("UPDATE users SET public_journal=%s WHERE id=%s",
+                     (bool(on), user_id))
+        conn.commit()
 
 
 def get_user_by_telegram(tg_id):
@@ -285,6 +307,17 @@ def owns_screenshot(user_id, filename):
     with connect() as conn:
         row = conn.execute(
             "SELECT 1 FROM trades WHERE user_id=%s AND screenshots @> %s LIMIT 1",
+            (user_id, Jsonb([{"file": filename}]))).fetchone()
+    return row is not None
+
+
+def public_screenshot(user_id, filename):
+    """Скрин из чужого журнала. Открытость проверяем тем же запросом, что и
+    владение файлом: закрыл журнал — картинки перестали отдаваться сразу."""
+    with connect() as conn:
+        row = conn.execute(
+            "SELECT 1 FROM trades t JOIN users u ON u.id=t.user_id "
+            "WHERE t.user_id=%s AND u.public_journal AND t.screenshots @> %s LIMIT 1",
             (user_id, Jsonb([{"file": filename}]))).fetchone()
     return row is not None
 

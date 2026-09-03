@@ -361,6 +361,30 @@ uk: {
   bgTradeText: "Пара, сетап, RR, скріни таймфреймів. Далі статистика збирається сама.",
   bgTsTag: "спочатку правила", bgTsTitle: "Описати свою ТС",
   bgTsText: "Опишіть систему — журнал звірятиме кожну угоду з нею.",
+
+  // ---- відкритий журнал ----
+  pubBar: "Журнал %s · тільки перегляд",
+  pubBarMine: "Ваш журнал таким бачать інші",
+  pubMine: "У свій журнал",
+  pubBlocked: "Це чужий журнал — тут можна тільки дивитись",
+  pubClosedTitle: "Журнал закритий",
+  pubClosedText: "Хазяїн не відкривав його для інших — або такого ніка немає.",
+  pubNeedTitle: "Щоб подивитись чужий журнал — потрібен акаунт",
+  pubNeedText: "Реєстрація займає хвилину. Разом з нею ви отримуєте свій журнал: угоди, скріни, статистику й ТС.",
+  pubCtaAll: "Весь журнал %s",
+  pubCtaTitle: "Знімок із журналу %s",
+  pubCtaText: "Журнал відкритий: угоди й статистику видно цілком. Для цього потрібен свій акаунт — реєстрація за хвилину.",
+  ppBtn: "Відкритий журнал",
+  ppTip: "Показати журнал іншим за посиланням",
+  ppTitle: "Відкритий журнал",
+  ppLead: "Журнал можна відкрити іншим: за посиланням вони побачать ваші угоди й статистику. Змінити щось не зможе ніхто, крім вас.",
+  ppOn: "Відкрити журнал іншим",
+  ppLink: "Посилання на ваш журнал",
+  ppCopy: "Скопіювати", ppCopied: "Скопійовано",
+  ppShow: "Видно: угоди, дати, пари, сесії, моделі, сетапи, результат, RR, ризик і скріни. Плюс уся статистика й аналітика.",
+  ppHide: "Не видно: нотатки, помилки, емоції, «Аналіз дня» і «Мою ТС».",
+  ppClosedNote: "Зараз журнал закритий: посилання нижче нікому не відкриється.",
+  ppNeedNick: "Спершу увійдіть — посилання робиться з вашого ніка.",
 },
 
 ru: {
@@ -686,6 +710,30 @@ ru: {
   bgTradeText: "Пара, сетап, RR, скрины таймфреймов. Дальше статистика собирается сама.",
   bgTsTag: "сначала правила", bgTsTitle: "Описать свою ТС",
   bgTsText: "Опишите систему — журнал будет сверять каждую сделку с ней.",
+
+  // ---- открытый журнал ----
+  pubBar: "Журнал %s · только просмотр",
+  pubBarMine: "Ваш журнал таким видят другие",
+  pubMine: "В свой журнал",
+  pubBlocked: "Это чужой журнал — здесь можно только смотреть",
+  pubClosedTitle: "Журнал закрыт",
+  pubClosedText: "Хозяин не открывал его для других — или такого ника нет.",
+  pubNeedTitle: "Чтобы посмотреть чужой журнал — нужен аккаунт",
+  pubNeedText: "Регистрация занимает минуту. Вместе с ней вы получаете свой журнал: сделки, скрины, статистику и ТС.",
+  pubCtaAll: "Весь журнал %s",
+  pubCtaTitle: "Снимок из журнала %s",
+  pubCtaText: "Журнал открытый: сделки и статистику видно целиком. Для этого нужен свой аккаунт — регистрация за минуту.",
+  ppBtn: "Открытый журнал",
+  ppTip: "Показать журнал другим по ссылке",
+  ppTitle: "Открытый журнал",
+  ppLead: "Журнал можно открыть другим: по ссылке они увидят ваши сделки и статистику. Изменить что-то не сможет никто, кроме вас.",
+  ppOn: "Открыть журнал другим",
+  ppLink: "Ссылка на ваш журнал",
+  ppCopy: "Скопировать", ppCopied: "Скопировано",
+  ppShow: "Видно: сделки, даты, пары, сессии, модели, сетапы, результат, RR, риск и скрины. Плюс вся статистика и аналитика.",
+  ppHide: "Не видно: заметки, ошибки, эмоции, «Анализ дня» и «Мою ТС».",
+  ppClosedNote: "Сейчас журнал закрыт: ссылка ниже никому не откроется.",
+  ppNeedNick: "Сначала войдите — ссылка делается из вашего ника.",
 },
 
 en: {
@@ -1011,6 +1059,30 @@ en: {
   bgTradeText: "Pair, setup, RR, timeframe screenshots. The stats build themselves after that.",
   bgTsTag: "rules first", bgTsTitle: "Describe your system",
   bgTsText: "Write down the system — the journal will check every trade against it.",
+
+  // ---- open journal ----
+  pubBar: "%s's journal · view only",
+  pubBarMine: "This is how others see your journal",
+  pubMine: "Back to my journal",
+  pubBlocked: "Someone else's journal — you can only look around",
+  pubClosedTitle: "Journal is closed",
+  pubClosedText: "The owner has not opened it to others — or there is no such nickname.",
+  pubNeedTitle: "You need an account to view someone's journal",
+  pubNeedText: "Signing up takes a minute, and you get your own journal with it: trades, screenshots, stats and strategy.",
+  pubCtaAll: "%s's full journal",
+  pubCtaTitle: "A snapshot from %s's journal",
+  pubCtaText: "The journal is open: trades and stats can be seen in full. That needs an account of your own — signing up takes a minute.",
+  ppBtn: "Open journal",
+  ppTip: "Show your journal to others by link",
+  ppTitle: "Open journal",
+  ppLead: "You can open your journal to others: they will see your trades and stats by link. Nobody but you can change anything.",
+  ppOn: "Open my journal to others",
+  ppLink: "Link to your journal",
+  ppCopy: "Copy", ppCopied: "Copied",
+  ppShow: "Visible: trades, dates, pairs, sessions, models, setups, result, RR, risk and screenshots. Plus all stats and analytics.",
+  ppHide: "Hidden: notes, mistakes, emotions, Day review and My strategy.",
+  ppClosedNote: "The journal is closed right now: the link below opens for nobody.",
+  ppNeedNick: "Sign in first — the link is made from your nickname.",
 },
 
 };
@@ -1047,7 +1119,12 @@ function applyLang(code){
     if(a){ setTip(a, navMap[k][1]); const sp = a.querySelector("span"); if(sp) sp.textContent = navMap[k][0]; }
   });
 
-  setText("journalLab", T.sdYourJournal);
+  /* у чужому журналі на місці підпису стоїть нік хазяїна */
+  setText("journalLab", window.Pub && Pub.on ? "@" + Pub.nick : T.sdYourJournal);
+  if (window.Pub && Pub.on) Pub.relang();
+
+  const pj = document.getElementById("publicBtn");
+  if(pj){ setTip(pj, T.ppTip); const sp = pj.querySelector("span"); if(sp) sp.textContent = T.ppBtn; }
 
   const cb = document.getElementById("calcBtn");
   if(cb){ setTip(cb, T.sdCalcTip); const sp = cb.querySelector("span"); if(sp) sp.textContent = T.ckTitle; }

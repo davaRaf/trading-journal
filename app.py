@@ -162,11 +162,11 @@ def _share_path(sid):
     return os.path.join(SHARE_DIR, sid + ".json")
 
 
-def share_create(payload, ttl_key):
+def share_create(payload, ttl_key, user_id=None):
     """Знімок кладеться в базу (share_store.py): файли на хостингу зникають
     при кожному оновленні коду, а роздане посилання має жити свій термін."""
     ttl = SHARE_TTL.get(ttl_key, SHARE_TTL["7d"])
-    return share_store.create(payload, ttl_key, ttl)
+    return share_store.create(payload, ttl_key, ttl, user_id)
 
 
 def share_shot_ok(rec, name):
@@ -398,7 +398,44 @@ def user_public(user):
                                                       if user["telegram_id"] else None),
             "telegram_linked": user["telegram_id"] is not None,
             "digest_hour": user["digest_hour"], "digest_minute": user["digest_minute"],
-            "digest_enabled": user["digest_enabled"]}
+            "digest_enabled": user["digest_enabled"],
+            "public_journal": bool(user["public_journal"])}
+
+
+# ---------------------------------------------------------------------------
+# Відкритий журнал: /u/<нік>.
+#
+# Людина сама вирішує, показувати свій журнал іншим чи ні. Показуємо тільки
+# те, за чим ідуть: угоди і статистику. Нотатки, помилки, емоції та «Аналіз
+# дня» — щоденник, а не вітрина, тому назовні не йдуть ніколи.
+#
+# Білий список нижче — єдине місце, де це вирішується: додали поле в угоду —
+# воно за замовчуванням лишається приватним, поки його сюди не впишуть.
+# ---------------------------------------------------------------------------
+PUBLIC_FIELDS = ["id", "pair", "date", "session", "position", "bias", "setup",
+                 "entry_model", "direction_type", "result", "rr", "risk",
+                 "entry_details"]
+
+
+def public_trade(t):
+    out = {f: t.get(f) for f in PUBLIC_FIELDS}
+    out["screenshots"] = [{"tf": s.get("tf") or "", "file": s.get("file") or ""}
+                          for s in (t.get("screenshots") or []) if s.get("file")]
+    return out
+
+
+def public_owner(user_id):
+    """Нік хазяїна, поки журнал відкритий. Закрив — повертаємо None, і
+    посилання на нього зникає скрізь, де ми його показували."""
+    if not user_id:
+        return None
+    try:
+        user = db.get_user(user_id)
+    except Exception:
+        return None
+    if not user or not user["public_journal"]:
+        return None
+    return user["nickname"]
 
 
 class H(BaseHTTPRequestHandler):
@@ -482,7 +519,13 @@ class H(BaseHTTPRequestHandler):
             rec = share_read(p[len("/api/share/"):])
             if rec is None:
                 return self._json({"error": "посилання не знайдено або прострочене"}, 404)
-            return self._json(rec)
+            # Хазяїна віддаємо ніком і тільки поки журнал відкритий: id
+            # користувача назовні не потрібен, а стан питаємо щоразу заново.
+            out = {k: v for k, v in rec.items() if k != "user_id"}
+            nick = public_owner(rec.get("user_id"))
+            if nick:
+                out["owner"] = {"nick": nick}
+            return self._json(out)
         if p.startswith("/s/"):
             sid = p[len("/s/"):].strip("/")
             rec = share_read(sid)
@@ -568,6 +611,43 @@ class H(BaseHTTPRequestHandler):
             uid = self._uid()
             user = db.get_user(uid) if uid else None
             return self._json({"user": user_public(user) if user else None})
+
+        # ---- чужий відкритий журнал ----
+        #
+        # Закритий журнал і неіснуючий нік відповідають однаково — 404. Так
+        # по чужому ніку не можна навіть дізнатись, що така людина є.
+        m = re.match(r"^/api/u/([\w.\-]{1,40})(/trades)?$", p)
+        if m:
+            uid = self._uid()
+            if not uid:
+                return self._json({"error": "auth required"}, 401)
+            owner = db.get_user_by_nick(m.group(1))
+            if not owner or not owner["public_journal"]:
+                return self._json({"error": "not found"}, 404)
+            trades = [public_trade(t) for t in db.list_trades(owner["id"])
+                      if not t.get("hidden")]
+            if m.group(2):
+                return self._json(trades)
+            dates = sorted(t["date"] for t in trades if t.get("date"))
+            return self._json({"nick": owner["nickname"], "count": len(trades),
+                               "since": dates[0][:10] if dates else "",
+                               "me": owner["id"] == uid})
+
+        # картинка з чужого журналу: /ushot/<нік>/<файл>
+        m = re.match(r"^/ushot/([\w.\-]{1,40})/([\w.\-]{4,120})$", p)
+        if m:
+            uid = self._uid()
+            owner = db.get_user_by_nick(m.group(1)) if uid else None
+            name = os.path.basename(m.group(2))
+            if not owner or not db.public_screenshot(owner["id"], name):
+                self.send_response(404); self.end_headers(); return
+            path = shot_path(name)
+            if not path:
+                self.send_response(404); self.end_headers(); return
+            ext = name.rsplit(".", 1)[-1].lower()
+            ctype = {"png": "image/png", "jpg": "image/jpeg", "jpeg": "image/jpeg",
+                     "webp": "image/webp", "gif": "image/gif"}.get(ext, "application/octet-stream")
+            return self._file(path, ctype)
 
         if p == "/api/trades":
             uid = self._uid()
@@ -696,6 +776,13 @@ class H(BaseHTTPRequestHandler):
                 self.send_response(404); self.end_headers(); return
             return self._file(path, ctype)
 
+        # Чужий журнал — та сама сторінка застосунку: розділи, календар і
+        # аналітика вже вміють малювати будь-який список угод. Хто саме
+        # хазяїн і що можна робити, розбирає pub.js за адресою.
+        if re.match(r"^/u/[\w.\-]{1,40}/?$", p):
+            return self._file(os.path.join(STATIC, "index.html"),
+                              "text/html; charset=utf-8")
+
         if p in ("/", "/index.html"):
             # Гостя не женемо на сторінку входу: він приходить сюди з чужого
             # посилання «поділитись» і ще нічого про журнал не знає. Хай
@@ -782,6 +869,11 @@ class H(BaseHTTPRequestHandler):
         if p.startswith("/api/") and not uid:
             return self._json({"error": "auth required"}, 401)
 
+        if p == "/api/me/public":
+            on = bool((body or {}).get("on"))
+            db.set_public(uid, on)
+            return self._json({"public_journal": on})
+
         if p == "/api/telegram/link-code":
             bot = bot_username()
             if not bot:
@@ -818,7 +910,7 @@ class H(BaseHTTPRequestHandler):
             raw = json.dumps(body["data"], ensure_ascii=False)
             if len(raw.encode("utf-8")) > SHARE_MAX:
                 return self._json({"error": "снимок слишком большой"}, 413)
-            rec = share_create(body["data"], body.get("ttl", "7d"))
+            rec = share_create(body["data"], body.get("ttl", "7d"), uid)
             return self._json({"id": rec["id"], "url": "/s/" + rec["id"],
                                "expires": rec["expires"]}, 201)
 

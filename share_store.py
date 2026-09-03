@@ -25,6 +25,11 @@ CREATE TABLE IF NOT EXISTS shares (
   expires  BIGINT NOT NULL DEFAULT 0,
   ttl      TEXT NOT NULL DEFAULT ''
 );
+
+-- Хто зробив знімок. Потрібно, щоб під ним показати посилання на журнал
+-- автора — і лише поки той тримає журнал відкритим. У старих посилань
+-- автора немає, вони так і лишаються без підпису.
+ALTER TABLE shares ADD COLUMN IF NOT EXISTS user_id BIGINT;
 """
 
 _ready = False
@@ -39,16 +44,17 @@ def init():
     _ready = True
 
 
-def create(payload, ttl_key, ttl_seconds):
+def create(payload, ttl_key, ttl_seconds, user_id=None):
     init()
     sid = secrets.token_urlsafe(9)          # 12 символів, вистачає з запасом
     now = int(time.time())
     rec = {"id": sid, "created": now,
            "expires": now + ttl_seconds if ttl_seconds else 0,
-           "ttl": ttl_key, "data": payload}
+           "ttl": ttl_key, "data": payload, "user_id": user_id}
     with db.connect() as conn:
-        conn.execute("INSERT INTO shares (id, data, created, expires, ttl) VALUES (%s,%s,%s,%s,%s)",
-                     (sid, Jsonb(payload), now, rec["expires"], ttl_key))
+        conn.execute("INSERT INTO shares (id, data, created, expires, ttl, user_id) "
+                     "VALUES (%s,%s,%s,%s,%s,%s)",
+                     (sid, Jsonb(payload), now, rec["expires"], ttl_key, user_id))
         # заодно підмітаємо те, що вже прострочилось
         conn.execute("DELETE FROM shares WHERE expires > 0 AND expires < %s", (now,))
     return rec
@@ -57,12 +63,12 @@ def create(payload, ttl_key, ttl_seconds):
 def read(sid):
     init()
     with db.connect() as conn:
-        row = conn.execute("SELECT id, data, created, expires, ttl FROM shares WHERE id=%s",
-                           (sid,)).fetchone()
+        row = conn.execute("SELECT id, data, created, expires, ttl, user_id "
+                           "FROM shares WHERE id=%s", (sid,)).fetchone()
         if not row:
             return None
         if row["expires"] and time.time() > row["expires"]:
             conn.execute("DELETE FROM shares WHERE id=%s", (sid,))
             return None
     return {"id": row["id"], "data": row["data"], "created": row["created"],
-            "expires": row["expires"], "ttl": row["ttl"]}
+            "expires": row["expires"], "ttl": row["ttl"], "user_id": row["user_id"]}
