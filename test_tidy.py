@@ -77,6 +77,31 @@ def main():
     many = tidy.scan([t("US100"), t("US 100")] * 5 + [t(session="NY"), t(session="ny")])
     ok &= case("більша група — першою", many[0]["field"], "pair")
 
+    # --- відбиток угоди: та сама угода з двох журналів ---
+    def d(pair="US100", date="2026-05-04T10:30", position="Long", result="Win"):
+        return {"pair": pair, "date": date, "position": position, "result": result}
+
+    same = tidy.same_trade_key
+    ok &= case("та сама угода під іншим написанням інструмента",
+               same(d()) == same(d(pair="NAS 100")), True)
+    ok &= case("регістр напрямку не рахується",
+               same(d()) == same(d(position="long")), True)
+    ok &= case("інший день — інша угода",
+               same(d()) == same(d(date="2026-05-05T10:30")), False)
+    ok &= case("інший результат — інша угода",
+               same(d()) == same(d(result="Loss")), False)
+    ok &= case("інший час того ж дня — інша угода",
+               same(d()) == same(d(date="2026-05-04T15:00")), False)
+    ok &= case("час 00:00 не рахуємо за час",
+               same(d(date="2026-05-04T00:00")) == same(d(date="2026-05-04")), True)
+    ok &= case("без дати відбитка немає", same(d(date="")), "")
+    ok &= case("без інструмента відбитка немає", same(d(pair="")), "")
+
+    # три однакових входи за день — це три угоди, а не одна
+    counted = tidy.prints([d(), d(), d(), d(date="2026-05-05T10:30")])
+    ok &= case("рахуємо, скільки таких угод уже є",
+               sorted(counted.values(), reverse=True), [3, 1])
+
     print("\n" + ("усе добре" if ok else "є помилки"))
     return 0 if ok else 1
 

@@ -412,10 +412,13 @@ def start_import(user_id, tables, mapping, opts):
         for old_id in list(_jobs)[:-8]:
             _jobs.pop(old_id, None)
     known, seen = db.notion_known(user_id)
+    # отпечатки того, что уже в журнале: по ним узнаём сделку, записанную
+    # в другой базе Notion, — там у неё свой notion_id, и он не совпадёт
+    marks = tidy.prints(db.list_trades(user_id))
     th = threading.Thread(
         target=npub.run_public_import,
         args=(job, tables, mapping, opts, SHOTS, known, seen,
-              lambda items: add_trades(user_id, items)),
+              lambda items: add_trades(user_id, items), marks),
         daemon=True)
     th.start()
     return job

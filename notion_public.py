@@ -28,6 +28,7 @@ import urllib.error
 import urllib.parse
 import urllib.request
 
+import tidy
 from notion_import import (NotionError, Job, guess_mapping, NORMALIZE, FIELDS,
                            download, guess_tf, MAX_SHOT, NET_TIMEOUT)
 
@@ -533,7 +534,8 @@ def preview(url, mapping=None, table=None, sample=5):
             "rows": rows}
 
 
-def run_public_import(job, tables, mapping, opts, shots_dir, known_pairs, existing_ids, sink):
+def run_public_import(job, tables, mapping, opts, shots_dir, known_pairs, existing_ids,
+                      sink, seen_trades=None):
     """
     Читаем выбранные таблицы целиком и отдаём готовые сделки в sink.
 
@@ -546,6 +548,11 @@ def run_public_import(job, tables, mapping, opts, shots_dir, known_pairs, existi
         want_notes = bool(opts.get("notes", True))
         want_shots = bool(opts.get("shots", True))
         skip_known = bool(opts.get("skipExisting", True))
+        # Та сама угода, записана у двох журналах, приїде з різними notion_id —
+        # по них її не впізнати. Тоді впізнаємо за відбитком: день, інструмент,
+        # напрямок, результат.
+        skip_same = bool(opts.get("skipSimilar", True))
+        seen_trades = dict(seen_trades or {})
 
         job.step = "читаємо таблиці"
         plans = []
@@ -606,6 +613,15 @@ def run_public_import(job, tables, mapping, opts, shots_dir, known_pairs, existi
                         odd.append(name)
                     job.skipped += 1
                     continue
+
+                # Схожу угоду відсіюємо до скріншотів: качати картинки для
+                # того, що ми зараз викинемо, — зайві хвилини й трафік.
+                if skip_same:
+                    mark = tidy.same_trade_key(t)
+                    if mark and seen_trades.get(mark):
+                        seen_trades[mark] -= 1
+                        job.similar += 1
+                        continue
 
                 job.step = "%s · %s" % (t.get("pair") or "?", (t.get("date") or "")[:10])
                 images = [{"url": signed(f["url"], bid), "caption": f["caption"]}

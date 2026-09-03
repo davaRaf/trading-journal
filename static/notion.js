@@ -329,6 +329,7 @@ function drawMap(){
     +   optChk("ntNotes", T.ntOptNotes, true)
     +   optChk("ntShots", T.ntOptShots, true)
     +   optChk("ntSkip",  T.ntOptSkip, true)
+    +   optChk("ntSame",  T.ntOptSame, true)
     + "</div></div>",
     '<button class="btn ghost" onclick="__notion.' + (tables.length > 1 ? "toTables" : "back")
     + '()">' + (tables.length > 1 ? T.ntOtherTable : T.ntOtherLink) + "</button>"
@@ -370,6 +371,7 @@ async function run(){
     notes: document.getElementById("ntNotes").checked,
     shots: document.getElementById("ntShots").checked,
     skipExisting: document.getElementById("ntSkip").checked,
+    skipSimilar: document.getElementById("ntSame").checked,
   };
   busy("#ntRun", T.ntTransferring);
   let job;
@@ -436,7 +438,11 @@ async function finish(j){
   paint(
     '<div class="nt"><p class="nt-lead">' + T.ntDone + '.</p>'
     + '<div class="nt-stats">' + line(T.ntTransferred, j.added)
-      + line(T.ntSkipped, j.skipped) + line(T.ntShotsWord, j.shots) + "</div>"
+      + line(T.ntSkipped, j.skipped)
+      /* показуємо, тільки коли є що показати: порожня плитка «0» лякає */
+      + (j.similar ? line(T.ntSimilarWord, j.similar) : "")
+      + line(T.ntShotsWord, j.shots) + "</div>"
+    + (j.similar ? '<p class="nt-note">' + T.ntSimilarHint + "</p>" : "")
     + assets + warn
     + (window.Tidy ? Tidy.hint() : "")
     + (j.added ? '<p class="nt-note">' + T.ntSomethingWrong + "</p>" : "")

@@ -485,6 +485,7 @@ class Job(object):
         self.total = 0
         self.added = 0
         self.skipped = 0
+        self.similar = 0           # похоже на уже записанную сделку из другого журнала
         self.shots = 0
         self.new_assets = []
         self.warnings = []
@@ -493,6 +494,6 @@ class Job(object):
     def snapshot(self):
         return {"id": self.id, "batch": self.batch, "state": self.state, "step": self.step,
                 "done": self.done, "total": self.total, "added": self.added,
-                "skipped": self.skipped, "shots": self.shots,
+                "skipped": self.skipped, "similar": self.similar, "shots": self.shots,
                 "newAssets": self.new_assets, "warnings": self.warnings[:20],
                 "error": self.error}
