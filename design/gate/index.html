@@ -1,0 +1,433 @@
+<!doctype html>
+<html lang="uk">
+<meta charset="utf-8">
+<title>Пробник: від чужого посилання до реєстрації</title>
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600&family=Archivo:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+/* ============================================================
+   Пробник шляху: людина прийшла по чужому посиланню → побачила день →
+   закрила картку → потрапила в журнал → спробувала щось зробити →
+   отримала запрошення увійти.
+
+   Це тільки макет: цифри зашиті, сервер не потрібен, застосунок із
+   кореня репозиторію він не чіпає. Палітра й шрифти — ті самі, що в
+   журналі, щоб видно було, як воно виглядатиме насправді.
+   ============================================================ */
+:root{
+  --bg:#f2f4f8; --panel:#ffffff; --panel-2:#f6f8fb; --line:#dde3ec; --line-soft:#eaeef5;
+  --text:#171b24; --dim:#5a6373; --faint:#99a2b3;
+  --accent:#2b62e3; --accent-ink:#fff; --accent-soft:rgba(43,98,227,.09);
+  --up:#128a53; --down:#c94430; --be:#9c7514;
+  --up-soft:rgba(18,138,83,.10); --down-soft:rgba(201,68,48,.10); --be-soft:rgba(156,117,20,.12);
+  --shadow:0 1px 2px rgba(23,27,36,.05),0 6px 20px -12px rgba(23,27,36,.12);
+  --shadow-pop:0 24px 60px -24px rgba(23,27,36,.28);
+  --overlay:rgba(23,27,36,.42);
+  --sans:"Geist","Segoe UI",system-ui,sans-serif;
+  --mono:"Archivo","Geist",system-ui,sans-serif;
+  --r:10px; --ease:cubic-bezier(.16,1,.3,1);
+  color-scheme:light;
+}
+*{box-sizing:border-box}
+html,body{height:100%}
+body{margin:0; background:var(--bg); color:var(--text); font-family:var(--sans);
+  font-size:15px; -webkit-font-smoothing:antialiased; overflow:hidden}
+button{font:inherit; cursor:pointer; border:none; background:none; color:inherit}
+
+/* ---------- журнал на задньому плані ---------- */
+.app{display:grid; grid-template-columns:216px 1fr; height:100%;
+  transition:filter .5s var(--ease), transform .5s var(--ease), opacity .4s}
+/* поки картка дня спереду — журнал розмитий і трохи віддалений: видно, що
+   там повноцінний продукт, але читати його ще не дають */
+body[data-stage="card"] .app{filter:blur(7px) saturate(.85); transform:scale(1.02)}
+
+.side{background:var(--panel); border-right:1px solid var(--line); padding:18px 12px;
+  display:flex; flex-direction:column; gap:20px}
+.brand{display:flex; align-items:center; gap:9px; font-family:var(--mono);
+  font-size:13px; letter-spacing:.06em; font-weight:600; padding:0 6px}
+.brand .mk{width:28px; height:28px; border-radius:8px; background:var(--panel-2);
+  border:1px solid var(--line); display:grid; place-items:center; font-size:13px; color:var(--accent)}
+.nav{display:flex; flex-direction:column; gap:2px}
+.nav a{display:flex; align-items:center; gap:9px; padding:8px 10px; border-radius:8px;
+  color:var(--dim); text-decoration:none; font-size:14px}
+.nav a.on{background:var(--panel-2); color:var(--text); font-weight:500}
+.nav a .d{width:6px; height:6px; border-radius:50%; background:var(--faint)}
+.nav a.on .d{background:var(--accent)}
+.side .sp{flex:1}
+.side .grp{display:flex; flex-direction:column; gap:8px}
+.side .lbl{font-family:var(--mono); font-size:9px; letter-spacing:.16em;
+  text-transform:uppercase; color:var(--faint); padding:0 6px}
+
+/* кнопки входу в панелі — те, чого на сайті зараз немає */
+.btn{display:flex; align-items:center; justify-content:center; gap:7px; border-radius:9px;
+  padding:9px 12px; font-size:13.5px; font-weight:500; border:1px solid var(--line);
+  background:var(--panel); color:var(--text); transition:border-color .15s, background .15s}
+.btn:hover{border-color:var(--faint)}
+.btn.pri{background:var(--accent); border-color:var(--accent); color:var(--accent-ink)}
+.btn.pri:hover{filter:brightness(1.06)}
+.btn.sm{padding:7px 11px; font-size:13px}
+
+.main{padding:22px 24px; overflow:hidden}
+.vhead{display:flex; align-items:baseline; gap:12px; margin-bottom:18px}
+.vhead h1{margin:0; font-size:24px; letter-spacing:-.01em}
+.vhead .sub{font-family:var(--mono); font-size:11.5px; letter-spacing:.06em; color:var(--faint)}
+.kpis{display:grid; grid-template-columns:repeat(4,1fr); gap:12px; margin-bottom:16px}
+.kpi{background:var(--panel); border:1px solid var(--line); border-radius:var(--r);
+  padding:13px 15px; box-shadow:var(--shadow)}
+.kpi .k{font-family:var(--mono); font-size:9px; letter-spacing:.16em; text-transform:uppercase;
+  color:var(--faint)}
+.kpi .v{font-family:var(--mono); font-size:22px; margin-top:5px; font-variant-numeric:tabular-nums}
+.kpi .v.pos{color:var(--up)} .kpi .v.neg{color:var(--down)}
+.two{display:grid; grid-template-columns:1fr 300px; gap:14px}
+.card{background:var(--panel); border:1px solid var(--line); border-radius:var(--r);
+  box-shadow:var(--shadow); overflow:hidden}
+.card h3{margin:0; padding:11px 15px; font-family:var(--mono); font-size:10px;
+  letter-spacing:.16em; text-transform:uppercase; color:var(--faint);
+  border-bottom:1px solid var(--line-soft); font-weight:500}
+.card .in{padding:14px 15px}
+.cal{display:grid; grid-template-columns:repeat(7,1fr); gap:6px}
+.cal i{aspect-ratio:1; border-radius:7px; background:var(--panel-2); display:grid;
+  place-items:center; font-family:var(--mono); font-size:11px; color:var(--faint); font-style:normal}
+.cal i.p{background:var(--up-soft); color:var(--up)}
+.cal i.n{background:var(--down-soft); color:var(--down)}
+.cal i.b{background:var(--be-soft); color:var(--be)}
+.eq{height:118px; display:block; width:100%}
+.trow{display:grid; grid-template-columns:auto 1fr auto; gap:10px; align-items:center;
+  padding:9px 0; border-bottom:1px solid var(--line-soft); font-size:13.5px}
+.trow:last-child{border-bottom:none}
+.trow .t{font-family:var(--mono); font-size:11.5px; color:var(--faint)}
+.trow .v{font-family:var(--mono); font-variant-numeric:tabular-nums}
+.trow .v.pos{color:var(--up)} .trow .v.neg{color:var(--down)} .trow .v.zero{color:var(--be)}
+
+/* ---------- смуга «ви дивитесь демо» ---------- */
+.demobar{position:fixed; left:0; right:0; top:0; z-index:30; display:flex; align-items:center;
+  gap:12px; padding:9px 16px; background:var(--text); color:#fff; font-size:13.5px;
+  transform:translateY(-100%); transition:transform .35s var(--ease)}
+body[data-stage="demo"] .demobar, body[data-stage="gate"] .demobar{transform:none}
+.demobar b{font-family:var(--mono); font-size:10px; letter-spacing:.16em; text-transform:uppercase;
+  background:rgba(255,255,255,.14); padding:3px 8px; border-radius:99px; font-weight:500}
+.demobar .sp{flex:1}
+.demobar .lnk{color:#fff; text-decoration:underline; text-underline-offset:3px; font-size:13.5px}
+.demobar .go{background:#fff; color:var(--text); border-radius:8px; padding:6px 12px;
+  font-size:13px; font-weight:500}
+body[data-stage="demo"] .app, body[data-stage="gate"] .app{padding-top:38px}
+
+/* ---------- картка чужого дня спереду ---------- */
+.front{position:fixed; inset:0; z-index:40; display:grid; place-items:center; padding:24px;
+  background:var(--overlay); opacity:0; pointer-events:none; transition:opacity .4s}
+body[data-stage="card"] .front{opacity:1; pointer-events:auto}
+.shared{width:min(680px,100%); max-height:calc(100vh - 48px); overflow:auto;
+  background:var(--panel); border:1px solid var(--line); border-radius:14px;
+  box-shadow:var(--shadow-pop); transform:translateY(14px) scale(.985);
+  transition:transform .45s var(--ease); scrollbar-width:none}
+.shared::-webkit-scrollbar{width:0}
+body[data-stage="card"] .shared{transform:none}
+.shared .top{display:flex; align-items:center; gap:10px; padding:14px 18px;
+  border-bottom:1px solid var(--line-soft)}
+.shared .top .mk{width:26px; height:26px; border-radius:7px; background:var(--panel-2);
+  border:1px solid var(--line); display:grid; place-items:center; font-size:12px; color:var(--accent)}
+.shared .top .who{font-size:13px; color:var(--dim)}
+.shared .top .who b{color:var(--text); font-weight:500}
+.shared .top .sp{flex:1}
+.shared .x{width:30px; height:30px; border-radius:8px; border:1px solid var(--line);
+  color:var(--dim); display:grid; place-items:center; font-size:16px; line-height:1}
+.shared .x:hover{border-color:var(--faint); color:var(--text)}
+.shared .body{padding:20px 18px}
+.shared .date{font-family:var(--mono); font-size:10px; letter-spacing:.18em;
+  text-transform:uppercase; color:var(--faint)}
+.shared h2{margin:6px 0 16px; font-size:26px; letter-spacing:-.01em}
+.shared h2 em{font-style:normal; font-family:var(--mono); color:var(--up)}
+.sgrid{display:grid; grid-template-columns:repeat(4,1fr); gap:10px; margin-bottom:18px}
+.sgrid div{background:var(--panel-2); border-radius:9px; padding:10px 12px}
+.sgrid .k{font-family:var(--mono); font-size:9px; letter-spacing:.14em; text-transform:uppercase;
+  color:var(--faint)}
+.sgrid .v{font-family:var(--mono); font-size:17px; margin-top:3px}
+.slist{border-top:1px solid var(--line-soft)}
+.shared .foot{padding:0 18px 20px; display:flex; gap:10px; align-items:center}
+.shared .foot .note{font-size:12.5px; color:var(--faint); flex:1}
+
+/* ---------- плашка входу ---------- */
+.gate{position:fixed; inset:0; z-index:60; display:grid; place-items:center; padding:24px;
+  background:rgba(23,27,36,.5); backdrop-filter:blur(3px);
+  opacity:0; pointer-events:none; transition:opacity .3s}
+body[data-stage="gate"] .gate{opacity:1; pointer-events:auto}
+.gbox{width:min(400px,100%); background:var(--panel); border:1px solid var(--line);
+  border-radius:14px; box-shadow:var(--shadow-pop); padding:24px;
+  transform:translateY(12px) scale(.98); transition:transform .35s var(--ease)}
+body[data-stage="gate"] .gbox{transform:none}
+.gbox .mk{width:36px; height:36px; border-radius:10px; background:var(--accent-soft);
+  display:grid; place-items:center; color:var(--accent); font-size:16px; margin-bottom:14px}
+.gbox h3{margin:0 0 7px; font-size:19px; letter-spacing:-.01em}
+.gbox p{margin:0 0 18px; font-size:13.5px; line-height:1.55; color:var(--dim)}
+.gbox .socs{display:grid; gap:8px; margin-bottom:12px}
+.gbox .or{display:flex; align-items:center; gap:10px; color:var(--faint);
+  font-family:var(--mono); font-size:9px; letter-spacing:.16em; text-transform:uppercase;
+  margin:12px 0}
+.gbox .or::before, .gbox .or::after{content:""; flex:1; height:1px; background:var(--line-soft)}
+.gbox .later{display:block; width:100%; text-align:center; margin-top:14px;
+  font-size:13px; color:var(--faint)}
+.gbox .later:hover{color:var(--dim)}
+
+/* ---------- ненав'язлива підказка знизу (варіант В) ---------- */
+.nudge{position:fixed; right:18px; bottom:18px; z-index:35; width:min(310px,calc(100vw - 36px));
+  background:var(--panel); border:1px solid var(--line); border-radius:12px;
+  box-shadow:var(--shadow-pop); padding:16px;
+  transform:translateY(16px); opacity:0; pointer-events:none; transition:.35s var(--ease)}
+.nudge.in{transform:none; opacity:1; pointer-events:auto}
+.nudge h4{margin:0 0 6px; font-size:15px}
+.nudge p{margin:0 0 12px; font-size:13px; line-height:1.5; color:var(--dim)}
+.nudge .row{display:flex; gap:8px}
+.nudge .x{position:absolute; top:8px; right:8px; width:26px; height:26px; border-radius:7px;
+  color:var(--faint); display:grid; place-items:center; font-size:15px; line-height:1}
+.nudge .x:hover{background:var(--panel-2); color:var(--text)}
+
+/* ---------- пульт пробника ---------- */
+.rc{position:fixed; left:16px; bottom:16px; z-index:80; width:280px; background:var(--text);
+  color:#fff; border-radius:12px; padding:14px; font-size:13px;
+  box-shadow:0 20px 50px -20px rgba(0,0,0,.5)}
+.rc .h{font-family:var(--mono); font-size:9px; letter-spacing:.16em; text-transform:uppercase;
+  color:rgba(255,255,255,.5); margin-bottom:10px}
+.rc .v{display:grid; gap:6px; margin-bottom:12px}
+.rc .v button{text-align:left; padding:9px 11px; border-radius:8px; font-size:13px;
+  background:rgba(255,255,255,.07); color:rgba(255,255,255,.82); line-height:1.35}
+.rc .v button b{display:block; color:#fff; font-weight:600; font-size:13.5px}
+.rc .v button:hover{background:rgba(255,255,255,.13)}
+.rc .v button.on{background:#fff; color:rgba(23,27,36,.7)}
+.rc .v button.on b{color:var(--text)}
+.rc .again{width:100%; padding:9px; border-radius:8px; background:rgba(255,255,255,.14);
+  color:#fff; font-size:13px}
+.rc .again:hover{background:rgba(255,255,255,.22)}
+.rc .now{margin-top:10px; font-size:11.5px; color:rgba(255,255,255,.45); line-height:1.45}
+.rc.hid{transform:translateY(calc(100% + 24px))}
+.rc{transition:transform .3s var(--ease)}
+.rcfold{position:fixed; left:16px; bottom:16px; z-index:79; padding:9px 13px; border-radius:10px;
+  background:var(--text); color:#fff; font-size:12.5px; box-shadow:var(--shadow-pop)}
+
+@media (max-width:900px){
+  .app{grid-template-columns:1fr}
+  .side{display:none}
+  .kpis{grid-template-columns:repeat(2,1fr)}
+  .two{grid-template-columns:1fr}
+  .sgrid{grid-template-columns:repeat(2,1fr)}
+  .rc{left:12px; right:12px; width:auto}
+}
+</style>
+</head>
+<body data-stage="card" data-variant="a">
+
+<!-- ===================== журнал позаду ===================== -->
+<div class="app">
+  <aside class="side">
+    <div class="brand"><span class="mk">◆</span>Stats<span style="color:var(--accent)">AI</span></div>
+    <nav class="nav">
+      <a href="#" class="on" data-act><span class="d"></span>Огляд</a>
+      <a href="#" data-act><span class="d"></span>Журнал</a>
+      <a href="#" data-act><span class="d"></span>Аналіз дня</a>
+      <a href="#" data-act><span class="d"></span>Моя ТС</a>
+      <a href="#" data-act><span class="d"></span>Аналітика</a>
+      <a href="#" data-act><span class="d"></span>Новини</a>
+    </nav>
+    <div class="sp"></div>
+    <!-- ось цього на сайті зараз немає: гість не бачить, куди тут заходити -->
+    <div class="grp">
+      <div class="lbl">Акаунт</div>
+      <button class="btn pri" data-act>Створити журнал</button>
+      <button class="btn" data-act>Увійти</button>
+    </div>
+  </aside>
+
+  <main class="main">
+    <div class="vhead"><h1>Огляд</h1><span class="sub">ЛИСТОПАД 2026</span></div>
+    <div class="kpis">
+      <div class="kpi"><div class="k">Результат</div><div class="v pos">+8.4%</div></div>
+      <div class="kpi"><div class="k">Вінрейт</div><div class="v">61%</div></div>
+      <div class="kpi"><div class="k">Угод</div><div class="v">44</div></div>
+      <div class="kpi"><div class="k">Середній RR</div><div class="v">2.4</div></div>
+    </div>
+    <div class="two">
+      <div class="card">
+        <h3>Крива рахунку</h3>
+        <div class="in">
+          <svg class="eq" viewBox="0 0 600 118" preserveAspectRatio="none" aria-hidden="true">
+            <path d="M0 96 L60 88 L120 92 L180 70 L240 76 L300 54 L360 58 L420 36 L480 42 L540 22 L600 14"
+              fill="none" stroke="var(--accent)" stroke-width="2"/>
+            <path d="M0 96 L60 88 L120 92 L180 70 L240 76 L300 54 L360 58 L420 36 L480 42 L540 22 L600 14 L600 118 L0 118 Z"
+              fill="rgba(43,98,227,.10)"/>
+          </svg>
+        </div>
+      </div>
+      <div class="card">
+        <h3>Листопад</h3>
+        <div class="in"><div class="cal">
+          <i>1</i><i class="p">2</i><i class="p">3</i><i class="n">4</i><i>5</i><i class="p">6</i><i class="b">7</i>
+          <i class="p">8</i><i>9</i><i class="p">10</i><i class="p">11</i><i class="n">12</i><i>13</i><i class="p">14</i>
+          <i class="b">15</i><i class="p">16</i><i class="p">17</i><i>18</i><i class="n">19</i><i class="p">20</i><i class="p">21</i>
+        </div></div>
+      </div>
+    </div>
+    <div class="card" style="margin-top:14px">
+      <h3>Останні угоди</h3>
+      <div class="in">
+        <div class="trow"><span class="t">10:42</span><span>US100 · CISD</span><span class="v pos">+1.8%</span></div>
+        <div class="trow"><span class="t">11:15</span><span>XAUUSD · OB</span><span class="v neg">−0.9%</span></div>
+        <div class="trow"><span class="t">14:03</span><span>US100 · CISD</span><span class="v pos">+2.1%</span></div>
+        <div class="trow"><span class="t">15:30</span><span>US30 · BOS</span><span class="v zero">0.0%</span></div>
+      </div>
+    </div>
+  </main>
+</div>
+
+<!-- ===================== смуга «демо» ===================== -->
+<div class="demobar">
+  <b>Демо</b>
+  <span>Ви дивитесь чужі дані. Свій журнал — з нуля, за хвилину.</span>
+  <span class="sp"></span>
+  <a href="#" class="lnk" data-act>Увійти</a>
+  <button class="go" data-act>Створити журнал</button>
+</div>
+
+<!-- ===================== чужий день спереду ===================== -->
+<div class="front" id="front">
+  <div class="shared">
+    <div class="top">
+      <span class="mk">◆</span>
+      <span class="who"><b>Davyd</b> поділився днем</span>
+      <span class="sp"></span>
+      <button class="x" id="closeCard" title="Закрити">×</button>
+    </div>
+    <div class="body">
+      <div class="date">Вівторок · 17 листопада 2026</div>
+      <h2>День закритий у плюс <em>+3.2%</em></h2>
+      <div class="sgrid">
+        <div><div class="k">Угод</div><div class="v">4</div></div>
+        <div><div class="k">Виграно</div><div class="v">3</div></div>
+        <div><div class="k">Середній RR</div><div class="v">2.8</div></div>
+        <div><div class="k">План/факт</div><div class="v">✓</div></div>
+      </div>
+      <div class="slist">
+        <div class="trow"><span class="t">10:42</span><span>US100 · CISD · London</span><span class="v pos">+1.8%</span></div>
+        <div class="trow"><span class="t">11:15</span><span>XAUUSD · OB · London</span><span class="v neg">−0.9%</span></div>
+        <div class="trow"><span class="t">14:03</span><span>US100 · CISD · New York</span><span class="v pos">+2.1%</span></div>
+        <div class="trow"><span class="t">15:30</span><span>US30 · BOS · New York</span><span class="v pos">+0.2%</span></div>
+      </div>
+    </div>
+    <div class="foot">
+      <span class="note">Це знімок одного дня. Позаду — журнал, у якому він зроблений.</span>
+      <button class="btn" id="closeCard2">Подивитись журнал</button>
+      <button class="btn pri" data-act>Створити свій</button>
+    </div>
+  </div>
+</div>
+
+<!-- ===================== плашка входу ===================== -->
+<div class="gate" id="gate">
+  <div class="gbox">
+    <div class="mk">◆</div>
+    <h3 id="gateTitle">Щоб вести свій журнал — увійдіть</h3>
+    <p id="gateText">Демо показує чужі дані й нічого не зберігає. Свій журнал заводиться за хвилину: угоди, скріни, статистика й ТС лишаються з вами.</p>
+    <div class="socs">
+      <button class="btn">Продовжити з Google</button>
+      <button class="btn">Продовжити з Discord</button>
+      <button class="btn">Продовжити з Telegram</button>
+    </div>
+    <div class="or">або</div>
+    <button class="btn pri" style="width:100%">Реєстрація поштою</button>
+    <button class="later" id="gateLater">Поки що просто подивлюсь</button>
+  </div>
+</div>
+
+<!-- ===================== підказка знизу (варіант В) ===================== -->
+<div class="nudge" id="nudge">
+  <button class="x" id="nudgeX" title="Закрити">×</button>
+  <h4>Сподобалось?</h4>
+  <p>Ви дивитесь демо. Свій журнал — за хвилину, дані лишаються з вами.</p>
+  <div class="row">
+    <button class="btn pri sm" style="flex:1" data-act>Створити журнал</button>
+    <button class="btn sm" data-act>Увійти</button>
+  </div>
+</div>
+
+<!-- ===================== пульт ===================== -->
+<div class="rc" id="rc">
+  <div class="h">Пробник · три варіанти</div>
+  <div class="v">
+    <button data-v="a" class="on"><b>А. М'яко</b>Закрив картку — гуляй по журналу. Плашка входу тільки коли щось натиснув.</button>
+    <button data-v="b"><b>Б. Нагадування</b>Те саме, але через 4 секунди знизу з'являється підказка. Не блокує.</button>
+    <button data-v="c"><b>В. Одразу</b>Закрив картку — плашка входу відразу, без прогулянки.</button>
+  </div>
+  <button class="again" id="again">↻ Почати з початку (як бачить гість)</button>
+  <div class="now" id="now"></div>
+</div>
+<button class="rcfold" id="rcfold" hidden>Пульт</button>
+
+<script>
+const body = document.body;
+const nudge = document.getElementById("nudge");
+let timer = null;
+
+/* Три стадії: card — чужий день спереду; demo — гість у журналі;
+   gate — плашка входу. Все інше вирішують стилі за data-stage. */
+function stage(s){
+  body.dataset.stage = s;
+  if (s !== "demo") hideNudge();
+  if (s === "demo" && body.dataset.variant === "b") armNudge();
+  paint();
+}
+
+function armNudge(){
+  clearTimeout(timer);
+  timer = setTimeout(() => { if (body.dataset.stage === "demo") nudge.classList.add("in"); }, 4000);
+}
+function hideNudge(){ clearTimeout(timer); nudge.classList.remove("in"); }
+
+/* Картку закрили. У варіанті В плашка входу — відразу, в решті — журнал. */
+function closeCard(){
+  stage(body.dataset.variant === "c" ? "gate" : "demo");
+}
+document.getElementById("closeCard").onclick = closeCard;
+document.getElementById("closeCard2").onclick = closeCard;
+document.getElementById("front").addEventListener("click", e => {
+  if (e.target.id === "front") closeCard();          // клік поза карткою
+});
+
+/* Будь-яка дія в журналі — привід запросити. Саме так це працюватиме в
+   застосунку: гість дивиться скільки хоче, але щось зробити не може. */
+document.addEventListener("click", e => {
+  const act = e.target.closest("[data-act]");
+  if (!act) return;
+  e.preventDefault();
+  stage("gate");
+});
+
+document.getElementById("gateLater").onclick = () => stage("demo");
+document.getElementById("nudgeX").onclick = hideNudge;
+
+/* пульт */
+document.querySelectorAll(".rc .v button").forEach(b => {
+  b.onclick = () => {
+    document.querySelectorAll(".rc .v button").forEach(x => x.classList.toggle("on", x === b));
+    body.dataset.variant = b.dataset.v;
+    stage("card");
+  };
+});
+document.getElementById("again").onclick = () => stage("card");
+
+const FOLD = document.getElementById("rcfold"), RC = document.getElementById("rc");
+document.getElementById("now").addEventListener("dblclick", () => {
+  RC.classList.add("hid"); FOLD.hidden = false;
+});
+FOLD.onclick = () => { RC.classList.remove("hid"); FOLD.hidden = true; };
+
+function paint(){
+  const names = {card: "чужий день спереду, журнал розмитий",
+                 demo: "гість у журналі, демо-дані",
+                 gate: "плашка входу"};
+  document.getElementById("now").textContent =
+    "Зараз: " + names[body.dataset.stage] + ". Два кліки тут — заховати пульт.";
+}
+paint();
+</script>
+</body>
+</html>
