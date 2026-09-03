@@ -868,6 +868,8 @@ async function pull(){
 function guestStop(){ return !!(window.Guest && Guest.block(T.gsGateTs)); }
 
 window.__ts = {
+  /* інструменти з ТС — їх підказує «Аналіз дня», коли додаєш актив */
+  assets(){ return (TS && Array.isArray(TS.assets)) ? TS.assets.filter(Boolean).slice() : []; },
   ask(){ if(guestStop()) return; askOpen(); }, close: askClose, prev: askPrev, next: askNext, pick: pick, own: own, finish: finish,
   again(){ step = 0; drawAsk(); },
   text(k, v){ answers[k] = v; },
