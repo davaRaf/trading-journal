@@ -210,7 +210,7 @@ html{interpolate-size:allow-keywords}
 <!-- Журнал позаду. Він розмитий і не клікається: показує, що знімок
      зроблено не в порожнечі, а в живому продукті. Закриєш карту —
      потрапиш у нього по-справжньому. -->
-<iframe class="bgapp" src="/" tabindex="-1" aria-hidden="true" title=""></iframe>
+<iframe class="bgapp" src="/demo" tabindex="-1" aria-hidden="true" title=""></iframe>
 
 <div class="stage" id="stage">
   <div class="sheet" id="sheet">
@@ -278,7 +278,7 @@ function tradesHtml(list){
 document.getElementById("sheetMark").innerHTML = MARK;
 document.getElementById("sheetWho").innerHTML = "Stats<i>AI</i>";
 
-function toJournal(){ location.href = "/"; }
+function toJournal(){ location.href = "/demo"; }
 document.getElementById("sheetClose").onclick = toJournal;
 document.getElementById("stage").addEventListener("click", e => {
   if (e.target.id === "stage") toJournal();          // клік повз карту
@@ -362,7 +362,7 @@ function render(rec){
       + (owner
           ? '<a class="b" href="/u/'+esc(encodeURIComponent(owner))+'">'
             + esc(T.pubCtaAll.replace("%s", "@"+owner))+'</a>'
-          : '<a class="b" href="/">'+esc(T.shCtaLook)+'</a>')
+          : '<a class="b" href="/demo">'+esc(T.shCtaLook)+'</a>')
       + '<a class="b pri" href="/login#signup">'+esc(T.shCtaMake)+'</a></div></div>'
     + '<div class="foot"><span>'+esc(until)+'</span>'
       + '<span>'+T.shMadeIn+' <a href="/">StatsAI</a></span></div>';

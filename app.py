@@ -785,11 +785,17 @@ class H(BaseHTTPRequestHandler):
                               "text/html; charset=utf-8")
 
         if p in ("/", "/index.html"):
-            # Гостя не женемо на сторінку входу: він приходить сюди з чужого
-            # посилання «поділитись» і ще нічого про журнал не знає. Хай
-            # подивиться на демонстраційних даних — сторінка сама зрозуміє,
-            # що сесії немає (/api/trades віддасть 401), і ввімкне режим
-            # гостя. Писати в такому режимі не можна, тільки дивитись.
+            if not self._uid():
+                return self._redirect("/login")
+            return self._file(os.path.join(STATIC, "index.html"), "text/html; charset=utf-8")
+
+        if p == "/demo":
+            # Журнал без акаунта, на демонстраційних даних. Сюди ведуть
+            # сторінка «поділитись» і посилання зі сторінки входу. Сторінка
+            # сама зрозуміє, що сесії немає (/api/trades віддасть 401), і
+            # ввімкне режим гостя: дивитись можна все, писати — ні.
+            if self._uid():
+                return self._redirect("/")
             return self._file(os.path.join(STATIC, "index.html"), "text/html; charset=utf-8")
 
         if p.startswith("/static/"):

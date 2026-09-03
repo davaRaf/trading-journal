@@ -505,6 +505,7 @@ body{
     </form>
 
     <div class="alt" id="altLine">Нет аккаунта? <a href="#" data-goto="up">Создать</a></div>
+    <div class="alt" id="demoLine"><a href="/demo">Подивитись демо без реєстрації</a></div>
   </div>
 
  </div>
@@ -843,6 +844,7 @@ function setTab(t){
   document.querySelector("#goBtn .lbl").textContent = reg ? T.btnUp : T.btnIn;
   document.getElementById("pw").setAttribute("autocomplete", reg ? "new-password" : "current-password");
   document.getElementById("altLine").innerHTML = reg ? T.altUp : T.altIn;
+  document.getElementById("demoLine").innerHTML = '<a href="/demo">' + T.demoLink + "</a>";
 
   // при регистрации показываем надёжность пароля, при входе — «запомнить меня»
   const meterEl = document.getElementById("meter");
@@ -913,6 +915,7 @@ const I18N = {
     label: "УКР", htmlLang: "uk",
     tagline: "помічник трейдера",
     quote: 'Твоя <b>статистика</b> знає про тебе <b>більше, ніж ти</b>',
+    demoLink: "Подивитись демо без реєстрації",
     tabIn: "Вхід", tabUp: "Реєстрація",
     contWith: "Продовжити з ", regWith: "Зареєструватися через ",
     orEmail: "або поштою",
@@ -932,6 +935,7 @@ const I18N = {
     label: "РУС", htmlLang: "ru",
     tagline: "помощник трейдера",
     quote: 'Твоя <b>статистика</b> знает о тебе <b>больше, чем ты</b>',
+    demoLink: "Посмотреть демо без регистрации",
     tabIn: "Вход", tabUp: "Регистрация",
     contWith: "Продолжить с ", regWith: "Зарегистрироваться через ",
     orEmail: "или почтой",
@@ -951,6 +955,7 @@ const I18N = {
     label: "ENG", htmlLang: "en",
     tagline: "trading assistant",
     quote: 'Your <b>stats</b> know you <b>better than you do</b>',
+    demoLink: "Look at the demo, no sign-up",
     tabIn: "Sign in", tabUp: "Sign up",
     contWith: "Continue with ", regWith: "Sign up with ",
     orEmail: "or with email",
