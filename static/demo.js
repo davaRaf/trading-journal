@@ -11,6 +11,7 @@
    ============================================================ */
 (function () {
   const KEY   = "tj_demo_trades";
+  const SEED_COUNT = 150;                 /* стільки угод у наборі прикладів */
   const SEED  = "/static/demo-data.json";
   const FIELDS = ["pair","date","session","position","entry_model","bias","setup","direction_type",
                   "result","rr","risk","entry_details","notes","mistakes","comments"];
@@ -52,19 +53,37 @@
     }
   }
 
+  const STAMP = "tj_demo_month";
+
   async function init() {
     let saved = null;
     try { saved = localStorage.getItem(KEY); } catch (e) {}
     if (saved) {
       try {
         const parsed = JSON.parse(saved);
-        if (Array.isArray(parsed)) { trades = parsed; return; }
+        /* Приклади розкладені під поточний місяць. Людина, яка заходила
+           навесні, восени побачила б ті самі весняні дати — і знову
+           порожній «Місяць». Тому раз на місяць беремо приклади наново.
+           Але тільки якщо в них нічого не міняли: у публічному демо без
+           сервера людина може додавати свої угоди, їх ми не чіпаємо. */
+        let stamp = "";
+        try{ stamp = localStorage.getItem(STAMP) || ""; }catch(e){}
+        const untouched = Array.isArray(parsed) && parsed.length === SEED_COUNT;
+        if (Array.isArray(parsed) && (stamp === thisMonth() || !untouched)){
+          trades = parsed; return;
+        }
       } catch (e) {}
     }
     const res = await fetch(SEED, { cache: "no-store" });
     if (!res.ok) throw new Error("demo seed " + res.status);
     trades = freshenMonth(shiftToToday(await res.json()));
     persist();
+    try{ localStorage.setItem(STAMP, thisMonth()); }catch(e){}
+  }
+
+  function thisMonth(){
+    const d = new Date();
+    return d.getFullYear() + "-" + pad2(d.getMonth() + 1);
   }
 
   /* Приклади записані колись і з часом опиняються в минулому: людина
@@ -105,10 +124,7 @@
     if (last < first) return list;                     // сьогодні перше число
     const span = Math.round((last - first) / 86400000);
 
-    const edge = new Date(last);
-    edge.setDate(edge.getDate() - 30);
-    const recent = list.filter(t => new Date(String(t.date).slice(0, 10) + "T00:00:00") > edge)
-                       .sort((a, b) => String(a.date).localeCompare(String(b.date)));
+    const recent = middleMonth(list);
     if (recent.length < 2) return list;
 
     recent.forEach((t, i) => {
@@ -123,18 +139,56 @@
     const rest = list.filter(t => recent.indexOf(t) < 0)
                      .sort((a, b) => String(a.date).localeCompare(String(b.date)));
     if (rest.length > 1){
-      const from = day(rest[0].date), to = day(rest[rest.length - 1].date);
+      /* Розкладаємо не кожну угоду окремо, а торгові дні: усе, що було в
+         один день, лишається в одному дні. Дні ставимо рівномірно — інакше
+         на місці забраного місяця лишається порожня діра в кілька тижнів. */
+      const days = [];
+      for (const t of rest){
+        const k = String(t.date).slice(0, 10);
+        if (days[days.length - 1] !== k) days.push(k);
+      }
+      const from = day(days[0]);
       const room = new Date(first); room.setDate(0);          // останній день минулого місяця
-      const was = (to - from) / 86400000, now2 = (room - from) / 86400000;
-      if (was > 0 && now2 > was){
-        for (const t of rest){
+      const span2 = Math.round((room - from) / 86400000);
+      if (days.length > 1 && span2 > 0){
+        const moved = {};
+        days.forEach((k, i) => {
           const d = new Date(from);
-          d.setDate(d.getDate() + Math.round((day(t.date) - from) / 86400000 * now2 / was));
-          t.date = dateStr(d, t.date);
-        }
+          d.setDate(d.getDate() + Math.round(i * span2 / (days.length - 1)));
+          moved[k] = d;
+        });
+        for (const t of rest) t.date = dateStr(moved[String(t.date).slice(0, 10)], t.date);
       }
     }
     return list;
+  }
+
+  /* Який саме місяць прикладів показати як поточний. Останній не годиться:
+     він може випасти невдалим, і людина відкриє демо, а там мінус сім
+     відсотків і вінрейт десять — виглядає так, ніби журнал ведуть погано.
+     Брати найкращий теж не варто: це вже не приклад, а вітрина. Тому
+     беремо середній за результатом — звичайний робочий місяць. */
+  function middleMonth(list){
+    const by = {};
+    for (const t of list){
+      const m = String(t.date || "").slice(0, 7);
+      if (!m) continue;
+      (by[m] = by[m] || []).push(t);
+    }
+    const months = Object.keys(by).filter(m => by[m].length >= 8);
+    if (!months.length) return [];
+    /* грубий підсумок місяця: ціль дає ризик×RR, стоп забирає ризик,
+       беззбиток нічого не міняє. Точні цифри рахує сам журнал, тут
+       достатньо порядку величини — треба лише впорядкувати місяці */
+    const score = m => by[m].reduce((sum, t) => {
+      const risk = parseFloat(t.risk) || 1, rr = parseFloat(t.rr) || 0;
+      const r = String(t.result || "");
+      return sum + (r === "Win" ? risk * rr : r === "Loss" ? -risk : 0);
+    }, 0);
+    months.sort((a, b) => score(a) - score(b));
+    return by[months[Math.floor(months.length / 2)]]
+      .slice()
+      .sort((a, b) => String(a.date).localeCompare(String(b.date)));
   }
 
   function day(v){ return new Date(String(v).slice(0, 10) + "T00:00:00"); }
