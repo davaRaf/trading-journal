@@ -45,13 +45,24 @@ body{margin:0; background:var(--bg); color:var(--text); font-family:var(--sans);
   filter:blur(7px) saturate(.85); transform:scale(1.03); pointer-events:none}
 /* поле, на якому лежить карта зі знімком */
 .stage{position:fixed; inset:0; z-index:2; display:grid; place-items:center;
+  /* колонка мінімальної ширини 0: інакше широкий вміст (кпі, деталі угоди)
+     розсуває карту ширше за екран, і на телефоні її край зрізає */
+  grid-template-columns:minmax(0,1fr);
+  height:100dvh;
   padding:clamp(10px,3vw,28px); background:rgba(0,0,0,.55); overflow:auto;
   scrollbar-width:none}
 .stage::-webkit-scrollbar{width:0}
-.sheet{width:min(760px,100%); max-height:100%; display:flex; flex-direction:column;
+.sheet{position:relative; width:min(760px,100%); max-width:100%; min-width:0;
+  max-height:100%; display:flex; flex-direction:column;
   background:var(--bg); border:1px solid var(--line); border-radius:16px;
   box-shadow:0 40px 90px -30px rgba(0,0,0,.75); overflow:hidden;
   animation:sheetIn .45s cubic-bezier(.16,1,.3,1) both}
+/* Смуги прокрутки не видно (щоб не смикала сторінку), тому підказуємо
+   інакше: поки внизу лишився вміст — край карти м'яко згасає. */
+.sheet::after{content:""; position:absolute; left:1px; right:1px; bottom:1px; height:54px;
+  border-radius:0 0 15px 15px; pointer-events:none; opacity:0; transition:opacity .2s;
+  background:linear-gradient(to top, var(--bg), transparent)}
+.sheet.more::after{opacity:1}
 @keyframes sheetIn{from{opacity:0; transform:translateY(16px) scale(.985)}}
 .sheet-top{display:flex; align-items:center; gap:10px; padding:13px 16px;
   border-bottom:1px solid var(--line-soft); flex:none}
@@ -66,8 +77,19 @@ body{margin:0; background:var(--bg); color:var(--text); font-family:var(--sans);
   background:none; color:var(--dim); font-size:17px; line-height:1; cursor:pointer;
   display:grid; place-items:center; padding:0}
 .sheet-top .x:hover{border-color:var(--dim); color:var(--text)}
-.wrap{padding:22px 20px 26px; overflow-y:auto; scrollbar-width:none;
+/* min-height:0 — без нього гортати не виходило: вміст, що не вліз
+   (розгорнута угода зі скрінами), просто зрізався краєм карти. Елемент
+   у flex-колонці за замовчуванням не стискається менше свого вмісту,
+   тому overflow-y тут нічого не давав. */
+.wrap{flex:1 1 auto; min-height:0;
+  padding:22px 20px 26px; overflow-y:auto; overscroll-behavior:contain;
+  -webkit-overflow-scrolling:touch; scrollbar-width:none;
   display:flex; flex-direction:column; gap:16px}
+/* Через це скріни й не було видно: блоки в колонці за замовчуванням
+   стискаються, аби вміститись. Розгорнута угода ужималась до вільного
+   місця, а overflow:hidden у списку зрізав усе, що не влізло, — і
+   гортати не було чого, бо формально «все вмістилось». */
+.wrap>*{flex:none}
 .wrap::-webkit-scrollbar{width:0}
 
 .brand{display:flex; align-items:center; gap:10px; margin-bottom:6px}
@@ -265,6 +287,28 @@ document.addEventListener("keydown", e => {
   if (e.key === "Escape" && !document.querySelector(".big")) toJournal();
 });
 
+/* Підказка «є що гортати»: край карти згасає, поки внизу лишився вміст.
+   Перевіряємо після кожної події, що міняє висоту, — розгортання угоди,
+   завантаження скріна, поворот телефона. */
+function fade(){
+  const wrap = document.querySelector(".wrap");
+  const sheet = document.getElementById("sheet");
+  if (!wrap || !sheet) return;
+  const left = wrap.scrollHeight - wrap.clientHeight - wrap.scrollTop;
+  sheet.classList.toggle("more", left > 8);
+}
+document.addEventListener("scroll", fade, true);   // .wrap гортається всередині
+window.addEventListener("resize", fade);
+/* висота міняється не миттєво: розкриття угоди анімоване, а скріни
+   приходять пізніше — тому перепитуємо ще раз трохи згодом */
+function fadeSoon(){ fade(); setTimeout(fade, 340); setTimeout(fade, 900); }
+document.addEventListener("toggle", e => {
+  if (e.target.classList && e.target.classList.contains("tr")) fadeSoon();
+}, true);
+document.addEventListener("load", e => {
+  if (e.target.tagName === "IMG") fade();
+}, true);
+
 function shotUrl(file){
   const id = location.pathname.replace(/^\/s\//, "");
   return "/api/share/" + encodeURIComponent(id) + "/shot/" + encodeURIComponent(file);
@@ -324,6 +368,7 @@ function render(rec){
       + '<span>'+T.shMadeIn+' <a href="/">StatsAI</a></span></div>';
 
   document.title = (d.title ? d.title + " · " : "") + "StatsAI";
+  fadeSoon();          // знімок намальовано — тепер видно, чи все влізло
 }
 
 (async function(){
@@ -343,6 +388,7 @@ function render(rec){
       '<div class="msg"><b>'+T.shOpenFailed+'</b>'+esc(err.message)+'</div>';
   }
 })();
+
 </script>
 </body>
 </html>
