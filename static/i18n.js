@@ -233,6 +233,16 @@ uk: {
   ntConfirmUndo: "Прибрати всі угоди цього перенесення? Журнал стане таким, як був.",
   ntUndoneCount: "Прибрано угод:", ntUndoneHint: "Журнал такий, як був до перенесення.",
 
+  // ---- однакове під різними іменами ----
+  tdTitle: "Однакове під різними іменами",
+  tdLead: "Одне й те саме записане по-різному — у статистиці це різні рядки, і всі підрахунки діляться навпіл. Обери, як писати правильно, і зведи.",
+  tdFound: "Схоже, у журналі одне й те саме записано по-різному. Знайшли груп:",
+  tdOpenBtn: "Подивитись", tdMergeBtn: "Звести",
+  tdNothing: "Різних написань одного імені не знайшли — у журналі все рівно.",
+  tdConfirm: "Записати {from} як {to}? Це змінить {n}.",
+  tdDone: "Зведено. Змінено угод:", tdFailed: "Не вийшло звести:",
+  tdBackupHint: "Відкоту тут немає — перед зведенням варто зберегти копію журналу.",
+
   // ---- калькулятор ризику ----
   ckTitle: "Калькулятор ризику", ckOwnPair: "своє…",
   ckDeposit: "Депозит", ckEntryPrice: "Ціна входу", ckEntryPh: "напр. 23150",
@@ -612,6 +622,16 @@ ru: {
   ntConfirmUndo: "Убрать все сделки этого перенесения? Журнал станет таким, как был.",
   ntUndoneCount: "Убрано сделок:", ntUndoneHint: "Журнал такой, как был до перенесения.",
 
+  // ---- одно и то же под разными именами ----
+  tdTitle: "Одно и то же под разными именами",
+  tdLead: "Одно и то же записано по-разному — в статистике это разные строки, и все подсчёты делятся пополам. Выбери, как писать правильно, и сведи.",
+  tdFound: "Похоже, в журнале одно и то же записано по-разному. Нашли групп:",
+  tdOpenBtn: "Посмотреть", tdMergeBtn: "Свести",
+  tdNothing: "Разных написаний одного имени не нашли — в журнале всё ровно.",
+  tdConfirm: "Записать {from} как {to}? Это изменит {n}.",
+  tdDone: "Сведено. Изменено сделок:", tdFailed: "Не получилось свести:",
+  tdBackupHint: "Отката здесь нет — перед сведением стоит сохранить копию журнала.",
+
   ckTitle: "Калькулятор риска", ckOwnPair: "своё…",
   ckDeposit: "Депозит", ckEntryPrice: "Цена входа", ckEntryPh: "напр. 23150",
   ckStopPrice: "Цена стопа", ckStopPh: "напр. 23110",
@@ -981,6 +1001,16 @@ en: {
   ntGotIt: "Got it", ntOneMoment: "One moment…",
   ntConfirmUndo: "Remove all trades from this import? The journal will go back to how it was.",
   ntUndoneCount: "Trades removed:", ntUndoneHint: "The journal is back to how it was before the import.",
+
+  // ---- the same thing under different names ----
+  tdTitle: "The same thing under different names",
+  tdLead: "The same thing is written in more than one way — in the stats those are separate rows, so every number is split in half. Pick the right spelling and merge.",
+  tdFound: "Looks like some things are written more than one way. Groups found:",
+  tdOpenBtn: "Take a look", tdMergeBtn: "Merge",
+  tdNothing: "No spelling clashes found — the journal is consistent.",
+  tdConfirm: "Write {from} as {to}? This will change {n}.",
+  tdDone: "Merged. Trades changed:", tdFailed: "Could not merge:",
+  tdBackupHint: "There's no undo here — it's worth saving a copy of the journal first.",
 
   ckTitle: "Risk Calculator", ckOwnPair: "custom…",
   ckDeposit: "Deposit", ckEntryPrice: "Entry price", ckEntryPh: "e.g. 23150",

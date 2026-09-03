@@ -31,6 +31,7 @@ import notion_public as npub
 import oauth
 import day_store
 import tg_api
+import tidy
 import ts_check
 import ts_notion
 import ts_store
@@ -760,6 +761,12 @@ class H(BaseHTTPRequestHandler):
             events, warn = calendar_events()
             return self._json({"events": events, "warning": warn})
 
+        if p == "/api/tidy":
+            uid = self._uid()
+            if not uid:
+                return self._json({"error": "auth required"}, 401)
+            return self._json({"groups": tidy.scan(db.list_trades(uid))})
+
         if p == "/api/notion/state":
             uid = self._uid()
             if not uid:
@@ -975,6 +982,20 @@ class H(BaseHTTPRequestHandler):
             rec = share_create(body["data"], body.get("ttl", "7d"), uid)
             return self._json({"id": rec["id"], "url": "/s/" + rec["id"],
                                "expires": rec["expires"]}, 201)
+
+        # ---- одно и то же под разными именами (tidy.py) ----
+        if p == "/api/tidy/apply":
+            body = body or {}
+            field = str(body.get("field") or "")
+            to = str(body.get("to") or "").strip()
+            values = [str(v) for v in (body.get("from") or [])]
+            if not to or not values:
+                return self._json({"error": "потрібні написання і головне ім'я"}, 400)
+            try:
+                n = db.rename_value(uid, field, values, to)
+            except ValueError:
+                return self._json({"error": "це поле не зводимо"}, 400)
+            return self._json({"changed": n})
 
         if p == "/api/notion/preview":
             body = body or {}

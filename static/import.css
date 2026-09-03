@@ -59,6 +59,24 @@
   overflow:hidden; text-overflow:ellipsis; white-space:nowrap}
 .nt-src-x{flex:none}
 
+/* ---------- однакове під різними іменами ---------- */
+/* Група — одне ім'я, написане по-різному. Написання стоять поруч, обране
+   підсвічене: вибір тут важливіший за саму кнопку. */
+.td-g{display:flex; flex-direction:column; gap:9px; padding:14px 16px;
+  border:1px solid var(--line-soft); border-radius:var(--r); background:var(--card)}
+.td-g + .td-g{margin-top:10px}
+.td-vars{display:flex; flex-wrap:wrap; gap:7px}
+.td-v{display:inline-flex; align-items:baseline; gap:8px; padding:8px 13px;
+  border:1px solid var(--line-soft); border-radius:99px; cursor:pointer;
+  background:var(--panel-2); transition:border-color .18s, background .18s}
+.td-v:hover{border-color:var(--line)}
+.td-v.on{border-color:color-mix(in srgb, var(--up) 45%, transparent);
+  background:var(--up-soft)}
+.td-v input{position:absolute; opacity:0; pointer-events:none}
+.td-v b{font-size:13.5px; font-weight:600; color:var(--text)}
+.td-v span{font-family:var(--mono); font-size:10.5px; color:var(--faint)}
+.td-go{align-self:flex-start}
+
 /* ---------- список баз ---------- */
 .nt-dbs{display:flex; flex-direction:column; gap:8px}
 .nt-db{display:flex; align-items:baseline; gap:10px; width:100%; text-align:left;

@@ -155,6 +155,7 @@ function stepLink(info){
     +   ' value="' + esc(again ? "" : link) + '" placeholder="https://…notion.site/…">'
     + '<p class="nt-note">' + T.ntLinkNote + '</p>'
     + sourcesHtml()
+    + (window.Tidy ? Tidy.hint() : "")
     + '</div>',
     '<span class="sp"></span><button class="btn" onclick="closeModal()">' + T.fmCancel + '</button>'
     + '<button class="btn primary" id="ntGo">' + T.ntReadBtn + '</button>'
@@ -415,6 +416,7 @@ async function finish(j){
   connected = true; paintBtn();
   await refresh();          // щоб у списку баз одразу була й ця
   try{ await reload(); render(); }catch(e){}
+  if (window.Tidy) await Tidy.look();
 
   const line = (k, v) => '<div class="nt-stat"><b>' + v + "</b><span>" + k + "</span></div>";
   const warn = (j.warnings || []).length
@@ -436,6 +438,7 @@ async function finish(j){
     + '<div class="nt-stats">' + line(T.ntTransferred, j.added)
       + line(T.ntSkipped, j.skipped) + line(T.ntShotsWord, j.shots) + "</div>"
     + assets + warn
+    + (window.Tidy ? Tidy.hint() : "")
     + (j.added ? '<p class="nt-note">' + T.ntSomethingWrong + "</p>" : "")
     + "</div>",
     back + '<span class="sp"></span>'
@@ -494,6 +497,9 @@ async function openNotion(){
     state = await call("GET", "/api/notion/state");
     sources = state.sources || [];
     link = state.url || link;
+    /* заодно дивимось, чи не роз'їхалися назви між базами — це видно
+       тільки по всьому журналу, а не по одному перенесенню */
+    if (window.Tidy) await Tidy.look();
   }catch(e){
     return paint('<div class="nt"><div class="nt-err">' + esc(e.message) + "</div></div>",
       '<span class="sp"></span><button class="btn" onclick="closeModal()">' + T.mrClose + '</button>');

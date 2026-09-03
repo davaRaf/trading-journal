@@ -20,6 +20,10 @@ TEXT_FIELDS = ["pair", "date", "session", "position", "entry_model", "bias", "se
 NUM_FIELDS = ["rr", "risk"]
 FIELDS = TEXT_FIELDS + NUM_FIELDS
 
+# Поля, написания в которых можно свести к одному (tidy.py). Список закрытый:
+# имя колонки уходит прямо в SQL.
+TIDY_FIELDS = ("pair", "session", "entry_model", "setup")
+
 LINK_CODE_TTL = datetime.timedelta(minutes=15)
 
 
@@ -282,6 +286,24 @@ def count_import(user_id, batch):
         row = conn.execute('SELECT count(*) AS n FROM trades WHERE user_id=%s '
                            'AND "import_id"=%s', (user_id, batch)).fetchone()
     return row["n"]
+
+
+def rename_value(user_id, field, values, to):
+    """Сводит несколько написаний одного имени в одно.
+
+    Имя колонки подставляется в SQL, поэтому берём его только из своего
+    списка — снаружи сюда приходит поле из запроса."""
+    if field not in TIDY_FIELDS:
+        raise ValueError("нельзя менять поле %r" % (field,))
+    values = [v for v in (values or []) if v != to]
+    if not values:
+        return 0
+    with connect() as conn:
+        cur = conn.execute('UPDATE trades SET "%s"=%%s WHERE user_id=%%s '
+                           'AND "%s" = ANY(%%s)' % (field, field),
+                           (to, user_id, values))
+        conn.commit()
+    return cur.rowcount
 
 
 def count_imports(user_id):
