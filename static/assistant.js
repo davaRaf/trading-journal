@@ -129,6 +129,41 @@ const Assistant = (function(){
      недовго й зникає. Нічого не блокує — людина може її просто не
      помітити, і це нормально. */
   let sayTimer = null;
+  let audio = null;
+
+  /* Коротке «дзінь» на два тони. Файлом тягнути звук заради 120 мс не
+     варто, тому складаємо його тут же. Браузер не дає грати до першої
+     дії людини — тоді просто нічого не чути, репліка від цього не
+     ламається. */
+  function ping(){
+    try{
+      const Ctx = window.AudioContext || window.webkitAudioContext;
+      if(!Ctx) return;
+      audio = audio || new Ctx();
+      if(audio.state === "suspended") audio.resume();
+      const t = audio.currentTime;
+      [[660, 0], [880, 0.07]].forEach(([hz, at]) => {
+        const osc = audio.createOscillator();
+        const vol = audio.createGain();
+        osc.type = "sine";
+        osc.frequency.value = hz;
+        vol.gain.setValueAtTime(0.0001, t + at);
+        vol.gain.exponentialRampToValueAtTime(0.055, t + at + 0.012);
+        vol.gain.exponentialRampToValueAtTime(0.0001, t + at + 0.13);
+        osc.connect(vol).connect(audio.destination);
+        osc.start(t + at);
+        osc.stop(t + at + 0.15);
+      });
+    }catch(e){}
+  }
+
+  /* Маскот на мить усміхається: репліка має виглядати як його слова. */
+  function grin(){
+    const btn = document.getElementById("asFabBtn");
+    if(!btn) return;
+    btn.dataset.em = "happy";
+    setTimeout(() => { if(btn.dataset.em === "happy") delete btn.dataset.em; }, 1400);
+  }
 
   function hush(){
     const box = document.querySelector(".as-say");
@@ -169,6 +204,8 @@ const Assistant = (function(){
     box.querySelector(".x").onclick = hush;
 
     requestAnimationFrame(() => box.classList.add("in"));
+    ping();
+    grin();
     /* мовчазне зникнення: довгий текст читають довше */
     const life = Math.min(40000, 9000 + (text || "").length * 55);
     sayTimer = setTimeout(hush, life);
