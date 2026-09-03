@@ -31,8 +31,8 @@
   letter-spacing:-.015em; text-transform:none}
 .ts-way p{margin:0 0 16px; font-size:13.5px; color:var(--dim); line-height:1.6}
 .ts-way .foot{margin-top:auto}
-.ts-way .mins{display:block; margin-top:9px; font-family:var(--mono); font-size:10.5px;
-  letter-spacing:.09em; text-transform:uppercase; color:var(--faint)}
+.ts-way .mins{display:block; margin-top:9px; font-family:var(--mono); font-size:11px;
+  letter-spacing:.08em; text-transform:uppercase; color:var(--dim)}
 
 .ts-big{width:100%; border:0; border-radius:var(--r-sm); font:inherit; font-size:15.5px;
   font-weight:600; padding:14px 20px; cursor:pointer; background:var(--accent);
@@ -60,69 +60,109 @@
 .ts-why ul{margin:10px 0 0; padding-left:18px; display:flex; flex-direction:column; gap:9px;
   font-size:13.5px; color:var(--dim); line-height:1.6}
 .ts-why ul b{color:var(--text); font-weight:600}
-.ts-why .after{margin:18px 0 0; font-size:12.5px; color:var(--faint)}
+.ts-why .after{margin:18px 0 0; font-size:13px; color:var(--dim)}
 
 /* ---------- заповнена ТС ---------- */
-.ts-sub2{font-family:var(--mono); font-size:9px; letter-spacing:.18em; text-transform:uppercase;
-  color:var(--faint); margin:24px 0 11px}
+/* дата збірки в шапці була майже невидима */
+.ts-head .sub{color:var(--dim)}
+/* слоти під скрін трохи нижчі: інакше картка таймфрейму роздувається */
+.ts-tf .ts-shot .ph{height:88px}
+.ts-sub2{font-family:var(--mono); font-size:10.5px; font-weight:600; letter-spacing:.13em;
+  text-transform:uppercase; color:var(--dim); margin:26px 0 12px}
 .ts-sub2:first-child{margin-top:0}
 
 .ts-assets{display:flex; gap:8px; flex-wrap:wrap}
 .ts-assets b{font-family:var(--mono); font-size:14px; font-weight:500; padding:8px 15px;
-  border-radius:99px; background:var(--panel-2); border:1px solid var(--line)}
+  border-radius:99px; background:var(--panel-2); border:1px solid var(--line);
+  color:var(--text); transition:border-color .15s}
+.ts-assets b:hover{border-color:color-mix(in srgb, var(--accent) 30%, var(--line))}
 
 .ts-lines{display:flex; flex-direction:column}
 .ts-line{display:grid; grid-template-columns:180px 1fr; gap:18px; align-items:start;
-  padding:11px 0; border-bottom:1px solid var(--line-soft)}
+  padding:13px 10px; margin:0 -10px; border-radius:var(--r-sm);
+  border-bottom:1px solid var(--line-soft); transition:background .15s}
+.ts-line:hover{background:var(--panel-2)}
 .ts-line:last-child{border-bottom:none}
-.ts-line>.k{font-size:12.5px; color:var(--faint); padding-top:2px}
-.ts-line>.v{font-size:14px; line-height:1.6; min-width:0}
-.ts-line>.v b{font-weight:600}
-.ts-line>.v span{color:var(--dim)}
-.ts-list{margin:0; padding-left:17px; display:flex; flex-direction:column; gap:5px; color:var(--dim)}
+.ts-line>.k{font-size:13px; color:var(--dim); padding-top:3px}
+.ts-line>.v{font-size:14px; line-height:1.6; min-width:0; color:var(--text)}
+.ts-line>.v b{font-weight:600; color:var(--text)}
+.ts-line>.v span:not(.ts-ed){color:var(--dim); display:flex; flex-wrap:wrap;
+  align-items:baseline; gap:6px 14px; min-width:0}
+.ts-list{margin:0; padding-left:17px; display:flex; flex-direction:column; gap:6px; color:var(--text)}
 
-/* таймфрейми */
-.ts-tf{display:grid; grid-template-columns:96px 1fr 180px; gap:18px; align-items:start;
-  padding:15px 0; border-top:1px solid var(--line-soft)}
-.ts-tf:first-child{border-top:none; padding-top:2px}
+/* таймфрейми: кожен окремою карткою — рядки через лінійку зливались в одну стіну */
+.ts-tfs{display:flex; flex-direction:column; gap:10px}
+.ts-tf{display:grid; grid-template-columns:110px 1fr 180px; gap:18px; align-items:start;
+  padding:14px 16px; border:1px solid var(--line); border-radius:var(--r-sm);
+  background:var(--panel-2); transition:border-color .15s}
+.ts-tf:hover{border-color:color-mix(in srgb, var(--accent) 30%, var(--line))}
+.ts-tf .head{min-width:0}
 .ts-tf .n{font-family:var(--mono); font-size:26px; line-height:1}
-.ts-tf .role{font-family:var(--mono); font-size:9px; letter-spacing:.13em; text-transform:uppercase;
-  color:var(--faint); margin-top:7px}
+.ts-tf .role{font-family:var(--mono); font-size:10.5px; letter-spacing:.1em; text-transform:uppercase;
+  color:var(--dim); margin-top:7px}
 /* під таймфреймом зазвичай перелік — зберігаємо переноси, інакше пункти
    злипаються в один абзац і читати їх неможливо */
-.ts-tf .what{font-size:13.5px; color:var(--dim); line-height:1.6; white-space:pre-wrap}
+.ts-tf .what{font-size:14px; color:var(--text); line-height:1.6; white-space:pre-wrap}
 
-/* цифри ризику */
-.ts-three{display:flex; gap:44px; flex-wrap:wrap}
-.ts-three .k{font-family:var(--mono); font-size:9.5px; letter-spacing:.14em;
-  text-transform:uppercase; color:var(--faint)}
-.ts-three .n{font-family:var(--mono); font-size:32px; line-height:1; margin-top:9px;
-  letter-spacing:-.02em}
+/* цифри ризику: плитки, щоб число читалось як показник, а не як абзац */
+.ts-three{display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:10px}
+.ts-three>div{border:1px solid var(--line); border-radius:var(--r-sm); background:var(--panel-2);
+  padding:14px 16px; min-width:0}
+.ts-three .k{font-family:var(--mono); font-size:10.5px; letter-spacing:.11em;
+  text-transform:uppercase; color:var(--dim)}
+.ts-three .n{font-family:var(--mono); font-size:28px; line-height:1.1; margin-top:10px;
+  letter-spacing:-.02em; color:var(--text)}
 .ts-three .n.neg{color:var(--down)}
 
-/* моделі входу */
-.ts-mods{display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:14px}
-.ts-mods .nm{font-size:13.5px; margin-bottom:9px}
-.ts-mods .nm b{font-weight:600}
-.ts-mods .nm span{color:var(--dim)}
+/* моделі входу: назва, пояснення і приклад — в одній картці, а не купою тексту */
+.ts-mods{display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:12px}
+.ts-mod{display:flex; flex-direction:column; gap:9px; padding:14px; min-width:0;
+  border:1px solid var(--line); border-radius:var(--r-sm); background:var(--panel-2);
+  transition:border-color .15s}
+.ts-mod:hover{border-color:color-mix(in srgb, var(--accent) 30%, var(--line))}
+.ts-mod .nm{font-size:15px; font-weight:600; color:var(--text); flex:1; min-width:0}
+.ts-mod .note{font-size:13px; color:var(--dim); line-height:1.55}
+/* приклади до моделі: квадратні плитки, які додаються по одній, —
+   слот на всю ширину картки виглядав як велика порожня пляма */
+.ts-mod .ts-shots{margin-top:auto; gap:8px}
+.ts-mod .ts-shots .ts-shot.mini{width:84px; height:84px; flex:none}
+.ts-mod .ts-shot .ph{height:100%; box-sizing:border-box; gap:3px; font-size:10.5px;
+  line-height:1.25; padding:5px}
+.ts-mod .ts-shot .ph .ic{width:19px; height:19px}
+.ts-mod .ts-shot .ph em{display:none}          /* «файл · Ctrl+V» у квадрат не влазить */
+/* картинку розтягуємо по всій плитці: inset замість width/height, бо
+   слот — це ще й шар з підписом і кнопкою, і висота від них залежала */
+.ts-mod .ts-shot img{position:absolute; inset:0; width:100%; height:100%; object-fit:cover}
+.ts-mod .ts-shot .over{font-size:10.5px; padding:5px}
+
+/* коли не входжу: три причини поруч, кожна своєю колонкою */
+.ts-no{display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:12px}
+.ts-nocol{display:flex; flex-direction:column; padding:14px 16px; min-width:0;
+  border:1px solid var(--line); border-radius:var(--r-sm); background:var(--panel-2)}
+.ts-nocol .h{font-size:13px; font-weight:600; color:var(--text); margin-bottom:11px}
+.ts-nocol .ts-list{font-size:13.5px; line-height:1.55}
+.ts-nocol .none{margin:0; font-size:13px; color:var(--dim)}
+.ts-nocol .ts-add{margin-top:12px}
 
 /* нагадування собі */
 .ts-said{padding:15px 17px; border-radius:var(--r-sm); background:var(--panel-2);
-  border-left:2px solid var(--accent); font-size:14px; line-height:1.6; color:var(--dim)}
+  border-left:2px solid var(--accent); font-size:14px; line-height:1.6; color:var(--text)}
 
 /* чек-лист */
 .ts-q{display:flex; flex-direction:column}
-.ts-q label{display:flex; align-items:center; gap:13px; padding:12px 0;
-  border-bottom:1px solid var(--line-soft); cursor:pointer}
+.ts-q label{display:flex; align-items:center; gap:13px; padding:12px 10px; margin:0 -10px;
+  border-radius:var(--r-sm); border-bottom:1px solid var(--line-soft); cursor:pointer;
+  transition:background .15s}
+.ts-q label:hover{background:var(--panel-2)}
 .ts-q label:last-of-type{border-bottom:none}
-.ts-q input{width:17px; height:17px; accent-color:var(--accent); flex:none}
-.ts-q .t{font-size:14px}
+.ts-q input{width:18px; height:18px; accent-color:var(--accent); flex:none; cursor:pointer}
+.ts-q .t{font-size:14px; color:var(--text)}
 .ts-q label:has(input:checked) .t{color:var(--dim)}
-.ts-gate{display:flex; align-items:baseline; gap:13px; margin-top:16px; padding-top:15px;
-  border-top:1px solid var(--line)}
-.ts-gate b{font-family:var(--mono); font-size:18px}
+.ts-gate{display:flex; align-items:center; gap:13px; margin-top:16px; padding:13px 16px;
+  border:1px solid var(--line); border-radius:var(--r-sm); background:var(--panel-2)}
+.ts-gate b{font-family:var(--mono); font-size:19px; line-height:1}
 .ts-gate b.pos{color:var(--up)} .ts-gate b.neg{color:var(--down)}
-.ts-gate span{font-size:13px; color:var(--dim)}
+.ts-gate span{font-size:13.5px; color:var(--text)}
 
 /* звірка з журналом */
 .ts-cmp{display:flex; flex-direction:column}
@@ -130,53 +170,91 @@
   padding:13px 0; border-bottom:1px solid var(--line-soft)}
 .ts-cmp .r:last-child{border-bottom:none}
 .ts-cmp .nm{font-size:14px}
-.ts-cmp .nm i{display:block; font-style:normal; font-size:12.5px; color:var(--faint); margin-top:3px}
+.ts-cmp .nm i{display:block; font-style:normal; font-size:12.5px; color:var(--dim); margin-top:3px}
 .ts-cmp .v{font-family:var(--mono); font-size:16px; text-align:right; white-space:nowrap}
 .ts-cmp .v.pos{color:var(--up)} .ts-cmp .v.neg{color:var(--down)} .ts-cmp .v.mid{color:var(--be)}
-.ts-cmp .v em{font-style:normal; display:block; font-size:11.5px; color:var(--faint); margin-top:4px}
+.ts-cmp .v em{font-style:normal; display:block; font-size:12px; color:var(--dim); margin-top:4px}
 
 /* текст сторінки Notion, як його прочитали */
-.ts-raw{white-space:pre-wrap; font-size:13px; line-height:1.65; color:var(--dim);
+.ts-raw{white-space:pre-wrap; font-size:13.5px; line-height:1.65; color:var(--text);
   max-height:320px; overflow:auto}
 
-/* ---------- правка на місці ---------- */
-.ts-ed{cursor:text; border-radius:5px; padding:1px 4px; margin:0 -4px;
-  transition:background .15s, box-shadow .15s}
-.ts-ed:hover{background:var(--panel-2); box-shadow:inset 0 0 0 1px var(--line-soft)}
-.ts-ed.blank{color:var(--faint)}
+/* ---------- правка на місці ----------
+   Головне тут — щоб було видно, що поле правиться, ще ДО наведення: на тачі
+   ховера немає взагалі, та й мишею людина не водить по тексту навмання.
+   Тому заповнене поле має пунктирне підкреслення, порожнє — рамку «сюди
+   пишуть» зі знаком «+», а ховер лише підсилює те, що вже видно. */
+.ts-ed{cursor:pointer; border-radius:6px; padding:1px 5px; margin:0 -5px;
+  border-bottom:1px dashed color-mix(in srgb, var(--faint) 40%, transparent);
+  transition:background .15s, box-shadow .15s, border-color .15s, color .15s}
+/* широке багаторядкове поле підкреслювати не треба: лінія на всю колонку
+   читається як роздільник, а не як «сюди можна писати» */
+.ts-ed.multi:not(.blank){border-bottom-color:transparent}
+.ts-ed.multi:not(.blank):hover{border-bottom-color:transparent}
+.ts-ed:hover{background:var(--accent-soft); border-bottom-color:transparent;
+  box-shadow:inset 0 0 0 1px color-mix(in srgb, var(--accent) 45%, transparent)}
+/* порожнє поле саме показує, що в нього пишуть */
+.ts-ed.blank{color:var(--dim); border:1px dashed color-mix(in srgb, var(--faint) 75%, transparent);
+  border-radius:7px; padding:2px 9px 2px 7px; display:inline-flex; align-items:baseline; gap:5px}
+.ts-ed.blank::before{content:"+"; font-size:13px; line-height:1; opacity:.8}
+.ts-ed.blank:hover{color:var(--accent); background:var(--accent-soft); box-shadow:none;
+  border-color:color-mix(in srgb, var(--accent) 60%, transparent)}
+/* багаторядкове порожнє поле тягнемо на всю ширину — інакше «+ заповнити»
+   висить дрібним хвостиком у широкій колонці й губиться */
+.ts-ed.multi.blank{display:flex; width:100%; box-sizing:border-box; padding:8px 11px}
+/* у плитці інструмента рамка вже є — друга лінія зайва */
+.ts-assets .ts-ed{border-bottom:none}
+.ts-assets .ts-ed:hover{box-shadow:none}
+.ts-assets .ts-ed.blank{border:none; padding:0; margin:0}
+/* у великих цифрах підказка «+ заповнити» не має бути 32-м кеглем */
+.ts-three .n .ts-ed.blank, .ts-tf .n .ts-ed.blank{font-size:15px; letter-spacing:0}
 .ts-in{width:100%; box-sizing:border-box; background:var(--panel-2); color:var(--text);
-  border:1px solid color-mix(in srgb, var(--accent) 50%, transparent); border-radius:var(--r-sm);
-  padding:7px 9px; font:inherit; font-size:14px; line-height:1.5}
+  border:1px solid color-mix(in srgb, var(--accent) 55%, transparent); border-radius:6px;
+  padding:1px 5px; margin:0 0 0 -6px; font:inherit; line-height:inherit; cursor:text;
+  box-shadow:0 0 0 3px color-mix(in srgb, var(--accent) 12%, transparent)}
 .ts-in:focus{outline:none}
-textarea.ts-in{min-height:74px; resize:vertical}
+.ts-in{animation:tsIn .16s ease-out}
+@keyframes tsIn{from{box-shadow:0 0 0 0 transparent;
+  border-color:color-mix(in srgb, var(--accent) 20%, transparent)}}
+@media (prefers-reduced-motion:reduce){ .ts-in{animation:none} }
+/* висота під набраний текст: ставиться з JS, тут лише плавність */
+textarea.ts-in{resize:none; overflow:auto; display:block; max-height:50vh;
+  transition:height .16s cubic-bezier(.16,1,.3,1)}
+@media (prefers-reduced-motion:reduce){ textarea.ts-in{transition:none} }
 
 .ts-row{display:flex; align-items:flex-start; gap:8px}
 .ts-row>.ts-ed{flex:1; min-width:0}
-.ts-x{flex:none; border:0; background:transparent; color:var(--faint); font:inherit;
-  font-size:15px; line-height:1; cursor:pointer; padding:2px 5px; opacity:0;
+.ts-x{flex:none; border:0; background:transparent; color:var(--dim); font:inherit;
+  font-size:16px; line-height:1; cursor:pointer; padding:2px 6px; opacity:0;
   transition:opacity .15s, color .15s}
 .ts-line:hover .ts-x, .ts-row:hover .ts-x, .ts-tf:hover .ts-x{opacity:1}
+.ts-x:focus-visible{opacity:1; outline:2px solid var(--accent); outline-offset:1px}
 .ts-x:hover{color:var(--down)}
-.ts-add{border:1px dashed var(--line); background:transparent; color:var(--faint); font:inherit;
-  font-size:12.5px; padding:7px 13px; border-radius:99px; cursor:pointer; margin-top:11px;
-  align-self:flex-start}
-.ts-add:hover{color:var(--text); border-color:var(--faint)}
+/* «+ додати» має читатись як дія, а не як сірий службовий напис */
+.ts-add{border:1px dashed color-mix(in srgb, var(--accent) 40%, var(--line)); background:transparent;
+  color:var(--dim); font:inherit; font-size:13px; font-weight:500; padding:8px 15px;
+  border-radius:99px; cursor:pointer; margin-top:12px; align-self:flex-start;
+  transition:color .15s, border-color .15s, background .15s}
+.ts-add:hover{color:var(--accent); border-color:var(--accent); background:var(--accent-soft)}
+.ts-add:focus-visible{outline:2px solid var(--accent); outline-offset:2px}
 
 /* ---------- слоти під скріни ---------- */
-.ts-shot{position:relative; border:1px dashed var(--line); border-radius:var(--r-sm);
-  overflow:hidden; background:var(--panel-2); cursor:pointer;
-  transition:border-color .18s, box-shadow .18s}
-.ts-shot:hover{border-color:color-mix(in srgb, var(--accent) 55%, transparent);
+.ts-shot{position:relative; border:1.5px dashed color-mix(in srgb, var(--faint) 50%, transparent);
+  border-radius:var(--r-sm); overflow:hidden; background:var(--panel); cursor:pointer;
+  transition:border-color .18s, box-shadow .18s, background .18s, color .18s}
+.ts-shot:hover{border-color:color-mix(in srgb, var(--accent) 65%, transparent);
+  background:var(--accent-soft); color:var(--accent);
   box-shadow:0 0 0 3px color-mix(in srgb, var(--accent) 12%, transparent)}
 .ts-shot.drop{border-style:solid; border-color:var(--accent);
   box-shadow:0 0 0 3px color-mix(in srgb, var(--accent) 22%, transparent)}
 .ts-shot .ph{display:flex; flex-direction:column; align-items:center; justify-content:center;
-  gap:5px; height:106px; color:var(--faint); font-size:12px; text-align:center; padding:6px}
-.ts-shot .ph b{font-size:19px; font-weight:400; line-height:1}
+  gap:6px; height:106px; color:var(--dim); font-size:12.5px; text-align:center; padding:6px}
+.ts-shot:hover .ph{color:var(--accent)}
+.ts-shot .ph .ic{width:24px; height:24px; opacity:.85}
 .ts-shot .ph em{font-style:normal; font-size:10.5px; font-family:var(--mono);
   letter-spacing:.04em; opacity:.75}
 .ts-shot img{width:100%; display:block}
-.ts-shot.has{border-style:solid; border-color:var(--line)}
+.ts-shot.has{border:1px solid var(--line); background:var(--panel-2)}
 .ts-shot .over{position:absolute; inset:0; display:flex; align-items:flex-end; padding:8px;
   font-size:11.5px; color:#fff; opacity:0; transition:opacity .18s;
   background:linear-gradient(to top, rgba(0,0,0,.62), rgba(0,0,0,0) 58%)}
@@ -188,8 +266,8 @@ textarea.ts-in{min-height:74px; resize:vertical}
 .ts-shot.busy{opacity:.55; pointer-events:none}
 
 .ts-shots{display:flex; gap:9px; flex-wrap:wrap; margin-top:10px}
-.ts-shot.mini .ph{height:74px; font-size:11px; gap:3px}
-.ts-shot.mini .ph b{font-size:15px}
+.ts-shot.mini .ph{height:74px; font-size:11.5px; gap:4px}
+.ts-shot.mini .ph .ic{width:20px; height:20px}
 .ts-shot.mini .ph em{font-size:9.5px}
 .ts-shots .ts-shot.mini{width:138px; flex:none}
 
@@ -197,8 +275,8 @@ textarea.ts-in{min-height:74px; resize:vertical}
 .ts-ask{position:fixed; inset:0; z-index:60; background:var(--bg); display:flex;
   flex-direction:column}
 .ts-ask-top{display:flex; align-items:center; gap:16px; padding:18px 24px}
-.ts-ask-top button{border:0; background:transparent; color:var(--faint); font:inherit;
-  font-size:13px; cursor:pointer; padding:6px 0}
+.ts-ask-top button{border:0; background:transparent; color:var(--dim); font:inherit;
+  font-size:13.5px; cursor:pointer; padding:6px 0}
 .ts-ask-top button:hover{color:var(--text)}
 .ts-ask-top .x{font-size:20px; line-height:1}
 .ts-dots{display:flex; gap:5px; margin:0 auto; flex-wrap:wrap; max-width:60%; justify-content:center}
@@ -212,7 +290,7 @@ textarea.ts-in{min-height:74px; resize:vertical}
   animation:tsUp .34s cubic-bezier(.16,1,.3,1) forwards; padding:26px 0}
 @keyframes tsUp{to{opacity:1; transform:none}}
 .ts-ask-n{font-family:var(--mono); font-size:11px; letter-spacing:.14em; text-transform:uppercase;
-  color:var(--faint); margin-bottom:13px}
+  color:var(--dim); margin-bottom:13px}
 .ts-ask-q{font-size:clamp(22px,3.4vw,30px); font-weight:650; letter-spacing:-.02em;
   line-height:1.2; margin:0 0 9px}
 .ts-ask-h{font-size:14px; color:var(--dim); margin:0 0 24px; line-height:1.55}
@@ -246,25 +324,34 @@ textarea.ts-ask-inp{min-height:116px; resize:vertical}
 .ts-next{border:0; background:var(--accent); color:var(--accent-ink); font:inherit; font-size:15px;
   font-weight:600; padding:13px 28px; border-radius:var(--r-sm); cursor:pointer}
 .ts-next:hover{filter:brightness(1.08)}
-.ts-skip{border:0; background:transparent; color:var(--faint); font:inherit; font-size:13.5px;
-  cursor:pointer}
-.ts-skip:hover{color:var(--dim)}
+.ts-skip{border:0; background:transparent; color:var(--dim); font:inherit; font-size:13.5px;
+  cursor:pointer; text-decoration:underline; text-underline-offset:3px;
+  text-decoration-color:color-mix(in srgb, var(--dim) 45%, transparent)}
+.ts-skip:hover{color:var(--text)}
 .ts-done-l{display:flex; flex-direction:column; gap:2px; margin:24px 0}
 .ts-done-l div{display:grid; grid-template-columns:200px 1fr; gap:16px; padding:10px 0;
   border-bottom:1px solid var(--line-soft); font-size:14px}
 .ts-done-l div:last-child{border-bottom:none}
-.ts-done-l .k{color:var(--faint); font-size:12.5px}
+.ts-done-l .k{color:var(--dim); font-size:13px}
 
+@media (max-width:1000px){
+  .ts-mods{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .ts-no{grid-template-columns:1fr}
+  .ts-three{grid-template-columns:repeat(2,minmax(0,1fr))}
+}
 @media (max-width:860px){
   .ts-ways{grid-template-columns:1fr}
   .ts-mods{grid-template-columns:1fr}
   .ts-tf{grid-template-columns:1fr; gap:11px}
   .ts-line{grid-template-columns:1fr; gap:4px}
-  .ts-three{gap:26px}
 }
 
 /* ×  біля інструмента: у плитці немає рядка-батька, тримаємо ховер на ній самій */
 .ts-assets b:hover .ts-x{opacity:1}
 
-/* підказка під заголовком: інакше не видно, що все тут правиться */
-.ts-tip{font-size:12.5px; color:var(--faint); margin:-6px 0 16px; line-height:1.55}
+/* підказка під заголовком: інакше не видно, що все тут правиться.
+   Раніше була сірим рядком і зливалась із текстом — тепер плашка */
+.ts-tip{font-size:13px; color:var(--dim); margin:2px 0 20px; line-height:1.55;
+  padding:11px 14px; border-radius:var(--r-sm); background:var(--panel-2);
+  border-left:2px solid color-mix(in srgb, var(--accent) 55%, transparent)}
+.ts-tip b{color:var(--text); font-weight:600}

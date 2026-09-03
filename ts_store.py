@@ -114,6 +114,14 @@ def used_files(data):
             for k, v in x.items():
                 if k in ("shot", "file") and isinstance(v, str) and v:
                     out.add(v)
+                elif k == "shots" and isinstance(v, list):
+                    # список імен файлів: скріни супроводу і приклади до моделей
+                    for it in v:
+                        if isinstance(it, str):
+                            if it:
+                                out.add(it)
+                        else:
+                            walk(it)
                 else:
                     walk(v)
         elif isinstance(x, list):

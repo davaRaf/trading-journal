@@ -34,13 +34,13 @@ function demo(){ return typeof DEMO !== "undefined" && DEMO; }
 
 async function load(){
   if (demo()){
-    try{ TS = JSON.parse(localStorage.getItem(DEMO_KEY) || "null"); }catch(e){ TS = null; }
+    try{ TS = normalize(JSON.parse(localStorage.getItem(DEMO_KEY) || "null")); }catch(e){ TS = null; }
     if (S.view === "ts") render();
     return;
   }
   try{
     const r = await api("GET", "/api/ts");
-    TS = (r && r.ts && Object.keys(r.ts).length) ? r.ts : null;
+    TS = (r && r.ts && Object.keys(r.ts).length) ? normalize(r.ts) : null;
   }catch(e){ TS = null; }
   if (S.view === "ts") render();
 }
@@ -55,6 +55,19 @@ function save(){
   saveTimer = setTimeout(() => {
     api("POST", "/api/ts", {ts: TS}).catch(() => {});
   }, 400);
+}
+
+/* Стара ТС тримала біля моделі рівно один скрін (models[i].shot).
+   Прикладів входу зазвичай більше одного, тож тепер це список shots[].
+   Старі записи піднімаємо на новий вид одразу після завантаження, щоб
+   решта коду знала лише про список. */
+function normalize(ts){
+  if (!ts) return ts;
+  (ts.models || []).forEach(m => {
+    if (!Array.isArray(m.shots)) m.shots = m.shot ? [m.shot] : [];
+    delete m.shot;
+  });
+  return ts;
 }
 
 /* ---------------- шлях до поля ----------------
@@ -94,6 +107,14 @@ function add(path, label){
   return '<button class="ts-add" type="button" onclick="__ts.add(\'' + path + '\')">+ '
     + esc(label) + "</button>";
 }
+/* Значок «сюди йде картинка»: раніше в слоті стояв самий «+», і слот
+   читався як щось службове, а не як місце під скрін. */
+const SHOT_IC = '<svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor"'
+  + ' stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">'
+  + '<rect x="3" y="4.5" width="18" height="15" rx="2.5"/>'
+  + '<circle cx="8.6" cy="10" r="1.5"/>'
+  + '<path d="M20.5 15.2l-4.1-3.9a1.6 1.6 0 0 0-2.2 0L5.2 19.5"/></svg>';
+
 /* Ім'я файлу на сервері або сама картинка (демо) */
 function tsShotSrc(f){ return /^data:/.test(f) ? f : "/tsshot/" + f; }
 
@@ -102,7 +123,8 @@ function shot(path, label, mini){
   const inner = f
     ? '<img alt="" src="' + esc(tsShotSrc(f)) + '"><div class="over"><span>' + esc(D().shotReplace)
       + '</span></div><button class="rm" type="button">×</button>'
-    : '<div class="ph"><b>+</b>' + esc(label || D().shotAdd) + "<em>" + esc(D().shotHint) + "</em></div>";
+    : '<div class="ph">' + SHOT_IC + esc(label || D().shotAdd)
+      + "<em>" + esc(D().shotHint) + "</em></div>";
   return '<div class="ts-shot' + (f ? " has" : "") + (mini ? " mini" : "")
     + '" data-p="' + path + '">' + inner + "</div>";
 }
@@ -153,7 +175,7 @@ function secMarket(){
   h += '<p class="ts-sub2">' + esc(d.lWindows) + '</p><div class="ts-lines">'
     + (TS.windows || []).map((w, i) =>
         '<div class="ts-line"><div class="k">' + ed("windows." + i + ".name") + "</div>"
-        + '<div class="v"><div class="ts-row"><span><b>' + ed("windows." + i + ".time", "", "—")
+        + '<div class="v"><div class="ts-row"><span><b>' + ed("windows." + i + ".time", "", d.emptyTime)
         + "</b> " + ed("windows." + i + ".note", "", d.emptyNote) + "</span>"
         + x("windows", i) + "</div></div></div>").join("")
     + "</div>" + add("windows", d.addWindow);
@@ -169,23 +191,32 @@ function secMarket(){
 function secTf(){
   const d = D();
   const rows = (TS.tfs || []).map((r, i) =>
-    '<div class="ts-tf"><div><div class="n">' + ed("tfs." + i + ".tf", "", "—") + "</div>"
+    '<div class="ts-tf"><div class="head"><div class="n">' + ed("tfs." + i + ".tf", "", d.emptyTf) + "</div>"
     + '<div class="role">' + ed("tfs." + i + ".role", "", d.emptyRole) + "</div></div>"
     + '<div class="what"><div class="ts-row">' + edArea("tfs." + i + ".what", d.emptyWhat)
     + x("tfs", i) + "</div></div>"
     + shot("tfs." + i + ".shot") + "</div>").join("");
-  return (rows || '<div class="empty">' + esc(d.noTfs) + "</div>") + add("tfs", d.addTf);
+  return (rows ? '<div class="ts-tfs">' + rows + "</div>"
+               : '<div class="empty">' + esc(d.noTfs) + "</div>") + add("tfs", d.addTf);
 }
 
 function secEntry(){
   const d = D();
-  let h = '<p class="ts-sub2">' + esc(d.lModels) + '</p><div class="ts-mods">'
-    + (TS.models || []).map((m, i) =>
-        '<div><div class="nm"><div class="ts-row"><span><b>' + ed("models." + i + ".name", "", "—")
-        + "</b> " + ed("models." + i + ".note", "", d.emptyNote) + "</span>"
-        + x("models", i) + "</div></div>"
-        + shot("models." + i + ".shot", d.shotExample, true) + "</div>").join("")
-    + "</div>" + add("models", d.addModel);
+  const mods = (TS.models || []);
+  let h = '<p class="ts-sub2">' + esc(d.lModels) + "</p>"
+    + (mods.length
+        ? '<div class="ts-mods">' + mods.map((m, i) =>
+            '<div class="ts-mod"><div class="ts-row"><b class="nm">'
+            + ed("models." + i + ".name", "", d.emptyName) + "</b>" + x("models", i) + "</div>"
+            + '<div class="note">' + ed("models." + i + ".note", "", d.emptyNote) + "</div>"
+            + '<div class="ts-shots">'
+            +   (m.shots || []).map((f, j) =>
+                  shot("models." + i + ".shots." + j, d.shotExample, true)).join("")
+            +   shot("models." + i + ".shots." + (m.shots || []).length,
+                     (m.shots || []).length ? d.shotAddShort : d.shotExample, true)
+            + "</div></div>").join("") + "</div>"
+        : '<div class="empty">' + esc(d.noModels) + "</div>")
+    + add("models", d.addModel);
 
   h += '<p class="ts-sub2">' + esc(d.lRules) + '</p><div class="ts-lines">'
     + '<div class="ts-line"><div class="k">' + esc(d.lBias) + '</div><div class="v">'
@@ -233,12 +264,17 @@ function secManage(){
 
 function secNo(){
   const d = D();
-  const col = (key, label) => '<div class="ts-line"><div class="k">' + esc(label) + "</div>"
-    + '<div class="v"><ul class="ts-list">'
-    + ((TS.no && TS.no[key]) || []).map((v, i) =>
-        '<li><div class="ts-row">' + edArea("no." + key + "." + i) + x("no." + key, i) + "</div></li>").join("")
-    + "</ul>" + add("no." + key, d.addLine) + "</div></div>";
-  let h = '<div class="ts-lines">' + col("market", d.lNoMarket) + col("time", d.lNoTime)
+  const col = (key, label) => {
+    const items = ((TS.no && TS.no[key]) || []);
+    return '<div class="ts-nocol"><div class="h">' + esc(label) + "</div>"
+      + (items.length
+          ? '<ul class="ts-list">' + items.map((v, i) =>
+              '<li><div class="ts-row">' + edArea("no." + key + "." + i) + x("no." + key, i)
+              + "</div></li>").join("") + "</ul>"
+          : '<p class="none">' + esc(d.noneYet) + "</p>")
+      + add("no." + key, d.addLine) + "</div>";
+  };
+  let h = '<div class="ts-no">' + col("market", d.lNoMarket) + col("time", d.lNoTime)
     + col("self", d.lNoSelf) + "</div>";
   h += '<p class="ts-sub2">' + esc(d.lMind) + '</p><div class="ts-said">'
     + edArea("mind", d.emptyMind) + "</div>";
@@ -258,9 +294,10 @@ function secCheck(){
         + '<span class="t"><div class="ts-row">' + edArea("check." + i) + x("check", i)
         + "</div></span></label>").join("")
     + "</div>"
+    /* кнопка йде одразу за списком: під підсумком її не бачили й шукали */
+    + add("check", d.addCheck)
     + '<div class="ts-gate"><b class="' + (left ? "neg" : "pos") + '">' + done + " / " + list.length + "</b>"
-    + "<span>" + esc(left ? d.gateBad : d.gateOk) + "</span></div>"
-    + add("check", d.addCheck);
+    + "<span>" + esc(left ? d.gateBad : d.gateOk) + "</span></div>";
 }
 
 /* ---------- звірка з журналом ---------- */
@@ -361,7 +398,7 @@ function secRaw(){
 function vFull(){
   const d = D();
   const src = TS.source === "notion" ? d.subNotion : d.subHand;
-  let h = '<div class="vhead"><h1>' + esc(d.title) + "</h1>"
+  let h = '<div class="vhead ts-head"><h1>' + esc(d.title) + "</h1>"
     + '<span class="sub">' + esc(src) + (TS.updated ? " · " + esc(TS.updated) : "") + "</span>"
     + '<span class="right">'
     +   '<button class="pill" onclick="__ts.ask()">' + esc(d.btnAsk) + "</button>"
@@ -400,6 +437,26 @@ function startEdit(el){
   f.value = (val == null ? "" : val);
   el.textContent = "";
   el.appendChild(f);
+
+  /* Багаторядкове поле відкривається рівно під свій текст і росте вниз у міру
+     набору. Фіксована висота на 74px була стрибком: клікнув по одному рядку —
+     а тобі розсунуло півсторінки. Спершу ставимо теперішню висоту, і вже з неї
+     наступним кадром їдемо до нової — інакше transition нема від чого рахувати. */
+  if (multi){
+    const grow = () => {
+      const now = f.style.height;
+      f.style.height = "auto";
+      /* +2 — рамка: при border-box height її враховує, а scrollHeight ні */
+      const need = (f.scrollHeight + 2) + "px";
+      if (now && now !== need){
+        f.style.height = now;
+        requestAnimationFrame(() => { f.style.height = need; });
+      } else f.style.height = need;
+    };
+    grow();
+    f.addEventListener("input", grow);
+  }
+
   f.focus();
   if (f.setSelectionRange) f.setSelectionRange(f.value.length, f.value.length);
 
@@ -760,7 +817,7 @@ function finish(){
     news: "",
     models: (a.model || []).map(n => {
       const was = (keep.models || []).find(m => m.name === n);
-      return {name: n, note: was ? was.note : "", shot: was ? was.shot : ""};
+      return {name: n, note: was ? was.note : "", shots: (was && was.shots) || []};
     }),
     bias: keep.bias || "",
     stop: {v: a.stop || "", shot: (keep.stop || {}).shot || ""},
@@ -790,7 +847,7 @@ async function pull(){
   busy = true; pullErr = ""; render();
   try{
     const r = await api("POST", "/api/ts/notion", {url: url});
-    TS = r.ts;
+    TS = normalize(r.ts);
     TS.updated = today();
     save();
   }catch(e){
@@ -815,7 +872,7 @@ window.__ts = {
       assets: "", check: "", "no.market": "", "no.time": "", "no.self": "",
       windows: {name: "", time: "", note: ""},
       tfs: {tf: "", role: "", what: "", shot: ""},
-      models: {name: "", note: "", shot: ""},
+      models: {name: "", note: "", shots: []},
       riskCases: {k: "", v: ""},
       manage: {k: "", v: "", shots: []},
     }[path];
@@ -860,9 +917,11 @@ if (typeof realApply === "function"){
 const DICT = {
 uk: {
   title: "Моя ТС", navTip: "Твої правила входу — і звірка з тим, що в журналі",
-  editTip: "Будь-яке поле правиться на місці: клікни по ньому. Скрін — клік по слоту, Ctrl+V або перетягни картинку.",
-  loading: "Хвилинку…", empty: "не заповнено", emptyNote: "додати пояснення",
-  emptyRole: "роль", emptyWhat: "що дивлюсь на цьому таймфреймі", emptyRule: "правило",
+  editTip: "<b>Тут усе правиться прямо на сторінці.</b> Клікни по будь-якому полі — воно стане рядком для вводу. "
+         + "Пунктирна рамка означає, що поле порожнє й туди можна писати. Скрін — клік по слоту, Ctrl+V або перетягни картинку.",
+  loading: "Хвилинку…", empty: "заповнити", emptyNote: "додати пояснення",
+  emptyRole: "яка роль", emptyWhat: "що дивлюсь на цьому таймфреймі", emptyRule: "правило",
+  emptyTime: "час", emptyTf: "таймфрейм", emptyName: "назва",
   emptyMind: "що нагадати собі перед торгівлею",
   remove: "прибрати", back: "назад",
 
@@ -891,7 +950,7 @@ uk: {
   secReal: "Що виходить насправді", secRaw: "Сторінка з Notion, як ми її прочитали", rawShots: "Скріни зі сторінки",
 
   lAssets: "Чим торгую", lWindows: "Вікна", lDaysNews: "Дні та новини",
-  lTradeDays: "Торгую", lRedNews: "Червоні новини",
+  lTradeDays: "Торгові дні", lRedNews: "Червоні новини",
   lModels: "Моделі входу", lRules: "Правила входу", lBias: "Біас визначаю",
   lStop: "Де стоп", lTarget: "Де ціль", lMaxTrades: "Угод за день",
   lRrMin: "Мінімальний RR", lRiskPer: "Ризик на угоду", lDayLimit: "Ліміт за день",
@@ -902,6 +961,7 @@ uk: {
   addAsset: "інструмент", addWindow: "вікно", addTf: "таймфрейм", addModel: "модель",
   addCase: "випадок", addRule: "правило", addLine: "рядок", addCheck: "пункт",
   noTfs: "Таймфреймів ще немає", noCheck: "Чек-листа ще немає",
+  noModels: "Моделей входу ще немає", noneYet: "поки порожньо",
   shotAdd: "вставити скрін", shotAddShort: "ще скрін", shotHint: "файл · Ctrl+V",
   shotReplace: "клік — замінити", shotExample: "приклад", shotHow: "як це виглядає",
 
@@ -964,9 +1024,11 @@ uk: {
 
 ru: {
   title: "Моя ТС", navTip: "Твои правила входа — и сверка с тем, что в журнале",
-  editTip: "Любое поле правится на месте: кликни по нему. Скрин — клик по слоту, Ctrl+V или перетащи картинку.",
-  loading: "Минутку…", empty: "не заполнено", emptyNote: "добавить пояснение",
-  emptyRole: "роль", emptyWhat: "что смотрю на этом таймфрейме", emptyRule: "правило",
+  editTip: "<b>Здесь всё правится прямо на странице.</b> Кликни по любому полю — оно станет строкой ввода. "
+         + "Пунктирная рамка значит, что поле пустое и туда можно писать. Скрин — клик по слоту, Ctrl+V или перетащи картинку.",
+  loading: "Минутку…", empty: "заполнить", emptyNote: "добавить пояснение",
+  emptyRole: "какая роль", emptyWhat: "что смотрю на этом таймфрейме", emptyRule: "правило",
+  emptyTime: "время", emptyTf: "таймфрейм", emptyName: "название",
   emptyMind: "что напомнить себе перед торговлей",
   remove: "убрать", back: "назад",
 
@@ -995,7 +1057,7 @@ ru: {
   secReal: "Что выходит на самом деле", secRaw: "Страница из Notion, как мы её прочитали", rawShots: "Скрины со страницы",
 
   lAssets: "Чем торгую", lWindows: "Окна", lDaysNews: "Дни и новости",
-  lTradeDays: "Торгую", lRedNews: "Красные новости",
+  lTradeDays: "Торговые дни", lRedNews: "Красные новости",
   lModels: "Модели входа", lRules: "Правила входа", lBias: "Биас определяю",
   lStop: "Где стоп", lTarget: "Где цель", lMaxTrades: "Сделок за день",
   lRrMin: "Минимальный RR", lRiskPer: "Риск на сделку", lDayLimit: "Лимит за день",
@@ -1006,6 +1068,7 @@ ru: {
   addAsset: "инструмент", addWindow: "окно", addTf: "таймфрейм", addModel: "модель",
   addCase: "случай", addRule: "правило", addLine: "строку", addCheck: "пункт",
   noTfs: "Таймфреймов ещё нет", noCheck: "Чек-листа ещё нет",
+  noModels: "Моделей входа ещё нет", noneYet: "пока пусто",
   shotAdd: "вставить скрин", shotAddShort: "ещё скрин", shotHint: "файл · Ctrl+V",
   shotReplace: "клик — заменить", shotExample: "пример", shotHow: "как это выглядит",
 
@@ -1068,8 +1131,10 @@ ru: {
 
 en: {
   title: "My system", navTip: "Your entry rules — checked against the journal",
-  editTip: "Any field is editable in place: click it. Screenshot — click the slot, Ctrl+V or drop an image on it.",
-  loading: "One moment…", empty: "not filled in", emptyNote: "add a note",
+  editTip: "<b>Everything here is editable right on the page.</b> Click any field and it turns into an input. "
+         + "A dashed outline means the field is empty and waiting for text. Screenshot — click the slot, Ctrl+V or drop an image on it.",
+  loading: "One moment…", empty: "fill in", emptyNote: "add a note",
+  emptyTime: "time", emptyTf: "timeframe", emptyName: "name",
   emptyRole: "role", emptyWhat: "what I look at on this timeframe", emptyRule: "rule",
   emptyMind: "what to remind yourself before trading",
   remove: "remove", back: "back",
@@ -1099,7 +1164,7 @@ en: {
   secReal: "What actually happens", secRaw: "The Notion page as we read it", rawShots: "Screenshots from the page",
 
   lAssets: "What I trade", lWindows: "Windows", lDaysNews: "Days and news",
-  lTradeDays: "I trade", lRedNews: "Red news",
+  lTradeDays: "Trading days", lRedNews: "Red news",
   lModels: "Entry models", lRules: "Entry rules", lBias: "Bias from",
   lStop: "Stop goes", lTarget: "Target", lMaxTrades: "Trades per day",
   lRrMin: "Minimum RR", lRiskPer: "Risk per trade", lDayLimit: "Daily limit",
@@ -1110,6 +1175,7 @@ en: {
   addAsset: "instrument", addWindow: "window", addTf: "timeframe", addModel: "model",
   addCase: "case", addRule: "rule", addLine: "line", addCheck: "item",
   noTfs: "No timeframes yet", noCheck: "No checklist yet",
+  noModels: "No entry models yet", noneYet: "empty so far",
   shotAdd: "add a screenshot", shotAddShort: "one more", shotHint: "file · Ctrl+V",
   shotReplace: "click to replace", shotExample: "example", shotHow: "what it looks like",
 
