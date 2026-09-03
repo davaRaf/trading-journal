@@ -103,6 +103,16 @@ h1{margin:0; font-size:clamp(22px,4vw,30px); font-weight:600; letter-spacing:-.0
 .tr .val.pos{color:var(--up)} .tr .val.neg{color:var(--down)} .tr .val.zero{color:var(--be)}
 .tr[open]>summary{background:var(--panel-2)}
 
+/* Розкриття угоди.
+   Браузер підставляє вміст <details> ривком, тому висоту анімуємо самі
+   (::details-content + interpolate-size). Де така анімація не працює,
+   картка просто відкриється миттєво, як і раніше — нічого не ламається. */
+html{interpolate-size:allow-keywords}
+.tr::details-content{block-size:0; overflow:hidden;
+  transition:block-size .3s cubic-bezier(.22,.61,.36,1), content-visibility .3s;
+  transition-behavior:allow-discrete}
+.tr[open]::details-content{block-size:auto}
+
 .tbody{padding:4px 16px 18px}
 .facts{display:grid; grid-template-columns:repeat(auto-fill,minmax(210px,1fr)); gap:0 22px}
 .facts .f{display:flex; justify-content:space-between; gap:14px; padding:9px 0;
@@ -116,7 +126,13 @@ h1{margin:0; font-size:clamp(22px,4vw,30px); font-weight:600; letter-spacing:-.0
   margin-top:14px}
 .shots figure{margin:0; border:1px solid var(--line-soft); border-radius:10px; overflow:hidden;
   background:var(--panel-2); cursor:zoom-in}
-.shots img{width:100%; display:block}
+/* Розміру картинки ми заздалегідь не знаємо, а поки вона не завантажилась,
+   висота нульова. Через це сторінка при відкритті угоди двічі-тричі
+   перекладалась і смикалась. Тримаємо місце під графік наперед: пропорція
+   стала, а сама картинка вписується в неї без обрізання. */
+.shots img{width:100%; display:block; aspect-ratio:16/9; object-fit:contain;
+  background:var(--panel-2); opacity:0; transition:opacity .2s}
+.shots img.rdy{opacity:1}
 .shots figcaption{font-family:var(--mono); font-size:10px; letter-spacing:.08em;
   text-transform:uppercase; color:var(--faint); padding:6px 8px}
 .big{position:fixed; inset:0; z-index:50; background:rgba(0,0,0,.86); display:flex;
@@ -156,7 +172,9 @@ function tradesHtml(list){
     const texts = (t.texts || []).map(x =>
       '<div class="txt"><div class="lab">'+esc(x.k)+'</div><p>'+esc(x.v)+'</p></div>').join("");
     const shots = (t.shots || []).map(sh =>
-      '<figure data-src="'+esc(shotUrl(sh.file))+'"><img loading="lazy" alt="" src="'
+      '<figure data-src="'+esc(shotUrl(sh.file))+'"><img loading="lazy" alt=""'
+      + ' onload="this.classList.add(&quot;rdy&quot;)"'
+      + ' onerror="this.classList.add(&quot;rdy&quot;)" src="'
       + esc(shotUrl(sh.file)) + '">'
       + (sh.tf ? '<figcaption>'+esc(sh.tf)+'</figcaption>' : '') + '</figure>').join("");
     return '<details class="tr"' + (alone ? " open" : "") + '><summary>'
