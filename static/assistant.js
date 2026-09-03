@@ -228,8 +228,10 @@ const Assistant = (function(){
     requestAnimationFrame(() => box.classList.add("in"));
     ping();
     grin();
-    /* мовчазне зникнення: довгий текст читають довше */
-    const life = Math.min(40000, 9000 + (text || "").length * 55);
+    /* Мовчазне зникнення: довгий текст читають довше. Раніше репліка
+       йшла надто швидко — людина не встигала дочитати й повернутись до
+       неї очима, тому тримаємо помітно довше. */
+    const life = Math.min(75000, 20000 + (text || "").length * 90);
     sayTimer = setTimeout(hush, life);
   }
 
