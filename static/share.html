@@ -40,8 +40,35 @@ html{scrollbar-width:none}
 html::-webkit-scrollbar{width:0; height:0}
 body{margin:0; background:var(--bg); color:var(--text); font-family:var(--sans);
   -webkit-font-smoothing:antialiased}
-.wrap{max-width:760px; margin:0 auto; padding:clamp(28px,5vw,60px) 20px 70px;
+/* журнал позаду: тільки картинка, ніяких кліків */
+.bgapp{position:fixed; inset:0; width:100%; height:100%; border:0; z-index:0;
+  filter:blur(7px) saturate(.85); transform:scale(1.03); pointer-events:none}
+/* поле, на якому лежить карта зі знімком */
+.stage{position:fixed; inset:0; z-index:2; display:grid; place-items:center;
+  padding:clamp(10px,3vw,28px); background:rgba(0,0,0,.55); overflow:auto;
+  scrollbar-width:none}
+.stage::-webkit-scrollbar{width:0}
+.sheet{width:min(760px,100%); max-height:100%; display:flex; flex-direction:column;
+  background:var(--bg); border:1px solid var(--line); border-radius:16px;
+  box-shadow:0 40px 90px -30px rgba(0,0,0,.75); overflow:hidden;
+  animation:sheetIn .45s cubic-bezier(.16,1,.3,1) both}
+@keyframes sheetIn{from{opacity:0; transform:translateY(16px) scale(.985)}}
+.sheet-top{display:flex; align-items:center; gap:10px; padding:13px 16px;
+  border-bottom:1px solid var(--line-soft); flex:none}
+.sheet-top .mk{width:26px; height:26px; display:grid; place-items:center}
+.sheet-top .mk svg{width:15px; height:auto; color:var(--text)}
+.sheet-top .who{font-size:13px; color:var(--dim)}
+.sheet-top .who{font-family:var(--mono); font-size:14px; font-weight:500;
+  letter-spacing:-.01em; color:var(--text)}
+.sheet-top .who i{font-style:normal; color:var(--g)}
+.sheet-top .sp{flex:1}
+.sheet-top .x{width:30px; height:30px; border-radius:8px; border:1px solid var(--line);
+  background:none; color:var(--dim); font-size:17px; line-height:1; cursor:pointer;
+  display:grid; place-items:center; padding:0}
+.sheet-top .x:hover{border-color:var(--dim); color:var(--text)}
+.wrap{padding:22px 20px 26px; overflow-y:auto; scrollbar-width:none;
   display:flex; flex-direction:column; gap:16px}
+.wrap::-webkit-scrollbar{width:0}
 
 .brand{display:flex; align-items:center; gap:10px; margin-bottom:6px}
 .brand svg{height:26px; width:auto; aspect-ratio:902/1315; color:var(--text)}
@@ -158,8 +185,23 @@ html{interpolate-size:allow-keywords}
 </style>
 </head>
 <body>
-<div class="wrap" id="wrap">
-  <div class="msg" id="shLoadingMsg">Завантаження…</div>
+<!-- Журнал позаду. Він розмитий і не клікається: показує, що знімок
+     зроблено не в порожнечі, а в живому продукті. Закриєш карту —
+     потрапиш у нього по-справжньому. -->
+<iframe class="bgapp" src="/" tabindex="-1" aria-hidden="true" title=""></iframe>
+
+<div class="stage" id="stage">
+  <div class="sheet" id="sheet">
+    <div class="sheet-top">
+      <span class="mk" id="sheetMark"></span>
+      <span class="who" id="sheetWho">StatsAI</span>
+      <span class="sp"></span>
+      <button class="x" id="sheetClose" type="button" aria-label="Закрити">×</button>
+    </div>
+    <div class="wrap" id="wrap">
+      <div class="msg" id="shLoadingMsg">Завантаження…</div>
+    </div>
+  </div>
 </div>
 
 <script src="/static/i18n.js"></script>
@@ -209,6 +251,20 @@ function tradesHtml(list){
     + '<div class="trades">' + list.map(one).join("") + '</div>';
 }
 
+/* Шапка карти зі знімком і вихід із неї. Закрити карту — це не «згорнути
+   вікно», а зайти в сам журнал: він і так уже стоїть позаду. */
+document.getElementById("sheetMark").innerHTML = MARK;
+document.getElementById("sheetWho").innerHTML = "Stats<i>AI</i>";
+
+function toJournal(){ location.href = "/"; }
+document.getElementById("sheetClose").onclick = toJournal;
+document.getElementById("stage").addEventListener("click", e => {
+  if (e.target.id === "stage") toJournal();          // клік повз карту
+});
+document.addEventListener("keydown", e => {
+  if (e.key === "Escape" && !document.querySelector(".big")) toJournal();
+});
+
 function shotUrl(file){
   const id = location.pathname.replace(/^\/s\//, "");
   return "/api/share/" + encodeURIComponent(id) + "/shot/" + encodeURIComponent(file);
@@ -242,8 +298,7 @@ function render(rec){
     : T.shNoLimit;
 
   document.getElementById("wrap").innerHTML =
-      '<div class="brand">' + MARK + '<span class="nm">Stats<i>AI</i></span></div>'
-    + '<div class="head"><div><div class="sub">'+esc(d.kind||T.shKindDefault)+'</div>'
+      '<div class="head"><div><div class="sub">'+esc(d.kind||T.shKindDefault)+'</div>'
       + '<h1>'+esc(d.title||"")+'</h1></div>'
       + (d.total != null ? '<div class="total '+sign(d.total)+'">'+pct(d.total)+'</div>' : "")
     + '</div>'
