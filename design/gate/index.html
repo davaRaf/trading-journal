@@ -1,20 +1,25 @@
 <!doctype html>
 <html lang="uk">
 <meta charset="utf-8">
-<title>Пробник: від чужого посилання до реєстрації</title>
+<title>Пробник: шлях гостя від посилання до свого журналу</title>
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600&family=Archivo:wght@400;500;600&display=swap" rel="stylesheet">
 <style>
 /* ============================================================
-   Пробник шляху: людина прийшла по чужому посиланню → побачила день →
-   закрила картку → потрапила в журнал → спробувала щось зробити →
-   отримала запрошення увійти.
+   Пробник шляху гостя. Чотири кроки:
+
+   1. Прийшов по чужому посиланню — бачить чужий день, позаду розмитий
+      журнал. Але журнал не чужий, а демонстраційний: чужих угод гість
+      не бачить ніколи, крім того одного дня, яким поділились.
+   2. Закрив картку — гуляє по демо. Скрізь видно, що це приклад.
+   3. Спробував щось зробити — плашка входу.
+   4. Зареєструвався — журнал порожній, і одразу пропонуємо підтягнути
+      свій Notion, а не лишаємо перед пусткою.
 
    Це тільки макет: цифри зашиті, сервер не потрібен, застосунок із
-   кореня репозиторію він не чіпає. Палітра й шрифти — ті самі, що в
-   журналі, щоб видно було, як воно виглядатиме насправді.
+   кореня репозиторію він не чіпає. Палітра й шрифти — як у журналі.
    ============================================================ */
 :root{
   --bg:#f2f4f8; --panel:#ffffff; --panel-2:#f6f8fb; --line:#dde3ec; --line-soft:#eaeef5;
@@ -35,13 +40,15 @@ html,body{height:100%}
 body{margin:0; background:var(--bg); color:var(--text); font-family:var(--sans);
   font-size:15px; -webkit-font-smoothing:antialiased; overflow:hidden}
 button{font:inherit; cursor:pointer; border:none; background:none; color:inherit}
+[hidden]{display:none !important}
 
-/* ---------- журнал на задньому плані ---------- */
+/* ---------- журнал ---------- */
 .app{display:grid; grid-template-columns:216px 1fr; height:100%;
-  transition:filter .5s var(--ease), transform .5s var(--ease), opacity .4s}
-/* поки картка дня спереду — журнал розмитий і трохи віддалений: видно, що
-   там повноцінний продукт, але читати його ще не дають */
+  transition:filter .5s var(--ease), transform .5s var(--ease)}
+/* поки картка дня спереду — журнал розмитий: видно, що там повноцінний
+   продукт, але читати його ще не дають */
 body[data-stage="card"] .app{filter:blur(7px) saturate(.85); transform:scale(1.02)}
+body[data-stage="demo"] .app, body[data-stage="gate"] .app{padding-top:38px}
 
 .side{background:var(--panel); border-right:1px solid var(--line); padding:18px 12px;
   display:flex; flex-direction:column; gap:20px}
@@ -59,17 +66,24 @@ body[data-stage="card"] .app{filter:blur(7px) saturate(.85); transform:scale(1.0
 .side .grp{display:flex; flex-direction:column; gap:8px}
 .side .lbl{font-family:var(--mono); font-size:9px; letter-spacing:.16em;
   text-transform:uppercase; color:var(--faint); padding:0 6px}
+/* свій акаунт — з'являється замість кнопок входу на четвертому кроці */
+.me{display:flex; align-items:center; gap:9px; padding:8px 6px; font-size:13.5px}
+.me .av{width:28px; height:28px; border-radius:50%; background:var(--accent-soft);
+  color:var(--accent); display:grid; place-items:center; font-size:12px; font-weight:600}
+.me .nm{min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap}
+.me .nm i{display:block; font-style:normal; font-size:11.5px; color:var(--faint)}
 
-/* кнопки входу в панелі — те, чого на сайті зараз немає */
-.btn{display:flex; align-items:center; justify-content:center; gap:7px; border-radius:9px;
+.btn{display:inline-flex; align-items:center; justify-content:center; gap:7px; border-radius:9px;
   padding:9px 12px; font-size:13.5px; font-weight:500; border:1px solid var(--line);
   background:var(--panel); color:var(--text); transition:border-color .15s, background .15s}
 .btn:hover{border-color:var(--faint)}
 .btn.pri{background:var(--accent); border-color:var(--accent); color:var(--accent-ink)}
 .btn.pri:hover{filter:brightness(1.06)}
+.btn.wide{width:100%}
 .btn.sm{padding:7px 11px; font-size:13px}
 
-.main{padding:22px 24px; overflow:hidden}
+.main{padding:22px 24px; overflow-y:auto; scrollbar-width:none}
+.main::-webkit-scrollbar{width:0}
 .vhead{display:flex; align-items:baseline; gap:12px; margin-bottom:18px}
 .vhead h1{margin:0; font-size:24px; letter-spacing:-.01em}
 .vhead .sub{font-family:var(--mono); font-size:11.5px; letter-spacing:.06em; color:var(--faint)}
@@ -80,6 +94,7 @@ body[data-stage="card"] .app{filter:blur(7px) saturate(.85); transform:scale(1.0
   color:var(--faint)}
 .kpi .v{font-family:var(--mono); font-size:22px; margin-top:5px; font-variant-numeric:tabular-nums}
 .kpi .v.pos{color:var(--up)} .kpi .v.neg{color:var(--down)}
+.kpi .v.zero{color:var(--faint)}
 .two{display:grid; grid-template-columns:1fr 300px; gap:14px}
 .card{background:var(--panel); border:1px solid var(--line); border-radius:var(--r);
   box-shadow:var(--shadow); overflow:hidden}
@@ -101,7 +116,29 @@ body[data-stage="card"] .app{filter:blur(7px) saturate(.85); transform:scale(1.0
 .trow .v{font-family:var(--mono); font-variant-numeric:tabular-nums}
 .trow .v.pos{color:var(--up)} .trow .v.neg{color:var(--down)} .trow .v.zero{color:var(--be)}
 
-/* ---------- смуга «ви дивитесь демо» ---------- */
+/* ---------- крок 4: порожній журнал і з чого почати ---------- */
+.start{background:var(--panel); border:1px solid var(--line); border-radius:14px;
+  box-shadow:var(--shadow); padding:26px 24px; margin-bottom:14px}
+.start .date{font-family:var(--mono); font-size:9px; letter-spacing:.18em;
+  text-transform:uppercase; color:var(--faint)}
+.start h2{margin:7px 0 6px; font-size:23px; letter-spacing:-.01em}
+.start p.lead{margin:0 0 20px; font-size:14px; line-height:1.6; color:var(--dim); max-width:62ch}
+.ways{display:grid; grid-template-columns:repeat(3,1fr); gap:12px}
+.way{border:1px solid var(--line); border-radius:12px; padding:16px; background:var(--panel-2);
+  text-align:left; display:flex; flex-direction:column; gap:7px;
+  transition:border-color .15s, background .15s}
+.way:hover{border-color:var(--accent); background:var(--panel)}
+.way.main{background:var(--accent-soft); border-color:rgba(43,98,227,.35)}
+.way .ic{width:30px; height:30px; border-radius:9px; background:var(--panel);
+  border:1px solid var(--line); display:grid; place-items:center; font-size:14px; color:var(--accent)}
+.way b{font-size:14.5px; font-weight:600}
+.way span{font-size:12.5px; line-height:1.5; color:var(--dim)}
+.way em{font-style:normal; font-family:var(--mono); font-size:9px; letter-spacing:.14em;
+  text-transform:uppercase; color:var(--accent)}
+.emptybox{display:grid; place-items:center; padding:30px 10px; text-align:center;
+  color:var(--faint); font-size:13.5px; line-height:1.6}
+
+/* ---------- смуга «це демо» ---------- */
 .demobar{position:fixed; left:0; right:0; top:0; z-index:30; display:flex; align-items:center;
   gap:12px; padding:9px 16px; background:var(--text); color:#fff; font-size:13.5px;
   transform:translateY(-100%); transition:transform .35s var(--ease)}
@@ -112,9 +149,8 @@ body[data-stage="demo"] .demobar, body[data-stage="gate"] .demobar{transform:non
 .demobar .lnk{color:#fff; text-decoration:underline; text-underline-offset:3px; font-size:13.5px}
 .demobar .go{background:#fff; color:var(--text); border-radius:8px; padding:6px 12px;
   font-size:13px; font-weight:500}
-body[data-stage="demo"] .app, body[data-stage="gate"] .app{padding-top:38px}
 
-/* ---------- картка чужого дня спереду ---------- */
+/* ---------- чужий день спереду ---------- */
 .front{position:fixed; inset:0; z-index:40; display:grid; place-items:center; padding:24px;
   background:var(--overlay); opacity:0; pointer-events:none; transition:opacity .4s}
 body[data-stage="card"] .front{opacity:1; pointer-events:auto}
@@ -146,7 +182,7 @@ body[data-stage="card"] .shared{transform:none}
 .sgrid .v{font-family:var(--mono); font-size:17px; margin-top:3px}
 .slist{border-top:1px solid var(--line-soft)}
 .shared .foot{padding:0 18px 20px; display:flex; gap:10px; align-items:center}
-.shared .foot .note{font-size:12.5px; color:var(--faint); flex:1}
+.shared .foot .note{font-size:12.5px; color:var(--faint); flex:1; line-height:1.45}
 
 /* ---------- плашка входу ---------- */
 .gate{position:fixed; inset:0; z-index:60; display:grid; place-items:center; padding:24px;
@@ -161,7 +197,7 @@ body[data-stage="gate"] .gbox{transform:none}
   display:grid; place-items:center; color:var(--accent); font-size:16px; margin-bottom:14px}
 .gbox h3{margin:0 0 7px; font-size:19px; letter-spacing:-.01em}
 .gbox p{margin:0 0 18px; font-size:13.5px; line-height:1.55; color:var(--dim)}
-.gbox .socs{display:grid; gap:8px; margin-bottom:12px}
+.gbox .socs{display:grid; gap:8px}
 .gbox .or{display:flex; align-items:center; gap:10px; color:var(--faint);
   font-family:var(--mono); font-size:9px; letter-spacing:.16em; text-transform:uppercase;
   margin:12px 0}
@@ -170,54 +206,60 @@ body[data-stage="gate"] .gbox{transform:none}
   font-size:13px; color:var(--faint)}
 .gbox .later:hover{color:var(--dim)}
 
-/* ---------- ненав'язлива підказка знизу (варіант В) ---------- */
-.nudge{position:fixed; right:18px; bottom:18px; z-index:35; width:min(310px,calc(100vw - 36px));
-  background:var(--panel); border:1px solid var(--line); border-radius:12px;
-  box-shadow:var(--shadow-pop); padding:16px;
-  transform:translateY(16px); opacity:0; pointer-events:none; transition:.35s var(--ease)}
-.nudge.in{transform:none; opacity:1; pointer-events:auto}
-.nudge h4{margin:0 0 6px; font-size:15px}
-.nudge p{margin:0 0 12px; font-size:13px; line-height:1.5; color:var(--dim)}
-.nudge .row{display:flex; gap:8px}
-.nudge .x{position:absolute; top:8px; right:8px; width:26px; height:26px; border-radius:7px;
-  color:var(--faint); display:grid; place-items:center; font-size:15px; line-height:1}
-.nudge .x:hover{background:var(--panel-2); color:var(--text)}
+/* ---------- вікно «підтягнути з Notion» ---------- */
+.modal{position:fixed; inset:0; z-index:70; display:grid; place-items:center; padding:24px;
+  background:rgba(23,27,36,.5); backdrop-filter:blur(3px)}
+.mbox{width:min(520px,100%); background:var(--panel); border:1px solid var(--line);
+  border-radius:14px; box-shadow:var(--shadow-pop); padding:24px}
+.mbox h3{margin:0 0 8px; font-size:19px; letter-spacing:-.01em}
+.mbox p{margin:0 0 14px; font-size:13.5px; line-height:1.6; color:var(--dim)}
+.mbox ol{margin:0 0 16px; padding-left:20px; font-size:13.5px; line-height:1.75; color:var(--dim)}
+.mbox .paste{display:flex; gap:8px; margin-bottom:6px}
+.mbox input{flex:1; min-width:0; border:1px solid var(--line); border-radius:9px;
+  padding:10px 12px; font:inherit; font-size:13.5px; background:var(--panel-2); color:var(--text)}
+.mbox input:focus{outline:none; border-color:var(--accent)}
+.mbox .hint{font-size:12px; color:var(--faint); margin:0}
+.mbox .close{display:block; width:100%; text-align:center; margin-top:16px;
+  font-size:13px; color:var(--faint)}
+.mbox .close:hover{color:var(--dim)}
 
 /* ---------- пульт пробника ---------- */
-.rc{position:fixed; left:16px; bottom:16px; z-index:80; width:280px; background:var(--text);
+.rc{position:fixed; left:16px; bottom:16px; z-index:90; width:292px; background:var(--text);
   color:#fff; border-radius:12px; padding:14px; font-size:13px;
-  box-shadow:0 20px 50px -20px rgba(0,0,0,.5)}
+  box-shadow:0 20px 50px -20px rgba(0,0,0,.5); transition:transform .3s var(--ease)}
+.rc.hid{transform:translateY(calc(100% + 26px))}
 .rc .h{font-family:var(--mono); font-size:9px; letter-spacing:.16em; text-transform:uppercase;
   color:rgba(255,255,255,.5); margin-bottom:10px}
-.rc .v{display:grid; gap:6px; margin-bottom:12px}
-.rc .v button{text-align:left; padding:9px 11px; border-radius:8px; font-size:13px;
-  background:rgba(255,255,255,.07); color:rgba(255,255,255,.82); line-height:1.35}
-.rc .v button b{display:block; color:#fff; font-weight:600; font-size:13.5px}
-.rc .v button:hover{background:rgba(255,255,255,.13)}
-.rc .v button.on{background:#fff; color:rgba(23,27,36,.7)}
-.rc .v button.on b{color:var(--text)}
-.rc .again{width:100%; padding:9px; border-radius:8px; background:rgba(255,255,255,.14);
-  color:#fff; font-size:13px}
-.rc .again:hover{background:rgba(255,255,255,.22)}
-.rc .now{margin-top:10px; font-size:11.5px; color:rgba(255,255,255,.45); line-height:1.45}
-.rc.hid{transform:translateY(calc(100% + 24px))}
-.rc{transition:transform .3s var(--ease)}
-.rcfold{position:fixed; left:16px; bottom:16px; z-index:79; padding:9px 13px; border-radius:10px;
+.rc .steps{display:grid; gap:6px}
+.rc .steps button{display:flex; gap:9px; text-align:left; padding:9px 11px; border-radius:8px;
+  font-size:13px; background:rgba(255,255,255,.07); color:rgba(255,255,255,.8); line-height:1.35}
+.rc .steps button b{display:block; color:#fff; font-weight:600; font-size:13.5px}
+.rc .steps button .n{font-family:var(--mono); font-size:11px; color:rgba(255,255,255,.45);
+  padding-top:2px}
+.rc .steps button:hover{background:rgba(255,255,255,.13)}
+.rc .steps button.on{background:#fff; color:rgba(23,27,36,.68)}
+.rc .steps button.on b{color:var(--text)}
+.rc .steps button.on .n{color:var(--accent)}
+.rc .fold{width:100%; margin-top:10px; padding:8px; border-radius:8px;
+  background:rgba(255,255,255,.12); color:#fff; font-size:12.5px}
+.rc .fold:hover{background:rgba(255,255,255,.2)}
+.rcfold{position:fixed; left:16px; bottom:16px; z-index:89; padding:9px 13px; border-radius:10px;
   background:var(--text); color:#fff; font-size:12.5px; box-shadow:var(--shadow-pop)}
 
 @media (max-width:900px){
   .app{grid-template-columns:1fr}
   .side{display:none}
   .kpis{grid-template-columns:repeat(2,1fr)}
-  .two{grid-template-columns:1fr}
+  .two, .ways{grid-template-columns:1fr}
   .sgrid{grid-template-columns:repeat(2,1fr)}
   .rc{left:12px; right:12px; width:auto}
+  .shared .foot{flex-wrap:wrap}
 }
 </style>
 </head>
-<body data-stage="card" data-variant="a">
+<body data-stage="card">
 
-<!-- ===================== журнал позаду ===================== -->
+<!-- ===================== журнал ===================== -->
 <div class="app">
   <aside class="side">
     <div class="brand"><span class="mk">◆</span>Stats<span style="color:var(--accent)">AI</span></div>
@@ -230,59 +272,102 @@ body[data-stage="gate"] .gbox{transform:none}
       <a href="#" data-act><span class="d"></span>Новини</a>
     </nav>
     <div class="sp"></div>
-    <!-- ось цього на сайті зараз немає: гість не бачить, куди тут заходити -->
-    <div class="grp">
+
+    <!-- гість: кнопок входу на сайті зараз немає взагалі -->
+    <div class="grp" id="sideGuest">
       <div class="lbl">Акаунт</div>
       <button class="btn pri" data-act>Створити журнал</button>
       <button class="btn" data-act>Увійти</button>
     </div>
+    <!-- свій акаунт після реєстрації -->
+    <div class="grp" id="sideMe" hidden>
+      <div class="lbl">Акаунт</div>
+      <div class="me"><span class="av">М</span>
+        <span class="nm">Максим<i>maksym@gmail.com</i></span></div>
+      <button class="btn" id="openNotion2">Підключити Notion</button>
+    </div>
   </aside>
 
   <main class="main">
-    <div class="vhead"><h1>Огляд</h1><span class="sub">ЛИСТОПАД 2026</span></div>
-    <div class="kpis">
-      <div class="kpi"><div class="k">Результат</div><div class="v pos">+8.4%</div></div>
-      <div class="kpi"><div class="k">Вінрейт</div><div class="v">61%</div></div>
-      <div class="kpi"><div class="k">Угод</div><div class="v">44</div></div>
-      <div class="kpi"><div class="k">Середній RR</div><div class="v">2.4</div></div>
+    <div class="vhead"><h1>Огляд</h1><span class="sub" id="period">ЛИСТОПАД 2026</span></div>
+
+    <!-- ---- крок 4: свій журнал, у ньому ще нічого ---- -->
+    <div id="startBlock" hidden>
+      <div class="start">
+        <div class="date">Журнал створено · сьогодні</div>
+        <h2>Тут поки нічого немає — і це нормально</h2>
+        <p class="lead">Демо ви вже бачили, це були приклади. Тепер журнал ваш і порожній.
+          Якщо ви вже вели угоди в Notion — перенесемо все за одну ссилку: угоди, нотатки
+          зі сторінок і скріншоти. Копіювати руками нічого не треба.</p>
+        <div class="ways">
+          <button class="way main" id="openNotion">
+            <span class="ic">⇥</span>
+            <em>швидко</em>
+            <b>Підтягнути з Notion</b>
+            <span>Дайте посилання на свою таблицю — заберемо весь журнал разом зі скрінами.</span>
+          </button>
+          <button class="way" data-noop>
+            <span class="ic">+</span>
+            <em>з нуля</em>
+            <b>Додати першу угоду</b>
+            <span>Пара, сетап, RR, скріни таймфреймів. Далі статистика збирається сама.</span>
+          </button>
+          <button class="way" data-noop>
+            <span class="ic">◇</span>
+            <em>спочатку правила</em>
+            <b>Описати свою ТС</b>
+            <span>Опишіть систему — журнал звірятиме кожну угоду з нею.</span>
+          </button>
+        </div>
+      </div>
     </div>
+
+    <div class="kpis">
+      <div class="kpi"><div class="k">Результат</div><div class="v pos" data-kpi="res">+8.4%</div></div>
+      <div class="kpi"><div class="k">Вінрейт</div><div class="v" data-kpi="wr">61%</div></div>
+      <div class="kpi"><div class="k">Угод</div><div class="v" data-kpi="n">44</div></div>
+      <div class="kpi"><div class="k">Середній RR</div><div class="v" data-kpi="rr">2.4</div></div>
+    </div>
+
     <div class="two">
       <div class="card">
         <h3>Крива рахунку</h3>
         <div class="in">
-          <svg class="eq" viewBox="0 0 600 118" preserveAspectRatio="none" aria-hidden="true">
-            <path d="M0 96 L60 88 L120 92 L180 70 L240 76 L300 54 L360 58 L420 36 L480 42 L540 22 L600 14"
+          <svg class="eq" id="eq" viewBox="0 0 600 118" preserveAspectRatio="none" aria-hidden="true">
+            <path id="eqLine" d="M0 96 L60 88 L120 92 L180 70 L240 76 L300 54 L360 58 L420 36 L480 42 L540 22 L600 14"
               fill="none" stroke="var(--accent)" stroke-width="2"/>
-            <path d="M0 96 L60 88 L120 92 L180 70 L240 76 L300 54 L360 58 L420 36 L480 42 L540 22 L600 14 L600 118 L0 118 Z"
+            <path id="eqFill" d="M0 96 L60 88 L120 92 L180 70 L240 76 L300 54 L360 58 L420 36 L480 42 L540 22 L600 14 L600 118 L0 118 Z"
               fill="rgba(43,98,227,.10)"/>
           </svg>
+          <div class="emptybox" id="eqEmpty" hidden>Крива з'явиться після першої угоди</div>
         </div>
       </div>
       <div class="card">
-        <h3>Листопад</h3>
-        <div class="in"><div class="cal">
-          <i>1</i><i class="p">2</i><i class="p">3</i><i class="n">4</i><i>5</i><i class="p">6</i><i class="b">7</i>
-          <i class="p">8</i><i>9</i><i class="p">10</i><i class="p">11</i><i class="n">12</i><i>13</i><i class="p">14</i>
-          <i class="b">15</i><i class="p">16</i><i class="p">17</i><i>18</i><i class="n">19</i><i class="p">20</i><i class="p">21</i>
-        </div></div>
+        <h3 id="calTitle">Листопад</h3>
+        <div class="in"><div class="cal" id="cal"></div></div>
       </div>
     </div>
+
     <div class="card" style="margin-top:14px">
       <h3>Останні угоди</h3>
       <div class="in">
-        <div class="trow"><span class="t">10:42</span><span>US100 · CISD</span><span class="v pos">+1.8%</span></div>
-        <div class="trow"><span class="t">11:15</span><span>XAUUSD · OB</span><span class="v neg">−0.9%</span></div>
-        <div class="trow"><span class="t">14:03</span><span>US100 · CISD</span><span class="v pos">+2.1%</span></div>
-        <div class="trow"><span class="t">15:30</span><span>US30 · BOS</span><span class="v zero">0.0%</span></div>
+        <div id="tradesList">
+          <div class="trow"><span class="t">10:42</span><span>US100 · CISD</span><span class="v pos">+1.8%</span></div>
+          <div class="trow"><span class="t">11:15</span><span>XAUUSD · OB</span><span class="v neg">−0.9%</span></div>
+          <div class="trow"><span class="t">14:03</span><span>US100 · CISD</span><span class="v pos">+2.1%</span></div>
+          <div class="trow"><span class="t">15:30</span><span>US30 · BOS</span><span class="v zero">0.0%</span></div>
+        </div>
+        <div class="emptybox" id="tradesEmpty" hidden>Ще жодної угоди.
+          Перенесіть журнал із Notion або додайте першу вручну.</div>
       </div>
     </div>
   </main>
 </div>
 
-<!-- ===================== смуга «демо» ===================== -->
+<!-- ===================== смуга «це демо» ===================== -->
 <div class="demobar">
   <b>Демо</b>
-  <span>Ви дивитесь чужі дані. Свій журнал — з нуля, за хвилину.</span>
+  <span>Це приклади, а не чиїсь справжні угоди. Свій журнал — за хвилину.</span>
   <span class="sp"></span>
   <a href="#" class="lnk" data-act>Увійти</a>
   <button class="go" data-act>Створити журнал</button>
@@ -295,7 +380,7 @@ body[data-stage="gate"] .gbox{transform:none}
       <span class="mk">◆</span>
       <span class="who"><b>Davyd</b> поділився днем</span>
       <span class="sp"></span>
-      <button class="x" id="closeCard" title="Закрити">×</button>
+      <button class="x" data-close title="Закрити">×</button>
     </div>
     <div class="body">
       <div class="date">Вівторок · 17 листопада 2026</div>
@@ -314,8 +399,9 @@ body[data-stage="gate"] .gbox{transform:none}
       </div>
     </div>
     <div class="foot">
-      <span class="note">Це знімок одного дня. Позаду — журнал, у якому він зроблений.</span>
-      <button class="btn" id="closeCard2">Подивитись журнал</button>
+      <span class="note">Позаду — сам журнал на демонстраційних даних.
+        Чужих угод, крім цього дня, ніхто не бачить.</span>
+      <button class="btn" data-close>Подивитись журнал</button>
       <button class="btn pri" data-act>Створити свій</button>
     </div>
   </div>
@@ -325,109 +411,131 @@ body[data-stage="gate"] .gbox{transform:none}
 <div class="gate" id="gate">
   <div class="gbox">
     <div class="mk">◆</div>
-    <h3 id="gateTitle">Щоб вести свій журнал — увійдіть</h3>
-    <p id="gateText">Демо показує чужі дані й нічого не зберігає. Свій журнал заводиться за хвилину: угоди, скріни, статистика й ТС лишаються з вами.</p>
+    <h3>Щоб вести свій журнал — увійдіть</h3>
+    <p>Демо нічого не зберігає: перезавантажите сторінку — і все зникне.
+      У своєму журналі угоди, скріни, статистика й ТС лишаються з вами.</p>
     <div class="socs">
-      <button class="btn">Продовжити з Google</button>
-      <button class="btn">Продовжити з Discord</button>
-      <button class="btn">Продовжити з Telegram</button>
+      <button class="btn" data-signup>Продовжити з Google</button>
+      <button class="btn" data-signup>Продовжити з Discord</button>
+      <button class="btn" data-signup>Продовжити з Telegram</button>
     </div>
     <div class="or">або</div>
-    <button class="btn pri" style="width:100%">Реєстрація поштою</button>
+    <button class="btn pri wide" data-signup>Реєстрація поштою</button>
     <button class="later" id="gateLater">Поки що просто подивлюсь</button>
   </div>
 </div>
 
-<!-- ===================== підказка знизу (варіант В) ===================== -->
-<div class="nudge" id="nudge">
-  <button class="x" id="nudgeX" title="Закрити">×</button>
-  <h4>Сподобалось?</h4>
-  <p>Ви дивитесь демо. Свій журнал — за хвилину, дані лишаються з вами.</p>
-  <div class="row">
-    <button class="btn pri sm" style="flex:1" data-act>Створити журнал</button>
-    <button class="btn sm" data-act>Увійти</button>
+<!-- ===================== вікно Notion ===================== -->
+<div class="modal" id="notion" hidden>
+  <div class="mbox">
+    <h3>Перенесемо журнал із Notion</h3>
+    <p>Разом з угодами заберемо нотатки зі сторінок і скріншоти. У Notion нічого
+      не змінюємо — тільки читаємо.</p>
+    <ol>
+      <li>Відкрийте свою таблицю з угодами в Notion.</li>
+      <li><b>Share</b> → увімкніть <b>Publish to web</b>.</li>
+      <li>Скопіюйте посилання й вставте сюди.</li>
+    </ol>
+    <div class="paste">
+      <input type="text" placeholder="https://…notion.site/…" aria-label="Посилання на таблицю">
+      <button class="btn pri" data-noop>Далі</button>
+    </div>
+    <p class="hint">Посилання має вести саме на таблицю — ту, де рядки й колонки.</p>
+    <button class="close" id="notionClose">Пізніше, почну з нуля</button>
   </div>
 </div>
 
 <!-- ===================== пульт ===================== -->
 <div class="rc" id="rc">
-  <div class="h">Пробник · три варіанти</div>
-  <div class="v">
-    <button data-v="a" class="on"><b>А. М'яко</b>Закрив картку — гуляй по журналу. Плашка входу тільки коли щось натиснув.</button>
-    <button data-v="b"><b>Б. Нагадування</b>Те саме, але через 4 секунди знизу з'являється підказка. Не блокує.</button>
-    <button data-v="c"><b>В. Одразу</b>Закрив картку — плашка входу відразу, без прогулянки.</button>
+  <div class="h">Пробник · варіант А, чотири кроки</div>
+  <div class="steps">
+    <button data-s="card" class="on"><span class="n">1</span><span>
+      <b>Прийшов по посиланню</b>Чужий день спереду, демо-журнал розмитий позаду.</span></button>
+    <button data-s="demo"><span class="n">2</span><span>
+      <b>Гуляє по демо</b>Дані демонстраційні, скрізь про це сказано.</span></button>
+    <button data-s="gate"><span class="n">3</span><span>
+      <b>Щось натиснув</b>Плашка входу. Можна відмовитись і дивитись далі.</span></button>
+    <button data-s="mine"><span class="n">4</span><span>
+      <b>Зареєструвався</b>Журнал порожній, одразу пропонуємо Notion.</span></button>
   </div>
-  <button class="again" id="again">↻ Почати з початку (як бачить гість)</button>
-  <div class="now" id="now"></div>
+  <button class="fold" id="fold">Заховати пульт</button>
 </div>
 <button class="rcfold" id="rcfold" hidden>Пульт</button>
 
 <script>
 const body = document.body;
-const nudge = document.getElementById("nudge");
-let timer = null;
+const $ = s => document.querySelector(s);
 
-/* Три стадії: card — чужий день спереду; demo — гість у журналі;
-   gate — плашка входу. Все інше вирішують стилі за data-stage. */
+/* Демо-календар і календар порожнього журналу малюємо однією функцією:
+   різниця лише в тому, чи є в клітинках результат. */
+function paintCal(withData){
+  const res = ["", "p", "p", "n", "", "p", "b", "p", "", "p", "p", "n", "", "p",
+               "b", "p", "p", "", "n", "p", "p"];
+  $("#cal").innerHTML = res.map((c, i) =>
+    '<i class="' + (withData ? c : "") + '">' + (i + 1) + "</i>").join("");
+}
+
+/* Чотири стадії. card/demo/gate — гість, mine — свій порожній журнал.
+   Все, що можна, вирішують стилі за data-stage; тут лише те, що
+   стилями не зробиш: цифри й видимість блоків. */
+/* .hidden у svg не працює: властивість hidden є в HTML-елементів, а в
+   svg її немає — атрибут не з'являється і css його не бачить. Тому
+   ставимо сам атрибут, він однаково діє на будь-якому елементі. */
+function show(sel, on){ $(sel).toggleAttribute("hidden", !on); }
+
 function stage(s){
   body.dataset.stage = s;
-  if (s !== "demo") hideNudge();
-  if (s === "demo" && body.dataset.variant === "b") armNudge();
-  paint();
+  const mine = s === "mine";
+
+  show("#sideGuest", !mine);
+  show("#sideMe", mine);
+  show("#startBlock", mine);
+  show("#tradesList", !mine);
+  show("#tradesEmpty", mine);
+  show("#eq", !mine);
+  show("#eqEmpty", mine);
+  $("#period").textContent = mine ? "ПОЧАТОК" : "ЛИСТОПАД 2026";
+  paintCal(!mine);
+
+  const kpi = mine ? {res: "—", wr: "—", n: "0", rr: "—"}
+                   : {res: "+8.4%", wr: "61%", n: "44", rr: "2.4"};
+  for (const k in kpi){
+    const el = document.querySelector('[data-kpi="' + k + '"]');
+    el.textContent = kpi[k];
+    el.className = "v" + (mine ? " zero" : (k === "res" ? " pos" : ""));
+  }
+
+  show("#notion", false);
+  document.querySelectorAll(".rc .steps button").forEach(b =>
+    b.classList.toggle("on", b.dataset.s === s));
+  /* після реєстрації вікно Notion відкривається саме — так це вже
+     працює в застосунку для порожнього журналу */
+  if (mine) setTimeout(() => { if (body.dataset.stage === "mine") show("#notion", true); }, 700);
 }
 
-function armNudge(){
-  clearTimeout(timer);
-  timer = setTimeout(() => { if (body.dataset.stage === "demo") nudge.classList.add("in"); }, 4000);
-}
-function hideNudge(){ clearTimeout(timer); nudge.classList.remove("in"); }
-
-/* Картку закрили. У варіанті В плашка входу — відразу, в решті — журнал. */
-function closeCard(){
-  stage(body.dataset.variant === "c" ? "gate" : "demo");
-}
-document.getElementById("closeCard").onclick = closeCard;
-document.getElementById("closeCard2").onclick = closeCard;
-document.getElementById("front").addEventListener("click", e => {
-  if (e.target.id === "front") closeCard();          // клік поза карткою
-});
-
-/* Будь-яка дія в журналі — привід запросити. Саме так це працюватиме в
-   застосунку: гість дивиться скільки хоче, але щось зробити не може. */
+/* картку закрили — гість у демо */
 document.addEventListener("click", e => {
-  const act = e.target.closest("[data-act]");
-  if (!act) return;
-  e.preventDefault();
-  stage("gate");
+  if (e.target.closest("[data-close]") || e.target.id === "front"){
+    e.preventDefault(); stage("demo"); return;
+  }
+  if (e.target.closest("[data-signup]")){ e.preventDefault(); stage("mine"); return; }
+  if (e.target.closest("[data-noop]")){ e.preventDefault(); return; }
+  /* будь-яка дія в демо — привід запросити увійти */
+  if (e.target.closest("[data-act]")){ e.preventDefault(); stage("gate"); }
 });
 
-document.getElementById("gateLater").onclick = () => stage("demo");
-document.getElementById("nudgeX").onclick = hideNudge;
+$("#gateLater").onclick = () => stage("demo");
+$("#notionClose").onclick = () => show("#notion", false);
+$("#openNotion").onclick = () => show("#notion", true);
+$("#openNotion2").onclick = () => show("#notion", true);
 
-/* пульт */
-document.querySelectorAll(".rc .v button").forEach(b => {
-  b.onclick = () => {
-    document.querySelectorAll(".rc .v button").forEach(x => x.classList.toggle("on", x === b));
-    body.dataset.variant = b.dataset.v;
-    stage("card");
-  };
+document.querySelectorAll(".rc .steps button").forEach(b => {
+  b.onclick = () => stage(b.dataset.s);
 });
-document.getElementById("again").onclick = () => stage("card");
+$("#fold").onclick = () => { $("#rc").classList.add("hid"); $("#rcfold").toggleAttribute("hidden", false); };
+$("#rcfold").onclick = () => { $("#rc").classList.remove("hid"); $("#rcfold").toggleAttribute("hidden", true); };
 
-const FOLD = document.getElementById("rcfold"), RC = document.getElementById("rc");
-document.getElementById("now").addEventListener("dblclick", () => {
-  RC.classList.add("hid"); FOLD.hidden = false;
-});
-FOLD.onclick = () => { RC.classList.remove("hid"); FOLD.hidden = true; };
-
-function paint(){
-  const names = {card: "чужий день спереду, журнал розмитий",
-                 demo: "гість у журналі, демо-дані",
-                 gate: "плашка входу"};
-  document.getElementById("now").textContent =
-    "Зараз: " + names[body.dataset.stage] + ". Два кліки тут — заховати пульт.";
-}
-paint();
+stage("card");
 </script>
 </body>
 </html>
