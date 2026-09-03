@@ -16,6 +16,7 @@ import re
 
 import notion_import
 import notion_public
+import ts_ai
 
 
 # ------------------------------------------------------------ словники ----
@@ -325,7 +326,10 @@ def read(url, user_id, shots_dir):
         raise ValueError("на сторінці не знайшли ні тексту, ні скрінів. "
                          "Дай посилання на сторінку з описом ТС, а не на таблицю")
 
-    draft = parse(text)
+    # спершу модель: вона читає сторінку цілком і бачить те, чого ключові
+    # слова не ловлять. Розбір нижче лишається запасним — якщо ключа немає
+    # або відповідь не склалась
+    draft = ts_ai.parse(text, shots, TFS, _tfs_in) or parse(text)
     draft["source"] = "notion"
     draft["notion"] = {"url": url, "text": text[:20000], "shots": shots}
 
