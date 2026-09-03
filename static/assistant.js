@@ -131,30 +131,52 @@ const Assistant = (function(){
   let sayTimer = null;
   let audio = null;
 
-  /* Коротке «дзінь» на два тони. Файлом тягнути звук заради 120 мс не
-     варто, тому складаємо його тут же. Браузер не дає грати до першої
-     дії людини — тоді просто нічого не чути, репліка від цього не
-     ламається. */
-  function ping(){
+  /* Коротке «дзінь» на два тони. Файлом тягнути звук заради 150 мс не
+     варто, тому складаємо його тут же. */
+  function ctx(){
     try{
       const Ctx = window.AudioContext || window.webkitAudioContext;
-      if(!Ctx) return;
+      if(!Ctx) return null;
       audio = audio || new Ctx();
-      if(audio.state === "suspended") audio.resume();
-      const t = audio.currentTime;
-      [[660, 0], [880, 0.07]].forEach(([hz, at]) => {
-        const osc = audio.createOscillator();
-        const vol = audio.createGain();
-        osc.type = "sine";
-        osc.frequency.value = hz;
-        vol.gain.setValueAtTime(0.0001, t + at);
-        vol.gain.exponentialRampToValueAtTime(0.055, t + at + 0.012);
-        vol.gain.exponentialRampToValueAtTime(0.0001, t + at + 0.13);
-        osc.connect(vol).connect(audio.destination);
-        osc.start(t + at);
-        osc.stop(t + at + 0.15);
-      });
-    }catch(e){}
+      return audio;
+    }catch(e){ return null; }
+  }
+
+  /* Браузер не дає звучати, поки людина нічого не натиснула, і створений
+     до того контекст лишається сплячим — саме через це репліка виїжджала
+     мовчки. Тому будимо його на першу ж дію: до появи репліки він уже
+     готовий. */
+  ["pointerdown", "keydown"].forEach(ev =>
+    document.addEventListener(ev, () => {
+      const a = ctx();
+      if(a && a.state === "suspended") a.resume();
+    }, {passive: true}));
+
+  function tone(a, hz, at, dur, peak){
+    const t = a.currentTime + at;
+    const osc = a.createOscillator();
+    const vol = a.createGain();
+    osc.type = "sine";
+    osc.frequency.setValueAtTime(hz, t);
+    vol.gain.setValueAtTime(0.0001, t);
+    vol.gain.exponentialRampToValueAtTime(peak, t + 0.015);
+    vol.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+    osc.connect(vol).connect(a.destination);
+    osc.start(t);
+    osc.stop(t + dur + 0.02);
+  }
+
+  function ping(){
+    const a = ctx();
+    if(!a) return "no-audio";
+    const play = () => { tone(a, 700, 0, 0.16, 0.14); tone(a, 940, 0.08, 0.18, 0.1); };
+    /* сплячий контекст не рахує час, тому граємо вже після пробудження */
+    if(a.state === "suspended"){
+      a.resume().then(play).catch(() => {});
+      return "resuming";
+    }
+    play();
+    return a.state;
   }
 
   /* Маскот на мить усміхається: репліка має виглядати як його слова. */
@@ -218,7 +240,7 @@ const Assistant = (function(){
     send(question);
   }
 
-  return { open, say, hush, bring, reset: () => { log = []; } };
+  return { open, say, hush, bring, sound: ping, reset: () => { log = []; } };
 })();
 
 window.Assistant = Assistant;
