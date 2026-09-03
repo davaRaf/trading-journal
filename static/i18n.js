@@ -344,6 +344,7 @@ uk: {
   shOpenFailed: "Не вдалося відкрити",
 
   // ---- гість і порожній журнал ----
+  gsHaveAcc: "Уже маєте акаунт?",
   gsLabel: "Демо", gsBarText: "Це приклади, а не чиїсь справжні угоди. Свій журнал — за хвилину.",
   gsLogin: "Увійти", gsSignup: "Створити журнал", gsSignupMail: "Реєстрація поштою",
   gsWith: "Продовжити з %s", gsOr: "або", gsLater: "Поки що просто подивлюсь",
@@ -668,6 +669,7 @@ ru: {
   shOpenFailed: "Не удалось открыть",
 
   // ---- гость и пустой журнал ----
+  gsHaveAcc: "Уже есть аккаунт?",
   gsLabel: "Демо", gsBarText: "Это примеры, а не чьи-то настоящие сделки. Свой журнал — за минуту.",
   gsLogin: "Войти", gsSignup: "Создать журнал", gsSignupMail: "Регистрация по почте",
   gsWith: "Продолжить с %s", gsOr: "или", gsLater: "Пока просто посмотрю",
@@ -992,6 +994,7 @@ en: {
   shOpenFailed: "Couldn't open it",
 
   // ---- guest and empty journal ----
+  gsHaveAcc: "Already have an account?",
   gsLabel: "Demo", gsBarText: "These are samples, not anyone's real trades. Your own journal takes a minute.",
   gsLogin: "Sign in", gsSignup: "Create journal", gsSignupMail: "Sign up with email",
   gsWith: "Continue with %s", gsOr: "or", gsLater: "Just looking for now",
