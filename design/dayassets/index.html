@@ -8,23 +8,25 @@
 <link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600&family=Archivo:wght@400;500;600&display=swap" rel="stylesheet">
 <style>
 /* ============================================================
-   Ранковий план, коли активів кілька. Обраний варіант: кожен актив —
-   своя картка, картки одна під одною. Нічого не перемикається, увесь
-   ранок видно згори вниз.
+   «Аналіз дня», коли активів кілька. Обраний варіант: кожен актив —
+   своя картка, картки одна під одною.
 
-   Що тут вирішено, крім самих карток:
+   Що тут вирішено:
 
-   • Скріни по таймфреймах. Один графік розмітки нічого не пояснює:
-     людина дивиться 1D для контексту, 1H для зони, 15m для входу.
-     Тому в кожного активу окремі слоти під таймфрейми, як у «Моїй ТС»
-     і в картці угоди.
+   • Ранок. У кожного активу свої скріни по таймфреймах (1D контекст,
+     1H зона, 15m вхід — скільки треба), напрям, рівні, сценарії.
+     Активи підказує «Моя ТС»: що людина там записала, те й пропонується.
+     Правила дня спільні — вони про поведінку, а не про актив.
 
-   • Звідки беруться активи. Список підказує «Моя ТС»: якщо там
-     написано, що людина торгує US100 і золото — саме вони й
-     пропонуються. Далі йдуть інструменти, які вже є в журналі. Руками
-     вписати теж можна.
+   • Вечір. Та сама картка активу, але розворот: ліворуч план як був,
+     праворуч факт. Угоди з журналу самі лягають до свого активу — журнал
+     знає пару кожної угоди. Відмітки «ринок пішов за планом» і «тримався
+     плану» — по кожному активу окремо, бо по US100 могло збігтись, а по
+     GER40 ні. Унизу — підсумок дня одним рядком на актив.
 
-   • Правила дня спільні: вони не про актив, а про поведінку.
+   • Міні-календар. Під датою — місяць крапками: зелена — план збігся,
+     червона — ні, порожня — план був, вечір не записаний. Клік по дню
+     відкриває той день: що планував тиждень тому і що вийшло.
 
    Це макет: цифри зашиті, сервер не потрібен, застосунок із кореня
    репозиторію він не чіпає.
@@ -35,7 +37,7 @@
   --text:#f2f2f3; --dim:#8c8c90; --faint:#5c5c61;
   --accent:#40e094; --accent-ink:#06130d; --accent-soft:rgba(64,224,148,.12);
   --up:#40e094; --down:#ff6e60; --be:#efc258;
-  --up-soft:rgba(64,224,148,.13); --down-soft:rgba(255,110,96,.13);
+  --up-soft:rgba(64,224,148,.13); --down-soft:rgba(255,110,96,.13); --be-soft:rgba(239,194,88,.13);
   --sans:"Geist","Segoe UI",system-ui,sans-serif;
   --mono:"Archivo","Geist",system-ui,sans-serif;
   --ease:cubic-bezier(.16,1,.3,1);
@@ -48,10 +50,58 @@ button{font:inherit; cursor:pointer; border:none; background:none; color:inherit
 [hidden]{display:none !important}
 
 .page{max-width:1080px; margin:0 auto}
-.vhead{display:flex; align-items:baseline; gap:12px; margin-bottom:6px}
+
+/* ---------- шапка: дата, календар, ранок/вечір ---------- */
+.vhead{display:flex; align-items:center; gap:14px; margin-bottom:8px; flex-wrap:wrap}
 .vhead h1{margin:0; font-size:24px; letter-spacing:-.01em}
 .vhead .sub{font-family:var(--mono); font-size:11.5px; letter-spacing:.06em; color:var(--faint)}
-.hint{color:var(--dim); font-size:13.5px; margin:0 0 22px; line-height:1.55; max-width:78ch}
+.vhead .sp{flex:1}
+.nav{display:flex; align-items:center; gap:4px; position:relative}
+.nav button{width:30px; height:30px; border-radius:8px; border:1px solid var(--line);
+  color:var(--dim); display:grid; place-items:center}
+.nav button:hover{color:var(--text); border-color:var(--faint)}
+.nav .date{display:flex; align-items:center; gap:8px; font-family:var(--mono); font-size:13px;
+  padding:0 12px; height:30px; border-radius:8px; border:1px solid var(--line); color:var(--text);
+  white-space:nowrap; width:auto}
+.nav .date:hover{border-color:var(--faint)}
+.nav .date svg{width:13px; height:13px; color:var(--dim)}
+.nav .today{width:auto; padding:0 10px; font-size:12.5px}
+.seg{display:flex; gap:2px; padding:3px; border-radius:9px; background:var(--panel-2);
+  border:1px solid var(--line-soft)}
+.seg button{padding:6px 14px; border-radius:7px; font-size:13px; color:var(--dim)}
+.seg button.on{background:var(--panel-3); color:var(--text); box-shadow:inset 0 0 0 1px var(--line)}
+.hint{color:var(--dim); font-size:13.5px; margin:0 0 22px; line-height:1.55; max-width:80ch}
+
+/* ---------- міні-календар ---------- */
+/* календар відкривається від правого краю: навігація стоїть праворуч,
+   і вліво місця більше, ніж вправо */
+.cal{position:absolute; top:calc(100% + 8px); right:0; z-index:30; width:300px;
+  background:var(--panel); border:1px solid var(--line); border-radius:12px; padding:14px;
+  box-shadow:0 24px 60px -20px rgba(0,0,0,.75)}
+.cal .mh{display:flex; align-items:center; justify-content:space-between; margin-bottom:10px}
+.cal .mh b{font-size:14px; font-weight:600}
+.cal .mh button{width:26px; height:26px; border-radius:7px; color:var(--dim)}
+.cal .mh button:hover{color:var(--text); background:var(--panel-2)}
+.cal .wd{display:grid; grid-template-columns:repeat(7,1fr); gap:4px; margin-bottom:4px}
+.cal .wd span{text-align:center; font-family:var(--mono); font-size:9px; letter-spacing:.1em;
+  color:var(--faint); text-transform:uppercase}
+.cal .grid{display:grid; grid-template-columns:repeat(7,1fr); gap:4px}
+.cal .d{aspect-ratio:1; border-radius:8px; display:flex; flex-direction:column;
+  align-items:center; justify-content:center; gap:3px; font-family:var(--mono); font-size:11.5px;
+  color:var(--dim); border:1px solid transparent}
+.cal .d.pad{visibility:hidden}
+.cal .d.has:hover{background:var(--panel-2); border-color:var(--line); color:var(--text)}
+.cal .d.cur{border-color:var(--accent); color:var(--text)}
+.cal .d.future{color:var(--faint); opacity:.5}
+.cal .d i{width:6px; height:6px; border-radius:50%}
+.cal .d i.ok{background:var(--up)} .cal .d i.no{background:var(--down)}
+.cal .d i.part{background:var(--be)} .cal .d i.open{border:1.5px solid var(--faint)}
+.cal .lg{display:flex; flex-wrap:wrap; gap:10px 12px; margin-top:12px; padding-top:10px;
+  border-top:1px solid var(--line-soft); font-size:11.5px; color:var(--dim)}
+.cal .lg span{display:flex; align-items:center; gap:6px}
+.cal .lg i{width:7px; height:7px; border-radius:50%}
+.cal .lg i.ok{background:var(--up)} .cal .lg i.no{background:var(--down)}
+.cal .lg i.part{background:var(--be)} .cal .lg i.open{border:1.5px solid var(--faint)}
 
 /* ---------- картка активу ---------- */
 .stack{display:flex; flex-direction:column; gap:14px}
@@ -65,6 +115,8 @@ button{font:inherit; cursor:pointer; border:none; background:none; color:inherit
   border-radius:99px}
 .ahead .tag.long{background:var(--up-soft); color:var(--up)}
 .ahead .tag.short{background:var(--down-soft); color:var(--down)}
+.ahead .res{font-family:var(--mono); font-size:13px; font-variant-numeric:tabular-nums}
+.ahead .res.pos{color:var(--up)} .ahead .res.neg{color:var(--down)}
 .ahead .sp{flex:1}
 .ahead .x{color:var(--faint); font-size:16px; line-height:1; padding:4px 8px; border-radius:6px}
 .ahead .x:hover{color:var(--text); background:var(--panel-3)}
@@ -76,11 +128,12 @@ button{font:inherit; cursor:pointer; border:none; background:none; color:inherit
 .pt{display:flex; align-items:baseline; gap:9px; margin-bottom:12px}
 .pt b{font-family:var(--mono); font-size:10px; letter-spacing:.14em; color:var(--accent);
   background:var(--accent-soft); padding:3px 7px; border-radius:99px; font-weight:600}
+.pt.fact b{color:var(--be); background:var(--be-soft)}
 .pt span{font-size:14.5px; font-weight:600}
 .pt i{font-style:normal; font-size:12px; color:var(--faint)}
 
-/* ---------- скріни по таймфреймах ---------- */
-.tfs{display:grid; grid-template-columns:repeat(auto-fill,minmax(190px,1fr)); gap:10px}
+/* скріни по таймфреймах */
+.tfs{display:grid; grid-template-columns:repeat(auto-fill,minmax(180px,1fr)); gap:10px}
 .tf{display:flex; flex-direction:column; gap:7px}
 .tf .cap{display:flex; align-items:center; gap:7px}
 .tf .code{font-family:var(--mono); font-size:11px; letter-spacing:.08em; padding:4px 9px;
@@ -90,33 +143,95 @@ button{font:inherit; cursor:pointer; border:none; background:none; color:inherit
 .tf .box{border:1px solid var(--line); border-radius:10px; aspect-ratio:16/10; display:grid;
   place-items:center; font-size:12px; color:var(--dim);
   background:linear-gradient(160deg,#12181c,#0c1014)}
+.tf .box.eve{background:linear-gradient(160deg,#1a1712,#0f0d0a)}
 .tf .box.empty{border-style:dashed; background:var(--panel-2); color:var(--faint)}
-.tf .box.empty:hover{border-color:var(--faint); color:var(--dim)}
 .tf .box .mk{font-family:var(--mono); font-size:9px; letter-spacing:.16em; text-transform:uppercase}
 
-/* ---------- напрям, рівні, сценарії ---------- */
+/* напрям, рівні, сценарії */
 .side-pick{display:flex; gap:6px; margin-bottom:10px}
 .side-pick span{font-family:var(--mono); font-size:11px; letter-spacing:.08em;
   padding:5px 12px; border-radius:99px; border:1px solid var(--line); color:var(--faint)}
 .side-pick span.on.long{background:var(--up-soft); border-color:transparent; color:var(--up)}
 .side-pick span.on.short{background:var(--down-soft); border-color:transparent; color:var(--down)}
 .why{font-size:13.5px; color:var(--dim); line-height:1.55}
-
 .lv{display:flex; flex-direction:column; gap:6px}
 .lvr{display:grid; grid-template-columns:100px 1fr 1.3fr; gap:10px; align-items:center;
   padding:9px 11px; border:1px solid var(--line-soft); border-radius:9px; background:var(--panel-2)}
 .lvr .p{font-family:var(--mono); font-size:13.5px}
 .lvr .t{font-size:13px}
 .lvr .n{font-size:12.5px; color:var(--faint)}
+.lvr.done{grid-template-columns:100px 26px 1fr}
+.lvr .hit{width:18px; height:18px; border-radius:50%; border:1.5px solid var(--line); display:grid;
+  place-items:center; font-size:11px}
+.lvr .hit.y{background:var(--up-soft); border-color:transparent; color:var(--up)}
+.lvr .hit.n{background:var(--down-soft); border-color:transparent; color:var(--down)}
 .add{margin-top:9px; font-size:12.5px; color:var(--dim); border:1px dashed var(--line);
   border-radius:8px; padding:7px 12px}
 .add:hover{color:var(--text); border-color:var(--faint)}
-
 .sc{display:grid; gap:8px}
 .sc div{padding:10px 12px; border:1px solid var(--line-soft); border-radius:9px;
   background:var(--panel-2); font-size:13.5px; line-height:1.5}
 .sc div b{display:block; font-family:var(--mono); font-size:10px; letter-spacing:.14em;
   text-transform:uppercase; color:var(--faint); margin-bottom:4px; font-weight:500}
+
+/* ---------- вечір: розворот план | факт ---------- */
+.two{display:grid; grid-template-columns:1fr 1fr; gap:0}
+.two .col{padding:0 18px 4px}
+.two .col.l{border-right:1px solid var(--line-soft)}
+.two .col .blk:first-child{padding-top:0}
+.colhead{display:flex; gap:6px; align-items:center; padding:12px 18px 0; font-family:var(--mono);
+  font-size:10px; letter-spacing:.14em; text-transform:uppercase; color:var(--faint)}
+.colhead b{font-weight:600; padding:2px 8px; border-radius:99px}
+.colhead b.plan{color:var(--accent); background:var(--accent-soft)}
+.colhead b.fact{color:var(--be); background:var(--be-soft)}
+.fact-text{font-size:13.5px; color:var(--dim); line-height:1.6}
+.trow{display:grid; grid-template-columns:auto 1fr auto auto; gap:10px; align-items:center;
+  padding:9px 11px; border:1px solid var(--line-soft); border-radius:9px; background:var(--panel-2);
+  font-size:13.5px; margin-bottom:6px}
+.trow .t{font-family:var(--mono); font-size:11.5px; color:var(--faint)}
+.trow .v{font-family:var(--mono); font-variant-numeric:tabular-nums}
+.trow .v.pos{color:var(--up)} .trow .v.neg{color:var(--down)}
+.trow .flag{font-family:var(--mono); font-size:9px; letter-spacing:.12em; text-transform:uppercase;
+  padding:3px 7px; border-radius:99px}
+.trow .flag.plan{color:var(--up); background:var(--up-soft)}
+.trow .flag.off{color:var(--down); background:var(--down-soft)}
+.marks{display:grid; gap:10px}
+.marks .k{font-size:13px; color:var(--dim); margin-bottom:6px}
+.pick{display:flex; gap:6px}
+.pick span{font-family:var(--mono); font-size:11px; padding:5px 12px; border-radius:99px;
+  border:1px solid var(--line); color:var(--faint)}
+.pick span.on.y{background:var(--up-soft); color:var(--up); border-color:transparent}
+.pick span.on.p{background:var(--be-soft); color:var(--be); border-color:transparent}
+.pick span.on.n{background:var(--down-soft); color:var(--down); border-color:transparent}
+
+/* ---------- підсумок дня ---------- */
+.sum{border:1px solid var(--line); border-radius:14px; background:var(--panel); overflow:hidden}
+.sum .h{display:flex; align-items:baseline; gap:10px; padding:14px 18px;
+  border-bottom:1px solid var(--line-soft); background:var(--panel-2)}
+.sum .h b{font-family:var(--mono); font-size:10px; letter-spacing:.14em; text-transform:uppercase;
+  color:var(--faint); font-weight:500}
+.sum .h span{font-size:14.5px; font-weight:600}
+.sum .h .tot{margin-left:auto; font-family:var(--mono); font-size:18px}
+.sum .h .tot.pos{color:var(--up)}
+.srow{display:grid; grid-template-columns:110px 70px 1fr 120px 120px 80px; gap:12px;
+  align-items:center; padding:11px 18px; border-bottom:1px solid var(--line-soft); font-size:13.5px}
+.srow:last-of-type{border-bottom:none}
+.srow.hd{font-family:var(--mono); font-size:9px; letter-spacing:.14em; text-transform:uppercase;
+  color:var(--faint); padding:9px 18px}
+.srow .nm{font-family:var(--mono); font-weight:600}
+.srow .tag{font-family:var(--mono); font-size:10px; letter-spacing:.1em; padding:3px 9px;
+  border-radius:99px; justify-self:start}
+.srow .tag.long{background:var(--up-soft); color:var(--up)}
+.srow .tag.short{background:var(--down-soft); color:var(--down)}
+.srow .m{display:flex; align-items:center; gap:7px; font-size:13px}
+.srow .m i{width:8px; height:8px; border-radius:50%}
+.srow .m i.y{background:var(--up)} .srow .m i.n{background:var(--down)} .srow .m i.p{background:var(--be)}
+.srow .r{font-family:var(--mono); text-align:right; font-variant-numeric:tabular-nums}
+.srow .r.pos{color:var(--up)} .srow .r.neg{color:var(--down)}
+.lesson{padding:16px 18px; border-top:1px solid var(--line-soft)}
+.lesson .k{font-family:var(--mono); font-size:9px; letter-spacing:.14em; text-transform:uppercase;
+  color:var(--faint); margin-bottom:7px}
+.lesson p{margin:0; font-size:14px; line-height:1.6; color:var(--text)}
 
 /* ---------- додати актив ---------- */
 .addwrap{position:relative; align-self:flex-start}
@@ -143,7 +258,6 @@ button{font:inherit; cursor:pointer; border:none; background:none; color:inherit
 .pop .own button{padding:8px 12px; border-radius:8px; background:var(--accent);
   color:var(--accent-ink); font-size:13px; font-weight:500}
 
-/* ---------- спільне на день ---------- */
 .common{margin-top:14px; border:1px solid var(--line); border-radius:14px; background:var(--panel);
   padding:18px 20px}
 .common .ttl{display:flex; align-items:baseline; gap:9px; margin-bottom:10px}
@@ -152,141 +266,271 @@ button{font:inherit; cursor:pointer; border:none; background:none; color:inherit
 .common .ttl span{font-size:14.5px; font-weight:600}
 .common ul{margin:0; padding-left:18px; color:var(--dim); font-size:13.5px; line-height:1.75}
 
+.closeday{margin-top:14px; display:flex; align-items:center; gap:14px; padding:16px 20px;
+  border:1px solid var(--line); border-radius:14px; background:var(--panel)}
+.closeday .t{flex:1; font-size:13.5px; color:var(--dim); line-height:1.5}
+.closeday button{padding:10px 16px; border-radius:9px; background:var(--accent);
+  color:var(--accent-ink); font-weight:500; font-size:13.5px}
+
 @media (max-width:900px){
   body{padding:18px 14px 80px}
-  .lvr{grid-template-columns:1fr; gap:4px}
+  .lvr, .lvr.done{grid-template-columns:1fr; gap:4px}
   .tfs{grid-template-columns:1fr}
+  .two{grid-template-columns:1fr}
+  .two .col.l{border-right:none; border-bottom:1px solid var(--line-soft); padding-bottom:16px}
+  .srow{grid-template-columns:1fr 1fr; row-gap:6px}
+  .srow.hd{display:none}
   .pop{width:min(290px,calc(100vw - 40px))}
 }
 </style>
 </head>
 <body>
 
-<div class="page">
-  <div class="vhead"><h1>Аналіз дня</h1><span class="sub">ЧТ, 3 ВЕРЕСНЯ · РАНОК</span></div>
-  <p class="hint">Кожен актив — своя картка. Скріни всередині розкладені по таймфреймах:
-    старший для контексту, молодший для входу. Активи підказує ваша ТС.</p>
-  <div id="view"></div>
-</div>
+<div class="page" id="page"></div>
 
 <script>
 const esc = s => String(s == null ? "" : s).replace(/[&<>"]/g,
   c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
 
-/* Що написано в «Моїй ТС» — звідси й береться перелік активів. */
+/* Що написано в «Моїй ТС» — звідси перелік активів. */
 const FROM_TS = ["US100", "GER40", "XAUUSD"];
 /* Що вже зустрічалось у журналі, але в ТС не записано. */
 const FROM_JOURNAL = ["US30", "EURUSD", "BTCUSD"];
-
 const COMMON = ["Не входити за 15 хвилин до новин о 15:30",
                 "Не більше 3 угод за день",
                 "Після двох стопів поспіль — вимикаю термінал"];
 
-/* Ранок, як він виглядає заповненим. shots — по таймфреймах:
-   код таймфрейму, навіщо він і чи вже вставлено скрін. */
+/* Один день: ранок і вечір. Угоди приїжджають із журналу вже
+   розкладеними по активу — це його пара. */
 let assets = [
   {nm:"US100", ts:true, side:"long",
    why:"Тижневий у лонг, вчора зняли лоу і повернулись у діапазон. Чекаю продовження вгору.",
-   shots:[["1D","контекст",true],["1H","зона",true],["15m","вхід",true]],
-   levels:[["23 480","денний лоу","звідси йшов імпульс"],
-           ["23 610","POC вчорашнього дня","тут стояв обʼєм"],
-           ["23 745","ціль","хай понеділка"]],
+   shots:[["1D","контекст"],["1H","зона"],["15m","вхід"]],
+   levels:[["23 480","денний лоу","звідси йшов імпульс", "y", "зняли о 10:20, відбій"],
+           ["23 610","POC вчорашнього дня","тут стояв обʼєм", "y", "пройшли з другого разу"],
+           ["23 745","ціль","хай понеділка", "n", "не дійшли, розвернулись на 23 700"]],
    plans:[["Основний","Зняття 23 480 → CISD на 1m → вхід на ретесті"],
-          ["Запасний","Якщо зразу пішли вгору — чекаю відкату до 23 610"]]},
+          ["Запасний","Якщо зразу пішли вгору — чекаю відкату до 23 610"]],
+   eveShots:[["1H","як закрились"],["15m","входи"]],
+   factText:"Зняли лоу, як і чекав, і пішли вгору. До цілі не дотягнули — розвернулись за 45 пунктів, друга угода на ретесті 23 610 закрилась у плюс.",
+   trades:[["10:42","CISD · London","plan",1.8],["14:03","CISD · New York","plan",2.1]],
+   match:"y", hold:"y"},
   {nm:"GER40", ts:true, side:"short",
    why:"Проти індексів США: не пробили хай тижня з третьої спроби, зверху ліквідність зняли.",
-   shots:[["1D","контекст",true],["1H","зона",true],["","",false]],
-   levels:[["24 190","хай тижня","звідси розворот"],
-           ["24 020","денний VWAP","перша ціль"]],
+   shots:[["1D","контекст"],["1H","зона"]],
+   levels:[["24 190","хай тижня","звідси розворот", "n", "пробили о 11:05 і пішли вище"],
+           ["24 020","денний VWAP","перша ціль", "n", "не торкались"]],
    plans:[["Основний","Ретест 24 190 знизу → шорт від рівня"],
-          ["Запасний","Пробили вгору — сьогодні не торгую GER40"]]},
+          ["Запасний","Пробили вгору — сьогодні не торгую GER40"]],
+   eveShots:[["1H","пробій хаю"]],
+   factText:"Пробили хай тижня і не повернулись. За планом мав не торгувати — але зашортив пробій, бо «занадто далеко пішло». Стоп.",
+   trades:[["11:15","OB · London","off",-0.9]],
+   match:"n", hold:"n"},
 ];
 
-const pt = (n, ttl, sub) => '<div class="pt"><b>' + n + '</b><span>' + esc(ttl)
-  + '</span><i>' + esc(sub) + '</i></div>';
+/* Місяць для календаря: у які дні що було. ok — план збігся, no — ні,
+   part — частково, open — план є, вечір не записаний. */
+const TODAY = 3;
+const MONTH = {1:"no", 2:"ok", 3:"ok"};
+const PREV = {18:"ok",19:"ok",20:"part",21:"no",22:"ok",25:"ok",26:"open",27:"ok",28:"no",29:"ok"};
 
-/* Слоти під скріни. Заповнені показують таймфрейм і навіщо він,
-   порожній чекає вставки, останній — «додати ще таймфрейм». */
-function shots(a, ai){
-  const cells = a.shots.map((s, i) => s[2]
-    ? '<div class="tf"><div class="cap"><span class="code">' + esc(s[0]) + '</span>'
-      + '<span class="role">' + esc(s[1]) + '</span></div>'
-      + '<div class="box"><span class="mk">розмітка ' + esc(a.nm) + '</span></div></div>'
-    : '<div class="tf"><div class="cap"><span class="code pick">таймфрейм</span></div>'
-      + '<div class="box empty">клік, Ctrl+V або перетягни</div></div>').join("");
-  return '<div class="tfs">' + cells
-    + '<div class="tf"><div class="cap"><span class="code pick">+ таймфрейм</span></div>'
-    + '<div class="box empty">ще один графік</div></div></div>';
+let half = "eve";       /* ранок | вечір */
+let calOpen = false, popOpen = false, calMonth = 0;   /* 0 — цей місяць, -1 — минулий */
+
+const pt = (n, ttl, sub, fact) => '<div class="pt' + (fact ? " fact" : "") + '"><b>' + n
+  + '</b><span>' + esc(ttl) + '</span><i>' + esc(sub) + '</i></div>';
+
+/* ---------- шапка з календарем ---------- */
+function headHtml(){
+  return '<div class="vhead"><h1>Аналіз дня</h1>'
+    + '<span class="sub">ЧТ, 3 ВЕРЕСНЯ · СЬОГОДНІ</span><span class="sp"></span>'
+    + '<div class="seg">'
+    +   '<button class="' + (half === "morn" ? "on" : "") + '" onclick="setHalf(\'morn\')">Ранок</button>'
+    +   '<button class="' + (half === "eve" ? "on" : "") + '" onclick="setHalf(\'eve\')">Вечір</button>'
+    + '</div>'
+    + '<div class="nav"><button title="Попередній день">←</button>'
+    +   '<button class="date" onclick="toggleCal()">'
+    +     '<svg viewBox="0 0 24 24" fill="none"><rect x="3" y="4" width="18" height="17" rx="3" stroke="currentColor" stroke-width="1.7"/><path d="M3 9h18M8 3v3M16 3v3" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></svg>'
+    +     '2026-09-03</button>'
+    +   '<button title="Наступний день">→</button>'
+    +   (calOpen ? calHtml() : "")
+    + '</div></div>'
+    + '<p class="hint">' + (half === "morn"
+        ? "Кожен актив — своя картка. Скріни розкладені по таймфреймах, активи підказує ваша ТС. Увечері натиснете «Записати підсумок дня» — і ліворуч лишиться план, а праворуч зʼявиться факт."
+        : "Ліворуч план, як його записали зранку, праворуч — що вийшло. Угоди з журналу самі лягли до свого активу. Відмітки «за планом» і «тримався» — по кожному активу окремо, з них потім збирається статистика.")
+    + '</p>';
 }
 
-const sideRow = a =>
-  '<div class="side-pick">'
+function calHtml(){
+  const cur = calMonth === 0;
+  const name = cur ? "Вересень 2026" : "Серпень 2026";
+  const days = cur ? 30 : 31, first = cur ? 1 : 5;      /* пн=0: 1 вер — вт, 1 серп — сб */
+  const marks = cur ? MONTH : PREV;
+  let cells = "";
+  for (let i = 0; i < first; i++) cells += '<div class="d pad"></div>';
+  for (let d = 1; d <= days; d++){
+    const m = marks[d];
+    const future = cur && d > TODAY;
+    const cls = "d" + (m ? " has" : "") + (cur && d === TODAY ? " cur" : "") + (future ? " future" : "");
+    cells += '<div class="' + cls + '"' + (m ? ' onclick="goDay(' + d + ')" title="Відкрити день"' : "")
+      + '>' + d + (m ? '<i class="' + m + '"></i>' : "") + '</div>';
+  }
+  return '<div class="cal" id="cal">'
+    + '<div class="mh"><button onclick="calMove(-1)">‹</button><b>' + name + '</b>'
+    +   '<button onclick="calMove(1)"' + (cur ? " disabled style=\"opacity:.3\"" : "") + '>›</button></div>'
+    + '<div class="wd"><span>пн</span><span>вт</span><span>ср</span><span>чт</span><span>пт</span><span>сб</span><span>нд</span></div>'
+    + '<div class="grid">' + cells + '</div>'
+    + '<div class="lg"><span><i class="ok"></i>за планом</span><span><i class="part"></i>частково</span>'
+    +   '<span><i class="no"></i>не за планом</span><span><i class="open"></i>без вечора</span></div>'
+    + '</div>';
+}
+
+/* ---------- ранок ---------- */
+function shotsMorn(a){
+  return '<div class="tfs">'
+    + a.shots.map(s => '<div class="tf"><div class="cap"><span class="code">' + esc(s[0]) + '</span>'
+        + '<span class="role">' + esc(s[1]) + '</span></div>'
+        + '<div class="box"><span class="mk">розмітка ' + esc(a.nm) + '</span></div></div>').join("")
+    + '<div class="tf"><div class="cap"><span class="code pick">+ таймфрейм</span></div>'
+    + '<div class="box empty">клік, Ctrl+V або перетягни</div></div></div>';
+}
+const sideRow = a => '<div class="side-pick">'
   + '<span class="' + (a.side === "long" ? "on long" : "") + '">Лонг</span>'
   + '<span class="' + (a.side === "short" ? "on short" : "") + '">Шорт</span>'
   + '<span>Нейтрально</span></div><div class="why">' + esc(a.why) + '</div>';
-
-const levels = a => '<div class="lv">'
-  + a.levels.map(l => '<div class="lvr"><span class="p">' + esc(l[0]) + '</span>'
-      + '<span class="t">' + esc(l[1]) + '</span>'
-      + '<span class="n">' + esc(l[2]) + '</span></div>').join("")
+const levelsMorn = a => '<div class="lv">'
+  + a.levels.map(l => '<div class="lvr"><span class="p">' + esc(l[0]) + '</span><span class="t">'
+      + esc(l[1]) + '</span><span class="n">' + esc(l[2]) + '</span></div>').join("")
   + '</div><button class="add">+ додати рівень</button>';
-
 const plans = a => '<div class="sc">'
-  + a.plans.map(p => '<div><b>' + esc(p[0]) + '</b>' + esc(p[1]) + '</div>').join("")
-  + '</div>';
+  + a.plans.map(p => '<div><b>' + esc(p[0]) + '</b>' + esc(p[1]) + '</div>').join("") + '</div>';
 
-function card(a, i){
+function cardMorn(a, i){
   return '<div class="acard">'
     + '<div class="ahead"><span class="nm">' + esc(a.nm) + '</span>'
     +   (a.ts ? '<span class="from">з вашої ТС</span>' : '')
-    +   '<span class="tag ' + a.side + '">' + (a.side === "long" ? "Лонг" : "Шорт") + '</span>'
-    +   '<span class="sp"></span>'
-    +   '<button class="x" onclick="drop(' + i + ')" title="Прибрати актив">×</button></div>'
+    +   (a.side ? '<span class="tag ' + a.side + '">' + (a.side === "long" ? "Лонг" : "Шорт") + '</span>' : '')
+    +   '<span class="sp"></span><button class="x" onclick="drop(' + i + ')">×</button></div>'
     + '<div class="abody">'
-    +   '<div class="blk">' + pt("01", "Графіки зранку", "по таймфреймах") + shots(a, i) + '</div>'
+    +   '<div class="blk">' + pt("01", "Графіки зранку", "по таймфреймах") + shotsMorn(a) + '</div>'
     +   '<div class="blk">' + pt("02", "Куди дивишся", "лонг чи шорт і чому") + sideRow(a) + '</div>'
-    +   '<div class="blk">' + pt("03", "Рівні, які відмітив", "ціна і що це") + levels(a) + '</div>'
+    +   '<div class="blk">' + pt("03", "Рівні, які відмітив", "ціна і що це") + levelsMorn(a) + '</div>'
     +   '<div class="blk">' + pt("04", "Що плануєш робити", "сценарії на день") + plans(a) + '</div>'
     + '</div></div>';
 }
 
-/* Вибір активу. Спершу те, що людина сама написала в ТС: журнал не
-   вигадує за неї список інструментів, а бере її ж слова. */
+/* ---------- вечір ---------- */
+function shotsEve(a){
+  return '<div class="tfs">'
+    + a.eveShots.map(s => '<div class="tf"><div class="cap"><span class="code">' + esc(s[0]) + '</span>'
+        + '<span class="role">' + esc(s[1]) + '</span></div>'
+        + '<div class="box eve"><span class="mk">' + esc(a.nm) + ' увечері</span></div></div>').join("")
+    + '<div class="tf"><div class="cap"><span class="code pick">+ таймфрейм</span></div>'
+    + '<div class="box empty">скрін кінця дня</div></div></div>';
+}
+const levelsDone = a => '<div class="lv">'
+  + a.levels.map(l => '<div class="lvr done"><span class="p">' + esc(l[0]) + '</span>'
+      + '<span class="hit ' + l[3] + '">' + (l[3] === "y" ? "✓" : "×") + '</span>'
+      + '<span class="n">' + esc(l[4]) + '</span></div>').join("") + '</div>';
+const tradesEve = a => a.trades.length
+  ? a.trades.map(t => '<div class="trow"><span class="t">' + t[0] + '</span><span>' + esc(t[1])
+      + '</span><span class="flag ' + t[2] + '">' + (t[2] === "plan" ? "за планом" : "не за планом")
+      + '</span><span class="v ' + (t[3] >= 0 ? "pos" : "neg") + '">' + (t[3] > 0 ? "+" : "") + t[3].toFixed(1)
+      + '%</span></div>').join("")
+  : '<div class="fact-text">Угод по цьому активу сьогодні не було.</div>';
+const marks = a => {
+  const one = (k, lbl, v) => '<div><div class="k">' + lbl + '</div><div class="pick">'
+    + '<span class="' + (v === "y" ? "on y" : "") + '">Так</span>'
+    + '<span class="' + (v === "p" ? "on p" : "") + '">Частково</span>'
+    + '<span class="' + (v === "n" ? "on n" : "") + '">Ні</span></div></div>';
+  return '<div class="marks">' + one("match", "Ринок пішов за планом", a.match)
+    + one("hold", "Тримався плану", a.hold) + '</div>';
+};
+const sumOf = a => a.trades.reduce((s, t) => s + t[3], 0);
+
+function cardEve(a){
+  const r = sumOf(a);
+  return '<div class="acard">'
+    + '<div class="ahead"><span class="nm">' + esc(a.nm) + '</span>'
+    +   '<span class="tag ' + a.side + '">' + (a.side === "long" ? "Лонг" : "Шорт") + '</span>'
+    +   '<span class="sp"></span>'
+    +   '<span class="res ' + (r >= 0 ? "pos" : "neg") + '">' + (r > 0 ? "+" : "") + r.toFixed(1) + '%</span></div>'
+    + '<div class="two">'
+    +   '<div class="colhead"><b class="plan">ранок · план</b></div><div class="colhead"><b class="fact">вечір · факт</b></div>'
+    +   '<div class="col l">'
+    +     '<div class="blk">' + pt("01", "Графіки зранку", "як бачив") + shotsMorn(a).replace(/<div class="tf"><div class="cap"><span class="code pick">[\s\S]*?<\/div><\/div>(?=<\/div>$)/, "") + '</div>'
+    +     '<div class="blk">' + pt("02", "Куди дивився", "і чому") + sideRow(a) + '</div>'
+    +     '<div class="blk">' + pt("03", "Рівні", "які відмітив") + levelsMorn(a).replace(/<button class="add">.*?<\/button>/, "") + '</div>'
+    +     '<div class="blk">' + pt("04", "Що планував", "сценарії") + plans(a) + '</div>'
+    +   '</div>'
+    +   '<div class="col">'
+    +     '<div class="blk">' + pt("01", "Той самий графік увечері", "як закінчилось", true) + shotsEve(a) + '</div>'
+    +     '<div class="blk">' + pt("02", "Куди ринок пішов", "своїми словами", true)
+    +       '<div class="fact-text">' + esc(a.factText) + '</div></div>'
+    +     '<div class="blk">' + pt("03", "Що з ними сталось", "по кожному рівню", true) + levelsDone(a) + '</div>'
+    +     '<div class="blk">' + pt("04", "Що зробив насправді", "угоди з журналу по " + a.nm, true) + tradesEve(a) + '</div>'
+    +     '<div class="blk">' + pt("05", "Чи втримався", "по цьому активу", true) + marks(a) + '</div>'
+    +   '</div>'
+    + '</div></div>';
+}
+
+function summary(){
+  const tot = assets.reduce((s, a) => s + sumOf(a), 0);
+  const m = v => '<span class="m"><i class="' + v + '"></i>' + (v === "y" ? "так" : v === "p" ? "частково" : "ні") + '</span>';
+  return '<div class="sum">'
+    + '<div class="h"><b>підсумок дня</b><span>' + assets.length + ' активи · '
+    +   assets.reduce((s, a) => s + a.trades.length, 0) + ' угоди</span>'
+    +   '<span class="tot ' + (tot >= 0 ? "pos" : "neg") + '">' + (tot > 0 ? "+" : "") + tot.toFixed(1) + '%</span></div>'
+    + '<div class="srow hd"><span>актив</span><span>план</span><span>що вийшло</span><span>за планом</span><span>тримався</span><span style="text-align:right">результат</span></div>'
+    + assets.map(a => { const r = sumOf(a); return '<div class="srow"><span class="nm">' + esc(a.nm) + '</span>'
+        + '<span class="tag ' + a.side + '">' + (a.side === "long" ? "Лонг" : "Шорт") + '</span>'
+        + '<span style="color:var(--dim);font-size:13px">' + esc(a.factText.split(".")[0]) + '.</span>'
+        + m(a.match) + m(a.hold)
+        + '<span class="r ' + (r >= 0 ? "pos" : "neg") + '">' + (r > 0 ? "+" : "") + r.toFixed(1) + '%</span></div>'; }).join("")
+    + '<div class="lesson"><div class="k">що з цього винести</div>'
+    +   '<p>Коли сценарій каже «не торгую» — не торгую. Сьогоднішній мінус — це рівно одна угода проти власного плану по GER40. US100 відпрацював як записано.</p></div>'
+    + '</div>';
+}
+
+/* ---------- вибір активу ---------- */
 function popup(){
   const taken = assets.map(a => a.nm);
   const chips = (list, ts) => list.map(nm =>
     '<button onclick="pickAsset(\'' + nm + '\',' + (ts ? 1 : 0) + ')"'
     + (taken.indexOf(nm) >= 0 ? " disabled" : "") + '>' + esc(nm) + '</button>').join("");
   return '<div class="pop" id="pop">'
-    + '<div class="grp"><div class="lbl"><em>◆</em> з вашої ТС</div>'
-    +   '<div class="chips">' + chips(FROM_TS, true) + '</div></div>'
-    + '<div class="grp"><div class="lbl">вже були в журналі</div>'
-    +   '<div class="chips">' + chips(FROM_JOURNAL, false) + '</div></div>'
+    + '<div class="grp"><div class="lbl"><em>◆</em> з вашої ТС</div><div class="chips">' + chips(FROM_TS, true) + '</div></div>'
+    + '<div class="grp"><div class="lbl">вже були в журналі</div><div class="chips">' + chips(FROM_JOURNAL, false) + '</div></div>'
     + '<div class="grp"><div class="lbl">свій</div><div class="own">'
-    +   '<input id="ownNm" placeholder="напр. USDJPY" aria-label="Свій інструмент">'
-    +   '<button onclick="addOwn()">Додати</button></div></div>'
+    +   '<input id="ownNm" placeholder="напр. USDJPY" aria-label="Свій інструмент"><button onclick="addOwn()">Додати</button></div></div>'
     + '</div>';
 }
 
-let popOpen = false;
-
 function draw(){
-  document.getElementById("view").innerHTML =
-    '<div class="stack">'
-    + assets.map(card).join("")
-    + '<div class="addwrap">'
-    +   '<button class="addbig" onclick="togglePop()">+ додати актив</button>'
-    +   (popOpen ? popup() : "")
-    + '</div></div>'
-    + '<div class="common"><div class="ttl"><b>Спільне на день</b>'
-    +   '<span>Чого не робити</span></div><ul>'
-    +   COMMON.map(x => '<li>' + esc(x) + '</li>').join("") + '</ul></div>';
+  const commonHtml = '<div class="common"><div class="ttl"><b>Спільне на день</b><span>Чого не робити</span></div><ul>'
+    + COMMON.map(x => '<li>' + esc(x) + '</li>').join("") + '</ul></div>';
+  let body;
+  if (half === "morn"){
+    body = '<div class="stack">' + assets.map(cardMorn).join("")
+      + '<div class="addwrap"><button class="addbig" onclick="togglePop()">+ додати актив</button>'
+      + (popOpen ? popup() : "") + '</div></div>' + commonHtml
+      + '<div class="closeday"><div class="t">Коли день скінчився — натисніть, і ліворуч лишиться план, а праворуч зʼявиться місце під факт по кожному активу.</div>'
+      + '<button onclick="setHalf(\'eve\')">Записати підсумок дня</button></div>';
+  } else {
+    body = '<div class="stack">' + assets.map(cardEve).join("") + '</div>'
+      + '<div style="height:14px"></div>' + summary();
+  }
+  document.getElementById("page").innerHTML = headHtml() + body;
 }
 
-function togglePop(){ popOpen = !popOpen; draw(); }
+function setHalf(h){ half = h; calOpen = false; popOpen = false; draw(); }
+function toggleCal(){ calOpen = !calOpen; popOpen = false; draw(); }
+function calMove(d){ calMonth = Math.min(0, calMonth + d); draw(); }
+function goDay(d){ calOpen = false; draw(); alert("У журналі тут відкрився б день " + d + " — з планом і фактом."); }
+function togglePop(){ popOpen = !popOpen; calOpen = false; draw(); }
 function pickAsset(nm, ts){
-  assets.push({nm: nm, ts: !!ts, side: "", why: "",
-               shots: [["", "", false]], levels: [["", "", ""]], plans: [["Основний", ""]]});
+  assets.push({nm, ts: !!ts, side: "", why: "", shots: [], levels: [], plans: [["Основний", ""]],
+               eveShots: [], factText: "", trades: [], match: "", hold: ""});
   popOpen = false; draw();
 }
 function addOwn(){
@@ -294,11 +538,11 @@ function addOwn(){
   if (v) pickAsset(v, 0); else document.getElementById("ownNm").focus();
 }
 function drop(i){ assets.splice(i, 1); draw(); }
-window.togglePop = togglePop; window.pickAsset = pickAsset;
-window.addOwn = addOwn; window.drop = drop;
+Object.assign(window, {setHalf, toggleCal, calMove, goDay, togglePop, pickAsset, addOwn, drop});
 
 document.addEventListener("click", e => {
   if (popOpen && !e.target.closest(".addwrap")){ popOpen = false; draw(); }
+  if (calOpen && !e.target.closest(".nav")){ calOpen = false; draw(); }
 });
 
 draw();
