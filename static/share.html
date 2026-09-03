@@ -33,6 +33,11 @@
   --g:#40e094;
 }
 *{box-sizing:border-box}
+/* Смуга прокрутки. Сторінку гортати можна як завжди, просто саму смугу не
+   малюємо: коли розкриваєш угоду, вміст стає вищим за екран, смуга
+   з'являється і зсуває всю сторінку вбік на свою ширину. */
+html{scrollbar-width:none}
+html::-webkit-scrollbar{width:0; height:0}
 body{margin:0; background:var(--bg); color:var(--text); font-family:var(--sans);
   -webkit-font-smoothing:antialiased}
 .wrap{max-width:760px; margin:0 auto; padding:clamp(28px,5vw,60px) 20px 70px;
