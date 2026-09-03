@@ -57,7 +57,11 @@ async function load(){
   const want = DATE;
   if (demo()){
     N = demoAll()[want] || null;
-    if (S.view === "day") render();
+    /* Перемальовуємо не одразу: у демо дані лежать у браузері й читаються
+       миттєво, тому виклик прилітає всередину того самого render(), який
+       нас і покликав, — і його результат затирає наш. Через таймер розділ
+       домальовується вже після нього. */
+    setTimeout(() => { if (S.view === "day") render(); }, 0);
     return;
   }
   try{
@@ -85,6 +89,9 @@ async function loadStats(){
 
 let saveTimer = null;
 function save(){
+  /* гість може все розглядати, але не записувати: щойно він спробував
+     зберегти значення — кличемо завести свій журнал */
+  if (window.Guest && Guest.block(T.gsGateTitle)) return;
   STATS = null;                                /* підсумок доведеться перерахувати */
   if (demo()){
     const all = demoAll();

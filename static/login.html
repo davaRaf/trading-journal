@@ -994,7 +994,11 @@ function applyLang(code){
   document.querySelectorAll("#langs button").forEach(b => b.classList.toggle("on", b.dataset.lang === LANG));
   try { localStorage.setItem("statsai_lang", LANG); } catch(e){}
 
-  setTab(document.querySelector('.tabs button.on')?.dataset.tab || "in");
+  /* із журналу й зі сторінки «поділитись» ведуть на /login#signup —
+     людина натиснула «створити журнал», отже їй потрібна реєстрація */
+  const want = location.hash === "#signup" ? "up"
+             : (document.querySelector('.tabs button.on')?.dataset.tab || "in");
+  setTab(want);
 }
 
 const langs = document.getElementById("langs");

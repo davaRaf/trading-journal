@@ -335,10 +335,31 @@ uk: {
 
   // ---- share.html (публічна сторінка) ----
   shLoadingMsg: "Завантаження…", shValidUntilPrefix: "діє до", shNoLimit: "без обмеження часу",
+  shCtaTitle: "Так виглядає журнал, у якому це зроблено",
+  shCtaText: "Зайдіть подивитись зсередини — реєстрація для цього не потрібна. Записувати вже у свій.",
+  shCtaLook: "Подивитись журнал", shCtaMake: "Створити свій",
   shExpandHint: "Натисни на угоду, щоб побачити, як людина її набирала — деталі й скріни.",
   shKindDefault: "статистика", shMadeIn: "зроблено в",
   shLinkBroken: "Посилання не працює", shLinkBrokenDesc: "Його або видалили, або вийшов термін дії.",
   shOpenFailed: "Не вдалося відкрити",
+
+  // ---- гість і порожній журнал ----
+  gsLabel: "Демо", gsBarText: "Це приклади, а не чиїсь справжні угоди. Свій журнал — за хвилину.",
+  gsLogin: "Увійти", gsSignup: "Створити журнал", gsSignupMail: "Реєстрація поштою",
+  gsWith: "Продовжити з %s", gsOr: "або", gsLater: "Поки що просто подивлюсь",
+  gsGateTitle: "Щоб записувати — увійдіть",
+  gsGateTrade: "Щоб записати угоду — увійдіть",
+  gsGateTs: "Щоб описати свою ТС — увійдіть",
+  gsGateConnect: "Щоб підключити — увійдіть",
+  gsGateText: "Дивитись можна скільки завгодно. А ось записувати нікуди: демо нічого не зберігає, після перезавантаження все зникне. У своєму журналі угоди, скріни, статистика й ТС лишаються з вами.",
+  bgTitle: "Тут поки нічого немає — і це нормально",
+  bgLead: "Журнал ваш і порожній. Якщо ви вже вели угоди в Notion — перенесемо все за одним посиланням: угоди, нотатки зі сторінок і скріншоти. Копіювати руками нічого не треба.",
+  bgNotionTag: "швидко", bgNotionTitle: "Підтягнути з Notion",
+  bgNotionText: "Дайте посилання на свою таблицю — заберемо весь журнал разом зі скрінами.",
+  bgTradeTag: "з нуля", bgTradeTitle: "Додати першу угоду",
+  bgTradeText: "Пара, сетап, RR, скріни таймфреймів. Далі статистика збирається сама.",
+  bgTsTag: "спочатку правила", bgTsTitle: "Описати свою ТС",
+  bgTsText: "Опишіть систему — журнал звірятиме кожну угоду з нею.",
 },
 
 ru: {
@@ -638,10 +659,31 @@ ru: {
   sdAssistantAria: "Открыть помощника",
 
   shLoadingMsg: "Загрузка…", shValidUntilPrefix: "действует до", shNoLimit: "без ограничения времени",
+  shCtaTitle: "Так выглядит журнал, в котором это сделано",
+  shCtaText: "Зайдите посмотреть изнутри — регистрация для этого не нужна. Записывать уже в свой.",
+  shCtaLook: "Посмотреть журнал", shCtaMake: "Создать свой",
   shExpandHint: "Нажми на сделку, чтобы увидеть, как человек её набирал — детали и скрины.",
   shKindDefault: "статистика", shMadeIn: "сделано в",
   shLinkBroken: "Ссылка не работает", shLinkBrokenDesc: "Её либо удалили, либо истёк срок действия.",
   shOpenFailed: "Не удалось открыть",
+
+  // ---- гость и пустой журнал ----
+  gsLabel: "Демо", gsBarText: "Это примеры, а не чьи-то настоящие сделки. Свой журнал — за минуту.",
+  gsLogin: "Войти", gsSignup: "Создать журнал", gsSignupMail: "Регистрация по почте",
+  gsWith: "Продолжить с %s", gsOr: "или", gsLater: "Пока просто посмотрю",
+  gsGateTitle: "Чтобы записывать — войдите",
+  gsGateTrade: "Чтобы записать сделку — войдите",
+  gsGateTs: "Чтобы описать свою ТС — войдите",
+  gsGateConnect: "Чтобы подключить — войдите",
+  gsGateText: "Смотреть можно сколько угодно. А вот записывать некуда: демо ничего не хранит, после перезагрузки всё исчезнет. В своём журнале сделки, скрины, статистика и ТС остаются с вами.",
+  bgTitle: "Тут пока ничего нет — и это нормально",
+  bgLead: "Журнал ваш и пустой. Если вы уже вели сделки в Notion — перенесём всё по одной ссылке: сделки, заметки со страниц и скриншоты. Копировать руками ничего не нужно.",
+  bgNotionTag: "быстро", bgNotionTitle: "Подтянуть из Notion",
+  bgNotionText: "Дайте ссылку на свою таблицу — заберём весь журнал вместе со скринами.",
+  bgTradeTag: "с нуля", bgTradeTitle: "Добавить первую сделку",
+  bgTradeText: "Пара, сетап, RR, скрины таймфреймов. Дальше статистика собирается сама.",
+  bgTsTag: "сначала правила", bgTsTitle: "Описать свою ТС",
+  bgTsText: "Опишите систему — журнал будет сверять каждую сделку с ней.",
 },
 
 en: {
@@ -941,10 +983,31 @@ en: {
   sdAssistantAria: "Open the assistant",
 
   shLoadingMsg: "Loading…", shValidUntilPrefix: "valid until", shNoLimit: "no time limit",
+  shCtaTitle: "This is the journal it was made in",
+  shCtaText: "Have a look inside — no account needed for that. Logging trades needs your own.",
+  shCtaLook: "Look inside", shCtaMake: "Create yours",
   shExpandHint: "Tap a trade to see how it was taken — the details and the charts.",
   shKindDefault: "stats", shMadeIn: "made with",
   shLinkBroken: "This link doesn't work", shLinkBrokenDesc: "It was either removed or has expired.",
   shOpenFailed: "Couldn't open it",
+
+  // ---- guest and empty journal ----
+  gsLabel: "Demo", gsBarText: "These are samples, not anyone's real trades. Your own journal takes a minute.",
+  gsLogin: "Sign in", gsSignup: "Create journal", gsSignupMail: "Sign up with email",
+  gsWith: "Continue with %s", gsOr: "or", gsLater: "Just looking for now",
+  gsGateTitle: "Sign in to save anything",
+  gsGateTrade: "Sign in to log a trade",
+  gsGateTs: "Sign in to write down your system",
+  gsGateConnect: "Sign in to connect this",
+  gsGateText: "Look around as long as you like. Saving is the part that needs an account: the demo keeps nothing and resets on reload. In your own journal the trades, screenshots, stats and system stay with you.",
+  bgTitle: "Nothing here yet — that's fine",
+  bgLead: "The journal is yours and empty. If you kept trades in Notion, we'll move all of it with one link: trades, page notes and screenshots. Nothing to copy by hand.",
+  bgNotionTag: "fast", bgNotionTitle: "Pull from Notion",
+  bgNotionText: "Give us a link to your table — we'll take the whole journal, screenshots included.",
+  bgTradeTag: "from scratch", bgTradeTitle: "Add your first trade",
+  bgTradeText: "Pair, setup, RR, timeframe screenshots. The stats build themselves after that.",
+  bgTsTag: "rules first", bgTsTitle: "Describe your system",
+  bgTsText: "Write down the system — the journal will check every trade against it.",
 },
 
 };

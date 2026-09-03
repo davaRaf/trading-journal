@@ -35,7 +35,11 @@ function demo(){ return typeof DEMO !== "undefined" && DEMO; }
 async function load(){
   if (demo()){
     try{ TS = normalize(JSON.parse(localStorage.getItem(DEMO_KEY) || "null")); }catch(e){ TS = null; }
-    if (S.view === "ts") render();
+    /* Перемальовуємо не одразу: у демо дані лежать у браузері й читаються
+       миттєво, тому виклик прилітає всередину того самого render(), який
+       нас і покликав, — і його результат затирає наш. Через таймер розділ
+       домальовується вже після нього. */
+    setTimeout(() => { if (S.view === "ts") render(); }, 0);
     return;
   }
   try{
@@ -47,6 +51,7 @@ async function load(){
 
 let saveTimer = null;
 function save(){
+  if (window.Guest && Guest.block(T.gsGateTs)) return;
   if (demo()){
     try{ localStorage.setItem(DEMO_KEY, JSON.stringify(TS)); }catch(e){}
     return;
@@ -858,12 +863,16 @@ async function pull(){
 }
 
 /* ================= назовні ================= */
+/* Створення ТС і перенесення з Notion — це запис. Гостю показуємо
+   вікно входу одразу, а не після заповненого опитувальника. */
+function guestStop(){ return !!(window.Guest && Guest.block(T.gsGateTs)); }
+
 window.__ts = {
-  ask: askOpen, close: askClose, prev: askPrev, next: askNext, pick: pick, own: own, finish: finish,
+  ask(){ if(guestStop()) return; askOpen(); }, close: askClose, prev: askPrev, next: askNext, pick: pick, own: own, finish: finish,
   again(){ step = 0; drawAsk(); },
   text(k, v){ answers[k] = v; },
   tick(i, v){ checked[i] = v; render(); },
-  pull: pull,
+  pull(){ if(guestStop()) return; pull(); },
   add(path){
     const arr = get(path);
     if (!Array.isArray(arr)) set(path, []);

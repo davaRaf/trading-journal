@@ -134,9 +134,17 @@ function groupBy(list, keyFn){
 /* DEMO=true — сервера нет (например, публичное демо), данные лежат в браузере. */
 let DEMO=false;
 async function api(method,url,body){
+  /* Гість дивиться демо, але писати не може: будь-який запит, окрім
+     читання, впирається у вікно «увійдіть». Перевірка стоїть тут, а не
+     біля кожної кнопки, щоб жоден запис не проліз повз неї. */
+  if(DEMO && window.Guest && Guest.on && method!=="GET"){
+    Guest.block(); throw new Error("guest");
+  }
   if(DEMO) return DemoStore.handle(method,url,body);
   const res=await fetch(url,{method,credentials:"same-origin",headers:{"Content-Type":"application/json"},body:body?JSON.stringify(body):undefined});
-  if(res.status===401){ location.href="/login"; throw new Error("API 401"); }
+  /* до першого успішного завантаження 401 означає «сесії немає» — з цього
+     init зробить режим гостя. Пізніше це вже протухла сесія, там вхід */
+  if(res.status===401){ if(dataReady) location.href="/login"; throw new Error("API 401"); }
   if(!res.ok) throw new Error("API "+res.status);
   return res.json();
 }
@@ -635,11 +643,21 @@ function ovRailHtml(){
 
 function vDashboard(){
   if(!S.trades.length){
+    /* Порожній журнал — це перший екран нової людини. Замість однієї
+       кнопки даємо три шляхи: перенести з Notion (найшвидший, тому
+       перший), записати руками або спершу описати свою ТС. */
+    const way=(cls,fn,tag,title,text)=>
+      '<button class="way'+cls+'" onclick="'+fn+'">'+
+      '<em>'+T[tag]+'</em><b>'+T[title]+'</b><span>'+T[text]+'</span></button>';
     return '<div class="vhead"><h1>'+T.ovTitle+'</h1></div>'+
-      '<div class="card"><div class="in" style="text-align:center;padding:56px 20px">'+
-      '<div style="font-size:17px;font-weight:600;margin-bottom:6px">'+T.ovEmptyTitle+'</div>'+
-      '<div class="hint" style="margin-bottom:18px">'+T.ovEmptyHint+'</div>'+
-      '<button class="btn primary" onclick="openForm()">'+T.ovEmptyBtn+'</button></div></div>';
+      '<div class="card"><div class="in" style="padding:26px 24px">'+
+      '<div style="font-size:20px;font-weight:600;letter-spacing:-.01em">'+T.bgTitle+'</div>'+
+      '<div class="hint" style="margin-top:8px;max-width:62ch;line-height:1.6">'+T.bgLead+'</div>'+
+      '<div class="begin">'+
+        way(" main","__notion.open()","bgNotionTag","bgNotionTitle","bgNotionText")+
+        way("","openForm()","bgTradeTag","bgTradeTitle","bgTradeText")+
+        way("","location.hash='ts'","bgTsTag","bgTsTitle","bgTsText")+
+      '</div></div></div>';
   }
   const per=ovPeriod(), st=calc(per.list);
   const rs=per.list.map(netR);
@@ -1195,6 +1213,9 @@ async function delTrade(id){
 function dl(id,vals){ return '<datalist id="'+id+'">'+vals.map(v=>'<option value="'+esc(v)+'">').join("")+"</datalist>"; }
 
 function openForm(id, presetDay){
+  /* гостя спиняємо тут, а не на «зберегти»: нечесно давати заповнити
+     всю форму й аж тоді сказати, що записати нікуди */
+  if(window.Guest && Guest.block(T.gsGateTrade)) return;
   const t=id?(S.all.length?S.all:S.trades).find(x=>x.id===id):null;
   S.formShots=(t&&t.screenshots?t.screenshots.map(s=>({tf:s.tf,file:s.file})):[]);
   const v=k=>esc(t?(t[k]!=null?t[k]:""):"");
@@ -1706,6 +1727,7 @@ async function logout(){
 }
 
 async function openTelegram(){
+  if(window.Guest && Guest.block(T.gsGateConnect)) return;
   let user=null;
   try{ user=(await api("GET","/api/auth/me")).user; }catch(e){ return; }
   const head='<div class="m-head"><h2>Telegram</h2><button class="x" onclick="closeModal()">×</button></div>';
@@ -1781,12 +1803,15 @@ function markDemo(){
   try{
     await reload();
   }catch(e){
-    /* сервера нет — значит это публичное демо, работаем на данных в браузере */
+    /* Дві різні причини сюди потрапити. 401 — людина просто не увійшла:
+       показуємо їй журнал на демо-даних і кличемо завести свій. Будь-яка
+       інша помилка — сервера немає (публічне демо), там усе як було. */
+    const guest = String(e && e.message) === "API 401";
     try{
       await DemoStore.init();
       DEMO=true;
       await reload();
-      markDemo();
+      if(guest && window.Guest) Guest.start(); else markDemo();
     }catch(e2){
       $("#main").innerHTML='<div class="empty">'+T.initServerError+'</div>';
       return;

@@ -466,6 +466,7 @@ async function openNotion(){
 }
 
 function open(){
+  if (window.Guest && Guest.block(T.gsGateConnect)) return;
   if (typeof openImport !== "function") return;
   openImport();          // малює рідне вікно імпорту
   remember();
