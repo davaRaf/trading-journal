@@ -66,6 +66,24 @@ function fact(it){
   return tpl.replace("%w", it.want || "").replace("%g", it.got || "");
 }
 
+/* Звіряти нема за що: у ТС порожні всі поля, з яких беруться правила,
+   або описані самі моделі, а в угоді це поле не заповнене. Кажемо про це
+   раз на день — інакше це перетворюється на щоденне бурчання. */
+const HINT_KEY = "tj_tshint";
+
+function thin(hint){
+  if(!hint) return;
+  let last = "";
+  try{ last = localStorage.getItem(HINT_KEY) || ""; }catch(e){}
+  const day = new Date().toISOString().slice(0, 10);
+  if(last === day) return;
+  try{ localStorage.setItem(HINT_KEY, day); }catch(e){}
+  Assistant.say(T["tc_" + hint] || "", {
+    cap: T.tcCap,
+    actions: [{label: T.tcFill, main: true, run: () => { location.hash = "ts"; }}],
+  });
+}
+
 async function afterTrade(id){
   if(!id || DEMO) return;
   if(window.Pub && Pub.on) return;
@@ -74,7 +92,7 @@ async function afterTrade(id){
     r = await api("POST", "/api/ts/check", {id: id, lang: LANG});
   }catch(e){ return; }                 // немає ТС, немає ключа — просто тиша
   const items = (r && r.items) || [];
-  if(!items.length) return;
+  if(!items.length){ thin(r && r.hint); return; }
   const facts = items.map(fact).filter(Boolean);
   Assistant.say(r.text || facts.shift() || "", {
     cap: T.tcCap,

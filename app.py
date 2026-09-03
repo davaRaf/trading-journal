@@ -1001,7 +1001,10 @@ class H(BaseHTTPRequestHandler):
             items = ts_check.check(ts, trade, day)
             lang = str((body or {}).get("lang") or "uk")
             text = ts_check.say(items, lang if lang in ("uk", "ru", "en") else "uk")
-            return self._json({"items": items, "text": text})
+            # мовчазний помічник виглядає зламаним: коли звіряти нема за
+            # що, кажемо про це прямо, а не вдаємо, що все гаразд
+            return self._json({"items": items, "text": text,
+                               "hint": "" if items else ts_check.gaps(ts, trade)})
 
         if p == "/api/ts/clear":
             ts_store.sweep(uid, {}, SHOTS)

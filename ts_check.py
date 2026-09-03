@@ -246,6 +246,38 @@ def say(items, lang="uk"):
     return (out or "").strip()
 
 
+def gaps(ts, trade):
+    """Чому звірка мовчить, коли їй нема за що зачепитись.
+
+    Мовчазний помічник виглядає зламаним. Якщо в ТС описані самі назви
+    моделей, а решта полів порожня — сказати про це корисніше, ніж
+    промовчати: людина думає, що звірка не працює, а насправді правил
+    просто немає.
+    """
+    if not isinstance(ts, dict):
+        return ""
+    risk = ts.get("risk") or {}
+    live = {
+        "assets": bool([a for a in (ts.get("assets") or []) if str(a).strip()]),
+        "models": bool([m for m in (ts.get("models") or [])
+                        if isinstance(m, dict) and str(m.get("name") or "").strip()]),
+        "windows": bool([w for w in (ts.get("windows") or [])
+                         if isinstance(w, dict) and str(w.get("time") or "").strip()]),
+        "days": bool(str(ts.get("days") or "").strip()),
+        "per": _f(risk.get("per")) is not None,
+        "rr": _f(risk.get("rr")) is not None,
+        "day": _f(risk.get("day")) is not None,
+        "maxtrades": _f(ts.get("maxtrades")) is not None,
+    }
+    if not any(live.values()):
+        return "thin"
+    # єдине описане правило — моделі входу, а в угоді це поле порожнє
+    if live["models"] and not any(v for k, v in live.items() if k != "models") \
+            and not str((trade or {}).get("entry_model") or "").strip():
+        return "nomodel"
+    return ""
+
+
 def same_day(trades, trade):
     """Угоди того самого дня — включно з переданою."""
     dt = when(trade)
