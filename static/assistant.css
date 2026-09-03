@@ -124,41 +124,50 @@ body:has(.pnl-wrap) .as-fab, body:has(.modal:not([hidden])) .as-fab{
    52px нижче — це якраз середина кружка (right:22 + 76/2, bottom:22+38). */
 .as-say{position:fixed; right:22px; bottom:112px; z-index:46;
   width:min(320px, calc(100vw - 44px));
-  background:var(--panel); color:var(--text);
-  border:1px solid var(--line); border-radius:14px 14px 4px 14px;
+  /* колір теми, а не панелі: репліку має бути видно з першого погляду.
+     Пара accent / accent-ink контрастна в будь-якому оформленні —
+     у темних темах це темний текст на зеленому, у світлих навпаки. */
+  background:var(--accent); color:var(--accent-ink);
+  border:none; border-radius:14px 14px 4px 14px;
   padding:14px 16px 13px;
-  box-shadow:var(--shadow-pop);
+  box-shadow:var(--shadow-pop),
+    0 8px 26px -8px color-mix(in srgb, var(--accent) 60%, transparent);
   opacity:0; transform:scale(.2); transform-origin:calc(100% - 38px) calc(100% + 52px);
   transition:opacity .16s ease-out, transform .34s cubic-bezier(.2,1.15,.35,1)}
 .as-say.in{opacity:1; transform:none}
 /* хвостик до кружка — щоб читалось як його репліка, а не просто картка */
 .as-say::after{content:""; position:absolute; right:16px; bottom:-6px;
-  width:11px; height:11px; background:var(--panel);
-  border-right:1px solid var(--line); border-bottom:1px solid var(--line);
+  width:11px; height:11px; background:var(--accent);
   transform:rotate(45deg) skew(4deg,4deg); border-bottom-right-radius:3px}
+/* другорядне — тим самим чорнилом, тільки блідішим: на кольоровому тлі
+   сірі токени тем перестають читатись */
 .as-say .cap{display:block; font-family:var(--mono); font-size:9px;
-  letter-spacing:.16em; text-transform:uppercase; color:var(--dim); margin-bottom:7px;
-  padding-right:18px}
-.as-say .tx{margin:0; font-size:13.5px; line-height:1.55}
+  letter-spacing:.16em; text-transform:uppercase; margin-bottom:7px; padding-right:18px;
+  color:color-mix(in srgb, var(--accent-ink) 62%, transparent)}
+.as-say .tx{margin:0; font-size:13.5px; line-height:1.55; font-weight:500}
 .as-say .tx b{font-weight:600}
-/* факти — тим самим шрифтом, що цифри в журналі: їх читають, а не проглядають */
 .as-say .facts{list-style:none; margin:9px 0 0; padding:0; display:grid; gap:5px}
 .as-say .facts li{position:relative; padding-left:13px; font-size:12.5px;
-  line-height:1.5; color:var(--dim)}
-.as-say .facts li::before{content:"·"; position:absolute; left:3px; color:var(--faint)}
+  line-height:1.5; color:color-mix(in srgb, var(--accent-ink) 78%, transparent)}
+.as-say .facts li::before{content:"·"; position:absolute; left:3px;
+  color:color-mix(in srgb, var(--accent-ink) 55%, transparent)}
 .as-say .acts{display:flex; gap:7px; flex-wrap:wrap; margin-top:12px}
 .as-say .acts button{flex:none; font:inherit; font-size:12.5px; cursor:pointer;
-  padding:6px 11px; border-radius:8px; border:1px solid var(--line);
-  background:var(--panel-2); color:var(--text);
+  padding:6px 11px; border-radius:8px;
+  border:1px solid color-mix(in srgb, var(--accent-ink) 30%, transparent);
+  background:transparent; color:var(--accent-ink);
   transition:border-color .15s, background .15s}
-.as-say .acts button:hover{border-color:var(--faint)}
-.as-say .acts button.main{background:var(--accent); border-color:var(--accent);
-  color:var(--accent-ink)}
-.as-say .acts button.main:hover{filter:brightness(1.06)}
+.as-say .acts button:hover{border-color:color-mix(in srgb, var(--accent-ink) 55%, transparent)}
+/* головна дія — навпаки, панеллю: темна плашка на кольорі помітніша за рамку */
+.as-say .acts button.main{background:var(--panel); border-color:var(--panel);
+  color:var(--text); font-weight:500}
+.as-say .acts button.main:hover{filter:brightness(1.12)}
 .as-say .x{position:absolute; top:8px; right:9px; width:22px; height:22px;
   display:grid; place-items:center; font-size:15px; line-height:1;
-  background:none; border:none; color:var(--faint); cursor:pointer; border-radius:6px}
-.as-say .x:hover{color:var(--text); background:var(--panel-2)}
+  background:none; border:none; cursor:pointer; border-radius:6px;
+  color:color-mix(in srgb, var(--accent-ink) 55%, transparent)}
+.as-say .x:hover{color:var(--accent-ink);
+  background:color-mix(in srgb, var(--accent-ink) 12%, transparent)}
 /* поки відкрита панель чи модалка — помічник мовчить, як і його кнопка */
 body:has(.pnl-wrap) .as-say, body:has(.modal:not([hidden])) .as-say{
   opacity:0; pointer-events:none; transform:translateY(8px) scale(.96)}
