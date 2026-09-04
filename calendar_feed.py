@@ -190,6 +190,7 @@ def event_history(country, title, limit=12):
             if near:
                 actual = (nxt.get("previous") or "").strip()
         out.append({"date": e.get("date") or "",
+                    "period": "",          # у фіді періоду немає, поле для однаковості
                     "forecast": (e.get("forecast") or "").strip(),
                     "previous": (e.get("previous") or "").strip(),
                     "actual": actual})

@@ -249,7 +249,8 @@ function histTable(rows){
     if (!isNaN(f) && !isNaN(a)) cls = a > f ? "up" : (a < f ? "down" : "");
     const day = isNaN(d) ? esc(r.date.slice(0,10))
       : String(d.getDate()).padStart(2,"0") + "." + String(d.getMonth()+1).padStart(2,"0");
-    return '<tr><td class="dt">'+day+'</td>'
+    const per = r.period ? '<i>'+esc(r.period)+'</i>' : "";
+    return '<tr><td class="dt">'+day+per+'</td>'
       + '<td>'+(esc(r.forecast) || "—")+'</td>'
       + '<td class="fact '+cls+'">'+(esc(r.actual) || "—")+'</td></tr>';
   };
@@ -258,7 +259,30 @@ function histTable(rows){
     + '</tr></thead><tbody>' + rows.map(cell).join("") + '</tbody></table>';
 }
 
-function detail(e, hist){
+/* Звідки взялись числа. Свій архів тонкий — фід віддає лише поточний
+   тиждень; глибшу історію бере чужий календар, і про це чесно сказано. */
+function note(hist, src){
+  if (hist === null) return "";
+  if (src === "tv" && hist.length) return T.nwHistSrc;
+  return T.nwHistNote;
+}
+
+/* Один рядок статистики під таблицею: як часто цей показник виходив вище
+   прогнозу. Саме заради такого й дивляться минулі виходи — щоб бачити, у
+   який бік показник зазвичай хибить. */
+function tally(rows){
+  let up = 0, n = 0;
+  for (const r of rows){
+    const f = num(r.forecast), a = num(r.actual);
+    if (isNaN(f) || isNaN(a)) continue;
+    n++;
+    if (a > f) up++;
+  }
+  if (n < 4) return "";
+  return '<p class="nv-tally">' + T.nwAbove.replace("{n}", up).replace("{all}", n) + '</p>';
+}
+
+function detail(e, hist, src){
   const d = e._d, left = leftText(d);
   const imp = e.impact === "Holiday" ? T.nwHoliday : NAME()[e._i];
   return '<div class="m-body nv">'
@@ -272,14 +296,15 @@ function detail(e, hist){
     + numsRow(e)
     + '<h3 class="nv-h">'+T.nwHistory+'</h3>'
     + (hist === null ? '<div class="nv-none">'+T.nwLoading+'</div>' : histTable(hist))
-    + '<p class="nv-note">'+T.nwHistNote+'</p>'
+    + (hist && hist.length ? tally(hist) : "")
+    + '<p class="nv-note">'+note(hist, src)+'</p>'
     + '</div>';
 }
 
-function frame(e, hist){
+function frame(e, hist, src){
   return '<div class="m-head"><h2>'+esc(e.title)+'</h2>'
     + '<button class="x" onclick="closeModal()" aria-label="'+esc(T.mrClose)+'">×</button></div>'
-    + detail(e, hist)
+    + detail(e, hist, src)
     + '<div class="m-foot"><span class="sp"></span>'
     + '<button class="btn" onclick="closeModal()">'+esc(T.mrClose)+'</button></div>';
 }
@@ -288,19 +313,24 @@ async function openEvent(id){
   const e = events && events[id];
   if (!e) return;
   const key = (e.country || "") + "|" + e.title;
-  openModal(frame(e, histCache[key] || null));
-  if (histCache[key]) return;
-  let rows = [];
+  const had = histCache[key];
+  openModal(frame(e, had ? had.rows : null, had && had.src));
+  if (had) return;
+  let rows = [], src = "";
   try{
     const res = await fetch("/api/calendar/event?country=" + encodeURIComponent(e.country || "")
                           + "&title=" + encodeURIComponent(e.title || ""));
-    if (res.ok) rows = (await res.json()).history || [];
+    if (res.ok){
+      const got = await res.json();
+      rows = got.history || [];
+      src = got.source || "";
+    }
   }catch(err){ rows = []; }
-  histCache[key] = rows;
+  histCache[key] = {rows: rows, src: src};
   /* вікно могли вже закрити або відкрити інше — тоді нічого не чіпаємо */
   const box = document.getElementById("modalBox");
   const head = box && box.querySelector(".m-head h2");
-  if (head && head.textContent === e.title) box.innerHTML = frame(e, rows);
+  if (head && head.textContent === e.title) box.innerHTML = frame(e, rows, src);
 }
 
 VIEWS.news = vNews;      /* VIEWS оголошено в app.js, ключ можна додати ззовні */

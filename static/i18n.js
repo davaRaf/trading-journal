@@ -277,6 +277,8 @@ uk: {
   nwHistEmpty: "Збережених випусків ще немає.",
   nwHistNote: "Календар віддає лише поточний тиждень, тому історія збирається сама: кожен новий випуск лишається в архіві.",
   nwLeftIn: "через", nwPassed: "вже минуло", nwMin: "хв", nwHour: "год", nwDay: "дн",
+  nwAbove: "Вище прогнозу — {n} із {all} виходів.",
+  nwHistSrc: "Дані попередніх виходів — з економічного календаря TradingView. Прогноз там свій, тому з учорашнім числом у стрічці може трохи різнитись.",
 
   // ---- помічник ----
   asHint1: "Який у мене вінрейт цього тижня?", asHint2: "Де я найбільше зливаю?",
@@ -710,6 +712,8 @@ ru: {
   nwHistEmpty: "Сохранённых выпусков пока нет.",
   nwHistNote: "Календарь отдаёт только текущую неделю, поэтому история копится сама: каждый новый выпуск остаётся в архиве.",
   nwLeftIn: "через", nwPassed: "уже прошло", nwMin: "мин", nwHour: "ч", nwDay: "дн",
+  nwAbove: "Выше прогноза — {n} из {all} выходов.",
+  nwHistSrc: "Данные прошлых выходов — из экономического календаря TradingView. Прогноз там свой, поэтому со вчерашним числом в ленте может немного расходиться.",
 
   asHint1: "Какой у меня винрейт на этой неделе?", asHint2: "Где я больше всего сливаю?",
   asHint3: "Как перестать отыгрываться после стопа?", asHint4: "Что делать, когда не держу сделку до цели?",
@@ -1134,6 +1138,8 @@ en: {
   nwHistEmpty: "No saved releases yet.",
   nwHistNote: "The feed only gives the current week, so the history builds up on its own: every new release stays in the archive.",
   nwLeftIn: "in", nwPassed: "already out", nwMin: "min", nwHour: "h", nwDay: "d",
+  nwAbove: "Above forecast in {n} of {all} releases.",
+  nwHistSrc: "Past releases come from the TradingView economic calendar. Its forecast is its own, so it may differ slightly from the one in the list.",
 
   asHint1: "What's my win rate this week?", asHint2: "Where am I losing the most?",
   asHint3: "How do I stop revenge trading after a stop?", asHint4: "What should I do when I don't hold a trade to target?",

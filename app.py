@@ -36,6 +36,8 @@ import tidy
 import ts_check
 import ts_notion
 import ts_store
+import calendar_feed
+import tv_calendar
 from calendar_feed import calendar_events, event_history
 
 ROOT   = config.ROOT
@@ -846,8 +848,23 @@ class H(BaseHTTPRequestHandler):
         # нічого свого журналу тут немає.
         if p == "/api/calendar/event":
             q = urllib.parse.parse_qs(urlparse(self.path).query)
-            return self._json({"history": event_history(
-                (q.get("country") or [""])[0], (q.get("title") or [""])[0])})
+            country = (q.get("country") or [""])[0]
+            title = (q.get("title") or [""])[0]
+            mine = None
+            for one in calendar_feed.cached_events():
+                if (one.get("country") or "") == country and (one.get("title") or "") == title:
+                    mine = one
+                    break
+            rows, src = [], "tv"
+            if mine:
+                try:
+                    rows = tv_calendar.history(mine)
+                except Exception as ex:
+                    print("history:", ex)
+            if not rows:
+                # свій архів: він тонкий, зате точно про цю ж подію
+                rows, src = event_history(country, title), "archive"
+            return self._json({"history": rows, "source": src})
 
         if p == "/api/tidy":
             uid = self._uid()

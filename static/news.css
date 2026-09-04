@@ -175,13 +175,16 @@
 .nv-tab th:first-child{text-align:left}
 .nv-tab td{padding:9px 0; text-align:right; color:var(--dim);
   border-top:1px solid var(--line-soft)}
-.nv-tab td.dt{text-align:left; color:var(--text)}
+.nv-tab td.dt{text-align:left; color:var(--text); white-space:nowrap}
+/* період поруч із датою: за який місяць цифра, а не коли її оголосили */
+.nv-tab td.dt i{font-style:normal; color:var(--faint); font-size:11px; margin-left:6px}
 .nv-tab td.fact{color:var(--text)}
 .nv-tab td.fact.up{color:var(--up)}
 .nv-tab td.fact.down{color:var(--down)}
 
 .nv-none{padding:22px 16px; text-align:center; color:var(--faint); font-size:13px;
   border:1px dashed var(--line); border-radius:var(--r)}
+.nv-tally{margin:-4px 0 0; font-size:12.5px; color:var(--dim)}
 .nv-note{margin:0; font-size:12px; line-height:1.55; color:var(--faint)}
 
 @media (max-width:520px){
