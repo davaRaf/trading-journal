@@ -188,6 +188,9 @@ def share_shot_ok(rec, name):
     Знімок бачить будь-хто, кому дали посилання, тому й картинки віддаємо
     без входу — але рівно ті, що в ньому перелічені. Підставити чуже ім'я
     не вийде: перевіряємо по списку."""
+    d = rec.get("data") or {}
+    if name and d.get("og") == name:     # намальований календар для превью
+        return True
     for t in share_trades(rec):
         for sh in t.get("shots") or []:
             if sh.get("file") == name:
