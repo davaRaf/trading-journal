@@ -22,6 +22,25 @@ let busy = false;          /* тягнемо з Notion */
 let pullErr = "";
 let checked = {};          /* чек-лист: ритуал перед входом, на сервері не тримаємо */
 let hotShot = null;        /* слот, куди піде Ctrl+V */
+let armed = null;          /* слот, обраний кліком */
+
+/* На телефоні буфера обміну для картинок немає, тому там дотик має одразу
+   відкривати файли. На комп'ютері — навпаки: клік націлює слот. */
+function touchOnly(){
+  return window.matchMedia && matchMedia("(hover: none)").matches;
+}
+
+/* Підсвічуємо націлений слот на місці, без перемальовки розділу: інакше
+   до другого кліку доживає вже інший вузол і подвійний клік не працює. */
+function paintArmed(){
+  const d = D();
+  document.querySelectorAll(".ts-shot[data-p]").forEach(el => {
+    const on = el.dataset.p === armed;
+    el.classList.toggle("armed", on);
+    const em = el.querySelector(".ph em");
+    if (em) em.textContent = on ? d.shotArmed : d.shotHint;
+  });
+}
 
 function D(){ return DICT[window.LANG] || DICT.uk; }
 
@@ -129,9 +148,9 @@ function shot(path, label, mini){
     ? '<img alt="" src="' + esc(tsShotSrc(f)) + '"><div class="over"><span>' + esc(D().shotReplace)
       + '</span></div><button class="rm" type="button">×</button>'
     : '<div class="ph">' + SHOT_IC + esc(label || D().shotAdd)
-      + "<em>" + esc(D().shotHint) + "</em></div>";
+      + "<em>" + esc(armed === path ? D().shotArmed : D().shotHint) + "</em></div>";
   return '<div class="ts-shot' + (f ? " has" : "") + (mini ? " mini" : "")
-    + '" data-p="' + path + '">' + inner + "</div>";
+    + (armed === path ? " armed" : "") + '" data-p="' + path + '">' + inner + "</div>";
 }
 
 /* ================= порожній стан ================= */
@@ -517,6 +536,7 @@ async function upload(el, dataUrl){
 }
 
 function takeFile(file, el){
+  armed = null;
   if (!file || !/^image\//.test(file.type)) return;
   const fr = new FileReader();
   fr.onload = () => shrink(fr.result, u => upload(el, u));
@@ -551,13 +571,29 @@ document.addEventListener("click", e => {
       save(); render();
       return;
     }
-    filePick._to = sl;
-    filePick.click();
+    if (touchOnly()){
+      filePick._to = sl;
+      filePick.click();
+      return;
+    }
+    armed = (armed === sl.dataset.p) ? null : sl.dataset.p;
+    paintArmed();
     return;
   }
 
   const el = e.target.closest && e.target.closest(".ts-ed[data-p]");
   if (el) startEdit(el);
+});
+
+/* подвійний клік — вибір файлу з комп'ютера */
+document.addEventListener("dblclick", e => {
+  if (S.view !== "ts" || !TS) return;
+  const sl = e.target.closest && e.target.closest(".ts-shot[data-p]");
+  if (!sl) return;
+  e.preventDefault();
+  armed = null;
+  filePick._to = sl;
+  filePick.click();
 });
 
 document.addEventListener("mouseover", e => {
@@ -577,8 +613,11 @@ document.addEventListener("paste", e => {
   if (e.target.closest && e.target.closest("input,textarea")) return;
   const files = (e.clipboardData && e.clipboardData.files) || [];
   if (!files.length) return;
-  const el = (hotShot && document.body.contains(hotShot))
-    ? hotShot : document.querySelector(".ts-shot[data-p]:not(.has)");
+  /* спершу слот, обраний кліком, потім той, над яким миша, і лише тоді
+     перший порожній */
+  const el = (armed && document.querySelector('.ts-shot[data-p="' + armed + '"]'))
+    || (hotShot && document.body.contains(hotShot) ? hotShot : null)
+    || document.querySelector(".ts-shot[data-p]:not(.has)");
   if (!el) return;
   e.preventDefault();
   takeFile(files[0], el);
@@ -973,7 +1012,8 @@ uk: {
   addCase: "випадок", addRule: "правило", addLine: "рядок", addCheck: "пункт",
   noTfs: "Таймфреймів ще немає", noCheck: "Чек-листа ще немає",
   noModels: "Моделей входу ще немає", noneYet: "поки порожньо",
-  shotAdd: "вставити скрін", shotAddShort: "ще скрін", shotHint: "файл · Ctrl+V",
+  shotAdd: "вставити скрін", shotAddShort: "ще скрін",
+  shotHint: "клік → Ctrl+V · подвійний → файл", shotArmed: "тепер Ctrl+V",
   shotReplace: "клік — замінити", shotExample: "приклад", shotHow: "як це виглядає",
 
   gateOk: "усе закрито — за твоїми правилами вхід є", gateBad: "поки не все закрито — за твоїми ж правилами входу немає",
@@ -1080,7 +1120,8 @@ ru: {
   addCase: "случай", addRule: "правило", addLine: "строку", addCheck: "пункт",
   noTfs: "Таймфреймов ещё нет", noCheck: "Чек-листа ещё нет",
   noModels: "Моделей входа ещё нет", noneYet: "пока пусто",
-  shotAdd: "вставить скрин", shotAddShort: "ещё скрин", shotHint: "файл · Ctrl+V",
+  shotAdd: "вставить скрин", shotAddShort: "ещё скрин",
+  shotHint: "клик → Ctrl+V · двойной → файл", shotArmed: "теперь Ctrl+V",
   shotReplace: "клик — заменить", shotExample: "пример", shotHow: "как это выглядит",
 
   gateOk: "всё закрыто — по твоим правилам вход есть", gateBad: "пока закрыто не всё — по твоим же правилам входа нет",
@@ -1187,7 +1228,8 @@ en: {
   addCase: "case", addRule: "rule", addLine: "line", addCheck: "item",
   noTfs: "No timeframes yet", noCheck: "No checklist yet",
   noModels: "No entry models yet", noneYet: "empty so far",
-  shotAdd: "add a screenshot", shotAddShort: "one more", shotHint: "file · Ctrl+V",
+  shotAdd: "add a screenshot", shotAddShort: "one more",
+  shotHint: "click → Ctrl+V · double → file", shotArmed: "now press Ctrl+V",
   shotReplace: "click to replace", shotExample: "example", shotHow: "what it looks like",
 
   gateOk: "all ticked — by your rules the entry is valid", gateBad: "not everything is ticked — by your own rules there is no entry",

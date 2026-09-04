@@ -1488,6 +1488,15 @@ function removeShot(i){ S.formShots.splice(i,1); renderShots(); }
 
 /* клик по слоту только выделяет его: диалог файла забирал фокус и Ctrl+V уходил мимо */
 function armSlot(tf){ S.activeTf=(S.activeTf===tf?null:tf); renderShots(); }
+/* Двойной клик по слоту открывает файлы — та же привычка, что в «Анализе
+   дня» и «Моей ТС». Кнопка «файл» рядом остаётся: на телефоне двойной
+   тап неудобен. */
+document.addEventListener("dblclick", e => {
+  const slot = e.target.closest && e.target.closest(".tfslot[data-tf]");
+  if(!slot || !$("#shotsEdit")) return;
+  e.preventDefault();
+  pickFor(slot.dataset.tf);
+});
 function pickFor(tf){ S.activeTf=tf; renderShots(); $("#shotFile").click(); }
 function putShot(tf,dataUrl,name){
   const i=S.formShots.findIndex(s=>s.tf===tf);

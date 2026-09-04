@@ -245,6 +245,12 @@ textarea.ts-in{resize:none; overflow:auto; display:block; max-height:50vh;
 .ts-shot:hover{border-color:color-mix(in srgb, var(--accent) 65%, transparent);
   background:var(--accent-soft); color:var(--accent);
   box-shadow:0 0 0 3px color-mix(in srgb, var(--accent) 12%, transparent)}
+/* Слот, у який зараз піде Ctrl+V: клік націлює його, а не відкриває
+   файли — інакше вставити картинку з буфера нікуди. */
+.ts-shot.armed{border-style:solid; border-color:var(--accent);
+  box-shadow:inset 0 0 0 1px var(--accent), 0 0 0 3px var(--accent-soft)}
+.ts-shot.armed .ph{color:var(--accent)}
+.ts-shot.armed .ph em{opacity:1; color:var(--accent)}
 .ts-shot.drop{border-style:solid; border-color:var(--accent);
   box-shadow:0 0 0 3px color-mix(in srgb, var(--accent) 22%, transparent)}
 .ts-shot .ph{display:flex; flex-direction:column; align-items:center; justify-content:center;
