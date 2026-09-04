@@ -448,8 +448,14 @@ def high_of_day(events, day):
 
 
 def job_alerts(events, users):
-    """Красные новости в ближайшие полчаса."""
+    """Красные новости в ближайшие полчаса — одним сообщением на время.
+
+    Раньше слали по сообщению на событие, а в 15:30 их выходит по пять
+    штук: телефон звонил пять раз подряд об одном и том же. Теперь всё,
+    что выходит в одну минуту, уезжает одним списком.
+    """
     now = datetime.datetime.now(datetime.timezone.utc)
+    due = {}
     for e in events:
         if not calendar_feed.is_high(e):
             continue
@@ -459,15 +465,23 @@ def job_alerts(events, users):
         left = (dt - now).total_seconds() / 60
         if not (0 <= left <= ALERT_MINUTES):
             continue
-        key = calendar_feed.event_key(e)
+        due.setdefault(dt.isoformat(timespec="minutes"), []).append(e)
+
+    for when in sorted(due):
+        group = due[when]
+        dt = calendar_feed.event_time(group[0])
+        left = (dt - now).total_seconds() / 60
+        keys = [calendar_feed.event_key(e) for e in group]
         for user in users:
-            if not db.record_notified(user["id"], key, "alert30"):
+            # отмечаем все события сразу: сообщение уходит одно на всю группу
+            fresh = [k for k in keys if db.record_notified(user["id"], k, "alert30")]
+            if not fresh:
                 continue          # уже предупреждали
+            text = news_msg.alert(group, left, KYIV, user_lang(user["telegram_id"]))
+            if not text:
+                continue
             try:
-                tg_api.send_message(user["telegram_id"],
-                                    news_msg.alert(e, left, KYIV,
-                                                   user_lang(user["telegram_id"])),
-                                    parse_mode="HTML")
+                tg_api.send_message(user["telegram_id"], text, parse_mode="HTML")
             except tg_api.TelegramError as ex:
                 print("alert:", ex)
 

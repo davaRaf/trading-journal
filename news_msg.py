@@ -39,6 +39,7 @@ WORDS = {
         "nearest": "найближча о %s",
         "left": "Ще сьогодні",
         "alert": "Через %d хв — важлива новина",
+        "alert_many": "Через %d хв — %d %s",
         "footer": "⏰ Нагадаю за пів години до кожної.",
         "forecast": "прогноз %s",
         "prev": "було %s",
@@ -52,6 +53,7 @@ WORDS = {
         "nearest": "ближайшая в %s",
         "left": "Ещё сегодня",
         "alert": "Через %d мин — важная новость",
+        "alert_many": "Через %d мин — %d %s",
         "footer": "⏰ Напомню за полчаса до каждой.",
         "forecast": "прогноз %s",
         "prev": "было %s",
@@ -65,6 +67,7 @@ WORDS = {
         "nearest": "first at %s",
         "left": "Still ahead today",
         "alert": "In %d min — high-impact news",
+        "alert_many": "In %d min — %d %s",
         "footer": "⏰ I'll remind you half an hour before each.",
         "forecast": "forecast %s",
         "prev": "previous %s",
@@ -191,15 +194,47 @@ def remind(events, tz, day, lang="uk"):
     return "%s\n\n%s" % (head, _body(gs))
 
 
-def alert(event, minutes, tz, lang="uk"):
-    """За півгодини до новини. Тут місця вистачає й на прогноз."""
+def _hint(e, w):
+    """Прогноз і попереднє значення однією стрічкою — або нічого."""
+    bits = []
+    if (e.get("forecast") or "").strip():
+        bits.append(w["forecast"] % _esc(e["forecast"].strip()))
+    if (e.get("previous") or "").strip():
+        bits.append(w["prev"] % _esc(e["previous"].strip()))
+    return " · ".join(bits)
+
+
+def _alert_block(g, w):
+    """Той самий блок, що й у зведенні, але з прогнозом під кожним рядком."""
+    head = "🔴 <b>%s</b> · %s %s" % (_esc(g["time"]), flag(g["cur"]), _esc(g["cur"]))
+    lines = []
+    for title, e in zip(g["titles"], g["events"]):
+        if not title:
+            continue
+        lines.append("      %s" % _esc(title))
+        hint = _hint(e, w)
+        if hint:
+            lines.append("         <i>%s</i>" % hint)
+    return head + (chr(10) + chr(10).join(lines) if lines else "")
+
+
+def alert(events, minutes, tz, lang="uk"):
+    """За півгодини до новин — усі, що виходять тієї самої хвилини, разом.
+
+    Раніше кожна новина йшла окремим повідомленням: о 15:30 їх буває п'ять,
+    і телефон дзвонив п'ять разів поспіль про те саме. Тепер одне
+    повідомлення зі списком.
+    """
     w = _w(lang)
-    gs = groups([event], tz)
-    body = _block(gs[0]) if gs else _esc(event.get("title") or "")
-    hint = []
-    if (event.get("forecast") or "").strip():
-        hint.append(w["forecast"] % _esc(event["forecast"].strip()))
-    if (event.get("previous") or "").strip():
-        hint.append(w["prev"] % _esc(event["previous"].strip()))
-    tail = ("\n      <i>%s</i>" % " · ".join(hint)) if hint else ""
-    return "⚠️ <b>%s</b>\n\n%s%s" % (w["alert"] % round(minutes), body, tail)
+    if isinstance(events, dict):          # раніше сюди давали одну подію
+        events = [events]
+    gs = groups(events, tz)
+    if not gs:
+        return ""
+    n = sum(len(g["titles"]) for g in gs)
+    if n > 1:
+        head = "⚠️ <b>%s</b>" % (w["alert_many"] % (round(minutes), n, _count(n, lang)))
+    else:
+        head = "⚠️ <b>%s</b>" % (w["alert"] % round(minutes))
+    body = (chr(10) + chr(10)).join(_alert_block(g, w) for g in gs)
+    return head + chr(10) + chr(10) + body

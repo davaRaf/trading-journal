@@ -13,9 +13,14 @@ function NAME(){ return {h:T.nwImpactHigh, m:T.nwImpactMed, l:T.nwImpactLow}; }
 let events = null;       // null — ще не завантажено
 let warning = null;
 
-/* Фільтри переживають перезавантаження: між розділами вони й так жили в
-   пам'яті, а от після F5 скидались — і людина щоразу заново тикала свій
-   день і «червоні». Тримаємо їх у localStorage, як режим журналу й тему. */
+/* Важливість і валюта переживають перезавантаження: після F5 вони скидались,
+   і людина щоразу заново тикала «червоні». Тримаємо їх у localStorage, як
+   режим журналу й тему.
+
+   А от день — ні. Розділ відкривають, щоб подивитись, що сьогодні, і
+   позавчорашній день у ньому — просто спантеличує. Тому щоразу, як заходиш
+   у «Новини», показуємо поточний день; вибраний вручну живе, доки з розділу
+   не вийдеш. */
 const FKEY = "tj_news_filters";
 function readFilters(){
   try{
@@ -26,12 +31,17 @@ function readFilters(){
 function pick(v){ return typeof v === "string" && v ? v : "all"; }
 
 const saved = readFilters();
-let day = pick(saved.day);        // "all" — увесь тиждень
+let day = "all";                  // виставимо на поточний, коли знатимемо дні
 let impact = pick(saved.impact);
 let cur = pick(saved.cur);
+let stick = false;                // людина сама вибрала день
+
+/* Перехід між розділами йде через hash — на ньому й скидаємо вибір дня:
+   наступного разу «Новини» знову відкриються на сьогоднішньому. */
+addEventListener("hashchange", () => { stick = false; });
 
 function keep(){
-  try{ localStorage.setItem(FKEY, JSON.stringify({day, impact, cur})); }catch(e){}
+  try{ localStorage.setItem(FKEY, JSON.stringify({impact, cur})); }catch(e){}
 }
 
 const dkey = d => d.getFullYear() + "-" + String(d.getMonth()+1).padStart(2,"0")
@@ -58,7 +68,7 @@ async function load(){
 /* ---- обробники живуть тут, а не в розмітці ---- */
 window.__news = {
   open(id){ openEvent(id); },
-  day(v){ day = v; keep(); render(); },
+  day(v){ day = v; stick = true; render(); },
   imp(v){ impact = v; keep(); render(); },
   cur(v){ cur = v; keep(); render(); },
 };
@@ -75,9 +85,12 @@ function vNews(){
 
   const days = [...new Set(events.map(e => dkey(e._d)))].sort();
   const today = dkey(new Date());
-  if (day !== "all" && !days.includes(day)){
+  if (!stick){
+    /* На вихідних сьогоднішнього дня у стрічці немає — тоді показуємо
+       найближчий, що попереду, а не весь тиждень одразу. */
+    day = days.includes(today) ? today : (days.find(d => d > today) || "all");
+  } else if (day !== "all" && !days.includes(day)){
     day = days.includes(today) ? today : "all";
-    keep();
   }
 
   const inScope = day === "all" ? events : events.filter(e => dkey(e._d) === day);
