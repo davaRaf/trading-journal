@@ -800,8 +800,12 @@ document.addEventListener("click", e => {
       filePick.click();
       return;
     }
+    /* Перемальовувати не можна: подвійний клік вважається подвійним лише
+       якщо обидва кліки прилетіли в той самий елемент. Перший клік
+       замінював слот новим — і другий клік бачив уже інший вузол, тому
+       вікно з файлами не відкривалось. Тому підсвічуємо на місці. */
     armed = (armed === sl.dataset.shot) ? null : sl.dataset.shot;
-    render();
+    paintArmed();
     return;
   }
 
@@ -830,6 +834,17 @@ document.addEventListener("click", e => {
     if (ev.key === "Enter" && (!multi || ev.ctrlKey || ev.metaKey)){ ev.preventDefault(); commit(true); }
   });
 });
+
+/* Підсвічуємо націлений слот без перемальовки розділу. */
+function paintArmed(){
+  const d = D();
+  document.querySelectorAll(".dv-shot[data-shot]").forEach(el => {
+    const on = el.dataset.shot === armed;
+    el.classList.toggle("armed", on);
+    const em = el.querySelector(".ph em");
+    if (em) em.textContent = on ? d.shotArmed : d.shotHint;
+  });
+}
 
 /* подвійний клік по слоту — вибір файлу з комп'ютера */
 document.addEventListener("dblclick", e => {
@@ -875,7 +890,7 @@ document.addEventListener("keydown", e => {
   if (e.key === "Enter" && e.target && e.target.id === "dvTf" && tfEdit){
     e.preventDefault(); window.__dv.tf(tfEdit.replace(/\.tf$/, ".tf"), null);
   }
-  if (e.key === "Escape" && armed){ armed = null; render(); }
+  if (e.key === "Escape" && armed){ armed = null; paintArmed(); }
 });
 
 /* ---------------- назовні ---------------- */

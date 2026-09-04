@@ -286,6 +286,7 @@ uk: {
   // ---- поділитися посиланням ----
   slTtl1h: "1 година", slTtl24h: "24 години", slTtl7d: "7 днів", slTtl30d: "30 днів", slTtlForever: "без обмеження",
   slWinRate: "Win rate", slTotal: "Підсумок",
+  slAssetsLabel: "Чим ділимось", slAssetsAll: "усі активи", slAssetNoName: "без назви",
   slKindReview: "розбір дня", slOgReview: "Розбір дня",
   slKindDay: "день", slKindWeek: "тиждень", slKindMonth: "місяць", slKindYear: "рік", slKindTrade: "угода",
   slShareTrade: "Поділитись угодою", slTradesTitle: "Угоди", slByDays: "По днях", slByMonths: "По місяцях",
@@ -684,6 +685,7 @@ ru: {
 
   slTtl1h: "1 час", slTtl24h: "24 часа", slTtl7d: "7 дней", slTtl30d: "30 дней", slTtlForever: "без ограничения",
   slWinRate: "Win rate", slTotal: "Итог",
+  slAssetsLabel: "Чем делимся", slAssetsAll: "все активы", slAssetNoName: "без названия",
   slKindReview: "разбор дня", slOgReview: "Разбор дня",
   slKindDay: "день", slKindWeek: "неделя", slKindMonth: "месяц", slKindYear: "год", slKindTrade: "сделка",
   slShareTrade: "Поделиться сделкой", slTradesTitle: "Сделки", slByDays: "По дням", slByMonths: "По месяцам",
@@ -1077,6 +1079,7 @@ en: {
 
   slTtl1h: "1 hour", slTtl24h: "24 hours", slTtl7d: "7 days", slTtl30d: "30 days", slTtlForever: "no limit",
   slWinRate: "Win rate", slTotal: "Total",
+  slAssetsLabel: "What to share", slAssetsAll: "all instruments", slAssetNoName: "unnamed",
   slKindReview: "day review", slOgReview: "Day review",
   slKindDay: "day", slKindWeek: "week", slKindMonth: "month", slKindYear: "year", slKindTrade: "trade",
   slShareTrade: "Share trade", slTradesTitle: "Trades", slByDays: "By day", slByMonths: "By month",

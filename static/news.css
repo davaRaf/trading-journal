@@ -134,6 +134,13 @@
 .sh-lab{font-family:var(--mono); font-size:10px; letter-spacing:.13em;
   text-transform:uppercase; color:var(--faint)}
 .sh-ttl{display:flex; gap:6px; flex-wrap:wrap}
+/* Вибір активів у розборі дня: тими самими чіпами, що й строк життя
+   посилання, але можна тримати кілька відразу. */
+.sh-assets{display:flex; gap:6px; flex-wrap:wrap; margin-bottom:16px}
+.sh-assets .sh-chip[data-a="all"]{font-family:var(--sans)}
+.sh-assets .sh-chip:not([data-a="all"]){font-family:var(--mono); letter-spacing:.03em}
+.sh-assets .sh-chip.on{border-color:color-mix(in srgb, var(--accent) 45%, transparent);
+  color:var(--text)}
 .sh-chip{border:1px solid var(--line); background:var(--panel); color:var(--dim);
   font:inherit; font-size:12.5px; padding:7px 13px; border-radius:99px; cursor:pointer;
   transition:color .18s, background .18s, border-color .18s}

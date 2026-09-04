@@ -112,15 +112,24 @@ function sliceBlock(title, list, key){
    що з цього вийшло ввечері. Саме цим і цікаво ділитись: не результатом,
    а мисленням. Дані беремо з розділу «Аналіз дня» (day.js тримає їх у
    базі), а не з угод. */
-function reviewSnapshot(dk){
+function reviewSnapshot(dk, pick){
   const n = (window.__dv && typeof __dv.note === "function") ? __dv.note(dk) : null;
   if (!n || !(n.assets || []).length) return null;
+  /* pick — які активи лишити. null означає «всі». */
+  const keep = (pick && pick.length)
+    ? n.assets.filter((a, i) => pick.indexOf(i) >= 0)
+    : n.assets;
+  if (!keep.length) return null;
 
-  const day = sortAsc(S.all.filter(t => dayKey(t) === dk));
   const norm = x => String(x || "").toUpperCase().replace(/[^A-Z0-9]/g, "");
+  const day = sortAsc(S.all.filter(t => dayKey(t) === dk));
+  /* цифри зверху — по тих активах, якими ділимось, а не по всьому дню */
+  const names = keep.map(a => norm(a.nm)).filter(Boolean);
+  const mineAll = names.length
+    ? day.filter(t => names.indexOf(norm(t.pair)) >= 0) : day;
   const d = new Date(dk + "T00:00");
 
-  const assets = n.assets.map(a => {
+  const assets = keep.map(a => {
     const mine = a.nm ? day.filter(t => norm(t.pair) === norm(a.nm)) : [];
     const st = mine.length ? calc(mine) : null;
     return {
@@ -143,9 +152,12 @@ function reviewSnapshot(dk){
 
   return {
     kind: T.slKindReview, kindFull: T.slOgReview,
-    title: d.getDate() + " " + T.monthsGen[d.getMonth()] + " " + d.getFullYear(),
-    total: day.length ? calc(day).net : null,
-    kpis: day.length ? statsOf(day) : [],
+    /* коли ділишся одним активом — його ім'я в заголовку: так із превью
+       одразу видно, про що знімок */
+    title: (keep.length === 1 && keep[0].nm ? keep[0].nm + " · " : "")
+         + d.getDate() + " " + T.monthsGen[d.getMonth()] + " " + d.getFullYear(),
+    total: mineAll.length ? calc(mineAll).net : null,
+    kpis: mineAll.length ? statsOf(mineAll) : [],
     review: {
       closed: !!n.closed,
       skip: n.skip || "",
@@ -257,13 +269,23 @@ function tradeSnapshot(id){
 /* ---------- вікно ---------- */
 
 function open(kind, arg){
-  const data = kind === "trade"  ? tradeSnapshot(arg)
-             : kind === "review" ? reviewSnapshot(arg)
+  /* У розборі дня активів може бути кілька, і ділитись усіма потрібно не
+     завжди. Тримаємо вибір тут і перезбираємо знімок, коли він міняється. */
+  let pick = null;
+  const build = () => kind === "trade"  ? tradeSnapshot(arg)
+             : kind === "review" ? reviewSnapshot(arg, pick)
              : kind === "day"    ? daySnapshot(arg)
              : kind === "week"  ? weekSnapshot(arg)
              : kind === "month" ? monthSnapshot(arg)
              :                    yearSnapshot(arg);
+  let data = build();
   if (!data) return;
+
+  /* назви активів для перемикачів — беремо до того, як звузили вибір */
+  const allAssets = kind === "review"
+    ? ((((window.__dv && __dv.note && __dv.note(arg)) || {}).assets) || [])
+        .map((a, i) => ({i: i, nm: a.nm || T.slAssetNoName}))
+    : [];
 
   openModal(
     '<div class="m-head"><b>' + T.slShareTitle + '</b><span class="sp"></span>'
@@ -271,7 +293,16 @@ function open(kind, arg){
     + '<div class="m-body sh-body">'
     + '<p class="sh-note">' + T.slNote
     + (kind === "trade" || kind === "day" ? " " + T.slNoteImg : "") + '</p>'
-    + '<div class="sh-what"><b>' + esc(data.title) + '</b><span>' + esc(data.kind) + '</span></div>'
+    + '<div class="sh-what" id="shWhat"><b>' + esc(data.title) + '</b><span>'
+    +   esc(data.kind) + '</span></div>'
+    + (allAssets.length > 1
+        ? '<div class="sh-lab">' + T.slAssetsLabel + '</div>'
+          + '<div class="sh-assets" id="shAssets">'
+          + '<button class="sh-chip on" data-a="all">' + esc(T.slAssetsAll) + '</button>'
+          + allAssets.map(a => '<button class="sh-chip" data-a="' + a.i + '">'
+              + esc(a.nm) + '</button>').join("")
+          + '</div>'
+        : "")
     + '<div class="sh-lab">' + T.slDurationLabel + '</div>'
     + '<div class="sh-ttl">' + TTL().map(t =>
         '<button class="sh-chip' + (t.id===lastTtl ? " on" : "") + '" data-t="' + t.id + '">'
@@ -287,10 +318,38 @@ function open(kind, arg){
   const img = document.getElementById("shImg");
   if (img) img.onclick = () => __tradeImg.open(kind, arg);
 
-  document.querySelectorAll(".sh-chip").forEach(b => b.onclick = () => {
+  document.querySelectorAll(".sh-ttl .sh-chip").forEach(b => b.onclick = () => {
     lastTtl = b.dataset.t;
     try{ localStorage.setItem("share_ttl", lastTtl); }catch(e){}
-    document.querySelectorAll(".sh-chip").forEach(x => x.classList.toggle("on", x === b));
+    document.querySelectorAll(".sh-ttl .sh-chip").forEach(x => x.classList.toggle("on", x === b));
+  });
+
+  /* вибір активів: «усі» вимикає решту, і навпаки */
+  const box = document.getElementById("shAssets");
+  if (box) box.querySelectorAll(".sh-chip").forEach(b => b.onclick = () => {
+    const all = box.querySelector('[data-a="all"]');
+    if (b === all){
+      pick = null;
+      box.querySelectorAll(".sh-chip").forEach(x => x.classList.toggle("on", x === all));
+    } else {
+      b.classList.toggle("on");
+      all.classList.remove("on");
+      pick = [...box.querySelectorAll('.sh-chip.on[data-a]')]
+        .map(x => Number(x.dataset.a)).filter(n => !isNaN(n));
+      if (!pick.length){ pick = null; all.classList.add("on"); }
+    }
+    const fresh = build();
+    if (fresh){
+      data = fresh;
+      const what = document.getElementById("shWhat");
+      if (what) what.innerHTML = '<b>' + esc(data.title) + '</b><span>'
+        + esc(data.kind) + '</span>';
+    }
+    /* вибір змінився — стара адреса вже не про це */
+    const out = document.getElementById("shOut");
+    if (out){ out.hidden = true; out.innerHTML = ""; }
+    const go = document.getElementById("shGo");
+    if (go){ go.disabled = false; go.textContent = T.slCreateBtn; }
   });
 
   document.getElementById("shGo").onclick = async function(){
