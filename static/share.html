@@ -204,6 +204,60 @@ html{interpolate-size:allow-keywords}
   align-items:center; justify-content:center; padding:20px; cursor:zoom-out}
 .big img{max-width:100%; max-height:100%; border-radius:8px}
 .hintline{font-size:12.5px; color:var(--faint); margin:-6px 0 0}
+
+/* ---------- календар днів (тиждень і місяць) ----------
+   Знімок періоду — це не тільки підсумкова цифра. Тут видно, як лягли
+   дні, і в кожен можна зайти: угоди зі скрінами відкриваються під
+   сіткою, не забираючи людину зі сторінки. */
+.cal{border:1px solid var(--line-soft); border-radius:var(--r); overflow:hidden;
+  background:var(--card)}
+.cal .wd{display:grid; grid-template-columns:repeat(7,1fr); border-bottom:1px solid var(--line-soft)}
+.cal .wd span{padding:9px 4px; text-align:center; font-family:var(--mono); font-size:9px;
+  letter-spacing:.14em; text-transform:uppercase; color:var(--faint)}
+.cal .grid{display:grid; grid-template-columns:repeat(7,1fr); gap:1px; background:var(--line-soft);
+  padding:1px}
+.cal .dc{background:var(--bg); min-height:74px; padding:8px 9px; display:flex;
+  flex-direction:column; gap:4px; border:0; font:inherit; text-align:left; color:inherit}
+.cal .dc.pad{background:transparent}
+.cal .dc .n{font-family:var(--mono); font-size:11.5px; color:var(--faint); line-height:1}
+.cal .dc .v{font-family:var(--mono); font-size:15px; line-height:1.1; margin-top:auto;
+  font-variant-numeric:tabular-nums}
+.cal .dc .c{font-size:10.5px; color:var(--faint); line-height:1}
+.cal .dc.has{cursor:pointer; transition:background .15s}
+.cal .dc.has:hover{background:var(--panel-2)}
+.cal .dc.has .n{color:var(--dim)}
+.cal .dc.pos{background:color-mix(in srgb, var(--up) 9%, var(--bg))}
+.cal .dc.pos:hover{background:color-mix(in srgb, var(--up) 15%, var(--bg))}
+.cal .dc.pos .v{color:var(--up)}
+.cal .dc.neg{background:color-mix(in srgb, var(--down) 9%, var(--bg))}
+.cal .dc.neg:hover{background:color-mix(in srgb, var(--down) 15%, var(--bg))}
+.cal .dc.neg .v{color:var(--down)}
+.cal .dc.zero .v{color:var(--be)}
+.cal .dc.on{box-shadow:inset 0 0 0 1.5px var(--g)}
+/* тиждень — сім клітинок у ряд, їм можна дати більше повітря */
+.cal.week .dc{min-height:92px}
+
+/* день, який розкрили під сіткою */
+.dayopen{margin-top:12px; border:1px solid var(--line-soft); border-radius:var(--r);
+  overflow:hidden}
+.dayopen .dh{display:flex; align-items:baseline; gap:10px; padding:12px 15px;
+  background:var(--panel-2); border-bottom:1px solid var(--line-soft)}
+.dayopen .dh b{font-size:14.5px; font-weight:600}
+.dayopen .dh .sub{font-family:var(--mono); font-size:10px; letter-spacing:.12em;
+  text-transform:uppercase; color:var(--faint)}
+.dayopen .dh .tot{margin-left:auto; font-family:var(--mono); font-size:16px}
+.dayopen .dh .tot.pos{color:var(--up)} .dayopen .dh .tot.neg{color:var(--down)}
+.dayopen .dh .tot.zero{color:var(--be)}
+.dayopen .inner{padding:14px 15px}
+.dayopen .inner .sect{margin-top:0}
+.dayopen .inner .trades{margin-top:0}
+
+@media (max-width:560px){
+  .cal .dc{min-height:58px; padding:6px}
+  .cal.week .dc{min-height:64px}
+  .cal .dc .v{font-size:12.5px}
+  .cal .dc .c{display:none}
+}
 </style>
 </head>
 <body>
@@ -272,6 +326,64 @@ function tradesHtml(list){
                         + '<p class="hintline">' + esc(T.shExpandHint) + '</p>')
     + '<div class="trades">' + list.map(one).join("") + '</div>';
 }
+
+/* ---------- календар днів ---------- */
+/* Дні лежать підряд від from до to; сітку доводимо до понеділка порожніми
+   клітинками, щоб колонки збігалися з підписами тижня. */
+let CAL = null, CALOPEN = null;
+
+function calHtml(cal){
+  if (!cal || !(cal.days || []).length) return "";
+  CAL = cal;
+  const first = new Date(cal.days[0].date + "T00:00");
+  const pad = (first.getDay() + 6) % 7;
+  let cells = "";
+  for (let i = 0; i < pad; i++) cells += '<div class="dc pad"></div>';
+  cal.days.forEach(d => {
+    const has = d.n > 0;
+    const cls = has ? " has " + sign(d.net) : "";
+    cells += '<button type="button" class="dc' + cls + (CALOPEN === d.date ? " on" : "")
+      + '"' + (has ? ' data-day="' + d.date + '"' : " disabled") + ">"
+      + '<span class="n">' + Number(d.date.slice(8)) + "</span>"
+      + (has ? '<span class="v">' + pct(d.net) + "</span>"
+             + '<span class="c">' + d.n + " " + esc(T.shCalTrades) + "</span>" : "")
+      + "</button>";
+  });
+  const wd = (T.shCalWd || ["пн","вт","ср","чт","пт","сб","нд"])
+    .map(w => "<span>" + esc(w) + "</span>").join("");
+  const open = CALOPEN ? dayOpenHtml(cal.days.find(d => d.date === CALOPEN)) : "";
+  return '<div class="sect">' + esc(T.shCalTitle) + "</div>"
+    + '<p class="hintline">' + esc(T.shCalHint) + "</p>"
+    + '<div class="cal ' + esc(cal.span || "") + '"><div class="wd">' + wd + "</div>"
+    + '<div class="grid">' + cells + "</div></div>"
+    + '<div id="dayOpen">' + open + "</div>";
+}
+
+function dayOpenHtml(d){
+  if (!d) return "";
+  const dt = new Date(d.date + "T00:00");
+  const locale = {uk:"uk-UA", ru:"ru-RU", en:"en-US"}[LANG] || "uk-UA";
+  const nice = dt.toLocaleDateString(locale, {weekday:"long", day:"numeric", month:"long"});
+  return '<div class="dayopen"><div class="dh"><b>' + esc(nice) + "</b>"
+    + '<span class="sub">' + d.n + " " + esc(T.shCalTrades) + "</span>"
+    + '<span class="tot ' + sign(d.net) + '">' + pct(d.net) + "</span></div>"
+    + '<div class="inner">' + tradesHtml(d.trades) + "</div></div>";
+}
+
+/* клік по дню: розкриваємо його під сіткою, повторний клік — згортаємо */
+document.addEventListener("click", e => {
+  const cell = e.target.closest && e.target.closest(".cal .dc[data-day]");
+  if (!cell || !CAL) return;
+  CALOPEN = (CALOPEN === cell.dataset.day) ? null : cell.dataset.day;
+  document.querySelectorAll(".cal .dc").forEach(c =>
+    c.classList.toggle("on", c.dataset.day === CALOPEN));
+  const box = document.getElementById("dayOpen");
+  if (box){
+    box.innerHTML = CALOPEN ? dayOpenHtml(CAL.days.find(d => d.date === CALOPEN)) : "";
+    if (CALOPEN) box.scrollIntoView({behavior:"smooth", block:"nearest"});
+  }
+  fadeSoon();
+});
 
 /* Шапка карти зі знімком і вихід із неї. Закрити карту — це не «згорнути
    вікно», а зайти в сам журнал: він і так уже стоїть позаду. */
@@ -350,6 +462,7 @@ function render(rec){
     + (d.kpis && d.kpis.length
         ? '<div class="kpis">' + d.kpis.map(k => kpi(k.k, k.v, k.cls)).join("") + '</div>' : "")
     + tradesHtml(d.trades)
+    + calHtml(d.calendar)
     + (d.blocks || []).map(b => rows(b.title, b.items)).join("")
     /* Знімок подивились — далі показуємо, звідки він. Це єдине місце,
        де людина, яка про журнал ще не чула, сама вирішує зайти. */

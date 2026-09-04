@@ -153,3 +153,14 @@
 .sh-cap{font-family:var(--mono); font-size:10px; letter-spacing:.13em;
   text-transform:uppercase; color:var(--faint); margin-right:2px}
 .sh-day{width:100%; justify-content:center; margin-top:10px}
+
+/* Кнопка «поділитись» у шапці картки угоди. Раніше вона лежала внизу, за
+   деталями входу й скрінами: щоб її побачити, треба було прокрутити всю
+   угоду. Тепер стоїть поруч із результатом — видно одразу, як відкрив. */
+.thead .sh-top{margin-left:12px; padding:7px 13px; font-size:12.5px; border-radius:10px;
+  align-self:center; white-space:nowrap}
+.thead .sh-top svg{width:12px; height:12px}
+@media (max-width:560px){
+  .thead .sh-top{margin-left:auto; padding:6px 10px; font-size:12px}
+  .thead .sh-top span{display:none}
+}

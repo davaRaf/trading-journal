@@ -64,6 +64,34 @@ function tradeDetail(t){
   };
 }
 
+/* Календар днів для знімка тижня чи місяця.
+
+   Раніше тиждень і місяць віддавали лише підсумкові цифри та список
+   «по днях» рядками — по ньому не видно ані як лягли дні, ані як
+   набиралась кожна позиція. Тепер віддаємо сітку: у кожній клітинці
+   день із результатом, а всередині — самі угоди зі скрінами. Хто
+   отримав посилання, клацає день і бачить, з чого той склався. */
+function dayCells(list, from, to){
+  const byDay = groupBy(list, dayKey);
+  const out = [];
+  const step = new Date(from + "T00:00"), last = new Date(to + "T00:00");
+  while (step <= last){
+    const dk = step.getFullYear() + "-" + String(step.getMonth() + 1).padStart(2, "0")
+             + "-" + String(step.getDate()).padStart(2, "0");
+    const day = sortAsc(byDay[dk] || []);
+    const st = day.length ? calc(day) : null;
+    out.push({
+      date: dk,
+      n: day.length,
+      net: st ? st.net : null,
+      wins: st ? st.wins : 0, losses: st ? st.losses : 0, be: st ? st.be : 0,
+      trades: day.map(tradeDetail),
+    });
+    step.setDate(step.getDate() + 1);
+  }
+  return out;
+}
+
 /* розріз: що дало найбільше і найменше */
 function sliceBlock(title, list, key){
   const g = groupBy(list, t => fieldVal(t, key) || "—");
@@ -113,8 +141,10 @@ function weekSnapshot(anchor){
          + sun.getDate() + " " + T.monthsGen[sun.getMonth()],
     total: calc(list).net,
     kpis: statsOf(list),
+    /* сітку днів показуємо замість списку «по днях»: те саме, але видно
+       розклад тижня й можна зайти в конкретний день */
+    calendar: {span: "week", from: from, to: to, days: dayCells(list, from, to)},
     blocks: [
-      byDay.length ? { title:T.slByDays, items: byDay } : null,
       sliceBlock(T.railSetups, list, "setup"),
       sliceBlock(T.railInstruments, list, "pair"),
     ].filter(Boolean),
@@ -124,19 +154,18 @@ function weekSnapshot(anchor){
 function monthSnapshot(mk){
   const list = S.all.filter(t => monKey(t) === mk);
   const [y, m] = mk.split("-");
-  const days = groupBy(list, dayKey);
-  const byDay = Object.keys(days).sort()
-    .map(d => ({ name: d.slice(8) + "." + d.slice(5,7), value: calc(days[d]).net }));
+  const last = new Date(+y, +m, 0).getDate();
+  const from = mk + "-01", to = mk + "-" + String(last).padStart(2, "0");
   return {
     kind: T.slKindMonth,
     title: T.months[+m - 1] + " " + y,
     total: calc(list).net,
     kpis: statsOf(list),
+    calendar: {span: "month", from: from, to: to, days: dayCells(list, from, to)},
     blocks: [
       sliceBlock(T.railSetups, list, "setup"),
       sliceBlock(T.railInstruments, list, "pair"),
       sliceBlock(T.railSessions, list, "session"),
-      byDay.length ? { title:T.slByDays, items: byDay } : null,
     ].filter(Boolean),
   };
 }
@@ -261,7 +290,8 @@ function mkBtn(label, kind, arg, extra){
   const b = document.createElement("button");
   b.className = "btn sh-btn" + (extra ? " " + extra : "");
   b.type = "button";
-  b.innerHTML = icon() + " " + label;
+  /* підпис у своєму span — у вузькій шапці картки його ховають стилі */
+  b.innerHTML = icon() + " <span>" + label + "</span>";
   b.onclick = e => { e.stopPropagation(); open(kind, arg); };
   return b;
 }
@@ -346,20 +376,40 @@ function mountDayPanel(){
   add ? panel.insertBefore(b, add) : panel.appendChild(b);
 }
 
-/* ---- кнопка біля угоди ----
+/* ---- кнопка «поділитись» біля угоди ----
    Угоду видно у двох місцях: карткою в бічній панелі й розгорнутим рядком
-   у списку журналу. Кнопка потрібна в обох — інакше людина шукає її там,
-   де відкрила угоду, і не знаходить. Ставимо поруч із «Видалити»: у ній
-   лежить id угоди, більше його взяти нізвідки. */
+   у списку журналу.
+
+   У картці кнопка стоїть у шапці, поруч із результатом. Раніше вона була
+   внизу, за деталями входу й скрінами: щоб її побачити, доводилось
+   прокрутити всю угоду — і люди її просто не знаходили. У розгорнутому
+   рядку кнопка лишається в ряду дій: там і так усе на очах.
+
+   id угоди беремо з кнопки «Видалити» — більше його взяти нізвідки. */
+function tradeIdIn(box){
+  const del = box && box.querySelector(".danger[onclick*='delTrade']");
+  const m = del && del.getAttribute("onclick").match(/delTrade\('([^']+)'\)/);
+  return m ? m[1] : null;
+}
+
 function mountTradeCard(){
-  document.querySelectorAll(".m-foot, .dact").forEach(foot => {
+  /* картка: кнопка в шапці, перед хрестиком */
+  document.querySelectorAll(".m-head.thead").forEach(head => {
+    if (head.querySelector(".sh-trade")) return;
+    const id = tradeIdIn(head.parentNode);
+    if (!id) return;
+    const b = mkBtn(T.slShareTrade, "trade", id, "sh-trade sh-top");
+    const x = head.querySelector(".x");
+    x ? head.insertBefore(b, x) : head.appendChild(b);
+  });
+
+  /* розгорнутий рядок у журналі: кнопка в ряду дій */
+  document.querySelectorAll(".dact").forEach(foot => {
     if (foot.querySelector(".sh-trade")) return;
     const del = foot.querySelector(".danger[onclick*='delTrade']");
-    if (!del) return;
-    const m = del.getAttribute("onclick").match(/delTrade\('([^']+)'\)/);
-    if (!m) return;
-    const b = mkBtn(T.slShareTrade, "trade", m[1], "sh-trade");
-    foot.insertBefore(b, del);
+    const id = tradeIdIn(foot);
+    if (!id) return;
+    foot.insertBefore(mkBtn(T.slShareTrade, "trade", id, "sh-trade"), del);
   });
 }
 

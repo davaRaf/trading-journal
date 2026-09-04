@@ -171,13 +171,24 @@ def share_create(payload, ttl_key, user_id=None):
     return share_store.create(payload, ttl_key, ttl, user_id)
 
 
+def share_trades(rec):
+    """Усі угоди знімка: і ті, що лежать зверху, і ті, що всередині днів
+    календаря (знімок тижня чи місяця)."""
+    d = rec.get("data") or {}
+    for t in d.get("trades") or []:
+        yield t
+    for day in ((d.get("calendar") or {}).get("days") or []):
+        for t in day.get("trades") or []:
+            yield t
+
+
 def share_shot_ok(rec, name):
     """Чи згадана ця картинка в самому знімку.
 
     Знімок бачить будь-хто, кому дали посилання, тому й картинки віддаємо
     без входу — але рівно ті, що в ньому перелічені. Підставити чуже ім'я
     не вийде: перевіряємо по списку."""
-    for t in (rec.get("data") or {}).get("trades") or []:
+    for t in share_trades(rec):
         for sh in t.get("shots") or []:
             if sh.get("file") == name:
                 return True
@@ -197,8 +208,9 @@ def tf_rank(tf):
 
 def share_preview_shot(rec):
     """Скрін для превью — наймолодший таймфрейм першої угоди зі скрінами:
-    саме на ньому видно, як набиралась позиція."""
-    for t in (rec.get("data") or {}).get("trades") or []:
+    саме на ньому видно, як набиралась позиція. У знімку тижня чи місяця
+    угоди лежать у днях календаря, тому шукаємо і там."""
+    for t in share_trades(rec):
         shots = [sh for sh in (t.get("shots") or []) if sh.get("file")]
         if shots:
             return max(shots, key=lambda sh: tf_rank(sh.get("tf")))["file"]
