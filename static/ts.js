@@ -458,8 +458,8 @@ function vFull(){
   h += card(d.secRisk, secRisk());
   h += card(d.secManage, secManage());
   h += card(d.secNo, secNo());
-  h += card(d.secCheck, secCheck());
   h += card(d.secExtra, secExtra());
+  h += card(d.secCheck, secCheck());
   h += card(d.secReal + " · " + (S.trades || []).length + " " + d.wTrades, against());
   h += secRaw();
   return h;
