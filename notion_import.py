@@ -196,13 +196,30 @@ def infer_by_values(out, used_col, props, values):
     low = lambda v: str(v).strip().lower()
     sides = _side_words()
 
-    # 1. Отменяем догадки, которым содержимое противоречит
+    def about_other(field, vals):
+        """Значения выглядят как другое поле, а не как угаданное."""
+        for other, test in checks.items():
+            if other == field:
+                continue
+            share, n = _share(vals, test)
+            if n and share >= 0.6:
+                return True
+        return False
+
+    # 1. Отменяем догадки, которым содержимое противоречит.
+    #
+    #    Название колонки человек написал сам — это сигнал сильнее нашего
+    #    словаря. Сессии в журналах зовут по-своему: «Ранок», «KZ-1», «OB».
+    #    Раньше незнакомое слово отменяло подпись «Сесія», и колонка
+    #    вылетала совсем. Теперь отменяем, только если значения явно про
+    #    другое поле: в «Часі» лежат LONDON и NY — это сесія, а в
+    #    «Результаті» числа — это RR. Не узнали словарь — верим подписи.
     for field, test in checks.items():
         col = out.get(field)
         if not col or col not in values:
             continue
         share, n = _share(values[col], test)
-        if n and share < 0.5:
+        if n and share < 0.5 and about_other(field, values[col]):
             del out[field]
             used_col.discard(col)
 

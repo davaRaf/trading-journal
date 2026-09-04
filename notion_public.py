@@ -628,6 +628,14 @@ def run_public_import(job, tables, mapping, opts, shots_dir, known_pairs, existi
                     if mark and seen_trades.get(mark):
                         seen_trades[mark] -= 1
                         job.similar += 1
+                        # Та сама угода вже в журналі, просто під іншим id.
+                        # Порожні поля в ній дописуємо так само, як тим, кого
+                        # впізнали за notion_id, — інакше вони порожні назавжди.
+                        if fill:
+                            try:
+                                job.filled += fill(bid, t)
+                            except Exception as ex:
+                                job.warnings.append("не дописали угоду: %s" % ex)
                         continue
 
                 job.step = "%s · %s" % (t.get("pair") or "?", (t.get("date") or "")[:10])

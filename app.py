@@ -441,6 +441,42 @@ def drop_import(user_id, batch):
     return removed
 
 
+def blank_filler(user_id, rows):
+    """Куди дописувати поля, якщо угода вже в журналі.
+
+    Впізнаємо її тими самими двома способами, що й імпорт, коли вирішує не
+    переносити: за id запису в Notion, а якщо його немає — за відбитком
+    (день, інструмент, напрямок, результат). Другий шлях потрібен угодам,
+    перенесеним з іншої бази або ще до того, як ми стали зберігати id:
+    саме вони й лишались без сесії назавжди.
+
+    Кожен рядок журналу віддаємо лише один раз: три однакових входи за
+    день — три різних рядки, і другий Notion-рядок не має дописувати те,
+    що вже дописав перший."""
+    by_nid, by_mark, mark_of = {}, {}, {}
+    for t in rows:
+        if t.get("notion_id"):
+            by_nid.setdefault(t["notion_id"], t["id"])
+        mark = tidy.same_trade_key(t)
+        if mark:
+            by_mark.setdefault(mark, []).append(t["id"])
+            mark_of[t["id"]] = mark
+
+    def fill(notion_id, t):
+        tid = by_nid.pop(notion_id, None)
+        if tid is None:
+            ids = by_mark.get(tidy.same_trade_key(t) or "")
+            tid = ids.pop(0) if ids else None
+        else:
+            ids = by_mark.get(mark_of.get(tid) or "")
+            if ids and tid in ids:
+                ids.remove(tid)
+        # Такої угоди в журналі немає — значить, її зараз перенесуть як нову.
+        return db.fill_blanks(user_id, tid, t) if tid else 0
+
+    return fill
+
+
 def start_import(user_id, tables, mapping, opts):
     jid = secrets.token_urlsafe(6)
     job = notion.Job(jid)
@@ -453,12 +489,13 @@ def start_import(user_id, tables, mapping, opts):
     known, seen = db.notion_known(user_id)
     # отпечатки того, что уже в журнале: по ним узнаём сделку, записанную
     # в другой базе Notion, — там у неё свой notion_id, и он не совпадёт
-    marks = tidy.prints(db.list_trades(user_id))
+    rows = db.list_trades(user_id)
+    marks = tidy.prints(rows)
     th = threading.Thread(
         target=npub.run_public_import,
         args=(job, tables, mapping, opts, SHOTS, known, seen,
               lambda items: add_trades(user_id, items), marks),
-        kwargs={"fill": lambda nid, t: db.fill_blanks(user_id, nid, t)},
+        kwargs={"fill": blank_filler(user_id, rows)},
         daemon=True)
     th.start()
     return job
