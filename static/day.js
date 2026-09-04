@@ -563,6 +563,15 @@ function head(){
     +   "</span>"
     +   '<button onclick="__dv.go(1)" title="' + esc(d.nextDay) + '">→</button>'
     +   (DATE === today ? "" : '<button onclick="__dv.today()">' + esc(d.today) + "</button>")
+    +   ((N.assets || []).length
+          ? '<button class="dv-share" onclick="__dv.shareDay()" title="' + esc(d.shareTip2) + '">'
+            + '<svg width="13" height="13" viewBox="0 0 24 24" fill="none">'
+            + '<path d="M12 3v12M8 7l4-4 4 4" stroke="currentColor" stroke-width="1.8" '
+            + 'stroke-linecap="round" stroke-linejoin="round"/>'
+            + '<path d="M5 14v4a2 2 0 002 2h10a2 2 0 002-2v-4" stroke="currentColor" '
+            + 'stroke-width="1.8" stroke-linecap="round"/></svg>'
+            + '<span>' + esc(d.shareDay) + "</span></button>"
+          : "")
     + "</span></div>";
 }
 
@@ -909,6 +918,13 @@ window.__dv = {
     l.dcls = cycle[l.dcls || ""];
     save(); render();
   },
+  /* Запис дня назовні — з нього sharelink.js збирає знімок розбору.
+     Віддаємо лише той день, який зараз відкритий: інші не завантажені. */
+  note(date){ return (!date || date === DATE) ? N : null; },
+  shareDay(){
+    if (window.Guest && Guest.block(T.gsGateTitle)) return;
+    if (window.Share) Share.open("review", DATE);
+  },
   /* Зведення по одній угоді: та сама картинка, що й у журналі —
      з деталями входу й скрінами. День цілком тут не потрібен. */
   share(id){
@@ -1001,6 +1017,7 @@ uk: {
   noTrades: "За цей день угод по цьому активу немає",
   byPlan: "за планом", offPlan: "поза планом", markIt: "позначити",
   shareTip: "Поділитись зведенням саме по цій угоді",
+  shareDay: "Поділитись", shareTip2: "Поділитись розбором дня за посиланням",
   markMatch: "Ринок пішов за планом", markHold: "Тримався плану",
 
   sumTitle: "підсумок дня", sumAssets: "активи", sumTrades: "угоди",
@@ -1069,6 +1086,7 @@ ru: {
   noTrades: "За этот день сделок по этому активу нет",
   byPlan: "по плану", offPlan: "вне плана", markIt: "отметить",
   shareTip: "Поделиться сводкой именно по этой сделке",
+  shareDay: "Поделиться", shareTip2: "Поделиться разбором дня по ссылке",
   markMatch: "Рынок пошёл по плану", markHold: "Держался плана",
 
   sumTitle: "итог дня", sumAssets: "актива", sumTrades: "сделки",
@@ -1137,6 +1155,7 @@ en: {
   noTrades: "No trades on this instrument for this day",
   byPlan: "by plan", offPlan: "off plan", markIt: "mark",
   shareTip: "Share a summary of this trade alone",
+  shareDay: "Share", shareTip2: "Share the day review by link",
   markMatch: "Market went as planned", markHold: "Held to the plan",
 
   sumTitle: "day summary", sumAssets: "instruments", sumTrades: "trades",

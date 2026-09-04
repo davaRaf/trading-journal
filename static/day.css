@@ -8,6 +8,11 @@
   font:inherit; font-size:13px; padding:7px 12px; border-radius:var(--r-sm); cursor:pointer}
 .dv-nav button:hover{color:var(--text); border-color:var(--faint)}
 .dv-nav .day{font-family:var(--mono); font-size:13px; padding:7px 14px; color:var(--text)}
+/* «Поділитись» стоїть у шапці розділу, поруч із датою: розбір дня — це
+   те, чим діляться найчастіше, і шукати кнопку внизу незручно */
+.dv-nav .dv-share{display:inline-flex; align-items:center; gap:7px; white-space:nowrap}
+.dv-nav .dv-share svg{opacity:.7}
+@media (max-width:560px){ .dv-nav .dv-share span{display:none} }
 .dv-hint{font-size:12.5px; color:var(--faint); margin:-8px 0 16px; line-height:1.55}
 
 /* ---------- рамка розвороту ---------- */

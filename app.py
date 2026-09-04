@@ -172,13 +172,15 @@ def share_create(payload, ttl_key, user_id=None):
 
 
 def share_trades(rec):
-    """Усі угоди знімка: і ті, що лежать зверху, і ті, що всередині днів
-    календаря (знімок тижня чи місяця)."""
+    """Усі угоди знімка: зверху, у днях календаря і в розборі дня."""
     d = rec.get("data") or {}
     for t in d.get("trades") or []:
         yield t
     for day in ((d.get("calendar") or {}).get("days") or []):
         for t in day.get("trades") or []:
+            yield t
+    for a in ((d.get("review") or {}).get("assets") or []):
+        for t in a.get("trades") or []:
             yield t
 
 
@@ -188,13 +190,24 @@ def share_shot_ok(rec, name):
     Знімок бачить будь-хто, кому дали посилання, тому й картинки віддаємо
     без входу — але рівно ті, що в ньому перелічені. Підставити чуже ім'я
     не вийде: перевіряємо по списку."""
+    if not name:
+        return False
     d = rec.get("data") or {}
-    if name and d.get("og") == name:     # намальований календар для превью
+    if d.get("og") == name:              # намальований календар для превью
         return True
-    for t in share_trades(rec):
-        for sh in t.get("shots") or []:
-            if sh.get("file") == name:
+    # Картинки лежать не в одному місці: в угодах, у днях календаря, у
+    # розборі дня. Замість переліку всіх місць просто обходимо знімок
+    # цілком і шукаємо це ім'я у полях "file" — додасться новий розділ,
+    # правити тут не доведеться.
+    stack = [d]
+    while stack:
+        node = stack.pop()
+        if isinstance(node, dict):
+            if node.get("file") == name:
                 return True
+            stack.extend(node.values())
+        elif isinstance(node, list):
+            stack.extend(node)
     return False
 
 
@@ -213,6 +226,10 @@ def share_preview_shot(rec):
     """Скрін для превью — наймолодший таймфрейм першої угоди зі скрінами:
     саме на ньому видно, як набиралась позиція. У знімку тижня чи місяця
     угоди лежать у днях календаря, тому шукаємо і там."""
+    for a in (((rec.get("data") or {}).get("review") or {}).get("assets") or []):
+        shots = [sh for sh in (a.get("shots") or []) if sh.get("file")]
+        if shots:
+            return shots[0]["file"]
     for t in share_trades(rec):
         shots = [sh for sh in (t.get("shots") or []) if sh.get("file")]
         if shots:

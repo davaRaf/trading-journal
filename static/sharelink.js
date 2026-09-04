@@ -106,6 +106,56 @@ function sliceBlock(title, list, key){
   return items.length ? { title, items } : null;
 }
 
+/* ---------- розбір дня ----------
+   Знімок дня показує цифри й угоди. А розбір — це те, як людина дивилась
+   на графік зранку: куди дивилась, які рівні відмітила, що планувала — і
+   що з цього вийшло ввечері. Саме цим і цікаво ділитись: не результатом,
+   а мисленням. Дані беремо з розділу «Аналіз дня» (day.js тримає їх у
+   базі), а не з угод. */
+function reviewSnapshot(dk){
+  const n = (window.__dv && typeof __dv.note === "function") ? __dv.note(dk) : null;
+  if (!n || !(n.assets || []).length) return null;
+
+  const day = sortAsc(S.all.filter(t => dayKey(t) === dk));
+  const norm = x => String(x || "").toUpperCase().replace(/[^A-Z0-9]/g, "");
+  const d = new Date(dk + "T00:00");
+
+  const assets = n.assets.map(a => {
+    const mine = a.nm ? day.filter(t => norm(t.pair) === norm(a.nm)) : [];
+    const st = mine.length ? calc(mine) : null;
+    return {
+      nm: a.nm || "",
+      side: a.side || "",
+      why: a.why || "",
+      shots: (a.shots || []).filter(x => x.file).map(x => ({tf: x.tf || "", file: x.file})),
+      levels: (a.levels || []).filter(l => l.p || l.t || l.n || l.did)
+        .map(l => ({p: l.p || "", t: l.t || "", n: l.n || "", did: l.did || "", cls: l.dcls || ""})),
+      plans: (a.plans || []).map((pl, i) => ({k: i ? "Б" : "A", tx: (pl || {}).tx || ""}))
+        .filter(pl => pl.tx),
+      eve: {text: ((a.eve || {}).text) || "",
+            shots: (((a.eve || {}).shots) || []).filter(x => x.file)
+              .map(x => ({tf: x.tf || "", file: x.file}))},
+      marks: {match: (a.marks || {}).match || "", hold: (a.marks || {}).hold || ""},
+      net: st ? st.net : null,
+      trades: mine.map(tradeDetail),
+    };
+  });
+
+  return {
+    kind: T.slKindReview, kindFull: T.slOgReview,
+    title: d.getDate() + " " + T.monthsGen[d.getMonth()] + " " + d.getFullYear(),
+    total: day.length ? calc(day).net : null,
+    kpis: day.length ? statsOf(day) : [],
+    review: {
+      closed: !!n.closed,
+      skip: n.skip || "",
+      lesson: (n.fact || {}).lesson || "",
+      assets: assets,
+    },
+    blocks: [],
+  };
+}
+
 function daySnapshot(dk){
   const list = sortAsc(S.all.filter(t => dayKey(t) === dk));
   const d = new Date(dk + "T00:00");
@@ -207,8 +257,9 @@ function tradeSnapshot(id){
 /* ---------- вікно ---------- */
 
 function open(kind, arg){
-  const data = kind === "trade" ? tradeSnapshot(arg)
-             : kind === "day"   ? daySnapshot(arg)
+  const data = kind === "trade"  ? tradeSnapshot(arg)
+             : kind === "review" ? reviewSnapshot(arg)
+             : kind === "day"    ? daySnapshot(arg)
              : kind === "week"  ? weekSnapshot(arg)
              : kind === "month" ? monthSnapshot(arg)
              :                    yearSnapshot(arg);
