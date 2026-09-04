@@ -72,13 +72,13 @@ function tradeDetail(t){
    день із результатом, а всередині — самі угоди зі скрінами. Хто
    отримав посилання, клацає день і бачить, з чого той склався. */
 function dayCells(list, from, to){
-  const byDay = groupBy(list, dayKey);
+  const byDay = groupBy(list, dayKey);          /* це Map */
   const out = [];
   const step = new Date(from + "T00:00"), last = new Date(to + "T00:00");
   while (step <= last){
     const dk = step.getFullYear() + "-" + String(step.getMonth() + 1).padStart(2, "0")
              + "-" + String(step.getDate()).padStart(2, "0");
-    const day = sortAsc(byDay[dk] || []);
+    const day = sortAsc(byDay.get(dk) || []);
     const st = day.length ? calc(day) : null;
     out.push({
       date: dk,
@@ -94,9 +94,11 @@ function dayCells(list, from, to){
 
 /* розріз: що дало найбільше і найменше */
 function sliceBlock(title, list, key){
+  /* groupBy у app.js повертає Map, а не звичайний об'єкт: читаємо його
+     як Map, інакше розріз завжди виходив порожнім */
   const g = groupBy(list, t => fieldVal(t, key) || "—");
-  const items = Object.keys(g)
-    .map(name => ({ name, value: calc(g[name]).net, n: g[name].length }))
+  const items = [...g.keys()]
+    .map(name => ({ name, value: calc(g.get(name)).net, n: g.get(name).length }))
     .filter(x => x.n >= 2)
     .sort((a,b) => b.value - a.value)
     .slice(0, 6)
@@ -129,12 +131,6 @@ function weekSnapshot(anchor){
               + "-" + String(x.getDate()).padStart(2,"0");
   const from = k(mon), to = k(sun);
   const list = S.all.filter(t => { const dk = dayKey(t); return dk >= from && dk <= to; });
-  const days = groupBy(list, dayKey);
-  const byDay = Object.keys(days).sort().map(dd => {
-    const dt = new Date(dd + "T00:00");
-    return { name: T.wdSun[dt.getDay()] + ", " + dt.getDate() + " " + T.monthsGen[dt.getMonth()],
-             value: calc(days[dd]).net };
-  });
   return {
     kind: T.slKindWeek,
     title: mon.getDate() + " " + T.monthsGen[mon.getMonth()] + " — "
@@ -173,8 +169,8 @@ function monthSnapshot(mk){
 function yearSnapshot(y){
   const list = S.all.filter(t => (t.date||"").slice(0,4) === String(y));
   const months = groupBy(list, monKey);
-  const byMonth = Object.keys(months).sort()
-    .map(mk => ({ name: T.months[+mk.slice(5,7) - 1], value: calc(months[mk]).net }));
+  const byMonth = [...months.keys()].sort()
+    .map(mk => ({ name: T.months[+mk.slice(5,7) - 1], value: calc(months.get(mk)).net }));
   return {
     kind: T.slKindYear,
     title: String(y),
