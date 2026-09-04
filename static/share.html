@@ -528,9 +528,14 @@ function tsHtml(ts){
       "<div><i>" + String(i + 1).padStart(2, "0") + "</i><span>" + esc(c) + "</span></div>").join("")
     + "</div>";
 
+  /* вільні блоки — тим самим виглядом, що й супровід угоди */
+  const extra = !(ts.extra || []).length ? "" :
+    ts.extra.map(m =>
+      "<div>" + rows([[m.k || "—", m.v]]) + shotsHtml(m.shots) + "</div>").join("");
+
   const body = sec(T.tsShMarket, market) + sec(T.tsShTfs, tfs) + sec(T.tsShEntry, entry)
     + sec(T.tsShRisk, risk) + sec(T.tsShManage, manage) + sec(T.tsShNo, no)
-    + sec(T.tsShCheck, check);
+    + sec(T.tsShCheck, check) + sec(T.tsShExtra, extra);
   return body ? '<div class="ts">' + body + "</div>" : "";
 }
 

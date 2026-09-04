@@ -135,6 +135,10 @@ function tsSnapshot(){
     .filter(m => str(m.k) || str(m.v))
     .map(m => ({k: str(m.k), v: str(m.v), shots: shots(m.shots)}));
 
+  const extra = (ts.extra || [])
+    .filter(m => str(m.k) || str(m.v))
+    .map(m => ({k: str(m.k), v: str(m.v), shots: shots(m.shots)}));
+
   const cases = (ts.riskCases || [])
     .filter(c => str(c.k) || str(c.v))
     .map(c => ({k: str(c.k), v: str(c.v)}));
@@ -168,6 +172,7 @@ function tsSnapshot(){
       no: {market: line(no.market), time: line(no.time), self: line(no.self)},
       mind: str(ts.mind),
       check: line(ts.check),
+      extra: extra,
     },
     blocks: [],
   };
@@ -175,7 +180,7 @@ function tsSnapshot(){
   /* порожньою стратегією ділитись нема чого */
   const t = data.ts;
   const any = has(t.assets) || has(t.tfs) || has(t.models) || has(t.manage)
-    || has(t.check) || t.bias || t.mind || t.stop.v || t.target.v
+    || has(t.check) || has(t.extra) || t.bias || t.mind || t.stop.v || t.target.v
     || has(t.no.market) || has(t.no.time) || has(t.no.self) || rk.length;
   return any ? data : null;
 }

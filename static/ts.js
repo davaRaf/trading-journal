@@ -305,6 +305,28 @@ function secNo(){
   return h;
 }
 
+/* Вільний розділ: усе, що не лягло в готові поля. Влаштований як
+   «Супровід угоди» — заголовок, текст і скріни, — бо це найзручніша
+   форма для довільного правила. */
+function secExtra(){
+  const d = D();
+  const list = TS.extra || [];
+  return '<div class="ts-lines">'
+    + list.map((m, i) => {
+        const shots = (m.shots || []);
+        return '<div class="ts-line"><div class="k">' + ed("extra." + i + ".k", "", d.emptyExtraK) + "</div>"
+          + '<div class="v"><div class="ts-row">' + edArea("extra." + i + ".v", d.emptyExtraV)
+          + x("extra", i) + "</div>"
+          + '<div class="ts-shots">'
+          +   shots.map((f, j) => shot("extra." + i + ".shots." + j, d.shotHow, true)).join("")
+          +   shot("extra." + i + ".shots." + shots.length, d.shotAddShort, true)
+          + "</div></div></div>";
+      }).join("")
+    + "</div>"
+    + (list.length ? "" : '<div class="empty">' + esc(d.noExtra) + "</div>")
+    + add("extra", d.addExtra);
+}
+
 function secCheck(){
   const d = D();
   const list = TS.check || [];
@@ -437,6 +459,7 @@ function vFull(){
   h += card(d.secManage, secManage());
   h += card(d.secNo, secNo());
   h += card(d.secCheck, secCheck());
+  h += card(d.secExtra, secExtra());
   h += card(d.secReal + " · " + (S.trades || []).length + " " + d.wTrades, against());
   h += secRaw();
   return h;
@@ -932,6 +955,7 @@ window.__ts = {
       models: {name: "", note: "", shots: []},
       riskCases: {k: "", v: ""},
       manage: {k: "", v: "", shots: []},
+      extra: {k: "", v: "", shots: []},
     }[path];
     list.push(typeof proto === "object" && proto !== null ? Object.assign({}, proto) : "");
     save(); render();
@@ -1003,7 +1027,9 @@ uk: {
   whyAfter: "Можна почати з нуля, а потім підтягнути з Notion — друге допише те, чого не вистачає.",
 
   secMarket: "Ринок і час", secTf: "Таймфрейми", secEntry: "Вхід", secRisk: "Ризик",
-  secManage: "Супровід угоди", secNo: "Коли не входжу", secCheck: "Чек-лист перед входом",
+  secManage: "Супровід угоди", secExtra: "Додатково",
+  addExtra: "ще блок", noExtra: "Тут можна дописати те, що не влізло в поля вище",
+  emptyExtraK: "про що це", emptyExtraV: "своє правило або нотатка", secNo: "Коли не входжу", secCheck: "Чек-лист перед входом",
   secReal: "Що виходить насправді", secRaw: "Сторінка з Notion, як ми її прочитали", rawShots: "Скріни зі сторінки",
 
   lAssets: "Чим торгую", lWindows: "Вікна", lDaysNews: "Дні та новини",
@@ -1111,7 +1137,9 @@ ru: {
   whyAfter: "Можно начать с нуля, а потом подтянуть из Notion — второе допишет то, чего не хватает.",
 
   secMarket: "Рынок и время", secTf: "Таймфреймы", secEntry: "Вход", secRisk: "Риск",
-  secManage: "Сопровождение сделки", secNo: "Когда не вхожу", secCheck: "Чек-лист перед входом",
+  secManage: "Сопровождение сделки", secExtra: "Дополнительно",
+  addExtra: "ещё блок", noExtra: "Тут можно дописать то, что не влезло в поля выше",
+  emptyExtraK: "о чём это", emptyExtraV: "своё правило или заметка", secNo: "Когда не вхожу", secCheck: "Чек-лист перед входом",
   secReal: "Что выходит на самом деле", secRaw: "Страница из Notion, как мы её прочитали", rawShots: "Скрины со страницы",
 
   lAssets: "Чем торгую", lWindows: "Окна", lDaysNews: "Дни и новости",
@@ -1219,7 +1247,9 @@ en: {
   whyAfter: "You can start from scratch and pull from Notion later — the second fills in what's missing.",
 
   secMarket: "Market and time", secTf: "Timeframes", secEntry: "Entry", secRisk: "Risk",
-  secManage: "Managing the trade", secNo: "When I stay out", secCheck: "Checklist before entry",
+  secManage: "Managing the trade", secExtra: "Anything else",
+  addExtra: "one more block", noExtra: "Room for whatever did not fit the fields above",
+  emptyExtraK: "what it is about", emptyExtraV: "your own rule or a note", secNo: "When I stay out", secCheck: "Checklist before entry",
   secReal: "What actually happens", secRaw: "The Notion page as we read it", rawShots: "Screenshots from the page",
 
   lAssets: "What I trade", lWindows: "Windows", lDaysNews: "Days and news",
