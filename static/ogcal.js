@@ -131,15 +131,20 @@ function grid(ctx, cal, wd, top, bottom){
   const tight = ch < 62;                 /* у місяці рядків шість — місця мало */
 
   /* підписи днів тижня */
+
+  /* Коли рядок один (тиждень), сітка не має тулитись до верху й лишати
+     півкартинки порожньою — ставимо її по центру вільного місця. */
+  const gridH = rows * ch + gapY * (rows - 1);
+  const gridTop = top + headH + 10 + Math.max(0, (avail - gridH) / 2);
+
+  /* підписи днів тижня — рівно над сіткою */
   ctx.font = "500 15px " + MONO;
   ctx.fillStyle = C.faint;
   ctx.textAlign = "center";
   for (let i = 0; i < cols; i++){
-    ctx.fillText(String(wd[i] || "").toUpperCase(), left + i * (cw + gapX) + cw / 2, top + 16);
+    ctx.fillText(String(wd[i] || "").toUpperCase(), left + i * (cw + gapX) + cw / 2, gridTop - 14);
   }
   ctx.textAlign = "left";
-
-  const gridTop = top + headH + 10;
   days.forEach((d, i) => {
     const n = pad + i;
     const x = left + (n % cols) * (cw + gapX);
