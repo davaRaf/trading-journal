@@ -535,7 +535,7 @@ def preview(url, mapping=None, table=None, sample=5):
 
 
 def run_public_import(job, tables, mapping, opts, shots_dir, known_pairs, existing_ids,
-                      sink, seen_trades=None):
+                      sink, seen_trades=None, fill=None):
     """
     Читаем выбранные таблицы целиком и отдаём готовые сделки в sink.
 
@@ -592,12 +592,19 @@ def run_public_import(job, tables, mapping, opts, shots_dir, known_pairs, existi
             blocks = rm.get("block") or {}
             for bid in ids:
                 job.done += 1
-                if skip_known and bid in existing_ids:
-                    job.skipped += 1
-                    continue
-
                 props, files = row_props(_unwrap(blocks.get(bid) or {}), schema)
                 t = map_simple(props, use)
+                if skip_known and bid in existing_ids:
+                    job.skipped += 1
+                    # Колонку могли зіставити не з першого разу: сесія в Notion
+                    # є, а в журналі порожньо. Дописуємо саме такі порожні
+                    # місця — угоду не дублюємо і написане не чіпаємо.
+                    if fill:
+                        try:
+                            job.filled += fill(bid, t)
+                        except Exception as ex:
+                            job.warnings.append("не дописали угоду: %s" % ex)
+                    continue
                 t["notion_id"] = bid
                 t["import_id"] = job.batch
                 # Строка-разделитель отличается от сделки двумя вещами: в поле

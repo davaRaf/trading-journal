@@ -441,8 +441,10 @@ async function finish(j){
       + line(T.ntSkipped, j.skipped)
       /* показуємо, тільки коли є що показати: порожня плитка «0» лякає */
       + (j.similar ? line(T.ntSimilarWord, j.similar) : "")
+      + (j.filled ? line(T.ntFilledWord, j.filled) : "")
       + line(T.ntShotsWord, j.shots) + "</div>"
     + (j.similar ? '<p class="nt-note">' + T.ntSimilarHint + "</p>" : "")
+    + (j.filled ? '<p class="nt-note">' + T.ntFilledHint + "</p>" : "")
     + assets + warn
     + (window.Tidy ? Tidy.hint() : "")
     + (j.added ? '<p class="nt-note">' + T.ntSomethingWrong + "</p>" : "")

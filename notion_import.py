@@ -136,9 +136,20 @@ _RES_WORDS = {"win", "loss", "be", "be+", "be-", "tp", "sl", "тейк", "сто
               "бу", "бу+", "бу-", "профит", "лось"}
 _DIR_WORDS = {"continuation", "reversal", "продовження", "розворот",
               "продолжение", "разворот", "cont", "rev"}
-_SESSIONS = {"london", "ny", "new york", "newyork", "asia", "asian", "tokyo",
-             "frankfurt", "sydney", "лондон", "нью-йорк", "азия", "азія",
-             "франкфурт", "токио", "ph", "pm", "am", "premarket", "pre-market"}
+# Назва сесії всередині значення, а не все значення цілком: у журналах
+# пишуть «NY AM», «London Killzone», «Азія (ранок)». Довгі рядки не беремо —
+# там уже не сесія, а опис сетапу.
+_SESSION_RE = re.compile(
+    r"(london|лондон|new[\s-]?york|нью[\s-]?йорк|\bny\b|asian?\b|азі|ази|"
+    r"tokyo|токіо|токио|frankfurt|франкфурт|sydney|сідней|сидней|"
+    r"kill[\s-]?zone|\bkz\b|silver[\s-]?bullet|power[\s-]?hour|\bph\b|"
+    r"pre[\s-]?market|премаркет|\bam\b|\bpm\b|сесі|сесси|session)", re.I)
+_SESSION_MAX = 24
+
+
+def is_session(v):
+    s = str(v if v is not None else "").strip()
+    return len(s) <= _SESSION_MAX and bool(_SESSION_RE.search(s))
 
 _DATE_RE = re.compile(r"^\d{4}-\d{2}-\d{2}|^\d{1,2}[./]\d{1,2}[./]\d{2,4}")
 _TICKER_RE = re.compile(r"^[A-Z][A-Z0-9]{1,9}([./][A-Z0-9]{1,6})?$")
@@ -167,7 +178,7 @@ def _checks():
         "position":       lambda v: low(v) in sides,
         "bias":           lambda v: low(v) in sides,
         "direction_type": lambda v: low(v) in _DIR_WORDS,
-        "session":        lambda v: low(v) in _SESSIONS,
+        "session":        is_session,
         "rr":             _plain_num,
         "risk":           _plain_num,
     }
@@ -419,7 +430,7 @@ def norm_session(v):
     if not s:
         return ""
     up = s.upper()
-    return SESSION_SAME.get(up, up if len(up) <= 14 else s)
+    return SESSION_SAME.get(up, up if len(up) <= _SESSION_MAX else s)
 
 
 NORMALIZE = {
@@ -486,6 +497,7 @@ class Job(object):
         self.added = 0
         self.skipped = 0
         self.similar = 0           # похоже на уже записанную сделку из другого журнала
+        self.filled = 0            # уже была в журнале, но чего-то в ней не хватало
         self.shots = 0
         self.new_assets = []
         self.warnings = []
@@ -495,5 +507,6 @@ class Job(object):
         return {"id": self.id, "batch": self.batch, "state": self.state, "step": self.step,
                 "done": self.done, "total": self.total, "added": self.added,
                 "skipped": self.skipped, "similar": self.similar, "shots": self.shots,
+                "filled": self.filled,
                 "newAssets": self.new_assets, "warnings": self.warnings[:20],
                 "error": self.error}

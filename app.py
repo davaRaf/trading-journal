@@ -458,6 +458,7 @@ def start_import(user_id, tables, mapping, opts):
         target=npub.run_public_import,
         args=(job, tables, mapping, opts, SHOTS, known, seen,
               lambda items: add_trades(user_id, items), marks),
+        kwargs={"fill": lambda nid, t: db.fill_blanks(user_id, nid, t)},
         daemon=True)
     th.start()
     return job

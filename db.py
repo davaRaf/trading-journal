@@ -393,6 +393,46 @@ def insert_trades(user_id, trades, emotion_status="na"):
     return len(rows)
 
 
+# Що можна дописати в уже перенесену угоду. Імена йдуть прямо в SQL,
+# тому список закритий; службових полів і емоції тут немає — емоцію
+# людина ставить сама, і імпорт її не пише.
+FILL_FIELDS = ("pair", "date", "session", "position", "entry_model", "bias",
+               "setup", "direction_type", "result", "entry_details",
+               "notes", "mistakes", "comments")
+
+
+def fill_blanks(user_id, notion_id, t):
+    """Дописує в угоду тільки те, чого в ній немає. Повертає 1, якщо змінили.
+
+    Повторний імпорт знайомі угоди пропускає — інакше пішли б дублі. Але
+    якщо перший раз колонку не впізнали, порожнє поле так і лишиться
+    порожнім назавжди. Тут воно заповнюється, а заповнене — ні: у журналі
+    могли виправити руками, і затерти це було б гірше за порожнечу."""
+    sets, empty, vals = [], [], []
+    for f in FILL_FIELDS:
+        v = (t.get(f) or "").strip() if isinstance(t.get(f), str) else t.get(f)
+        if not v:
+            continue
+        sets.append('"{0}"=CASE WHEN "{0}" IS NULL OR "{0}"=\'\' THEN %s ELSE "{0}" END'.format(f))
+        empty.append('("{0}" IS NULL OR "{0}"=\'\')'.format(f))
+        vals.append(v)
+    for f in NUM_FIELDS:
+        if t.get(f) is None:
+            continue
+        sets.append('"{0}"=COALESCE("{0}", %s)'.format(f))
+        empty.append('"{0}" IS NULL'.format(f))
+        vals.append(t[f])
+    if not sets:
+        return 0
+    with connect() as conn:
+        cur = conn.execute(
+            "UPDATE trades SET %s WHERE user_id=%%s AND notion_id=%%s AND (%s)"
+            % (", ".join(sets), " OR ".join(empty)),
+            vals + [user_id, notion_id])
+        conn.commit()
+    return cur.rowcount
+
+
 def update_trade(user_id, t):
     with connect() as conn:
         cur = conn.execute(
