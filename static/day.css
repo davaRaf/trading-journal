@@ -287,6 +287,17 @@ button.dv-tfc:hover{border-color:var(--faint); color:var(--text)}
   background:var(--panel-2); border:1px solid var(--line-soft); color:var(--dim); cursor:pointer; font-weight:500}
 .dv-tfpick button:hover{border-color:var(--accent); color:var(--accent)}
 .dv-tfpick button.x{color:var(--faint)}
+.dv-tfpick .own{width:64px; min-width:0; background:var(--panel); border:1px solid var(--line);
+  border-radius:6px; padding:3px 6px; color:var(--text); font:inherit; font-family:var(--mono);
+  font-size:10.5px}
+.dv-tfpick .own:focus{outline:none; border-color:var(--accent)}
+
+/* Слот, у який зараз піде Ctrl+V. Один клік націлює його, а не відкриває
+   файли: інакше вставити картинку з буфера нікуди. */
+.dv-shot.armed{border-style:solid; border-color:var(--accent);
+  box-shadow:inset 0 0 0 1px var(--accent), 0 0 0 3px var(--accent-soft)}
+.dv-shot.armed .ph{color:var(--accent)}
+.dv-shot.armed .ph em{opacity:1; color:var(--accent)}
 .dv-tf .dv-shot .ph{height:120px; font-size:12.5px}
 .dv-tf .dv-shot img{aspect-ratio:16/10; object-fit:cover}
 .dv-tf.add .dv-shot{opacity:.7}

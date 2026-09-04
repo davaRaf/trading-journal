@@ -36,6 +36,13 @@ let hotShot = null;
 let calOpen = false, calMonth = null;   /* міні-календар: відкритий? який місяць */
 let popOpen = false;                    /* вибір активу */
 let tfEdit = null;                      /* який таймфрейм зараз вибирають (шлях) */
+let armed = null;                       /* слот, куди піде Ctrl+V (шлях) */
+
+/* На телефоні буфера обміну для картинок немає, тому там дотик має одразу
+   відкривати файли. На комп'ютері — навпаки: один клік націлює слот. */
+function touchOnly(){
+  return window.matchMedia && matchMedia("(hover: none)").matches;
+}
 
 const TFS = ["1W", "1D", "4H", "1H", "30M", "15M", "5M", "3M", "1M"];
 
@@ -209,27 +216,38 @@ function shotCell(path, cap, readOnly){
   if (readOnly){
     chip = '<span class="dv-tfc' + (s.tf ? "" : " pick") + '">' + esc(s.tf || "—") + "</span>";
   } else if (tfEdit === tfPath){
+    /* список звичних таймфреймів, а поруч поле — вписати свій: у людей
+       трапляються і 2H, і 45m, і назва словом */
     chip = '<span class="dv-tfpick">' + TFS.map(t =>
-        '<button type="button" onclick="__dv.tf(\'' + tfPath + '\',\'' + t + '\')">' + t + "</button>").join("")
+        '<button type="button" onclick="__dv.tf(\'' + tfPath + "','" + t + '\')">' + t + "</button>").join("")
+      + '<input class="own" id="dvTf" value="' + esc(s.tf || "") + '" placeholder="' + esc(d.tfOwn)
+      + '" aria-label="' + esc(d.tfOwn) + '">'
       + '<button type="button" class="x" onclick="__dv.tf(\'' + tfPath + '\',null)">×</button></span>';
   } else {
     chip = '<button type="button" class="dv-tfc' + (s.tf ? "" : " pick") + '" onclick="__dv.tfEdit(\''
       + tfPath + '\')">' + esc(s.tf || d.tfPick) + "</button>";
   }
   const f = s.file;
+  const slot = path + ".file";
+  const on = armed === slot;
   return '<div class="dv-tf"><div class="cap">' + chip + "</div>"
-    + '<div class="dv-shot' + (f ? " has" : "") + (readOnly ? " ro" : "") + '" data-shot="' + path + '.file">'
+    + '<div class="dv-shot' + (f ? " has" : "") + (readOnly ? " ro" : "") + (on ? " armed" : "")
+    + '" data-shot="' + slot + '">'
     + (f ? '<img alt="" src="' + esc(/^data:/.test(f) ? f : "/dnshot/" + f) + '">'
            + (readOnly ? "" : '<button class="rm" type="button">×</button>')
-         : '<div class="ph"><b>+</b>' + esc(cap) + "<em>" + esc(d.shotHint) + "</em></div>")
+         : '<div class="ph"><b>+</b>' + esc(cap) + "<em>"
+           + esc(on ? d.shotArmed : d.shotHint) + "</em></div>")
     + "</div></div>";
 }
 /* Порожня комірка «ще один таймфрейм»: вставиш скрін — з'явиться запис. */
 function shotAdd(listPath, cap){
   const d = D();
+  const slot = listPath + ".+";
+  const on = armed === slot;
   return '<div class="dv-tf add"><div class="cap"><span class="dv-tfc pick">+ ' + esc(d.addTf) + "</span></div>"
-    + '<div class="dv-shot" data-shot="' + listPath + '.+">'
-    + '<div class="ph"><b>+</b>' + esc(cap) + "<em>" + esc(d.shotHint) + "</em></div></div></div>";
+    + '<div class="dv-shot' + (on ? " armed" : "") + '" data-shot="' + slot + '">'
+    + '<div class="ph"><b>+</b>' + esc(cap) + "<em>"
+    + esc(on ? d.shotArmed : d.shotHint) + "</em></div></div></div>";
 }
 function shotsRow(listPath, cap, readOnly){
   const list = get(listPath) || [];
@@ -277,6 +295,7 @@ function removeShot(path){
 
 async function upload(el, dataUrl){
   const path = el.dataset.shot;
+  armed = null;
   if (demo()){
     place(path, dataUrl);
     save(); render();
@@ -787,6 +806,17 @@ document.addEventListener("click", e => {
   });
 });
 
+/* подвійний клік по слоту — вибір файлу з комп'ютера */
+document.addEventListener("dblclick", e => {
+  if (S.view !== "day" || !N) return;
+  const sl = e.target.closest && e.target.closest(".dv-shot[data-shot]:not(.ro)");
+  if (!sl) return;
+  e.preventDefault();
+  armed = null;
+  filePick._to = sl;
+  filePick.click();
+});
+
 document.addEventListener("mouseover", e => {
   const sl = e.target.closest && e.target.closest(".dv-shot[data-shot]:not(.ro)");
   if (sl) hotShot = sl;
@@ -796,8 +826,11 @@ document.addEventListener("paste", e => {
   if (e.target.closest && e.target.closest("input,textarea")) return;
   const files = (e.clipboardData && e.clipboardData.files) || [];
   if (!files.length) return;
-  const el = (hotShot && document.body.contains(hotShot))
-    ? hotShot : document.querySelector(".dv-shot[data-shot]:not(.has):not(.ro)");
+  /* спершу той слот, який людина обрала кліком, потім той, над яким
+     стоїть миша, і лише тоді перший порожній */
+  const el = (armed && document.querySelector('.dv-shot[data-shot="' + armed + '"]'))
+    || (hotShot && document.body.contains(hotShot) ? hotShot : null)
+    || document.querySelector(".dv-shot[data-shot]:not(.has):not(.ro)");
   if (!el) return;
   e.preventDefault();
   takeFile(files[0], el);
@@ -814,6 +847,10 @@ document.addEventListener("drop", e => {
 document.addEventListener("keydown", e => {
   if (S.view !== "day") return;
   if (e.key === "Enter" && e.target && e.target.id === "dvOwn"){ e.preventDefault(); window.__dv.addOwn(); }
+  if (e.key === "Enter" && e.target && e.target.id === "dvTf" && tfEdit){
+    e.preventDefault(); window.__dv.tf(tfEdit.replace(/\.tf$/, ".tf"), null);
+  }
+  if (e.key === "Escape" && armed){ armed = null; render(); }
 });
 
 /* ---------------- назовні ---------------- */
@@ -845,7 +882,14 @@ window.__dv = {
   dropAsset(i){ N.assets.splice(i, 1); save(); render(); },
   tfEdit(path){ tfEdit = (tfEdit === path ? null : path); render(); },
   tf(path, val){
-    if (val !== null) set(path, val);
+    /* val === null — закрили хрестиком: беремо те, що встигли вписати */
+    if (val === null){
+      const inp = document.getElementById("dvTf");
+      const own = ((inp && inp.value) || "").trim();
+      if (own) set(path, own.slice(0, 8));
+    } else {
+      set(path, val);
+    }
     tfEdit = null; save(); render();
   },
   side(i, v){
@@ -949,7 +993,8 @@ uk: {
   phLesson: "Один рядок собі на завтра",
   addLevel: "ще рівень", hitTip: "дійшло / наполовину / ні",
   shotPlan: "вставити скрін розмітки", shotFact: "вставити скрін кінця дня",
-  shotHint: "клік · Ctrl+V · перетягни",
+  shotHint: "клік → далі Ctrl+V · подвійний клік → файл",
+  shotArmed: "тепер Ctrl+V", tfOwn: "свій",
 
   autoTag: "саме", newsAuto: "Новини на сьогодні беруться з розділу «Новини»",
   tradesAuto: "Угоди підтягуються з журналу за назвою інструмента — тут їх не набирають",
@@ -1016,7 +1061,8 @@ ru: {
   phLesson: "Одна строка себе на завтра",
   addLevel: "ещё уровень", hitTip: "дошло / наполовину / нет",
   shotPlan: "вставить скрин разметки", shotFact: "вставить скрин конца дня",
-  shotHint: "клик · Ctrl+V · перетащи",
+  shotHint: "клик → дальше Ctrl+V · двойной клик → файл",
+  shotArmed: "теперь Ctrl+V", tfOwn: "свой",
 
   autoTag: "само", newsAuto: "Новости на сегодня берутся из раздела «Новини»",
   tradesAuto: "Сделки подтягиваются из журнала по названию инструмента — тут их не набирают",
@@ -1083,7 +1129,8 @@ en: {
   phLesson: "One line for tomorrow",
   addLevel: "one more level", hitTip: "reached / halfway / no",
   shotPlan: "add the markup screenshot", shotFact: "add the end-of-day screenshot",
-  shotHint: "click · Ctrl+V · drop",
+  shotHint: "click → then Ctrl+V · double click → file",
+  shotArmed: "now press Ctrl+V", tfOwn: "custom",
 
   autoTag: "auto", newsAuto: "Today's news comes from the News section",
   tradesAuto: "Trades come from the journal, matched by instrument — no typing here",
