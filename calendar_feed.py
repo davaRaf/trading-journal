@@ -133,6 +133,70 @@ def cached_events():
     return saved if saved is not None else []
 
 
+# ------------------------------------------------ історія однієї події ----
+
+# Скільки днів між випусками ще вважаємо сусідніми. Місячні показники
+# виходять раз на 28-31 день; 40 лишає запас на перенесення свята.
+HIST_GAP_DAYS = 40
+HIST_FILES = 80          # скільки тижневих файлів переглядаємо (≈півтора року)
+
+
+def _hist_rows(country, title):
+    """Усі збережені випуски цієї події з архіву, від старих до нових."""
+    try:
+        files = sorted(f for f in os.listdir(CAL_DIR) if f.endswith(".json"))
+    except OSError:
+        return []
+    by_date = {}
+    for name in files[-HIST_FILES:]:
+        try:
+            with open(os.path.join(CAL_DIR, name), "r", encoding="utf-8") as f:
+                data = json.load(f)
+        except Exception:
+            continue
+        for e in data:
+            if ((e.get("title") or "").strip() == title
+                    and (e.get("country") or "").strip() == country):
+                by_date[e.get("date") or ""] = e
+    return [by_date[k] for k in sorted(by_date) if k]
+
+
+def event_history(country, title, limit=12):
+    """Попередні випуски події: коли, який був прогноз і що вийшло.
+
+    Фактичного значення фід не віддає взагалі — у ньому лише прогноз і
+    «попереднє». Але «попереднє» наступного випуску і є результат цього:
+    саме з ним ринок порівнює нові цифри. Тому факт беремо звідти, але
+    лише коли випуски справді сусідні (див. HIST_GAP_DAYS): якщо сервер
+    тиждень не працював, між збереженими рядками може загубитись ціла
+    публікація, і тоді підставили б чуже число.
+
+    Історія росте сама: фід знає тільки поточний тиждень, і кожен похід у
+    мережу дописує архів. Тому в перші тижні тут буде порожньо — це не
+    поламка, а просто ще не накопичилось.
+    """
+    country = (country or "").strip()
+    title = (title or "").strip()
+    if not country or not title:
+        return []
+    rows = _hist_rows(country, title)
+    out = []
+    for i, e in enumerate(rows):
+        nxt = rows[i + 1] if i + 1 < len(rows) else None
+        actual = ""
+        if nxt:
+            a, b = event_time(e), event_time(nxt)
+            near = a and b and (b - a).days <= HIST_GAP_DAYS
+            if near:
+                actual = (nxt.get("previous") or "").strip()
+        out.append({"date": e.get("date") or "",
+                    "forecast": (e.get("forecast") or "").strip(),
+                    "previous": (e.get("previous") or "").strip(),
+                    "actual": actual})
+    out.reverse()
+    return out[:limit]
+
+
 # ------------------------------------------------ помощники для бота ----
 
 def event_key(event):

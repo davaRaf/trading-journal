@@ -47,6 +47,7 @@ async function load(){
       .map(e => ({...e, _d: new Date(e.date), _i: IMPACT[e.impact] || "l"}))
       .filter(e => !isNaN(e._d))
       .sort((a,b) => a._d - b._d);
+    events.forEach((e, i) => { e._id = i; });   /* номер для відкриття картки */
   }catch(err){
     warning = T.nwFetchError + err.message;
     events = [];
@@ -56,6 +57,7 @@ async function load(){
 
 /* ---- обробники живуть тут, а не в розмітці ---- */
 window.__news = {
+  open(id){ openEvent(id); },
   day(v){ day = v; keep(); render(); },
   imp(v){ impact = v; keep(); render(); },
   cur(v){ cur = v; keep(); render(); },
@@ -140,7 +142,10 @@ function rows(items){
   const one = e => {
     const t = String(e._d.getHours()).padStart(2,"0") + ":"
             + String(e._d.getMinutes()).padStart(2,"0");
-    return '<div class="nw-ev '+e._i+(e._d < now ? " past" : "")+'">'
+    return '<div class="nw-ev '+e._i+(e._d < now ? " past" : "")+'"'
+      + ' role="button" tabindex="0" onclick="__news.open('+e._id+')"'
+      + ' onkeydown="if(event.key===&quot;Enter&quot;||event.key===&quot; &quot;)'
+      + '{event.preventDefault();__news.open('+e._id+')}">'
       + '<div class="tm">'+t+'</div>'
       + '<div class="cur">'+esc(e.country||"—")+'</div>'
       + '<div class="ttl">'+esc(e.title)
@@ -169,6 +174,133 @@ function rows(items){
     out += one(e);
   }
   return out;
+}
+
+/* ---------- картка події: подробиці й попередні результати ----------
+
+   Список показує тільки прогноз і попереднє значення — більше в рядок
+   не вміщається. Клік по картці відкриває вікно, де видно, коли подія
+   виходить у твоєму часі, скільки лишилось, і як цей показник виходив
+   раніше: прогноз проти результату.
+
+   Історію тримає сервер (calendar_feed.event_history): фід віддає лише
+   поточний тиждень, тому архів накопичується сам, тиждень за тижнем. */
+
+const histCache = {};          /* щоб не питати сервер двічі за одне й те саме */
+
+function num(v){
+  /* «205K», «-1.2%», «1,234» → число. Не вийшло — NaN, і різницю не пишемо. */
+  const s = String(v == null ? "" : v).replace(/\s|,/g, "");
+  const m = s.match(/^(-?\d+(?:\.\d+)?)([KMBTkmbt]?)%?$/);
+  if (!m) return NaN;
+  const mul = {k:1e3, m:1e6, b:1e9, t:1e12}[m[2].toLowerCase()] || 1;
+  return parseFloat(m[1]) * mul;
+}
+
+function leftText(d){
+  const ms = d - new Date();
+  if (ms <= 0) return "";
+  const min = Math.round(ms / 60000);
+  if (min < 60) return T.nwLeftIn + " " + min + " " + T.nwMin;
+  const h = Math.floor(min / 60), m = min % 60;
+  if (h < 24) return T.nwLeftIn + " " + h + " " + T.nwHour + (m ? " " + m + " " + T.nwMin : "");
+  return T.nwLeftIn + " " + Math.round(h / 24) + " " + T.nwDay;
+}
+
+function when(d){
+  return T.wdSun[d.getDay()] + ", " + d.getDate() + " " + T.monthsGen[d.getMonth()]
+       + " · " + String(d.getHours()).padStart(2,"0") + ":"
+       + String(d.getMinutes()).padStart(2,"0");
+}
+
+/* Одиниці, в яких записане число: «205K» → множник 1000 і хвостик «K»,
+   «0.3%» → хвостик «%». Різницю показуємо в них же, інакше замість
+   «+2K» вийшло б «+2000», а замість «-0.5%» — «-0.5». */
+function unit(v){
+  const m = String(v == null ? "" : v).trim()
+              .match(/^-?\d+(?:\.\d+)?([KMBT])?(%)?$/i);
+  if (!m) return {mul: 1, tail: ""};
+  const s = (m[1] || "").toUpperCase();
+  return {mul: {K:1e3, M:1e6, B:1e9, T:1e12}[s] || 1, tail: s + (m[2] || "")};
+}
+
+function numsRow(e){
+  const f = num(e.forecast), p = num(e.previous);
+  let diff = "";
+  if (!isNaN(f) && !isNaN(p)){
+    const u = unit(e.forecast);
+    const d = Math.round((f - p) / u.mul * 100) / 100;
+    const cls = d > 0 ? "up" : (d < 0 ? "down" : "");
+    diff = '<div><span>'+T.nwDiff+'</span><b class="'+cls+'">'
+         + (d > 0 ? "+" : "") + d + u.tail + '</b></div>';
+  }
+  return '<div class="nv-nums">'
+    + '<div><span>'+T.nwForecast+'</span><b>'+(esc(e.forecast) || "—")+'</b></div>'
+    + '<div><span>'+T.nwPrevious+'</span><b>'+(esc(e.previous) || "—")+'</b></div>'
+    + diff + '</div>';
+}
+
+function histTable(rows){
+  if (!rows.length) return '<div class="nv-none">'+T.nwHistEmpty+'</div>';
+  const cell = r => {
+    const d = new Date(r.date);
+    const f = num(r.forecast), a = num(r.actual);
+    let cls = "";
+    if (!isNaN(f) && !isNaN(a)) cls = a > f ? "up" : (a < f ? "down" : "");
+    const day = isNaN(d) ? esc(r.date.slice(0,10))
+      : String(d.getDate()).padStart(2,"0") + "." + String(d.getMonth()+1).padStart(2,"0");
+    return '<tr><td class="dt">'+day+'</td>'
+      + '<td>'+(esc(r.forecast) || "—")+'</td>'
+      + '<td class="fact '+cls+'">'+(esc(r.actual) || "—")+'</td></tr>';
+  };
+  return '<table class="nv-tab"><thead><tr>'
+    + '<th>'+T.nwHistDate+'</th><th>'+T.nwForecast+'</th><th>'+T.nwHistFact+'</th>'
+    + '</tr></thead><tbody>' + rows.map(cell).join("") + '</tbody></table>';
+}
+
+function detail(e, hist){
+  const d = e._d, left = leftText(d);
+  const imp = e.impact === "Holiday" ? T.nwHoliday : NAME()[e._i];
+  return '<div class="m-body nv">'
+    + '<div class="nv-top">'
+      + '<span class="nv-cur">'+esc(e.country || "—")+'</span>'
+      + '<span class="nv-imp '+e._i+'"><i></i>'+esc(imp)+'</span>'
+      + '<span class="nv-when">'+when(d)+'</span>'
+      + (left ? '<span class="nv-left">'+left+'</span>'
+              : '<span class="nv-left off">'+T.nwPassed+'</span>')
+    + '</div>'
+    + numsRow(e)
+    + '<h3 class="nv-h">'+T.nwHistory+'</h3>'
+    + (hist === null ? '<div class="nv-none">'+T.nwLoading+'</div>' : histTable(hist))
+    + '<p class="nv-note">'+T.nwHistNote+'</p>'
+    + '</div>';
+}
+
+function frame(e, hist){
+  return '<div class="m-head"><h2>'+esc(e.title)+'</h2>'
+    + '<button class="x" onclick="closeModal()" aria-label="'+esc(T.mrClose)+'">×</button></div>'
+    + detail(e, hist)
+    + '<div class="m-foot"><span class="sp"></span>'
+    + '<button class="btn" onclick="closeModal()">'+esc(T.mrClose)+'</button></div>';
+}
+
+async function openEvent(id){
+  const e = events && events[id];
+  if (!e) return;
+  const key = (e.country || "") + "|" + e.title;
+  openModal(frame(e, histCache[key] || null));
+  if (histCache[key]) return;
+  let rows = [];
+  try{
+    const res = await fetch("/api/calendar/event?country=" + encodeURIComponent(e.country || "")
+                          + "&title=" + encodeURIComponent(e.title || ""));
+    if (res.ok) rows = (await res.json()).history || [];
+  }catch(err){ rows = []; }
+  histCache[key] = rows;
+  /* вікно могли вже закрити або відкрити інше — тоді нічого не чіпаємо */
+  const box = document.getElementById("modalBox");
+  const head = box && box.querySelector(".m-head h2");
+  if (head && head.textContent === e.title) box.innerHTML = frame(e, rows);
 }
 
 VIEWS.news = vNews;      /* VIEWS оголошено в app.js, ключ можна додати ззовні */

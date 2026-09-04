@@ -36,7 +36,7 @@ import tidy
 import ts_check
 import ts_notion
 import ts_store
-from calendar_feed import calendar_events
+from calendar_feed import calendar_events, event_history
 
 ROOT   = config.ROOT
 STATIC = os.path.join(ROOT, "static")
@@ -840,6 +840,14 @@ class H(BaseHTTPRequestHandler):
         if p == "/api/calendar":
             events, warn = calendar_events()
             return self._json({"events": events, "warning": warn})
+
+        # Історія однієї події: попередні випуски з архіву календаря.
+        # Відкрито всім, як і сам календар: це чужі публічні дані,
+        # нічого свого журналу тут немає.
+        if p == "/api/calendar/event":
+            q = urllib.parse.parse_qs(urlparse(self.path).query)
+            return self._json({"history": event_history(
+                (q.get("country") or [""])[0], (q.get("title") or [""])[0])})
 
         if p == "/api/tidy":
             uid = self._uid()

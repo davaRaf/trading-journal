@@ -121,6 +121,74 @@
   .nw-ev .num > div:not(.badge){min-width:0}
 }
 
+/* ---------- картка події клікається ---------- */
+.nw-ev{cursor:pointer; transition:border-color .18s, box-shadow .18s, transform .18s}
+.nw-ev:hover{border-color:color-mix(in srgb, var(--text) 20%, transparent);
+  box-shadow:0 2px 10px color-mix(in srgb, var(--text) 7%, transparent)}
+.nw-ev:active{transform:scale(.995)}
+.nw-ev:focus-visible{outline:2px solid var(--accent); outline-offset:2px}
+@media (prefers-reduced-motion: reduce){
+  .nw-ev{transition:none}
+  .nw-ev:active{transform:none}
+}
+
+/* ---------- вікно події ---------- */
+.modal-box:has(.nv){max-width:560px}
+.nv{display:flex; flex-direction:column; gap:16px}
+
+.nv-top{display:flex; align-items:center; flex-wrap:wrap; gap:8px}
+.nv-cur{font-family:var(--mono); font-size:11px; letter-spacing:.06em; color:var(--dim);
+  border:1px solid var(--line); border-radius:6px; padding:4px 9px}
+/* Важливість — крапкою кольору й словом звичайного кольору тексту.
+   Білим по жовтому виходило близько 3:1 при розмірі 10px — нечитабельно. */
+.nv-imp{display:inline-flex; align-items:center; gap:6px;
+  font-family:var(--mono); font-size:10px; letter-spacing:.1em; text-transform:uppercase;
+  border:1px solid var(--line); border-radius:99px; padding:4px 10px; color:var(--dim)}
+.nv-imp i{width:7px; height:7px; border-radius:50%; flex:none}
+.nv-imp.h i{background:var(--n-h)}
+.nv-imp.m i{background:var(--n-m)}
+.nv-imp.l i{background:var(--n-l)}
+.nv-when{font-size:13px; color:var(--text)}
+.nv-left{margin-left:auto; font-family:var(--mono); font-size:11px; letter-spacing:.04em;
+  color:var(--up); border:1px solid color-mix(in srgb, var(--up) 40%, transparent);
+  background:var(--up-soft); border-radius:99px; padding:4px 10px; white-space:nowrap}
+.nv-left.off{color:var(--faint); background:var(--panel-2); border-color:var(--line)}
+
+/* три числа поруч: прогноз · було · різниця */
+.nv-nums{display:grid; grid-template-columns:repeat(auto-fit, minmax(120px, 1fr)); gap:10px}
+.nv-nums > div{background:var(--panel-2); border:1px solid var(--line-soft);
+  border-radius:var(--r); padding:12px 14px; display:flex; flex-direction:column; gap:5px}
+.nv-nums span{font-family:var(--mono); font-size:9.5px; letter-spacing:.12em;
+  text-transform:uppercase; color:var(--faint)}
+.nv-nums b{font-family:var(--mono); font-size:19px; font-weight:500;
+  font-variant-numeric:tabular-nums; color:var(--text)}
+.nv-nums b.up{color:var(--up)}
+.nv-nums b.down{color:var(--down)}
+
+.nv-h{margin:2px 0 -6px; font-size:13px; font-weight:600; letter-spacing:-.01em}
+
+/* ---------- таблиця попередніх випусків ---------- */
+.nv-tab{width:100%; border-collapse:collapse; font-family:var(--mono); font-size:13px;
+  font-variant-numeric:tabular-nums}
+.nv-tab th{font-size:9.5px; letter-spacing:.12em; text-transform:uppercase; color:var(--faint);
+  font-weight:400; text-align:right; padding:0 0 8px}
+.nv-tab th:first-child{text-align:left}
+.nv-tab td{padding:9px 0; text-align:right; color:var(--dim);
+  border-top:1px solid var(--line-soft)}
+.nv-tab td.dt{text-align:left; color:var(--text)}
+.nv-tab td.fact{color:var(--text)}
+.nv-tab td.fact.up{color:var(--up)}
+.nv-tab td.fact.down{color:var(--down)}
+
+.nv-none{padding:22px 16px; text-align:center; color:var(--faint); font-size:13px;
+  border:1px dashed var(--line); border-radius:var(--r)}
+.nv-note{margin:0; font-size:12px; line-height:1.55; color:var(--faint)}
+
+@media (max-width:520px){
+  .nv-left{margin-left:0}
+  .nv-nums{grid-template-columns:1fr 1fr}
+}
+
 /* ---------- поділитися посиланням ---------- */
 .sh-bar{display:flex; gap:8px; margin:-4px 0 16px; flex-wrap:wrap}
 .sh-btn{display:inline-flex; align-items:center; gap:7px}

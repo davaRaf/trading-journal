@@ -272,6 +272,11 @@ uk: {
   nwNoFiltered: "За цим фільтром подій немає.",
   nwHoliday: "вихідний", nwSoon: "скоро", nwForecast: "прогноз", nwPrevious: "було",
   nwFetchError: "не вдалося отримати календар: ",
+  nwDiff: "різниця", nwHistory: "Попередні результати",
+  nwHistDate: "дата", nwHistFact: "результат",
+  nwHistEmpty: "Збережених випусків ще немає.",
+  nwHistNote: "Календар віддає лише поточний тиждень, тому історія збирається сама: кожен новий випуск лишається в архіві.",
+  nwLeftIn: "через", nwPassed: "вже минуло", nwMin: "хв", nwHour: "год", nwDay: "дн",
 
   // ---- помічник ----
   asHint1: "Який у мене вінрейт цього тижня?", asHint2: "Де я найбільше зливаю?",
@@ -700,6 +705,11 @@ ru: {
   nwNoFiltered: "По этому фильтру событий нет.",
   nwHoliday: "выходной", nwSoon: "скоро", nwForecast: "прогноз", nwPrevious: "было",
   nwFetchError: "не удалось получить календарь: ",
+  nwDiff: "разница", nwHistory: "Предыдущие результаты",
+  nwHistDate: "дата", nwHistFact: "результат",
+  nwHistEmpty: "Сохранённых выпусков пока нет.",
+  nwHistNote: "Календарь отдаёт только текущую неделю, поэтому история копится сама: каждый новый выпуск остаётся в архиве.",
+  nwLeftIn: "через", nwPassed: "уже прошло", nwMin: "мин", nwHour: "ч", nwDay: "дн",
 
   asHint1: "Какой у меня винрейт на этой неделе?", asHint2: "Где я больше всего сливаю?",
   asHint3: "Как перестать отыгрываться после стопа?", asHint4: "Что делать, когда не держу сделку до цели?",
@@ -1119,6 +1129,11 @@ en: {
   nwNoFiltered: "No events match this filter.",
   nwHoliday: "holiday", nwSoon: "soon", nwForecast: "forecast", nwPrevious: "previous",
   nwFetchError: "couldn't fetch the calendar: ",
+  nwDiff: "change", nwHistory: "Previous releases",
+  nwHistDate: "date", nwHistFact: "actual",
+  nwHistEmpty: "No saved releases yet.",
+  nwHistNote: "The feed only gives the current week, so the history builds up on its own: every new release stays in the archive.",
+  nwLeftIn: "in", nwPassed: "already out", nwMin: "min", nwHour: "h", nwDay: "d",
 
   asHint1: "What's my win rate this week?", asHint2: "Where am I losing the most?",
   asHint3: "How do I stop revenge trading after a stop?", asHint4: "What should I do when I don't hold a trade to target?",
