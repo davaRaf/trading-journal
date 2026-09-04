@@ -336,7 +336,7 @@ uk: {
   sdNavJournalTip: "Календар місяця й усі угоди",
   sdNavAnalyticsTip: "Розрізи: сетапи, сесії, моделі",
   sdNavNews: "Новини", sdNavNewsTip: "Економічний календар на тиждень",
-  sdYourJournal: "Ваш журнал",
+  sdYourJournal: "Ваш журнал", sdTools: "Інструменти",
   sdCalcTip: "Порахувати розмір позиції під свій ризик",
   sdNotionTip: "Перенести свої угоди з Notion — записи, нотатки й скріншоти",
   sdNotionConnectedTip: "Notion уже підключено — можна перенести нові угоди ще раз",
@@ -725,7 +725,7 @@ ru: {
   sdNavJournalTip: "Календарь месяца и все сделки",
   sdNavAnalyticsTip: "Разрезы: сетапы, сессии, модели",
   sdNavNews: "Новости", sdNavNewsTip: "Экономический календарь на неделю",
-  sdYourJournal: "Ваш журнал",
+  sdYourJournal: "Ваш журнал", sdTools: "Инструменты",
   sdCalcTip: "Посчитать размер позиции под свой риск",
   sdNotionTip: "Перенести свои сделки из Notion — записи, заметки и скриншоты",
   sdNotionConnectedTip: "Notion уже подключён — можно перенести новые сделки ещё раз",
@@ -1113,7 +1113,7 @@ en: {
   sdNavJournalTip: "Month calendar and all trades",
   sdNavAnalyticsTip: "Breakdowns: setups, sessions, models",
   sdNavNews: "News", sdNavNewsTip: "Economic calendar for the week",
-  sdYourJournal: "Your journal",
+  sdYourJournal: "Your journal", sdTools: "Tools",
   sdCalcTip: "Work out position size for your risk",
   sdNotionTip: "Import your trades from Notion — entries, notes and screenshots",
   sdNotionConnectedTip: "Notion is already connected — you can import new trades again",
@@ -1232,12 +1232,12 @@ function applyLang(code){
     news:      [T.sdNavNews, T.sdNavNewsTip],
   };
   Object.keys(navMap).forEach(k => {
-    const a = document.querySelector('.nav a[data-v="'+k+'"]');
+    /* «Новини» живуть у групі інструментів, решта — у верхньому меню */
+    const a = document.querySelector('.nav a[data-v="'+k+'"], .side a[data-v="'+k+'"]');
     if(a){ setTip(a, navMap[k][1]); const sp = a.querySelector("span"); if(sp) sp.textContent = navMap[k][0]; }
   });
 
-  /* у чужому журналі на місці підпису стоїть нік хазяїна */
-  setText("journalLab", window.Pub && Pub.on ? "@" + Pub.nick : T.sdYourJournal);
+  setText("journalLab", T.sdTools);
   if (window.Pub && Pub.on) Pub.relang();
 
   const pj = document.getElementById("publicBtn");

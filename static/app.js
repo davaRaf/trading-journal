@@ -1716,7 +1716,9 @@ function viewAllowed(v){
 function render(){
   if(!dataReady) return;
   const v=viewAllowed(S.view)?S.view:"dashboard";
-  document.querySelectorAll(".nav a").forEach(a=>a.classList.toggle("on",a.dataset.v===v));
+  /* «Новини» переїхали з меню в групу інструментів — підсвічування шукаємо
+     і там, інакше відкритий розділ ніде не позначався */
+  document.querySelectorAll(".nav a, .side a[data-v]").forEach(a=>a.classList.toggle("on",a.dataset.v===v));
   if(window.PL) PL.reset();
   /* «enter» только при смене раздела: перерисовка после правки угоди
      не должна каждый раз моргать всей страницей */
