@@ -145,7 +145,7 @@ def say(task, fallback, lang=None):
     # мовчання. max_tokens тримаємо низько ще й тому, що вихідні токени —
     # головна частина затримки.
     return no_commands(llm.ask(task, system=BOT_STYLE, max_tokens=110,
-                               temperature=0.75, timeout=8, tries=2)) or fallback
+                               temperature=0.75, timeout=8, tries=3)) or fallback
 
 
 # ------------------------------------------------------------ команды ----
@@ -263,6 +263,56 @@ def asks_report(text):
     return len(text) <= 80 and bool(REPORT_ASK.search(text))
 
 
+# Помічник відповідає з розміткою — «**Моя ТС**», «* пункт». На сайті це
+# малює браузер, а в Telegram ми шлемо звичайним текстом, і зірочки видно
+# як зірочки. Прибираємо їх тут, а не забороняємо моделі: заборони вона
+# час від часу забуває, а це працює завжди.
+STARS = re.compile(r"\*{1,3}(?=\S)(.+?)(?<=\S)\*{1,3}", re.S)
+BULLET = re.compile(r"^[ \t]*[\*\-][ \t]+", re.M)
+HEAD = re.compile(r"^#{1,6}[ \t]*", re.M)
+
+
+def plain(text):
+    """Без зірочок і решіток — те саме, тільки читабельне в чаті."""
+    if not text:
+        return text
+    out = STARS.sub(lambda m: m.group(1), text)
+    out = BULLET.sub("• ", out)
+    out = HEAD.sub("", out)
+    out = out.replace("`", "")
+    return out.strip()
+
+
+# Останні репліки кожної розмови — щоб «ще раз» і «а крім цього» мали сенс.
+# Живуть до перезапуску бота: це не листування, а лише контекст питання.
+CHAT_MEMORY = {}
+CHAT_KEEP = 6
+
+
+def chat_answer(user, chat_id, tg_id, text):
+    """Вільне питання в чаті — тим самим помічником, що й на сайті.
+
+    Раніше тут стояв загальний запит до моделі без жодних даних: помічник
+    не бачив ні журналу, ні календаря, ні торгової системи, тому на «як тобі
+    моя остання позиція» відповісти було нічим, і бот щоразу писав
+    заготовку «Прийняв.». Тепер питання йде тим самим шляхом, що й у чаті на
+    сайті: з виписками з журналу, новинами й своєю ТС.
+    """
+    lang = user_lang(tg_id, text)
+    history = CHAT_MEMORY.get(chat_id) or []
+    try:
+        out = assistant.ask(user["id"], text, history, lang)
+    except Exception as ex:
+        print("chat:", ex)
+        out = ""
+    out = plain(no_commands(out or ""))
+    if not out:
+        out = assistant._sorry(lang)
+    CHAT_MEMORY[chat_id] = (history + [{"who": "me", "text": text},
+                                       {"who": "bot", "text": out}])[-CHAT_KEEP:]
+    return out
+
+
 def on_text(chat_id, tg_id, text):
     """Свободный ответ засчитываем, если ждём эмоцию ровно по одной сделке."""
     user = db.get_user_by_telegram(tg_id)
@@ -296,12 +346,7 @@ def on_text(chat_id, tg_id, text):
         return
     pending = db.pending_emotion_trades(user["id"])
     if not pending:
-        # раньше бот на такое просто молчал, и это выглядело как поломка
-        tg_api.send_message(chat_id, say(
-            "Трейдер %s пише в чат: «%s». Емоцій зараз ні по кому не чекаєш — "
-            "просто підтримай розмову по-людськи й відповідай на те, про що "
-            "спитали. Команди не рекламуй." % (user["nickname"], text[:400]),
-            "Прийняв.", lang=user_lang(tg_id, text)))
+        tg_api.send_message(chat_id, chat_answer(user, chat_id, tg_id, text))
         return
     if len(pending) > 1:
         tg_api.send_message(chat_id, "Зараз чекаю емоції по %d угодах — натисни кнопку під "

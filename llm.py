@@ -17,6 +17,11 @@ URL = "https://generativelanguage.googleapis.com/v1beta/models/%s:generateConten
 # Старшие модели тут не нужны: задачи короткие, а gemini-3.6-flash на том же
 # запросе думает под две минуты — для бота это вечность. Замеряно: 1.1 с против 110 с.
 MODEL = "gemini-3.5-flash-lite"
+# Куди йти, коли основна відповідає «503, високий попит»: це про конкретну
+# модель, і сусідня в ту саму мить відповідає нормально. Перевірено живцем —
+# 3.5-flash-lite мовчала десять секунд, а 3.1-flash-lite відповіла за 1.8 с.
+SPARE = ("gemini-3.1-flash-lite", "gemini-3.7-flash", "gemini-3-flash-preview",
+         "gemini-3.6-flash", "gemini-3.8-flash")
 
 # Через сколько секунд молчания пускаем дубль запроса. Замерено: удачный
 # ответ приходит за 0.7–2 с, а неудачный не приходит вообще — висит до
@@ -26,7 +31,7 @@ MODEL = "gemini-3.5-flash-lite"
 # берём ту, которая ответит первой. Лишний запрос дешевле долгого ожидания —
 # но именно один: у бесплатного ключа есть предел запросов в минуту, и
 # веером дублей его выбивает (429 «exceeded your current quota»).
-HEDGE_AFTER = 3.5
+HEDGE_AFTER = 2.5
 
 
 # Чем закончилась последняя попытка: "quota" — уперлись в предел запросов,
@@ -66,20 +71,39 @@ def _once(data, model, timeout):
         return None, True
 
 
+def _plan(model, tries):
+    """Якою моделлю робити кожну спробу.
+
+    Перший постріл — основною, наступні — запасними. Раніше дублювали ту
+    саму модель, і це не рятувало: коли Gemini відповідає «503, високий
+    попит», він каже це про конкретну модель, і другий такий самий запит
+    отримує те саме. Сусідня модель у цей момент відповідає за секунду.
+    """
+    out = [model]
+    for m in SPARE:
+        if len(out) >= tries:
+            break
+        if m != model:
+            out.append(m)
+    while len(out) < tries:
+        out.append(out[-1])
+    return out[:max(1, tries)]
+
+
 def ask(prompt, model=MODEL, max_tokens=900, timeout=8, system=None,
         temperature=0.2, tries=2):
-    """Возвращает текст ответа или None, если модель недоступна.
+    """Повертає текст відповіді або None, якщо модель недоступна.
 
-    system — правила, которые модель должна слушать всегда; идут отдельным
-    полем API (systemInstruction), а не текстом внутри prompt, поэтому их
-    нельзя перебить тем, что написано в данных пользователя.
+    system — правила, які модель має слухати завжди; ідуть окремим полем
+    API (systemInstruction), а не текстом усередині prompt, тому їх не
+    можна перебити тим, що написано в даних користувача.
 
-    temperature — насколько модель вольна в словах. По умолчанию 0.2: там, где
-    она пересказывает цифры, разнообразие только вредит. Для живой болтовни
-    (бот в Telegram) поднимаем, иначе одна и та же мысль звучит слово в слово.
+    temperature — наскільки модель вільна в словах. Типово 0.2: там, де
+    вона переказує цифри, різноманіття лише шкодить. Для живої розмови
+    (бот у Telegram) піднімаємо, інакше та сама думка звучить слово в слово.
 
-    timeout — сколько ждём одну попытку; tries — сколько их может быть всего.
-    Попытки идут внахлёст (см. HEDGE_AFTER), а не одна за другой.
+    timeout — скільки чекаємо одну спробу; tries — скільки їх усього.
+    Спроби йдуть внахлест (див. HEDGE_AFTER) і різними моделями (_plan).
     """
     if not enabled():
         return None
@@ -95,27 +119,27 @@ def ask(prompt, model=MODEL, max_tokens=900, timeout=8, system=None,
 
     box = queue.Queue()
 
-    def shot():
-        box.put(_once(data, model, timeout))
+    def shot(name):
+        box.put(_once(data, name, timeout))
 
-    tries = max(1, tries)
+    models = _plan(model, tries)
     launched = done = 0
-    deadline = time.time() + timeout + HEDGE_AFTER * (tries - 1)
+    deadline = time.time() + timeout + HEDGE_AFTER * (len(models) - 1)
     while True:
-        if launched < tries:
-            threading.Thread(target=shot, daemon=True).start()
+        if launched < len(models):
+            threading.Thread(target=shot, args=(models[launched],), daemon=True).start()
             launched += 1
         left = deadline - time.time()
-        if done >= tries or (left <= 0 and launched >= tries):
+        if done >= len(models) or (left <= 0 and launched >= len(models)):
             return None
         try:
-            text, hard = box.get(
-                timeout=HEDGE_AFTER if launched < tries else max(0.1, left))
+            text, _hard = box.get(
+                timeout=HEDGE_AFTER if launched < len(models) else max(0.1, left))
         except queue.Empty:
-            continue              # молчит — пускаем дубль или ждём дальше
+            continue              # мовчить — пускаємо наступну модель або чекаємо
         done += 1
         if text:
             last_error = None
             return text
-        if hard:
-            return None           # сервер отказал или ответил пустым
+        # Відмова сервера більше не зупиняє все: «503» стосується однієї
+        # моделі, тож просто пробуємо наступну зі списку.
