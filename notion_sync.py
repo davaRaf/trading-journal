@@ -1,5 +1,5 @@
 """
-Сам перечитує Notion — раз на дві години.
+Сам перечитує Notion — раз на добу.
 
 Досі оновлення було ручним: зайди в «Підключення», натисни на базу, з
 якої переносив, і нові угоди доїдуть. Працює, але про це треба пам'ятати,
@@ -19,6 +19,10 @@
 Нові угоди позначаємо тим самим ключем перенесення, що й початкове:
 тоді кнопка «прибрати» біля бази й далі прибирає її цілком, а не лише те,
 що переносили руками.
+
+Чому раз на добу, а не частіше: угоди пишуть на сайті, а Notion — це
+старий журнал, з якого перенеслися. Нове там з'являється рідко, тож
+частіші проходи витрачали б час і трафік на «нічого не змінилось».
 """
 import datetime
 import secrets
@@ -30,8 +34,12 @@ import notion_import as notion
 import notion_public as npub
 import tidy
 
-EVERY = 2 * 3600           # раз на дві години
+EVERY = 24 * 3600          # раз на добу
 FIRST = 300                # перший прохід — через 5 хв після старту сервера
+# Сервер перезапускається частіше, ніж раз на добу (кожне оновлення коду —
+# це новий запуск), і відлік починався б заново. Тому дивимось не на
+# таймер, а на позначку минулого проходу: свіжий — не чіпаємо.
+MIN_GAP = 20 * 3600
 GAP = 20                   # пауза між базами, щоб не довбати Notion поспіль
 MAX_TABLES = 12            # більше таблиць в одному журналі не буває
 OPTS = {"notes": True, "shots": True, "skipExisting": True, "skipSimilar": True}
@@ -116,6 +124,19 @@ def _users_with_notion():
     return [r["user_id"] for r in rows]
 
 
+def _recent(uid):
+    """Чи проходили тут менш ніж MIN_GAP тому."""
+    when = ((_hooks["conf"](uid).get("auto") or {}).get("when") or "")
+    try:
+        was = datetime.datetime.fromisoformat(when)
+    except ValueError:
+        return False
+    now = datetime.datetime.now(datetime.timezone.utc)
+    if was.tzinfo is None:
+        was = was.replace(tzinfo=datetime.timezone.utc)
+    return (now - was).total_seconds() < MIN_GAP
+
+
 def run_once():
     out = {}
     try:
@@ -126,6 +147,8 @@ def run_once():
     for uid in uids:
         if _hooks["busy"](uid):
             continue                      # людина саме переносить руками
+        if _recent(uid):
+            continue                      # сьогодні вже дивились
         try:
             got = sync_user(uid)
             if got and (got["added"] or got["filled"]):

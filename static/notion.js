@@ -230,8 +230,9 @@ function sourcesHtml(){
    Пишемо про це просто в списку баз — саме тут людина думає «а чи не
    натиснути ще раз», і саме тут корисно дізнатись, що вже не треба. */
 function autoHtml(){
-  const hours = (state && state.autoHours) || 2;
-  let line = T.ntAutoEvery.replace("%d", hours);
+  const hours = (state && state.autoHours) || 24;
+  /* «кожні 24 год» ніхто так не каже — для доби окрема фраза. */
+  let line = hours >= 24 ? T.ntAutoDaily : T.ntAutoEvery.replace("%d", hours);
   const a = state && state.auto;
   if (a && a.when){
     const at = new Date(a.when);
