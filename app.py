@@ -17,6 +17,7 @@ import urllib.parse
 from urllib.parse import urlparse, unquote
 
 import assistant
+import delete_ai
 import auth
 import config
 import db
@@ -1018,7 +1019,16 @@ class H(BaseHTTPRequestHandler):
             # історія розмови приходить з браузера — беремо тільки останні репліки
             raw = (body or {}).get("history")
             history = [m for m in raw if isinstance(m, dict)][-16:] if isinstance(raw, list) else []
-            return self._json({"answer": assistant.ask(uid, question, history)})
+            # прохання видалити угоди — окрема гілка: модель лише каже, ЩО
+            # видаляти, угоди добирає код, а зникають вони тільки після
+            # натиснутої кнопки в підтвердженні (delete_ai.py)
+            if delete_ai.looks_like(question):
+                card = delete_ai.plan(uid, question, history)
+                if card:
+                    return self._json(card)
+            lang = str((body or {}).get("lang") or "")
+            return self._json({"answer": assistant.ask(
+                uid, question, history, lang if lang in ("uk", "ru", "en") else None)})
 
         if p == "/api/assistant/nudge":
             lang = str((body or {}).get("lang") or "uk")
@@ -1031,6 +1041,23 @@ class H(BaseHTTPRequestHandler):
             raw = (body or {}).get("history")
             history = [m for m in raw if isinstance(m, dict)][-16:] if isinstance(raw, list) else []
             return self._json(assistant.review(uid, history))
+
+        # друга половина видалення на прохання: ключ одноразовий, список id
+        # у ньому вже зафіксований — тут нічого не добирається заново
+        if p == "/api/assistant/delete":
+            ids = delete_ai.take(uid, (body or {}).get("token"))
+            if ids is None:
+                return self._json({"error": "confirm expired"}, 400)
+            gone = 0
+            for tid in ids:
+                old = db.get_trade(tid, uid)
+                if not old:
+                    continue
+                db.delete_trade(uid, tid)
+                delete_files([s["file"] for s in old.get("screenshots") or []
+                              if s.get("file")])
+                gone += 1
+            return self._json({"deleted": gone})
 
         if p == "/api/share":
             if not isinstance(body, dict) or not isinstance(body.get("data"), dict):

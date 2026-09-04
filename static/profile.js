@@ -16,10 +16,11 @@ function link(){
   return location.origin + "/u/" + encodeURIComponent(user.nickname);
 }
 
-function body(){
+/* Начинка без обгортки: та сама і в своєму вікні, і розділом у вікні
+   «Налаштування» (static/settings.js). */
+function inner(){
   const on = !!user.public_journal;
-  return '<div class="m-body pp">'
-    + '<p class="pp-lead">' + esc(T.ppLead) + "</p>"
+  return '<p class="pp-lead">' + esc(T.ppLead) + "</p>"
     + '<label class="pp-sw"><input type="checkbox" id="ppOn"' + (on ? " checked" : "") + ">"
     +   "<b>" + esc(T.ppOn) + "</b></label>"
     + '<div class="pp-link' + (on ? "" : " off") + '" id="ppLinkBox">'
@@ -27,26 +28,36 @@ function body(){
     +   '<div class="pp-row"><input class="pp-url" id="ppUrl" readonly value="'
     +     esc(link()) + '">'
     +     '<button class="btn" type="button" id="ppCopy">' + esc(T.ppCopy) + "</button></div>"
-    +   (on ? "" : '<div class="pp-note">' + esc(T.ppClosedNote) + "</div>")
+    /* Обидва підписи лежать у розмітці завжди, показується той, що
+       відповідає стану: інакше поява рядка смикала вікно по висоті. */
+    +   '<div class="pp-note"><span class="n-on">' + esc(T.ppOpenNote) + "</span>"
+    +     '<span class="n-off">' + esc(T.ppClosedNote) + "</span></div>"
     + "</div>"
     + '<ul class="pp-what"><li class="yes">' + esc(T.ppShow) + "</li>"
-    +   '<li class="no">' + esc(T.ppHide) + "</li></ul>"
-    + "</div>";
+    +   '<li class="no">' + esc(T.ppHide) + "</li></ul>";
+}
+
+function body(){
+  return '<div class="m-body pp">' + inner() + "</div>";
+}
+
+/* Для вікна налаштувань: спершу load() — воно читає людину, потім
+   section() дає розмітку, після вставки в сторінку — wire(). Порожній
+   рядок означає «показувати нема чого»: гість або людина без ніка. */
+async function load(){
+  try{ user = (await api("GET", "/api/auth/me")).user; }
+  catch(e){ user = null; }
+  return user;
+}
+
+function section(){
+  return user && user.nickname ? inner() : "";
 }
 
 function paint(){
   const box = document.getElementById("ppLinkBox");
   if (!box) return;
-  const on = !!user.public_journal;
-  box.classList.toggle("off", !on);
-  const note = box.querySelector(".pp-note");
-  if (on && note) note.remove();
-  if (!on && !note){
-    const el = document.createElement("div");
-    el.className = "pp-note";
-    el.textContent = T.ppClosedNote;
-    box.appendChild(el);
-  }
+  box.classList.toggle("off", !user.public_journal);
 }
 
 function wire(){
@@ -86,6 +97,6 @@ async function open(){
   wire();
 }
 
-window.__profile = {open: open};
+window.__profile = {open: open, load: load, section: section, wire: wire};
 
 })();

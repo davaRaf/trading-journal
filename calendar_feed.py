@@ -100,6 +100,39 @@ def calendar_events():
             return [], "календарь недоступен: %s" % ex
 
 
+_warming = threading.Event()
+
+
+def _warm():
+    try:
+        calendar_events()
+    except Exception:
+        pass
+    finally:
+        _warming.clear()
+
+
+def cached_events():
+    """Те, що вже лежить у пам'яті або в архіві — без походу в мережу.
+
+    Помічник підкладає новини до кожного питання, а чужий фід відповідає
+    коли захоче: чекати на нього посеред відповіді не можна — краще
+    відповісти без свіжого календаря, ніж мовчати півхвилини. Якщо копія
+    застаріла, оновлення запускаємо у фоні, і наступне питання дістане вже
+    свіже.
+    """
+    with _cal_lock:
+        data = _cal["data"]
+        fresh = data is not None and (time.time() - _cal["at"]) < CAL_TTL
+    if not fresh and not _warming.is_set():
+        _warming.set()
+        threading.Thread(target=_warm, daemon=True).start()
+    if data is not None:
+        return data
+    saved = _cal_newest_archive()
+    return saved if saved is not None else []
+
+
 # ------------------------------------------------ помощники для бота ----
 
 def event_key(event):

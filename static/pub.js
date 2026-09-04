@@ -44,8 +44,10 @@ function bar(){
 /* У чужому журналі нема чого записувати й нема особистих розділів:
    прибираємо їх зовсім, щоб людина не тикала в мертві кнопки. */
 function sidebar(){
+  /* Налаштування лишаємо: там мова, якою читають цю ж сторінку. Особисті
+     розділи всередині нього ховає саме вікно. */
   ["#newTradeBtn", '.nav a[data-v="day"]', '.nav a[data-v="ts"]', "#conn",
-   "#publicBtn", "#logoutBtn"].forEach(sel => {
+   "#logoutBtn"].forEach(sel => {
     const el = document.querySelector(sel);
     if (el) el.remove();
   });

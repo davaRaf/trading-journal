@@ -36,6 +36,15 @@ def call(method, payload=None, timeout=30):
     return body.get("result")
 
 
+def send_typing(chat_id):
+    """«друкує…» у чаті. Відповідь від моделі йде секунду-дві, і без цього
+    здається, що бот заснув. Помилку ковтаємо: це прикраса, а не робота."""
+    try:
+        call("sendChatAction", {"chat_id": chat_id, "action": "typing"}, timeout=5)
+    except Exception:
+        pass
+
+
 def get_me():
     return call("getMe")
 
@@ -48,8 +57,15 @@ def get_updates(offset=None, timeout=25):
     return call("getUpdates", payload, timeout=timeout + 10)
 
 
-def send_message(chat_id, text, keyboard=None):
+def send_message(chat_id, text, keyboard=None, parse_mode=None):
+    """parse_mode — тільки там, де текст ми зібрали самі (новини, HTML).
+
+    Решта повідомлень іде звичайним текстом: у них трапляються назви з
+    журналу й слова людини, і будь-яка кутова дужка ламала б розмітку.
+    """
     payload = {"chat_id": chat_id, "text": text}
+    if parse_mode:
+        payload["parse_mode"] = parse_mode
     if keyboard is not None:
         payload["reply_markup"] = {"inline_keyboard": keyboard}
     return call("sendMessage", payload)

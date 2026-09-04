@@ -1,0 +1,65 @@
+/* ============================================================
+   Вікно «Налаштування» (static/settings.js).
+
+   Два розділи одним стовпчиком: мова й відкритий журнал. Ширина менша
+   за звичайне вікно — тут не таблиці, а короткий список, і на широкому
+   екрані він виглядав би розтягнутим.
+   Кольори — тільки змінні теми, тому світла й темна виходять самі.
+   ============================================================ */
+
+.modal-box:has(.st){max-width:520px}
+
+/* Поява вікна: підкладка проявляється, картка трохи виїжджає згори.
+   Анімація запускається сама, бо вікно з'являється з display:none —
+   при зміні мови розмітка лише перемальовується всередині, вікно не
+   ховається, і воно не смикається вдруге.
+   Кому анімації заважають (prefers-reduced-motion) — вікно просто є. */
+@media (prefers-reduced-motion: no-preference){
+  .modal:has(.st){animation:stFade .18s ease-out both}
+  .modal-box:has(.st){animation:stPop .22s var(--ease) both}
+}
+@keyframes stFade{from{opacity:0} to{opacity:1}}
+@keyframes stPop{
+  from{opacity:0; transform:translateY(-8px) scale(.985)}
+  to{opacity:1; transform:none}
+}
+
+/* Закриття: те саме навпаки й трохи швидше — вихід має здаватись
+   спритнішим за появу. Клас вішає settings.js, він же й ховає вікно,
+   коли анімація дограла. */
+.modal.st-out{animation:stFadeOut .15s ease-in both}
+.modal.st-out .modal-box{animation:stPopOut .15s ease-in both}
+@keyframes stFadeOut{to{opacity:0}}
+@keyframes stPopOut{to{opacity:0; transform:translateY(-6px) scale(.985)}}
+
+.m-body.st{display:flex; flex-direction:column; gap:26px}
+
+.st-sec{display:block}
+.st-h{
+  margin:0 0 10px; font-size:12px; font-weight:600; letter-spacing:.06em;
+  text-transform:uppercase; color:var(--faint);
+}
+
+/* ---- мова ---- */
+
+.st-langs{display:flex; gap:3px; padding:3px; border-radius:10px;
+  background:var(--panel-2); border:1px solid var(--line-soft)}
+.st-langs button{
+  flex:1; min-height:44px; border:0; border-radius:8px; background:transparent;
+  color:var(--dim); cursor:pointer; font-size:13.5px; font-weight:500;
+  transition:background .15s, color .15s;
+}
+.st-langs button:hover{color:var(--text)}
+.st-langs button.on{background:var(--panel); color:var(--text); font-weight:600}
+
+/* ---- відкритий журнал ---- */
+
+/* Розділ узятий з вікна «Відкритий журнал» як є (клас pp, стилі в
+   pub.css). Тут тільки прибираємо верхній відступ у першого абзацу —
+   над ним уже стоїть заголовок розділу. */
+.st-sec.pp .pp-lead{margin-top:0}
+
+@media (max-width:560px){
+  .m-body.st{gap:22px}
+  .st-langs button{font-size:13px}
+}

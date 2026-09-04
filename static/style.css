@@ -116,7 +116,11 @@ html:has(.pnl-wrap){overflow-y:hidden}
 /* ================= sidebar ================= */
 .side{width:216px;flex:none;border-right:1px solid var(--side-line);padding:18px 14px;
   display:flex;flex-direction:column;gap:20px;position:sticky;top:0;height:100vh;background:var(--side-bg);
-  font-weight:400;line-height:1.5;overflow-y:auto;scrollbar-gutter:stable}
+  font-weight:400;line-height:1.5;overflow-y:auto;scrollbar-width:none}
+/* смуга прокрутки в лівому меню не потрібна: воно коротке, а на низькому
+   екрані докручується колесом. Разом зі смугою прибрано й місце під неї
+   (scrollbar-gutter) — інакше праворуч лишалась порожня колонка. */
+.side::-webkit-scrollbar{width:0;height:0}
 .brand{display:flex;align-items:center;gap:10px;font-family:var(--mono);font-size:13px;
   letter-spacing:.2em;text-transform:uppercase;font-weight:500;padding:0 6px}
 .brand .dot{width:7px;height:7px;border-radius:50%;background:var(--up);box-shadow:0 0 0 3px var(--up-soft)}

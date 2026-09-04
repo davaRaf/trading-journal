@@ -277,6 +277,13 @@ uk: {
   asHint3: "Як перестати відігруватися після стопа?", asHint4: "Що робити, коли не тримаю угоду до цілі?",
   asIntro: "Питай звичайними словами — про свої угоди рахую по журналу, про торгівлю загалом просто розповім.",
   asEmptyAnswer: "Порожня відповідь.", asAskFailed: "Не вийшло запитати: ",
+  // видалення угод на прохання: картка підтвердження (див. delete_ai.py)
+  asDelFound: "Знайшов {n} {w} під видалення:", asDelAll: "усі угоди журналу",
+  asDelMore: "…і ще {n}", asDelWarn: "Повернути видалене не вийде.",
+  asDelGo: "Видалити", asDelCancel: "Скасувати",
+  asDelDone: "Видалив {n} {w}.", asDelCancelled: "Гаразд, нічого не чіпаю.",
+  asDelNone: "Не знайшов жодної угоди під це прохання — нічого не видаляю.",
+  asDelFailed: "Не вдалося видалити: ",
   asReviewMsg: "Подивись, що я роблю не так", asNothingFound: "Поки що зачіпок немає — журнал рівний.",
   asReviewFailed: "Не вийшло зібрати розбір: ", asTitle: "Помічник",
   asInputPh: "Спитати про журнал або про торгівлю…", asInputAria: "Питання до помічника",
@@ -356,6 +363,8 @@ uk: {
   sdNotionConnectedTip: "Notion уже підключено — можна перенести нові угоди ще раз",
   sdTelegramTip: "Нагадування про новини та питання про емоції",
   connLabel: "Підключення", connConnected: "Підключено", connNotConnected: "Не підключено",
+  stTitle: "Налаштування", stTip: "Мова інтерфейсу й відкритий журнал",
+  stLang: "Мова інтерфейсу",
   sdLangTip: "Мова інтерфейсу",
   sdLogout: "Вийти", sdLogoutTip: "Вийти з акаунта",
   sdSkinTip: "Теми оформлення: світлі, темні й своя",
@@ -417,6 +426,10 @@ uk: {
   tc_nomodel: "Записав. У ТС описані лише моделі входу, а в самій угоді це поле порожнє — звіряти нема з чим.",
   tcFill: "Заповнити ТС",
   ndCap: "Помічник",
+  // репліка з новинами дня (static/newsay.js)
+  nsSay: "Сьогодні {n} {w} — найближча о {t}.",
+  nsWord1: "важлива новина", nsWord2: "важливі новини", nsWord5: "важливих новин",
+  nsMore: "…і ще {n}",
   ndOpen: "Відкрити",
   nd_nots: "Твоя ТС ще не описана — а без неї я не можу звіряти угоди з правилами. Опишемо?",
   nd_week: "Цього тижня %n угод, підсумок %s. Подивимось, що в них спільного?",
@@ -441,6 +454,7 @@ uk: {
   ppShow: "Видно: угоди, дати, пари, сесії, моделі, сетапи, результат, RR, ризик і скріни. Плюс уся статистика й аналітика.",
   ppHide: "Не видно: нотатки, помилки, емоції, «Аналіз дня» і «Мою ТС».",
   ppClosedNote: "Зараз журнал закритий: посилання нижче нікому не відкриється.",
+  ppOpenNote: "Журнал відкритий: його побачить кожен, кому ви дасте посилання.",
   ppNeedNick: "Спершу увійдіть — посилання робиться з вашого ніка.",
 },
 
@@ -689,6 +703,12 @@ ru: {
   asHint3: "Как перестать отыгрываться после стопа?", asHint4: "Что делать, когда не держу сделку до цели?",
   asIntro: "Спрашивай обычными словами — про свои сделки считаю по журналу, про торговлю вообще просто расскажу.",
   asEmptyAnswer: "Пустой ответ.", asAskFailed: "Не вышло спросить: ",
+  asDelFound: "Нашёл {n} {w} под удаление:", asDelAll: "все сделки журнала",
+  asDelMore: "…и ещё {n}", asDelWarn: "Вернуть удалённое не получится.",
+  asDelGo: "Удалить", asDelCancel: "Отмена",
+  asDelDone: "Удалил {n} {w}.", asDelCancelled: "Хорошо, ничего не трогаю.",
+  asDelNone: "Не нашёл ни одной сделки под эту просьбу — ничего не удаляю.",
+  asDelFailed: "Не удалось удалить: ",
   asReviewMsg: "Посмотри, что я делаю не так", asNothingFound: "Пока зацепок нет — журнал ровный.",
   asReviewFailed: "Не вышло собрать разбор: ", asTitle: "Помощник",
   asInputPh: "Спросить о журнале или о торговле…", asInputAria: "Вопрос помощнику",
@@ -763,6 +783,8 @@ ru: {
   sdNotionConnectedTip: "Notion уже подключён — можно перенести новые сделки ещё раз",
   sdTelegramTip: "Напоминания о новостях и вопросы об эмоциях",
   connLabel: "Подключения", connConnected: "Подключено", connNotConnected: "Не подключено",
+  stTitle: "Настройки", stTip: "Язык интерфейса и открытый журнал",
+  stLang: "Язык интерфейса",
   sdLangTip: "Язык интерфейса",
   sdLogout: "Выйти", sdLogoutTip: "Выйти из аккаунта",
   sdSkinTip: "Темы оформления: светлые, тёмные и своя",
@@ -823,6 +845,9 @@ ru: {
   tc_nomodel: "Записал. В ТС описаны только модели входа, а в самой сделке это поле пустое — сверять не с чем.",
   tcFill: "Заполнить ТС",
   ndCap: "Помощник",
+  nsSay: "Сегодня {n} {w} — ближайшая в {t}.",
+  nsWord1: "важная новость", nsWord2: "важные новости", nsWord5: "важных новостей",
+  nsMore: "…и ещё {n}",
   ndOpen: "Открыть",
   nd_nots: "Твоя ТС ещё не описана — без неё я не могу сверять сделки с правилами. Опишем?",
   nd_week: "На этой неделе %n сделок, итог %s. Посмотрим, что у них общего?",
@@ -847,6 +872,7 @@ ru: {
   ppShow: "Видно: сделки, даты, пары, сессии, модели, сетапы, результат, RR, риск и скрины. Плюс вся статистика и аналитика.",
   ppHide: "Не видно: заметки, ошибки, эмоции, «Анализ дня» и «Мою ТС».",
   ppClosedNote: "Сейчас журнал закрыт: ссылка ниже никому не откроется.",
+  ppOpenNote: "Журнал открыт: его увидит каждый, кому вы дадите ссылку.",
   ppNeedNick: "Сначала войдите — ссылка делается из вашего ника.",
 },
 
@@ -1095,6 +1121,12 @@ en: {
   asHint3: "How do I stop revenge trading after a stop?", asHint4: "What should I do when I don't hold a trade to target?",
   asIntro: "Ask in plain language — for questions about your own trades I work from the journal, for trading in general I'll just tell you.",
   asEmptyAnswer: "Empty answer.", asAskFailed: "Couldn't get an answer: ",
+  asDelFound: "Found {n} {w} to delete:", asDelAll: "all trades in the journal",
+  asDelMore: "…and {n} more", asDelWarn: "Deleted trades can't be brought back.",
+  asDelGo: "Delete", asDelCancel: "Cancel",
+  asDelDone: "Deleted {n} {w}.", asDelCancelled: "Okay, leaving everything as is.",
+  asDelNone: "Found no trades matching that — nothing deleted.",
+  asDelFailed: "Could not delete: ",
   asReviewMsg: "Show me what I'm doing wrong", asNothingFound: "No red flags yet — the journal looks solid.",
   asReviewFailed: "Couldn't put the review together: ", asTitle: "Assistant",
   asInputPh: "Ask about the journal or your trading…", asInputAria: "Question for the assistant",
@@ -1169,6 +1201,8 @@ en: {
   sdNotionConnectedTip: "Notion is already connected — you can import new trades again",
   sdTelegramTip: "Reminders about news and questions about emotions",
   connLabel: "Connections", connConnected: "Connected", connNotConnected: "Not connected",
+  stTitle: "Settings", stTip: "Interface language and open journal",
+  stLang: "Interface language",
   sdLangTip: "Interface language",
   sdLogout: "Log out", sdLogoutTip: "Log out of your account",
   sdSkinTip: "Appearance: light, dark and custom themes",
@@ -1229,6 +1263,9 @@ en: {
   tc_nomodel: "Saved. Your strategy only lists entry models, and this trade has that field empty — nothing to compare.",
   tcFill: "Fill in the strategy",
   ndCap: "Assistant",
+  nsSay: "Today: {n} {w}, the first at {t}.",
+  nsWord1: "high-impact release", nsWord2: "high-impact releases", nsWord5: "high-impact releases",
+  nsMore: "…and {n} more",
   ndOpen: "Open",
   nd_nots: "Your strategy is not written down yet — without it I cannot check trades against the rules. Shall we?",
   nd_week: "%n trades this week, %s in total. Want to see what they have in common?",
@@ -1253,6 +1290,7 @@ en: {
   ppShow: "Visible: trades, dates, pairs, sessions, models, setups, result, RR, risk and screenshots. Plus all stats and analytics.",
   ppHide: "Hidden: notes, mistakes, emotions, Day review and My strategy.",
   ppClosedNote: "The journal is closed right now: the link below opens for nobody.",
+  ppOpenNote: "The journal is open: anyone you give the link to can see it.",
   ppNeedNick: "Sign in first — the link is made from your nickname.",
 },
 
@@ -1294,8 +1332,8 @@ function applyLang(code){
   setText("journalLab", T.sdTools);
   if (window.Pub && Pub.on) Pub.relang();
 
-  const pj = document.getElementById("publicBtn");
-  if(pj){ setTip(pj, T.ppTip); const sp = pj.querySelector("span"); if(sp) sp.textContent = T.ppBtn; }
+  const st = document.getElementById("settingsBtn");
+  if(st){ setTip(st, T.stTip); const sp = st.querySelector("span"); if(sp) sp.textContent = T.stTitle; }
 
   const cb = document.getElementById("calcBtn");
   if(cb){ setTip(cb, T.sdCalcTip); const sp = cb.querySelector("span"); if(sp) sp.textContent = T.ckTitle; }
@@ -1308,12 +1346,6 @@ function applyLang(code){
 
   const tb = document.getElementById("telegramBtn");
   if(tb) setTip(tb, T.sdTelegramTip);
-
-  const langs = document.getElementById("langs");
-  if(langs){
-    setTip(langs, T.sdLangTip);
-    langs.querySelectorAll("button").forEach(b => b.classList.toggle("on", b.dataset.lang === LANG));
-  }
 
   const lo = document.getElementById("logoutBtn");
   if(lo){ setTip(lo, T.sdLogoutTip); const sp = lo.querySelector("span"); if(sp) sp.textContent = T.sdLogout; }

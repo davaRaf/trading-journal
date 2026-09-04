@@ -18,6 +18,29 @@ const Assistant = (function(){
       "<p>" + p.replace(/\n/g, "<br>") + "</p>").join("");
   }
 
+  /* Прохання видалити угоди сервер не виконує одразу: він повертає картку —
+     скільки знайшлось і що саме. Видалення запускає тільки кнопка тут. */
+  function cardHtml(c, i){
+    const what = (c.bits || []).slice();
+    if(c.all) what.unshift(T.asDelAll);
+    if(c.first && c.last) what.push(c.first === c.last ? c.first : c.first + " – " + c.last);
+    const more = c.count - (c.sample || []).length;
+    return '<div class="as-del">' +
+      '<p class="as-del-h">' + esc(T.asDelFound.replace("{n}", c.count)
+        .replace("{w}", ovWord(c.count))) + "</p>" +
+      (what.length ? '<div class="as-del-what">' + esc(what.join(" · ")) + "</div>" : "") +
+      '<ul class="as-del-list">' + (c.sample || []).map(x =>
+        "<li>" + esc(x) + "</li>").join("") + "</ul>" +
+      (more > 0 ? '<p class="as-del-more">' + esc(T.asDelMore.replace("{n}", more)) + "</p>" : "") +
+      '<p class="as-del-warn">' + esc(T.asDelWarn) + "</p>" +
+      '<div class="as-del-btns">' +
+        '<button type="button" class="btn danger as-del-go" data-i="' + i + '">' +
+          esc(T.asDelGo) + "</button>" +
+        '<button type="button" class="btn as-del-no" data-i="' + i + '">' +
+          esc(T.asDelCancel) + "</button>" +
+      "</div></div>";
+  }
+
   function bodyHtml(){
     if(!log.length){
       return '<div class="as-empty">' +
@@ -26,9 +49,10 @@ const Assistant = (function(){
           '<button type="button" class="as-hint" data-q="' + esc(h) + '">' + esc(h) + "</button>"
         ).join("") + "</div></div>";
     }
-    return log.map(m => m.who === "me"
+    return log.map((m, i) => m.who === "me"
       ? '<div class="as-msg me"><div class="as-bubble">' + esc(m.text) + "</div></div>"
-      : '<div class="as-msg ai"><div class="as-bubble">' + fmt(m.text) + "</div></div>"
+      : '<div class="as-msg ai"><div class="as-bubble">' +
+          (m.card ? cardHtml(m.card, i) : fmt(m.text)) + "</div></div>"
     ).join("") + (busy
       ? '<div class="as-msg ai"><div class="as-bubble as-wait"><i></i><i></i><i></i></div></div>'
       : "");
@@ -41,6 +65,10 @@ const Assistant = (function(){
     box.scrollTop = box.scrollHeight;      // остання відповідь завжди на очах
     box.querySelectorAll(".as-hint").forEach(b =>
       b.onclick = () => send(b.dataset.q));
+    box.querySelectorAll(".as-del-go").forEach(b =>
+      b.onclick = () => drop(+b.dataset.i));
+    box.querySelectorAll(".as-del-no").forEach(b =>
+      b.onclick = () => keep(+b.dataset.i));
     const send_btn = document.querySelector(".as-send");
     const field = document.querySelector(".as-input");
     if(send_btn) send_btn.disabled = busy;
@@ -57,15 +85,51 @@ const Assistant = (function(){
     if(field){ field.value = ""; field.style.height = ""; }
     paint();
     try{
-      const r = await api("POST", "/api/assistant/ask", {question: text, history});
-      log.push({who:"ai", text: r.answer || T.asEmptyAnswer});
+      const r = await api("POST", "/api/assistant/ask",
+                          {question: text, history, lang: LANG});
+      if(r.confirm){
+        /* нічого не знайшлось — це звичайна відповідь, картка не потрібна */
+        if(r.confirm.count) log.push({who:"ai", text:"", card:r.confirm});
+        else log.push({who:"ai", text:T.asDelNone});
+      }else{
+        log.push({who:"ai", text: r.answer || T.asEmptyAnswer});
+      }
     }catch(e){
       log.push({who:"ai", text: T.asAskFailed + e.message});
     }
     busy = false;
     paint();
+    ping();          /* відповідь дзенькає так само, як репліка над кнопкою */
     const f = document.querySelector(".as-input");
     if(f) f.focus();
+  }
+
+  /* Друге натискання — те, після якого угоди справді зникають. Ключ
+     одноразовий, список угод у ньому зафіксований ще на першому кроці. */
+  async function drop(i){
+    const m = log[i];
+    if(!m || !m.card || !m.card.token || busy) return;
+    const token = m.card.token;
+    busy = true; paint();
+    try{
+      const r = await api("POST", "/api/assistant/delete", {token});
+      const n = r.deleted || 0;
+      m.card = null;
+      m.text = T.asDelDone.replace("{n}", n).replace("{w}", ovWord(n));
+      try{ await reload(); render(); }catch(e){}   /* журнал під вікном оновиться */
+    }catch(e){
+      m.card = null;
+      m.text = T.asDelFailed + e.message;
+    }
+    busy = false; paint();
+  }
+
+  function keep(i){
+    const m = log[i];
+    if(!m || !m.card) return;
+    m.card = null;
+    m.text = T.asDelCancelled;
+    paint();
   }
 
   async function review(){
@@ -85,6 +149,7 @@ const Assistant = (function(){
     }
     busy = false;
     paint();
+    ping();
   }
 
   function open(){
