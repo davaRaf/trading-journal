@@ -61,31 +61,35 @@ function drawMark(ctx, x, y, size){
   ctx.restore();
 }
 
-/* шапка: знак, назва, підпис періоду і підсумок */
+/* Шапка. Тримаємо її низькою: головне на картинці — сітка днів, і саме
+   їй потрібна висота. Тому знак і назва в один рядок, а період і підсумок
+   у наступний. */
 function header(ctx, kindFull, title, total){
-  drawMark(ctx, 64, 58, 46);
+  drawMark(ctx, 64, 40, 34);
   ctx.textBaseline = "alphabetic";
-  ctx.font = "500 30px " + MONO;
+  ctx.font = "500 24px " + MONO;
   ctx.fillStyle = C.text;
-  ctx.fillText("Stats", 108, 92);
+  ctx.fillText("Stats", 96, 66);
   const w = ctx.measureText("Stats").width;
   ctx.fillStyle = C.up;
-  ctx.fillText("AI", 108 + w, 92);
+  ctx.fillText("AI", 96 + w, 66);
 
-  ctx.font = "500 20px " + MONO;
+  ctx.font = "500 18px " + MONO;
   ctx.fillStyle = C.faint;
-  ctx.fillText(String(kindFull || "").toUpperCase(), 64, 150);
+  ctx.textAlign = "right";
+  ctx.fillText(String(kindFull || "").toUpperCase(), W - 64, 66);
+  ctx.textAlign = "left";
 
-  ctx.font = "600 52px " + SANS;
+  ctx.font = "600 46px " + SANS;
   ctx.fillStyle = C.text;
-  ctx.fillText(String(title || ""), 64, 206);
+  ctx.fillText(String(title || ""), 64, 136);
 
   if (total != null){
     const t = tone(total);
-    ctx.font = "500 56px " + MONO;
+    ctx.font = "500 46px " + MONO;
     ctx.fillStyle = t === "up" ? C.up : t === "down" ? C.down : C.be;
     ctx.textAlign = "right";
-    ctx.fillText(pct(total), W - 64, 206);
+    ctx.fillText(pct(total), W - 64, 136);
     ctx.textAlign = "left";
   }
 }
@@ -123,7 +127,8 @@ function grid(ctx, cal, wd, top, bottom){
   const cw = (right - left - gapX * (cols - 1)) / cols;
   const headH = 26;
   const avail = bottom - top - headH - 10;
-  const ch = Math.min((avail - gapY * (rows - 1)) / rows, 108);
+  const ch = Math.min((avail - gapY * (rows - 1)) / rows, 118);
+  const tight = ch < 62;                 /* у місяці рядків шість — місця мало */
 
   /* підписи днів тижня */
   ctx.font = "500 15px " + MONO;
@@ -151,14 +156,28 @@ function grid(ctx, cal, wd, top, bottom){
       roundRect(ctx, x, y, cw, ch, 12); ctx.stroke();
     }
 
-    ctx.font = "500 17px " + MONO;
-    ctx.fillStyle = has ? C.dim : C.faint;
-    ctx.fillText(String(Number(d.date.slice(8))), x + 12, y + 27);
-
-    if (has){
-      ctx.font = "500 " + (ch > 80 ? 27 : 21) + "px " + MONO;
-      ctx.fillStyle = t === "up" ? C.up : t === "down" ? C.down : C.be;
-      ctx.fillText(pct(d.net), x + 12, y + ch - 16);
+    if (tight){
+      /* число ліворуч, результат праворуч — в один рядок */
+      const mid = y + ch / 2 + 7;
+      ctx.font = "500 16px " + MONO;
+      ctx.fillStyle = has ? C.dim : C.faint;
+      ctx.fillText(String(Number(d.date.slice(8))), x + 11, mid);
+      if (has){
+        ctx.font = "500 21px " + MONO;
+        ctx.fillStyle = t === "up" ? C.up : t === "down" ? C.down : C.be;
+        ctx.textAlign = "right";
+        ctx.fillText(pct(d.net), x + cw - 11, mid);
+        ctx.textAlign = "left";
+      }
+    } else {
+      ctx.font = "500 17px " + MONO;
+      ctx.fillStyle = has ? C.dim : C.faint;
+      ctx.fillText(String(Number(d.date.slice(8))), x + 12, y + 28);
+      if (has){
+        ctx.font = "500 " + (ch > 88 ? 30 : 24) + "px " + MONO;
+        ctx.fillStyle = t === "up" ? C.up : t === "down" ? C.down : C.be;
+        ctx.fillText(pct(d.net), x + 12, y + ch - 18);
+      }
     }
   });
 }
@@ -172,13 +191,13 @@ function period(data){
 
   header(ctx, data.kindFull || data.kind, data.title, data.total);
   ctx.strokeStyle = C.line; ctx.lineWidth = 1;
-  ctx.beginPath(); ctx.moveTo(64, 236); ctx.lineTo(W - 64, 236); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(64, 164); ctx.lineTo(W - 64, 164); ctx.stroke();
 
   const wd = (T.shCalWd || ["пн","вт","ср","чт","пт","сб","нд"]);
-  grid(ctx, data.calendar, wd, 258, H - 132);
+  grid(ctx, data.calendar, wd, 182, H - 104);
 
-  ctx.beginPath(); ctx.moveTo(64, H - 116); ctx.lineTo(W - 64, H - 116); ctx.stroke();
-  kpiRow(ctx, data.kpis, H - 84);
+  ctx.beginPath(); ctx.moveTo(64, H - 90); ctx.lineTo(W - 64, H - 90); ctx.stroke();
+  kpiRow(ctx, data.kpis, H - 58);
 
   return cv.toDataURL("image/png");
 }
