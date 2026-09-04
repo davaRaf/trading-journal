@@ -332,6 +332,16 @@ function tradesHtml(list){
    клітинками, щоб колонки збігалися з підписами тижня. */
 let CAL = null, CALOPEN = null;
 
+/* «2 сделки», а не «2 сделок»: у трьох мовах форма слова залежить від числа */
+function nTrades(n){
+  const f = T.shCalTradesN || ["", "", ""];
+  /* в англійській форм лише дві — там другий і третій варіанти однакові */
+  if (f[1] === f[2]) return n + " " + (Math.abs(n) === 1 ? f[0] : f[1]);
+  const a = Math.abs(n) % 100, b = a % 10;
+  const w = (a > 10 && a < 20) ? f[2] : b === 1 ? f[0] : (b > 1 && b < 5) ? f[1] : f[2];
+  return n + " " + w;
+}
+
 function calHtml(cal){
   if (!cal || !(cal.days || []).length) return "";
   CAL = cal;
@@ -346,7 +356,7 @@ function calHtml(cal){
       + '"' + (has ? ' data-day="' + d.date + '"' : " disabled") + ">"
       + '<span class="n">' + Number(d.date.slice(8)) + "</span>"
       + (has ? '<span class="v">' + pct(d.net) + "</span>"
-             + '<span class="c">' + d.n + " " + esc(T.shCalTrades) + "</span>" : "")
+             + '<span class="c">' + esc(nTrades(d.n)) + "</span>" : "")
       + "</button>";
   });
   const wd = (T.shCalWd || ["пн","вт","ср","чт","пт","сб","нд"])
@@ -365,7 +375,7 @@ function dayOpenHtml(d){
   const locale = {uk:"uk-UA", ru:"ru-RU", en:"en-US"}[LANG] || "uk-UA";
   const nice = dt.toLocaleDateString(locale, {weekday:"long", day:"numeric", month:"long"});
   return '<div class="dayopen"><div class="dh"><b>' + esc(nice) + "</b>"
-    + '<span class="sub">' + d.n + " " + esc(T.shCalTrades) + "</span>"
+    + '<span class="sub">' + esc(nTrades(d.n)) + "</span>"
     + '<span class="tot ' + sign(d.net) + '">' + pct(d.net) + "</span></div>"
     + '<div class="inner">' + tradesHtml(d.trades) + "</div></div>";
 }
