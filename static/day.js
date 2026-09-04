@@ -770,6 +770,13 @@ VIEWS.day = vDay;
 document.addEventListener("click", e => {
   if (S.view !== "day" || !N) return;
 
+  /* Кнопки розділу мають свій onclick, який одразу перемальовує сторінку.
+     Клік після цього продовжує спливати сюди — але вже з кнопкою, якої в
+     документі немає. Через це «клік повз» спрацьовував на власну ж кнопку
+     й закривав щойно відкрите: вибір таймфрейму не з'являвся взагалі.
+     Клік від зниклого елемента далі не розглядаємо. */
+  if (!document.contains(e.target)) return;
+
   /* відкриті спливні: клік повз них — закриває */
   if (calOpen && !e.target.closest(".dv-calwrap")){ calOpen = false; render(); return; }
   if (popOpen && !e.target.closest(".dv-addwrap")){ popOpen = false; render(); return; }
@@ -784,8 +791,17 @@ document.addEventListener("click", e => {
       save(); render();
       return;
     }
-    filePick._to = sl;
-    filePick.click();
+    /* На комп'ютері один клік не відкриває файли, а лише націлює слот:
+       далі Ctrl+V. Раніше клік одразу піднімав вікно вибору файлу, і
+       вставити скрін із буфера було нікуди. Файли — подвійним кліком.
+       На телефоні буфера немає, тому там один дотик = вибір файлу. */
+    if (touchOnly()){
+      filePick._to = sl;
+      filePick.click();
+      return;
+    }
+    armed = (armed === sl.dataset.shot) ? null : sl.dataset.shot;
+    render();
     return;
   }
 
