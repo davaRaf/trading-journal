@@ -219,14 +219,20 @@ def share_preview_shot(rec):
 
 def share_og(rec, sid, base):
     d = rec.get("data") or {}
-    title = (d.get("title") or "StatsAI") + " · StatsAI"
+    # у заголовку спершу кажемо, що це за посилання: «Зведення за місяць».
+    # Раніше стояла сама назва періоду, і зі списку посилань не було
+    # видно, де тиждень, а де місяць
+    kind = d.get("kindFull") or d.get("kind") or ""
+    title = ((str(kind) + " · " if kind else "") + (d.get("title") or "StatsAI")) + " · StatsAI"
     # перші два показники читаються самі (TP, +3.1%), решті потрібен підпис (RR 3.1)
     kpis = [k for k in (d.get("kpis") or [])[:4] if k.get("v")]
     bits = [str(k["v"]) for k in kpis[:2]] + ["%s %s" % (k.get("k"), k["v"]) for k in kpis[2:]]
     if d.get("kind"):
         bits.insert(0, str(d["kind"]))
     desc = " · ".join(bits) or "StatsAI"
-    shot = share_preview_shot(rec)
+    # для тижня й місяця сторінка малює свій календар — він і йде в превью;
+    # для дня й угоди беремо скрін самої угоди
+    shot = d.get("og") or share_preview_shot(rec)
     esc_ = lambda x: str(x).replace("&", "&amp;").replace('"', "&quot;").replace("<", "&lt;")
     tags = [
         '<meta property="og:type" content="website">',
@@ -818,7 +824,25 @@ class H(BaseHTTPRequestHandler):
             return self._file(os.path.join(STATIC, p.strip("/") + ".html"), "text/html; charset=utf-8")
 
         if p == "/login":
-            return self._file(os.path.join(STATIC, "login.html"), "text/html; charset=utf-8")
+            # Месенджери хочуть в og:image повну адресу, а у файлі вона
+            # відносна — сторінка ж не знає, під яким доменом її відкриють.
+            # Дописуємо базу на віддачі.
+            try:
+                with open(os.path.join(STATIC, "login.html"), "r", encoding="utf-8") as f:
+                    html = f.read()
+            except OSError:
+                self.send_response(404); self.end_headers(); return
+            html = html.replace('content="/static/', 'content="%s/static/' % self._base())
+            if 'property="og:url"' not in html:
+                html = html.replace("</title>",
+                                    '</title>\n<meta property="og:url" content="%s/">' % self._base(), 1)
+            body = html.encode("utf-8")
+            self.send_response(200)
+            self.send_header("Content-Type", "text/html; charset=utf-8")
+            self.send_header("Content-Length", str(len(body)))
+            self.end_headers()
+            self.wfile.write(body)
+            return
 
         if p.startswith("/design/"):
             # прототипы: экран входа, новости, знак — чтобы смотреть с того же адреса
@@ -1061,6 +1085,15 @@ class H(BaseHTTPRequestHandler):
             return self._json(job.snapshot(), 202)
 
         # ---- аналіз дня ----
+        if p == "/api/share/shot":
+            # картинка для превью посилання: малює її сторінка, ми лише
+            # кладемо поруч зі знімком і віддаємо ім'я
+            try:
+                name = day_store.save_shot(uid, (body or {}).get("data") or "", SHOTS, "sg")
+            except ValueError as e:
+                return self._json({"error": str(e)}, 400)
+            return self._json({"file": name})
+
         if p == "/api/day/shot":
             try:
                 name = day_store.save_shot(uid, (body or {}).get("data") or "", SHOTS)

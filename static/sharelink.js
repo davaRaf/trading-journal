@@ -110,7 +110,7 @@ function daySnapshot(dk){
   const list = sortAsc(S.all.filter(t => dayKey(t) === dk));
   const d = new Date(dk + "T00:00");
   return {
-    kind: T.slKindDay,
+    kind: T.slKindDay, kindFull: T.slOgDay,
     title: d.getDate() + " " + T.monthsGen[d.getMonth()] + " " + d.getFullYear(),
     total: calc(list).net,
     kpis: statsOf(list),
@@ -132,7 +132,7 @@ function weekSnapshot(anchor){
   const from = k(mon), to = k(sun);
   const list = S.all.filter(t => { const dk = dayKey(t); return dk >= from && dk <= to; });
   return {
-    kind: T.slKindWeek,
+    kind: T.slKindWeek, kindFull: T.slOgWeek,
     title: mon.getDate() + " " + T.monthsGen[mon.getMonth()] + " — "
          + sun.getDate() + " " + T.monthsGen[sun.getMonth()],
     total: calc(list).net,
@@ -153,7 +153,7 @@ function monthSnapshot(mk){
   const last = new Date(+y, +m, 0).getDate();
   const from = mk + "-01", to = mk + "-" + String(last).padStart(2, "0");
   return {
-    kind: T.slKindMonth,
+    kind: T.slKindMonth, kindFull: T.slOgMonth,
     title: T.months[+m - 1] + " " + y,
     total: calc(list).net,
     kpis: statsOf(list),
@@ -172,7 +172,7 @@ function yearSnapshot(y){
   const byMonth = [...months.keys()].sort()
     .map(mk => ({ name: T.months[+mk.slice(5,7) - 1], value: calc(months.get(mk)).net }));
   return {
-    kind: T.slKindYear,
+    kind: T.slKindYear, kindFull: T.slOgYear,
     title: String(y),
     total: calc(list).net,
     kpis: statsOf(list),
@@ -189,7 +189,7 @@ function tradeSnapshot(id){
   if (!t) return null;
   const net = netR(t);
   return {
-    kind: T.slKindTrade,
+    kind: T.slKindTrade, kindFull: T.slOgTrade,
     title: t.pair + " · " + resLabel(t.result),
     total: net,
     kpis: [
@@ -245,6 +245,19 @@ function open(kind, arg){
   document.getElementById("shGo").onclick = async function(){
     this.disabled = true; this.textContent = T.slCreating;
     try{
+      /* Для тижня й місяця малюємо календар — він піде в превью посилання.
+         Не вийшло намалювати чи покласти — не біда: посилання створиться
+         й без картинки, просто в месенджері буде без неї. */
+      if (data.calendar && window.OgCal){
+        try{
+          const png = OgCal.period(data);
+          const up = await fetch("/api/share/shot", {
+            method:"POST", headers:{"Content-Type":"application/json"},
+            body: JSON.stringify({data: png})
+          });
+          if (up.ok) data.og = (await up.json()).file;
+        }catch(e){}
+      }
       const res = await fetch("/api/share", {
         method:"POST", headers:{"Content-Type":"application/json"},
         body: JSON.stringify({ data, ttl: lastTtl })

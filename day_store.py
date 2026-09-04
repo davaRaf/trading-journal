@@ -110,7 +110,7 @@ NAME_RE = re.compile(r"^dn(\d+)_[0-9a-z]+\.(png|jpg|jpeg|webp|gif)$", re.I)
 MAX_BYTES = 6 * 1024 * 1024
 
 
-def save_shot(user_id, data_url, shots_dir):
+def save_shot(user_id, data_url, shots_dir, prefix="dn"):
     m = DATAURL_RE.match(data_url or "")
     if not m:
         raise ValueError("не картинка")
@@ -121,7 +121,9 @@ def save_shot(user_id, data_url, shots_dir):
     if len(raw) > MAX_BYTES:
         raise ValueError("завеликий файл")
     ext = m.group(1).lower().replace("jpeg", "jpg")
-    name = "dn%d_%x.%s" % (int(user_id), int(time.time() * 1000), ext)
+    # префікс каже, чиє це і звідки: dn — розбір дня, sg — картинка
+    # для превью посилання. За ним же перевіряється власник у /dnshot/
+    name = "%s%d_%x.%s" % (str(prefix), int(user_id), int(time.time() * 1000), ext)
     # у базі — надовго, на диску — кешем: у контейнерів файлова система
     # тимчасова, і після оновлення коду картинки зникли б
     try:
