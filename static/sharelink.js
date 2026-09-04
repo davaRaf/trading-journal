@@ -433,9 +433,9 @@ function open(kind, arg){
       /* Для тижня й місяця малюємо календар — він піде в превью посилання.
          Не вийшло намалювати чи покласти — не біда: посилання створиться
          й без картинки, просто в месенджері буде без неї. */
-      if (data.calendar && window.OgCal){
+      if ((data.calendar || data.ts) && window.OgCal){
         try{
-          const png = OgCal.period(data);
+          const png = data.ts ? OgCal.system(data) : OgCal.period(data);
           const up = await fetch("/api/share/shot", {
             method:"POST", headers:{"Content-Type":"application/json"},
             body: JSON.stringify({data: png})

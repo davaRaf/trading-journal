@@ -187,6 +187,121 @@ function grid(ctx, cal, wd, top, bottom){
   });
 }
 
+/* Ряд «чіпів» — коротких плашок. Повертає, скільки висоти зайняв.
+   Що не влізло в один рядок, згортається в «+ще 3»: картинка має
+   лишатись читабельною, а не перетворюватись на список. */
+function chipRow(ctx, x, y, maxW, items, opt){
+  const o = opt || {};
+  const fs = o.font || 22, pad = o.pad || 14, h = o.h || 44, gap = 9;
+  if (!items.length) return 0;
+  ctx.font = "500 " + fs + "px " + MONO;
+
+  const fit = [];
+  let used = 0;
+  for (const it of items){
+    const w = ctx.measureText(it).width + pad * 2;
+    /* лишаємо місце під «+ще N», якщо це не останній, що влазить */
+    if (used + w > maxW && fit.length) break;
+    fit.push({t: it, w: w});
+    used += w + gap;
+  }
+  const rest = items.length - fit.length;
+  if (rest > 0){
+    const more = "+" + rest;
+    const w = ctx.measureText(more).width + pad * 2;
+    while (fit.length > 1 && used + w > maxW){
+      used -= fit.pop().w + gap;
+    }
+    fit.push({t: more, w: w, dim: true});
+  }
+
+  let cx = x;
+  fit.forEach(c => {
+    ctx.fillStyle = c.dim ? C.panel : "rgba(64,224,148,.10)";
+    roundRect(ctx, cx, y, c.w, h, 11);
+    ctx.fill();
+    ctx.strokeStyle = c.dim ? C.line : "rgba(64,224,148,.30)";
+    ctx.lineWidth = 1;
+    roundRect(ctx, cx, y, c.w, h, 11);
+    ctx.stroke();
+
+    ctx.font = "500 " + fs + "px " + MONO;
+    ctx.fillStyle = c.dim ? C.faint : C.up;
+    ctx.fillText(c.t, cx + pad, y + h / 2 + fs * 0.36);
+    cx += c.w + gap;
+  });
+  return h;
+}
+
+/* підпис розділу */
+function label(ctx, x, y, text){
+  ctx.font = "500 16px " + MONO;
+  ctx.fillStyle = C.faint;
+  ctx.fillText(String(text || "").toUpperCase(), x, y);
+}
+
+/* Тло: рідкий ряд свічок у самому низу, ледь помітний. Дає картинці
+   тему, не забираючи уваги в тексту. */
+function candles(ctx, x, y, w, h){
+  const seed = [.30,.38,.34,.46,.42,.54,.5,.62,.58,.68,.64,.76,.72,.82];
+  const n = seed.length, cw = w / n, bw = Math.round(cw * .4);
+  ctx.globalAlpha = .16;
+  for (let i = 0; i < n; i++){
+    const o = seed[i], cl = i + 1 < n ? seed[i + 1] : seed[i] + .04;
+    const yo = y + h - o * h, yc = y + h - cl * h;
+    const top = Math.min(yo, yc), bh = Math.max(5, Math.abs(yc - yo));
+    const cx = x + i * cw + cw / 2;
+    const col = cl >= o ? C.up : C.down;
+    ctx.strokeStyle = col; ctx.lineWidth = 2;
+    ctx.beginPath(); ctx.moveTo(cx, top - 12); ctx.lineTo(cx, top + bh + 12); ctx.stroke();
+    ctx.fillStyle = col;
+    roundRect(ctx, cx - bw / 2, top, bw, bh, 3); ctx.fill();
+  }
+  ctx.globalAlpha = 1;
+}
+
+/* ---------- картинка торгової системи ---------- */
+function system(data){
+  const t = data.ts || {};
+  const cv = document.createElement("canvas");
+  cv.width = W; cv.height = H;
+  const ctx = cv.getContext("2d");
+  ctx.fillStyle = C.bg; ctx.fillRect(0, 0, W, H);
+  candles(ctx, 640, 300, 520, 250);
+
+  header(ctx, data.kindFull || data.kind, data.title, null);
+  ctx.strokeStyle = C.line; ctx.lineWidth = 1;
+  ctx.beginPath(); ctx.moveTo(64, 164); ctx.lineTo(W - 64, 164); ctx.stroke();
+
+  const x = 64, maxW = W - 128;
+  let y = 212;
+
+  const rows = [
+    [T.tsShAssets, (t.assets || [])],
+    [T.tsShTfs, (t.tfs || []).map(r => r.tf).filter(Boolean)],
+    [T.tsShModels, (t.models || []).map(m => m.name).filter(Boolean)],
+  ].filter(r => r[1].length);
+
+  rows.forEach(r => {
+    label(ctx, x, y, r[0]);
+    y += 20;
+    y += chipRow(ctx, x, y, maxW, r[1]) + 34;
+  });
+
+  /* Якщо в системі майже нічого не заповнено — не лишаємо порожнечу:
+     пишемо, що всередині, словами. */
+  if (!rows.length){
+    ctx.font = "400 28px " + SANS;
+    ctx.fillStyle = C.dim;
+    ctx.fillText(T.tsShTitle, x, 250);
+  }
+
+  ctx.beginPath(); ctx.moveTo(64, H - 90); ctx.lineTo(W - 64, H - 90); ctx.stroke();
+  kpiRow(ctx, data.kpis, H - 58);
+
+  return cv.toDataURL("image/png");
+}
+
 /* ---------- картинка періоду ---------- */
 function period(data){
   const cv = document.createElement("canvas");
@@ -207,6 +322,6 @@ function period(data){
   return cv.toDataURL("image/png");
 }
 
-window.OgCal = {period};
+window.OgCal = {period, system};
 
 })();
