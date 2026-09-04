@@ -40,7 +40,22 @@
    над ним уже стоїть заголовок розділу. */
 .st-sec.pp .pp-lead{margin-top:0}
 
+/* ---- копія журналу ---- */
+
+/* Кнопка — це посилання на /api/export, тому вирівнюємо його як кнопку:
+   інакше рядковий елемент з'їхав би по базовій лінії тексту. */
+.st-sec.bk .pp-lead{margin-top:0; margin-bottom:14px}
+.bk-get{display:inline-flex; align-items:center; justify-content:center;
+  min-height:44px; text-decoration:none}
+.bk-note{margin:12px 0 0; font-size:12.5px; line-height:1.55; color:var(--dim)}
+.bk-note b{color:var(--text); font-weight:600}
+/* Скільки днів зберігається — довідка другого плану, тому тьмяніша й
+   на вузькому екрані йде окремим рядком, а не тисне дату. */
+.bk-kept{color:var(--faint)}
+
 @media (max-width:560px){
   .m-body.st{gap:22px}
   .st-langs button{font-size:13px}
+  .bk-get{width:100%}
+  .bk-kept{display:block; margin-top:2px}
 }

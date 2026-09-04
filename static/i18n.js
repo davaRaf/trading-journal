@@ -198,6 +198,11 @@ uk: {
   ntAddMoreLead: "Журнал можна зібрати з кількох баз: встав посилання на другу — її угоди додадуться до тих, що вже є.",
   ntSourcesTitle: "Перенесені журнали",
   ntSourcesHint: "Натисни на журнал, щоб прочитати його ще раз: нові угоди додадуться, старі не задвояться.",
+  ntAutoEvery: "Та ми й самі перечитуємо ці журнали кожні %d год.",
+  ntAutoLast: "Востаннє —",
+  ntAutoAdded: "нових угод: %d",
+  ntAutoNone: "нового не було",
+  ntAutoFail: "Notion не відповів",
   ntSrcRemove: "Прибрати",
   ntHaveAlready: "У журналі вже є",
   ntHaveWillAdd: "— перенесені додадуться до них. Якщо це чужі або демонстраційні, приберіть їх до перенесення.",
@@ -464,6 +469,14 @@ uk: {
   ppClosedNote: "Зараз журнал закритий: посилання нижче нікому не відкриється.",
   ppOpenNote: "Журнал відкритий: його побачить кожен, кому ви дасте посилання.",
   ppNeedNick: "Спершу увійдіть — посилання робиться з вашого ніка.",
+
+  // ---- копія журналу (backup.js) ----
+  bkTitle: "Копія журналу",
+  bkLead: "Раз на добу журнал сам зберігається окремо — угоди, розбори днів і стратегія. Копію можна забрати собі будь-коли: один файл, який відкриє будь-що.",
+  bkGet: "Завантажити журнал",
+  bkLast: "Останній зліпок —",
+  bkKept: " · збережено днів: %d",
+  bkNone: "Перший зліпок зробимо найближчої доби.",
 },
 
 ru: {
@@ -635,6 +648,11 @@ ru: {
   ntAddMoreLead: "Журнал можно собрать из нескольких баз: вставь ссылку на вторую — её сделки добавятся к тем, что уже есть.",
   ntSourcesTitle: "Перенесённые журналы",
   ntSourcesHint: "Нажми на журнал, чтобы прочитать его ещё раз: новые сделки добавятся, старые не задвоятся.",
+  ntAutoEvery: "Да мы и сами перечитываем эти журналы каждые %d ч.",
+  ntAutoLast: "В последний раз —",
+  ntAutoAdded: "новых сделок: %d",
+  ntAutoNone: "нового не было",
+  ntAutoFail: "Notion не ответил",
   ntSrcRemove: "Убрать",
   ntHaveAlready: "В журнале уже есть",
   ntHaveWillAdd: "— перенесённые добавятся к ним. Если это чужие или демонстрационные — уберите их до перенесения.",
@@ -890,6 +908,14 @@ ru: {
   ppClosedNote: "Сейчас журнал закрыт: ссылка ниже никому не откроется.",
   ppOpenNote: "Журнал открыт: его увидит каждый, кому вы дадите ссылку.",
   ppNeedNick: "Сначала войдите — ссылка делается из вашего ника.",
+
+  // ---- копия журнала (backup.js) ----
+  bkTitle: "Копия журнала",
+  bkLead: "Раз в сутки журнал сам сохраняется отдельно — сделки, разборы дней и стратегия. Копию можно забрать себе в любой момент: один файл, который откроет что угодно.",
+  bkGet: "Скачать журнал",
+  bkLast: "Последний слепок —",
+  bkKept: " · сохранено дней: %d",
+  bkNone: "Первый слепок сделаем в ближайшие сутки.",
 },
 
 en: {
@@ -1061,6 +1087,11 @@ en: {
   ntAddMoreLead: "A journal can be built from several databases: paste a link to the second one — its trades will be added to what's already here.",
   ntSourcesTitle: "Imported journals",
   ntSourcesHint: "Click a journal to read it again: new trades will be added, old ones won't be duplicated.",
+  ntAutoEvery: "We also re-read these journals ourselves every %d h.",
+  ntAutoLast: "Last time —",
+  ntAutoAdded: "new trades: %d",
+  ntAutoNone: "nothing new",
+  ntAutoFail: "Notion did not answer",
   ntSrcRemove: "Remove",
   ntHaveAlready: "Your journal already has",
   ntHaveWillAdd: "— the imported ones will be added to them. If those are someone else's or demo trades, remove them before importing.",
@@ -1316,6 +1347,14 @@ en: {
   ppClosedNote: "The journal is closed right now: the link below opens for nobody.",
   ppOpenNote: "The journal is open: anyone you give the link to can see it.",
   ppNeedNick: "Sign in first — the link is made from your nickname.",
+
+  // ---- journal backup (backup.js) ----
+  bkTitle: "Journal backup",
+  bkLead: "Once a day the journal saves a copy of itself — trades, daily reviews and strategy. You can take that copy any time: a single file anything can open.",
+  bkGet: "Download journal",
+  bkLast: "Last snapshot —",
+  bkKept: " · days kept: %d",
+  bkNone: "The first snapshot will be made within a day.",
 },
 
 };

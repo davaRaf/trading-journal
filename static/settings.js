@@ -40,6 +40,8 @@ function body(){
   let h = sec(T.stLang, langs());
   const pp = (!inPub() && window.__profile) ? __profile.section() : "";
   if (pp) h += sec(T.ppTitle, pp, "pp");
+  const bk = (!inPub() && window.__backup) ? __backup.section() : "";
+  if (bk) h += sec(T.bkTitle, bk, "bk");
   return '<div class="m-body st">' + h + "</div>";
 }
 
@@ -54,7 +56,12 @@ function draw(){
 }
 
 async function open(){
-  if (!inPub() && window.__profile) await __profile.load();
+  /* Обидва розділи читають своє паралельно: чекати їх по черзі — це
+     зайва пауза перед відкриттям вікна. */
+  if (!inPub()) await Promise.all([
+    window.__profile ? __profile.load() : null,
+    window.__backup ? __backup.load() : null,
+  ]);
   draw();
 }
 

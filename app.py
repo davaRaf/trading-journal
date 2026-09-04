@@ -6,6 +6,7 @@ Trading Journal — сервер журнала.
 """
 import base64
 import datetime
+import gzip
 import json
 import os
 import re
@@ -19,6 +20,7 @@ from urllib.parse import urlparse, unquote
 import assistant
 import delete_ai
 import auth
+import backup
 import config
 import db
 import emotions
@@ -29,7 +31,9 @@ from psycopg.types.json import Jsonb
 
 import notion_import as notion
 import notion_public as npub
+import notion_sync
 import oauth
+import ratelimit
 import day_store
 import tg_api
 import tidy
@@ -503,6 +507,15 @@ def start_import(user_id, tables, mapping, opts):
     return job
 
 
+def import_busy(uid):
+    """Чи йде просто зараз ручне перенесення цієї людини. Автооновлення
+    в цей час не лізе: обидва писали б у журнал одні й ті самі угоди, і
+    хто з них перший — вирішував би випадок."""
+    with _jobs_lock:
+        return any(getattr(j, "user_id", None) == uid and j.state == "running"
+                   for j in _jobs.values())
+
+
 def ask_emotion_later(user, trade):
     """Вопрос про эмоцию уходит в фоне — ответ сайту ждать Telegram не должен."""
     def run():
@@ -581,26 +594,98 @@ class H(BaseHTTPRequestHandler):
     # ---------- ответы ----------
     def _json(self, obj, code=200, cookie=None):
         data = json.dumps(obj, ensure_ascii=False).encode("utf-8")
+        enc = self._squeeze(data)
+        if enc is not None:
+            data = enc
         self.send_response(code)
         self.send_header("Content-Type", "application/json; charset=utf-8")
+        if enc is not None:
+            self.send_header("Content-Encoding", "gzip")
+            self.send_header("Vary", "Accept-Encoding")
         self.send_header("Content-Length", str(len(data)))
         if cookie:
             self.send_header("Set-Cookie", cookie)
         self.end_headers()
         self.wfile.write(data)
 
-    def _file(self, path, ctype):
+    # Скільки браузер має право тримати файл у себе. Кожен скрипт і стиль
+    # ідуть з версією в адресі (news.js?v=5), тож вміст за цією адресою вже
+    # ніколи не зміниться — можна кешувати надовго, а правка версії сама
+    # змусить браузер піти за новим. Без цього сторінка щоразу качала всі
+    # 800 КБ заново, і на телефоні це відчувалось.
+    FOREVER = "public, max-age=31536000, immutable"
+    # Картинки належать конкретній людині (перевіряємо власника), тому
+    # private: спільним кешам по дорозі їх тримати не можна.
+    PRIVATE = "private, max-age=604800"
+
+    # Що має сенс стискати: текст стискається в 3-4 рази, картинки — ні,
+    # вони вже стиснуті, і другий прохід тільки з'їдає час.
+    GZIP_TYPES = ("text/", "application/javascript", "application/json",
+                  "image/svg+xml")
+    GZIP_MIN = 1024                  # дрібниця від стиснення тільки товстішає
+
+    _gz_lock = threading.Lock()
+    _gz_cache = {}                   # (шлях, час зміни) -> стиснуті байти
+
+    def _squeeze(self, data):
+        """Стиснути те, що зібрали в пам'яті (JSON, сторінку входу).
+
+        Кешувати нічого: вміст щоразу новий. Дрібниці не чіпаємо — на них
+        стиснення дорожче за виграш.
+        """
+        if len(data) < self.GZIP_MIN:
+            return None
+        if "gzip" not in (self.headers.get("Accept-Encoding") or "").lower():
+            return None
+        try:
+            return gzip.compress(data, 6)
+        except Exception:
+            return None
+
+    def _gzipped(self, path, data, ctype):
+        """Стиснута копія файлу — з пам'яті, якщо вона там уже є."""
+        if len(data) < self.GZIP_MIN:
+            return None
+        if not any(ctype.startswith(t) for t in self.GZIP_TYPES):
+            return None
+        if "gzip" not in (self.headers.get("Accept-Encoding") or "").lower():
+            return None
+        try:
+            key = (path, os.path.getmtime(path))
+        except OSError:
+            return None
+        with self._gz_lock:
+            got = self._gz_cache.get(key)
+        if got is not None:
+            return got
+        try:
+            got = gzip.compress(data, 6)
+        except Exception:
+            return None
+        with self._gz_lock:
+            if len(self._gz_cache) > 200:      # більше файлів у нас і немає
+                self._gz_cache.clear()
+            self._gz_cache[key] = got
+        return got
+
+    def _file(self, path, ctype, cache=None):
         try:
             with open(path, "rb") as f:
                 data = f.read()
         except Exception:
             self.send_response(404); self.end_headers(); return
+        enc = self._gzipped(path, data, ctype)
+        if enc is not None:
+            data = enc
         self.send_response(200)
         self.send_header("Content-Type", ctype)
+        if enc is not None:
+            self.send_header("Content-Encoding", "gzip")
+            self.send_header("Vary", "Accept-Encoding")
         self.send_header("Content-Length", str(len(data)))
-        # Без этого браузер сам решает, сколько держать файл в кэше, и после
-        # правки в js/css показывает старую версию — правки будто не применились.
-        self.send_header("Cache-Control", "no-store")
+        # Без версії в адресі кешувати не можна: браузер показував би старий
+        # файл після правки, і здавалося б, що зміни не застосувались.
+        self.send_header("Cache-Control", cache or "no-store")
         self.end_headers()
         self.wfile.write(data)
 
@@ -621,6 +706,15 @@ class H(BaseHTTPRequestHandler):
 
     def _uid(self):
         return auth.current_user_id(self)
+
+    def _guest(self):
+        """Адреса гостя. За проксі хостингу справжня приходить у заголовку,
+        а client_address — це вже сам проксі, один на всіх.
+
+        Заголовок можна підробити, тому на ньому одному не тримаємось:
+        поруч рахуємо спроби ще й за логіном, і його підробкою не обійти."""
+        fwd = (self.headers.get("X-Forwarded-For") or "").split(",")[0].strip()
+        return fwd or (self.client_address[0] if self.client_address else "?")
 
     def _base(self):
         """Зовнішня адреса сайту: з PUBLIC_URL, інакше з заголовків — за
@@ -649,7 +743,7 @@ class H(BaseHTTPRequestHandler):
             ext = name.rsplit(".", 1)[-1].lower()
             ctype = {"png": "image/png", "jpg": "image/jpeg", "jpeg": "image/jpeg",
                      "webp": "image/webp", "gif": "image/gif"}.get(ext, "application/octet-stream")
-            return self._file(path, ctype)
+            return self._file(path, ctype, self.PRIVATE)
 
         if p.startswith("/api/share/"):
             rec = share_read(p[len("/api/share/"):])
@@ -783,7 +877,7 @@ class H(BaseHTTPRequestHandler):
             ext = name.rsplit(".", 1)[-1].lower()
             ctype = {"png": "image/png", "jpg": "image/jpeg", "jpeg": "image/jpeg",
                      "webp": "image/webp", "gif": "image/gif"}.get(ext, "application/octet-stream")
-            return self._file(path, ctype)
+            return self._file(path, ctype, self.PRIVATE)
 
         if p == "/api/trades":
             uid = self._uid()
@@ -817,7 +911,7 @@ class H(BaseHTTPRequestHandler):
             path = shot_path(name)
             if not path:
                 self.send_response(404); self.end_headers(); return
-            return self._file(path, ctype)
+            return self._file(path, ctype, self.PRIVATE)
 
         # ---- торгова стратегія (ts_store.py, ts_notion.py) ----
         if p == "/api/ts":
@@ -837,7 +931,44 @@ class H(BaseHTTPRequestHandler):
             path = shot_path(name)
             if not path:
                 self.send_response(404); self.end_headers(); return
-            return self._file(path, ctype)
+            return self._file(path, ctype, self.PRIVATE)
+
+        # ---- зліпок журналу собі на диск (backup.py) ----
+        # Той самий вміст, що лягає в щоденний зліпок: угоди, розбори днів,
+        # стратегія. Один файл, який відкриє будь-що, — і журнал уже не
+        # тільки в нашій базі.
+        if p == "/api/export":
+            uid = self._uid()
+            if not uid:
+                return self._json({"error": "auth required"}, 401)
+            snap = backup.snapshot(uid)
+            data = json.dumps(snap, ensure_ascii=False, indent=1).encode("utf-8")
+            name = "journal-%s.json" % datetime.date.today().isoformat()
+            enc = self._squeeze(data)
+            if enc is not None:
+                data = enc
+            self.send_response(200)
+            self.send_header("Content-Type", "application/json; charset=utf-8")
+            self.send_header("Content-Disposition",
+                             'attachment; filename="%s"' % name)
+            if enc is not None:
+                self.send_header("Content-Encoding", "gzip")
+            self.send_header("Content-Length", str(len(data)))
+            self.send_header("Cache-Control", "no-store")
+            self.end_headers()
+            self.wfile.write(data)
+            return
+
+        if p == "/api/backups":
+            uid = self._uid()
+            if not uid:
+                return self._json({"error": "auth required"}, 401)
+            try:
+                have = backup.listing(uid)
+            except Exception as ex:
+                print("backups:", ex)
+                have = []
+            return self._json({"backups": have, "keep": backup.KEEP})
 
         if p == "/api/calendar":
             events, warn = calendar_events()
@@ -890,6 +1021,9 @@ class H(BaseHTTPRequestHandler):
                 # угоди з Notion уже в журналі — значить, підключали, навіть якщо
                 # запис про посилання не зберігся
                 "imported": bool(db.notion_known(uid)[1]),
+                # коли востаннє перечитували Notion самі (notion_sync.py)
+                "auto": conf.get("auto") or None,
+                "autoHours": notion_sync.EVERY // 3600,
                 "fields": [{"k": k, "label": notion.LABELS[k]} for k in notion.FIELDS],
             })
 
@@ -921,8 +1055,14 @@ class H(BaseHTTPRequestHandler):
                 html = html.replace("</title>",
                                     '</title>\n<meta property="og:url" content="%s/">' % self._base(), 1)
             body = html.encode("utf-8")
+            enc = self._squeeze(body)
+            if enc is not None:
+                body = enc
             self.send_response(200)
             self.send_header("Content-Type", "text/html; charset=utf-8")
+            if enc is not None:
+                self.send_header("Content-Encoding", "gzip")
+                self.send_header("Vary", "Accept-Encoding")
             self.send_header("Content-Length", str(len(body)))
             self.end_headers()
             self.wfile.write(body)
@@ -955,7 +1095,7 @@ class H(BaseHTTPRequestHandler):
             path = shot_path(name)
             if not path:
                 self.send_response(404); self.end_headers(); return
-            return self._file(path, ctype)
+            return self._file(path, ctype, self.PRIVATE)
 
         # Чужий журнал — та сама сторінка застосунку: розділи, календар і
         # аналітика вже вміють малювати будь-який список угод. Хто саме
@@ -985,7 +1125,11 @@ class H(BaseHTTPRequestHandler):
             ext = name.rsplit(".", 1)[-1].lower()
             ctype = {"css":"text/css; charset=utf-8","js":"application/javascript; charset=utf-8",
                      "html":"text/html; charset=utf-8","png":"image/png","svg":"image/svg+xml"}.get(ext,"application/octet-stream")
-            return self._file(os.path.join(STATIC, name), ctype)
+            # у файлів є версія в адресі (?v=5), тому кешуємо назавжди:
+            # правка версії сама змусить браузер піти за новим
+            versioned = "v=" in urlparse(self.path).query
+            return self._file(os.path.join(STATIC, name), ctype,
+                              self.FOREVER if versioned else None)
 
         self.send_response(404); self.end_headers()
 
@@ -1016,11 +1160,22 @@ class H(BaseHTTPRequestHandler):
         if p == "/api/auth/login":
             if not isinstance(body, dict):
                 return self._json({"error": "bad json"}, 400)
+            # П'ять невдалих спроб за хвилину — і далі просимо зачекати.
+            # Рахуємо і за адресою, і за логіном: перебір з одного місця
+            # та перебір одного акаунта з різних адрес — це різні речі.
+            who = str(body.get("login") or "").strip().lower()
+            keys = ["ip:" + self._guest()] + (["who:" + who] if who else [])
+            wait = ratelimit.check(keys)
+            if wait:
+                return self._json(
+                    {"error": "забагато спроб входу — спробуй за %d с" % wait}, 429)
             user = db.get_user_by_login(body.get("login"))
             if not user or not auth.verify_password(str(body.get("password") or ""),
                                                     user["pw_hash"], user["pw_salt"],
                                                     user["pw_iters"]):
+                ratelimit.miss(keys)
                 return self._json({"error": "невірна пошта або пароль"}, 401)
+            ratelimit.forget(keys)
             return self._json({"user": user_public(user)},
                               cookie=auth.cookie_header(auth.make_session(user["id"])))
 
@@ -1336,6 +1491,11 @@ class H(BaseHTTPRequestHandler):
 
 if __name__ == "__main__":
     db.init()
+    # щоденний зліпок журналу: тихо, у фоні, раз на добу
+    backup.start()
+    # і сам перечитує Notion раз на дві години
+    notion_sync.start(add=add_trades, fill=blank_filler, conf=notion_conf,
+                      save=notion_save, shots=SHOTS, busy=import_busy)
     if config.RUN_BOT and config.BOT_TOKEN:
         # бот живе поруч із сайтом: на безкоштовному хостингу другий
         # процес тримати ніде, а опитування Телеграма нікому не заважає

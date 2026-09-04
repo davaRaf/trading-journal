@@ -13,6 +13,9 @@
 .nt{display:flex; flex-direction:column; gap:14px}
 .nt-lead{margin:0; font-size:14px; line-height:1.6; color:var(--text)}
 .nt-note{margin:0; font-size:12.5px; line-height:1.55; color:var(--faint)}
+/* Рядок про автооновлення стоїть під підказкою про ручне перечитування —
+   відділяємо його, щоб не читались як одне речення. */
+.nt-auto{margin-top:6px}
 .nt-sub{font-family:var(--mono); font-size:10px; letter-spacing:.13em;
   text-transform:uppercase; color:var(--faint); margin-top:4px}
 
