@@ -65,10 +65,27 @@ def _once(data, model, timeout):
         print("gemini:", ex)
         return None, False
     try:
-        parts = body["candidates"][0]["content"]["parts"]
-        return "".join(p.get("text", "") for p in parts).strip() or None, True
+        cand = body["candidates"][0]
+        parts = cand["content"]["parts"]
+        text = "".join(p.get("text", "") for p in parts).strip()
     except Exception:
         return None, True
+    # Модель уперлась у стелю токенів і спинилась на півслові. Раніше такий
+    # огризок ішов людині як є («Твоя последняя сделка» — і все). Лишаємо
+    # тільки завершені речення, а якщо не лишилось нічого — вважаємо це
+    # мовчанням: у циклі вище тоді спробує інша модель.
+    if cand.get("finishReason") == "MAX_TOKENS":
+        text = _whole(text)
+    return text or None, True
+
+
+def _whole(text):
+    """Текст до останнього завершеного речення.
+
+    Двадцять символів — межа, нижче якої від відповіді однаково нічого не
+    лишилось: краще спробувати іншою моделлю, ніж слати обрубок."""
+    cut = max(text.rfind(c) for c in ".!?…")
+    return text[:cut + 1].strip() if cut >= 20 else ""
 
 
 def _plan(model, tries):

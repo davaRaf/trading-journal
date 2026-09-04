@@ -438,6 +438,17 @@ RULES = (
     "на кшталт «Звісно» і без переліку всього підряд. Вітайся лише тоді, коли "
     "розмова щойно почалася: якщо ви вже спілкуєтеся — одразу до справи.")
 
+# У Telegram відповідь читають з телефона, у стрічці листування — там
+# два абзаци з порадами виглядають як лекція, хоч на сайті вони доречні.
+# Тому для бота правила ті самі, плюс окрема вимога до довжини.
+BRIEF = (
+    "Це листування в Telegram: відповідай одним-двома реченнями, максимум "
+    "трьома, і в один абзац. Без списків і без переліків. Не став запитання "
+    "наприкінці кожної відповіді — тільки якщо без нього справді не обійтися. "
+    "Не переказуй усе, що знаєш: одна головна думка на відповідь. Радиш "
+    "заглянути в розділ — назви його однією згадкою, без пояснень, навіщо "
+    "він потрібен.")
+
 HISTORY_LIMIT = 8          # скільки попередніх реплік пам'ятаємо
 HISTORY_CHARS = 700
 
@@ -488,7 +499,7 @@ def _lang_from(history):
     return None
 
 
-def ask(user_id, question, history=None, lang=None):
+def ask(user_id, question, history=None, lang=None, brief=False):
     trades = db.list_trades(user_id)
     book = digest(trades)
     if trades:
@@ -502,8 +513,13 @@ def ask(user_id, question, history=None, lang=None):
         _history_block(history), question, order)
     # три спроби, бо друга й третя йдуть уже іншими моделями: одна модель
     # може годину відповідати «503, високий попит», а сусідня в цей час жива
-    text = llm.ask(prompt, max_tokens=400, timeout=8, tries=5,
-                   system=RULES + chr(10) + SITE_MAP + chr(10) + order)
+    rules = RULES + chr(10) + SITE_MAP + chr(10) + order
+    if brief:
+        rules += chr(10) + BRIEF
+    # менше дозволених токенів — не тільки економія: модель складає
+    # відповідь під відведений обсяг, і при 400 вона щоразу пише «на повну»
+    text = llm.ask(prompt, max_tokens=320 if brief else 400, timeout=8, tries=5,
+                   system=rules)
     return text or _sorry(detect_lang(question) or _lang_from(history) or lang)
 
 

@@ -289,6 +289,24 @@ CHAT_MEMORY = {}
 CHAT_KEEP = 6
 
 
+# Скільки тексту не шкода прочитати з телефона між справами. Модель просимо
+# бути короткою словами, але просьба — не гарантія: інколи її несе, і тоді
+# ріжемо самі. Ріжемо по кінцю речення, а не посеред слова.
+CHAT_MAX = 460
+
+
+def shorten(text, limit=CHAT_MAX):
+    t = (text or "").strip()
+    if len(t) <= limit:
+        return t
+    cut = t[:limit]
+    end = max(cut.rfind("."), cut.rfind("!"), cut.rfind("?"), cut.rfind("…"))
+    if end >= 120:                      # ціле речення вже є — на ньому й спиняємось
+        return cut[:end + 1].strip()
+    space = cut.rfind(" ")
+    return (cut[:space] if space > 0 else cut).strip() + "…"
+
+
 def chat_answer(user, chat_id, tg_id, text):
     """Вільне питання в чаті — тим самим помічником, що й на сайті.
 
@@ -301,11 +319,11 @@ def chat_answer(user, chat_id, tg_id, text):
     lang = user_lang(tg_id, text)
     history = CHAT_MEMORY.get(chat_id) or []
     try:
-        out = assistant.ask(user["id"], text, history, lang)
+        out = assistant.ask(user["id"], text, history, lang, brief=True)
     except Exception as ex:
         print("chat:", ex)
         out = ""
-    out = plain(no_commands(out or ""))
+    out = shorten(plain(no_commands(out or "")))
     if not out:
         out = assistant._sorry(lang)
     CHAT_MEMORY[chat_id] = (history + [{"who": "me", "text": text},
