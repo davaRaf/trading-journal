@@ -106,6 +106,80 @@ function sliceBlock(title, list, key){
   return items.length ? { title, items } : null;
 }
 
+/* ---------- торгова стратегія ----------
+   Правила людини, а не її результати. Беремо те, що вона сама записала в
+   розділі «Моя ТС», і нічого не рахуємо: тут нема чого рахувати. */
+function tsSnapshot(){
+  const ts = (window.__ts && typeof __ts.data === "function") ? __ts.data() : null;
+  if (!ts) return null;
+
+  const str = v => String(v == null ? "" : v).trim();
+  const shots = list => (list || []).filter(Boolean).map(f => ({file: f}));
+  const has = v => !!(v && v.length);
+
+  const tfs = (ts.tfs || [])
+    .filter(r => str(r.tf) || str(r.what))
+    .map(r => ({tf: str(r.tf), role: str(r.role), what: str(r.what),
+                shots: shots([r.shot])}));
+
+  const models = (ts.models || [])
+    .filter(m => str(m.name) || str(m.note))
+    .map(m => ({name: str(m.name), note: str(m.note),
+                shots: shots((m.shots || []).concat(m.shot ? [m.shot] : []))}));
+
+  const windows = (ts.windows || [])
+    .filter(w => str(w.name) || str(w.time))
+    .map(w => ({name: str(w.name), time: str(w.time), note: str(w.note)}));
+
+  const manage = (ts.manage || [])
+    .filter(m => str(m.k) || str(m.v))
+    .map(m => ({k: str(m.k), v: str(m.v), shots: shots(m.shots)}));
+
+  const cases = (ts.riskCases || [])
+    .filter(c => str(c.k) || str(c.v))
+    .map(c => ({k: str(c.k), v: str(c.v)}));
+
+  const no = ts.no || {};
+  const line = arr => (arr || []).map(str).filter(Boolean);
+
+  const risk = ts.risk || {};
+  const rk = [
+    {k: T.tsShRr, v: str(risk.rr)}, {k: T.tsShRiskPer, v: str(risk.per)},
+    {k: T.tsShDay, v: str(risk.day)}, {k: T.tsShWeek, v: str(risk.week)},
+    {k: T.tsShMax, v: str(ts.maxtrades)},
+  ].filter(x => x.v);
+
+  const data = {
+    kind: T.slKindTs, kindFull: T.slOgTs,
+    title: T.tsShTitle,
+    total: null,
+    kpis: rk,
+    ts: {
+      assets: line(ts.assets),
+      windows: windows,
+      days: str(ts.days), news: str(ts.news),
+      tfs: tfs,
+      models: models,
+      bias: str(ts.bias),
+      stop: {v: str((ts.stop || {}).v), shots: shots([(ts.stop || {}).shot])},
+      target: {v: str((ts.target || {}).v), shots: shots([(ts.target || {}).shot])},
+      riskCases: cases,
+      manage: manage,
+      no: {market: line(no.market), time: line(no.time), self: line(no.self)},
+      mind: str(ts.mind),
+      check: line(ts.check),
+    },
+    blocks: [],
+  };
+
+  /* порожньою стратегією ділитись нема чого */
+  const t = data.ts;
+  const any = has(t.assets) || has(t.tfs) || has(t.models) || has(t.manage)
+    || has(t.check) || t.bias || t.mind || t.stop.v || t.target.v
+    || has(t.no.market) || has(t.no.time) || has(t.no.self) || rk.length;
+  return any ? data : null;
+}
+
 /* ---------- розбір дня ----------
    Знімок дня показує цифри й угоди. А розбір — це те, як людина дивилась
    на графік зранку: куди дивилась, які рівні відмітила, що планувала — і
@@ -273,6 +347,7 @@ function open(kind, arg){
      завжди. Тримаємо вибір тут і перезбираємо знімок, коли він міняється. */
   let pick = null;
   const build = () => kind === "trade"  ? tradeSnapshot(arg)
+             : kind === "ts"     ? tsSnapshot()
              : kind === "review" ? reviewSnapshot(arg, pick)
              : kind === "day"    ? daySnapshot(arg)
              : kind === "week"  ? weekSnapshot(arg)

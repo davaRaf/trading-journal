@@ -426,6 +426,7 @@ function vFull(){
     + '<span class="sub">' + esc(src) + (TS.updated ? " · " + esc(TS.updated) : "") + "</span>"
     + '<span class="right">'
     +   '<button class="pill" onclick="__ts.ask()">' + esc(d.btnAsk) + "</button>"
+    +   '<button class="pill" onclick="__ts.share()">' + esc(d.btnShare) + "</button>"
     +   '<button class="pill" onclick="__ts.wipe()">' + esc(d.btnDelete) + "</button>"
     + "</span></div>";
   h += '<p class="ts-tip">' + d.editTip + "</p>";
@@ -909,6 +910,12 @@ function guestStop(){ return !!(window.Guest && Guest.block(T.gsGateTs)); }
 window.__ts = {
   /* інструменти з ТС — їх підказує «Аналіз дня», коли додаєш актив */
   assets(){ return (TS && Array.isArray(TS.assets)) ? TS.assets.filter(Boolean).slice() : []; },
+  /* сама стратегія назовні — з неї sharelink.js збирає знімок */
+  data(){ return TS || null; },
+  share(){
+    if (window.Guest && Guest.block(T.gsGateTs)) return;
+    if (window.Share) Share.open("ts");
+  },
   ask(){ if(guestStop()) return; askOpen(); }, close: askClose, prev: askPrev, next: askNext, pick: pick, own: own, finish: finish,
   again(){ step = 0; drawAsk(); },
   text(k, v){ answers[k] = v; },
@@ -1017,7 +1024,7 @@ uk: {
   shotReplace: "клік — замінити", shotExample: "приклад", shotHow: "як це виглядає",
 
   gateOk: "усе закрито — за твоїми правилами вхід є", gateBad: "поки не все закрито — за твоїми ж правилами входу немає",
-  btnAsk: "Пройти опитування", btnDelete: "Видалити ТС",
+  btnAsk: "Пройти опитування", btnShare: "Поділитись", btnDelete: "Видалити ТС",
   confirmDelete: "Видалити стратегію? Скріни до неї теж зникнуть.",
   confirmQuitAsk: "Вийти з опитування? Відповіді не збережуться.",
 
@@ -1125,7 +1132,7 @@ ru: {
   shotReplace: "клик — заменить", shotExample: "пример", shotHow: "как это выглядит",
 
   gateOk: "всё закрыто — по твоим правилам вход есть", gateBad: "пока закрыто не всё — по твоим же правилам входа нет",
-  btnAsk: "Пройти опрос", btnDelete: "Удалить ТС",
+  btnAsk: "Пройти опрос", btnShare: "Поделиться", btnDelete: "Удалить ТС",
   confirmDelete: "Удалить стратегию? Скрины к ней тоже пропадут.",
   confirmQuitAsk: "Выйти из опроса? Ответы не сохранятся.",
 
@@ -1233,7 +1240,7 @@ en: {
   shotReplace: "click to replace", shotExample: "example", shotHow: "what it looks like",
 
   gateOk: "all ticked — by your rules the entry is valid", gateBad: "not everything is ticked — by your own rules there is no entry",
-  btnAsk: "Run the questions", btnDelete: "Delete system",
+  btnAsk: "Run the questions", btnShare: "Share", btnDelete: "Delete system",
   confirmDelete: "Delete the system? Its screenshots go too.",
   confirmQuitAsk: "Leave the questionnaire? Your answers will be lost.",
 

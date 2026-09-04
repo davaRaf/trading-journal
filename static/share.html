@@ -205,6 +205,68 @@ html{interpolate-size:allow-keywords}
 .big img{max-width:100%; max-height:100%; border-radius:8px}
 .hintline{font-size:12.5px; color:var(--faint); margin:-6px 0 0}
 
+/* ---------- торгова стратегія ----------
+   Правила читають зверху вниз, тож і подаємо їх розділами: ринок і час,
+   таймфрейми, вхід, ризик, супровід, коли не входжу, чек-лист. Скрізь та
+   сама сітка «підпис — значення», щоб очі не перебудовувались. */
+.ts{display:flex; flex-direction:column; gap:12px}
+.ts-s{border:1px solid var(--line-soft); border-radius:var(--r); overflow:hidden;
+  background:var(--card)}
+.ts-s > .h{padding:11px 15px; background:var(--panel-2); border-bottom:1px solid var(--line-soft);
+  font-family:var(--mono); font-size:10px; letter-spacing:.14em; text-transform:uppercase;
+  color:var(--faint)}
+.ts-s > .b{padding:14px 15px; display:flex; flex-direction:column; gap:14px}
+.ts-sub{font-family:var(--mono); font-size:9px; letter-spacing:.16em; text-transform:uppercase;
+  color:var(--faint); margin-bottom:8px}
+
+.ts-chips{display:flex; flex-wrap:wrap; gap:7px}
+.ts-chips b{font-family:var(--mono); font-size:13px; font-weight:600; padding:6px 12px;
+  border-radius:8px; background:var(--panel-2); border:1px solid var(--line-soft)}
+
+.ts-rows{display:flex; flex-direction:column; gap:1px; background:var(--line-soft);
+  border:1px solid var(--line-soft); border-radius:9px; overflow:hidden}
+.ts-rows .r{display:grid; grid-template-columns:150px 1fr; gap:4px 12px; padding:10px 12px;
+  background:var(--bg); align-items:baseline}
+.ts-rows .k{font-size:12.5px; color:var(--faint)}
+.ts-rows .v{font-size:13.5px; line-height:1.55; color:var(--dim); white-space:pre-wrap}
+.ts-rows .v b{color:var(--text); font-weight:600; font-family:var(--mono)}
+
+.ts-tf{border:1px solid var(--line-soft); border-radius:9px; padding:12px 13px;
+  background:var(--panel-2); display:flex; flex-direction:column; gap:8px}
+.ts-tf .top{display:flex; align-items:baseline; gap:10px; flex-wrap:wrap}
+.ts-tf .n{font-family:var(--mono); font-size:14px; font-weight:600}
+.ts-tf .role{font-size:12px; color:var(--faint)}
+.ts-tf .what{font-size:13px; line-height:1.55; color:var(--dim); white-space:pre-wrap}
+.ts-grid{display:grid; grid-template-columns:repeat(auto-fill,minmax(230px,1fr)); gap:10px}
+
+.ts-mod{border:1px solid var(--line-soft); border-radius:9px; padding:12px 13px;
+  background:var(--panel-2); display:flex; flex-direction:column; gap:8px}
+.ts-mod .nm{font-family:var(--mono); font-size:14px; font-weight:600}
+.ts-mod .note{font-size:13px; line-height:1.55; color:var(--dim); white-space:pre-wrap}
+
+.ts-no{display:grid; grid-template-columns:repeat(auto-fit,minmax(200px,1fr)); gap:12px}
+.ts-no .col .h{font-family:var(--mono); font-size:9px; letter-spacing:.14em;
+  text-transform:uppercase; color:var(--faint); margin-bottom:8px}
+.ts-no ul{margin:0; padding-left:17px; display:flex; flex-direction:column; gap:6px}
+.ts-no li{font-size:13px; line-height:1.5; color:var(--dim)}
+.ts-no .none{font-size:12.5px; color:var(--faint); margin:0}
+
+.ts-check{display:flex; flex-direction:column; gap:1px; background:var(--line-soft);
+  border:1px solid var(--line-soft); border-radius:9px; overflow:hidden}
+.ts-check div{display:flex; gap:10px; padding:10px 12px; background:var(--bg);
+  font-size:13px; line-height:1.5; color:var(--dim)}
+.ts-check div i{font-style:normal; color:var(--faint); font-family:var(--mono);
+  font-size:11px; flex:none; padding-top:2px}
+
+.ts-mind{border-left:2px solid var(--g); padding:12px 14px; background:var(--panel-2);
+  border-radius:0 9px 9px 0; font-size:13.5px; line-height:1.6; color:var(--text);
+  white-space:pre-wrap}
+
+@media (max-width:560px){
+  .ts-rows .r{grid-template-columns:1fr}
+  .ts-grid{grid-template-columns:1fr}
+}
+
 /* ---------- розбір дня ----------
    Головне тут не цифри, а хід думки: куди людина дивилась, які рівні
    відмітила, що планувала — і що з цього вийшло. Тому кожен актив іде
@@ -390,6 +452,86 @@ function tradesHtml(list){
   return (alone ? "" : '<div class="sect">' + esc(T.slTradesTitle || "Угоди") + '</div>'
                         + '<p class="hintline">' + esc(T.shExpandHint) + '</p>')
     + '<div class="trades">' + list.map(one).join("") + '</div>';
+}
+
+/* ---------- торгова стратегія ---------- */
+function tsHtml(ts){
+  if (!ts) return "";
+
+  const shotsHtml = list => !list || !list.length ? "" :
+    '<div class="shots">' + list.map(sh =>
+      '<figure data-src="' + esc(shotUrl(sh.file)) + '"><img loading="lazy" alt=""'
+      + ' onload="this.classList.add(&quot;rdy&quot;)"'
+      + ' onerror="this.classList.add(&quot;rdy&quot;)" src="' + esc(shotUrl(sh.file)) + '">'
+      + (sh.tf ? "<figcaption>" + esc(sh.tf) + "</figcaption>" : "") + "</figure>").join("")
+    + "</div>";
+
+  const sec = (title, body) => !body ? "" :
+    '<div class="ts-s"><div class="h">' + esc(title) + '</div><div class="b">' + body + "</div></div>";
+  const sub = (title, body) => !body ? "" :
+    '<div><div class="ts-sub">' + esc(title) + "</div>" + body + "</div>";
+  const rows = list => {
+    const rs = (list || []).filter(r => r[1]);
+    return !rs.length ? "" : '<div class="ts-rows">' + rs.map(r =>
+      '<div class="r"><span class="k">' + esc(r[0]) + '</span>'
+      + '<span class="v">' + esc(r[1]) + "</span></div>").join("") + "</div>";
+  };
+
+  /* ринок і час */
+  const assets = ts.assets.length
+    ? '<div class="ts-chips">' + ts.assets.map(a => "<b>" + esc(a) + "</b>").join("") + "</div>" : "";
+  const windows = rows(ts.windows.map(w =>
+    [w.name || "—", [w.time, w.note].filter(Boolean).join("  ·  ")]));
+  const when = rows([[T.tsShDays, ts.days], [T.tsShNews, ts.news]]);
+  const market = sub(T.tsShAssets, assets) + sub(T.tsShWindows, windows) + when;
+
+  /* таймфрейми */
+  const tfs = !ts.tfs.length ? "" :
+    '<div class="ts-grid">' + ts.tfs.map(r =>
+      '<div class="ts-tf"><div class="top"><span class="n">' + esc(r.tf || "—") + "</span>"
+      + (r.role ? '<span class="role">' + esc(r.role) + "</span>" : "") + "</div>"
+      + (r.what ? '<div class="what">' + esc(r.what) + "</div>" : "")
+      + shotsHtml(r.shots) + "</div>").join("") + "</div>";
+
+  /* вхід */
+  const models = !ts.models.length ? "" :
+    '<div class="ts-grid">' + ts.models.map(m =>
+      '<div class="ts-mod"><span class="nm">' + esc(m.name || "—") + "</span>"
+      + (m.note ? '<div class="note">' + esc(m.note) + "</div>" : "")
+      + shotsHtml(m.shots) + "</div>").join("") + "</div>";
+  const entryRules = rows([[T.tsShBias, ts.bias], [T.tsShStop, ts.stop.v],
+                           [T.tsShTarget, ts.target.v]]);
+  const entryShots = shotsHtml((ts.stop.shots || []).concat(ts.target.shots || []));
+  const entry = sub(T.tsShModels, models) + sub(T.tsShRules, entryRules + entryShots);
+
+  /* ризик */
+  const cases = rows(ts.riskCases.map(c => [c.k || "—", c.v]));
+  const risk = sub(T.tsShCases, cases);
+
+  /* супровід */
+  const manage = !ts.manage.length ? "" :
+    ts.manage.map(m =>
+      '<div>' + rows([[m.k || "—", m.v]]) + shotsHtml(m.shots) + "</div>").join("");
+
+  /* коли не входжу */
+  const col = (title, items) => '<div class="col"><div class="h">' + esc(title) + "</div>"
+    + (items.length ? "<ul>" + items.map(v => "<li>" + esc(v) + "</li>").join("") + "</ul>"
+                    : '<p class="none">—</p>') + "</div>";
+  const noAny = ts.no.market.length || ts.no.time.length || ts.no.self.length;
+  const no = (noAny ? '<div class="ts-no">' + col(T.tsShNoMarket, ts.no.market)
+        + col(T.tsShNoTime, ts.no.time) + col(T.tsShNoSelf, ts.no.self) + "</div>" : "")
+    + (ts.mind ? '<div class="ts-mind">' + esc(ts.mind) + "</div>" : "");
+
+  /* чек-лист */
+  const check = !ts.check.length ? "" :
+    '<div class="ts-check">' + ts.check.map((c, i) =>
+      "<div><i>" + String(i + 1).padStart(2, "0") + "</i><span>" + esc(c) + "</span></div>").join("")
+    + "</div>";
+
+  const body = sec(T.tsShMarket, market) + sec(T.tsShTfs, tfs) + sec(T.tsShEntry, entry)
+    + sec(T.tsShRisk, risk) + sec(T.tsShManage, manage) + sec(T.tsShNo, no)
+    + sec(T.tsShCheck, check);
+  return body ? '<div class="ts">' + body + "</div>" : "";
 }
 
 /* ---------- розбір дня ---------- */
@@ -623,6 +765,7 @@ function render(rec){
         ? '<div class="kpis">' + d.kpis.map(k => kpi(k.k, k.v, k.cls)).join("") + '</div>' : "")
     + tradesHtml(d.trades)
     + reviewHtml(d.review)
+    + tsHtml(d.ts)
     + calHtml(d.calendar)
     + (d.blocks || []).map(b => rows(b.title, b.items)).join("")
     /* Знімок подивились — далі показуємо, звідки він. Це єдине місце,
