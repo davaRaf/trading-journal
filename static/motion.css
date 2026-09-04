@@ -1,0 +1,112 @@
+/* ============================================================
+   Рух по всьому сайту.
+
+   До цього анімацію мали лише окремі місця: розділ під час переходу,
+   блоки «rise», діалог питання і вікно налаштувань — у нього була своя,
+   окрема від решти. Через це картка новини, форма угоди й перенесення з
+   Notion з'являлись ривком, а налаштування — плавно. Тут один набір
+   правил на всі вікна одразу, а settings.js більше не має свого.
+
+   Тривалості й крива взяті з мови руху shadcn/ui (там це класи
+   animate-in / fade-in-0 / zoom-in-95): поява 180 мс, зникання 120 —
+   вихід має здаватись спритнішим за появу. Рухаємо тільки transform і
+   opacity: вони не змушують браузер рахувати розкладку заново.
+
+   Кому рух заважає (prefers-reduced-motion) — усе вимикається одним
+   блоком унизу, і сайт лишається робочим, просто без анімацій.
+   ============================================================ */
+
+:root{
+  --m-in:180ms;              /* поява */
+  --m-out:120ms;             /* зникання — коротше за появу */
+  --m-tap:110ms;             /* відгук на натискання */
+  --m-ease-out:cubic-bezier(.16,1,.3,1);   /* виїжджає швидко, гальмує м'яко */
+  --m-ease-in:cubic-bezier(.4,0,1,1);      /* іде навпаки: розганяється */
+}
+
+/* ---------- вікна: одна поява на всі ---------- */
+
+@media (prefers-reduced-motion: no-preference){
+  .modal.m-in{animation:mFade var(--m-in) ease-out both}
+  .modal.m-in .modal-box{animation:mPop var(--m-in) var(--m-ease-out) both}
+
+  .modal.m-out{animation:mFadeOut var(--m-out) ease-in both}
+  .modal.m-out .modal-box{animation:mPopOut var(--m-out) var(--m-ease-in) both}
+
+  .lightbox.m-in{animation:mFade var(--m-in) ease-out both}
+  .lightbox.m-in img{animation:mZoom var(--m-in) var(--m-ease-out) both}
+  .lightbox.m-out{animation:mFadeOut var(--m-out) ease-in both}
+}
+
+@keyframes mFade{from{opacity:0} to{opacity:1}}
+@keyframes mFadeOut{from{opacity:1} to{opacity:0}}
+@keyframes mPop{
+  from{opacity:0; transform:translateY(-8px) scale(.97)}
+  to{opacity:1; transform:none}
+}
+@keyframes mPopOut{
+  from{opacity:1; transform:none}
+  to{opacity:0; transform:translateY(-6px) scale(.98)}
+}
+@keyframes mZoom{
+  from{opacity:0; transform:scale(.96)}
+  to{opacity:1; transform:none}
+}
+
+/* ---------- відгук на дотик ---------- */
+
+/* Натиснув — елемент трохи присідає. Дрібниця, але саме вона відрізняє
+   «клікнув і чекаю» від «клікнув і воно живе». 0.985 — межа, за якою
+   рух ще помітний, але вже не схожий на смикання.
+   Кнопки в шапці вікна й посилання-розділи не чіпаємо: вони не «кнопки»,
+   а частина рами. */
+@media (prefers-reduced-motion: no-preference){
+  .btn:active:not(:disabled),
+  .mini:active,
+  .nw-chip:active,
+  .sh-chip:active,
+  .nw-day:active,
+  .nw-week:active,
+  .st-langs button:active{
+    transform:scale(.985);
+  }
+}
+.btn, .mini, .nw-chip, .sh-chip, .nw-day, .nw-week, .st-langs button{
+  transition:background var(--m-tap) ease, border-color var(--m-tap) ease,
+             color var(--m-tap) ease, transform var(--m-tap) ease,
+             box-shadow var(--m-tap) ease;
+}
+
+/* ---------- рамка фокуса теж має з'являтись плавно ---------- */
+a, button, input, select, textarea{
+  transition:outline-color var(--m-tap) ease, border-color var(--m-tap) ease,
+             background var(--m-tap) ease, color var(--m-tap) ease;
+}
+
+/* ---------- рядки й картки ---------- */
+
+/* Рядок журналу вже підсвічується на наведенні — робимо це плавним
+   переходом, а не миттєвим перемиканням кольору.
+
+   Піднімати рядок на пікселі не стали: у списку в нього є нижня межа,
+   і на кожному наведенні лінія смикалась би. Підйом лишається там, де
+   він означає «сюди можна клікнути» — на картці новини (news.css). */
+@media (prefers-reduced-motion: no-preference){
+  .trow{transition:background var(--m-tap) ease}
+}
+
+/* ---------- прокрутка ---------- */
+
+/* Перехід за якорем і повернення до дня в журналі — без ривка. */
+@media (prefers-reduced-motion: no-preference){
+  html{scroll-behavior:smooth}
+}
+
+/* ---------- кому рух заважає ---------- */
+
+@media (prefers-reduced-motion: reduce){
+  .modal, .modal .modal-box, .lightbox, .lightbox img{animation:none !important}
+  .btn, .mini, .nw-chip, .sh-chip, .nw-day, .nw-week, .st-langs button,
+  .trow{transition:none; transform:none}
+  html{scroll-behavior:auto}
+}

@@ -9,28 +9,9 @@
 
 .modal-box:has(.st){max-width:520px}
 
-/* Поява вікна: підкладка проявляється, картка трохи виїжджає згори.
-   Анімація запускається сама, бо вікно з'являється з display:none —
-   при зміні мови розмітка лише перемальовується всередині, вікно не
-   ховається, і воно не смикається вдруге.
-   Кому анімації заважають (prefers-reduced-motion) — вікно просто є. */
-@media (prefers-reduced-motion: no-preference){
-  .modal:has(.st){animation:stFade .18s ease-out both}
-  .modal-box:has(.st){animation:stPop .22s var(--ease) both}
-}
-@keyframes stFade{from{opacity:0} to{opacity:1}}
-@keyframes stPop{
-  from{opacity:0; transform:translateY(-8px) scale(.985)}
-  to{opacity:1; transform:none}
-}
-
-/* Закриття: те саме навпаки й трохи швидше — вихід має здаватись
-   спритнішим за появу. Клас вішає settings.js, він же й ховає вікно,
-   коли анімація дограла. */
-.modal.st-out{animation:stFadeOut .15s ease-in both}
-.modal.st-out .modal-box{animation:stPopOut .15s ease-in both}
-@keyframes stFadeOut{to{opacity:0}}
-@keyframes stPopOut{to{opacity:0; transform:translateY(-6px) scale(.985)}}
+/* Поява й зникання вікна — спільні для всього сайту, див.
+   static/motion.css. Раніше вони жили тут окремо, і виходило, що
+   налаштування згортаються плавно, а решта вікон — ривком. */
 
 .m-body.st{display:flex; flex-direction:column; gap:26px}
 
