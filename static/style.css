@@ -455,7 +455,10 @@ table.simple tr.click:hover td{background:var(--panel-2)}
 .qcard .mbar .val{text-align:right;font-variant-numeric:tabular-nums}
 
 /* ================= модалка ================= */
-.modal{position:fixed;inset:0;background:var(--overlay);z-index:50;display:flex;
+/* Базовий шар у діалога і в бічної панелі один: хто відкрився
+   останнім, той і зверху (шар проставляє ui.js при відкритті). Обидва
+   порядки живі — діалог відкривають з панелі, панель із діалога. */
+.modal{position:fixed;inset:0;background:var(--overlay);z-index:75;display:flex;
   align-items:flex-start;justify-content:center;overflow:auto;padding:4vh 14px;backdrop-filter:blur(3px)}
 .modal-box{background:var(--panel);border:1px solid var(--line);border-radius:12px;width:100%;max-width:860px;margin-bottom:6vh;box-shadow:var(--shadow-pop)}
 .m-head{display:flex;align-items:center;gap:12px;padding:15px 20px;border-bottom:1px solid var(--line-soft)}
@@ -571,10 +574,10 @@ table.simple tr.click:hover td{background:var(--panel-2)}
 .chart-item img{width:100%;border-radius:var(--r-sm);border:1px solid var(--line);cursor:zoom-in;display:block}
 
 /* lightbox
-   Выше выезжающей панели (70): скрин открывают из карточки сделки, и
-   раскрыться он должен поверх неё, а не за ней. Ниже вопроса «точно
-   удалить?» (95) — тот перекрывает всё. */
-.lightbox{position:fixed;inset:0;background:var(--overlay-strong);z-index:90;display:flex;align-items:center;justify-content:center;cursor:zoom-out;padding:20px}
+   Выше всего, что открывается поверх страницы: скрин раскрывают из
+   карточки сделки, а её могли открыть из диалога. Ниже вопроса «точно
+   удалить?» — тот перекрывает всё. */
+.lightbox{position:fixed;inset:0;background:var(--overlay-strong);z-index:210;display:flex;align-items:center;justify-content:center;cursor:zoom-out;padding:20px}
 .lightbox img{max-width:96vw;max-height:92vh;border-radius:6px}
 
 /* импорт */
@@ -1124,7 +1127,7 @@ a.mini.on .ic{opacity:1;color:var(--accent)}
 /* ================= Alert Dialog =================
    Свой вопрос вместо браузерного confirm(). z-index выше всего остального:
    спрашивать приходится и поверх опросника (60), и поверх панелей (70). */
-.askwrap{position:fixed;inset:0;z-index:95;background:var(--overlay-strong);
+.askwrap{position:fixed;inset:0;z-index:220;background:var(--overlay-strong);
   display:flex;align-items:center;justify-content:center;padding:24px;
   opacity:0;transition:opacity .18s}
 .askwrap.in{opacity:1}
@@ -1140,7 +1143,7 @@ a.mini.on .ic{opacity:1;color:var(--accent)}
   .askwrap,.askbox{transition:none}
 }
 
-.tipbox{position:fixed;z-index:80;pointer-events:none;max-width:260px;
+.tipbox{position:fixed;z-index:200;pointer-events:none;max-width:260px;
   padding:6px 11px;border-radius:8px;border:1px solid var(--line);
   background:var(--panel-2);backdrop-filter:blur(10px);box-shadow:var(--shadow-badge);
   color:var(--text);font-size:12px;line-height:1.45;
@@ -1166,7 +1169,7 @@ button[data-tip],a[data-tip],.mk[data-tip]{cursor:pointer}
 .pagi .pg.gap{cursor:default;color:var(--faint)}
 
 /* ---- shadcn/ui · Sheet и Drawer ---- */
-.pnl-wrap{position:fixed;inset:0;z-index:70;display:flex}
+.pnl-wrap{position:fixed;inset:0;z-index:75;display:flex}
 .pnl-ov{position:absolute;inset:0;background:var(--overlay);backdrop-filter:blur(2px);
   opacity:0;transition:opacity .26s ease}
 .pnl-wrap.in .pnl-ov{opacity:1}
@@ -1198,7 +1201,7 @@ button[data-tip],a[data-tip],.mk[data-tip]{cursor:pointer}
 }
 
 /* ---- shadcn/ui · Date Picker ---- */
-.dpop{position:fixed;z-index:85;width:268px;padding:12px;border-radius:12px;
+.dpop{position:fixed;z-index:205;width:268px;padding:12px;border-radius:12px;
   border:1px solid var(--line);background:var(--card);box-shadow:var(--shadow-pop);
   opacity:0;transform:translateY(-4px) scale(.985);
   transition:opacity .15s ease,transform .15s cubic-bezier(.16,1,.3,1)}

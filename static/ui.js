@@ -296,6 +296,19 @@ window.Pagi = Pagi;
 /* ================= shadcn/ui · Sheet и Drawer =================
    Sheet выезжает справа (детали сделки), Drawer — снизу (форма угоди).
    Общий движок: затемнение, Esc, клик мимо, у Drawer — потяг вниз, как в vaul. */
+/* Чий шар вище. Діалог можна відкрити з панелі, а панель — з діалога,
+   тому вирішує не тип, а черга: хто відкрився останнім, той зверху.
+   Щойно не лишилось нічого відкритого, рахунок починається спочатку —
+   інакше номер ріс би вічно й дорісши перекрив би підказки та скріни. */
+const Z_BASE = 75;
+let zTop = Z_BASE;
+window.nextTop = function(){
+  const m = document.getElementById("modal");
+  const modalOpen = m && !m.hidden;
+  if (!modalOpen && !(window.Panel && Panel.isOpen())) zTop = Z_BASE;
+  return ++zTop;
+};
+
 const Panel = (function(){
   let wrap = null, box = null, closing = false, onClose = null;
 
@@ -340,7 +353,9 @@ const Panel = (function(){
     opts = opts || {};
     if(wrap) destroy();
     closing = false; onClose = opts.onClose || null;
+    const z = window.nextTop();
     build(opts.side || "right", opts.cls);
+    wrap.style.zIndex = z;
     box.insertAdjacentHTML("beforeend", html);
     document.body.style.overflow = "hidden";
     requestAnimationFrame(()=>wrap && wrap.classList.add("in"));

@@ -1102,10 +1102,24 @@ function vAnalytics(){
 }
 
 /* ================= МОДАЛКИ ================= */
-function openModal(html){ $("#modalBox").innerHTML=html; $("#modal").hidden=false; document.body.style.overflow="hidden"; }
+function openModal(html){
+  const m=$("#modal");
+  m.style.zIndex = window.nextTop ? nextTop() : "";
+  $("#modalBox").innerHTML=html; m.hidden=false;
+  document.body.style.overflow="hidden";
+}
+/* Закриваємо те, що зверху. Діалог, відкритий з панелі, лишає панель на
+   місці: повернутись треба туди, звідки прийшли. А якщо діалога немає,
+   closeModal() кличуть із самої панелі — тоді закривається вона. */
 function closeModal(){
-  if(window.Panel && Panel.isOpen()) Panel.close();
-  $("#modal").hidden=true; document.body.style.overflow="";
+  const m=$("#modal"), panel = window.Panel && Panel.isOpen();
+  if(m && !m.hidden){
+    m.hidden=true;
+    /* під діалогом лишилась панель — сторінка все ще не прокручується */
+    if(!panel) document.body.style.overflow="";
+  }else if(panel){
+    Panel.close();
+  }
   S.formShots=[]; document.removeEventListener("paste", onPasteShot);
 }
 
@@ -1138,13 +1152,14 @@ $("#modal") && null;
 
 function openLightbox(src){ $("#lightboxImg").src=src; $("#lightbox").hidden=false; }
 function closeLightbox(){ $("#lightbox").hidden=true; $("#lightboxImg").src=""; }
-/* Esc закрывает сам скрин, а не панель под ним: скрин открыли последним,
-   его и убираем. Перехват на погружении — панель слушает всплытие, и так
-   до неё не дойдёт, в каком бы порядке ни навесились обработчики. */
+/* Esc закрывает то, что сверху, а не панель под ним. Перехват на
+   погружении — панель слушает всплытие, и так до неё не дойдёт, в каком
+   бы порядке ни навесились обработчики. */
 document.addEventListener("keydown", e=>{
-  const box=$("#lightbox");
-  if(e.key!=="Escape" || !box || box.hidden) return;
-  e.stopPropagation(); closeLightbox();
+  if(e.key!=="Escape") return;
+  const box=$("#lightbox"), modal=$("#modal");
+  if(box && !box.hidden){ e.stopPropagation(); closeLightbox(); return; }
+  if(modal && !modal.hidden){ e.stopPropagation(); closeModal(); }
 }, true);
 
 /* ---------- просмотр сделки ---------- */
