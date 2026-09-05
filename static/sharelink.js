@@ -610,7 +610,9 @@ function mountTradeCard(){
     if (row.querySelector(".sh-trade")) return;
     const b = mkBtn(T.slShareTrade, "trade", row.dataset.id, "sh-trade sh-row");
     b.title = T.slShareTrade;
-    const badge = row.querySelector(".badge");
+    /* мітка напрямку лежить усередині назви інструмента, тому шукаємо
+       мітку саме серед прямих дітей рядка — інакше insertBefore впаде */
+    const badge = [...row.children].find(el => el.classList.contains("badge"));
     badge ? row.insertBefore(b, badge) : row.appendChild(b);
   });
 }
