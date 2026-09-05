@@ -901,7 +901,9 @@ function drawAsk(){
     body += '<div class="ts-opts">' + opts.map(v =>
       '<button class="ts-opt' + (sel(v) ? " on" : "") + '" onclick="__ts.pick(\'' + q.k + "','"
       + String(v).replace(/'/g, "\\'") + "',this)\">" + esc(v) + "</button>").join("") + "</div>";
-    if (q.own){
+    /* Свій варіант є в кожному питанні з кнопками: готові підказки — це
+       найчастіше, а не все. Вимкнути можна own:false, якби знадобилось. */
+    if (q.own !== false){
       body += '<div class="ts-own"><input class="ts-own-inp" placeholder="' + esc(d.ownPh)
            + '" onkeydown="if(event.key===\'Enter\'){event.preventDefault();__ts.own(\''
            + q.k + '\',this)}">'
