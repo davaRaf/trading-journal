@@ -15,14 +15,16 @@ from config import DATABASE_URL, DB_POOL_MAX
 
 # Текстовые поля сделки. Порядок важен: по нему строятся INSERT/UPDATE.
 TEXT_FIELDS = ["pair", "date", "session", "position", "entry_model", "bias", "setup",
-               "direction_type", "result", "entry_details", "notes", "mistakes",
+               "direction_type", "result", "account", "entry_details", "notes", "mistakes",
                "comments", "emotion", "notion_id", "import_id"]
-NUM_FIELDS = ["rr", "risk"]
+# rr_plan — скільки дав би тейк, якби досидів. Із різниці з rr виходить,
+# скільки людина лишила на столі, вийшовши рукою.
+NUM_FIELDS = ["rr", "risk", "rr_plan"]
 FIELDS = TEXT_FIELDS + NUM_FIELDS
 
 # Поля, написания в которых можно свести к одному (tidy.py). Список закрытый:
 # имя колонки уходит прямо в SQL.
-TIDY_FIELDS = ("pair", "session", "entry_model", "setup")
+TIDY_FIELDS = ("pair", "session", "entry_model", "setup", "account")
 
 LINK_CODE_TTL = datetime.timedelta(minutes=15)
 
@@ -110,6 +112,7 @@ CREATE TABLE IF NOT EXISTS trades (
   "setup"               TEXT NOT NULL DEFAULT '',
   "direction_type"      TEXT NOT NULL DEFAULT '',
   "result"              TEXT NOT NULL DEFAULT '',
+  "account"             TEXT NOT NULL DEFAULT '',   -- на каком счёте набиралась: имя пишет человек
   "entry_details"       TEXT NOT NULL DEFAULT '',
   "notes"               TEXT NOT NULL DEFAULT '',
   "mistakes"            TEXT NOT NULL DEFAULT '',
@@ -119,6 +122,7 @@ CREATE TABLE IF NOT EXISTS trades (
   "import_id"           TEXT NOT NULL DEFAULT '',   -- каким переносом принесена: чтобы можно было отменить
   rr                    DOUBLE PRECISION,
   risk                  DOUBLE PRECISION,
+  rr_plan               DOUBLE PRECISION,           -- сколько дал бы тейк, если бы досидел
   screenshots           JSONB NOT NULL DEFAULT '[]'::jsonb,
   hidden                BOOLEAN NOT NULL DEFAULT FALSE,
   emotion_prompt_status TEXT NOT NULL DEFAULT 'na',
@@ -158,6 +162,11 @@ ALTER TABLE trades ADD COLUMN IF NOT EXISTS emotion_raw TEXT;
 ALTER TABLE trades ADD COLUMN IF NOT EXISTS "notion_id" TEXT NOT NULL DEFAULT '';
 ALTER TABLE trades ADD COLUMN IF NOT EXISTS "import_id" TEXT NOT NULL DEFAULT '';
 CREATE INDEX IF NOT EXISTS trades_import ON trades (user_id, "import_id");
+
+-- Счёт, на котором набиралась сделка, и RR, на который человек рассчитывал.
+-- У всего, что записано раньше, счёт пустой: задним числом не подписываем.
+ALTER TABLE trades ADD COLUMN IF NOT EXISTS "account" TEXT NOT NULL DEFAULT '';
+ALTER TABLE trades ADD COLUMN IF NOT EXISTS rr_plan DOUBLE PRECISION;
 
 -- Журнал можно открыть другим: тогда его смотрят по ссылке /u/<ник>.
 -- По умолчанию закрыт: открытость человек включает сам.
@@ -402,7 +411,7 @@ def insert_trades(user_id, trades, emotion_status="na"):
 # тому список закритий; службових полів і емоції тут немає — емоцію
 # людина ставить сама, і імпорт її не пише.
 FILL_FIELDS = ("pair", "date", "session", "position", "entry_model", "bias",
-               "setup", "direction_type", "result", "entry_details",
+               "setup", "direction_type", "result", "account", "entry_details",
                "notes", "mistakes", "comments")
 
 

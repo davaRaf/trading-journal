@@ -672,6 +672,17 @@ tr.click:hover .go{opacity:1;color:var(--accent)}
 .modal-box:has(.rep){max-width:960px}
 #hiddenBtn.on{color:var(--accent);border-color:var(--accent)}
 
+/* ---------- тейк рукой и скип ----------
+   Тейк рукой — тот же зелёный, но пунктирная рамка: деньги те же, а
+   выход другой. Скип — серый и приглушённый: сделки не было, и он не
+   должен спорить за внимание с настоящими. */
+.badge.hand,.mk.tp.hand{border:1px dashed var(--up)}
+.badge.skip,.mk.skip{background:var(--panel-3);color:var(--faint)}
+.mk.skip{padding:3px 6px}
+.dtrade.skip,tr.skip{opacity:.72}
+.seg button.on.skipk{background:var(--panel-3);border-color:var(--faint);color:var(--dim)}
+.fhint{font-size:11.5px;color:var(--faint);margin-top:4px;display:block}
+
 /* ---------- BE+ отдельным цветом ---------- */
 .badge.beplus{background:var(--accent-soft);color:var(--accent)}
 .mk.beplus{background:var(--accent-soft);color:var(--accent)}

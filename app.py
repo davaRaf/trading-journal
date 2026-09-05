@@ -134,7 +134,7 @@ def clean_trade(body, tid):
     for k in db.FIELDS:
         v = body.get(k)
         t[k] = v if v is not None else ""
-    for k in ("rr", "risk"):
+    for k in db.NUM_FIELDS:
         try:
             t[k] = float(t[k]) if str(t[k]).strip() != "" else None
         except Exception:

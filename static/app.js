@@ -62,10 +62,29 @@ function looksLikePair(v){
   return /[A-Za-z]/.test(v);                     // хоть одна латинская буква
 }
 function num(v){ const x=parseFloat(v); return isNaN(x)?null:x; }
-/* в интерфейсе результат называется TP / SL / BE, внутри хранится Win / Loss / BE */
+/* в интерфейсе результат называется TP / SL / BE, внутри хранится Win / Loss / BE.
+   WinM — тот же тейк, но закрытый рукой: для денег это TP, метка нужна,
+   чтобы потом увидеть, как часто выходишь раньше времени.
+   Skip — сделки не было: увидел сетап и не взял. */
 const RES_LABEL={Win:"TP",Loss:"SL","BE-":"BE\u2212","BE+":"BE+",BE:"BE"};
 const BE_SET=["BE","BE-","BE+"];
+const WIN_SET=["Win","WinM"];
 function isBE(t){ return BE_SET.indexOf(t.result)>=0; }
+function isWin(t){ return WIN_SET.indexOf(t.result)>=0; }
+/* Скип — не сделка. Всё, что делит на количество сделок, считает без них. */
+function isSkip(t){ return t.result==="Skip"; }
+function realTrades(list){ return list.filter(t=>!isSkip(t)); }
+/* класс плашки результата — один на все места, где она рисуется */
+function resCls(r){
+  return r==="Win"?"win":r==="WinM"?"win hand":r==="Loss"?"loss"
+       :r==="Skip"?"skip":r==="BE+"?"beplus":"be";
+}
+/* сколько человек оставил на столе, выйдя рукой раньше цели */
+function handLost(t){
+  if(t.result!=="WinM" || t.rr_plan==null || t.rr==null) return 0;
+  const risk=(t.risk!=null&&!isNaN(t.risk))?t.risk:1;
+  return Math.max(0, risk*(t.rr_plan - t.rr));
+}
 /* сколько безубыток спас (BE-) или отнял (BE+) */
 function beValue(t){
   const risk=(t.risk!=null&&!isNaN(t.risk))?t.risk:1;
@@ -73,16 +92,20 @@ function beValue(t){
   if(t.result==="BE+") return -(risk*(t.rr!=null?t.rr:0)); // не дал заработать
   return 0;
 }
-function resLabel(r){ return RES_LABEL[r]||r||""; }
+function resLabel(r){
+  if(r==="WinM") return T.resHand;
+  if(r==="Skip") return T.resSkip;
+  return RES_LABEL[r]||r||"";
+}
 
 /* Результат сделки в % от депозита — как «% Profit» в Notion.
    Стоп забирает ровно свой риск: рискнул 1.5% -> -1.5%.
    Тейк даёт риск x RR. Безубыток -> 0. Риск не указан -> считаем 1%. */
 function netR(t){
   const risk = (t.risk!=null && !isNaN(t.risk)) ? t.risk : 1;
-  if(t.result==="Win")  return risk * (t.rr!=null ? t.rr : 0);
+  if(isWin(t))          return risk * (t.rr!=null ? t.rr : 0);
   if(t.result==="Loss") return -risk;
-  return 0;
+  return 0;                              // безубыток и скип — ноль
 }
 function dayKey(t){ return (t.date||"").slice(0,10); }
 function monKey(t){ return (t.date||"").slice(0,7); }
@@ -98,11 +121,18 @@ function dirType(t){
 }
 function fieldVal(t,k){ return k==="direction_type" ? dirType(t) : (t[k]||""); }
 
-function calc(list){
+function calc(all){
+  /* Скипы считаем отдельно и в остальную арифметику не пускаем: сделки не
+     было, а если её посчитать, поедут и win rate, и средний RR, и всё
+     остальное, что делится на количество. */
+  const list=realTrades(all);
+  const skips=all.length-list.length;
   const n=list.length;
   let wins=0,losses=0,be=0,beM=0,beP=0,beSaved=0,beLost=0,net=0,gw=0,gl=0,rrS=0,rrN=0,riskS=0,riskN=0;
+  let hands=0,handOut=0;
   for(const t of list){
-    if(t.result==="Win")wins++; else if(t.result==="Loss")losses++; else {be++;
+    if(t.result==="WinM"){ hands++; handOut+=handLost(t); }
+    if(isWin(t))wins++; else if(t.result==="Loss")losses++; else {be++;
       if(t.result==="BE-")beM++; else if(t.result==="BE+")beP++;
       beSaved+=Math.max(0,beValue(t)); beLost+=Math.max(0,-beValue(t)); }
     const r=netR(t); net+=r; if(r>0)gw+=r; else if(r<0)gl-=r;
@@ -110,7 +140,7 @@ function calc(list){
     if(t.risk!=null){riskS+=t.risk;riskN++;}
   }
   return {
-    n,wins,losses,be,beM,beP,beSaved,beLost,net,
+    n,wins,losses,be,beM,beP,beSaved,beLost,net,skips,hands,handOut,
     wr: wins+losses ? wins/(wins+losses)*100 : null,
     avgRR: rrN? rrS/rrN : null,
     pf: gl>0 ? gw/gl : (gw>0?null:null),
@@ -177,6 +207,11 @@ function kpiHtml(st, opts){
     [T.kBeSplit, st.beM+" / "+st.beP, "small", T.kBeSplitTip],
   ];
   if(!opts.compact) cells.push([T.kAvgRisk, st.avgRisk!=null?r1(st.avgRisk)+"%":"—","", T.kAvgRiskTip]);
+  /* Пустые плитки пугают: скипов и выходов рукой может не быть вовсе,
+     тогда их и не показываем. */
+  if(st.skips) cells.push([T.kSkips, st.skips, "", T.kSkipsTip]);
+  if(st.hands) cells.push([T.kHands, st.hands, "", T.kHandsTip]);
+  if(st.handOut>0.001) cells.push([T.kHandOut, "−"+r1(st.handOut)+"%", "neg", T.kHandOutTip]);
   return '<div class="kpis">'+cells.map(c=>
     '<div class="kpi"'+(c[3]?' data-tip="'+esc(c[3])+'"':"")+
     '><div class="l">'+c[0]+'</div><div class="v '+c[2]+'">'+c[1]+'</div></div>').join("")+"</div>";
@@ -212,7 +247,7 @@ function equitySVG(list){
 /* ---------------- список сделок ---------------- */
 function tradeRow(t){
   const r=netR(t);
-  const badge='<span class="badge '+(t.result==="Win"?"win":t.result==="Loss"?"loss":t.result==="BE+"?"beplus":"be")+'">'+resLabel(t.result)+"</span>";
+  const badge='<span class="badge '+resCls(t.result)+'">'+resLabel(t.result)+"</span>";
   const pos=t.position?'<span class="badge '+(t.position==="Long"?"long":"short")+'">'+esc(t.position)+"</span>":"";
   const d=(t.date||"").replace("T"," ").slice(0,16);
   const dt=dirType(t);
@@ -252,7 +287,9 @@ function calHtml(ym, clickFn, selDay){
     if(list.length){
       const marks=sortAsc(list).map(t=>{
         const rv=dirType(t)==="Reversal";
-        if(t.result==="Win")  return '<i class="mk tp'+(rv?" rev":"")+'" data-tip="'+T.calTpTip+(rv?" · "+T.calRevSuffix:"")+'">TP</i>';
+        if(t.result==="Skip") return '<i class="mk skip" data-tip="'+T.calSkipTip+'">·</i>';
+        if(isWin(t))          return '<i class="mk tp'+(t.result==="WinM"?" hand":"")+(rv?" rev":"")+'" data-tip="'+
+          (t.result==="WinM"?T.calHandTip:T.calTpTip)+(rv?" · "+T.calRevSuffix:"")+'">TP</i>';
         if(t.result==="Loss") return '<i class="mk sl'+(rv?" rev":"")+'" data-tip="'+T.calSlTip+(rv?" · "+T.calRevSuffix:"")+'">SL</i>';
         if(t.result==="BE+")  return '<i class="mk beplus'+(rv?" rev":"")+'" data-tip="'+T.calBePlusTip+'">BE+</i>';
         return '<i class="mk be'+(rv?" rev":"")+'" data-tip="'+T.calBeMinusTip+'">BE\u2212</i>';
@@ -277,13 +314,23 @@ function topVals(field,n){
   return [...cnt.entries()].sort((a,b)=>b[1]-a[1]).slice(0,n||6).map(x=>x[0]);
 }
 
+/* Чаще всего человек торгует один счёт подряд, а не прыгает между ними
+   каждую сделку, — поэтому подставляем тот, на котором записывал прошлый раз. */
+const ACC_HINTS=["Личный деп","FTMO","FundingPips"];
+function lastAccount(){
+  try{ const v=localStorage.getItem("tj_account"); if(v) return v; }catch(e){}
+  const last=sortDesc(S.trades).find(t=>(t.account||"").trim());
+  return last ? last.account : "";
+}
+
 function uniqueVals(field){
   const set=new Set();
   for(const t of S.trades){ const v=fieldVal(t,field).toString().trim(); if(v) set.add(v); }
   return [...set].sort();
 }
 function filterBar(){
-  const selects=[["result",T.fResult,["Win","Loss","BE-","BE+"]],["position",T.fPosition,["Long","Short"]],
+  const selects=[["result",T.fResult,["Win","WinM","Loss","BE-","BE+","Skip"]],["position",T.fPosition,["Long","Short"]],
+    ["account",T.fAccount,uniqueVals("account")],
     ["pair",T.fPair,uniqueVals("pair")],["session",T.fSession,uniqueVals("session")],
     ["setup",T.fSetup,uniqueVals("setup")],["entry_model",T.flModel,uniqueVals("entry_model")],
     ["bias",T.fBias,uniqueVals("bias")],["direction_type",T.fDirTypeFilter,["Continuation","Reversal"]]];
@@ -321,7 +368,7 @@ function setFilter(f,v){ if(v)S.filters[f]=v; else delete S.filters[f]; S.pages=
 function clearFilters(){ S.filters={}; S.pages={}; render(); }
 function applyFilters(list){
   return list.filter(t=>{
-    for(const k of ["result","position","pair","session","setup","entry_model","bias","direction_type"])
+    for(const k of ["result","position","account","pair","session","setup","entry_model","bias","direction_type"])
       if(S.filters[k] && fieldVal(t,k).toString().trim()!==S.filters[k]) return false;
     if(S.filters.from && dayKey(t)<S.filters.from) return false;
     if(S.filters.to && dayKey(t)>S.filters.to) return false;
@@ -333,7 +380,7 @@ function applyFilters(list){
 
 /* ---------- Обзор: раскладка из макета (design/dash.html) ---------- */
 function OV_PERIODS(){ return [["month",T.ovPeriodMonth],["quarter",T.ovPeriodQuarter],["year",T.ovPeriodYear]]; }
-const RES_TAG = {"Win":"TP","Loss":"SL","BE-":"BE−","BE+":"BE+"};
+const RES_TAG = {"Win":"TP","WinM":"TP","Loss":"SL","BE-":"BE−","BE+":"BE+","Skip":"·"};
 
 function ovSetPeriod(p){ S.ovPeriod=p; render(); }
 function ovOpenDay(key){
@@ -395,7 +442,7 @@ function ovWeekHtml(){
     const cnt={};
     for(const t of list) cnt[t.result]=(cnt[t.result]||0)+1;
     const top=Object.keys(cnt).sort((a,b)=>cnt[b]-cnt[a])[0];
-    const cls=top==="Win"?"w":top==="Loss"?"l":"b";
+    const cls=(top==="Win"||top==="WinM")?"w":top==="Loss"?"l":"b";
     const val=Math.abs(r)<0.005?"0%":ovFmt1(r);
     cells+='<div class="day '+ovSign(r)+'" onclick="ovOpenDay(\''+key+'\')" title="'+
       list.length+" "+ovWord(list.length)+'">'+
@@ -802,7 +849,7 @@ function monthTableHtml(list){
     const r=netR(t);
     const day=(t.date||"").slice(0,10);
     const dt=dirType(t);
-    return '<tr class="'+(day===S.selDay?"sel":"")+'" onclick="pickDay(\''+day+'\')">'+
+    return '<tr class="'+(day===S.selDay?"sel ":"")+(isSkip(t)?"skip":"")+'" onclick="pickDay(\''+day+'\')">'+
       '<td class="dt">'+esc(day.slice(8,10)+"."+day.slice(5,7))+
         '<i>'+esc((t.date||"").slice(11,16))+"</i></td>"+
       "<td>"+esc(t.pair||"—")+"</td>"+
@@ -810,7 +857,7 @@ function monthTableHtml(list){
       "<td>"+esc(t.session||"—")+"</td>"+
       '<td class="wide">'+esc(t.setup||"—")+"</td>"+
       '<td>'+(dt?'<span class="badge '+(dt==="Reversal"?"rev":"cont")+'">'+(dt==="Reversal"?"REV":"CONT")+"</span>":"—")+"</td>"+
-      '<td><span class="badge '+(t.result==="Win"?"win":t.result==="Loss"?"loss":t.result==="BE+"?"beplus":"be")+'">'+
+      '<td><span class="badge '+resCls(t.result)+'">'+
         resLabel(t.result)+"</span></td>"+
       '<td class="num">'+(t.rr!=null&&t.rr!==""?r1(t.rr):"—")+"</td>"+
       '<td class="num '+clsR(r)+'">'+fmtR(r)+"</td></tr>";
@@ -833,8 +880,8 @@ function dayTradeHtml(t){
   const pos=t.position?'<span class="badge '+(t.position==="Long"?"long":"short")+'">'+esc(t.position)+"</span>":"";
   const dt=dirType(t);
   const dtb=dt?'<span class="badge '+(dt==="Reversal"?"rev":"cont")+'">'+(dt==="Reversal"?"REV":"CONT")+"</span>":"";
-  const badge='<span class="badge '+(t.result==="Win"?"win":t.result==="Loss"?"loss":t.result==="BE+"?"beplus":"be")+'">'+resLabel(t.result)+"</span>";
-  return '<button class="dtrade" type="button" data-id="'+esc(t.id)+'" onclick="openTrade(\''+t.id+'\')">'+
+  const badge='<span class="badge '+resCls(t.result)+'">'+resLabel(t.result)+"</span>";
+  return '<button class="dtrade'+(isSkip(t)?" skip":"")+'" type="button" data-id="'+esc(t.id)+'" onclick="openTrade(\''+t.id+'\')">'+
     '<span class="p">'+esc(t.pair||"—")+" "+pos+"</span>"+
     '<span class="d">'+esc((t.date||"").slice(11,16))+"</span>"+dtb+badge+
     '<span class="r '+clsR(r)+'">'+fmtR(r)+"</span></button>";
@@ -881,7 +928,8 @@ function beReportHtml(list){
 /* ---------- разрезы месяца ---------- */
 function bestWorstHtml(list){
   const dims=[["setup",T.fSetup],["pair",T.fPair],["entry_model",T.fEntryModel],["session",T.fSession],
-              ["direction_type",T.fDirType],["bias",T.fBias],["position",T.fPosition]];
+              ["direction_type",T.fDirType],["bias",T.fBias],["position",T.fPosition],
+              ["account",T.fAccount]];
   let cells="";
   for(const [k,label] of dims){
     const groups=[...groupBy(list,t=>fieldVal(t,k)).entries()].map(([name,arr])=>({name,net:arr.reduce((a,t)=>a+netR(t),0),n:arr.length}));
@@ -966,6 +1014,7 @@ function openMonthReport(ym){
       dimTable(list,"setup",T.fSetup)+dimTable(list,"pair",T.mrAsset)+
       dimTable(list,"session",T.fSession)+dimTable(list,"entry_model",T.fEntryModel)+
       dimTable(list,"direction_type",T.fDirType)+dimTable(list,"position",T.fPosition)+
+      dimTable(list,"account",T.fAccount)+
       "</div>";
 
     /* ошибки */
@@ -1170,23 +1219,35 @@ function tradeBodyHtml(t){
 
   /* 1. итог сделки. Инструмент, направление, время и общий процент уже стоят
      в шапке карточки — повторять их здесь незачем, от этого и была каша */
-  const facts=[[T.fResult,resLabel(t.result)||"—",""],
-    ["RR",(t.rr!=null&&t.rr!=="")?r1(t.rr):"—",""],
-    [T.fRisk,(t.risk!=null&&t.risk!=="")?r1(t.risk)+"%":"—",""]];
+  /* У скипа нет ни RR, ни риска — сделки не было. Вместо трёх прочерков
+     показываем то, что о нём вообще известно. */
+  const facts = isSkip(t)
+    ? [[T.fResult,resLabel(t.result),""],[T.fAccount,t.account||"—",""],
+       [T.fSession,t.session||"—",""]]
+    : [[T.fResult,resLabel(t.result)||"—",""],
+       ["RR",(t.rr!=null&&t.rr!=="")?r1(t.rr):"—",""],
+       [T.fRisk,(t.risk!=null&&t.risk!=="")?r1(t.risk)+"%":"—",""]];
   let h='<div class="tstats">'+facts.map(f=>
     '<div class="st"><div class="lab">'+f[0]+'</div><div class="val '+f[2]+'">'+esc(f[1])+"</div></div>").join("")+"</div>";
 
   /* 2. обстоятельства входа. Заполненное показываем, пустое собираем одной
      строкой внизу: видно, чего не хватает, но экран это не съедает */
-  const ctx=[[T.fSession,t.session],[T.fBias,t.bias],[T.fEntryModel,t.entry_model],
-    [T.fSetup,t.setup],[T.fDirTypeFilter,dirType(t)]];
+  const ctx = isSkip(t)
+    ? [[T.fPair,t.pair],[T.fSetup,t.setup],[T.fBias,t.bias]]
+    : [[T.fAccount,t.account],[T.fSession,t.session],[T.fBias,t.bias],
+       [T.fEntryModel,t.entry_model],[T.fSetup,t.setup],[T.fDirTypeFilter,dirType(t)],
+       t.result==="WinM"&&t.rr_plan!=null
+         ? [T.fmRRPlan, r1(t.rr_plan)+(handLost(t)>0.001?"  ·  −"+r1(handLost(t))+"%":"")] : null
+      ].filter(Boolean);
   h+=section(T.tcHowTraded,
     '<div class="tfields">'+ctx.filter(f=>f[1]).map(f=>
       '<div class="fr"><span class="l">'+f[0]+'</span><span class="v">'+esc(f[1])+"</span></div>").join("")+"</div>",
     ctx.filter(f=>!f[1]).map(f=>f[0]));
 
   /* 3. записи руками */
-  const notes=[[T.fEntryDetails,"entry_details"],[T.fNotes,"notes"],
+  /* «Как заходил» у скипа — это «почему не зашёл»: единственное поле,
+     которое там вообще имеет смысл. */
+  const notes=[[isSkip(t)?T.fmWhyNot:T.fEntryDetails,"entry_details"],[T.fNotes,"notes"],
     [T.fMistakes,"mistakes"],[T.tcComments,"comments"]];
   const wrote=notes.filter(f=>(t[f[1]]||"").trim());
   h+=section(T.tcWhatWrote,
@@ -1274,6 +1335,9 @@ function openForm(id, presetDay){
       (cur&&!known?"":" hidden")+' oninput="markQuick();calcOutcome()">';
   };
 
+  /* Названия счетов — то, что человек уже вводил. Пока пусто, подсказываем
+     самые ходовые; справочника нет, пишет он сам. */
+  const accounts=[...new Set([...topVals("account",4), ...ACC_HINTS])].slice(0,4);
   const models=[...new Set(["cisd",...topVals("entry_model",4)])];
   const setups=topVals("setup",4);
   const mistakes=topVals("mistakes",5);
@@ -1300,6 +1364,8 @@ function openForm(id, presetDay){
     '<div class="frow">'+
       '<div class="f"><label>'+T.fSession+'</label>'+
         pick("session",SESSIONS,t?t.session:"",T.fmOwnSessionPh)+"</div>"+
+      '<div class="f"><label>'+T.fAccount+'</label>'+
+        pick("account",accounts,t?t.account:lastAccount(),T.fmOwnAccountPh)+"</div>"+
       '<div class="f"><label>'+T.fmDirectionLabel+'</label>'+
         seg("position",[{v:"Long",t:"Long",cls:"lng"},{v:"Short",t:"Short",cls:"shr"}],t?t.position:"","big")+"</div>"+
     "</div>"+
@@ -1325,14 +1391,21 @@ function openForm(id, presetDay){
   /* ---- результат ---- */
   '<section class="fcard accent"><h4>'+T.fmResultSection+'</h4><div class="fbody">'+
     '<div class="f"><label>'+T.fmFinishedAs+' <i>*</i></label>'+
-      seg("result",[{v:"Win",t:"TP",cls:"win"},{v:"Loss",t:"SL",cls:"loss"},
-                    {v:"BE-",t:"BE\u2212",cls:"bek"},{v:"BE+",t:"BE+",cls:"bepk"}],t?t.result:"","big res")+"</div>"+
-    '<div class="frow">'+
-      '<div class="f"><label>RR</label>'+
+      seg("result",[{v:"Win",t:"TP",cls:"win"},{v:"WinM",t:T.resHand,cls:"win"},
+                    {v:"Loss",t:"SL",cls:"loss"},
+                    {v:"BE-",t:"BE\u2212",cls:"bek"},{v:"BE+",t:"BE+",cls:"bepk"},
+                    {v:"Skip",t:T.resSkip,cls:"skipk"}],t?t.result:"","big res")+"</div>"+
+    '<div class="frow" id="rowRR">'+
+      '<div class="f"><label id="labRR">RR</label>'+
         '<input id="fld_rr" type="number" step="0.1" min="0" placeholder="2.5" oninput="calcOutcome()" value="'+(t&&t.rr!=null?t.rr:"")+'"></div>'+
       '<div class="f"><label>'+T.fmRiskLabel+'</label>'+
         pick("risk",["0.5","1","1.5","2"],(t&&t.risk!=null?String(t.risk):"1"),T.fmOwnRiskPh,true)+"</div>"+
     "</div>"+
+    /* Только у тейка, закрытого рукой: сколько дал бы, если бы досидел.
+       Необязательно — без него работает всё, кроме одной цифры. */
+    '<div class="f" id="rowPlan" hidden><label>'+T.fmRRPlan+'</label>'+
+      '<input id="fld_rr_plan" type="number" step="0.1" min="0" placeholder="3.2" oninput="calcOutcome()" value="'+(t&&t.rr_plan!=null?t.rr_plan:"")+'">'+
+      '<span class="fhint">'+T.fmRRPlanHint+"</span></div>"+
     '<div class="outcome" id="outcome"></div>'+
   "</div></section>"+
 
@@ -1344,7 +1417,7 @@ function openForm(id, presetDay){
 
   /* ---- заметки ---- */
   '<section class="fcard"><h4>'+T.fNotes+'</h4><div class="fbody">'+
-    '<div class="f"><label>'+T.fEntryDetails+'</label><textarea id="fld_entry_details" placeholder="'+T.fmEntryDetailsPh+'">'+v("entry_details")+"</textarea></div>"+
+    '<div class="f"><label id="labEntry">'+T.fEntryDetails+'</label><textarea id="fld_entry_details" placeholder="'+T.fmEntryDetailsPh+'">'+v("entry_details")+"</textarea></div>"+
     '<div class="f"><label>'+T.fmThoughtsLabel+'</label><textarea id="fld_notes" class="short">'+v("notes")+"</textarea></div>"+
     '<div class="f"><label>'+T.fmMistakeLabel+'</label>'+
       '<div class="quick">'+mistakes.map(x=>
@@ -1392,7 +1465,24 @@ function markQuick(){
 }
 
 /* живой пересчёт: что сделка даст в процентах */
+/* Скип — не сделка: RR и риска у него нет, а «как заходил» превращается
+   в «почему не зашёл». Прячем то, чего не существует, вместо того чтобы
+   заставлять оставлять пустым. */
+function applyResultMode(){
+  const res=($("#fld_result")||{}).value||"";
+  const set=(id,on)=>{ const el=document.getElementById(id); if(el) el.hidden=!on; };
+  set("rowRR", res!=="Skip");
+  set("rowPlan", res==="WinM");
+  const lab=$("#labEntry");
+  if(lab) lab.textContent = res==="Skip" ? T.fmWhyNot : T.fEntryDetails;
+  const rr=$("#labRR");
+  if(rr) rr.textContent = res==="WinM" ? T.fmRRFact : "RR";
+  const box=$("#fld_entry_details");
+  if(box) box.placeholder = res==="Skip" ? T.fmWhyNotPh : T.fmEntryDetailsPh;
+}
+
 function calcOutcome(){
+  applyResultMode();
   const box=$("#outcome"); if(!box) return;
   const res=($("#fld_result")||{}).value||"";
   const rr=parseFloat(($("#fld_rr")||{}).value)||0;
@@ -1559,8 +1649,8 @@ async function saveTrade(id){
     /* подвійні пробіли всередині назви теж плодять двійників («NAS  100») */
     pair:g("pair").replace(/\s+/g," "), date:g("date"), session:g("session"), position:g("position"),
     entry_model:g("entry_model"), bias:g("bias"), setup:g("setup"),
-    direction_type:g("direction_type"), result:g("result"),
-    rr:g("rr"), risk:g("risk"),
+    direction_type:g("direction_type"), result:g("result"), account:g("account"),
+    rr:g("rr"), risk:g("risk"), rr_plan:g("rr_plan"),
     entry_details:g("entry_details"), notes:g("notes"), mistakes:g("mistakes"),
     emotion:g("emotion"), comments:"",
     screenshots:S.formShots,
@@ -1572,6 +1662,11 @@ async function saveTrade(id){
   if(!t.date){ alert(T.alertNeedDate); return; }
   if(!t.result){ alert(T.alertNeedResult); return; }
   if(t.result==="Win" && !num(t.rr)){ alert(T.alertNeedRR); return; }
+  /* У скипа сделки не было: RR и риск не сохраняем, чтобы они не попали
+     в средние. Инструмент оставляем — по нему видно, что именно пропустил. */
+  if(t.result==="Skip"){ t.rr=""; t.risk=""; t.rr_plan=""; }
+  if(t.result!=="WinM") t.rr_plan="";
+  try{ localStorage.setItem("tj_account", t.account||""); }catch(e){}
   const btn=document.querySelector(".m-foot .primary"); if(btn){btn.disabled=true;btn.textContent=T.fmSaving;}
   try{
     let saved=null;
@@ -1581,7 +1676,9 @@ async function saveTrade(id){
     /* Звірка з ТС — уже після того, як форма закрилась: людина не має
        чекати ні на сервер, ні на модель. Правки чужих полів не чіпаємо:
        мова про щойно зроблений вхід, а не про виправлену давню угоду. */
-    if(saved && saved.id && window.Watch) Watch.afterTrade(saved.id);
+    /* Скіп із торговою системою не звіряємо: вона про те, як заходити,
+       а входу не було. */
+    if(saved && saved.id && t.result!=="Skip" && window.Watch) Watch.afterTrade(saved.id);
   }catch(err){ alert(T.alertSaveFail+err.message); if(btn){btn.disabled=false;btn.textContent=T.fmSave;} }
 }
 

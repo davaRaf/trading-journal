@@ -42,18 +42,27 @@ def net_pct(t):
     risk = _num(t.get("risk"), 1.0) or 1.0
     rr = _num(t.get("rr"), 0.0) or 0.0
     res = t.get("result")
-    if res == "Win":
+    if res in ("Win", "WinM"):        # WinM — той самий тейк, тільки закритий рукою
         return risk * rr
     if res == "Loss":
         return -risk
-    return 0.0
+    return 0.0                       # беззбиток і скіп
 
 
-def stats(trades):
+def is_skip(t):
+    """Скіп — угоди не було. У середні його пускати не можна: винрейт поїде."""
+    return t.get("result") == "Skip"
+
+
+def stats(all_trades):
+    # скіпи рахуємо окремо, у решту арифметики не пускаємо
+    trades = [t for t in all_trades if not is_skip(t)]
+    skips = len(all_trades) - len(trades)
     n = len(trades)
     if not n:
-        return {"n": 0, "wr": None, "net": 0.0, "avg_rr": None, "wins": 0, "losses": 0}
-    wins = sum(1 for t in trades if t.get("result") == "Win")
+        return {"n": 0, "wr": None, "net": 0.0, "avg_rr": None,
+                "wins": 0, "losses": 0, "skips": skips}
+    wins = sum(1 for t in trades if t.get("result") in ("Win", "WinM"))
     losses = sum(1 for t in trades if t.get("result") == "Loss")
     rrs = [_num(t.get("rr")) for t in trades if _num(t.get("rr")) is not None]
     decided = wins + losses
@@ -64,6 +73,7 @@ def stats(trades):
         "wr": (100.0 * wins / decided) if decided else None,
         "net": sum(net_pct(t) for t in trades),
         "avg_rr": (sum(rrs) / len(rrs)) if rrs else None,
+        "skips": skips,
     }
 
 
@@ -132,6 +142,7 @@ def digest(trades):
     # у назвах зрізів одразу видно, які значення там мають бути: інакше
     # модель плутає напрямок із типом входу, коли дані з'їхали
     for title, field in (("ЗА СЕСІЯМИ", "session"), ("ЗА СЕТАПАМИ", "setup"),
+                         ("ЗА РАХУНКАМИ", "account"),
                          ("ЗА ІНСТРУМЕНТАМИ", "pair"), ("ЗА ЕМОЦІЯМИ", "emotion"),
                          ("ЗА НАПРЯМКОМ УГОДИ (має бути Long/Short)", "position"),
                          ("ЗА ТИПОМ ВХОДУ (має бути Continuation/Reversal)", "direction_type"),
