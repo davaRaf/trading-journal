@@ -106,6 +106,26 @@ button{font:inherit; color:inherit; background:none; border:0; cursor:pointer}
 .btn.primary{background:var(--accent); color:#06130d; border-color:transparent; font-weight:500}
 .btn.danger{color:var(--down); border-color:rgba(255,110,96,.28)}
 
+/* ---------- кнопка «Поделиться» ---------- */
+.ico{display:inline-flex; align-items:center; gap:6px; padding:7px 11px; border-radius:9px;
+  border:1px solid var(--line); color:var(--dim); font-size:12.5px; transition:.14s}
+.ico:hover{color:var(--accent); border-color:rgba(64,224,148,.35); background:var(--accent-soft)}
+.ico svg{width:14px; height:14px; flex:none}
+
+/* под итогом — во всю ширину, чтобы попадалась на глаза первой */
+.shareWide{display:flex; align-items:center; justify-content:center; gap:8px; width:100%;
+  padding:12px; border-radius:12px; font-size:13.5px; font-weight:500;
+  border:1px solid rgba(64,224,148,.32); background:var(--accent-soft); color:var(--accent);
+  transition:.14s}
+.shareWide:hover{background:rgba(64,224,148,.18)}
+.shareWide svg{width:15px; height:15px}
+
+/* в строке дня — не открывая сделку */
+.rowShare{display:inline-flex; align-items:center; justify-content:center; width:28px; height:28px;
+  border-radius:8px; color:var(--faint); border:1px solid transparent; transition:.14s}
+.rowShare:hover{color:var(--accent); border-color:rgba(64,224,148,.3); background:var(--accent-soft)}
+.rowShare svg{width:14px; height:14px}
+
 /* ---------- общие куски содержимого ---------- */
 .sec{border:1px solid var(--line-soft); border-radius:12px; overflow:hidden; background:var(--panel-2)}
 .sec > .h{padding:10px 14px; border-bottom:1px solid var(--line-soft); font-family:var(--mono);
@@ -179,10 +199,15 @@ details.more .in{padding:0 14px 14px}
     <p>Сейчас сделка раскрывается гармошкой прямо в панели дня: колонка узкая, скрины мелкие,
       и чтобы посмотреть, как набиралась позиция, надо жать по каждой картинке. Ниже — три варианта
       того же самого, но в правой панели, которая выезжает при записи сделки. Нажми на сделку в списке.</p>
+    <p>Второй ряд кнопок — про «Поделиться». Сейчас она внизу карточки, рядом с «Удалить»: чтобы её
+      увидеть, надо доскролить до конца. Три места на выбор, работают поверх любого варианта.</p>
   </div>
 
   <div class="switch" id="sw"></div>
   <p class="hint" id="hint"></p>
+
+  <div class="switch" id="sw2"></div>
+  <p class="hint" id="hint2"></p>
 
   <div class="day">
     <h3>Понедельник, 20 августа <em>3 сделки</em></h3>
@@ -248,16 +273,31 @@ const DAY=[
   {pair:"GER40", pos:"Short", t:"13:02", res:"loss", lab:"SL",  r:"−1.00%", cls:"neg"},
   {pair:"ES500", pos:"Short", t:"15:44", res:"bem",  lab:"BE−", r:"0.00%",  cls:"be"}
 ];
-document.getElementById("rows").innerHTML = DAY.map((d,i)=>
-  '<button class="trow" onclick="openSheet()">'+
-    '<span class="p">'+d.pair+"</span>"+
-    '<span class="badge '+(d.pos==="Long"?"long":"short")+'">'+d.pos+"</span>"+
-    '<span class="t">'+d.t+'</span><span class="sp"></span>'+
-    '<span class="badge '+d.res+'">'+d.lab+"</span>"+
-    '<span class="r '+d.cls+'">'+d.r+"</span>"+
-  "</button>").join("");
+/* значок «поделиться»: три точки, связанные линиями */
+const SHARE_IC = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"'+
+  ' stroke-linecap="round" stroke-linejoin="round"><circle cx="18" cy="5" r="2.6"/>'+
+  '<circle cx="6" cy="12" r="2.6"/><circle cx="18" cy="19" r="2.6"/>'+
+  '<path d="M8.3 10.8l7.4-4.3M8.3 13.2l7.4 4.3"/></svg>';
+
+function paintRows(){
+  document.getElementById("rows").innerHTML = DAY.map(d=>
+    '<div class="trow" onclick="openSheet()">'+
+      '<span class="p">'+d.pair+"</span>"+
+      '<span class="badge '+(d.pos==="Long"?"long":"short")+'">'+d.pos+"</span>"+
+      '<span class="t">'+d.t+'</span><span class="sp"></span>'+
+      (spot==="row" ? '<button class="rowShare" title="Поделиться сделкой"'+
+        ' onclick="event.stopPropagation();alert(&quot;Ссылка на сделку скопирована&quot;)">'+
+        SHARE_IC+"</button>" : "")+
+      '<span class="badge '+d.res+'">'+d.lab+"</span>"+
+      '<span class="r '+d.cls+'">'+d.r+"</span>"+
+    "</div>").join("");
+}
 
 /* ---------- три варианта содержимого ---------- */
+const shareWide = ()=> spot!=="top" ? "" :
+  '<button class="shareWide" onclick="alert(&quot;Ссылка на сделку скопирована&quot;)">'+
+    SHARE_IC+"<span>Поделиться сделкой</span></button>";
+
 const stats = ()=>'<div class="stats">'+
   [["Результат","TP",""],["RR","2.6",""],["Риск","1.0%",""]].map(f=>
     '<div class="st"><div class="lab">'+f[0]+'</div><div class="val '+f[2]+'">'+f[1]+"</div></div>").join("")+"</div>";
@@ -275,7 +315,7 @@ const V = {
     name:"А · Как сейчас, только шире",
     hint:"Те же четыре блока, что в гармошке: итог, как торговал, записи, графики. Ничего не переучиваем — просто панель шире, и скрины видно нормально. Самый безопасный вариант.",
     html: ()=>'<div class="vA" style="display:flex;flex-direction:column;gap:16px">'+
-      stats()+
+      shareWide()+stats()+
       '<div class="sec"><div class="h">Как торговал</div><div class="fields">'+fieldRows()+"</div></div>"+
       '<div class="sec"><div class="h">Что записал</div><div class="b">'+noteRows()+"</div></div>"+
       '<div class="sec"><div class="h">Графики</div><div class="b"><div class="charts">'+
@@ -286,7 +326,7 @@ const V = {
     name:"Б · Хроника набора",
     hint:"Сделка читается сверху вниз, как она набиралась: 1D контекст → 4H зона → 1H подготовка → 15m вход → сопровождение. У каждого шага свой скрин и своя мысль. Точка на линии зелёная там, где уже вошёл. Отвечает ровно на вопрос «как я её набирал».",
     html: ()=>'<div style="display:flex;flex-direction:column;gap:16px">'+
-      stats()+
+      shareWide()+stats()+
       '<div class="sec"><div class="h">Как набиралась</div><div class="b"><div class="line">'+
         T.steps.map((s,i)=>
           '<div class="step'+(s.hit?" hit":"")+'">'+
@@ -302,6 +342,7 @@ const V = {
     name:"В · Сначала графики",
     hint:"Наверху одна строка с цифрами, дальше сразу крупные скрины во всю ширину — их видно без единого клика. Текст и поля свёрнуты внизу, разворачиваются по желанию. Для тех, кто смотрит журнал глазами, а не читает.",
     html: ()=>'<div style="display:flex;flex-direction:column;gap:14px">'+
+      shareWide()+
       '<div class="strip">'+
         [["Итог","+2.60%"],["RR","2.6"],["Риск","1.0%"],["Сессия",T.session],["Модель",T.model]].map(f=>
           '<div><div class="l">'+f[0]+'</div><div class="v">'+f[1]+"</div></div>").join("")+
@@ -317,14 +358,38 @@ const V = {
   }
 };
 
-let cur = "B";
+/* Где живёт «Поделиться». Сейчас — внизу панели, рядом с «Удалить»:
+   чтобы её увидеть, надо доскролить карточку до конца. */
+const SPOT = {
+  head:{ name:"1 · В шапке панели",
+    hint:"Рядом с крестиком, всегда на экране: карточку можно листать сколько угодно, кнопка не уезжает. Не мешает и не притягивает лишнего внимания — но и не бросается в глаза." },
+  top:{ name:"2 · Под итогом сделки",
+    hint:"Широкая кнопка первым же блоком, сразу под цифрами. Видно с первого взгляда, промахнуться невозможно. Занимает строку и немного двигает вниз всё остальное." },
+  row:{ name:"3 · Прямо в списке дня",
+    hint:"Значок в строке сделки — поделиться можно, не открывая её. Быстрее всего, но значок повторяется у каждой сделки и добавляет ряби в список." }
+};
+
+let cur = "B", spot = "head";
+
 document.getElementById("sw").innerHTML = Object.keys(V).map(k=>
   '<button data-k="'+k+'" onclick="pick(\''+k+'\')">'+V[k].name+"</button>").join("");
+document.getElementById("sw2").innerHTML =
+  '<span style="align-self:center;color:var(--faint);font-size:12.5px;margin-right:4px">Кнопка «Поделиться»:</span>'+
+  Object.keys(SPOT).map(k=>
+    '<button data-k="'+k+'" onclick="pickSpot(\''+k+'\')">'+SPOT[k].name+"</button>").join("");
 
 function pick(k){
   cur = k;
   document.querySelectorAll("#sw button").forEach(b=>b.classList.toggle("on", b.dataset.k===k));
   document.getElementById("hint").textContent = V[k].hint;
+  if(document.getElementById("sheet").classList.contains("in")) paint();
+}
+
+function pickSpot(k){
+  spot = k;
+  document.querySelectorAll("#sw2 button").forEach(b=>b.classList.toggle("on", b.dataset.k===k));
+  document.getElementById("hint2").textContent = SPOT[k].hint;
+  paintRows();
   if(document.getElementById("sheet").classList.contains("in")) paint();
 }
 
@@ -336,11 +401,13 @@ function paint(){
       '<span class="dt">'+T.when+"</span>"+
       '<span class="sp"></span>'+
       '<span class="res pos">+2.60%</span>'+
+      (spot==="head" ? '<button class="ico" onclick="alert(&quot;Ссылка на сделку скопирована&quot;)">'+
+        SHARE_IC+"<span>Поделиться</span></button>" : "")+
       '<button class="x" onclick="closeSheet()">×</button>'+
     "</div>"+
     '<div class="sbody">'+V[cur].html()+"</div>"+
     '<div class="sfoot"><button class="btn primary">Править</button>'+
-      '<button class="btn">Поделиться</button><span class="sp"></span>'+
+      '<span class="sp"></span>'+
       '<button class="btn danger">Удалить</button></div>';
 }
 
@@ -358,5 +425,6 @@ function closeSheet(){
 document.addEventListener("keydown", e=>{ if(e.key==="Escape") closeSheet(); });
 
 pick(cur);
+pickSpot(spot);
 </script>
 </html>
