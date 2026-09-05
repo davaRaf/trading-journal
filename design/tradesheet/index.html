@@ -1,0 +1,362 @@
+<!doctype html>
+<html lang="ru">
+<meta charset="utf-8">
+<title>Пробник: сделка в правой панели</title>
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600&family=Geist+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+/* ============================================================
+   Сейчас записанная сделка раскрывается прямо в панели дня —
+   гармошкой, внутри узкой колонки. Скрины там мелкие, и чтобы
+   посмотреть, как набирали позицию, приходится жать по каждому.
+
+   Здесь три варианта того же самого, но в правой панели — той,
+   что выезжает при записи сделки. Панель шире, скрины помещаются
+   целиком.
+
+   Это макет: данные зашиты, сервер не нужен, приложение из корня
+   репозитория он не трогает. «Скрины» рисуются свечами прямо тут —
+   настоящих картинок в макете нет.
+   ============================================================ */
+:root{
+  --bg:#050505; --panel:#0d0d0e; --panel-2:#111112; --panel-3:#161617;
+  --line:rgba(255,255,255,.08); --line-soft:rgba(255,255,255,.045);
+  --text:#f2f2f3; --dim:#8c8c90; --faint:#5c5c61;
+  --accent:#40e094; --accent-soft:rgba(64,224,148,.12);
+  --up:#40e094; --down:#ff6e60; --be:#efc258;
+  --up-soft:rgba(64,224,148,.13); --down-soft:rgba(255,110,96,.13); --be-soft:rgba(239,194,88,.13);
+  --r:14px;
+  --mono:"Geist Mono",ui-monospace,monospace;
+  --sans:"Geist",system-ui,sans-serif;
+}
+*{box-sizing:border-box}
+body{margin:0; background:var(--bg); color:var(--text); font:14px/1.5 var(--sans);
+  -webkit-font-smoothing:antialiased}
+h1,h2,h3{margin:0; font-weight:600}
+button{font:inherit; color:inherit; background:none; border:0; cursor:pointer}
+.mono{font-family:var(--mono); font-variant-numeric:tabular-nums}
+.pos{color:var(--up)} .neg{color:var(--down)} .be{color:var(--be)}
+
+/* ---------- рамка макета ---------- */
+.wrap{max-width:1180px; margin:0 auto; padding:34px 26px 90px}
+.lead{margin-bottom:26px}
+.lead h1{font-size:22px; letter-spacing:-.02em}
+.lead p{margin:9px 0 0; color:var(--dim); max-width:68ch; font-size:13.5px}
+
+.switch{display:flex; gap:7px; margin:22px 0 26px; flex-wrap:wrap}
+.switch button{padding:9px 15px; border:1px solid var(--line); border-radius:10px;
+  background:var(--panel-2); font-size:13px; color:var(--dim); transition:.16s}
+.switch button:hover{color:var(--text); border-color:rgba(255,255,255,.16)}
+.switch button.on{background:var(--accent-soft); border-color:rgba(64,224,148,.35); color:var(--accent)}
+.hint{margin:0 0 22px; color:var(--faint); font-size:12.5px; max-width:70ch}
+
+/* ---------- панель дня слева ---------- */
+.day{border:1px solid var(--line); border-radius:var(--r); background:var(--panel); overflow:hidden;
+  max-width:560px}
+.day > h3{padding:13px 16px; border-bottom:1px solid var(--line-soft); font-size:13px;
+  display:flex; align-items:baseline; gap:10px}
+.day > h3 em{font-style:normal; color:var(--faint); font-size:11.5px; font-family:var(--mono)}
+.rows{display:flex; flex-direction:column}
+.trow{display:flex; align-items:center; gap:10px; padding:13px 16px; text-align:left; width:100%;
+  border-bottom:1px solid var(--line-soft); transition:background .14s}
+.trow:last-child{border-bottom:0}
+.trow:hover{background:var(--panel-2)}
+.trow .p{font-family:var(--mono); font-weight:500; min-width:66px}
+.trow .t{color:var(--faint); font-family:var(--mono); font-size:12px}
+.trow .sp{flex:1}
+.badge{font-family:var(--mono); font-size:10.5px; letter-spacing:.06em; padding:3px 7px;
+  border-radius:6px; background:var(--panel-3); color:var(--dim)}
+.badge.long{background:var(--up-soft); color:var(--up)}
+.badge.short{background:var(--down-soft); color:var(--down)}
+.badge.win{background:var(--up-soft); color:var(--up)}
+.badge.loss{background:var(--down-soft); color:var(--down)}
+.badge.bem{background:var(--be-soft); color:var(--be)}
+.trow .r{font-family:var(--mono); font-weight:500; min-width:52px; text-align:right}
+
+/* ---------- сама панель ---------- */
+.ov{position:fixed; inset:0; background:rgba(0,0,0,.55); opacity:0; pointer-events:none;
+  transition:opacity .24s; z-index:40; backdrop-filter:blur(2px)}
+.ov.in{opacity:1; pointer-events:auto}
+.sheet{position:fixed; top:0; right:0; bottom:0; width:min(680px,94vw); z-index:41;
+  background:var(--panel); border-left:1px solid var(--line);
+  display:flex; flex-direction:column;
+  transform:translateX(100%); transition:transform .26s cubic-bezier(.32,.72,0,1)}
+.sheet.in{transform:none}
+
+.shead{display:flex; align-items:center; gap:12px; padding:16px 18px;
+  border-bottom:1px solid var(--line-soft); flex:none}
+.shead h2{font-size:17px; font-family:var(--mono); letter-spacing:-.01em}
+.shead .dt{color:var(--faint); font-size:12px; font-family:var(--mono)}
+.shead .sp{flex:1}
+.shead .res{font-family:var(--mono); font-size:17px; font-weight:500}
+.shead .x{width:30px; height:30px; border-radius:9px; color:var(--faint); font-size:19px;
+  line-height:1; border:1px solid var(--line)}
+.shead .x:hover{color:var(--text); background:var(--panel-2)}
+
+.sbody{flex:1; overflow:auto; padding:18px; display:flex; flex-direction:column; gap:16px}
+.sbody::-webkit-scrollbar{width:0}
+.sfoot{flex:none; display:flex; gap:9px; align-items:center; padding:14px 18px;
+  border-top:1px solid var(--line-soft)}
+.sfoot .sp{flex:1}
+.btn{padding:9px 15px; border:1px solid var(--line); border-radius:10px; font-size:13px;
+  background:var(--panel-2); transition:.14s}
+.btn:hover{border-color:rgba(255,255,255,.18)}
+.btn.primary{background:var(--accent); color:#06130d; border-color:transparent; font-weight:500}
+.btn.danger{color:var(--down); border-color:rgba(255,110,96,.28)}
+
+/* ---------- общие куски содержимого ---------- */
+.sec{border:1px solid var(--line-soft); border-radius:12px; overflow:hidden; background:var(--panel-2)}
+.sec > .h{padding:10px 14px; border-bottom:1px solid var(--line-soft); font-family:var(--mono);
+  font-size:10px; letter-spacing:.14em; text-transform:uppercase; color:var(--faint)}
+.sec > .b{padding:14px}
+
+.stats{display:grid; grid-template-columns:repeat(3,1fr); gap:1px; background:var(--line-soft);
+  border:1px solid var(--line-soft); border-radius:12px; overflow:hidden}
+.stats .st{background:var(--panel-2); padding:13px 14px}
+.stats .lab{font-size:11px; color:var(--faint); margin-bottom:5px}
+.stats .val{font-family:var(--mono); font-size:16px; font-weight:500}
+
+.fields{display:grid; grid-template-columns:repeat(auto-fit,minmax(150px,1fr)); gap:1px;
+  background:var(--line-soft)}
+.fields .fr{background:var(--panel-2); padding:11px 13px}
+.fields .l{display:block; font-size:11px; color:var(--faint); margin-bottom:4px}
+.fields .v{font-size:13.5px}
+
+.note{padding:11px 0; border-top:1px solid var(--line-soft)}
+.note:first-child{border-top:0; padding-top:0}
+.note .l{font-family:var(--mono); font-size:10px; letter-spacing:.12em; text-transform:uppercase;
+  color:var(--faint); margin-bottom:6px}
+.note .v{font-size:13.5px; line-height:1.6; color:var(--dim); white-space:pre-wrap}
+
+.shot{border:1px solid var(--line-soft); border-radius:10px; overflow:hidden; background:#08080a}
+.shot .cap{display:flex; align-items:center; gap:8px; padding:8px 11px;
+  border-bottom:1px solid var(--line-soft); font-family:var(--mono); font-size:11px; color:var(--dim)}
+.shot .cap b{color:var(--text); font-weight:500}
+.shot svg{display:block; width:100%; height:auto}
+
+/* ---------- А: как сейчас ---------- */
+.vA .charts{display:grid; grid-template-columns:1fr 1fr; gap:10px}
+
+/* ---------- Б: хроника набора ---------- */
+.line{position:relative; padding-left:26px}
+.line::before{content:""; position:absolute; left:7px; top:6px; bottom:6px; width:1px;
+  background:var(--line)}
+.step{position:relative; padding-bottom:20px}
+.step:last-child{padding-bottom:0}
+.step::before{content:""; position:absolute; left:-23px; top:5px; width:9px; height:9px;
+  border-radius:50%; background:var(--panel); border:1.5px solid var(--faint)}
+.step.hit::before{border-color:var(--accent); background:var(--accent)}
+.step .top{display:flex; align-items:baseline; gap:9px; margin-bottom:8px; flex-wrap:wrap}
+.step .tf{font-family:var(--mono); font-size:13px; font-weight:500}
+.step .role{font-size:11.5px; color:var(--faint)}
+.step .txt{font-size:13px; line-height:1.6; color:var(--dim); margin:0 0 9px}
+
+/* ---------- В: скрины крупно ---------- */
+.strip{display:flex; flex-wrap:wrap; gap:0; border:1px solid var(--line-soft); border-radius:12px;
+  overflow:hidden; background:var(--line-soft)}
+.strip div{flex:1 1 96px; background:var(--panel-2); padding:10px 12px}
+.strip .l{font-size:10.5px; color:var(--faint); margin-bottom:3px}
+.strip .v{font-family:var(--mono); font-size:13px}
+details.more{border:1px solid var(--line-soft); border-radius:12px; background:var(--panel-2)}
+details.more > summary{padding:12px 14px; cursor:pointer; font-size:13px; color:var(--dim);
+  list-style:none}
+details.more > summary::-webkit-details-marker{display:none}
+details.more > summary::after{content:"▾"; float:right; color:var(--faint)}
+details.more[open] > summary::after{content:"▴"}
+details.more .in{padding:0 14px 14px}
+
+@media (max-width:620px){
+  .vA .charts{grid-template-columns:1fr}
+  .stats{grid-template-columns:1fr 1fr}
+}
+</style>
+
+<div class="wrap">
+  <div class="lead">
+    <h1>Записанная сделка — в правой панели</h1>
+    <p>Сейчас сделка раскрывается гармошкой прямо в панели дня: колонка узкая, скрины мелкие,
+      и чтобы посмотреть, как набиралась позиция, надо жать по каждой картинке. Ниже — три варианта
+      того же самого, но в правой панели, которая выезжает при записи сделки. Нажми на сделку в списке.</p>
+  </div>
+
+  <div class="switch" id="sw"></div>
+  <p class="hint" id="hint"></p>
+
+  <div class="day">
+    <h3>Понедельник, 20 августа <em>3 сделки</em></h3>
+    <div class="rows" id="rows"></div>
+  </div>
+</div>
+
+<div class="ov" id="ov" onclick="closeSheet()"></div>
+<aside class="sheet" id="sheet"></aside>
+
+<script>
+/* ---------- данные одной сделки ---------- */
+const T = {
+  pair:"US100", pos:"Long", when:"20.08.2026 11:39", res:"Win", resLab:"TP",
+  r:+2.6, rr:2.6, risk:1.0,
+  session:"LONDON", bias:"Long", model:"CISD", setup:"(us100) 1h/15m/1m", type:"Продолжение",
+  entry:"Забрал ликвидность под азиатским минимумом, вернулся в 1H имбаланс и оставил CISD на 15m. Вошёл на возврате, стоп под свип.",
+  notes:"План был отработан целиком. Держал до цели, руками не трогал.",
+  mistakes:"Долил половину после первого импульса — этого в системе нет.",
+  comments:"Одна из немногих сделок за месяц, где дождался подтверждения на 15m.",
+  steps:[
+    {tf:"1D",  role:"контекст",   txt:"Тренд вверх, вчера обновили максимум. Ниже — незакрытый гэп, в него не лезу."},
+    {tf:"4H",  role:"зона",       txt:"Цена подошла к 4H имбалансу, от него уже дважды отталкивались."},
+    {tf:"1H",  role:"подготовка", txt:"Снял ликвидность азиатской сессии, ушёл в 1H имбаланс. Жду подтверждения ниже."},
+    {tf:"15m", role:"вход",       txt:"CISD вниз слева направо, вход на возврате. Стоп под свип, цель — вчерашний максимум.", hit:true},
+    {tf:"5m",  role:"сопровождение", txt:"Пошёл сразу, в безубыток перевёл после первого импульса.", hit:true}
+  ]
+};
+
+/* «Скрин»: рисуем свечи, чтобы макет выглядел как настоящий график */
+function chart(seed, h){
+  h = h || 150;
+  const w=560, n=44, cw=w/n;
+  let s=seed*9301, rnd=()=>((s=(s*9301+49297)%233280)/233280);
+  let p=h*0.62, out="", lo=h, hi=0;
+  const bars=[];
+  for(let i=0;i<n;i++){
+    const drift=(i/n-0.45)*h*0.5;
+    const o=p, c=Math.max(12,Math.min(h-12, p+(rnd()-0.46)*h*0.13-drift*0.03));
+    const t=Math.min(o,c)-rnd()*h*0.05, b=Math.max(o,c)+rnd()*h*0.05;
+    bars.push([o,c,t,b]); p=c; lo=Math.min(lo,t); hi=Math.max(hi,b);
+  }
+  bars.forEach(([o,c,t,b],i)=>{
+    const x=i*cw+cw/2, up=c<o, col=up?"#40e094":"#ff6e60";
+    const y=Math.min(o,c), hgt=Math.max(1.5,Math.abs(c-o));
+    out+='<line x1="'+x.toFixed(1)+'" y1="'+t.toFixed(1)+'" x2="'+x.toFixed(1)+'" y2="'+b.toFixed(1)+
+      '" stroke="'+col+'" stroke-width="1" opacity=".7"/>'+
+      '<rect x="'+(x-cw*0.3).toFixed(1)+'" y="'+y.toFixed(1)+'" width="'+(cw*0.6).toFixed(1)+
+      '" height="'+hgt.toFixed(1)+'" fill="'+col+'" opacity=".85" rx="1"/>';
+  });
+  return '<svg viewBox="0 0 '+w+' '+h+'" preserveAspectRatio="none">'+
+    '<rect width="'+w+'" height="'+h+'" fill="#08080a"/>'+
+    '<line x1="0" y1="'+(h*0.5)+'" x2="'+w+'" y2="'+(h*0.5)+'" stroke="rgba(255,255,255,.05)"/>'+
+    out+"</svg>";
+}
+function shot(tf, seed, h){
+  return '<div class="shot"><div class="cap"><b>'+tf+'</b><span>'+T.pair+'</span></div>'+chart(seed,h)+"</div>";
+}
+
+/* ---------- список сделок дня ---------- */
+const DAY=[
+  {pair:"US100", pos:"Long",  t:"11:39", res:"win",  lab:"TP",  r:"+2.60%", cls:"pos", open:true},
+  {pair:"GER40", pos:"Short", t:"13:02", res:"loss", lab:"SL",  r:"−1.00%", cls:"neg"},
+  {pair:"ES500", pos:"Short", t:"15:44", res:"bem",  lab:"BE−", r:"0.00%",  cls:"be"}
+];
+document.getElementById("rows").innerHTML = DAY.map((d,i)=>
+  '<button class="trow" onclick="openSheet()">'+
+    '<span class="p">'+d.pair+"</span>"+
+    '<span class="badge '+(d.pos==="Long"?"long":"short")+'">'+d.pos+"</span>"+
+    '<span class="t">'+d.t+'</span><span class="sp"></span>'+
+    '<span class="badge '+d.res+'">'+d.lab+"</span>"+
+    '<span class="r '+d.cls+'">'+d.r+"</span>"+
+  "</button>").join("");
+
+/* ---------- три варианта содержимого ---------- */
+const stats = ()=>'<div class="stats">'+
+  [["Результат","TP",""],["RR","2.6",""],["Риск","1.0%",""]].map(f=>
+    '<div class="st"><div class="lab">'+f[0]+'</div><div class="val '+f[2]+'">'+f[1]+"</div></div>").join("")+"</div>";
+
+const fieldRows = ()=>[["Сессия",T.session],["Биас",T.bias],["Модель входа",T.model],
+    ["Сетап",T.setup],["Тип",T.type]].map(f=>
+  '<div class="fr"><span class="l">'+f[0]+'</span><span class="v">'+f[1]+"</span></div>").join("");
+
+const noteRows = ()=>[["Детали входа",T.entry],["Заметки",T.notes],
+    ["Ошибки",T.mistakes],["Комментарий",T.comments]].map(f=>
+  '<div class="note"><div class="l">'+f[0]+'</div><div class="v">'+f[1]+"</div></div>").join("");
+
+const V = {
+  A: {
+    name:"А · Как сейчас, только шире",
+    hint:"Те же четыре блока, что в гармошке: итог, как торговал, записи, графики. Ничего не переучиваем — просто панель шире, и скрины видно нормально. Самый безопасный вариант.",
+    html: ()=>'<div class="vA" style="display:flex;flex-direction:column;gap:16px">'+
+      stats()+
+      '<div class="sec"><div class="h">Как торговал</div><div class="fields">'+fieldRows()+"</div></div>"+
+      '<div class="sec"><div class="h">Что записал</div><div class="b">'+noteRows()+"</div></div>"+
+      '<div class="sec"><div class="h">Графики</div><div class="b"><div class="charts">'+
+        T.steps.map((s,i)=>shot(s.tf,i+2,120)).join("")+"</div></div></div>"+
+    "</div>"
+  },
+  B: {
+    name:"Б · Хроника набора",
+    hint:"Сделка читается сверху вниз, как она набиралась: 1D контекст → 4H зона → 1H подготовка → 15m вход → сопровождение. У каждого шага свой скрин и своя мысль. Точка на линии зелёная там, где уже вошёл. Отвечает ровно на вопрос «как я её набирал».",
+    html: ()=>'<div style="display:flex;flex-direction:column;gap:16px">'+
+      stats()+
+      '<div class="sec"><div class="h">Как набиралась</div><div class="b"><div class="line">'+
+        T.steps.map((s,i)=>
+          '<div class="step'+(s.hit?" hit":"")+'">'+
+            '<div class="top"><span class="tf">'+s.tf+'</span><span class="role">'+s.role+"</span></div>"+
+            '<p class="txt">'+s.txt+"</p>"+shot(s.tf,i+2,140)+
+          "</div>").join("")+
+      "</div></div></div>"+
+      '<div class="sec"><div class="h">Как торговал</div><div class="fields">'+fieldRows()+"</div></div>"+
+      '<div class="sec"><div class="h">Что записал</div><div class="b">'+noteRows()+"</div></div>"+
+    "</div>"
+  },
+  C: {
+    name:"В · Сначала графики",
+    hint:"Наверху одна строка с цифрами, дальше сразу крупные скрины во всю ширину — их видно без единого клика. Текст и поля свёрнуты внизу, разворачиваются по желанию. Для тех, кто смотрит журнал глазами, а не читает.",
+    html: ()=>'<div style="display:flex;flex-direction:column;gap:14px">'+
+      '<div class="strip">'+
+        [["Итог","+2.60%"],["RR","2.6"],["Риск","1.0%"],["Сессия",T.session],["Модель",T.model]].map(f=>
+          '<div><div class="l">'+f[0]+'</div><div class="v">'+f[1]+"</div></div>").join("")+
+      "</div>"+
+      T.steps.map((s,i)=>
+        '<div class="shot"><div class="cap"><b>'+s.tf+"</b><span>"+s.role+"</span></div>"+
+          chart(i+2,190)+"</div>").join("")+
+      '<details class="more"><summary>Как торговал и что записал</summary><div class="in">'+
+        '<div class="sec" style="margin-bottom:12px"><div class="fields">'+fieldRows()+"</div></div>"+
+        '<div class="sec"><div class="b">'+noteRows()+"</div></div>"+
+      "</div></details>"+
+    "</div>"
+  }
+};
+
+let cur = "B";
+document.getElementById("sw").innerHTML = Object.keys(V).map(k=>
+  '<button data-k="'+k+'" onclick="pick(\''+k+'\')">'+V[k].name+"</button>").join("");
+
+function pick(k){
+  cur = k;
+  document.querySelectorAll("#sw button").forEach(b=>b.classList.toggle("on", b.dataset.k===k));
+  document.getElementById("hint").textContent = V[k].hint;
+  if(document.getElementById("sheet").classList.contains("in")) paint();
+}
+
+function paint(){
+  document.getElementById("sheet").innerHTML =
+    '<div class="shead">'+
+      "<h2>"+T.pair+"</h2>"+
+      '<span class="badge long">'+T.pos+"</span>"+
+      '<span class="dt">'+T.when+"</span>"+
+      '<span class="sp"></span>'+
+      '<span class="res pos">+2.60%</span>'+
+      '<button class="x" onclick="closeSheet()">×</button>'+
+    "</div>"+
+    '<div class="sbody">'+V[cur].html()+"</div>"+
+    '<div class="sfoot"><button class="btn primary">Править</button>'+
+      '<button class="btn">Поделиться</button><span class="sp"></span>'+
+      '<button class="btn danger">Удалить</button></div>';
+}
+
+function openSheet(){
+  paint();
+  requestAnimationFrame(()=>{
+    document.getElementById("ov").classList.add("in");
+    document.getElementById("sheet").classList.add("in");
+  });
+}
+function closeSheet(){
+  document.getElementById("ov").classList.remove("in");
+  document.getElementById("sheet").classList.remove("in");
+}
+document.addEventListener("keydown", e=>{ if(e.key==="Escape") closeSheet(); });
+
+pick(cur);
+</script>
+</html>
