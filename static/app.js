@@ -621,10 +621,15 @@ function ovEquityPeriod(){
   return {list:per.list, opts:{title:T.ovPnlTitle+" · "+T.railYearWord}};
 }
 
-/* колонка-компаньон: где, чем и по какой модели торгуем за год */
+/* колонка-компаньон: где, чем и по какой модели торгуем за выбранный период.
+   Раньше здесь всегда стоял год: переключаешь сверху на месяц — итоги
+   меняются, а сессии, инструменты и сетапы остаются годовыми и с ними
+   не сходятся. Берём тот же список сделок, что и весь «Огляд». */
 function ovRailHtml(){
-  const y=String(new Date().getFullYear());
-  const yl=S.trades.filter(t=>(t.date||"").slice(0,4)===y);
+  const yl=ovPeriod().list;
+  const when = S.ovPeriod==="month" ? T.ovMonthWord
+             : S.ovPeriod==="quarter" ? T.ovQuarterWord
+             : T.railYearWord;
   const bar=(nm,qt,w,cls)=>
     '<div class="bar '+(cls||"")+'"><span class="nm">'+esc(nm)+"</span>"+
     '<span class="qt">'+qt+"</span>"+
@@ -645,9 +650,9 @@ function ovRailHtml(){
     ? setups.map(([nm,r,n])=>bar(nm,'<b class="'+clsR(r)+'">'+ovFmt1(r)+"</b> · "+n,Math.abs(r)/smx*100,ovSign(r))).join("")
     : '<div class="empty">'+T.railNoData+'</div>';
   return '<aside class="rail"><div class="inner"><div class="cut">'+
-    '<section><h3>'+T.railSessions+'<em>'+T.railYearWord+'</em></h3><div class="rows">'+share(byCount("session"))+"</div></section>"+
-    '<section><h3>'+T.railInstruments+'<em>'+T.railYearWord+'</em></h3><div class="rows">'+share(byCount("pair"))+"</div></section>"+
-    '<section><h3>'+T.railSetups+'<em>'+T.railNetPctWord+'</em></h3><div class="rows">'+setupRows+"</div></section>"+
+    '<section><h3>'+T.railSessions+'<em>'+when+'</em></h3><div class="rows">'+share(byCount("session"))+"</div></section>"+
+    '<section><h3>'+T.railInstruments+'<em>'+when+'</em></h3><div class="rows">'+share(byCount("pair"))+"</div></section>"+
+    '<section><h3>'+T.railSetups+'<em>'+T.railNetPctWord+" · "+when+'</em></h3><div class="rows">'+setupRows+"</div></section>"+
     "</div></div></aside>";
 }
 
