@@ -60,7 +60,16 @@
     display:grid; place-items:center; font-size:18px}
   /* всередині шторки живуть оригінальні блоки бічної панелі — їх стилі й так є */
   .mmenu .grp, .mmenu .conn, .mmenu .side-foot{display:flex; flex-direction:column; gap:10px}
-  .mmenu .side-foot{margin-top:auto}
+  /* Підвал у шторці — стовпчиком і на всю ширину. Правило для верхнього
+     меню (рядком, притиснуто праворуч) сюди протікало: воно написане на
+     сам .side-foot і живе в тому ж медіазапиті. */
+  .mmenu-wrap .mmenu .side-foot{margin:auto 0 0; flex-direction:column; align-items:stretch;
+    padding-top:16px; border-top:1px solid var(--line-soft)}
+  .mmenu-wrap .mmenu .side-foot > *{width:100%; justify-content:flex-start}
+  .mmenu-wrap .mmenu #themeBtn span{display:inline}
+  /* режим «тільки значки» ховає підписи в бічній панелі — у шторці вони потрібні */
+  .mmenu-wrap .mmenu .mini, .mmenu-wrap .mmenu #themeBtn{font-size:13.5px; justify-content:flex-start; padding:10px 12px}
+  .mmenu-wrap .mmenu .lab{display:block}
 
   /* ---- вміст ---- */
   .vhead{gap:10px}

@@ -1478,3 +1478,6 @@ body::after{
 
 /* короткие поля не тянем на всю ширину ряда */
 #fld_date,#fld_rr{max-width:290px}
+
+/* кнопка без дії — як у пагінації: приглушена, не реагує */
+.btn:disabled{opacity:.4;cursor:default;pointer-events:none}

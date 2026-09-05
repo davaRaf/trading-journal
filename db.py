@@ -171,6 +171,11 @@ ALTER TABLE trades ADD COLUMN IF NOT EXISTS rr_plan DOUBLE PRECISION;
 -- Журнал можно открыть другим: тогда его смотрят по ссылке /u/<ник>.
 -- По умолчанию закрыт: открытость человек включает сам.
 ALTER TABLE users ADD COLUMN IF NOT EXISTS public_journal BOOLEAN NOT NULL DEFAULT FALSE;
+
+-- Звідки людина про нас дізналась. Питаємо один раз після входу, поки порожнє.
+-- Тримаємо як текст: «instagram», «tiktok», «community:<назва>», «other:<словами>».
+-- Окрема таблиця тут нічого не додасть — відповідь одна на людину й назавжди.
+ALTER TABLE users ADD COLUMN IF NOT EXISTS heard_from TEXT NOT NULL DEFAULT '';
 """
 
 
@@ -237,6 +242,15 @@ def set_public(user_id, on):
     with connect() as conn:
         conn.execute("UPDATE users SET public_journal=%s WHERE id=%s",
                      (bool(on), user_id))
+        conn.commit()
+
+
+def set_heard_from(user_id, value):
+    """Пишемо тільки в порожнє: питання ставиться один раз, і переписати
+    відповідь повторним запитом не можна."""
+    with connect() as conn:
+        conn.execute("UPDATE users SET heard_from=%s WHERE id=%s AND heard_from=''",
+                     (str(value or "")[:200], user_id))
         conn.commit()
 
 

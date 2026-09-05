@@ -1,22 +1,18 @@
 # -*- coding: utf-8 -*-
 """
-Вхід через Google, Discord і Telegram.
+Вхід через Google і Discord.
 
-Google і Discord — звичайний OAuth 2.0: людину відправляємо на сторінку
-сервісу, той повертає її з кодом, код міняємо на профіль. Telegram —
-свій віджет: він одразу віддає дані користувача, підписані ключем бота,
-підпис ми й перевіряємо.
+Звичайний OAuth 2.0: людину відправляємо на сторінку сервісу, той
+повертає її з кодом, код міняємо на профіль.
 
 Хто вже заходив — впізнаємо по таблиці identities (сервіс + id у ньому).
 Новому створюємо акаунт: пошта з профілю, а якщо сервіс її не дав
-(Discord без дозволу, Telegram завжди) — службова, щоб рядок у users не
+(Discord без дозволу) — службова, щоб рядок у users не
 лишився порожнім. Пароль такому акаунту ставиться випадковий: заходити
 він буде тим самим сервісом.
 
 Ключі — з оточення: GOOGLE_CLIENT_ID/SECRET, DISCORD_CLIENT_ID/SECRET.
-Telegram ключів не потребує — досить BOT_TOKEN, який уже є.
 """
-import hashlib
 import hmac
 import json
 import secrets
@@ -83,7 +79,6 @@ def enabled():
     for p in PROVIDERS:
         cid, sec = creds(p)
         out[p] = bool(cid and sec)
-    out["telegram"] = bool(config.BOT_TOKEN and config.BOT_USERNAME)
     return out
 
 
@@ -180,25 +175,6 @@ def fetch_profile(provider, code, base):
     return str(me.get("id") or ""), str(email or ""), str(name)
 
 
-# --------------------------------------------------------- Telegram ----
-
-def telegram_profile(params):
-    """Дані з віджета Telegram, перевірені підписом ключа бота.
-    Повертає (ext_id, email, name) або кидає ValueError."""
-    data = {k: v for k, v in params.items() if k != "hash" and v is not None}
-    given = params.get("hash") or ""
-    check = "\n".join("%s=%s" % (k, data[k]) for k in sorted(data))
-    secret = hashlib.sha256(config.BOT_TOKEN.encode()).digest()
-    want = hmac.new(secret, check.encode(), hashlib.sha256).hexdigest()
-    if not hmac.compare_digest(want, given):
-        raise ValueError("підпис Telegram не збігся")
-    if time.time() - int(data.get("auth_date") or 0) > 600:
-        raise ValueError("дані Telegram застаріли")
-    name = " ".join(x for x in (data.get("first_name"), data.get("last_name")) if x) \
-        or data.get("username") or "telegram"
-    return str(data.get("id")), "", name, data.get("username") or ""
-
-
 # ----------------------------------------------------- користувач ----
 
 def _nickname_from(name, email, provider, ext_id):
@@ -207,7 +183,7 @@ def _nickname_from(name, email, provider, ext_id):
     return base
 
 
-def find_or_create_user(provider, ext_id, email, name, tg_username=""):
+def find_or_create_user(provider, ext_id, email, name):
     """Повертає рядок users. Спершу шукаємо прив'язку, потім людину з такою
     поштою (щоб не плодити другий акаунт), і лише тоді створюємо нового."""
     init()
@@ -246,12 +222,4 @@ def find_or_create_user(provider, ext_id, email, name, tg_username=""):
         conn.execute("INSERT INTO identities (provider, ext_id, user_id, email, name) "
                      "VALUES (%s,%s,%s,%s,%s) ON CONFLICT (provider, ext_id) DO NOTHING",
                      (provider, ext_id, user["id"], email or "", name or ""))
-        # вхід через Telegram — це й прив'язка бота: нагадування підуть одразу
-        if provider == "telegram" and user.get("telegram_id") is None:
-            try:
-                conn.execute("UPDATE users SET telegram_id=%s, telegram_username=%s "
-                             "WHERE id=%s AND telegram_id IS NULL",
-                             (int(ext_id), tg_username or None, user["id"]))
-            except Exception:
-                pass
     return db.get_user(user["id"]) or user

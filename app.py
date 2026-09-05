@@ -549,7 +549,8 @@ def user_public(user):
             "telegram_linked": user["telegram_id"] is not None,
             "digest_hour": user["digest_hour"], "digest_minute": user["digest_minute"],
             "digest_enabled": user["digest_enabled"],
-            "public_journal": bool(user["public_journal"])}
+            "public_journal": bool(user["public_journal"]),
+            "heard_from": user["heard_from"] or ""}
 
 
 # ---------------------------------------------------------------------------
@@ -822,10 +823,7 @@ class H(BaseHTTPRequestHandler):
         # ---- вхід через сервіси (oauth.py) ----
         if p == "/api/auth/providers":
             on = oauth.enabled()
-            return self._json({"providers": on,
-                               "telegram_bot": config.BOT_USERNAME if on.get("telegram") else "",
-                               "telegram_bot_id": (config.BOT_TOKEN.split(":")[0]
-                                                   if on.get("telegram") else "")})
+            return self._json({"providers": on})
 
         m = re.match(r"^/auth/(google|discord)$", p)
         if m:
@@ -839,27 +837,23 @@ class H(BaseHTTPRequestHandler):
             self.end_headers()
             return
 
-        m = re.match(r"^/auth/(google|discord|telegram)/callback$", p)
+        m = re.match(r"^/auth/(google|discord)/callback$", p)
         if m:
             prov = m.group(1)
             q = {k: v[0] for k, v in urllib.parse.parse_qs(urlparse(self.path).query).items()}
             try:
-                if prov == "telegram":
-                    ext_id, email, name, tg_user = oauth.telegram_profile(q)
-                else:
-                    cookies = self.headers.get("Cookie") or ""
-                    st = ""
-                    for part in cookies.split(";"):
-                        k, _, v = part.strip().partition("=")
-                        if k == "oauth_state":
-                            st = v
-                    if q.get("error") or not oauth.check_state(q.get("state"), st):
-                        raise ValueError("вхід скасовано або сплив час")
-                    ext_id, email, name = oauth.fetch_profile(prov, q.get("code", ""), self._base())
-                    tg_user = ""
+                cookies = self.headers.get("Cookie") or ""
+                st = ""
+                for part in cookies.split(";"):
+                    k, _, v = part.strip().partition("=")
+                    if k == "oauth_state":
+                        st = v
+                if q.get("error") or not oauth.check_state(q.get("state"), st):
+                    raise ValueError("вхід скасовано або сплив час")
+                ext_id, email, name = oauth.fetch_profile(prov, q.get("code", ""), self._base())
                 if not ext_id:
                     raise ValueError("сервіс не віддав профіль")
-                user = oauth.find_or_create_user(prov, ext_id, email, name, tg_user)
+                user = oauth.find_or_create_user(prov, ext_id, email, name)
             except Exception as ex:
                 print("oauth %s: %s" % (prov, ex))
                 self.send_response(302)
@@ -1188,13 +1182,13 @@ class H(BaseHTTPRequestHandler):
             nickname = str(body.get("nickname") or "").strip()
             password = str(body.get("password") or "")
             if not email or not nickname or len(password) < 6:
-                return self._json({"error": "потрібні пошта, нікнейм і пароль від 6 символів"}, 400)
+                return self._json({"error": "потрібні пошта, нікнейм і пароль від 6 символів", "code": "need_fields"}, 400)
             pw_hash, pw_salt, iters = auth.hash_password(password)
             try:
                 user = db.create_user(email, nickname, pw_hash, pw_salt, iters)
             except Exception as ex:
                 if "unique" in str(ex).lower() or "duplicate" in str(ex).lower():
-                    return self._json({"error": "така пошта або нікнейм уже зайняті"}, 409)
+                    return self._json({"error": "така пошта або нікнейм уже зайняті", "code": "taken"}, 409)
                 raise
             return self._json({"user": user_public(user)}, 201,
                               cookie=auth.cookie_header(auth.make_session(user["id"])))
@@ -1210,13 +1204,13 @@ class H(BaseHTTPRequestHandler):
             wait = ratelimit.check(keys)
             if wait:
                 return self._json(
-                    {"error": "забагато спроб входу — спробуй за %d с" % wait}, 429)
+                    {"error": "забагато спроб входу — спробуй за %d с" % wait, "code": "too_many", "wait": wait}, 429)
             user = db.get_user_by_login(body.get("login"))
             if not user or not auth.verify_password(str(body.get("password") or ""),
                                                     user["pw_hash"], user["pw_salt"],
                                                     user["pw_iters"]):
                 ratelimit.miss(keys)
-                return self._json({"error": "невірна пошта або пароль"}, 401)
+                return self._json({"error": "невірна пошта або пароль", "code": "bad_login"}, 401)
             ratelimit.forget(keys)
             return self._json({"user": user_public(user)},
                               cookie=auth.cookie_header(auth.make_session(user["id"])))
@@ -1265,6 +1259,10 @@ class H(BaseHTTPRequestHandler):
             code = db.create_link_code(uid)
             return self._json({"code": code, "bot": bot,
                                "link": "https://t.me/%s?start=%s" % (bot, code)})
+
+        if p == "/api/heard-from":
+            db.set_heard_from(uid, str((body or {}).get("value") or "").strip())
+            return self._json({"ok": True})
 
         if p == "/api/telegram/unlink":
             db.unlink_telegram(uid)

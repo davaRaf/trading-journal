@@ -474,10 +474,6 @@ body{
         <svg viewBox="0 0 24 24" aria-hidden="true"><path fill="#5865F2" d="M20.317 4.369a19.79 19.79 0 0 0-4.885-1.515.074.074 0 0 0-.079.037c-.21.375-.444.864-.608 1.25a18.27 18.27 0 0 0-5.487 0 12.64 12.64 0 0 0-.617-1.25.077.077 0 0 0-.079-.037A19.736 19.736 0 0 0 3.677 4.37a.07.07 0 0 0-.32.027C.533 9.046-.32 13.58.099 18.057a.082.082 0 0 0 .031.057 19.9 19.9 0 0 0 5.993 3.03.078.078 0 0 0 .084-.028c.462-.63.874-1.295 1.226-1.994a.076.076 0 0 0-.041-.106 13.107 13.107 0 0 1-1.872-.892.077.077 0 0 1-.008-.128c.126-.094.252-.192.372-.291a.074.074 0 0 1 .077-.01c3.928 1.793 8.18 1.793 12.062 0a.074.074 0 0 1 .078.009c.12.099.246.198.373.292a.077.077 0 0 1-.006.127c-.598.35-1.22.645-1.873.891a.077.077 0 0 0-.041.107c.36.698.772 1.362 1.225 1.993a.076.076 0 0 0 .084.028 19.839 19.839 0 0 0 6.002-3.03.077.077 0 0 0 .032-.054c.5-5.177-.838-9.674-3.549-13.66a.061.061 0 0 0-.031-.028zM8.02 15.331c-1.183 0-2.157-1.086-2.157-2.419 0-1.333.955-2.419 2.157-2.419 1.211 0 2.176 1.096 2.157 2.42 0 1.332-.955 2.418-2.157 2.418zm7.975 0c-1.183 0-2.157-1.086-2.157-2.419 0-1.333.955-2.419 2.157-2.419 1.211 0 2.176 1.096 2.157 2.42 0 1.332-.946 2.418-2.157 2.418z"/></svg>
         Продовжити з Discord
       </button>
-      <button class="soc" type="button" data-svc="Telegram">
-        <svg viewBox="0 0 24 24" aria-hidden="true"><path fill="#2AABEE" d="M12 0a12 12 0 1 0 0 24 12 12 0 0 0 0-24zm5.56 8.2-1.86 8.78c-.14.62-.51.77-1.03.48l-2.85-2.1-1.37 1.32c-.15.15-.28.28-.58.28l.2-2.9 5.28-4.77c.23-.2-.05-.32-.36-.12l-6.52 4.1-2.81-.88c-.61-.19-.62-.61.13-.9l10.98-4.24c.51-.18.96.12.79.95z"/></svg>
-        Продолжить с Telegram
-      </button>
     </div>
 
     <div class="or"><span>или почтой</span></div>
@@ -936,7 +932,13 @@ const I18N = {
     lNick: "Нікнейм", phNick: "trader_davyd",
     lLogin: "Пошта або нікнейм", phLogin: "пошта або нікнейм",
     showPw: "Показати пароль", hidePw: "Сховати пароль",
-    remember: "Запам'ятати мене", forgot: "Забули пароль?",
+    remember: "Запам'ятати мене", forgot: "Забув пароль?",
+    errOauth: "Не вдалось увійти через сервіс. Спробуй ще раз або зайди поштою.",
+    errOff: "Цей спосіб входу ще не увімкнено.",
+    errServer: "Сервер не відповідає", errGeneric: "Не вийшло — спробуй ще раз",
+    errNeed: "Потрібні пошта, нікнейм і пароль від 6 символів",
+    errTaken: "Така пошта або нікнейм уже зайняті",
+    errMany: "Забагато спроб — спробуй за %d с", errBad: "Невірна пошта або пароль",
     btnIn: "Увійти", btnUp: "Створити акаунт",
     altIn: 'Немає акаунта? <a href="#" data-goto="up">Створити</a>',
     altUp: 'Вже є акаунт? <a href="#" data-goto="in">Увійти</a>',
@@ -956,7 +958,13 @@ const I18N = {
     lNick: "Никнейм", phNick: "trader_davyd",
     lLogin: "Почта или никнейм", phLogin: "почта или никнейм",
     showPw: "Показать пароль", hidePw: "Скрыть пароль",
-    remember: "Запомнить меня", forgot: "Забыли пароль?",
+    remember: "Запомнить меня", forgot: "Забыл пароль?",
+    errOauth: "Не удалось войти через сервис. Попробуй ещё раз или зайди почтой.",
+    errOff: "Этот способ входа ещё не включён.",
+    errServer: "Сервер не отвечает", errGeneric: "Не вышло — попробуй ещё раз",
+    errNeed: "Нужны почта, никнейм и пароль от 6 символов",
+    errTaken: "Такая почта или никнейм уже заняты",
+    errMany: "Слишком много попыток — попробуй через %d с", errBad: "Неверная почта или пароль",
     btnIn: "Войти", btnUp: "Создать аккаунт",
     altIn: 'Нет аккаунта? <a href="#" data-goto="up">Создать</a>',
     altUp: 'Уже есть аккаунт? <a href="#" data-goto="in">Войти</a>',
@@ -977,6 +985,12 @@ const I18N = {
     lLogin: "Email or nickname", phLogin: "email or nickname",
     showPw: "Show password", hidePw: "Hide password",
     remember: "Remember me", forgot: "Forgot password?",
+    errOauth: "Couldn't sign in with that service. Try again or use email.",
+    errOff: "This sign-in method isn't enabled yet.",
+    errServer: "Server isn't responding", errGeneric: "Didn't work — try again",
+    errNeed: "Email, nickname and a password of 6+ characters are required",
+    errTaken: "That email or nickname is already taken",
+    errMany: "Too many attempts — try again in %d s", errBad: "Wrong email or password",
     btnIn: "Sign in", btnUp: "Create account",
     altIn: 'No account? <a href="#" data-goto="up">Create one</a>',
     altUp: 'Already have an account? <a href="#" data-goto="in">Sign in</a>',
@@ -1017,6 +1031,7 @@ function applyLang(code){
   const want = location.hash === "#signup" ? "up"
              : (document.querySelector('.tabs button.on')?.dataset.tab || "in");
   setTab(want);
+  showUrlErr();
 }
 
 const langs = document.getElementById("langs");
@@ -1042,9 +1057,8 @@ function showErr(text){
 
 /* ---- вхід через сервіси ----
    Google і Discord — звичайний перехід на /auth/<сервіс>, далі все робить
-   сервер. Telegram — сторінка oauth.telegram.org, яка повертає підписані
-   дані на наш колбек. Кнопки сервісів без ключів ховаємо: краще не
-   показати, ніж показати й не працювати. */
+   сервер. Кнопки сервісів без ключів ховаємо: краще не показати, ніж
+   показати й не працювати. */
 let PROV = null;
 fetch("/api/auth/providers").then(r => r.json()).then(j => {
   PROV = j || {};
@@ -1059,22 +1073,28 @@ fetch("/api/auth/providers").then(r => r.json()).then(j => {
 
 document.querySelectorAll(".soc").forEach(b => b.addEventListener("click", () => {
   const k = (b.dataset.svc || "").toLowerCase();
-  if (k === "google" || k === "discord"){ location.href = "/auth/" + k; return; }
-  if (k === "telegram"){
-    if (!PROV || !PROV.telegram_bot_id){ showErr("Вхід через Telegram ще не налаштований"); return; }
-    const back = location.origin + "/auth/telegram/callback";
-    location.href = "https://oauth.telegram.org/auth?bot_id=" + encodeURIComponent(PROV.telegram_bot_id)
-      + "&origin=" + encodeURIComponent(location.origin)
-      + "&request_access=write&return_to=" + encodeURIComponent(back);
-  }
+  if (k === "google" || k === "discord") location.href = "/auth/" + k;
 }));
 
-/* якщо повернулись із помилкою — скажемо словами */
-(function(){
+/* Повернулись із помилкою — кажемо словами, і мовою сторінки: раніше
+   текст був зашитий українською, і людині з російським інтерфейсом
+   помилка приходила чужою мовою. */
+function showUrlErr(){
   const err = new URLSearchParams(location.search).get("err");
-  if (err === "oauth") showErr("Не вдалось увійти через сервіс. Спробуй ще раз або зайди поштою.");
-  if (err === "off") showErr("Цей спосіб входу ще не увімкнено.");
-})();
+  if (err === "oauth") showErr(T.errOauth);
+  else if (err === "off") showErr(T.errOff);
+}
+
+/* Сервер надсилає код помилки, слова підбираємо тут. Невідомий код —
+   показуємо, що прислав сервер, аби не мовчати. */
+function errText(d){
+  d = d || {};
+  const map = {
+    need_fields: T.errNeed, taken: T.errTaken, bad_login: T.errBad,
+    too_many: T.errMany.replace("%d", d.wait != null ? d.wait : "…"),
+  };
+  return map[d.code] || d.error || T.errGeneric;
+}
 
 /* ============ живые реакции формы ============ */
 const shell = document.querySelector(".shell");
@@ -1122,14 +1142,14 @@ goBtn.addEventListener("click", async () => {
     data = await res.json().catch(() => ({}));
   } catch(e){
     goBtn.classList.remove("busy");
-    showErr("Сервер не відповідає");
+    showErr(T.errServer);
     shake();
     return;
   }
   goBtn.classList.remove("busy");
 
   if (!res.ok){
-    showErr(data.error || "Не вийшло — спробуй ще раз");
+    showErr(errText(data));
     markBad(em); markBad(pw);
     shake();
     return;
