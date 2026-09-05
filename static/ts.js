@@ -146,11 +146,16 @@ const SHOT_IC = '<svg class="ic" viewBox="0 0 24 24" fill="none" stroke="current
 /* Ім'я файлу на сервері або сама картинка (демо) */
 function tsShotSrc(f){ return /^data:/.test(f) ? f : "/tsshot/" + f; }
 
+const RP_IC = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" '
+  + 'stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">'
+  + '<path d="M20 11a8 8 0 1 0-2.3 5.7"/><path d="M20 4v7h-7"/></svg>';
+
 function shot(path, label, mini){
   const f = get(path);
   const inner = f
-    ? '<img alt="" src="' + esc(tsShotSrc(f)) + '"><div class="over"><span>' + esc(D().shotReplace)
-      + '</span></div><button class="rm" type="button">×</button>'
+    ? '<img alt="" src="' + esc(tsShotSrc(f)) + '"><div class="over"><span>' + esc(D().shotOpen)
+      + '</span></div><button class="rp" type="button" title="' + esc(D().shotReplace) + '">'
+      + RP_IC + '</button><button class="rm" type="button" title="' + esc(D().remove) + '">×</button>'
     : '<div class="ph">' + SHOT_IC + esc(label || D().shotAdd)
       + "<em>" + esc(armed === path ? D().shotArmed : D().shotHint) + "</em></div>";
   return '<div class="ts-shot' + (f ? " has" : "") + (mini ? " mini" : "")
@@ -257,7 +262,7 @@ function secEntry(){
         ? '<div class="ts-mods">' + mods.map((m, i) =>
             '<div class="ts-mod"><div class="ts-row"><b class="nm">'
             + ed("models." + i + ".name", "", d.emptyName) + "</b>" + x("models", i) + "</div>"
-            + '<div class="note">' + ed("models." + i + ".note", "", d.emptyNote) + "</div>"
+            + '<div class="note">' + edArea("models." + i + ".note", d.emptyNote) + "</div>"
             + '<div class="ts-shots">'
             +   (m.shots || []).map((f, j) =>
                   shot("models." + i + ".shots." + j, d.shotExample, true)).join("")
@@ -651,6 +656,21 @@ document.addEventListener("click", e => {
       save(); render();
       return;
     }
+    /* кнопка «замінити» — файли з комп'ютера, як і був подвійний клік */
+    if (e.target.closest(".rp")){
+      e.stopPropagation();
+      armed = null;
+      filePick._to = sl;
+      filePick.click();
+      return;
+    }
+    /* у заповненому слоті клік дивиться скрін: щоб роздивитись графік,
+       не треба нікуди його перетягувати */
+    const have = get(sl.dataset.p);
+    if (have && typeof openLightbox === "function"){
+      openLightbox(tsShotSrc(have));
+      return;
+    }
     if (touchOnly()){
       filePick._to = sl;
       filePick.click();
@@ -665,11 +685,12 @@ document.addEventListener("click", e => {
   if (el) startEdit(el);
 });
 
-/* подвійний клік — вибір файлу з комп'ютера */
+/* подвійний клік — вибір файлу з комп'ютера. Заповнений слот пропускаємо:
+   там перший клік уже відкрив скрін, і діалог файлів поверх нього — сюрприз */
 document.addEventListener("dblclick", e => {
   if (S.view !== "ts" || !TS) return;
   const sl = e.target.closest && e.target.closest(".ts-shot[data-p]");
-  if (!sl) return;
+  if (!sl || get(sl.dataset.p)) return;
   e.preventDefault();
   armed = null;
   filePick._to = sl;
@@ -1170,7 +1191,7 @@ uk: {
   noModels: "Моделей входу ще немає", noneYet: "поки порожньо",
   shotAdd: "вставити скрін", shotAddShort: "ще скрін",
   shotHint: "клік → Ctrl+V · подвійний → файл", shotArmed: "тепер Ctrl+V",
-  shotReplace: "клік — замінити", shotExample: "приклад", shotHow: "як це виглядає",
+  shotReplace: "замінити скрін", shotOpen: "відкрити", shotExample: "приклад", shotHow: "як це виглядає",
 
   gateOk: "усе закрито — за твоїми правилами вхід є", gateBad: "поки не все закрито — за твоїми ж правилами входу немає",
   btnAsk: "Пройти опитування", btnShare: "Поділитись", btnDelete: "Видалити ТС",
@@ -1286,7 +1307,7 @@ ru: {
   noModels: "Моделей входа ещё нет", noneYet: "пока пусто",
   shotAdd: "вставить скрин", shotAddShort: "ещё скрин",
   shotHint: "клик → Ctrl+V · двойной → файл", shotArmed: "теперь Ctrl+V",
-  shotReplace: "клик — заменить", shotExample: "пример", shotHow: "как это выглядит",
+  shotReplace: "заменить скрин", shotOpen: "открыть", shotExample: "пример", shotHow: "как это выглядит",
 
   gateOk: "всё закрыто — по твоим правилам вход есть", gateBad: "пока закрыто не всё — по твоим же правилам входа нет",
   btnAsk: "Пройти опрос", btnShare: "Поделиться", btnDelete: "Удалить ТС",
@@ -1402,7 +1423,7 @@ en: {
   noModels: "No entry models yet", noneYet: "empty so far",
   shotAdd: "add a screenshot", shotAddShort: "one more",
   shotHint: "click → Ctrl+V · double → file", shotArmed: "now press Ctrl+V",
-  shotReplace: "click to replace", shotExample: "example", shotHow: "what it looks like",
+  shotReplace: "replace screenshot", shotOpen: "open", shotExample: "example", shotHow: "what it looks like",
 
   gateOk: "all ticked — by your rules the entry is valid", gateBad: "not everything is ticked — by your own rules there is no entry",
   btnAsk: "Run the questions", btnShare: "Share", btnDelete: "Delete system",

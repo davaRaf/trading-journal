@@ -209,9 +209,14 @@
 .ts-ed{cursor:pointer; border-radius:6px; padding:1px 5px; margin:0 -5px;
   border-bottom:1px dashed color-mix(in srgb, var(--faint) 40%, transparent);
   transition:background .15s, box-shadow .15s, border-color .15s, color .15s}
+/* Перенос рядка в тексті — це перенос і на екрані. Без цього список правил
+   («General rules» і подібне) злипався в суцільний абзац, а рядками ставав
+   тільки коли поле відкривали на правку: у textarea переноси видно, а в
+   звичайному span браузер їх з'їдає. */
+.ts-ed{white-space:pre-wrap}
 /* широке багаторядкове поле підкреслювати не треба: лінія на всю колонку
    читається як роздільник, а не як «сюди можна писати» */
-.ts-ed.multi:not(.blank){border-bottom-color:transparent}
+.ts-ed.multi:not(.blank){border-bottom-color:transparent; display:block; line-height:1.62}
 .ts-ed.multi:not(.blank):hover{border-bottom-color:transparent}
 .ts-ed:hover{background:var(--accent-soft); border-bottom-color:transparent;
   box-shadow:inset 0 0 0 1px color-mix(in srgb, var(--accent) 45%, transparent)}
@@ -275,6 +280,19 @@ textarea.ts-in{resize:none; overflow:auto; display:block; max-height:50vh;
 .ts-shot.armed .ph em{opacity:1; color:var(--accent)}
 .ts-shot.drop{border-style:solid; border-color:var(--accent);
   box-shadow:0 0 0 3px color-mix(in srgb, var(--accent) 22%, transparent)}
+/* Заповнений слот: сама картинка відкривається на весь екран, а замінити
+   й прибрати — кнопки в кутку. Раніше клік по картинці лише «націлював»
+   слот під Ctrl+V, і роздивитись скрін не виходило взагалі. */
+.ts-shot.has{cursor:zoom-in}
+.ts-shot .rp{position:absolute; top:6px; right:32px; width:22px; height:22px; border:0;
+  border-radius:6px; background:var(--overlay-strong); color:#fff; cursor:pointer;
+  display:grid; place-items:center; padding:0; opacity:0; transition:opacity .15s}
+.ts-shot .rp svg{width:13px; height:13px}
+.ts-shot:hover .rp{opacity:1}
+/* на тачі ховера немає — кнопки мають бути видні одразу */
+@media (hover:none){
+  .ts-shot .rp, .ts-shot .rm{opacity:1}
+}
 .ts-shot .ph{display:flex; flex-direction:column; align-items:center; justify-content:center;
   gap:6px; height:106px; color:var(--dim); font-size:12.5px; text-align:center; padding:6px}
 .ts-shot:hover .ph{color:var(--accent)}
