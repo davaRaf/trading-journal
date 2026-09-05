@@ -199,6 +199,34 @@
   .as-fab svg{width:22px; height:22px}
 }
 
+/* ============================================================
+   Аналітика, розбір дня, перемикач місяця — на телефоні.
+   ============================================================ */
+@media (max-width:900px){
+  /* аналітика: у рядку чотири видимі клітинки — і колонок має бути чотири */
+  .arow,.ahead{grid-template-columns:minmax(0,1fr) 34px 58px 78px; gap:8px; padding:10px 12px}
+  .ahead span:nth-child(3){display:block}
+  .ahead span:nth-child(4),.arow .rr{display:none}
+  .arow{font-size:13.5px}
+  .arow .wrbar .track{display:none}
+  .arow .wrbar b{min-width:0}
+}
+
+@media (max-width:560px){
+  /* розбір дня: перемикач на всю ширину, під ним стрілки з датою між ними */
+  .dv-nav{width:100%; margin-left:0; flex-wrap:wrap; gap:6px}
+  .dv-nav .dv-seg{flex:1 1 100%; display:grid; grid-template-columns:1fr 1fr}
+  .dv-nav .dv-calwrap{flex:1 1 auto; min-width:0; display:block}
+  .dv-nav .dv-calwrap .day{width:100%; display:inline-flex; align-items:center; justify-content:center; gap:7px}
+  .dv-nav > button{flex:0 0 auto}
+
+  /* журнал: назва місяця в один рядок */
+  .mnav .lb{white-space:nowrap; font-size:12px; padding:6px 8px; gap:5px}
+  .mnav .lb svg{display:none}
+  .mnav .nb{padding:5px 9px}
+  .mnav .tb{padding:6px 9px; font-size:12px}
+}
+
 /* планшет у книжковій орієнтації: панель лишається, але вужча */
 @media (min-width:901px) and (max-width:1100px){
   .side{width:188px; padding:16px 10px}
