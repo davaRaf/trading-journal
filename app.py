@@ -883,7 +883,7 @@ class H(BaseHTTPRequestHandler):
         #
         # Закритий журнал і неіснуючий нік відповідають однаково — 404. Так
         # по чужому ніку не можна навіть дізнатись, що така людина є.
-        m = re.match(r"^/api/u/([\w.\-]{1,40})(/trades)?$", p)
+        m = re.match(r"^/api/u/([^/\x00-\x1f]{1,40})(/trades)?$", p)
         if m:
             uid = self._uid()
             if not uid:
@@ -901,7 +901,7 @@ class H(BaseHTTPRequestHandler):
                                "me": owner["id"] == uid})
 
         # картинка з чужого журналу: /ushot/<нік>/<файл>
-        m = re.match(r"^/ushot/([\w.\-]{1,40})/([\w.\-]{4,120})$", p)
+        m = re.match(r"^/ushot/([^/\x00-\x1f]{1,40})/([\w.\-]{4,120})$", p)
         if m:
             uid = self._uid()
             owner = db.get_user_by_nick(m.group(1)) if uid else None
@@ -1137,7 +1137,12 @@ class H(BaseHTTPRequestHandler):
         # Чужий журнал — та сама сторінка застосунку: розділи, календар і
         # аналітика вже вміють малювати будь-який список угод. Хто саме
         # хазяїн і що можна робити, розбирає pub.js за адресою.
-        if re.match(r"^/u/[\w.\-]{1,40}/?$", p):
+        #
+        # Нік у адресі беремо будь-який, крім скісної риски: при реєстрації
+        # його не звужували, тому там бувають пробіли й кирилиця ("Artur
+        # Rafaelian"). Далі він іде тільки в запит до бази за точним збігом,
+        # у файлові шляхи не потрапляє.
+        if re.match(r"^/u/[^/\x00-\x1f]{1,40}/?$", p):
             return self._file(os.path.join(STATIC, "index.html"),
                               "text/html; charset=utf-8")
 

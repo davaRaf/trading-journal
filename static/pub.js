@@ -23,8 +23,12 @@ const esc = s => String(s == null ? "" : s)
 
 /* Адреса — єдине джерело: /u/<нік> вмикає режим, будь-яка інша сторінка ні. */
 function detect(){
-  const m = location.pathname.match(/^\/u\/([\w.\-]{1,40})\/?$/);
-  nick = m ? decodeURIComponent(m[1]) : "";
+  /* Нік беремо як є: у ньому бувають пробіли й кирилиця, тому в адресі
+     він приходить закодованим (%20 і таке інше) — звужувати набір літер
+     тут не можна, інакше свій же журнал не відкриється. */
+  const m = location.pathname.match(/^\/u\/([^/]{1,255})\/?$/);
+  try { nick = m ? decodeURIComponent(m[1]) : ""; }
+  catch (e) { nick = m ? m[1] : ""; }
   on = !!nick;
   return on;
 }
