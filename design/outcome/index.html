@@ -1,0 +1,368 @@
+<title>Скип и тейк руками</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600&family=Geist+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+/* ============================================================
+   Два новых исхода сделки.
+
+   «TP руками» — тейк, до которого цена дошла не сама: закрыл рукой.
+   Для денег это обычный тейк, но отдельная метка нужна, иначе не
+   узнаешь, как часто выходишь раньше времени и сколько на этом теряешь.
+
+   «Скип» — сделки не было. Ноль в деньгах, но событие важное: человек
+   увидел сетап и не взял. У скипа нет ни RR, ни риска, ни входа —
+   вместо «как заходил» единственный вопрос: почему не зашёл.
+
+   Это макет: цифры зашиты, сервер не нужен, приложение из корня
+   репозитория он не трогает.
+   ============================================================ */
+:root{
+  --bg:#050505; --panel:#0d0d0e; --panel-2:#111112; --panel-3:#161617;
+  --line:rgba(255,255,255,.08); --line-soft:rgba(255,255,255,.045);
+  --text:#f2f2f3; --dim:#8c8c90; --faint:#5c5c61;
+  --accent:#40e094; --accent-soft:rgba(64,224,148,.12);
+  --up:#40e094; --down:#ff6e60; --be:#efc258;
+  --skip:#7f8ea3; --skip-soft:rgba(127,142,163,.14);
+  --up-soft:rgba(64,224,148,.13); --down-soft:rgba(255,110,96,.13); --be-soft:rgba(239,194,88,.13);
+  --mono:"Geist Mono",ui-monospace,monospace;
+  --sans:"Geist",system-ui,sans-serif;
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--text);font:14px/1.5 var(--sans);
+  -webkit-font-smoothing:antialiased}
+h1,h2,h3,h4{margin:0;font-weight:600}
+button{font:inherit;color:inherit;background:none;border:0;cursor:pointer}
+input,textarea,select{font:inherit;color:inherit}
+.pos{color:var(--up)}.neg{color:var(--down)}.bec{color:var(--be)}.skc{color:var(--skip)}
+
+.wrap{max-width:1240px;margin:0 auto;padding:34px 26px 90px}
+.lead h1{font-size:22px;letter-spacing:-.02em}
+.lead p{margin:9px 0 0;color:var(--dim);max-width:70ch;font-size:13.5px}
+.hint{margin:0;color:var(--faint);font-size:12.5px;max-width:74ch}
+
+h2.step{font-size:12px;font-family:var(--mono);letter-spacing:.16em;text-transform:uppercase;
+  color:var(--accent);margin:38px 0 14px;display:flex;align-items:center;gap:9px}
+h2.step::before{content:"";width:3px;height:12px;border-radius:2px;background:var(--accent)}
+
+.cols{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:18px;align-items:start}
+@media (max-width:900px){.cols{grid-template-columns:1fr}}
+
+/* ---------- карточка-обёртка ---------- */
+.card{border:1px solid var(--line);border-radius:14px;background:var(--panel);overflow:hidden}
+.card > .h{padding:12px 16px;border-bottom:1px solid var(--line-soft);font-family:var(--mono);
+  font-size:10px;letter-spacing:.15em;text-transform:uppercase;color:var(--faint)}
+.card > .b{padding:16px;display:flex;flex-direction:column;gap:16px}
+
+/* ---------- сегменты выбора исхода ---------- */
+.seg{display:flex;flex-wrap:wrap;gap:7px}
+.seg button{padding:10px 14px;border:1px solid var(--line);border-radius:10px;background:var(--panel-2);
+  font-family:var(--mono);font-size:13px;color:var(--dim);transition:.15s;white-space:nowrap}
+.seg button:hover{color:var(--text);border-color:rgba(255,255,255,.18)}
+.seg button.on{font-weight:500}
+.seg button.on[data-k="Win"],.seg button.on[data-k="WinM"]{background:var(--up-soft);border-color:var(--up);color:var(--up)}
+.seg button.on[data-k="Loss"]{background:var(--down-soft);border-color:var(--down);color:var(--down)}
+.seg button.on[data-k="BE-"],.seg button.on[data-k="BE+"]{background:var(--be-soft);border-color:var(--be);color:var(--be)}
+.seg button.on[data-k="Skip"]{background:var(--skip-soft);border-color:var(--skip);color:#c6d0dc}
+
+.f{display:flex;flex-direction:column;gap:7px}
+.f > label{font-size:12px;color:var(--faint)}
+.f input,.f textarea,.f select{background:var(--panel-2);border:1px solid var(--line);border-radius:10px;
+  padding:10px 12px;font-size:13.5px;width:100%}
+.f textarea{min-height:74px;resize:vertical;line-height:1.55}
+.f input:focus,.f textarea:focus{outline:none;border-color:var(--accent)}
+.frow{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.sub{font-size:12px;color:var(--faint);margin:-2px 0 0}
+
+.outcome{border:1px solid var(--line-soft);border-radius:11px;padding:12px 14px;background:var(--panel-2);
+  display:flex;align-items:center;gap:10px;font-size:13.5px}
+.outcome b{font-family:var(--mono);font-size:19px;font-weight:500}
+
+/* ---------- строка дня ---------- */
+.rows{display:flex;flex-direction:column}
+.trow{display:grid;grid-template-columns:minmax(0,1fr) auto auto;gap:4px 9px;align-items:center;
+  padding:11px 16px;border-bottom:1px solid var(--line-soft);width:100%;text-align:left}
+.trow:last-child{border-bottom:0}
+.trow .p{font-family:var(--mono);font-weight:500;grid-column:1;grid-row:1}
+.trow .d{font-family:var(--mono);font-size:11.5px;color:var(--faint);grid-column:1;grid-row:2}
+.trow .r{font-family:var(--mono);font-weight:600;grid-column:3;grid-row:2;justify-self:end}
+.trow.skip{opacity:.72}
+.badge{font-family:var(--mono);font-size:10.5px;letter-spacing:.06em;padding:3px 7px;border-radius:6px;
+  background:var(--panel-3);color:var(--dim);grid-row:1;justify-self:end}
+.badge.long{background:var(--up-soft);color:var(--up)}
+.badge.short{background:var(--down-soft);color:var(--down)}
+.badge.win{background:var(--up-soft);color:var(--up)}
+.badge.hand{background:var(--up-soft);color:var(--up);border:1px dashed rgba(64,224,148,.5)}
+.badge.loss{background:var(--down-soft);color:var(--down)}
+.badge.be{background:var(--be-soft);color:var(--be)}
+.badge.skip{background:var(--skip-soft);color:#c6d0dc}
+
+/* ---------- карточка сделки ---------- */
+.stats{display:grid;grid-template-columns:repeat(3,1fr);gap:1px;background:var(--line-soft);
+  border:1px solid var(--line-soft);border-radius:12px;overflow:hidden}
+.stats .st{background:var(--panel-2);padding:12px 14px}
+.stats .lab{font-family:var(--mono);font-size:9.5px;letter-spacing:.16em;text-transform:uppercase;
+  color:var(--accent);margin-bottom:7px}
+.stats .val{font-family:var(--mono);font-size:17px}
+.sec{border:1px solid var(--line-soft);border-radius:12px;background:var(--panel-2);padding:14px}
+.sec .ttl{display:inline-flex;align-items:center;gap:8px;padding:5px 11px 5px 8px;border-radius:8px;
+  background:var(--accent-soft);color:var(--accent);font-family:var(--mono);font-size:9.5px;
+  letter-spacing:.18em;text-transform:uppercase;margin-bottom:12px}
+.sec .ttl::before{content:"";width:3px;height:11px;border-radius:2px;background:var(--accent)}
+.note .l{display:flex;align-items:center;gap:7px;font-family:var(--mono);font-size:9.5px;
+  letter-spacing:.14em;text-transform:uppercase;color:var(--accent);margin-bottom:5px}
+.note .l::before{content:"";width:4px;height:4px;border-radius:50%;background:currentColor;opacity:.65}
+.note .v{font-size:13.5px;line-height:1.6}
+.note + .note{margin-top:13px}
+.fields{display:grid;grid-template-columns:1fr 1fr;gap:0 22px}
+.fields .fr{display:flex;justify-content:space-between;gap:10px;padding:7px 0;
+  border-bottom:1px solid var(--line-soft)}
+.fields .l{color:var(--accent);font-size:12.5px}
+.fields .v{font-size:13.5px;font-weight:500}
+
+/* ---------- статистика месяца ---------- */
+.kpi{display:grid;grid-template-columns:repeat(auto-fit,minmax(128px,1fr));gap:1px;
+  background:var(--line-soft);border:1px solid var(--line-soft);border-radius:12px;overflow:hidden}
+.kpi div{background:var(--panel-2);padding:13px 15px}
+.kpi .l{font-family:var(--mono);font-size:9.5px;letter-spacing:.14em;text-transform:uppercase;
+  color:var(--faint);margin-bottom:6px;white-space:nowrap}
+.kpi .v{font-family:var(--mono);font-size:19px}
+.kpi div.new{background:rgba(64,224,148,.05)}
+.kpi div.new .l{color:var(--accent)}
+.tag{display:inline-block;margin-left:7px;font-family:var(--mono);font-size:9px;letter-spacing:.1em;
+  text-transform:uppercase;color:var(--accent);border:1px solid rgba(64,224,148,.4);
+  border-radius:5px;padding:1px 5px;vertical-align:middle}
+
+table.cmp{width:100%;border-collapse:collapse;font-size:13px}
+table.cmp th{font-family:var(--mono);font-size:9.5px;letter-spacing:.13em;text-transform:uppercase;
+  color:var(--faint);font-weight:400;text-align:left;padding:9px 12px;border-bottom:1px solid var(--line-soft)}
+table.cmp td{padding:10px 12px;border-bottom:1px solid var(--line-soft);vertical-align:top}
+table.cmp tr:last-child td{border-bottom:0}
+table.cmp .k{font-family:var(--mono);white-space:nowrap}
+</style>
+
+<div class="wrap">
+  <div class="lead">
+    <h1>Скип и тейк, закрытый руками</h1>
+    <p>Сейчас у сделки четыре исхода: TP, SL, BE− и BE+. Добавляем два. <b>TP руками</b> — тейк,
+      до которого цена дошла не сама, закрыл рукой. <b>Скип</b> — сделки не было: увидел сетап и не взял.
+      Пощёлкай кнопки исхода — форма под ними меняется.</p>
+  </div>
+
+  <h2 class="step">Форма записи</h2>
+  <div class="cols">
+    <div class="card">
+      <div class="h">Чем всё закончилось</div>
+      <div class="b">
+        <div class="seg" id="seg"></div>
+        <div id="form"></div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="h">Как это ляжет в журнал</div>
+      <div class="b" id="preview"></div>
+    </div>
+  </div>
+  <p class="hint" id="why" style="margin-top:14px"></p>
+
+  <h2 class="step">День в журнале</h2>
+  <div class="card">
+    <div class="h">Понедельник, 4 сентября <span style="color:var(--faint)">· 4 записи</span></div>
+    <div class="rows" id="day"></div>
+  </div>
+  <p class="hint" style="margin-top:12px">Скип приглушён и без процента — он не двигает деньги.
+    Но он в списке дня, потому что это событие: сетап был, ты его не взял.</p>
+
+  <h2 class="step">Что меняется в статистике</h2>
+  <div class="card">
+    <div class="h">Сентябрь</div>
+    <div class="b">
+      <div class="kpi" id="kpi"></div>
+      <p class="hint">Скипы не входят ни в win rate, ни в profit factor, ни в средний RR — сделки не было,
+        и если её считать, все проценты поедут. Они считаются отдельной цифрой: это дисциплина, а не результат.
+        «TP руками» для денег обычный тейк и входит в win rate наравне с ним, но виден отдельно.</p>
+    </div>
+  </div>
+
+  <h2 class="step">Решения, которые надо утвердить</h2>
+  <div class="card">
+    <div class="b" style="padding:0">
+      <table class="cmp">
+        <thead><tr><th>Вопрос</th><th>Как предлагаю</th><th>Почему</th></tr></thead>
+        <tbody id="cmp"></tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<script>
+/* ---------------- исходы ---------------- */
+const R = {
+  "Win":  {t:"TP",       cls:"win",  hand:false, trade:true},
+  "WinM": {t:"TP руками",cls:"hand", hand:true,  trade:true},
+  "Loss": {t:"SL",       cls:"loss", trade:true},
+  "BE-":  {t:"BE−",      cls:"be",   trade:true},
+  "BE+":  {t:"BE+",      cls:"be",   trade:true},
+  "Skip": {t:"Скип",     cls:"skip", trade:false}
+};
+let cur = "Skip";
+
+const WHY = {
+  "Win":  "Обычный тейк: цена дошла до цели сама. Форма как была.",
+  "WinM": "Для денег это тот же тейк — считается в win rate наравне с ним. Отдельная метка нужна, чтобы потом увидеть, как часто ты выходишь раньше времени. Поэтому рядом с фактическим RR появляется «планировал» — из разницы и складывается, сколько ты оставил на столе.",
+  "Loss": "Стоп забирает ровно свой риск. Форма как была.",
+  "BE-":  "Безубыток, который спас: цена шла против, вышел в ноль.",
+  "BE+":  "Безубыток, который отнял: цена пошла бы к цели, но вышел в ноль. RR тут нужен, чтобы посчитать, сколько недозаработал.",
+  "Skip": "Сделки не было. RR, риск и модель входа исчезают — их неоткуда взять. Остаётся один вопрос: почему не зашёл. Скрин при этом полезен: через месяц посмотришь, правильно ли пропустил."
+};
+
+/* ---------------- форма ---------------- */
+function form(){
+  if (cur === "Skip"){
+    return '<div class="f"><label>Что видел</label>'
+      + '<input value="US100 · 1H имбаланс после свипа азии" readonly></div>'
+      + '<div class="f"><label>Почему не зашёл</label>'
+      + '<textarea readonly>не дождался подтверждения на 15m — не было CISD, а до новостей оставалось 12 минут</textarea>'
+      + '<p class="sub">Единственное обязательное поле у скипа. Из этих ответов потом видно, '
+      + 'что чаще всего тебя останавливает.</p></div>'
+      + '<div class="f"><label>Скрин</label><input value="15m · снимок момента" readonly></div>'
+      + '<div class="outcome"><span style="color:var(--faint)">В деньгах</span> '
+      + '<b class="skc">0.00%</b> <span style="color:var(--faint)">· в статистику сделок не идёт</span></div>';
+  }
+
+  const planned = cur === "WinM"
+    ? '<div class="f"><label>Планировал RR <span class="tag">новое</span></label>'
+      + '<input value="3.2" readonly><p class="sub">Сколько дал бы тейк, если бы досидел.</p></div>'
+    : "";
+
+  const rrLabel = cur === "WinM" ? "RR по факту" : "RR";
+  const rr = cur === "Loss" ? "—" : cur === "WinM" ? "2.1" : "2.6";
+
+  return '<div class="frow">'
+    + '<div class="f"><label>' + rrLabel + '</label><input value="' + rr + '" readonly></div>'
+    + '<div class="f"><label>Риск, %</label><input value="1" readonly></div>'
+    + "</div>"
+    + planned
+    + '<div class="f"><label>Как заходил</label>'
+    + '<textarea readonly>снял ликвидность азии, вернулся в 1H имбаланс, CISD на 15m</textarea></div>'
+    + '<div class="outcome"><span style="color:var(--faint)">В деньгах</span> ' + money() + "</div>";
+}
+
+function money(){
+  if (cur === "Win")  return '<b class="pos">+2.60%</b>';
+  if (cur === "WinM") return '<b class="pos">+2.10%</b> <span style="color:var(--faint)">· '
+    + 'оставил <b class="neg" style="font-size:13.5px">1.10%</b>, выйдя раньше</span>';
+  if (cur === "Loss") return '<b class="neg">−1.00%</b>';
+  if (cur === "BE-")  return '<b class="bec">0.00%</b> <span style="color:var(--faint)">· спас 1.00%</span>';
+  return '<b class="bec">0.00%</b> <span style="color:var(--faint)">· не дал заработать 2.60%</span>';
+}
+
+/* ---------------- как выглядит в журнале ---------------- */
+function preview(){
+  const o = R[cur];
+  const head = '<div class="stats">'
+    + '<div class="st"><div class="lab">Результат</div><div class="val">' + o.t + "</div></div>"
+    + '<div class="st"><div class="lab">RR</div><div class="val">'
+    + (cur === "Skip" ? "—" : cur === "WinM" ? "2.1" : cur === "Loss" ? "—" : "2.6") + "</div></div>"
+    + '<div class="st"><div class="lab">Риск</div><div class="val">' + (cur === "Skip" ? "—" : "1%") + "</div></div>"
+    + "</div>";
+
+  if (cur === "Skip"){
+    return head
+      + '<div class="sec"><span class="ttl">Что записал</span>'
+      + '<div class="note"><div class="l">Что видел</div>'
+      + '<div class="v">US100 · 1H имбаланс после свипа азии</div></div>'
+      + '<div class="note"><div class="l">Почему не зашёл</div>'
+      + '<div class="v">не дождался подтверждения на 15m — не было CISD, а до новостей оставалось 12 минут</div></div>'
+      + "</div>";
+  }
+
+  return head
+    + '<div class="sec"><span class="ttl">Как торговал</span><div class="fields">'
+    + [["Сессия","LONDON"],["Биас","Long"],["Модель входа","cisd"],["Сетап","1h/15m/1m"]].map(f =>
+        '<div class="fr"><span class="l">' + f[0] + '</span><span class="v">' + f[1] + "</span></div>").join("")
+    + "</div></div>"
+    + '<div class="sec"><span class="ttl">Что записал</span>'
+    + '<div class="note"><div class="l">Как заходил</div>'
+    + '<div class="v">снял ликвидность азии, вернулся в 1H имбаланс, CISD на 15m</div></div>'
+    + (cur === "WinM"
+        ? '<div class="note"><div class="l">Почему закрыл руками</div>'
+          + '<div class="v">пошло вяло, до новостей десять минут — забрал что было</div></div>'
+        : "")
+    + "</div>";
+}
+
+/* ---------------- день ---------------- */
+const DAY = [
+  {pair:"US100", pos:"Long",  t:"09:04", res:"Win",  r:"+2.60%", cls:"pos"},
+  {pair:"GER40", pos:"Short", t:"10:10", res:"WinM", r:"+2.10%", cls:"pos"},
+  {pair:"ES500", pos:"Short", t:"12:31", res:"Loss", r:"−1.00%", cls:"neg"},
+  {pair:"US100", pos:"",      t:"14:20", res:"Skip", r:"—",      cls:"skc"}
+];
+
+function day(){
+  document.getElementById("day").innerHTML = DAY.map(d => {
+    const o = R[d.res];
+    return '<div class="trow' + (d.res === "Skip" ? " skip" : "") + '">'
+      + '<span class="p">' + d.pair
+      + (d.pos ? ' <span class="badge ' + (d.pos === "Long" ? "long" : "short") + '">' + d.pos + "</span>" : "")
+      + "</span>"
+      + '<span class="d">' + d.t + "</span>"
+      + '<span class="badge ' + o.cls + '">' + o.t + "</span>"
+      + '<span class="r ' + d.cls + '">' + d.r + "</span>"
+      + "</div>";
+  }).join("");
+}
+
+/* ---------------- статистика ---------------- */
+const KPI = [
+  ["Сделок","16",""],["Win rate","50%",""],["Подытог, %","+6.3%","pos"],
+  ["Средний RR","1.98",""],["TP / SL / BE","6 / 6 / 4",""],
+  ["Скипов","5","new"],["Закрыл руками","3","new"],["Недобрал на этом","−2.8%","new neg"]
+];
+
+function kpi(){
+  document.getElementById("kpi").innerHTML = KPI.map(k => {
+    const cls = (k[2] || "").replace("neg","").trim();
+    const vcls = /neg/.test(k[2] || "") ? "neg" : /pos/.test(k[2] || "") ? "pos" : "";
+    return '<div class="' + cls + '"><div class="l">' + k[0] + "</div>"
+      + '<div class="v ' + vcls + '">' + k[1] + "</div></div>";
+  }).join("");
+}
+
+/* ---------------- вопросы ---------------- */
+const CMP = [
+  ["Скип в win rate", "не входит",
+   "Сделки не было. Пять скипов за месяц уронили бы win rate с 50% до 38% — при том, что ты ничего не потерял."],
+  ["Скип в счётчике сделок", "не входит, стоит своей цифрой",
+   "«16 сделок и 5 скипов» — честно. «21 сделка» — уже нет."],
+  ["Что обязательно у скипа", "только «почему не зашёл»",
+   "RR и риска не существует, модель входа неоткуда взять. Инструмент и скрин — по желанию."],
+  ["TP руками в win rate", "входит как обычный TP",
+   "Деньги пришли. Разделять их в win rate — значит спорить с собственным счётом."],
+  ["Поле «планировал RR»", "необязательное",
+   "Из него считается «недобрал на этом» — на мой взгляд, самая полезная цифра из всей затеи. Но если не заполнить, всё остальное работает."],
+  ["Старые сделки", "не трогаем",
+   "Всё, что записано, остаётся как есть: новые исходы просто добавляются в список."]
+];
+
+function cmp(){
+  document.getElementById("cmp").innerHTML = CMP.map(c =>
+    "<tr><td class=\"k\">" + c[0] + "</td><td style=\"color:var(--accent)\">" + c[1]
+    + '</td><td style="color:var(--dim)">' + c[2] + "</td></tr>").join("");
+}
+
+/* ---------------- сборка ---------------- */
+function paint(){
+  document.getElementById("seg").innerHTML = Object.keys(R).map(k =>
+    '<button data-k="' + k + '"' + (k === cur ? ' class="on"' : "") + ' onclick="pick(\'' + k + '\')">'
+    + R[k].t + "</button>").join("");
+  document.getElementById("form").innerHTML = form();
+  document.getElementById("preview").innerHTML = preview();
+  document.getElementById("why").textContent = WHY[cur];
+}
+function pick(k){ cur = k; paint(); }
+
+paint(); day(); kpi(); cmp();
+</script>
