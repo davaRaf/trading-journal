@@ -1373,32 +1373,41 @@ body::after{
 /* ================== варианты левого меню ==================
    data-nav: current (как было), flat (спокойное текстовое), icons (узкая полоса). */
 
-/* ---- Flat: без плашек и рамок, меню читается как оглавление ---- */
-:root[data-nav="flat"] .side{width:206px;padding:22px 18px;gap:22px;background:var(--bg);
+/* ---- Flat: тихий рельс ----
+   Активний розділ більше не плитка в рамці. Де ти зараз, каже смуга біля
+   самого краю панелі й білий текст — око не спотикається об прямокутник,
+   а бачить місце. Іконка й підпис знову в один рядок: так підпис читається
+   з першого погляду і не доводиться різати «Калькулятор ризику». */
+:root[data-nav="flat"] .side{width:212px;padding:22px 12px;gap:16px;background:var(--bg);
   border-right:1px solid var(--line-soft)}
-:root[data-nav="flat"] .brand{padding:0;gap:10px}
+:root[data-nav="flat"] .brand{padding:0 10px}
 :root[data-nav="flat"] .newtrade{background:none;border:1px solid var(--line);color:var(--text);
-  font-weight:500;border-radius:10px;padding:9px 12px}
-:root[data-nav="flat"] .newtrade:hover{background:var(--panel-2);box-shadow:none;filter:none}
-/* іконка над підписом, усе по центру плитки — замість рядка "іконка | текст" */
-:root[data-nav="flat"] .nav{gap:3px}
-:root[data-nav="flat"] .nav a{padding:10px 4px;border:none;border-radius:10px;background:none;color:var(--dim);
-  flex-direction:column;align-items:center;justify-content:center;text-align:center;gap:5px}
-:root[data-nav="flat"] .nav a span{font-size:11.5px}
+  font-weight:500;border-radius:8px;padding:10px 12px}
+:root[data-nav="flat"] .newtrade:hover{background:none;border-color:var(--accent);color:var(--accent);
+  box-shadow:none;filter:none}
+:root[data-nav="flat"] .nav{gap:2px}
+:root[data-nav="flat"] .nav a{position:relative;flex-direction:row;align-items:center;text-align:left;
+  gap:11px;padding:9px 10px;border:none;border-radius:6px;background:none;color:var(--dim);font-size:13.5px}
+:root[data-nav="flat"] .nav a span{font-size:13.5px}
 :root[data-nav="flat"] .nav a:hover{background:var(--panel-2);color:var(--text)}
-:root[data-nav="flat"] .nav a.on{background:var(--panel-2);border:none;color:var(--text);font-weight:600}
-:root[data-nav="flat"] .nav a.on .ic{opacity:1;color:var(--up)}
-:root[data-nav="flat"] .side .grp{gap:1px;padding-top:20px;border-top:1px solid var(--line-soft)}
-/* лейбл і calc/conn нижче мають той самий горизонтальний відступ 8px, щоб
-   іконки рядків лишались під літерою "В" підпису — інакше знову розʼїдеться */
-:root[data-nav="flat"] .side .lab{padding:0 8px 6px}
-/* та ж скругленість і підсвітка на ховері, що й у nav-плиток вище —
-   щоб calc/conn не виглядали чужорідно поруч з новою навігацією */
-:root[data-nav="flat"] .conn-head{padding:6px 8px;border-radius:10px}
+:root[data-nav="flat"] .nav a.on{background:none;border:none;color:var(--text);font-weight:600}
+:root[data-nav="flat"] .nav a.on .ic{opacity:1;color:var(--accent)}
+/* смуга виходить за поле панелі — стоїть рівно по її краю */
+:root[data-nav="flat"] .nav a.on::before{content:"";position:absolute;left:-12px;top:6px;bottom:6px;
+  width:2px;border-radius:0 2px 2px 0;background:var(--accent)}
+:root[data-nav="flat"] .side .grp{gap:1px;padding-top:16px;border-top:1px solid var(--line-soft)}
+/* підпис розділу тихіший за пункти: він орієнтир, а не пункт меню */
+:root[data-nav="flat"] .side .lab{padding:0 10px 7px;font-size:9px;letter-spacing:.16em;color:var(--faint);opacity:.75}
+:root[data-nav="flat"] .conn-head{padding:6px 10px;border-radius:6px}
 :root[data-nav="flat"] .conn-head:hover{background:var(--panel-2)}
-:root[data-nav="flat"] .mini{background:none;border:none;padding:7px 8px;border-radius:10px;color:var(--faint);font-size:13px}
+:root[data-nav="flat"] .mini{background:none;border:none;padding:8px 10px;border-radius:6px;
+  color:var(--faint);font-size:13px;gap:11px}
 :root[data-nav="flat"] .mini:hover{background:var(--panel-2);color:var(--text)}
-:root[data-nav="flat"] .side-foot{padding-top:18px;border-top:1px solid var(--line-soft)}
+:root[data-nav="flat"] a.mini.on{background:none;box-shadow:none;border:none;color:var(--text);font-weight:600;
+  position:relative}
+:root[data-nav="flat"] a.mini.on::before{content:"";position:absolute;left:-12px;top:6px;bottom:6px;
+  width:2px;border-radius:0 2px 2px 0;background:var(--accent)}
+:root[data-nav="flat"] .side-foot{padding-top:16px;border-top:1px solid var(--line-soft)}
 :root[data-nav="flat"] #themeBtn{justify-content:flex-start}
 
 /* ---- Icons: полоса 68 пикселей, подписи всплывают подсказкой ---- */
@@ -1425,6 +1434,18 @@ body::after{
 :root[data-nav="icons"] .nav a.on{background:var(--panel-2);border-color:var(--line)}
 :root[data-nav="icons"] .nav a.on .ic{opacity:1;color:var(--up)}
 :root[data-nav="icons"] .mini:hover,:root[data-nav="icons"] .nav a:hover{background:var(--panel-2)}
+/* меню лежить рядком (верхнє меню й телефон) — смугу знімаємо: там
+   «де я» показує підкреслення знизу, інакше риска висіла б збоку від тексту */
+:root[data-layout="top"] .side .nav a.on::before,
+:root[data-layout="top"] .side a.mini.on::before{display:none}
+:root[data-layout="top"] .side .nav a.on{box-shadow:inset 0 -2px 0 var(--accent)}
+/* те саме на телефоні: меню там лежить рядком під шапкою */
+@media(max-width:860px){
+  :root[data-nav="flat"] .nav a.on::before,
+  :root[data-nav="flat"] a.mini.on::before{display:none}
+  :root[data-nav="flat"] .nav a.on{box-shadow:inset 0 -2px 0 var(--accent)}
+  :root[data-nav="flat"] .side{padding:12px 14px}
+}
 
 /* ---- карточки без обводки: границу держит собственный фон ---- */
 .card,.qcard{border-color:transparent}
