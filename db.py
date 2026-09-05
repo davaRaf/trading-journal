@@ -11,7 +11,7 @@ import psycopg
 from psycopg.rows import dict_row
 from psycopg.types.json import Jsonb
 
-from config import DATABASE_URL
+from config import DATABASE_URL, DB_POOL_MAX
 
 # Текстовые поля сделки. Порядок важен: по нему строятся INSERT/UPDATE.
 TEXT_FIELDS = ["pair", "date", "session", "position", "entry_model", "bias", "setup",
@@ -37,6 +37,11 @@ LINK_CODE_TTL = datetime.timedelta(minutes=15)
 # Пул держит несколько соединений открытыми и выдаёт их по кругу.
 # psycopg_pool необязателен: если его нет (старое окружение), работаем
 # по-прежнему, только медленнее.
+#
+# Размер задаётся в config (DB_POOL_MAX). Было жёстко 8 — этого хватало,
+# пока сайт обслуживал единицы; на сотне человек восьмёрка становится
+# горлышком: запросы выстраиваются в очередь за свободным соединением,
+# хотя база при этом скучает.
 try:
     from psycopg_pool import ConnectionPool
 except ImportError:
@@ -53,7 +58,7 @@ def _get_pool():
             if _pool is None:
                 _pool = ConnectionPool(
                     DATABASE_URL,
-                    min_size=1, max_size=8,
+                    min_size=2, max_size=DB_POOL_MAX,
                     max_idle=300,               # Neon рвёт простаивающие сам
                     kwargs={"row_factory": dict_row},
                     check=ConnectionPool.check_connection,

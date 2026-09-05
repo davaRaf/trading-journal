@@ -13,7 +13,8 @@ import re
 import secrets
 import threading
 import time
-from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+from concurrent.futures import ThreadPoolExecutor
+from http.server import BaseHTTPRequestHandler, HTTPServer
 import urllib.parse
 from urllib.parse import urlparse, unquote
 
@@ -588,6 +589,11 @@ def public_owner(user_id):
 
 
 class H(BaseHTTPRequestHandler):
+    # Скільки чекати на самого клієнта. Без цього браузер, який відкрив
+    # з'єднання і замовк (обірваний вай-фай, вкладка в сплячці), тримав би
+    # робітника вічно — а їх обмежена кількість.
+    timeout = 30
+
     def log_message(self, fmt, *args):  # тихий лог
         pass
 
@@ -726,8 +732,39 @@ class H(BaseHTTPRequestHandler):
         return "%s://%s" % (proto, host)
 
     # ---------- GET ----------
+    # Чи живий сайт. Хостинг стукає сюди раз на кілька секунд і перезапускає
+    # процес, якщо відповіді немає. Перевіряємо не тільки себе, а й базу:
+    # сайт, який відповідає «живий» без бази, насправді не працює — людина
+    # побачить порожній журнал замість своїх угод.
+    #
+    # Базу мацаємо не частіше разу на 10 секунд: стукають часто, а зайвий
+    # запит на кожен стук — це навантаження на рівному місці.
+    _health_lock = threading.Lock()
+    _health = [0.0, False]            # коли перевіряли, що вийшло
+
+    def _db_alive(self):
+        now = time.time()
+        with self._health_lock:
+            when, ok = self._health
+            if now - when < 10:
+                return ok
+        try:
+            with db.connect() as conn:
+                conn.execute("SELECT 1").fetchone()
+            ok = True
+        except Exception:
+            ok = False
+        with self._health_lock:
+            self._health[:] = [now, ok]
+        return ok
+
     def do_GET(self):
         p = unquote(urlparse(self.path).path)
+
+        if p == "/health":
+            if self._db_alive():
+                return self._json({"ok": True})
+            return self._json({"ok": False, "db": "no answer"}, 503)
 
         # ---- открыто всем: страница по ссылке и её снимок ----
         # картинка зі знімка: /api/share/<id>/shot/<файл>
@@ -1489,18 +1526,61 @@ class H(BaseHTTPRequestHandler):
         return self._json({"ok": True})
 
 
+class Server(HTTPServer):
+    """Сервер із постійною бригадою робітників.
+
+    Було: на кожне з'єднання народжувався окремий потік. Поки людина одна —
+    непомітно, а на сотні одночасних відвідувачів це сотні потоків, кожен зі
+    своїм стеком; пам'ять закінчується раніше, ніж процесор.
+
+    Стало: робітників рівно стільки, скільки ми дозволили (WEB_WORKERS), і
+    вони не помирають після відповіді, а беруть наступне з'єднання. Зайві
+    з'єднання чекають у черзі операційної системи — довше, але сервер живий.
+
+    Чому саме 64. Робітник більшість часу не рахує, а чекає: то базу, то
+    відповідь Gemini для «Помічника». Той, хто чекає, процесор не їсть, тож
+    робітників має сенс мати більше, ніж ядер.
+    """
+    # Довжина черги з'єднань, які ще ніхто не взяв. За замовчуванням 5 —
+    # на сплеску решта отримувала б «з'єднання скинуто».
+    request_queue_size = 128
+    allow_reuse_address = True
+
+    def __init__(self, addr, handler, workers):
+        super().__init__(addr, handler)
+        self._pool = ThreadPoolExecutor(max_workers=workers,
+                                        thread_name_prefix="web")
+
+    def process_request(self, request, client_address):
+        self._pool.submit(self._serve, request, client_address)
+
+    def _serve(self, request, client_address):
+        try:
+            self.finish_request(request, client_address)
+        except Exception:
+            self.handle_error(request, client_address)
+        finally:
+            self.shutdown_request(request)
+
+    def server_close(self):
+        super().server_close()
+        self._pool.shutdown(wait=False)
+
+
 if __name__ == "__main__":
     db.init()
-    # щоденний зліпок журналу: тихо, у фоні, раз на добу
-    backup.start()
-    # і сам перечитує Notion раз на дві години
-    notion_sync.start(add=add_trades, fill=blank_filler, conf=notion_conf,
-                      save=notion_save, shots=SHOTS, busy=import_busy)
+    if config.RUN_JOBS:
+        # щоденний зліпок журналу: тихо, у фоні, раз на добу
+        backup.start()
+        # і сам перечитує Notion раз на дві години
+        notion_sync.start(add=add_trades, fill=blank_filler, conf=notion_conf,
+                          save=notion_save, shots=SHOTS, busy=import_busy)
     if config.RUN_BOT and config.BOT_TOKEN:
         # бот живе поруч із сайтом: на безкоштовному хостингу другий
         # процес тримати ніде, а опитування Телеграма нікому не заважає
         import bot
         threading.Thread(target=bot.main, daemon=True).start()
         print("Telegram bot -> у тому самому процесі")
-    print("Trading Journal -> http://localhost:%d/  (Ctrl+C stop)" % PORT)
-    ThreadingHTTPServer((config.HOST, PORT), H).serve_forever()
+    print("Trading Journal -> http://localhost:%d/  (%d робітників, Ctrl+C stop)"
+          % (PORT, config.WEB_WORKERS))
+    Server((config.HOST, PORT), H, config.WEB_WORKERS).serve_forever()
