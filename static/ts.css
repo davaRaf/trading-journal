@@ -260,14 +260,13 @@ textarea.ts-in{resize:none; overflow:auto; display:block; max-height:50vh;
 .ts-line:hover .ts-x, .ts-row:hover .ts-x, .ts-tf:hover .ts-x{opacity:1}
 .ts-x:focus-visible{opacity:1; outline:2px solid var(--accent); outline-offset:1px}
 .ts-x:hover{color:var(--down)}
-/* «додати» — тихий напис, а не пігулка з пунктиром. Пігулки перетягували
-   на себе увагу в кожній колонці: три однакові рамки поруч читались як
-   головне на екрані, хоча головне тут — самі правила. Дію видно з ховера. */
-.ts-add{border:0; background:none; color:var(--faint); font:inherit; font-size:13px;
-  padding:4px 0; cursor:pointer; margin-top:9px; align-self:flex-start;
-  transition:color .15s}
-.ts-add:hover{color:var(--accent)}
-.ts-add:focus-visible{outline:2px solid var(--accent); outline-offset:3px; border-radius:4px}
+/* «+ додати» має читатись як дія, а не як сірий службовий напис */
+.ts-add{border:1px dashed color-mix(in srgb, var(--accent) 40%, var(--line)); background:transparent;
+  color:var(--dim); font:inherit; font-size:13px; font-weight:500; padding:8px 15px;
+  border-radius:99px; cursor:pointer; margin-top:12px; align-self:flex-start;
+  transition:color .15s, border-color .15s, background .15s}
+.ts-add:hover{color:var(--accent); border-color:var(--accent); background:var(--accent-soft)}
+.ts-add:focus-visible{outline:2px solid var(--accent); outline-offset:2px}
 
 /* ---------- слоти під скріни ---------- */
 .ts-shot{position:relative; border:1.5px dashed color-mix(in srgb, var(--faint) 50%, transparent);

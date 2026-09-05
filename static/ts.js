@@ -131,10 +131,8 @@ function x(path, i){
   return '<button class="ts-x" type="button" title="' + D().remove
     + '" onclick="__ts.del(\'' + path + '\',' + i + ')">×</button>';
 }
-/* plain — напис без плюса: там, де підпис читається як фраза
-   («додати варіант»), знак спереду зайвий */
-function add(path, label, plain){
-  return '<button class="ts-add" type="button" onclick="__ts.add(\'' + path + '\')">' + (plain ? "" : "+ ")
+function add(path, label){
+  return '<button class="ts-add" type="button" onclick="__ts.add(\'' + path + '\')">+ '
     + esc(label) + "</button>";
 }
 /* Значок «сюди йде картинка»: раніше в слоті стояв самий «+», і слот
@@ -332,7 +330,7 @@ function secNo(){
               '<li><div class="ts-row">' + edArea("no." + key + "." + i) + x("no." + key, i)
               + "</div></li>").join("") + "</ul>"
           : '<p class="none">' + esc(d.noneYet) + "</p>")
-      + add("no." + key, d.addLine, true) + "</div>";
+      + add("no." + key, d.addLine) + "</div>";
   };
   let h = '<div class="ts-no">' + col("market", d.lNoMarket) + col("time", d.lNoTime)
     + col("self", d.lNoSelf) + "</div>";
@@ -542,31 +540,6 @@ function vTS(){
 VIEWS.ts = vTS;
 
 /* ================= правка на місці ================= */
-/* Щойно доданий рядок: якщо його так і не заповнили, він не має лишатись
-   у списку порожньою плашкою — прибираємо. */
-let fresh = null;
-
-function dropFresh(path){
-  if (fresh !== path) return false;
-  fresh = null;
-  const keys = path.split(".");
-  /* шлях або "no.market.3", або "models.2.name" — рядок списку на два рівні вище */
-  const at = /^\d+$/.test(keys[keys.length - 1]) ? keys.length - 1 : keys.length - 2;
-  if (at < 1 || !/^\d+$/.test(keys[at])) return false;
-  const arr = get(keys.slice(0, at).join("."));
-  const row = Array.isArray(arr) ? arr[+keys[at]] : null;
-  const empty = typeof row === "string"
-    ? !row.trim()
-    : row && Object.keys(row).every(k => {
-        const v = row[k];
-        return Array.isArray(v) ? !v.length : !String(v == null ? "" : v).trim();
-      });
-  if (!empty) return false;
-  arr.splice(+keys[at], 1);
-  save();
-  return true;
-}
-
 function startEdit(el){
   if (el.querySelector("input,textarea")) return;
   const path = el.dataset.p;
@@ -604,12 +577,7 @@ function startEdit(el){
   const commit = ok => {
     if (done) return;
     done = true;
-    if (ok && f.value.trim()){
-      fresh = null;
-      set(path, f.value.trim());
-      TS.updated = today();
-      save();
-    } else if (!dropFresh(path) && ok){
+    if (ok){
       set(path, f.value.trim());
       TS.updated = today();
       save();
@@ -1133,17 +1101,6 @@ window.__ts = {
     }[path];
     list.push(typeof proto === "object" && proto !== null ? Object.assign({}, proto) : "");
     save(); render();
-    /* Натиснув «додати» — має з'явитись курсор, а не порожня плашка, у яку
-       ще треба поцілити. Відкриваємо поле нового рядка одразу: у списку з
-       рядків це він сам, у блоці — його перше поле (назва, заголовок). */
-    const first = {windows: "name", tfs: "tf", models: "name",
-                   riskCases: "k", manage: "k", extra: "k"}[path];
-    const spot = path + "." + (list.length - 1) + (first ? "." + first : "");
-    fresh = spot;
-    requestAnimationFrame(() => {
-      const el = document.querySelector('.ts-ed[data-p="' + spot + '"]');
-      if (el) startEdit(el);
-    });
   },
   del(path, i){
     const arr = get(path);
@@ -1233,7 +1190,7 @@ uk: {
   lNoMarket: "За ринком", lNoTime: "За часом", lNoSelf: "За собою", lMind: "Нагадування",
 
   addAsset: "інструмент", addWindow: "вікно", addTf: "таймфрейм", addModel: "модель",
-  addCase: "випадок", addRule: "правило", addLine: "додати варіант", addCheck: "пункт",
+  addCase: "випадок", addRule: "правило", addLine: "рядок", addCheck: "пункт",
   noTfs: "Таймфреймів ще немає", noCheck: "Чек-листа ще немає",
   noModels: "Моделей входу ще немає", noneYet: "поки порожньо",
   shotAdd: "вставити скрін", shotAddShort: "ще скрін",
@@ -1349,7 +1306,7 @@ ru: {
   lNoMarket: "По рынку", lNoTime: "По времени", lNoSelf: "По себе", lMind: "Напоминание",
 
   addAsset: "инструмент", addWindow: "окно", addTf: "таймфрейм", addModel: "модель",
-  addCase: "случай", addRule: "правило", addLine: "добавить вариант", addCheck: "пункт",
+  addCase: "случай", addRule: "правило", addLine: "строку", addCheck: "пункт",
   noTfs: "Таймфреймов ещё нет", noCheck: "Чек-листа ещё нет",
   noModels: "Моделей входа ещё нет", noneYet: "пока пусто",
   shotAdd: "вставить скрин", shotAddShort: "ещё скрин",
@@ -1465,7 +1422,7 @@ en: {
   lNoMarket: "Market", lNoTime: "Time", lNoSelf: "Myself", lMind: "Reminder",
 
   addAsset: "instrument", addWindow: "window", addTf: "timeframe", addModel: "model",
-  addCase: "case", addRule: "rule", addLine: "add an option", addCheck: "item",
+  addCase: "case", addRule: "rule", addLine: "line", addCheck: "item",
   noTfs: "No timeframes yet", noCheck: "No checklist yet",
   noModels: "No entry models yet", noneYet: "empty so far",
   shotAdd: "add a screenshot", shotAddShort: "one more",
