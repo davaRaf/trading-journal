@@ -131,8 +131,10 @@ function x(path, i){
   return '<button class="ts-x" type="button" title="' + D().remove
     + '" onclick="__ts.del(\'' + path + '\',' + i + ')">×</button>';
 }
-function add(path, label){
-  return '<button class="ts-add" type="button" onclick="__ts.add(\'' + path + '\')">+ '
+/* plain — напис без плюса: там, де підпис читається як фраза
+   («додати варіант»), знак спереду зайвий */
+function add(path, label, plain){
+  return '<button class="ts-add" type="button" onclick="__ts.add(\'' + path + '\')">' + (plain ? "" : "+ ")
     + esc(label) + "</button>";
 }
 /* Значок «сюди йде картинка»: раніше в слоті стояв самий «+», і слот
@@ -330,7 +332,7 @@ function secNo(){
               '<li><div class="ts-row">' + edArea("no." + key + "." + i) + x("no." + key, i)
               + "</div></li>").join("") + "</ul>"
           : '<p class="none">' + esc(d.noneYet) + "</p>")
-      + add("no." + key, d.addLine) + "</div>";
+      + add("no." + key, d.addLine, true) + "</div>";
   };
   let h = '<div class="ts-no">' + col("market", d.lNoMarket) + col("time", d.lNoTime)
     + col("self", d.lNoSelf) + "</div>";
@@ -1190,7 +1192,7 @@ uk: {
   lNoMarket: "За ринком", lNoTime: "За часом", lNoSelf: "За собою", lMind: "Нагадування",
 
   addAsset: "інструмент", addWindow: "вікно", addTf: "таймфрейм", addModel: "модель",
-  addCase: "випадок", addRule: "правило", addLine: "рядок", addCheck: "пункт",
+  addCase: "випадок", addRule: "правило", addLine: "додати варіант", addCheck: "пункт",
   noTfs: "Таймфреймів ще немає", noCheck: "Чек-листа ще немає",
   noModels: "Моделей входу ще немає", noneYet: "поки порожньо",
   shotAdd: "вставити скрін", shotAddShort: "ще скрін",
@@ -1306,7 +1308,7 @@ ru: {
   lNoMarket: "По рынку", lNoTime: "По времени", lNoSelf: "По себе", lMind: "Напоминание",
 
   addAsset: "инструмент", addWindow: "окно", addTf: "таймфрейм", addModel: "модель",
-  addCase: "случай", addRule: "правило", addLine: "строку", addCheck: "пункт",
+  addCase: "случай", addRule: "правило", addLine: "добавить вариант", addCheck: "пункт",
   noTfs: "Таймфреймов ещё нет", noCheck: "Чек-листа ещё нет",
   noModels: "Моделей входа ещё нет", noneYet: "пока пусто",
   shotAdd: "вставить скрин", shotAddShort: "ещё скрин",
@@ -1422,7 +1424,7 @@ en: {
   lNoMarket: "Market", lNoTime: "Time", lNoSelf: "Myself", lMind: "Reminder",
 
   addAsset: "instrument", addWindow: "window", addTf: "timeframe", addModel: "model",
-  addCase: "case", addRule: "rule", addLine: "line", addCheck: "item",
+  addCase: "case", addRule: "rule", addLine: "add an option", addCheck: "item",
   noTfs: "No timeframes yet", noCheck: "No checklist yet",
   noModels: "No entry models yet", noneYet: "empty so far",
   shotAdd: "add a screenshot", shotAddShort: "one more",
