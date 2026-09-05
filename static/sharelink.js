@@ -371,7 +371,7 @@ function open(kind, arg){
     + '<button class="btn" onclick="closeModal()">' + T.mrClose + '</button></div>'
     + '<div class="m-body sh-body">'
     + '<p class="sh-note">' + T.slNote
-    + (kind === "trade" || kind === "day" ? " " + T.slNoteImg : "") + '</p>'
+    + " " + (kind === "trade" || kind === "day" ? T.slNoteImg : T.slNoteImgPeriod) + '</p>'
     + '<div class="sh-what" id="shWhat"><b>' + esc(data.title) + '</b><span>'
     +   esc(data.kind) + '</span></div>'
     + (allAssets.length > 1
@@ -389,13 +389,14 @@ function open(kind, arg){
     + '<div class="sh-out" id="shOut" hidden></div>'
     + '</div>'
     + '<div class="m-foot"><button class="btn primary" id="shGo">' + T.slCreateBtn + '</button>'
-    + (kind === "trade" || kind === "day"
-        ? '<button class="btn" id="shImg">' + T.slImgBtn + '</button>' : "")
+    + '<button class="btn" id="shImg">' + T.slImgBtn + '</button>'
     + '<span class="sp"></span></div>'
   );
 
+  /* Картинку малюємо з тих самих цифр, що пішли б у посилання, — тому
+     віддаємо їх готовими, а не рахуємо вдруге. */
   const img = document.getElementById("shImg");
-  if (img) img.onclick = () => __tradeImg.open(kind, arg);
+  if (img) img.onclick = () => __tradeImg.open(kind, arg, build());
 
   document.querySelectorAll(".sh-ttl .sh-chip").forEach(b => b.onclick = () => {
     lastTtl = b.dataset.t;

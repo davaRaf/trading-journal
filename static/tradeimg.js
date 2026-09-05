@@ -20,7 +20,37 @@ const GAP = 16;
 const MONO = '"Geist Mono","IBM Plex Mono",ui-monospace,Consolas,monospace';
 const SANS = '"Geist","IBM Plex Sans","Segoe UI",system-ui,sans-serif';
 
-/* ---------- дрібниці ---------- */
+/* ---------- дрібниці ----------
+   Кольори беремо з теми, тому картинка виглядає так само, як журнал на
+   екрані. Раніше ці три жили в share.js, поруч із картинкою місяця; той
+   файл пішов разом зі своєю кнопкою, і малювання впало на порожньому
+   місці — тепер вони тут, і файл ні від кого не залежить. */
+function themeColors(){
+  const cs = getComputedStyle(document.documentElement);
+  const g = n => cs.getPropertyValue(n).trim();
+  return {
+    bg:g("--bg"), panel:g("--panel"), panel2:g("--panel-2"),
+    line:g("--line"), lineSoft:g("--line-soft"),
+    text:g("--text"), dim:g("--dim"), faint:g("--faint"),
+    accent:g("--accent"), up:g("--up"), down:g("--down"), be:g("--be"),
+  };
+}
+
+function withAlpha(hex, a){
+  const m = /^#?([0-9a-f]{6})$/i.exec(hex.replace("#",""));
+  if(!m) return hex;
+  const n = parseInt(m[1],16);
+  return "rgba("+((n>>16)&255)+","+((n>>8)&255)+","+(n&255)+","+a+")";
+}
+
+function roundRect(ctx,x,y,w,h,r){
+  ctx.beginPath();
+  ctx.moveTo(x+r,y); ctx.lineTo(x+w-r,y); ctx.quadraticCurveTo(x+w,y,x+w,y+r);
+  ctx.lineTo(x+w,y+h-r); ctx.quadraticCurveTo(x+w,y+h,x+w-r,y+h);
+  ctx.lineTo(x+r,y+h); ctx.quadraticCurveTo(x,y+h,x,y+h-r);
+  ctx.lineTo(x,y+r); ctx.quadraticCurveTo(x,y,x+r,y); ctx.closePath();
+}
+
 function wrap(ctx, text, maxW){
   const out = [];
   for (const para of String(text || "").split("\n")){
@@ -359,14 +389,41 @@ async function buildDayImage(dk){
 }
 
 /* ============================== вікно ============================== */
-async function openImage(kind, arg){
-  let t = null;
-  if (kind === "trade"){
-    t = (S.all.length ? S.all : S.trades).find(x => x.id === arg);
-    if (!t) return;
-  }
+/* Картинку з готового зображення переносимо в canvas: далі однаково
+   працюють і «скопіювати», і «завантажити». */
+async function canvasOf(url){
+  const im = await loadImg(url);
+  const cv = document.createElement("canvas");
+  cv.width = im.naturalWidth || im.width;
+  cv.height = im.naturalHeight || im.height;
+  cv.getContext("2d").drawImage(im, 0, 0);
+  return cv;
+}
 
-  openModal('<div class="m-head"><b>' + (kind === "day" ? T.tiTitleDay : T.tiTitle)
+/* Угода й день малюються тут: у них є скріни, і саме заради них картинку
+   й шлють. Тиждень, місяць, рік і торгова система — тим самим, чим
+   малюється картинка до посилання: там нема чого показувати, крім
+   підсумків, і однаковий вигляд у посилання й у картинки на краще. */
+async function build(kind, arg, data){
+  if (kind === "trade"){
+    const t = (S.all.length ? S.all : S.trades).find(x => x.id === arg);
+    if (!t) throw new Error(T.tiFailNoTrade || "угоду не знайшли");
+    return await buildTradeImage(t);
+  }
+  if (kind === "day") return await buildDayImage(arg);
+  if (!window.OgCal || !data) throw new Error(T.tiFailNoData || "нема з чого малювати");
+  return await canvasOf(kind === "ts" ? OgCal.system(data) : OgCal.period(data));
+}
+
+function fileName(kind, arg, data){
+  const safe = String((data && data.title) || arg || kind)
+    .replace(/[^0-9a-zA-Zа-яА-Яіїєґ_-]+/g, "-").replace(/^-+|-+$/g, "").slice(0, 40);
+  return (kind === "trade" ? "trade" : kind) + "-" + (safe || "statsai") + ".png";
+}
+
+async function openImage(kind, arg, data){
+  openModal('<div class="m-head"><b>'
+    + ((data && (data.kindFull || data.kind)) || (kind === "day" ? T.tiTitleDay : T.tiTitle))
     + '</b><span class="sp"></span>'
     + '<button class="btn" onclick="closeModal()">' + T.mrClose + '</button></div>'
     + '<div class="m-body"><div class="sharewrap" id="tiWrap">'
@@ -376,7 +433,7 @@ async function openImage(kind, arg){
     + '<span class="sp"></span><span class="hint" id="tiMsg"></span></div>');
 
   let cv;
-  try{ cv = kind === "day" ? await buildDayImage(arg) : await buildTradeImage(t); }
+  try{ cv = await build(kind, arg, data); }
   catch(e){
     const w = document.getElementById("tiWrap");
     if (w) w.innerHTML = '<div class="empty">' + T.tiFail + esc(e.message) + "</div>";
@@ -400,10 +457,10 @@ async function openImage(kind, arg){
   document.getElementById("tiSave").onclick = () => {
     const a = document.createElement("a");
     a.href = cv.toDataURL("image/png");
-    a.download = kind === "day"
-      ? "day-" + arg + ".png"
-      : "trade-" + (t.pair || "") + "-" + (t.date || "").slice(0, 10) + ".png";
+    a.download = fileName(kind, arg, data);
+    document.body.appendChild(a);
     a.click();
+    a.remove();
     msg(T.tiSaved);
   };
 }

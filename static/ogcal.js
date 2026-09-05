@@ -302,6 +302,53 @@ function system(data){
   return cv.toDataURL("image/png");
 }
 
+/* Підсумки по місяцях беремо з того самого блоку, що йде в посилання. */
+function monthItems(data){
+  const b = (data.blocks || []).find(x => x && (x.items || []).length
+    && (x.items || []).every(i => typeof i.value === "number"));
+  return b ? b.items : [];
+}
+
+/* Місяці стовпчиками: нуль посередині, зелене вгору, червоне вниз. */
+function months(ctx, items, top, bottom){
+  if (!items.length) return;
+  const left = 64, right = W - 64;
+  const gap = 12;
+  const cw = Math.min(96, (right - left - gap * (items.length - 1)) / items.length);
+  const wide = items.length * cw + gap * (items.length - 1);
+  const x0 = left + (right - left - wide) / 2;
+
+  const labH = 34;                       /* під підпис місяця знизу */
+  const zone = bottom - top - labH;
+  const mid = top + zone / 2;
+  const max = Math.max(0.001, ...items.map(i => Math.abs(i.value)));
+
+  ctx.strokeStyle = C.line; ctx.lineWidth = 1;
+  ctx.beginPath(); ctx.moveTo(left, mid); ctx.lineTo(right, mid); ctx.stroke();
+
+  items.forEach((it, i) => {
+    const x = x0 + i * (cw + gap);
+    const h = Math.max(3, Math.abs(it.value) / max * (zone / 2 - 10));
+    const up = it.value >= 0;
+    ctx.fillStyle = up ? C.up : C.down;
+    ctx.globalAlpha = .85;
+    roundRect(ctx, x, up ? mid - h : mid, cw, h, 5);
+    ctx.fill();
+    ctx.globalAlpha = 1;
+
+    ctx.font = "500 17px " + MONO;
+    ctx.fillStyle = up ? C.up : C.down;
+    ctx.textAlign = "center";
+    ctx.fillText((it.value > 0 ? "+" : "") + it.value.toFixed(1),
+                 x + cw / 2, up ? mid - h - 10 : mid + h + 24);
+
+    ctx.font = "400 15px " + SANS;
+    ctx.fillStyle = C.faint;
+    ctx.fillText(String(it.name).slice(0, 3), x + cw / 2, bottom - 8);
+    ctx.textAlign = "left";
+  });
+}
+
 /* ---------- картинка періоду ---------- */
 function period(data){
   const cv = document.createElement("canvas");
@@ -313,8 +360,14 @@ function period(data){
   ctx.strokeStyle = C.line; ctx.lineWidth = 1;
   ctx.beginPath(); ctx.moveTo(64, 164); ctx.lineTo(W - 64, 164); ctx.stroke();
 
-  const wd = (T.shCalWd || ["пн","вт","ср","чт","пт","сб","нд"]);
-  grid(ctx, data.calendar, wd, 182, H - 104);
+  if (data.calendar){
+    const wd = (T.shCalWd || ["пн","вт","ср","чт","пт","сб","нд"]);
+    grid(ctx, data.calendar, wd, 182, H - 104);
+  }else{
+    /* У року календаря немає: 365 клітинок тут не прочитати. Замість
+       нього — місяці стовпчиками, видно, де рік заробив, а де віддав. */
+    months(ctx, monthItems(data), 182, H - 104);
+  }
 
   ctx.beginPath(); ctx.moveTo(64, H - 90); ctx.lineTo(W - 64, H - 90); ctx.stroke();
   kpiRow(ctx, data.kpis, H - 58);
