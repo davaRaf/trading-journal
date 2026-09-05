@@ -348,6 +348,7 @@ SITE_MAP = (
 WEEKDAYS = ("понеділок", "вівторок", "середа", "четвер",
             "п'ятниця", "субота", "неділя")
 CAL_ROWS = 12          # більше подій за день у виписку не тягнемо
+CAL_DAYS = 7           # на скільки днів уперед показуємо календар
 
 
 def day_line():
@@ -366,28 +367,40 @@ def _cal_rows(events, day):
 
 
 def calendar_block():
-    """Важливі новини на сьогодні й завтра — у кожному запиті.
+    """Важливі новини на тиждень уперед — у кожному запиті.
 
     Раніше календар підкладався лише тоді, коли в питанні траплялось слово
     «новини». Питання можна поставити інакше — «чи варто сідати о 15:30»,
     «що там по долару в п'ятницю», — і помічник відповідав, не знаючи про
     новини нічого. Тепер факти є завжди, а модель сама вирішує, чи вони
     доречні у відповіді.
+
+    Днів саме сім, а не два: у суботу питання «що там у понеділок» —
+    найзвичайніше, а помічник на нього відповідав «сьогодні новин немає»,
+    бо далі завтрашнього дня не бачив. Дні без важливих подій теж називаємо
+    прямо, інакше модель про них мовчить, і виходить, ніби їх не питали.
     """
     try:
         events = calendar_feed.cached_events()
     except Exception:
         return ""
     today = datetime.datetime.now(KYIV).date()
-    tomorrow = today + datetime.timedelta(days=1)
-    now = _cal_rows(events, today)
-    nxt = _cal_rows(events, tomorrow)
-    if not now and not nxt:
-        return "\n\nВАЖЛИВІ НОВИНИ: ні сьогодні, ні завтра їх немає.\n"
-    out = "\n\nВАЖЛИВІ НОВИНИ (економічний календар, час київський):\n"
-    out += "сьогодні: " + ("\n  " + "\n  ".join(now) if now else "немає") + "\n"
-    out += "завтра: " + ("\n  " + "\n  ".join(nxt) if nxt else "немає") + "\n"
-    return out
+    lines, any_rows = [], False
+    for i in range(CAL_DAYS):
+        day = today + datetime.timedelta(days=i)
+        rows = _cal_rows(events, day)
+        any_rows = any_rows or bool(rows)
+        if i == 0:
+            name = "сьогодні"
+        elif i == 1:
+            name = "завтра"
+        else:
+            name = "%s, %s" % (WEEKDAYS[day.weekday()], day.isoformat())
+        lines.append("%s: %s" % (name, ("\n  " + "\n  ".join(rows)) if rows else "немає"))
+    if not any_rows:
+        return "\n\nВАЖЛИВІ НОВИНИ: на найближчий тиждень їх немає.\n"
+    return ("\n\nВАЖЛИВІ НОВИНИ (економічний календар, час київський):\n"
+            + "\n".join(lines) + "\n")
 
 
 def ts_block(user_id):

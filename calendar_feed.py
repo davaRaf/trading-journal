@@ -17,6 +17,20 @@ import urllib.request
 from config import ROOT
 
 CAL_URL = "https://nfs.faireconomy.media/ff_calendar_thisweek.json"
+
+# Фід віддає рівно один тиждень — той, що йде. У суботу це вже минуле: на
+# питання «що там у понеділок» помічник відповідав «новин немає», бо далі
+# п'ятниці не бачив нічого. Сусіднього фіда на наступний тиждень у них не
+# існує (усі інші адреси віддають 404), тож майбутні дні беремо з календаря
+# TradingView — він уже є в проєкті заради історії показників.
+TV_COUNTRIES = "US,EU,GB,JP,CH,CA,AU,NZ,CN"
+TV_AHEAD = 9            # на скільки днів уперед питаємо TradingView
+# TradingView називає країну, а фід — валюту; помічник рахує саме валюти.
+TV_CURRENCY = {"US": "USD", "EU": "EUR", "GB": "GBP", "JP": "JPY", "CH": "CHF",
+               "CA": "CAD", "AU": "AUD", "NZ": "NZD", "CN": "CNY"}
+# У TradingView важливість — число, у фіда — слово. Зводимо до слова, бо на
+# нього дивиться is_high і весь код навколо.
+TV_IMPACT = {1: "High", 0: "Medium", -1: "Low"}
 CAL_DIR = os.path.join(ROOT, "data", "calendar")
 CAL_TTL = 1800          # секунд между походами в сеть
 CAL_UA  = "Mozilla/5.0 (compatible; StatsAI/1.0; +local)"
@@ -72,32 +86,97 @@ def _cal_newest_archive():
         return None
 
 
+def _fetch(url):
+    """Одна выгрузка фида."""
+    req = urllib.request.Request(url, headers={"User-Agent": CAL_UA})
+    with urllib.request.urlopen(req, timeout=20) as r:
+        return json.loads(r.read().decode("utf-8"))
+
+
+def _from_tradingview(rows):
+    """Події TradingView у тому ж вигляді, що й події фіда."""
+    out = []
+    for r in rows:
+        cur = TV_CURRENCY.get((r.get("country") or "").upper())
+        if not cur or not r.get("date"):
+            continue
+        out.append({
+            "title": r.get("title") or "",
+            "country": cur,
+            "date": r.get("date"),
+            "impact": TV_IMPACT.get(r.get("importance"), "Low"),
+            "forecast": r.get("forecast"),
+            "previous": r.get("previous"),
+        })
+    return out
+
+
+def _ahead(after):
+    """Дні після кінця фіда — з TradingView.
+
+    Беремо тільки те, що лежить пізніше за останній день фіда: на спільних
+    днях довіряємо фіду, він і так точний, а два джерела дали б дублі.
+    """
+    import tv_calendar          # тут, а не зверху: модуль важкий і потрібен рідко
+    today = datetime.date.today()
+    rows = tv_calendar._fetch(TV_COUNTRIES, today.isoformat(),
+                              (today + datetime.timedelta(days=TV_AHEAD)).isoformat())
+    return [e for e in _from_tradingview(rows) if str(e.get("date"))[:10] > after]
+
+
+def _merge(*lists):
+    """Склеиваем недели, не плодя дубликаты: события на стыке приходят дважды."""
+    out, seen = [], set()
+    for items in lists:
+        for e in items or []:
+            k = (e.get("date"), e.get("country"), e.get("title"))
+            if k in seen:
+                continue
+            seen.add(k)
+            out.append(e)
+    out.sort(key=lambda x: x.get("date") or "")
+    return out
+
+
 def calendar_events():
-    """Отдаёт события недели: из памяти, из сети или из архива."""
+    """Отдаёт события двух недель — текущей и следующей: из памяти, из сети
+    или из архива."""
     with _cal_lock:
         fresh = _cal["data"] is not None and (time.time() - _cal["at"]) < CAL_TTL
         if fresh:
             return _cal["data"], None
+        err = None
         try:
-            req = urllib.request.Request(CAL_URL, headers={"User-Agent": CAL_UA})
-            with urllib.request.urlopen(req, timeout=20) as r:
-                data = json.loads(r.read().decode("utf-8"))
+            data = _fetch(CAL_URL)
             if not isinstance(data, list):
                 raise ValueError("фид вернул не список")
-            _cal.update(at=time.time(), data=data, error=None)
+            _cal.update(at=time.time(), error=None)
             try:
                 _cal_archive(data)
             except Exception:
                 pass
-            return data, None
         except Exception as ex:
             _cal["error"] = str(ex)
             if _cal["data"] is not None:
-                return _cal["data"], "сеть недоступна, показываю сохранённое"
-            saved = _cal_newest_archive()
-            if saved is not None:
-                return saved, "сеть недоступна, показываю архив"
-            return [], "календарь недоступен: %s" % ex
+                data, err = _cal["data"], "сеть недоступна, показываю сохранённое"
+            else:
+                data = _cal_newest_archive()
+                if data is None:
+                    return [], "календарь недоступен: %s" % ex
+                err = "сеть недоступна, показываю архив"
+        # Майбутні дні — з TradingView, і саме тут, а не всередині вдалої
+        # спроби: коли фід відповідає «429, забагато запитів», днями вперед
+        # він однаково не допоможе, а календар на понеділок потрібен.
+        try:
+            last = max((str(e.get("date"))[:10] for e in data), default="")
+            nxt = _ahead(last) if last else []
+        except Exception as ex:
+            print("календар уперед:", ex)
+            nxt = []
+        if nxt:
+            data = _merge(data, nxt)
+        _cal["data"] = data
+        return data, err
 
 
 _warming = threading.Event()

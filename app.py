@@ -1268,7 +1268,7 @@ class H(BaseHTTPRequestHandler):
             if not question:
                 return self._json({"error": "порожнє питання"}, 400)
             if not llm.enabled():
-                return self._json({"error": "помічник вимкнений — немає GEMINI_API_KEY"}, 503)
+                return self._json({"error": "помічник вимкнений — немає DEEPSEEK_API_KEY"}, 503)
             # історія розмови приходить з браузера — беремо тільки останні репліки
             raw = (body or {}).get("history")
             history = [m for m in raw if isinstance(m, dict)][-16:] if isinstance(raw, list) else []
@@ -1290,7 +1290,7 @@ class H(BaseHTTPRequestHandler):
 
         if p == "/api/assistant/review":
             if not llm.enabled():
-                return self._json({"error": "помічник вимкнений — немає GEMINI_API_KEY"}, 503)
+                return self._json({"error": "помічник вимкнений — немає DEEPSEEK_API_KEY"}, 503)
             raw = (body or {}).get("history")
             history = [m for m in raw if isinstance(m, dict)][-16:] if isinstance(raw, list) else []
             return self._json(assistant.review(uid, history))
@@ -1573,6 +1573,10 @@ class Server(HTTPServer):
 
 if __name__ == "__main__":
     db.init()
+    # календар гріємо одразу: помічник підкладає новини до кожного питання,
+    # а поки кеш порожній, перше питання після перезапуску летить до моделі
+    # без них — і вона чесно відповідає, що новин немає
+    threading.Thread(target=calendar_feed.cached_events, daemon=True).start()
     if config.RUN_JOBS:
         # щоденний зліпок журналу: тихо, у фоні, раз на добу
         backup.start()

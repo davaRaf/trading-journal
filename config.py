@@ -41,6 +41,10 @@ SITE_URL      = os.environ.get("SITE_URL", "https://trading-journal-production-4
 # Разовый ключ для переноса скриншотов на новый сервер (tools/upload_shots.py).
 # Пока пустой — точка загрузки просто не существует. После переезда убрать.
 ADMIN_TOKEN   = os.environ.get("ADMIN_TOKEN", "")
+# Ключ моделі, якою говорять «Помічник», бот і розбори (llm.py). Раніше тут
+# був Gemini, але зі свого сервера Google відповідає «User location is not
+# supported» — він не пускає запити з IP хостингів. Тепер DeepSeek.
+DEEPSEEK_API_KEY = os.environ.get("DEEPSEEK_API_KEY", "")
 GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY", "")
 # Вхід через сервіси (oauth.py). Кнопка на сторінці входу показується,
 # тільки якщо є обидва ключі. Telegram окремих ключів не потребує.
