@@ -133,6 +133,16 @@ h2.step::before{content:"";width:3px;height:12px;border-radius:2px;background:va
   text-transform:uppercase;color:var(--accent);border:1px solid rgba(64,224,148,.4);
   border-radius:5px;padding:1px 5px;vertical-align:middle}
 
+/* ---------- счёт ---------- */
+.accs{display:flex;flex-wrap:wrap;gap:7px}
+.accs button{padding:8px 13px;border:1px solid var(--line);border-radius:9px;background:var(--panel-2);
+  font-size:13px;color:var(--dim);transition:.15s}
+.accs button:hover{color:var(--text);border-color:rgba(255,255,255,.18)}
+.accs button.on{background:var(--accent-soft);border-color:rgba(64,224,148,.4);color:var(--accent);font-weight:500}
+.accs button.add{border-style:dashed;color:var(--faint)}
+.chip{font-family:var(--mono);font-size:10px;letter-spacing:.05em;padding:2px 6px;border-radius:5px;
+  background:var(--panel-3);color:var(--faint);white-space:nowrap}
+
 table.cmp{width:100%;border-collapse:collapse;font-size:13px}
 table.cmp th{font-family:var(--mono);font-size:9.5px;letter-spacing:.13em;text-transform:uppercase;
   color:var(--faint);font-weight:400;text-align:left;padding:9px 12px;border-bottom:1px solid var(--line-soft)}
@@ -147,6 +157,8 @@ table.cmp .k{font-family:var(--mono);white-space:nowrap}
     <p>Сейчас у сделки четыре исхода: TP, SL, BE− и BE+. Добавляем два. <b>TP руками</b> — тейк,
       до которого цена дошла не сама, закрыл рукой. <b>Скип</b> — сделки не было: увидел сетап и не взял.
       Пощёлкай кнопки исхода — форма под ними меняется.</p>
+    <p>И третье: <b>счёт</b>, на котором набиралась позиция. Название пишешь сам — свой, проп,
+      демо, вторая пропка. Список подсказывает то, что уже вводил, но ничем не ограничивает.</p>
   </div>
 
   <h2 class="step">Форма записи</h2>
@@ -185,6 +197,20 @@ table.cmp .k{font-family:var(--mono);white-space:nowrap}
     </div>
   </div>
 
+  <h2 class="step">Счета отдельно</h2>
+  <div class="card">
+    <div class="h">Сентябрь · по счетам</div>
+    <div class="b" style="padding:0">
+      <table class="cmp">
+        <thead><tr><th>Счёт</th><th>Сделок</th><th>Win rate</th><th>Итог</th><th>Скипов</th><th>Руками</th></tr></thead>
+        <tbody id="accs"></tbody>
+      </table>
+    </div>
+  </div>
+  <p class="hint" style="margin-top:12px">Сведённые в одну кучу, эти цифры ничего не говорят: на пропке
+    правила чужие, и срываешься там иначе. Тот же разрез появится в «Аналитике» рядом с сессиями и
+    сетапами, а в «Обзоре» и журнале — переключатель: смотреть всё или один счёт.</p>
+
   <h2 class="step">Решения, которые надо утвердить</h2>
   <div class="card">
     <div class="b" style="padding:0">
@@ -217,10 +243,31 @@ const WHY = {
   "Skip": "Сделки не было. RR, риск и модель входа исчезают — их неоткуда взять. Остаётся один вопрос: почему не зашёл. Скрин при этом полезен: через месяц посмотришь, правильно ли пропустил."
 };
 
+/* ---------------- счёт ---------------- */
+/* Названия свои: список — это то, что человек уже вводил, не справочник. */
+const ACCS = ["Свой", "FTMO 100k", "Демо"];
+let acc = "FTMO 100k";
+
+function accPicker(){
+  return '<div class="f"><label>Счёт</label><div class="accs">'
+    + ACCS.map(a => '<button' + (a === acc ? ' class="on"' : "")
+        + ' onclick="pickAcc(\'' + a + '\')">' + a + "</button>").join("")
+    + '<button class="add" onclick="addAcc()">+ свой</button></div>'
+    + '<p class="sub">Пишешь как удобно. Журнал запомнит и в следующий раз подставит последний.</p></div>';
+}
+function pickAcc(a){ acc = a; paint(); }
+function addAcc(){
+  const n = (prompt("Как назовём счёт?") || "").trim();
+  if (!n) return;
+  if (ACCS.indexOf(n) < 0) ACCS.push(n);
+  acc = n; paint();
+}
+
 /* ---------------- форма ---------------- */
 function form(){
   if (cur === "Skip"){
-    return '<div class="f"><label>Что видел</label>'
+    return accPicker()
+      + '<div class="f"><label>Что видел</label>'
       + '<input value="US100 · 1H имбаланс после свипа азии" readonly></div>'
       + '<div class="f"><label>Почему не зашёл</label>'
       + '<textarea readonly>не дождался подтверждения на 15m — не было CISD, а до новостей оставалось 12 минут</textarea>'
@@ -239,7 +286,8 @@ function form(){
   const rrLabel = cur === "WinM" ? "RR по факту" : "RR";
   const rr = cur === "Loss" ? "—" : cur === "WinM" ? "2.1" : "2.6";
 
-  return '<div class="frow">'
+  return accPicker()
+    + '<div class="frow">'
     + '<div class="f"><label>' + rrLabel + '</label><input value="' + rr + '" readonly></div>'
     + '<div class="f"><label>Риск, %</label><input value="1" readonly></div>'
     + "</div>"
@@ -270,6 +318,8 @@ function preview(){
 
   if (cur === "Skip"){
     return head
+      + '<div class="sec"><span class="ttl">Где</span><div class="fields">'
+      + '<div class="fr"><span class="l">Счёт</span><span class="v">' + acc + "</span></div></div></div>"
       + '<div class="sec"><span class="ttl">Что записал</span>'
       + '<div class="note"><div class="l">Что видел</div>'
       + '<div class="v">US100 · 1H имбаланс после свипа азии</div></div>'
@@ -280,7 +330,7 @@ function preview(){
 
   return head
     + '<div class="sec"><span class="ttl">Как торговал</span><div class="fields">'
-    + [["Сессия","LONDON"],["Биас","Long"],["Модель входа","cisd"],["Сетап","1h/15m/1m"]].map(f =>
+    + [["Счёт",acc],["Сессия","LONDON"],["Биас","Long"],["Модель входа","cisd"],["Сетап","1h/15m/1m"]].map(f =>
         '<div class="fr"><span class="l">' + f[0] + '</span><span class="v">' + f[1] + "</span></div>").join("")
     + "</div></div>"
     + '<div class="sec"><span class="ttl">Что записал</span>'
@@ -295,10 +345,10 @@ function preview(){
 
 /* ---------------- день ---------------- */
 const DAY = [
-  {pair:"US100", pos:"Long",  t:"09:04", res:"Win",  r:"+2.60%", cls:"pos"},
-  {pair:"GER40", pos:"Short", t:"10:10", res:"WinM", r:"+2.10%", cls:"pos"},
-  {pair:"ES500", pos:"Short", t:"12:31", res:"Loss", r:"−1.00%", cls:"neg"},
-  {pair:"US100", pos:"",      t:"14:20", res:"Skip", r:"—",      cls:"skc"}
+  {pair:"US100", pos:"Long",  t:"09:04", res:"Win",  r:"+2.60%", cls:"pos", acc:"FTMO 100k"},
+  {pair:"GER40", pos:"Short", t:"10:10", res:"WinM", r:"+2.10%", cls:"pos", acc:"FTMO 100k"},
+  {pair:"ES500", pos:"Short", t:"12:31", res:"Loss", r:"−1.00%", cls:"neg", acc:"Свой"},
+  {pair:"US100", pos:"",      t:"14:20", res:"Skip", r:"—",      cls:"skc", acc:"FTMO 100k"}
 ];
 
 function day(){
@@ -308,7 +358,7 @@ function day(){
       + '<span class="p">' + d.pair
       + (d.pos ? ' <span class="badge ' + (d.pos === "Long" ? "long" : "short") + '">' + d.pos + "</span>" : "")
       + "</span>"
-      + '<span class="d">' + d.t + "</span>"
+      + '<span class="d">' + d.t + ' <span class="chip">' + d.acc + "</span></span>"
       + '<span class="badge ' + o.cls + '">' + o.t + "</span>"
       + '<span class="r ' + d.cls + '">' + d.r + "</span>"
       + "</div>";
@@ -331,6 +381,25 @@ function kpi(){
   }).join("");
 }
 
+/* ---------------- по счетам ---------------- */
+const BY_ACC = [
+  ["FTMO 100k", "9",  "56%", "+7.10%", "4", "3"],
+  ["Свой",      "6",  "50%", "+1.20%", "1", "0"],
+  ["Демо",      "1",  "0%",  "−2.00%", "0", "0"]
+];
+
+function accTable(){
+  document.getElementById("accs").innerHTML = BY_ACC.map(a => {
+    const cls = a[3].indexOf("−") === 0 ? "neg" : "pos";
+    return "<tr><td class=\"k\" style=\"color:var(--text)\">" + a[0] + "</td>"
+      + '<td class="k">' + a[1] + "</td>"
+      + '<td class="k">' + a[2] + "</td>"
+      + '<td class="k ' + cls + '">' + a[3] + "</td>"
+      + '<td class="k skc">' + a[4] + "</td>"
+      + '<td class="k">' + a[5] + "</td></tr>";
+  }).join("");
+}
+
 /* ---------------- вопросы ---------------- */
 const CMP = [
   ["Скип в win rate", "не входит",
@@ -344,7 +413,17 @@ const CMP = [
   ["Поле «планировал RR»", "необязательное",
    "Из него считается «недобрал на этом» — на мой взгляд, самая полезная цифра из всей затеи. Но если не заполнить, всё остальное работает."],
   ["Старые сделки", "не трогаем",
-   "Всё, что записано, остаётся как есть: новые исходы просто добавляются в список."]
+   "Всё, что записано, остаётся как есть: новые исходы просто добавляются в список."],
+  ["Названия счетов", "человек пишет сам",
+   "Как сетап или модель входа: список подсказывает то, что уже вводил, справочника нет. Нам не угадать, как называется чья-то пропка."],
+  ["Счёт по умолчанию", "последний, на котором записывал",
+   "Обычно человек торгует один счёт подряд, а не прыгает между ними каждую сделку."],
+  ["Счёт у скипа", "тоже пишем",
+   "Пропускать на пропке и на своём — разные вещи: на пропке чаще пропускаешь правильно, потому что боишься лимита."],
+  ["Сделки без счёта", "остаются без счёта",
+   "Всё, что уже в журнале, задним числом не подписываем: в статистике по счетам они соберутся в «без счёта»."],
+  ["Где появится разрез", "«Аналитика», плюс переключатель в «Обзоре» и журнале",
+   "Сведённые в кучу счета врут: на пропке правила чужие, и срываешься там иначе."]
 ];
 
 function cmp(){
@@ -364,5 +443,5 @@ function paint(){
 }
 function pick(k){ cur = k; paint(); }
 
-paint(); day(); kpi(); cmp();
+paint(); day(); kpi(); accTable(); cmp();
 </script>
