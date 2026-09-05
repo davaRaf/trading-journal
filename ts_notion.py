@@ -304,34 +304,123 @@ def parse(text):
     }
 
 
-def read(url, user_id, shots_dir):
-    """Читає сторінку за посиланням і повертає чернетку стратегії.
+# ------------------------------------------------------ читання сторінок ----
+#
+# Сторінка з ТС рідко буває одна. У Notion людина розкладає систему по
+# розділах: контекст окремо, моделі входу окремо, ризик окремо. Тому читаємо
+# скільки завгодно посилань і складаємо з них один опис — так модель бачить
+# систему цілком, а не по шматку, і не вигадує зв'язки між розділами.
 
-    Картинки одразу перекладаємо до себе: посилання Notion живуть
-    близько години, потім віддають 403.
+MAX_PAGES = 8        # більше сторінок ніхто не веде, а читати їх довго
+AI_BUDGET = 18000    # стільки тексту доходить до моделі (ts_ai.parse ріже так само)
+SHOTS_CAP = 24       # скрінів з усіх сторінок разом
+SHOTS_MIN = 4        # але кожній сторінці лишаємо хоч кілька
+
+
+def page_title(url):
+    """Назва сторінки з самого посилання, без зайвого запиту до Notion.
+
+    `notion.so/Moya-TS-1a2b3c...` -> «Moya TS». Потрібна лише щоб людина
+    бачила в списку, що саме вона підтягнула. Не вийшло — лишаємо порожнє,
+    покажемо саме посилання.
+    """
+    slug = re.sub(r"[?#].*$", "", str(url or "")).rstrip("/").rsplit("/", 1)[-1]
+    slug = re.sub(r"-?[0-9a-f]{32}$", "", slug)          # ід сторінки в кінці
+    slug = re.sub(r"-?[0-9a-f]{8}(-[0-9a-f]{4}){3}-[0-9a-f]{12}$", "", slug)
+    name = slug.replace("-", " ").strip()
+    return name[:60] if name and not re.fullmatch(r"[0-9a-f]+", name) else ""
+
+
+def _read_one(url, user_id, shots_dir, seq, shots_left):
+    """Одна сторінка: текст і скріни, вже перекладені до себе.
+
+    Картинки забираємо одразу: посилання Notion живуть близько години,
+    потім віддають 403.
     """
     pid, _ = notion_public.parse_link(url)
     text, images = notion_public.row_content(pid)
 
     shots = []
-    for i, im in enumerate(images[:20]):
+    for i, im in enumerate(images[:max(SHOTS_MIN, shots_left)]):
         try:
-            base = "ts%d_%s" % (int(user_id), ("n%02d" % i) + format(abs(hash(im["url"])) % 0xFFFFFF, "x"))
+            base = "ts%d_%s" % (int(user_id), ("n%d%02d" % (seq, i))
+                                + format(abs(hash(im["url"])) % 0xFFFFFF, "x"))
             name = notion_import.download(im["url"], shots_dir, base)
             shots.append({"file": name, "caption": im.get("caption") or ""})
         except Exception:
             continue
 
-    if not (text or "").strip() and not shots:
-        raise ValueError("на сторінці не знайшли ні тексту, ні скрінів. "
-                         "Дай посилання на сторінку з описом ТС, а не на таблицю")
+    return {"url": url, "title": page_title(url),
+            "text": (text or "").strip(), "shots": shots}
+
+
+def read(urls, user_id, shots_dir):
+    """Читає сторінки за посиланнями і повертає чернетку стратегії.
+
+    Приймає і одне посилання рядком, і список: старі виклики (і записи в
+    базі, де лежить одне `notion.url`) від цього не ламаються.
+
+    Сторінка, яка не прочиталась, не роняє решту: її відкладаємо в `failed`,
+    і людина побачить, з якою саме не склалось.
+    """
+    if isinstance(urls, str):
+        urls = [urls]
+    clean = []
+    for u in (urls or []):
+        u = str(u or "").strip()
+        if u and u not in clean:
+            clean.append(u)
+    clean = clean[:MAX_PAGES]
+    if not clean:
+        raise ValueError("дай посилання на сторінку з описом ТС")
+
+    pages, failed = [], []
+    for seq, url in enumerate(clean):
+        left = SHOTS_CAP - sum(len(p["shots"]) for p in pages)
+        try:
+            page = _read_one(url, user_id, shots_dir, seq, left)
+        except Exception as e:
+            failed.append({"url": url, "why": str(e)[:200] or "не прочиталась"})
+            continue
+        if not page["text"] and not page["shots"]:
+            failed.append({"url": url, "why": "ні тексту, ні скрінів"})
+            continue
+        pages.append(page)
+
+    if not pages:
+        # Технічну причину назовні не несемо: людині від «KeyError» користі
+        # немає. Кажемо, що перевірити, і які саме сторінки не далися.
+        which = ", ".join(f["url"] for f in failed[:3])
+        raise ValueError("не вдалось прочитати " + (which or "сторінку")
+                         + ". Перевір, що сторінка відкрита за посиланням "
+                           "(Share → Publish) і що це опис ТС, а не таблиця")
+
+    # Ділимо бюджет тексту порівну: інакше перша ж довга сторінка з'їла б
+    # усе місце, і моделі не дісталось би ні моделей входу, ні ризику.
+    share = max(1500, AI_BUDGET // len(pages))
+    parts, shots = [], []
+    for p in pages:
+        head = ("## " + p["title"] + "\n") if p["title"] else ""
+        parts.append(head + p["text"][:share])
+        shots.extend(p["shots"])
+    joined = "\n\n".join(x for x in parts if x.strip())
 
     # спершу модель: вона читає сторінку цілком і бачить те, чого ключові
     # слова не ловлять. Розбір нижче лишається запасним — якщо ключа немає
     # або відповідь не склалась
-    draft = ts_ai.parse(text, shots, TFS, _tfs_in) or parse(text)
+    draft = ts_ai.parse(joined, shots, TFS, _tfs_in) or parse(joined)
     draft["source"] = "notion"
-    draft["notion"] = {"url": url, "text": text[:20000], "shots": shots}
+    keep = max(2000, 20000 // len(pages))
+    draft["notion"] = {
+        # одне посилання лишаємо окремо: так запис читається старим кодом
+        "url": pages[0]["url"],
+        "urls": [p["url"] for p in pages],
+        "pages": [{"url": p["url"], "title": p["title"],
+                   "text": p["text"][:keep], "shots": p["shots"]} for p in pages],
+        "text": joined[:20000],
+        "shots": shots,
+        "failed": failed,
+    }
 
     # підписані скріни розкладаємо по таймфреймах: у Notion підпис
     # блока — це зазвичай і є таймфрейм

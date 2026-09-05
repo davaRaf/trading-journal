@@ -49,6 +49,28 @@
   color:var(--accent-ink)}
 .ts-paste button[disabled]{opacity:.5; cursor:default}
 
+/* Кілька посилань підряд: друга кнопка в рядку — «прибрати поле», вона
+   тьмяна, щоб не сперечалась із «Підтягнути». */
+.ts-paste button.ghost{background:var(--panel-2); color:var(--dim);
+  border:1px solid var(--line); font-weight:500; padding:11px 14px}
+.ts-paste button.ghost:hover{color:var(--text)}
+.ts-more{border:0; background:none; color:var(--accent); font:inherit; font-size:13.5px;
+  padding:2px 0; margin-bottom:11px; cursor:pointer}
+.ts-more:hover{text-decoration:underline}
+.ts-more[disabled]{opacity:.5; cursor:default; text-decoration:none}
+
+/* Сторінки, з яких зібрана ТС */
+.ts-srcs{display:flex; flex-wrap:wrap; gap:8px; margin:8px 0 12px}
+.ts-src{display:inline-flex; align-items:center; gap:6px; max-width:100%;
+  background:var(--panel-2); border:1px solid var(--line); border-radius:999px;
+  padding:5px 6px 5px 13px; font-size:13px}
+.ts-src a{color:var(--text); text-decoration:none; overflow:hidden;
+  text-overflow:ellipsis; white-space:nowrap}
+.ts-src a:hover{text-decoration:underline}
+.ts-src .rm{flex:none; width:20px; height:20px; border:0; border-radius:50%;
+  background:none; color:var(--dim); font-size:15px; line-height:1; cursor:pointer}
+.ts-src .rm:hover{background:var(--line); color:var(--text)}
+
 .ts-load{display:flex; align-items:center; gap:9px; font-size:13.5px; color:var(--dim);
   margin-bottom:9px; min-height:19px}
 .ts-load i{width:13px; height:13px; border-radius:50%; flex:none; border:2px solid var(--line);

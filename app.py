@@ -1456,8 +1456,14 @@ class H(BaseHTTPRequestHandler):
             return self._json({"file": name})
 
         if p == "/api/ts/notion":
+            # Сторінок може бути кілька: у Notion систему розкладають по
+            # розділах — контекст окремо, моделі входу окремо. Старий виклик
+            # з одним "url" лишається робочим.
+            b = body or {}
+            links = b.get("urls") if isinstance(b.get("urls"), list) else None
             try:
-                draft = ts_notion.read((body or {}).get("url") or "", uid, SHOTS)
+                draft = ts_notion.read(links if links else (b.get("url") or ""),
+                                       uid, SHOTS)
             except Exception as e:
                 return self._json({"error": str(e) or "не вдалось прочитати сторінку"}, 400)
             return self._json({"ts": draft})

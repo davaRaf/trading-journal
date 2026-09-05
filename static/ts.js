@@ -22,6 +22,10 @@ let busy = false;          /* тягнемо з Notion */
 let pullErr = "";
 let checked = {};          /* чек-лист: ритуал перед входом, на сервері не тримаємо */
 let hotShot = null;        /* слот, куди піде Ctrl+V */
+/* Посилання, з яких тягнемо ТС. Їх кілька, бо в Notion систему тримають
+   розділами: контекст на одній сторінці, моделі входу на іншій. Порожній
+   рядок унизу — місце під наступне посилання. */
+let srcUrls = [""];
 let armed = null;          /* слот, обраний кліком */
 
 /* На телефоні буфера обміну для картинок немає, тому там дотик має одразу
@@ -170,16 +174,37 @@ function vNone(){
     +       '<div class="foot">'
     +         (busy ? '<div class="ts-load"><i></i><span>' + esc(d.pulling) + "</span></div>" : "")
     +         (pullErr ? '<p class="ts-err">' + esc(pullErr) + "</p>" : "")
-    +         '<div class="ts-paste"><input id="tsUrl" type="text" placeholder="'
-    +           esc(d.wayNotionPh) + '"' + (busy ? " disabled" : "") + ">"
-    +           '<button onclick="__ts.pull()"' + (busy ? " disabled" : "") + ">"
-    +           esc(d.wayNotionBtn) + "</button></div>"
+    +         urlFields()
     +         '<p class="hint">' + d.wayNotionHint + "</p></div></div>"
     +   "</div>"
     +   '<div class="ts-why"><p class="ts-sub2">' + esc(d.whyTitle) + "</p><ul>"
     +     "<li>" + d.why1 + "</li><li>" + d.why2 + "</li><li>" + d.why3 + "</li></ul>"
     +     '<p class="after">' + esc(d.whyAfter) + "</p></div>"
     + "</div>";
+}
+
+/* Поля під посилання: скільки завгодно, останнє порожнє — під наступне.
+   Значення тримаємо в srcUrls, бо розділ перемальовується цілком (спінер,
+   помилка), і те, що людина вже вставила, інакше зникало б. */
+function urlFields(){
+  const d = D();
+  const dis = busy ? " disabled" : "";
+  let h = "";
+  srcUrls.forEach((u, i) => {
+    h += '<div class="ts-paste"><input type="text" class="ts-url" data-i="' + i
+      + '" value="' + esc(u) + '" placeholder="' + esc(d.wayNotionPh) + '"' + dis + ">"
+      + (srcUrls.length > 1
+          ? '<button class="ghost" title="' + esc(d.srcDrop) + '" onclick="__ts.srcDrop('
+            + i + ')"' + dis + ">×</button>"
+          : "")
+      + (i === srcUrls.length - 1
+          ? '<button onclick="__ts.pull()"' + dis + ">" + esc(d.wayNotionBtn) + "</button>"
+          : "")
+      + "</div>";
+  });
+  h += '<button class="ts-more" onclick="__ts.srcAdd()"' + dis + ">+ "
+    + esc(d.srcAdd) + "</button>";
+  return h;
 }
 
 /* ================= заповнена ТС ================= */
@@ -426,6 +451,35 @@ function against(){
   return '<div class="ts-cmp">' + rows.join("") + "</div>";
 }
 
+/* Звідки підтягнуто: список сторінок, з якими працюємо далі. Сюди ж
+   додають наступну — контекст на одній сторінці, моделі входу на іншій.
+   Перечитуємо завжди всі разом: інакше модель бачила б систему по шматку. */
+function srcList(){
+  const d = D();
+  const n = TS.notion || {};
+  const pages = (n.pages && n.pages.length) ? n.pages
+    : (n.url ? [{url: n.url, title: ""}] : []);
+  if (!pages.length && !srcUrls.some(u => u.trim())) return "";
+  let h = '<p class="ts-sub2">' + esc(d.srcHave) + '</p><div class="ts-srcs">';
+  h += pages.map((pg, i) => '<span class="ts-src"><a href="' + esc(pg.url)
+      + '" target="_blank" rel="noopener">' + esc(pg.title || pg.url) + "</a>"
+      + (pages.length > 1 && !busy
+          ? '<button class="rm" title="' + esc(d.srcDrop)
+            + '" onclick="__ts.srcOut(' + i + ')">×</button>'
+          : "") + "</span>").join("");
+  h += "</div>";
+  const bad = n.failed || [];
+  if (bad.length){
+    h += '<p class="ts-err">' + esc(d.srcFailed) + " "
+      + bad.map(f => esc(f.url)).join(", ") + "</p>";
+  }
+  h += (busy ? '<div class="ts-load"><i></i><span>' + esc(d.pulling) + "</span></div>" : "")
+    + (pullErr ? '<p class="ts-err">' + esc(pullErr) + "</p>" : "")
+    + urlFields()
+    + '<p class="hint">' + esc(d.srcAgainWarn) + "</p>";
+  return h;
+}
+
 /* Сторінка з Notion, як ми її прочитали. Тримаємо поруч, бо розбір
    ніколи не витягне все: людина звіряє й дописує руками. Скріни, які
    не лягли до таймфреймів, теж лишаються тут, а не зникають. */
@@ -435,7 +489,9 @@ function secRaw(){
   const used = (TS.tfs || []).map(t => t.shot).filter(Boolean);
   const rest = (n.shots || []).filter(s => used.indexOf(s.file) < 0);
   return card(D().secRaw,
-    (n.text ? '<div class="ts-raw">' + esc(n.text) + "</div>" : "")
+    srcList()
+    + (n.text ? '<p class="ts-sub2">' + esc(D().rawText) + '</p><div class="ts-raw">'
+        + esc(n.text) + "</div>" : "")
     + (rest.length ? '<p class="ts-sub2">' + esc(D().rawShots) + '</p><div class="ts-shots">'
         + rest.map(s => '<div class="ts-shot has mini"><img alt="" src="'
             + esc(tsShotSrc(s.file)) + '"></div>').join("") + "</div>" : ""));
@@ -908,21 +964,61 @@ function finish(){
 }
 
 /* ================= підтягнути з Notion ================= */
-async function pull(){
-  const f = document.getElementById("tsUrl");
-  const url = (f && f.value || "").trim();
-  if (!url){ if (f) f.focus(); return; }
+const SRC_MAX = 8;             /* стільки сторінок читає сервер за раз */
+
+/* Що зараз у полях. Забираємо з самої сторінки, а не з пам'яті: людина
+   могла щойно вставити посилання, а перемальовки ще не було. */
+function readFields(){
+  const els = document.querySelectorAll("input.ts-url");
+  // полів на сторінці немає (розділ ще не намальований) — те, що вже
+  // набрано, лишаємо як є, інакше воно зникло б на рівному місці
+  const list = els.length ? [] : srcUrls.slice();
+  els.forEach(el => list.push(el.value));
+  srcUrls = list.length ? list : [""];
+  const typed = [];
+  srcUrls.forEach(v => {
+    v = (v || "").trim();
+    if (v && typed.indexOf(v) < 0) typed.push(v);
+  });
+  return typed;
+}
+
+/* Сторінки, з яких ТС зібрана зараз. Старі записи знають лише одне
+   посилання — тоді беремо його. */
+function srcHave(){
+  const n = (TS && TS.notion) || {};
+  if (n.urls && n.urls.length) return n.urls.slice();
+  return n.url ? [n.url] : [];
+}
+
+/* Читаємо завжди весь набір сторінок разом: система розкидана по них, і
+   зібрати її з половини не вийде. Тому додавання сторінки — це перечитування
+   всіх, і правки в полях замінюються прочитаним. */
+async function pullWith(urls){
+  const list = urls.filter(Boolean).slice(0, SRC_MAX);
+  if (!list.length){
+    const f = document.querySelector("input.ts-url");
+    if (f) f.focus();
+    return;
+  }
   busy = true; pullErr = ""; render();
   try{
-    const r = await api("POST", "/api/ts/notion", {url: url});
+    const r = await api("POST", "/api/ts/notion", {urls: list});
     TS = normalize(r.ts);
     TS.updated = today();
+    srcUrls = [""];
     save();
   }catch(e){
     pullErr = D().pullErr;
   }
   busy = false;
   render();
+}
+
+async function pull(){
+  const typed = readFields();
+  const have = srcHave();
+  await pullWith(have.concat(typed.filter(u => have.indexOf(u) < 0)));
 }
 
 /* ================= назовні ================= */
@@ -944,6 +1040,27 @@ window.__ts = {
   text(k, v){ answers[k] = v; },
   tick(i, v){ checked[i] = v; render(); },
   pull(){ if(guestStop()) return; pull(); },
+  /* ще одне поле під посилання */
+  srcAdd(){
+    readFields();
+    if (srcUrls.length + srcHave().length >= SRC_MAX) return;
+    srcUrls.push("");
+    render();
+  },
+  /* прибрати поле, яке ще не читали */
+  srcDrop(i){
+    readFields();
+    srcUrls.splice(i, 1);
+    if (!srcUrls.length) srcUrls = [""];
+    render();
+  },
+  /* прибрати сторінку, яку вже підтягнули: перечитуємо ТС без неї */
+  srcOut(i){
+    if (guestStop()) return;
+    const left = srcHave().filter((u, k) => k !== i);
+    if (!left.length){ pullErr = D().srcLast; render(); return; }
+    pullWith(left);
+  },
   add(path){
     const arr = get(path);
     if (!Array.isArray(arr)) set(path, []);
@@ -1015,10 +1132,15 @@ uk: {
             + "коли переводиш у беззбиток. Відповідаєш кнопками, писати майже нічого не треба.",
   wayNewBtn: "Створити ТС з нуля", wayNewMins: "≈ 5 хвилин · можна кинути посередині",
   wayNotionTitle: "Підтягнути з Notion",
-  wayNotionText: "Якщо ТС уже описана в Notion — просто дай посилання на сторінку. "
-               + "Нічого підключати не треба: ні токенів, ні доступів.",
+  wayNotionText: "Якщо ТС уже описана в Notion — просто дай посилання. Розділів кілька "
+               + "(контекст окремо, входи окремо) — додай стільки посилань, скільки треба.",
   wayNotionBtn: "Підтягнути", wayNotionPh: "notion.so/Moya-TS-1a2b3c…",
   wayNotionHint: "Сторінка має бути відкрита за посиланням: в Notion <b>Share → Publish</b>. Ми тільки читаємо.",
+  srcAdd: "ще сторінка", srcDrop: "прибрати",
+  srcHave: "Сторінки, з яких зібрана ТС",
+  srcFailed: "Не прочиталась сторінка:",
+  srcLast: "Це остання сторінка — прибрати її не вийде.",
+  srcAgainWarn: "Додаси сторінку — перечитаємо всі разом, і те, що ти правив руками, заміниться прочитаним.",
   pulling: "читаю сторінку…", pullErr: "Не вдалось прочитати сторінку. Перевір, що вона опублікована за посиланням.",
   whyTitle: "Що зміниться, коли ТС буде",
   why1: "<b>Чек-лист перед входом</b> — твої ж умови, поки не закриті, вхід рахується поспішним.",
@@ -1030,7 +1152,8 @@ uk: {
   secManage: "Супровід угоди", secExtra: "Додатково",
   addExtra: "ще блок", noExtra: "Тут можна дописати те, що не влізло в поля вище",
   emptyExtraK: "про що це", emptyExtraV: "своє правило або нотатка", secNo: "Коли не входжу", secCheck: "Чек-лист перед входом",
-  secReal: "Що виходить насправді", secRaw: "Сторінка з Notion, як ми її прочитали", rawShots: "Скріни зі сторінки",
+  secReal: "Що виходить насправді", secRaw: "Сторінки з Notion, як ми їх прочитали",
+  rawText: "Текст сторінок", rawShots: "Скріни зі сторінок",
 
   lAssets: "Чим торгую", lWindows: "Вікна", lDaysNews: "Дні та новини",
   lTradeDays: "Торгові дні", lRedNews: "Червоні новини",
@@ -1125,10 +1248,15 @@ ru: {
             + "когда переводишь в безубыток. Отвечаешь кнопками, писать почти ничего не нужно.",
   wayNewBtn: "Создать ТС с нуля", wayNewMins: "≈ 5 минут · можно бросить посередине",
   wayNotionTitle: "Подтянуть из Notion",
-  wayNotionText: "Если ТС уже описана в Notion — просто дай ссылку на страницу. "
-               + "Ничего подключать не надо: ни токенов, ни доступов.",
+  wayNotionText: "Если ТС уже описана в Notion — просто дай ссылку. Разделов несколько "
+               + "(контекст отдельно, входы отдельно) — добавь столько ссылок, сколько нужно.",
   wayNotionBtn: "Подтянуть", wayNotionPh: "notion.so/Moya-TS-1a2b3c…",
   wayNotionHint: "Страница должна быть открыта по ссылке: в Notion <b>Share → Publish</b>. Мы только читаем.",
+  srcAdd: "ещё страница", srcDrop: "убрать",
+  srcHave: "Страницы, из которых собрана ТС",
+  srcFailed: "Не прочиталась страница:",
+  srcLast: "Это последняя страница — убрать её не выйдет.",
+  srcAgainWarn: "Добавишь страницу — перечитаем все вместе, и то, что правил руками, заменится прочитанным.",
   pulling: "читаю страницу…", pullErr: "Не удалось прочитать страницу. Проверь, что она опубликована по ссылке.",
   whyTitle: "Что изменится, когда ТС будет",
   why1: "<b>Чек-лист перед входом</b> — твои же условия, пока не закрыты, вход считается поспешным.",
@@ -1140,7 +1268,8 @@ ru: {
   secManage: "Сопровождение сделки", secExtra: "Дополнительно",
   addExtra: "ещё блок", noExtra: "Тут можно дописать то, что не влезло в поля выше",
   emptyExtraK: "о чём это", emptyExtraV: "своё правило или заметка", secNo: "Когда не вхожу", secCheck: "Чек-лист перед входом",
-  secReal: "Что выходит на самом деле", secRaw: "Страница из Notion, как мы её прочитали", rawShots: "Скрины со страницы",
+  secReal: "Что выходит на самом деле", secRaw: "Страницы из Notion, как мы их прочитали",
+  rawText: "Текст страниц", rawShots: "Скрины со страниц",
 
   lAssets: "Чем торгую", lWindows: "Окна", lDaysNews: "Дни и новости",
   lTradeDays: "Торговые дни", lRedNews: "Красные новости",
@@ -1235,10 +1364,15 @@ en: {
             + "when you move to break-even. Mostly buttons, almost no typing.",
   wayNewBtn: "Build it from scratch", wayNewMins: "≈ 5 minutes · you can stop halfway",
   wayNotionTitle: "Pull from Notion",
-  wayNotionText: "If your system already lives in Notion — just give the page link. "
-               + "Nothing to connect: no tokens, no access grants.",
+  wayNotionText: "If your system already lives in Notion — just give the link. Keep it in "
+               + "several pages (context, entries)? Add as many links as you need.",
   wayNotionBtn: "Pull", wayNotionPh: "notion.so/My-System-1a2b3c…",
   wayNotionHint: "The page has to be open by link: in Notion <b>Share → Publish</b>. We only read it.",
+  srcAdd: "one more page", srcDrop: "remove",
+  srcHave: "Pages your system is built from",
+  srcFailed: "Couldn't read the page:",
+  srcLast: "That's the last page — it can't be removed.",
+  srcAgainWarn: "Add a page and we re-read them all together, so your manual edits get replaced.",
   pulling: "reading the page…", pullErr: "Couldn't read the page. Check that it is published to web.",
   whyTitle: "What changes once it's there",
   why1: "<b>Pre-entry checklist</b> — your own conditions; until they're ticked, the entry counts as rushed.",
@@ -1250,7 +1384,8 @@ en: {
   secManage: "Managing the trade", secExtra: "Anything else",
   addExtra: "one more block", noExtra: "Room for whatever did not fit the fields above",
   emptyExtraK: "what it is about", emptyExtraV: "your own rule or a note", secNo: "When I stay out", secCheck: "Checklist before entry",
-  secReal: "What actually happens", secRaw: "The Notion page as we read it", rawShots: "Screenshots from the page",
+  secReal: "What actually happens", secRaw: "The Notion pages as we read them",
+  rawText: "Text of the pages", rawShots: "Screenshots from the pages",
 
   lAssets: "What I trade", lWindows: "Windows", lDaysNews: "Days and news",
   lTradeDays: "Trading days", lRedNews: "Red news",
