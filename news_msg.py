@@ -18,6 +18,7 @@
 ті самі події з /api/calendar і збирає свою репліку (static/newsay.js);
 спільний між ними вигляд, а не код — там свої слова.
 """
+import datetime
 import html
 import re
 
@@ -44,6 +45,12 @@ WORDS = {
         "forecast": "прогноз %s",
         "prev": "було %s",
         "plural": ("новина", "новини", "новин"),
+        "weekdays": ("понеділок", "вівторок", "середа", "четвер",
+                     "п'ятниця", "субота", "неділя"),
+        "day": "Важливі новини — %s",
+        "empty_day": "%s важливих новин немає",
+        "week": "Важливі новини на тиждень",
+        "empty_week": "На найближчий тиждень важливих новин немає",
     },
     "ru": {
         "today": "Важные новости сегодня",
@@ -58,6 +65,12 @@ WORDS = {
         "forecast": "прогноз %s",
         "prev": "было %s",
         "plural": ("новость", "новости", "новостей"),
+        "weekdays": ("понедельник", "вторник", "среда", "четверг",
+                     "пятница", "суббота", "воскресенье"),
+        "day": "Важные новости — %s",
+        "empty_day": "%s важных новостей нет",
+        "week": "Важные новости на неделю",
+        "empty_week": "На ближайшую неделю важных новостей нет",
     },
     "en": {
         "today": "High-impact news today",
@@ -72,6 +85,12 @@ WORDS = {
         "forecast": "forecast %s",
         "prev": "previous %s",
         "plural": ("release", "releases", "releases"),
+        "weekdays": ("Monday", "Tuesday", "Wednesday", "Thursday",
+                     "Friday", "Saturday", "Sunday"),
+        "day": "High-impact news — %s",
+        "empty_day": "No high-impact news on %s",
+        "week": "High-impact news this week",
+        "empty_week": "No high-impact news in the week ahead",
     },
 }
 
@@ -83,6 +102,27 @@ _ASKS = re.compile(
     r"(новин|новост|календар|calendar|news|червон|красн|red folder|нфп|nfp)",
     re.IGNORECASE | re.UNICODE)
 _TOMORROW = re.compile(r"(завтра|tomorrow|взавтра)", re.IGNORECASE | re.UNICODE)
+_AFTER_TOMORROW = re.compile(r"(післязавтра|послезавтра|day after tomorrow)",
+                             re.IGNORECASE | re.UNICODE)
+# «на тижні» питають частіше, ніж здається, і відповідь на один день тут
+# не годиться. Перевіряємо це першим: російське «на неделе» інакше
+# сплуталося б з українською «неділею», тобто з воскресінням.
+_WEEK = re.compile(r"(цього тижня|на тижні|на цьому тижні|наступного тижня|"
+                   r"на этой неделе|на следующей неделе|на неделе|"
+                   r"this week|next week|за тиждень|за неделю)",
+                   re.IGNORECASE | re.UNICODE)
+# День тижня в питанні: «що по новинах у понеділок». Раніше таке питання
+# мовчки віддавалось як «сьогодні» — і в суботу людина читала, що новин
+# немає, хоча питала про понеділок.
+_WEEKDAYS = (
+    (0, re.compile(r"(понеділ|понедельн|monday)", re.IGNORECASE | re.UNICODE)),
+    (1, re.compile(r"(вівтор|вторник|tuesday)", re.IGNORECASE | re.UNICODE)),
+    (2, re.compile(r"(серед[уиія]|сред[уые]|wednesday)", re.IGNORECASE | re.UNICODE)),
+    (3, re.compile(r"(четвер|четверг|thursday)", re.IGNORECASE | re.UNICODE)),
+    (4, re.compile(r"(п['’ʼ]?ятниц|пятниц|friday)", re.IGNORECASE | re.UNICODE)),
+    (5, re.compile(r"(субот|суббот|saturday)", re.IGNORECASE | re.UNICODE)),
+    (6, re.compile(r"(неділ[юіі]|воскрес|sunday)", re.IGNORECASE | re.UNICODE)),
+)
 
 
 def asks_news(text):
@@ -91,6 +131,25 @@ def asks_news(text):
 
 def asks_tomorrow(text):
     return bool(_TOMORROW.search(text or ""))
+
+
+def asks_day(text, today):
+    """Про який день питають: дата, "week" — або None, якщо дня не назвали.
+
+    Назвали день тижня — беремо найближчий такий день попереду; сьогоднішній
+    день тижня означає сьогодні, а не через тиждень.
+    """
+    t = text or ""
+    if _WEEK.search(t):
+        return "week"
+    if _AFTER_TOMORROW.search(t):
+        return today + datetime.timedelta(days=2)
+    if _TOMORROW.search(t):
+        return today + datetime.timedelta(days=1)
+    for idx, pat in _WEEKDAYS:
+        if pat.search(t):
+            return today + datetime.timedelta(days=(idx - today.weekday()) % 7)
+    return None
 
 
 def _w(lang):
@@ -162,20 +221,62 @@ def _body(gs):
     return "\n\n".join(_block(g) for g in gs)
 
 
-def digest(events, tz, day, lang="uk"):
+def day_name(day, today, lang="uk"):
+    """«сьогодні», «завтра» — або «понеділок, 07.09» для дальшого дня."""
+    w = _w(lang)
+    if day == today:
+        return w["today"]
+    if day == today + datetime.timedelta(days=1):
+        return w["tomorrow"]
+    return "%s, %s" % (w["weekdays"][day.weekday()], day.strftime("%d.%m"))
+
+
+def digest(events, tz, day, lang="uk", today=None):
     """Ранкове зведення: усі «червоні» новини дня.
 
     Порожній день — теж повідомлення: людина його чекає й має знати, що
     сьогодні можна на календар не оглядатись.
+
+    today — який день вважати сьогоднішнім. Потрібен, коли питають не про
+    сьогодні: шапка «Важливі новини сьогодні» над новинами понеділка
+    збивала з пантелику, а на порожньому дні прямо брехала.
     """
     w = _w(lang)
     gs = groups([e for e in events if calendar_feed.is_high(e)], tz, day)
+    other = today is not None and day != today
     if not gs:
+        if other:
+            return "☀️ <b>%s</b>\n%s" % (
+                w["empty_day"] % day_name(day, today, lang).capitalize(), w["empty_sub"])
         return "☀️ <b>%s</b>\n%s" % (w["empty"], w["empty_sub"])
     n = sum(len(g["titles"]) for g in gs)
+    title = w["day"] % day_name(day, today, lang) if other else w["today"]
     head = "☀️ <b>%s</b>\n%d %s · %s" % (
-        w["today"], n, _count(n, lang), w["nearest"] % gs[0]["time"])
+        title, n, _count(n, lang), w["nearest"] % gs[0]["time"])
     return "%s\n\n%s\n\n%s" % (head, _body(gs), w["footer"])
+
+
+def week_digest(events, tz, today, lang="uk", days=7):
+    """Тиждень уперед: по днях, тільки ті, де щось є.
+
+    Питання «що там на тижні» одним днем не закрити, а сім окремих зведень
+    у чат ніхто читати не буде. Тому — короткий список: день, час, валюта.
+    """
+    w = _w(lang)
+    high = [e for e in events if calendar_feed.is_high(e)]
+    out = []
+    for i in range(days):
+        day = today + datetime.timedelta(days=i)
+        gs = groups(high, tz, day)
+        if not gs:
+            continue
+        rows = ["  %s · %s %s — %s" % (g["time"], flag(g["cur"]), g["cur"], _esc(t))
+                for g in gs for t in g["titles"]]
+        out.append("<b>%s</b>\n%s" % (day_name(day, today, lang).capitalize(),
+                                      "\n".join(rows)))
+    if not out:
+        return "☀️ <b>%s</b>\n%s" % (w["empty_week"], w["empty_sub"])
+    return "🗓 <b>%s</b>\n\n%s" % (w["week"], "\n\n".join(out))
 
 
 def remind(events, tz, day, lang="uk"):

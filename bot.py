@@ -485,17 +485,22 @@ def handle_update(u):
 # Тепер такі питання йдуть тим самим зведенням, що й ранкове, тільки за
 # потрібний день.
 def news_answer(text):
-    """Зведення новин на потрібний день або None, якщо питали не про це."""
+    """Зведення новин на потрібний день або None, якщо питали не про це.
+
+    День беремо з питання: «завтра», «післязавтра», «у понеділок», «на
+    тижні». Раніше розрізняли тільки завтрашній день, і питання про
+    понеділок отримувало зведення за сьогодні — у суботу це виглядало так,
+    ніби бот відповідає навмання.
+    """
     if not news_msg.asks_news(text):
         return None
     lang = assistant.detect_lang(text) or "uk"
     events, _ = calendar_feed.calendar_events()
-    day = now_kyiv().date()
-    head = ""
-    if news_msg.asks_tomorrow(text):
-        day += datetime.timedelta(days=1)
-        head = "🗓 <b>%s</b>\n" % news_msg.words(lang)["tomorrow"]
-    return head + news_msg.digest(events, KYIV, day, lang)
+    today = now_kyiv().date()
+    when = news_msg.asks_day(text, today)
+    if when == "week":
+        return news_msg.week_digest(events, KYIV, today, lang)
+    return news_msg.digest(events, KYIV, when or today, lang, today=today)
 
 
 def high_of_day(events, day):
