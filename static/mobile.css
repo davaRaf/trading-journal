@@ -141,6 +141,64 @@
   .dv-strip .s:first-child{border-top:none}
 }
 
+/* ============================================================
+   «Огляд» на телефоні.
+   ============================================================ */
+@media (max-width:900px){
+  /* .main:has(.ovw) сильніше за мобільне .main — тож повторюємо поля тут */
+  .main:has(.ovw){padding:14px 14px 110px}
+  .ovw{display:flex; flex-direction:column; gap:0}
+  .ovw .flow{min-width:0; width:100%}
+
+  /* шапка: заголовок, під ним перемикач періоду на всю ширину,
+     під ним кнопки «поділитись» одним рядком — гортаються вбік */
+  .ovw .ohead{gap:12px; margin-bottom:16px}
+  .ovw .ohead h1{font-size:26px; width:100%}
+  .ovw .per{margin-left:0; width:100%; display:grid; grid-template-columns:repeat(3,minmax(0,1fr))}
+  .ovw .per button{padding:8px 6px; text-align:center}
+  .ovw .ohead .sh-bar.sh-inline{width:100%; flex-wrap:nowrap; overflow-x:auto; padding-bottom:2px;
+    -webkit-overflow-scrolling:touch; scrollbar-width:none; margin:0}
+  .ovw .ohead .sh-bar::-webkit-scrollbar{display:none}
+  .ovw .ohead .sh-bar .sh-btn{flex:none; padding:8px 12px; font-size:13px}
+  .ovw .ohead .sh-cap{flex:none}
+
+  /* підпис над тижнем переноситься, а не тиснеться в один рядок */
+  .ovw .sec-lab{flex-wrap:wrap; gap:4px 10px; margin-bottom:10px}
+
+  /* тиждень: сім клітинок, кожна ~46px — шрифти під цю ширину */
+  .ovw .days{gap:4px}
+  .ovw .day{aspect-ratio:auto; min-height:62px; padding:6px 5px 5px; border-radius:9px}
+  .ovw .day .wd{font-size:8px; letter-spacing:.06em; line-height:1.2}
+  .ovw .day .dn{font-size:12px; margin-top:1px}
+  .ovw .day .bot{gap:2px}
+  .ovw .day .dr{font-size:10px; letter-spacing:-.02em; margin-left:0}
+  .ovw .glow{font-size:13px; letter-spacing:.04em}
+  .ovw .day.skip .dr{font-size:8px}
+
+  /* картка місяця: усе стовпчиком, ніщо не тиснеться й не вилазить */
+  .core{padding:16px 14px}
+  .ovw .sum{flex-direction:column; align-items:flex-start; gap:8px; margin-bottom:14px}
+  .ovw .sum .big{font-size:40px; margin-top:8px}
+  .ovw .sum .when{font-size:16px; margin-bottom:0}
+  .ovw .sum .right{margin-left:0; text-align:left; display:flex; align-items:baseline; gap:10px;
+    flex-wrap:wrap; width:100%}
+  .ovw .sum .right .v{font-size:13.5px}
+  .ovw .stats .st{padding:11px 12px 10px}
+  .ovw .stats .st:nth-child(4n){border-right:1px solid var(--line-soft)}
+  .ovw .stats .st:nth-child(2n){border-right:none}
+  .ovw .stats .st:nth-last-child(-n+4){border-bottom:1px solid var(--line-soft)}
+  .ovw .stats .st:nth-last-child(-n+2){border-bottom:none}
+  .ovw .stats .val{font-size:19px; margin-top:6px}
+  .ovw .stats .lab{font-size:8.5px}
+
+  /* колонка-компаньйон стає звичайним блоком під графіком */
+  .ovw .rail{margin-top:14px}
+
+  /* помічник менший — і не перекриває останню картку: знизу лишено запас */
+  .as-fab{width:46px !important; height:46px !important}
+  .as-fab svg{width:22px; height:22px}
+}
+
 /* планшет у книжковій орієнтації: панель лишається, але вужча */
 @media (min-width:901px) and (max-width:1100px){
   .side{width:188px; padding:16px 10px}
