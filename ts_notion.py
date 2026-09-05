@@ -286,6 +286,8 @@ def parse(text):
             if re.search(pat, tf_role_src.get(tf, "") or note, re.I):
                 role = name
                 break
+        # той самий поділ, що й після моделі: підпис над переліком — окремо
+        role, note = ts_ai.split_lead(role, note)
         tfs.append({"tf": tf, "role": role, "what": note, "shot": ""})
 
     return {

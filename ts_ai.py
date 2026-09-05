@@ -19,7 +19,7 @@ import llm
 
 FIELDS_HINT = """{
  "assets": ["інструменти, якими торгує"],
- "tfs": [{"tf":"1W|1D|4H|2H|1H|30M|15M|5M|3M|1M","role":"навіщо цей ТФ","what":"що саме на ньому дивиться","shot":номер скріна або ""}],
+ "tfs": [{"tf":"1W|1D|4H|2H|1H|30M|15M|5M|3M|1M","role":"підпис, що стоїть над переліком, слово в слово як на сторінці","what":"сам перелік: що дивиться на цьому ТФ","shot":номер скріна або ""}],
  "windows": [{"name":"назва сесії","time":"09:00 – 12:00","note":""}],
  "days": "дні тижня, коли торгує", "news": "як поводиться з новинами",
  "models": [{"name":"назва моделі входу","note":"пояснення","shots":[номери скрінів]}],
@@ -108,6 +108,39 @@ def _same_name(s):
     return re.sub(r"\s+", " ", str(s or "")).strip().lower()
 
 
+# Рядок, який починається з булета або номера, — пункт переліку, а не підпис.
+_BULLET = re.compile(r"^[ \t]*([\u2022\u00b7\-\u2013\u2014*+]|\d{1,2}[.)])[ \t]+")
+
+
+def split_lead(role, what):
+    """Підпис до переліку — окремо, самі пункти — окремо.
+
+    Людина пише заголовок над списком як завгодно: «Если открытие месяца…
+    посмотреть:», «Тут дивлюсь», «HTF context». Модель то кладе його в
+    "role", то лишає першим рядком опису, то робить і те, і те. Тому не
+    покладаємось на її вибір, а дивимось на сам текст: перший рядок, який
+    не є пунктом, а за ним ідуть пункти — це і є підпис.
+    """
+    lines = [l.rstrip() for l in str(what or "").split(chr(10))]
+    body = [l for l in lines if l.strip()]
+    if not body:
+        return role, str(what or "").strip()
+
+    first = body[0].strip()
+    rest = body[1:]
+    same = lambda a, b: re.sub(r"\s+", " ", a).strip().lower() == re.sub(r"\s+", " ", b).strip().lower()
+
+    # підпис уже стоїть і повторений першим рядком опису — прибираємо дубль
+    if role and same(first, role):
+        return role, chr(10).join(rest).strip()
+
+    # підпису немає: беремо перший рядок, якщо він сам не пункт, а нижче — пункти
+    if not role and rest and not _BULLET.match(body[0]) and any(_BULLET.match(l) for l in rest):
+        return first[:220], chr(10).join(rest).strip()
+
+    return role, chr(10).join(body).strip()
+
+
 def shape(raw, shots, tfs_all, tfs_in):
     """Пускаємо далі лише знайомі поля знайомого вигляду: відповідь моделі —
     такі самі чужі дані, як і сама сторінка."""
@@ -134,6 +167,8 @@ def shape(raw, shots, tfs_all, tfs_in):
         # На 80 знаках вона обривалась на півслові — тепер місця вистачає.
         rows.append({"tf": tf, "role": _clip(r.get("role"), 220),
                      "what": _clip(r.get("what"), 600), "shot": _shot(r.get("shot"), shots)})
+    for row in rows:
+        row["role"], row["what"] = split_lead(row["role"], row["what"])
     order = {tf: i for i, tf in enumerate(tfs_all)}
     rows.sort(key=lambda x: order.get(x["tf"], 99))
 
