@@ -542,6 +542,31 @@ function vTS(){
 VIEWS.ts = vTS;
 
 /* ================= правка на місці ================= */
+/* Щойно доданий рядок: якщо його так і не заповнили, він не має лишатись
+   у списку порожньою плашкою — прибираємо. */
+let fresh = null;
+
+function dropFresh(path){
+  if (fresh !== path) return false;
+  fresh = null;
+  const keys = path.split(".");
+  /* шлях або "no.market.3", або "models.2.name" — рядок списку на два рівні вище */
+  const at = /^\d+$/.test(keys[keys.length - 1]) ? keys.length - 1 : keys.length - 2;
+  if (at < 1 || !/^\d+$/.test(keys[at])) return false;
+  const arr = get(keys.slice(0, at).join("."));
+  const row = Array.isArray(arr) ? arr[+keys[at]] : null;
+  const empty = typeof row === "string"
+    ? !row.trim()
+    : row && Object.keys(row).every(k => {
+        const v = row[k];
+        return Array.isArray(v) ? !v.length : !String(v == null ? "" : v).trim();
+      });
+  if (!empty) return false;
+  arr.splice(+keys[at], 1);
+  save();
+  return true;
+}
+
 function startEdit(el){
   if (el.querySelector("input,textarea")) return;
   const path = el.dataset.p;
@@ -579,7 +604,12 @@ function startEdit(el){
   const commit = ok => {
     if (done) return;
     done = true;
-    if (ok){
+    if (ok && f.value.trim()){
+      fresh = null;
+      set(path, f.value.trim());
+      TS.updated = today();
+      save();
+    } else if (!dropFresh(path) && ok){
       set(path, f.value.trim());
       TS.updated = today();
       save();
@@ -1103,6 +1133,17 @@ window.__ts = {
     }[path];
     list.push(typeof proto === "object" && proto !== null ? Object.assign({}, proto) : "");
     save(); render();
+    /* Натиснув «додати» — має з'явитись курсор, а не порожня плашка, у яку
+       ще треба поцілити. Відкриваємо поле нового рядка одразу: у списку з
+       рядків це він сам, у блоці — його перше поле (назва, заголовок). */
+    const first = {windows: "name", tfs: "tf", models: "name",
+                   riskCases: "k", manage: "k", extra: "k"}[path];
+    const spot = path + "." + (list.length - 1) + (first ? "." + first : "");
+    fresh = spot;
+    requestAnimationFrame(() => {
+      const el = document.querySelector('.ts-ed[data-p="' + spot + '"]');
+      if (el) startEdit(el);
+    });
   },
   del(path, i){
     const arr = get(path);
