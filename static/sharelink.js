@@ -576,15 +576,18 @@ function mountDayPanel(){
 }
 
 /* ---- кнопка «поділитись» біля угоди ----
-   Угоду видно у двох місцях: карткою в бічній панелі й розгорнутим рядком
-   у списку журналу.
+   Два місця, і обидва на очах.
 
    У картці кнопка стоїть у шапці, поруч із результатом. Раніше вона була
    внизу, за деталями входу й скрінами: щоб її побачити, доводилось
-   прокрутити всю угоду — і люди її просто не знаходили. У розгорнутому
-   рядку кнопка лишається в ряду дій: там і так усе на очах.
+   прокрутити всю угоду — і люди її просто не знаходили. Шапка не
+   прокручується, тож звідти вона вже нікуди не подінеться.
 
-   id угоди беремо з кнопки «Видалити» — більше його взяти нізвідки. */
+   Друге місце — сам рядок у панелі дня: значок без підпису, щоб
+   поділитись угодою, не відкриваючи її.
+
+   id угоди в картці беремо з кнопки «Видалити» — більше його взяти
+   нізвідки; у рядку він лежить у data-id. */
 function tradeIdIn(box){
   const del = box && box.querySelector(".danger[onclick*='delTrade']");
   const m = del && del.getAttribute("onclick").match(/delTrade\('([^']+)'\)/);
@@ -602,13 +605,13 @@ function mountTradeCard(){
     x ? head.insertBefore(b, x) : head.appendChild(b);
   });
 
-  /* розгорнутий рядок у журналі: кнопка в ряду дій */
-  document.querySelectorAll(".dact").forEach(foot => {
-    if (foot.querySelector(".sh-trade")) return;
-    const del = foot.querySelector(".danger[onclick*='delTrade']");
-    const id = tradeIdIn(foot);
-    if (!id) return;
-    foot.insertBefore(mkBtn(T.slShareTrade, "trade", id, "sh-trade"), del);
+  /* рядок у панелі дня: значок перед мітками */
+  document.querySelectorAll(".dtrade[data-id]").forEach(row => {
+    if (row.querySelector(".sh-trade")) return;
+    const b = mkBtn(T.slShareTrade, "trade", row.dataset.id, "sh-trade sh-row");
+    b.title = T.slShareTrade;
+    const badge = row.querySelector(".badge");
+    badge ? row.insertBefore(b, badge) : row.appendChild(b);
   });
 }
 

@@ -117,8 +117,8 @@
   .main{padding:12px 10px 24px}
   /* кнопки внизу картки й розгорнутого рядка: у три в ряд не влазять —
      переносяться і ділять ширину */
-  .m-foot, .dact{flex-wrap:wrap; gap:8px}
-  .m-foot .btn, .dact .btn{flex:1 1 auto; padding:9px 10px; font-size:13.5px; white-space:nowrap}
+  .m-foot{flex-wrap:wrap; gap:8px}
+  .m-foot .btn{flex:1 1 auto; padding:9px 10px; font-size:13.5px; white-space:nowrap}
   .m-foot .sp{display:none}
   /* поле для посилання Notion і кнопка — одне під одним */
   .ts-paste{flex-direction:column}

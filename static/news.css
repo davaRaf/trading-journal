@@ -235,6 +235,12 @@
 /* Кнопка «поділитись» у шапці картки угоди. Раніше вона лежала внизу, за
    деталями входу й скрінами: щоб її побачити, треба було прокрутити всю
    угоду. Тепер стоїть поруч із результатом — видно одразу, як відкрив. */
+/* у рядку дня — самий значок: поділитись угодою, не відкриваючи її */
+.sh-row{padding:5px;border-radius:8px;color:var(--faint);background:none;border:1px solid transparent}
+.sh-row span{display:none}
+.sh-row svg{width:13px;height:13px}
+.sh-row:hover{color:var(--accent);background:var(--accent-soft);border-color:var(--accent)}
+
 .thead .sh-top{margin-left:12px; padding:7px 13px; font-size:12.5px; border-radius:10px;
   align-self:center; white-space:nowrap}
 .thead .sh-top svg{width:12px; height:12px}

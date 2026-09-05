@@ -754,7 +754,7 @@ function vJournal(){
     '<div class="card daypanel"><h3>'+dayLabel+"</h3>"+chips+
     (mistakes.length?'<div class="mistline">'+T.jrMistakesPrefix+' <span class="neg">'+mistakes.join(" · ")+"</span></div>":"")+
     (dayTrades.length
-      ? '<div class="tlist">'+dayTrades.map((t,i)=>dayTradeHtml(t,dayTrades.length===1||i===0)).join("")+"</div>"
+      ? '<div class="tlist">'+dayTrades.map(t=>dayTradeHtml(t)).join("")+"</div>"
       : '<div class="empty">'+T.tlEmpty+'</div>')+
     '<button class="addday" onclick="openForm(null,\''+S.selDay+'\')">'+T.jrAddDayBtn+'</button>'+
     "</div>";
@@ -828,24 +828,21 @@ function monthTableHtml(list){
     "<tbody>"+rows+"</tbody></table></div></div>";
 }
 
-/* сделка в панели дня: строка-заголовок и под ней вся карточка целиком.
-   Первая раскрыта сразу, остальные — по клику, чтобы день с пятью угодами
-   не превращался в простыню */
-function dayTradeHtml(t, open){
+/* сделка в панели дня: строка, по клику карточка выезжает справа.
+   Раньше она раскрывалась гармошкой прямо здесь — но панель дня узкая,
+   шириной с календарь: скрины выходили с ноготок, и чтобы посмотреть,
+   как набиралась позиция, приходилось жать по каждому. Правая панель
+   вдвое шире, и она уже была — ею пользуются узкие экраны и отчёты. */
+function dayTradeHtml(t){
   const r=netR(t);
   const pos=t.position?'<span class="badge '+(t.position==="Long"?"long":"short")+'">'+esc(t.position)+"</span>":"";
   const dt=dirType(t);
   const dtb=dt?'<span class="badge '+(dt==="Reversal"?"rev":"cont")+'">'+(dt==="Reversal"?"REV":"CONT")+"</span>":"";
   const badge='<span class="badge '+(t.result==="Win"?"win":t.result==="Loss"?"loss":t.result==="BE+"?"beplus":"be")+'">'+resLabel(t.result)+"</span>";
-  return '<details class="dtrade"'+(open?" open":"")+'>'+
-    '<summary><span class="p">'+esc(t.pair||"—")+" "+pos+"</span>"+
-      '<span class="d">'+esc((t.date||"").slice(11,16))+"</span>"+dtb+badge+
-      '<span class="r '+clsR(r)+'">'+fmtR(r)+"</span></summary>"+
-    '<div class="dbody">'+tradeBodyHtml(t)+
-      '<div class="dact">'+
-        '<button class="btn" onclick="openForm(\''+t.id+'\')">'+T.tcEdit+'</button>'+
-        '<button class="btn danger" onclick="delTrade(\''+t.id+'\')">'+T.tcDelete+'</button>'+
-      "</div></div></details>";
+  return '<button class="dtrade" type="button" data-id="'+esc(t.id)+'" onclick="openTrade(\''+t.id+'\')">'+
+    '<span class="p">'+esc(t.pair||"—")+" "+pos+"</span>"+
+    '<span class="d">'+esc((t.date||"").slice(11,16))+"</span>"+dtb+badge+
+    '<span class="r '+clsR(r)+'">'+fmtR(r)+"</span></button>";
 }
 
 function shiftJMonth(d){ const [y,m]=S.jMonth.split("-").map(Number); const dt=new Date(y,m-1+d,1); S.jMonth=isoMonth(dt); S.pages={}; render(); }
