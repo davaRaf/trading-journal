@@ -759,12 +759,12 @@ function QS(){
     {k:"hours", multi:true, opts:q.hoursOpts, t:q.hours, h:q.hoursH},
     {k:"days",  multi:true, opts:q.daysOpts, t:q.days, h:q.daysH},
     {k:"model", multi:true, own:true, opts:["cisd","bos","inversion"], t:q.model, h:q.modelH},
-    {k:"stop",  opts:q.stopOpts, t:q.stop, h:""},
-    {k:"target",opts:q.targetOpts, t:q.target, h:""},
-    {k:"risk",  multi:true, opts:["0.25%","0.5%","1%","1.5%","2%"], t:q.risk, h:q.riskH},
-    {k:"rr",    opts:["1.5","2","2.5","3"], t:q.rr, h:""},
-    {k:"day",   opts:["1%","2%","3%","5%",q.noLimit], t:q.day, h:q.dayH},
-    {k:"maxtrades", opts:["1","2","3","5",q.noLimit], t:q.maxtrades, h:""},
+    {k:"stop",  own:true, opts:q.stopOpts, t:q.stop, h:""},
+    {k:"target",own:true, opts:q.targetOpts, t:q.target, h:""},
+    {k:"risk",  multi:true, own:true, opts:["0.25%","0.5%","1%","1.5%","2%"], t:q.risk, h:q.riskH},
+    {k:"rr",    own:true, opts:["1.5","2","2.5","3"], t:q.rr, h:""},
+    {k:"day",   own:true, opts:["1%","2%","3%","5%",q.noLimit], t:q.day, h:q.dayH},
+    {k:"maxtrades", own:true, opts:["1","2","3","5",q.noLimit], t:q.maxtrades, h:""},
     {k:"be",    multi:true, opts:q.beOpts, t:q.be, h:q.beH},
     {k:"partial", opts:q.partialOpts, t:q.partial, h:""},
     {k:"manual", multi:true, opts:q.manualOpts, t:q.manual, h:q.manualH},
@@ -836,6 +836,9 @@ function pick(k, v, el){
 function own(k, inp){
   const v = (inp.value || "").trim();
   if (!v) return;
+  const q = QS().find(x => x.k === k);
+  /* одна відповідь: свій варіант обирається одразу і веде далі, як кнопка */
+  if (q && !q.multi){ pick(k, v); return; }
   const a = answers[k] || (answers[k] = []);
   if (!a.includes(v)){
     a.push(v);
@@ -894,7 +897,7 @@ function drawAsk(){
        при поверненні до питання свій варіант зник би з очей */
     const opts = q.multi
       ? q.opts.concat((answers[q.k] || []).filter(v => !q.opts.includes(v)))
-      : q.opts;
+      : q.opts.concat(answers[q.k] && !q.opts.includes(answers[q.k]) ? [answers[q.k]] : []);
     body += '<div class="ts-opts">' + opts.map(v =>
       '<button class="ts-opt' + (sel(v) ? " on" : "") + '" onclick="__ts.pick(\'' + q.k + "','"
       + String(v).replace(/'/g, "\\'") + "',this)\">" + esc(v) + "</button>").join("") + "</div>";
