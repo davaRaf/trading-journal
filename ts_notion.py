@@ -293,7 +293,7 @@ def parse(text):
         "tfs": tfs,
         "windows": windows[:8],
         "days": "", "news": "",
-        "models": [{"name": m, "note": "", "shot": ""} for m in models],
+        "models": [{"name": m, "note": "", "shots": []} for m in models],
         "bias": bias, "stop": {"v": stop, "shot": ""}, "target": {"v": target, "shot": ""},
         "maxtrades": maxtrades,
         "risk": risk, "riskCases": [],
@@ -425,11 +425,60 @@ def read(urls, user_id, shots_dir):
     # підписані скріни розкладаємо по таймфреймах: у Notion підпис
     # блока — це зазвичай і є таймфрейм
     by_tf = {}
-    for s in shots:
-        for tf in _tfs_in(s.get("caption") or ""):
-            by_tf.setdefault(tf, s["file"])
+    for sh in shots:
+        for tf in _tfs_in(sh.get("caption") or ""):
+            by_tf.setdefault(tf, sh["file"])
     for row in draft["tfs"]:
         if row["tf"] in by_tf:
             row["shot"] = by_tf[row["tf"]]
 
+    attach_by_caption(draft, shots)
     return draft
+
+
+# ------------------------------------------------------- скріни по підписах --
+
+def _words(s):
+    """Слова підпису в нижньому регістрі — щоб «Order flow» і «ORDER FLOW»
+    були тим самим, а «BOS» не ловилось усередині «BOSS»."""
+    return [w for w in re.split(r"[^0-9a-zA-Zа-яА-Яа-яїієґЇІЄҐ]+", (s or "").lower()) if w]
+
+
+def attach_by_caption(draft, shots):
+    """Скрін, підписаний назвою правила, ставимо до цього правила.
+
+    У Notion картинку кладуть під заголовком («Order flow», «BOS»), і цей
+    заголовок стає підписом блока. Модель ставить номери сама, але не завжди
+    влучає — тоді картинка осідала б унизу сторінки, хоча місце для неї видно
+    з підпису. Чіпаємо лише порожні блоки: те, що модель уже розклала, не
+    чіпаємо.
+    """
+    taken = {row.get("shot") for row in draft.get("tfs") or [] if row.get("shot")}
+    for key in ("models", "manage", "extra"):
+        for row in draft.get(key) or []:
+            taken.update(row.get("shots") or [])
+    for key in ("stop", "target"):
+        got = (draft.get(key) or {}).get("shot")
+        if got:
+            taken.add(got)
+
+    for key, title in (("models", "name"), ("manage", "k"), ("extra", "k")):
+        for row in draft.get(key) or []:
+            if row.get("shots"):
+                continue
+            name = _words(row.get(title))
+            if not name:
+                continue
+            picked = []
+            for sh in shots:
+                if sh["file"] in taken:
+                    continue
+                cap = _words(sh.get("caption"))
+                # усі слова назви стоять у підписі окремими словами
+                if cap and all(w in cap for w in name):
+                    picked.append(sh["file"])
+                    taken.add(sh["file"])
+                    if len(picked) >= 8:
+                        break
+            if picked:
+                row["shots"] = picked
