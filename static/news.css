@@ -249,6 +249,9 @@
 .thead .sh-top:hover{background:var(--accent); color:var(--accent-ink)}
 .thead .sh-top svg{width:14px; height:14px}
 @media (max-width:560px){
-  .thead .sh-top{margin-left:auto; padding:6px 10px; font-size:12px}
+  /* на телефоні лишається сам значок — але не дрібний: у нього така сама
+     площа для пальця, як у решти кнопок */
+  .thead .sh-top{margin-left:auto; padding:9px 11px; font-size:12px}
   .thead .sh-top span{display:none}
+  .thead .sh-top svg{width:15px; height:15px}
 }
