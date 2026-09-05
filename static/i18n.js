@@ -180,8 +180,6 @@ uk: {
   tgCodeError: "Не вийшло отримати код. Перевір, чи запущено bot.py",
   confirmUnlinkTg: "Відв'язати Telegram?",
 
-  hfTitle: "Звідки ти про нас дізнався?", hfHint: "Один раз — і більше не спитаємо.",
-  hfOther: "Якось інакше", hfOtherPh: "Розкажіть, звідки", hfDone: "Готово",
   demoLabel: "Демо", demoDesc: "Угоди зберігаються лише у твоєму браузері", demoReset: "Скинути",
   dmQuotaAlert: "Демо-режим: скриншоти не помістилися в пам'ять браузера й не збережені.\nСамі угоди на місці. Повноцінно скриншоти працюють у локальній версії (app.py).",
 
@@ -645,8 +643,6 @@ ru: {
   tgCodeError: "Не вышло получить код. Проверь, запущен ли bot.py",
   confirmUnlinkTg: "Отвязать Telegram?",
 
-  hfTitle: "Откуда ты о нас узнал?", hfHint: "Один раз — и больше не спросим.",
-  hfOther: "Как-то иначе", hfOtherPh: "Расскажите, откуда", hfDone: "Готово",
   demoLabel: "Демо", demoDesc: "Сделки сохраняются только в твоём браузере", demoReset: "Сбросить",
   dmQuotaAlert: "Демо-режим: скриншоты не поместились в память браузера и не сохранены.\nСами сделки на месте. Полноценно скриншоты работают в локальной версии (app.py).",
 
@@ -1098,8 +1094,6 @@ en: {
   tgCodeError: "Couldn't get a code. Check that bot.py is running",
   confirmUnlinkTg: "Unlink Telegram?",
 
-  hfTitle: "How did you hear about us?", hfHint: "Once — and we won't ask again.",
-  hfOther: "Some other way", hfOtherPh: "Tell us where", hfDone: "Done",
   demoLabel: "Demo", demoDesc: "Trades are stored only in your browser", demoReset: "Reset",
   dmQuotaAlert: "Demo mode: screenshots didn't fit in the browser's storage and weren't saved.\nThe trades themselves are fine. Screenshots work fully in the local version (app.py).",
 

@@ -1153,21 +1153,16 @@ function vAnalytics(){
 }
 
 /* ================= МОДАЛКИ ================= */
-let modalLocked=false;
-function openModal(html,locked){
+function openModal(html){
   const m=$("#modal");
   m.style.zIndex = window.nextTop ? nextTop() : "";
   $("#modalBox").innerHTML=html; m.hidden=false;
-  modalLocked=!!locked;
   document.body.style.overflow="hidden";
 }
 /* Закриваємо те, що зверху. Діалог, відкритий з панелі, лишає панель на
    місці: повернутись треба туди, звідки прийшли. А якщо діалога немає,
    closeModal() кличуть із самої панелі — тоді закривається вона. */
 function closeModal(){
-  /* Замкнене вікно не закривається нічим: і Esc, і клік повз фон приходять
-     сюди ж, тому одна перевірка тут закриває обидва шляхи. */
-  if(modalLocked) return;
   const m=$("#modal"), panel = window.Panel && Panel.isOpen();
   if(m && !m.hidden){
     m.hidden=true;
@@ -1942,52 +1937,11 @@ function paintTelegramStatus(){
 window.paintTelegramStatus=paintTelegramStatus;
 async function refreshTelegramStatus(){
   let user=null;
-  try{ user=(await api("GET","/api/auth/me")).user; }catch(e){ return null; }
+  try{ user=(await api("GET","/api/auth/me")).user; }catch(e){ return; }
   telegramLinked=!!(user && user.telegram_linked);
   paintTelegramStatus();
-  return user;
 }
 
-/* ---------- «Звідки дізнались»: одне питання після входу ----------
-   Питаємо один раз, і відповідь потрібна напевно, тому вікно замкнене.
-   Вигляд не вигадуємо: .seg — та сама смужка кнопок, що у формі угоди,
-   .qinput — те саме поле «своє значення», що ховається до потреби. */
-const HEARD_COMMUNITY = "";   /* назва спільноти; порожньо — пункт не показуємо */
-
-function askHeardFrom(user){
-  if(!user || user.heard_from || DEMO || (window.Pub && Pub.on)) return;
-  const src = (HEARD_COMMUNITY ? [{v:"community", t:HEARD_COMMUNITY}] : [])
-    .concat([{v:"instagram", t:"Instagram"}, {v:"tiktok", t:"TikTok"},
-             {v:"other", t:T.hfOther}]);
-  openModal('<div class="m-head"><h2>'+T.hfTitle+'</h2></div>'+
-    '<div class="m-body"><p class="hint">'+T.hfHint+'</p>'+
-    '<div class="seg" id="hfSeg" style="margin-top:12px">'+
-      src.map(o=>'<button type="button" data-v="'+o.v+'">'+esc(o.t)+'</button>').join("")+
-    '</div><input class="qinput" id="hfText" autocomplete="off" maxlength="120" '+
-      'placeholder="'+esc(T.hfOtherPh)+'" hidden></div>'+
-    '<div class="m-foot"><span class="sp"></span>'+
-    '<button class="btn primary" id="hfGo" disabled>'+T.hfDone+'</button></div>', true);
-
-  const seg=$("#hfSeg"), txt=$("#hfText"), go=$("#hfGo");
-  let pick="";
-  seg.addEventListener("click", e=>{
-    const b=e.target.closest("button"); if(!b) return;
-    pick=b.dataset.v;
-    seg.querySelectorAll("button").forEach(x=>x.classList.toggle("on", x===b));
-    txt.hidden = pick!=="other";
-    if(!txt.hidden) txt.focus();
-    go.disabled=false;
-  });
-  go.addEventListener("click", async ()=>{
-    if(!pick) return;
-    go.disabled=true;
-    const value = pick==="other"     ? "other:"+txt.value.trim()
-                : pick==="community" ? "community:"+HEARD_COMMUNITY
-                : pick;
-    try{ await api("POST","/api/heard-from",{value}); }catch(e){}
-    modalLocked=false; closeModal();
-  });
-}
 
 function markDemo(){
   const b=document.createElement("div");
@@ -2027,5 +1981,5 @@ function markDemo(){
   if(S.view==="monthly"){ S.view="journal"; location.hash="journal"; }
   render();
   if(window.Sparks) Sparks.start();
-  if(!DEMO && !(window.Pub && Pub.on)) refreshTelegramStatus().then(askHeardFrom);
+  if(!DEMO && !(window.Pub && Pub.on)) refreshTelegramStatus();
 })();

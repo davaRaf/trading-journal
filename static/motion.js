@@ -49,9 +49,6 @@ if (typeof openOrig === "function"){
 
 if (typeof closeOrig === "function"){
   window.closeModal = function(){
-    /* Замкнене вікно (опитування після входу) не закривається взагалі —
-       перевіряємо до анімації, інакше воно зникне з очей, лишившись відкритим. */
-    if (typeof modalLocked !== "undefined" && modalLocked) return;
     const modal = document.getElementById("modal");
     if (!modal || modal.hidden || still() || closing) return closeOrig.apply(this, arguments);
     const args = arguments, self = this;

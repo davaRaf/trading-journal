@@ -549,8 +549,7 @@ def user_public(user):
             "telegram_linked": user["telegram_id"] is not None,
             "digest_hour": user["digest_hour"], "digest_minute": user["digest_minute"],
             "digest_enabled": user["digest_enabled"],
-            "public_journal": bool(user["public_journal"]),
-            "heard_from": user["heard_from"] or ""}
+            "public_journal": bool(user["public_journal"])}
 
 
 # ---------------------------------------------------------------------------
@@ -1259,10 +1258,6 @@ class H(BaseHTTPRequestHandler):
             code = db.create_link_code(uid)
             return self._json({"code": code, "bot": bot,
                                "link": "https://t.me/%s?start=%s" % (bot, code)})
-
-        if p == "/api/heard-from":
-            db.set_heard_from(uid, str((body or {}).get("value") or "").strip())
-            return self._json({"ok": True})
 
         if p == "/api/telegram/unlink":
             db.unlink_telegram(uid)
