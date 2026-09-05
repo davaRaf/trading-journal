@@ -168,6 +168,8 @@ html:has(.pnl-wrap){overflow-y:hidden}
 .jhead h1{font-size:clamp(22px,3.2vw,28px);font-weight:650;letter-spacing:-.02em;margin:0}
 .jhead .seg-tabs{margin-left:0}
 .jhead .tools{margin-left:auto;display:flex;align-items:center;gap:14px;flex-wrap:wrap}
+/* поки в журналі нема чим ділитись, гнізда для кнопок теж нема */
+.jhead .tools:empty{display:none}
 /* навигация по месяцу — один узел в общей капсуле */
 .mnav{display:flex;align-items:center;gap:2px;padding:4px;border-radius:13px;
   border:1px solid var(--line-soft);background:var(--seg-bg);box-shadow:var(--card-lip);
@@ -525,16 +527,27 @@ table.simple tr.click:hover td{background:var(--panel-2)}
   font-variant-numeric:tabular-nums;overflow:hidden;text-overflow:ellipsis}
 .tsec{padding:14px 20px 15px;border-bottom:1px solid var(--line-soft)}
 .tsec:last-child{border-bottom:none}
-.tsec h3{margin:0 0 10px;padding:0;border:none;background:none;font-family:var(--mono);font-size:9.5px;letter-spacing:.20em;text-transform:uppercase;
-  color:var(--accent);font-weight:500}
+/* Заголовок розділу — плашкою, підзаголовок усередині — рядком із крапкою.
+   Доти й те, й те було однаковим дрібним зеленим написом, і «Що записав»
+   ніяк не відрізнявся від «Як заходив», який лежить усередині нього.
+   Плашка вужча за колонку і не тягнеться на всю ширину: заголовок — це
+   мітка розділу, а не смуга. */
+.tsec h3{display:inline-flex;align-items:center;gap:8px;margin:0 0 12px;
+  padding:5px 11px 5px 8px;border:none;border-radius:8px;
+  background:var(--accent-soft);color:var(--accent);
+  font-family:var(--mono);font-size:9.5px;letter-spacing:.18em;text-transform:uppercase;
+  font-weight:500}
+.tsec h3::before{content:"";width:3px;height:11px;border-radius:2px;background:var(--accent)}
 .tfields{display:grid;grid-template-columns:repeat(auto-fit,minmax(196px,1fr));gap:0 24px}
 .tfields .fr{display:flex;align-items:baseline;justify-content:space-between;gap:12px;padding:6px 0;
   border-bottom:1px solid var(--line-soft)}
 .tfields .fr .l{color:var(--accent);font-size:12.5px;white-space:nowrap}
 .tfields .fr .v{font-size:13.5px;font-weight:500;text-align:right;min-width:0;overflow-wrap:anywhere}
 .tnote+.tnote{margin-top:14px}
-.tnote .l{font-family:var(--mono);font-size:9.5px;letter-spacing:.14em;text-transform:uppercase;
-  color:var(--accent);margin-bottom:5px}
+.tnote .l{display:flex;align-items:center;gap:7px;font-family:var(--mono);font-size:9.5px;
+  letter-spacing:.14em;text-transform:uppercase;color:var(--accent);margin-bottom:5px}
+.tnote .l::before{content:"";width:4px;height:4px;border-radius:50%;background:currentColor;
+  opacity:.65;flex:none}
 .tfields .fr .v.none,.tnote .v.none{color:var(--faint);font-weight:400}
 /* чего в сделке не записано — одной строкой, а не пустым полем на каждое */
 .tempty{margin-top:10px;font-size:12.5px;line-height:1.5;color:var(--faint)}

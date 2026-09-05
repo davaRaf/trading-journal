@@ -301,10 +301,6 @@ function filterBar(){
 const CAL_ICON='<svg width="13" height="13" aria-hidden="true" viewBox="0 0 24 24" fill="none">'+
   '<rect x="3" y="4.5" width="18" height="16" rx="3" stroke="currentColor" stroke-width="1.7"/>'+
   '<path d="M3 9.5h18M8 3v3M16 3v3" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></svg>';
-const SHARE_ICON='<svg width="14" height="14" aria-hidden="true" viewBox="0 0 24 24" fill="none">'+
-  '<rect x="3" y="5" width="18" height="14" rx="3" stroke="currentColor" stroke-width="1.6"/>'+
-  '<circle cx="8.5" cy="10" r="1.6" stroke="currentColor" stroke-width="1.5"/>'+
-  '<path d="M4 17l5-4 4 3 3-2 4 3" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>';
 function periodBtn(){
   const f=S.filters.from||"", t=S.filters.to||"";
   const lab=(f||t) ? (DatePicker.human(f)||"…")+" — "+(DatePicker.human(t)||"…") : T.flPeriod;
@@ -716,16 +712,15 @@ function vJournal(){
     '<button class="'+(S.jMode==="table"?"on":"")+'" data-tip="'+T.jrTableTabTip+'" onclick="setJMode(\'table\')">'+T.jrTableTab+'</button>'+
     '<button class="'+(S.jMode==="list"?"on":"")+'" data-tip="'+T.jrAllTabTip+'" onclick="setJMode(\'list\')">'+T.jrAllTab+'</button>'+
     "</div>";
-  const shareBtn='<button class="jact" data-tip="'+T.jrShareBtnTip+'" data-ym="'+S.jMonth+
-    '" onclick="openShare(this.dataset.ym)">'+SHARE_ICON+T.jrShareBtn+"</button>";
-
   let h='<div class="jhead"><h1>'+T.jrTitle+'</h1>'+modeTabs;
   if(S.jMode==="list"){
     h+="</div>";
     const list=sortDesc(applyFilters(S.trades));
     return h+filterBar()+tradesCard(list,T.jrAllTab+" · "+list.length,"all");
   }
-  h+='<div class="tools">'+shareBtn+"</div></div>";
+  /* «Інструменти» лишаються порожні: сюди sharelink.js кладе кнопки
+     «поділитись» за день, тиждень, місяць і рік */
+  h+='<div class="tools"></div></div>';
 
   /* лента статистики месяца */
   h+=kpiHtml(st);
@@ -1003,8 +998,8 @@ function openMonthReport(ym){
     h+='<div class="rep-sec">'+T.mrAllTradesSection+'</div><div class="card"><div class="tlist">'+
       sortAsc(list).map(tradeRow).join("")+"</div></div>";
   }
-  h+='</div><div class="m-foot"><button class="btn primary" data-ym="'+ym+'" onclick="closeModal();openShare(this.dataset.ym)">'+T.jrShareBtn+'</button>'+
-    '<button class="btn" data-ym="'+ym+'" onclick="gotoMonthFromReport(this.dataset.ym)">'+T.mrOpenInJournal+'</button>'+
+  h+='</div><div class="m-foot">'+
+    '<button class="btn primary" data-ym="'+ym+'" onclick="gotoMonthFromReport(this.dataset.ym)">'+T.mrOpenInJournal+'</button>'+
     '<span class="sp"></span><button class="btn" onclick="closeModal()">'+T.mrClose+'</button></div>';
   openModal(h);
 }
