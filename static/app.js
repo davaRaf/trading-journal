@@ -1143,6 +1143,14 @@ $("#modal") && null;
 
 function openLightbox(src){ $("#lightboxImg").src=src; $("#lightbox").hidden=false; }
 function closeLightbox(){ $("#lightbox").hidden=true; $("#lightboxImg").src=""; }
+/* Esc закрывает сам скрин, а не панель под ним: скрин открыли последним,
+   его и убираем. Перехват на погружении — панель слушает всплытие, и так
+   до неё не дойдёт, в каком бы порядке ни навесились обработчики. */
+document.addEventListener("keydown", e=>{
+  const box=$("#lightbox");
+  if(e.key!=="Escape" || !box || box.hidden) return;
+  e.stopPropagation(); closeLightbox();
+}, true);
 
 /* ---------- просмотр сделки ---------- */
 /* содержимое карточки сделки четырьмя блоками: итог, как торговал, записи, графики.

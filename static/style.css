@@ -557,8 +557,11 @@ table.simple tr.click:hover td{background:var(--panel-2)}
 .chart-item .l{font-family:var(--mono);font-size:11px;letter-spacing:.1em;color:var(--accent);margin-bottom:4px;text-transform:uppercase}
 .chart-item img{width:100%;border-radius:var(--r-sm);border:1px solid var(--line);cursor:zoom-in;display:block}
 
-/* lightbox */
-.lightbox{position:fixed;inset:0;background:var(--overlay-strong);z-index:60;display:flex;align-items:center;justify-content:center;cursor:zoom-out;padding:20px}
+/* lightbox
+   Выше выезжающей панели (70): скрин открывают из карточки сделки, и
+   раскрыться он должен поверх неё, а не за ней. Ниже вопроса «точно
+   удалить?» (95) — тот перекрывает всё. */
+.lightbox{position:fixed;inset:0;background:var(--overlay-strong);z-index:90;display:flex;align-items:center;justify-content:center;cursor:zoom-out;padding:20px}
 .lightbox img{max-width:96vw;max-height:92vh;border-radius:6px}
 
 /* импорт */
