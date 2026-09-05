@@ -501,39 +501,45 @@ table.simple tr.click:hover td{background:var(--panel-2)}
 
 /* ============ карточка сделки в выезжающей панели ============
    четыре блока с hairline-границами вместо ровной сетки одинаковых плиток */
-.thead{align-items:flex-start;gap:12px}
+/* Усе в шапці стоїть по одному центру. Раніше було flex-start: назва,
+   процент і хрестик чіплялись за верх, а кнопка «поділитись» — за центр,
+   і рядок виглядав розсипаним. */
+.thead{align-items:center;gap:12px}
 .thead .ttl{display:flex;align-items:center;gap:9px;flex-wrap:wrap;min-width:0}
 .thead .ttl h2{margin:0;font-size:19px;font-weight:650}
 .thead .ttl .dt{width:100%;font-family:var(--mono);font-size:11.5px;color:var(--faint);letter-spacing:.03em}
 .thead .res{margin-left:auto;font-family:var(--mono);font-size:26px;font-weight:500;letter-spacing:-.03em;
   line-height:1.15;font-variant-numeric:tabular-nums;white-space:nowrap}
-.thead .x{margin-left:0}
+.thead .x{margin-left:0;align-self:center}
 .m-body.trade{padding:0}
 /* итог сделки: та же hairline-лента, что и показатели на «Огляді» */
 .tstats{display:grid;grid-template-columns:repeat(3,1fr);border-bottom:1px solid var(--line-soft)}
 .tstats .st{padding:12px 16px 11px;border-right:1px solid var(--line-soft);min-width:0}
 .tstats .st:last-child{border-right:none}
-.tstats .lab{font-family:var(--mono);font-size:9px;letter-spacing:.16em;text-transform:uppercase;
-  color:var(--faint);white-space:nowrap}
+/* Підписи в картці — акцентом. Сірим по темному їх доводилось вишукувати:
+   видно було значення, а що це за значення — ні. Колір тут працює як
+   заголовок, тому яскравий саме підпис, а не сам текст під ним. */
+.tstats .lab{font-family:var(--mono);font-size:9.5px;letter-spacing:.16em;text-transform:uppercase;
+  color:var(--accent);white-space:nowrap}
 .tstats .val{font-family:var(--mono);font-size:18px;margin-top:8px;line-height:1;
   font-variant-numeric:tabular-nums;overflow:hidden;text-overflow:ellipsis}
 .tsec{padding:14px 20px 15px;border-bottom:1px solid var(--line-soft)}
 .tsec:last-child{border-bottom:none}
-.tsec h3{margin:0 0 10px;padding:0;border:none;background:none;font-family:var(--mono);font-size:9px;letter-spacing:.20em;text-transform:uppercase;
-  color:var(--faint);font-weight:400}
+.tsec h3{margin:0 0 10px;padding:0;border:none;background:none;font-family:var(--mono);font-size:9.5px;letter-spacing:.20em;text-transform:uppercase;
+  color:var(--accent);font-weight:500}
 .tfields{display:grid;grid-template-columns:repeat(auto-fit,minmax(196px,1fr));gap:0 24px}
 .tfields .fr{display:flex;align-items:baseline;justify-content:space-between;gap:12px;padding:6px 0;
   border-bottom:1px solid var(--line-soft)}
-.tfields .fr .l{color:var(--faint);font-size:12.5px;white-space:nowrap}
+.tfields .fr .l{color:var(--accent);font-size:12.5px;white-space:nowrap}
 .tfields .fr .v{font-size:13.5px;font-weight:500;text-align:right;min-width:0;overflow-wrap:anywhere}
 .tnote+.tnote{margin-top:14px}
-.tnote .l{font-family:var(--mono);font-size:9px;letter-spacing:.14em;text-transform:uppercase;
-  color:var(--faint);margin-bottom:5px}
+.tnote .l{font-family:var(--mono);font-size:9.5px;letter-spacing:.14em;text-transform:uppercase;
+  color:var(--accent);margin-bottom:5px}
 .tfields .fr .v.none,.tnote .v.none{color:var(--faint);font-weight:400}
 /* чего в сделке не записано — одной строкой, а не пустым полем на каждое */
 .tempty{margin-top:10px;font-size:12.5px;line-height:1.5;color:var(--faint)}
 .tsec > .tempty:first-of-type:not(:nth-child(2)){margin-top:0}
-.tnote .v{font-size:13.5px;line-height:1.55;color:var(--dim);white-space:pre-wrap;overflow-wrap:anywhere}
+.tnote .v{font-size:13.5px;line-height:1.55;color:var(--text);white-space:pre-wrap;overflow-wrap:anywhere}
 .pnl .m-foot{position:sticky;bottom:0;background:var(--card);z-index:1}
 @media(max-width:620px){
   .tstats .st{padding:11px 13px 10px}
