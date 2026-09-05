@@ -316,7 +316,9 @@ function topVals(field,n){
 
 /* Чаще всего человек торгует один счёт подряд, а не прыгает между ними
    каждую сделку, — поэтому подставляем тот, на котором записывал прошлый раз. */
-const ACC_HINTS=["Личный деп","FTMO","FundingPips"];
+/* Назви проп-фірм не перекладаються, а «свій депозит» — так, як в
+   інтерфейсі. Це підказки: перше ж введене ім'я витісняє їх. */
+function accHints(){ return [T.accOwn,"FTMO","FundingPips"]; }
 function lastAccount(){
   try{ const v=localStorage.getItem("tj_account"); if(v) return v; }catch(e){}
   const last=sortDesc(S.trades).find(t=>(t.account||"").trim());
@@ -1337,7 +1339,7 @@ function openForm(id, presetDay){
 
   /* Названия счетов — то, что человек уже вводил. Пока пусто, подсказываем
      самые ходовые; справочника нет, пишет он сам. */
-  const accounts=[...new Set([...topVals("account",4), ...ACC_HINTS])].slice(0,4);
+  const accounts=[...new Set([...topVals("account",4), ...accHints()])].slice(0,4);
   const models=[...new Set(["cisd",...topVals("entry_model",4)])];
   const setups=topVals("setup",4);
   const mistakes=topVals("mistakes",5);
