@@ -129,7 +129,10 @@ def shape(raw, shots, tfs_all, tfs_in):
             tf = got[0] if got else tf
         if not tf:
             continue
-        rows.append({"tf": tf, "role": _clip(r.get("role"), 80),
+        # У «ролі» часто опиняється не слово «контекст», а ціла вступна
+        # фраза зі сторінки («якщо відкриття місяця, я заходжу подивитись:»).
+        # На 80 знаках вона обривалась на півслові — тепер місця вистачає.
+        rows.append({"tf": tf, "role": _clip(r.get("role"), 220),
                      "what": _clip(r.get("what"), 600), "shot": _shot(r.get("shot"), shots)})
     order = {tf: i for i, tf in enumerate(tfs_all)}
     rows.sort(key=lambda x: order.get(x["tf"], 99))

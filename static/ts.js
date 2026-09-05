@@ -245,9 +245,13 @@ function secMarket(){
 function secTf(){
   const d = D();
   const rows = (TS.tfs || []).map((r, i) =>
-    '<div class="ts-tf"><div class="head"><div class="n">' + ed("tfs." + i + ".tf", "", d.emptyTf) + "</div>"
-    + '<div class="role">' + ed("tfs." + i + ".role", "", d.emptyRole) + "</div></div>"
-    + '<div class="what"><div class="ts-row">' + edArea("tfs." + i + ".what", d.emptyWhat)
+    /* Під самим таймфреймом — нічого: підпис до списку («якщо відкриття
+       місяця, я заходжу подивитись…») стоїть над списком, у колонці опису.
+       Він і читається як заголовок переліку, а не як бирка збоку, і його
+       більше не тре в вузьку колонку по літері. */
+    '<div class="ts-tf"><div class="head"><div class="n">' + ed("tfs." + i + ".tf", "", d.emptyTf) + "</div></div>"
+    + '<div class="what"><div class="lead">' + ed("tfs." + i + ".role", "", d.emptyRole) + "</div>"
+    + '<div class="ts-row">' + edArea("tfs." + i + ".what", d.emptyWhat)
     + x("tfs", i) + "</div></div>"
     + shot("tfs." + i + ".shot") + "</div>").join("");
   return (rows ? '<div class="ts-tfs">' + rows + "</div>"
@@ -1139,7 +1143,7 @@ uk: {
   editTip: "<b>Тут усе правиться прямо на сторінці.</b> Клікни по будь-якому полі — воно стане рядком для вводу. "
          + "Пунктирна рамка означає, що поле порожнє й туди можна писати. Скрін — клік по слоту, Ctrl+V або перетягни картинку.",
   loading: "Хвилинку…", empty: "заповнити", emptyNote: "додати пояснення",
-  emptyRole: "яка роль", emptyWhat: "що дивлюсь на цьому таймфреймі", emptyRule: "правило",
+  emptyRole: "підпис до списку", emptyWhat: "що дивлюсь на цьому таймфреймі", emptyRule: "правило",
   emptyTime: "час", emptyTf: "таймфрейм", emptyName: "назва",
   emptyMind: "що нагадати собі перед торгівлею",
   remove: "прибрати", back: "назад",
@@ -1255,7 +1259,7 @@ ru: {
   editTip: "<b>Здесь всё правится прямо на странице.</b> Кликни по любому полю — оно станет строкой ввода. "
          + "Пунктирная рамка значит, что поле пустое и туда можно писать. Скрин — клик по слоту, Ctrl+V или перетащи картинку.",
   loading: "Минутку…", empty: "заполнить", emptyNote: "добавить пояснение",
-  emptyRole: "какая роль", emptyWhat: "что смотрю на этом таймфрейме", emptyRule: "правило",
+  emptyRole: "подпись к списку", emptyWhat: "что смотрю на этом таймфрейме", emptyRule: "правило",
   emptyTime: "время", emptyTf: "таймфрейм", emptyName: "название",
   emptyMind: "что напомнить себе перед торговлей",
   remove: "убрать", back: "назад",
@@ -1372,7 +1376,7 @@ en: {
          + "A dashed outline means the field is empty and waiting for text. Screenshot — click the slot, Ctrl+V or drop an image on it.",
   loading: "One moment…", empty: "fill in", emptyNote: "add a note",
   emptyTime: "time", emptyTf: "timeframe", emptyName: "name",
-  emptyRole: "role", emptyWhat: "what I look at on this timeframe", emptyRule: "rule",
+  emptyRole: "list caption", emptyWhat: "what I look at on this timeframe", emptyRule: "rule",
   emptyMind: "what to remind yourself before trading",
   remove: "remove", back: "back",
 
