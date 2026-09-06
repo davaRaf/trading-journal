@@ -100,6 +100,22 @@
   .mmenu-wrap .mmenu .mini, .mmenu-wrap .mmenu #themeBtn{font-size:13.5px; justify-content:flex-start; padding:10px 12px}
   .mmenu-wrap .mmenu .lab{display:block}
 
+  /* Соцмережі у шторці. Блоки бічної панелі сюди переїжджають цілком, а їхні
+     правила написані через «.side ...» — тож тут вони не діють: підпис лишався
+     звичайним текстом, а від display:block вище значки зривались під нього.
+     Повертаємо ряд і робимо значки нормального пальцевого розміру. */
+  .mmenu .socs{display:flex; align-items:center; gap:10px; width:100%;
+    margin-top:6px; padding:12px 2px 2px; border-top:1px solid var(--line-soft)}
+  .mmenu .socs .lab{display:inline; width:auto; margin:0 auto 0 4px; padding:0;
+    font-family:var(--mono); font-size:10px; letter-spacing:.13em;
+    text-transform:uppercase; color:var(--faint)}
+  .mmenu .socs .soc{display:inline-grid; place-items:center; flex:none;
+    width:44px; height:44px; border-radius:13px; color:var(--dim);
+    border:1px solid var(--line); background:var(--panel)}
+  .mmenu .socs .soc .ic{width:22px; height:22px}
+  .mmenu .socs .soc.ig:active{color:#e1568f}
+  .mmenu .socs .soc.tt:active{color:#25f4ee}
+
   /* ---- вміст ---- */
   .vhead{gap:10px}
   .vhead h1{font-size:22px}
@@ -111,6 +127,14 @@
   .card .in{padding:14px}
   .card h3{padding:11px 14px; font-size:12px}
   .sh-bar{flex-wrap:wrap}
+  /* «Поділитися» в шапці журналу: підпис займав місце в тому ж рядку, і
+     третя кнопка («Рік») зривалась на свій. Тепер підпис стоїть окремим
+     рядком, а кнопки ділять ширину порівну — скільки б їх не було. */
+  .jhead .sh-bar.sh-inline{display:flex; flex-wrap:wrap; width:100%; gap:7px;
+    align-items:center}
+  .jhead .sh-bar.sh-inline .sh-cap{flex:1 0 100%; margin:0}
+  .jhead .sh-bar.sh-inline .sh-btn{flex:1 1 0; min-width:0; justify-content:center;
+    padding:9px 6px; font-size:12.5px; white-space:nowrap}
 
   /* панелі збоку — на весь екран */
   .pnl-wrap[data-side="right"] .pnl{width:100%; border-radius:0; border:none}
