@@ -142,6 +142,10 @@ def _options(user_id, step, trade):
         return ["Як минулого разу (%s)" % _num(last)], [str(last)]
     if kind == "emotion":
         return [l for _c, l in emotions.OPTIONS], [l for _c, l in emotions.OPTIONS]
+    if not step["field"]:
+        # Крок без поля журналу — скрін. Пропонувати нічого, там чекають
+        # картинку, а не вибір; лишається сама навігація.
+        return [], []
     vals = db.frequent_values(user_id, step["field"], TOP)
     return list(vals), list(vals)
 

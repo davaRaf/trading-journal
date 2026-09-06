@@ -211,6 +211,27 @@ def check_save():
     check("без пари не записуємо", not STORE["saved"] and STORE["draft"] is None)
 
 
+def check_full_walk():
+    """Проходимо сценарій цілком, кнопка за кнопкою.
+
+    Саме так знайшлася поломка на кроці зі скріном: у нього немає поля
+    журналу, а варіанти для кнопок усе одно запитувались — і сценарій
+    обривався на середині. Окремі кроки такого не ловлять, тільки прохід
+    від початку до картки.
+    """
+    reset()
+    tf.start(USER, CHAT)
+    seen = []
+    for _ in range(len(tf.STEPS) + 2):
+        if step() == tf.CONFIRM:
+            break
+        seen.append(step())
+        press("s") if tf.BY_KEY[step()].get("skip") else press("v", 0)
+    check("дійшли до картки", step() == tf.CONFIRM)
+    check("крок зі скріном пройдено", "shot" in seen)
+    check("картка показана", "Записати в журнал?" in last()["text"])
+
+
 def check_old_button():
     """Кнопка зі старого повідомлення не записує чуже значення.
 
@@ -248,6 +269,7 @@ check_loss_skips_rr()
 check_text_answers()
 check_back()
 check_photo()
+check_full_walk()
 check_old_button()
 check_save()
 check_cancel()
