@@ -1,0 +1,43 @@
+/* ============================================================
+   Вікно «Підтримка» (static/support.js).
+
+   Вузьке вікно з коротким списком контактів. Рядок зроблений як
+   «Підключення» в бічній панелі: іконка, назва з нижнім рядком-значенням
+   і дія праворуч — один візерунок на два місця, людині не треба вчити
+   нову картинку. Кольори — тільки змінні теми, тому світла й темна
+   виходять самі.
+   ============================================================ */
+
+.modal-box:has(.su){max-width:460px}
+
+.m-body.su .pp-lead{margin-top:0; margin-bottom:16px}
+
+.su-list{display:flex; flex-direction:column; gap:8px}
+.su-row{
+  display:flex; align-items:center; gap:10px; min-height:52px;
+  padding:8px 10px 8px 12px; border-radius:12px;
+  background:var(--panel-2); border:1px solid var(--line-soft);
+}
+.su-ic{display:flex; align-items:center; justify-content:center;
+  width:30px; height:30px; flex:none; border-radius:9px;
+  background:var(--panel); color:var(--dim)}
+.su-text{display:flex; flex-direction:column; gap:1px; min-width:0; flex:1}
+.su-nm{font-size:13.5px; font-weight:600; color:var(--text)}
+/* Пошта й нік довгі, а вікно вузьке: даємо їм перенестись по символах,
+   інакше рядок розпирає кнопку за край. */
+.su-val{font-style:normal; font-size:12.5px; color:var(--dim);
+  overflow-wrap:anywhere}
+/* Адреса пошти — посилання mailto: для тих, у кого призначена поштова
+   програма. Підкреслюємо тільки під курсором, щоб рядок не рябів. */
+a.su-val{text-decoration:none}
+a.su-val:hover{color:var(--text); text-decoration:underline}
+.su-act{flex:none; min-height:38px; padding:7px 14px; font-size:13px;
+  display:inline-flex; align-items:center; justify-content:center;
+  text-decoration:none; color:var(--text); cursor:pointer}
+
+@media (max-width:560px){
+  /* На вузькому екрані кнопка їде під контакт, інакше на неї лишається
+     смужка в пару літер. */
+  .su-row{flex-wrap:wrap}
+  .su-act{width:100%; margin-top:2px}
+}

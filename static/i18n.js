@@ -491,6 +491,16 @@ uk: {
   bkLast: "Останній зліпок —",
   bkKept: " · збережено днів: %d",
   bkNone: "Перший зліпок зробимо найближчої доби.",
+
+  // ---- контакти підтримки (settings.js) ----
+  suTitle: "Підтримка",
+  suTip: "Пошта й Телеграм — напиши, якщо щось не працює",
+  suLead: "Щось не працює або є що запропонувати — напиши. Відповідає жива людина, а не бот.",
+  suEmail: "Пошта",
+  suTelegram: "Telegram",
+  suTelegram2: "Telegram (другий)",
+  suWrite: "Написати",
+  suCopy: "Скопіювати", suCopied: "Скопійовано",
 },
 
 ru: {
@@ -944,6 +954,16 @@ ru: {
   bkLast: "Последний слепок —",
   bkKept: " · сохранено дней: %d",
   bkNone: "Первый слепок сделаем в ближайшие сутки.",
+
+  // ---- контакты поддержки (settings.js) ----
+  suTitle: "Поддержка",
+  suTip: "Почта и Телеграм — напиши, если что-то не работает",
+  suLead: "Что-то не работает или есть что предложить — напиши. Отвечает живой человек, а не бот.",
+  suEmail: "Почта",
+  suTelegram: "Telegram",
+  suTelegram2: "Telegram (второй)",
+  suWrite: "Написать",
+  suCopy: "Скопировать", suCopied: "Скопировано",
 },
 
 en: {
@@ -1397,6 +1417,16 @@ en: {
   bkLast: "Last snapshot —",
   bkKept: " · days kept: %d",
   bkNone: "The first snapshot will be made within a day.",
+
+  // ---- support contacts (settings.js) ----
+  suTitle: "Support",
+  suTip: "Email and Telegram — write if something is broken",
+  suLead: "Something broke or you have an idea — write to us. A real person answers, not a bot.",
+  suEmail: "Email",
+  suTelegram: "Telegram",
+  suTelegram2: "Telegram (second)",
+  suWrite: "Write",
+  suCopy: "Copy", suCopied: "Copied",
 },
 
 };
@@ -1436,6 +1466,9 @@ function applyLang(code){
 
   setText("journalLab", T.sdTools);
   if (window.Pub && Pub.on) Pub.relang();
+
+  const su = document.getElementById("supportBtn");
+  if(su){ setTip(su, T.suTip); const sp = su.querySelector("span"); if(sp) sp.textContent = T.suTitle; }
 
   const st = document.getElementById("settingsBtn");
   if(st){ setTip(st, T.stTip); const sp = st.querySelector("span"); if(sp) sp.textContent = T.stTitle; }
