@@ -38,10 +38,17 @@ let popOpen = false;                    /* вибір активу */
 let tfEdit = null;                      /* який таймфрейм зараз вибирають (шлях) */
 let armed = null;                       /* слот, куди піде Ctrl+V (шлях) */
 
-/* На телефоні буфера обміну для картинок немає, тому там дотик має одразу
-   відкривати файли. На комп'ютері — навпаки: один клік націлює слот. */
+/* На телефоні Ctrl+V немає: тап читає буфер сам, два тапи — файли (ShotTap
+   в ui.js). На комп'ютері один клік лише націлює слот. */
 function touchOnly(){
   return window.matchMedia && matchMedia("(hover: none)").matches;
+}
+function hintText(d){ return touchOnly() ? d.shotHintTouch : d.shotHint; }
+function flashHint(sl, text){
+  const em = sl.querySelector(".ph em");
+  if (!em) return;
+  em.textContent = text;
+  setTimeout(() => { if (document.body.contains(em)) em.textContent = hintText(D()); }, 2400);
 }
 
 const TFS = ["1W", "1D", "4H", "1H", "30M", "15M", "5M", "3M", "1M"];
@@ -236,7 +243,7 @@ function shotCell(path, cap, readOnly){
     + (f ? '<img alt="" src="' + esc(/^data:/.test(f) ? f : "/dnshot/" + f) + '">'
            + (readOnly ? "" : '<button class="rm" type="button">×</button>')
          : '<div class="ph"><b>+</b>' + esc(cap) + "<em>"
-           + esc(on ? d.shotArmed : d.shotHint) + "</em></div>")
+           + esc(on ? d.shotArmed : hintText(d)) + "</em></div>")
     + "</div></div>";
 }
 /* Порожня комірка «ще один таймфрейм»: вставиш скрін — з'явиться запис. */
@@ -247,7 +254,7 @@ function shotAdd(listPath, cap){
   return '<div class="dv-tf add"><div class="cap"><span class="dv-tfc pick">+ ' + esc(d.addTf) + "</span></div>"
     + '<div class="dv-shot' + (on ? " armed" : "") + '" data-shot="' + slot + '">'
     + '<div class="ph"><b>+</b>' + esc(cap) + "<em>"
-    + esc(on ? d.shotArmed : d.shotHint) + "</em></div></div></div>";
+    + esc(on ? d.shotArmed : hintText(d)) + "</em></div></div></div>";
 }
 function shotsRow(listPath, cap, readOnly){
   const list = get(listPath) || [];
@@ -796,8 +803,11 @@ document.addEventListener("click", e => {
        вставити скрін із буфера було нікуди. Файли — подвійним кліком.
        На телефоні буфера немає, тому там один дотик = вибір файлу. */
     if (touchOnly()){
-      filePick._to = sl;
-      filePick.click();
+      ShotTap.tap("day:" + sl.dataset.shot, {
+        paste: f => takeFile(f, sl),
+        files: () => { filePick._to = sl; filePick.click(); },
+        empty: () => flashHint(sl, D().shotTouchEmpty),
+      });
       return;
     }
     /* Перемальовувати не можна: подвійний клік вважається подвійним лише
@@ -842,13 +852,14 @@ function paintArmed(){
     const on = el.dataset.shot === armed;
     el.classList.toggle("armed", on);
     const em = el.querySelector(".ph em");
-    if (em) em.textContent = on ? d.shotArmed : d.shotHint;
+    if (em) em.textContent = on ? d.shotArmed : hintText(d);
   });
 }
 
 /* подвійний клік по слоту — вибір файлу з комп'ютера */
 document.addEventListener("dblclick", e => {
   if (S.view !== "day" || !N) return;
+  if (touchOnly()) return;             /* на телефоні два тапи ловить ShotTap */
   const sl = e.target.closest && e.target.closest(".dv-shot[data-shot]:not(.ro)");
   if (!sl) return;
   e.preventDefault();
@@ -1042,6 +1053,8 @@ uk: {
   shotPlan: "вставити скрін розмітки", shotFact: "вставити скрін кінця дня",
   shotHint: "клік → далі Ctrl+V · подвійний клік → файл",
   shotArmed: "тепер Ctrl+V", tfOwn: "свій",
+  shotHintTouch: "тап → вставити з буфера · два тапи → файл",
+  shotTouchEmpty: "У буфері нема картинки. Два тапи — обрати файл.",
 
   autoTag: "саме", newsAuto: "Новини на сьогодні беруться з розділу «Новини»",
   tradesAuto: "Угоди підтягуються з журналу за назвою інструмента — тут їх не набирають",
@@ -1111,6 +1124,8 @@ ru: {
   shotPlan: "вставить скрин разметки", shotFact: "вставить скрин конца дня",
   shotHint: "клик → дальше Ctrl+V · двойной клик → файл",
   shotArmed: "теперь Ctrl+V", tfOwn: "свой",
+  shotHintTouch: "тап → вставить из буфера · два тапа → файл",
+  shotTouchEmpty: "В буфере нет картинки. Два тапа — выбрать файл.",
 
   autoTag: "само", newsAuto: "Новости на сегодня берутся из раздела «Новини»",
   tradesAuto: "Сделки подтягиваются из журнала по названию инструмента — тут их не набирают",
@@ -1180,6 +1195,8 @@ en: {
   shotPlan: "add the markup screenshot", shotFact: "add the end-of-day screenshot",
   shotHint: "click → then Ctrl+V · double click → file",
   shotArmed: "now press Ctrl+V", tfOwn: "custom",
+  shotHintTouch: "tap → paste from clipboard · double tap → file",
+  shotTouchEmpty: "No image in the clipboard. Double tap to pick a file.",
 
   autoTag: "auto", newsAuto: "Today's news comes from the News section",
   tradesAuto: "Trades come from the journal, matched by instrument — no typing here",

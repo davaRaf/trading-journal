@@ -1581,7 +1581,7 @@ function renderShots(){
     '<path d="M12 16V4M8 8l4-4 4 4" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/>'+
     '<path d="M4 15v3a2 2 0 002 2h12a2 2 0 002-2v-3" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></svg>'+
     T.shotDragHint+'</div>';
-  h+='<div class="tfhint">'+T.shotTfHint+'</div>';
+  h+='<div class="tfhint">'+shotsHintHtml()+'</div>';
   box.innerHTML=h;
   /* перетаскивание: в конкретный таймфрейм или в общую зону */
   if(window.Attach) Attach.mount(box, acceptFiles);
@@ -1598,14 +1598,33 @@ function acceptFiles(files, tf){
 }
 function removeShot(i){ S.formShots.splice(i,1); renderShots(); }
 
-/* клик по слоту только выделяет его: диалог файла забирал фокус и Ctrl+V уходил мимо */
-function armSlot(tf){ S.activeTf=(S.activeTf===tf?null:tf); renderShots(); }
+/* клик по слоту только выделяет его: диалог файла забирал фокус и Ctrl+V уходил мимо.
+   На телефоне Ctrl+V нет: тап читает буфер сам, два тапа — файлы (ShotTap в ui.js). */
+function armSlot(tf){
+  if(window.ShotTap && ShotTap.touch()){
+    ShotTap.tap("form:"+tf, {
+      paste: f => acceptFiles([f], tf),
+      files: () => pickFor(tf),
+      empty: () => flashTfHint(T.shotTouchEmpty),
+    });
+    return;
+  }
+  S.activeTf=(S.activeTf===tf?null:tf); renderShots();
+}
+/* короткое сообщение под слотами — и назад к подсказке */
+function flashTfHint(text){
+  const el=$("#shotsEdit .tfhint"); if(!el) return;
+  el.textContent=text;
+  setTimeout(()=>{ if(document.body.contains(el)) el.innerHTML=shotsHintHtml(); }, 2400);
+}
+function shotsHintHtml(){ return (window.ShotTap && ShotTap.touch()) ? T.shotTfHintTouch : T.shotTfHint; }
 /* Двойной клик по слоту открывает файлы — та же привычка, что в «Анализе
    дня» и «Моей ТС». Кнопка «файл» рядом остаётся: на телефоне двойной
    тап неудобен. */
 document.addEventListener("dblclick", e => {
   const slot = e.target.closest && e.target.closest(".tfslot[data-tf]");
   if(!slot || !$("#shotsEdit")) return;
+  if(window.ShotTap && ShotTap.touch()) return;   /* на телефоне два тапа ловит ShotTap */
   e.preventDefault();
   pickFor(slot.dataset.tf);
 });

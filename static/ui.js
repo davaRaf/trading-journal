@@ -379,6 +379,56 @@ const Panel = (function(){
   }
   return { open, close, isOpen: ()=>!!wrap, box: ()=>box };
 })();
+/* ================= телефон: тап по слоту скріна =================
+   На комп'ютері клік націлює слот під Ctrl+V, подвійний відкриває файли.
+   На телефоні Ctrl+V немає, тож перший тап читає буфер сам, а другий,
+   якщо прилетить одразу, відкриває файли. Буфер читаємо в момент тапу —
+   браузер дає це лише всередині жесту, — а застосовуємо результат тільки
+   якщо другого тапу не було. */
+const ShotTap = (function(){
+  const GAP = 320;
+  let key = null, at = 0, timer = null, gen = 0;
+
+  function touch(){ return !!(window.matchMedia && matchMedia("(hover: none)").matches); }
+
+  /* картинка з буфера як File — або null, якщо там її немає чи браузер не дав */
+  function readImage(){
+    if (!navigator.clipboard || !navigator.clipboard.read) return Promise.resolve(null);
+    return navigator.clipboard.read().then(async items => {
+      for (const it of items){
+        const type = (it.types || []).find(x => x.indexOf("image/") === 0);
+        if (type){
+          const blob = await it.getType(type);
+          return new File([blob], "clipboard." + type.split("/")[1], {type});
+        }
+      }
+      return null;
+    }).catch(() => null);
+  }
+
+  /* on.paste(file) — картинка з буфера; on.empty() — там її немає;
+     on.files() — другий тап поспіль по тому ж слоту */
+  function tap(k, on){
+    const now = Date.now();
+    if (key === k && now - at < GAP){
+      clearTimeout(timer); key = null; gen++;
+      on.files();
+      return;
+    }
+    key = k; at = now;
+    const my = ++gen;
+    const read = readImage();              /* зараз, поки жест ще живий */
+    clearTimeout(timer);
+    timer = setTimeout(() => {
+      key = null;
+      read.then(f => { if (gen !== my) return; f ? on.paste(f) : on.empty(); });
+    }, GAP);
+  }
+
+  return { tap, touch, readImage };
+})();
+window.ShotTap = ShotTap;
+
 const Sheet  = { open:(html,o)=>Panel.open(html, Object.assign({side:"right"},  o)), close:Panel.close };
 const Drawer = { open:(html,o)=>Panel.open(html, Object.assign({side:"bottom"}, o)), close:Panel.close };
 window.Panel = Panel; window.Sheet = Sheet; window.Drawer = Drawer;

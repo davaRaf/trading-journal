@@ -28,10 +28,18 @@ let hotShot = null;        /* слот, куди піде Ctrl+V */
 let srcUrls = [""];
 let armed = null;          /* слот, обраний кліком */
 
-/* На телефоні буфера обміну для картинок немає, тому там дотик має одразу
-   відкривати файли. На комп'ютері — навпаки: клік націлює слот. */
+/* На телефоні Ctrl+V немає: тап читає буфер сам, два тапи — файли (ShotTap
+   в ui.js). На комп'ютері клік лише націлює слот. */
 function touchOnly(){
   return window.matchMedia && matchMedia("(hover: none)").matches;
+}
+function hintText(d){ return touchOnly() ? d.shotHintTouch : d.shotHint; }
+/* коротке повідомлення в самому слоті — і назад до підказки */
+function flashHint(sl, text){
+  const em = sl.querySelector(".ph em");
+  if (!em) return;
+  em.textContent = text;
+  setTimeout(() => { if (document.body.contains(em)) em.textContent = hintText(D()); }, 2400);
 }
 
 /* Підсвічуємо націлений слот на місці, без перемальовки розділу: інакше
@@ -42,7 +50,7 @@ function paintArmed(){
     const on = el.dataset.p === armed;
     el.classList.toggle("armed", on);
     const em = el.querySelector(".ph em");
-    if (em) em.textContent = on ? d.shotArmed : d.shotHint;
+    if (em) em.textContent = on ? d.shotArmed : hintText(d);
   });
 }
 
@@ -157,7 +165,7 @@ function shot(path, label, mini){
       + '</span></div><button class="rp" type="button" title="' + esc(D().shotReplace) + '">'
       + RP_IC + '</button><button class="rm" type="button" title="' + esc(D().remove) + '">×</button>'
     : '<div class="ph">' + SHOT_IC + esc(label || D().shotAdd)
-      + "<em>" + esc(armed === path ? D().shotArmed : D().shotHint) + "</em></div>";
+      + "<em>" + esc(armed === path ? D().shotArmed : hintText(D())) + "</em></div>";
   return '<div class="ts-shot' + (f ? " has" : "") + (mini ? " mini" : "")
     + (armed === path ? " armed" : "") + '" data-p="' + path + '">' + inner + "</div>";
 }
@@ -676,8 +684,11 @@ document.addEventListener("click", e => {
       return;
     }
     if (touchOnly()){
-      filePick._to = sl;
-      filePick.click();
+      ShotTap.tap("ts:" + sl.dataset.p, {
+        paste: f => takeFile(f, sl),
+        files: () => { filePick._to = sl; filePick.click(); },
+        empty: () => flashHint(sl, D().shotTouchEmpty),
+      });
       return;
     }
     armed = (armed === sl.dataset.p) ? null : sl.dataset.p;
@@ -693,6 +704,7 @@ document.addEventListener("click", e => {
    там перший клік уже відкрив скрін, і діалог файлів поверх нього — сюрприз */
 document.addEventListener("dblclick", e => {
   if (S.view !== "ts" || !TS) return;
+  if (touchOnly()) return;             /* на телефоні два тапи ловить ShotTap */
   const sl = e.target.closest && e.target.closest(".ts-shot[data-p]");
   if (!sl || get(sl.dataset.p)) return;
   e.preventDefault();
@@ -1200,6 +1212,8 @@ uk: {
   noModels: "Моделей входу ще немає", noneYet: "поки порожньо",
   shotAdd: "вставити скрін", shotAddShort: "ще скрін",
   shotHint: "клік → Ctrl+V · подвійний → файл", shotArmed: "тепер Ctrl+V",
+  shotHintTouch: "тап → вставити з буфера · два тапи → файл",
+  shotTouchEmpty: "У буфері нема картинки. Два тапи — обрати файл.",
   shotReplace: "замінити скрін", shotOpen: "відкрити", shotExample: "приклад", shotHow: "як це виглядає",
 
   gateOk: "усе закрито — за твоїми правилами вхід є", gateBad: "поки не все закрито — за твоїми ж правилами входу немає",
@@ -1316,6 +1330,8 @@ ru: {
   noModels: "Моделей входа ещё нет", noneYet: "пока пусто",
   shotAdd: "вставить скрин", shotAddShort: "ещё скрин",
   shotHint: "клик → Ctrl+V · двойной → файл", shotArmed: "теперь Ctrl+V",
+  shotHintTouch: "тап → вставить из буфера · два тапа → файл",
+  shotTouchEmpty: "В буфере нет картинки. Два тапа — выбрать файл.",
   shotReplace: "заменить скрин", shotOpen: "открыть", shotExample: "пример", shotHow: "как это выглядит",
 
   gateOk: "всё закрыто — по твоим правилам вход есть", gateBad: "пока закрыто не всё — по твоим же правилам входа нет",
@@ -1432,6 +1448,8 @@ en: {
   noModels: "No entry models yet", noneYet: "empty so far",
   shotAdd: "add a screenshot", shotAddShort: "one more",
   shotHint: "click → Ctrl+V · double → file", shotArmed: "now press Ctrl+V",
+  shotHintTouch: "tap → paste from clipboard · double tap → file",
+  shotTouchEmpty: "No image in the clipboard. Double tap to pick a file.",
   shotReplace: "replace screenshot", shotOpen: "open", shotExample: "example", shotHow: "what it looks like",
 
   gateOk: "all ticked — by your rules the entry is valid", gateBad: "not everything is ticked — by your own rules there is no entry",
