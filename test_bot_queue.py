@@ -17,8 +17,9 @@ def check(name, cond):
 
 
 def msg(chat_id, text):
+    import time as _t
     return {"update_id": 1, "message": {"chat": {"id": chat_id}, "text": text,
-                                        "from": {"id": chat_id}}}
+                                        "from": {"id": chat_id}, "date": int(_t.time())}}
 
 
 def run():

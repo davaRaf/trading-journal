@@ -681,22 +681,35 @@ def _chat_of(u):
 
 def _pump(q):
     while True:
-        u = q.get()
+        u, got = q.get()
+        started = time.time()
         try:
             handle_update(u)
         except Exception:
             traceback.print_exc()
+        # «Бот довго думає» має перестати бути відчуттям і стати цифрою.
+        # Три відрізки: доставка — скільки повідомлення йшло від людини до
+        # нас (там і Телеграм, і простій під час перезапуску); черга —
+        # скільки чекало інших повідомлень цього ж чату; робота — скільки
+        # думали ми самі, зазвичай на модель.
+        msg = u.get("message") or (u.get("callback_query") or {}).get("message") or {}
+        sent = msg.get("date") or 0
+        done = time.time()
+        print("update %s: доставка %.1f с · черга %.1f с · робота %.1f с"
+              % (u.get("update_id"), (got - sent) if sent else -1,
+                 started - got, done - started), flush=True)
 
 
 def dispatch(u):
     key = _chat_of(u)
+    got = time.time()
     with _queues_lock:
         q = _chat_queues.get(key)
         if q is None:
             q = queue.Queue()
             _chat_queues[key] = q
             threading.Thread(target=_pump, args=(q,), daemon=True).start()
-    q.put(u)
+    q.put((u, got))
 
 
 def main():
