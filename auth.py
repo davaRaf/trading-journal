@@ -25,7 +25,12 @@ def _secret():
         os.makedirs(os.path.dirname(SECRET_FILE), exist_ok=True)
         with open(SECRET_FILE, "w", encoding="utf-8") as f:
             f.write(os.urandom(32).hex())
-        print("SESSION_SECRET не задан — сгенерирован локальный ключ в data/.session_secret")
+        print("!" * 70)
+        print("SESSION_SECRET не задан — сгенерирован временный ключ в data/.session_secret.")
+        print("Для своей машины это нормально. На сервере — нет: там папка data/")
+        print("живёт до перезапуска, ключ каждый раз новый, и все входы слетают.")
+        print("На сервере задай переменную SESSION_SECRET (любая длинная случайная строка).")
+        print("!" * 70)
     with open(SECRET_FILE, "r", encoding="utf-8") as f:
         return f.read().strip().encode("utf-8")
 
@@ -76,14 +81,29 @@ def read_session(value):
     return uid
 
 
-def cookie_header(value, ttl=SESSION_TTL):
+def is_https(handler):
+    """Сайт стоит за прокси (Railway), поэтому схему берём из заголовка,
+    который прокси подставляет. Своя машина ходит по http — там Secure
+    не ставим, иначе Safari просто не сохранит куку."""
+    proto = (handler.headers.get("X-Forwarded-Proto") or "").split(",")[0].strip().lower()
+    return proto == "https"
+
+
+def cookie_header(value, ttl=SESSION_TTL, secure=False):
+    """Secure обязателен на https: без него браузер считает куку менее
+    надёжной и охотнее выбрасывает её при чистке, а на телефоне чистка
+    происходит куда чаще, чем на компьютере."""
     parts = ["%s=%s" % (COOKIE, value), "Path=/", "HttpOnly", "SameSite=Lax",
              "Max-Age=%d" % ttl]
+    if secure:
+        parts.append("Secure")
     return "; ".join(parts)
 
 
-def clear_cookie_header():
-    return "%s=; Path=/; HttpOnly; SameSite=Lax; Max-Age=0" % COOKIE
+def clear_cookie_header(secure=False):
+    """Гасим куку теми же признаками, какими ставили: браузер считает
+    куку с другим набором признаков другой кукой и старую не тронет."""
+    return cookie_header("", ttl=0, secure=secure)
 
 
 def current_user_id(handler):

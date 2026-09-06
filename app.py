@@ -872,7 +872,7 @@ class H(BaseHTTPRequestHandler):
             url, state = oauth.start_url(prov, self._base())
             self.send_response(302)
             self.send_header("Location", url)
-            self.send_header("Set-Cookie", oauth.state_cookie(state))
+            self.send_header("Set-Cookie", oauth.state_cookie(state, auth.is_https(self)))
             self.end_headers()
             return
 
@@ -897,13 +897,14 @@ class H(BaseHTTPRequestHandler):
                 print("oauth %s: %s" % (prov, ex))
                 self.send_response(302)
                 self.send_header("Location", "/login?err=oauth")
-                self.send_header("Set-Cookie", oauth.clear_state_cookie())
+                self.send_header("Set-Cookie", oauth.clear_state_cookie(auth.is_https(self)))
                 self.end_headers()
                 return
             self.send_response(302)
             self.send_header("Location", "/")
-            self.send_header("Set-Cookie", auth.cookie_header(auth.make_session(user["id"])))
-            self.send_header("Set-Cookie", oauth.clear_state_cookie())
+            self.send_header("Set-Cookie", auth.cookie_header(auth.make_session(user["id"]),
+                                                              secure=auth.is_https(self)))
+            self.send_header("Set-Cookie", oauth.clear_state_cookie(auth.is_https(self)))
             self.end_headers()
             return
 
@@ -1236,7 +1237,8 @@ class H(BaseHTTPRequestHandler):
                     return self._json({"error": "така пошта або нікнейм уже зайняті", "code": "taken"}, 409)
                 raise
             return self._json({"user": user_public(user)}, 201,
-                              cookie=auth.cookie_header(auth.make_session(user["id"])))
+                              cookie=auth.cookie_header(auth.make_session(user["id"]),
+                                                        secure=auth.is_https(self)))
 
         if p == "/api/auth/login":
             if not isinstance(body, dict):
@@ -1258,10 +1260,11 @@ class H(BaseHTTPRequestHandler):
                 return self._json({"error": "невірна пошта або пароль", "code": "bad_login"}, 401)
             ratelimit.forget(keys)
             return self._json({"user": user_public(user)},
-                              cookie=auth.cookie_header(auth.make_session(user["id"])))
+                              cookie=auth.cookie_header(auth.make_session(user["id"]),
+                                                        secure=auth.is_https(self)))
 
         if p == "/api/auth/logout":
-            return self._json({"ok": True}, cookie=auth.clear_cookie_header())
+            return self._json({"ok": True}, cookie=auth.clear_cookie_header(auth.is_https(self)))
 
         # ---- дальше всё только для своих ----
         uid = self._uid()
