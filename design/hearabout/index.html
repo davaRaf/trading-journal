@@ -74,6 +74,8 @@ button{font:inherit;color:inherit;background:none;border:0;cursor:pointer}
 .opt .nm{font-weight:500;font-size:14px;line-height:1.2}
 .opt .sub{display:block;color:var(--faint);font-size:11.5px;margin-top:2px;font-weight:400}
 .opt.other .logo{background:var(--panel-3);color:var(--dim);border:1px dashed var(--line)}
+.opt .logo.pic{border:1px solid var(--line);padding:5px}
+.opt .logo.pic svg{width:100%;height:100%;display:block}
 
 .group{font-family:var(--mono);font-size:9.5px;letter-spacing:.16em;text-transform:uppercase;color:var(--faint);
   margin:14px 0 8px}
@@ -105,7 +107,8 @@ button{font:inherit;color:inherit;background:none;border:0;cursor:pointer}
     <p>Показывается один раз, сразу после регистрации или первого входа. Без этого не понять,
       какое комьюнити и какая соцсеть реально приводят людей — а значит, кому платить процент и куда
       нести контент. Поэтому пропустить нельзя: крестика нет, «Дальше» загорается только после выбора.
-      Только кнопки, никакого текста — «другое» тоже кнопка.</p>
+      Только кнопки, никакого текста — «другое» тоже кнопка. Три ответа: комьюнити <b>BlackSwan</b> (логотип
+      с эскиза, перерисован), соцсети Instagram и TikTok, и «другое».</p>
   </div>
 
   <div class="switch" id="sw"></div>
@@ -126,18 +129,23 @@ button{font:inherit;color:inherit;background:none;border:0;cursor:pointer}
 </div>
 
 <script>
-/* Комьюнити — заглушки: логотипы и названия придут от владельца, сюда
-   подставятся как картинки. Цвет плашки — временный, чтобы отличались. */
+/* Логотип BlackSwan — танграм-лебедь с эскиза: шесть чёрных фигур и один
+   синий треугольник. Перерисован в SVG, чтобы в плашке был чистый знак. */
+const SWAN = '<svg viewBox="0 0 520 630" aria-hidden="true">'
+  + '<polygon fill="#2c6fe6" points="65,230 0,440 235,625"/>'
+  + '<polygon fill="#e8e8ea" points="80,232 240,385 150,420"/>'
+  + '<polygon fill="#e8e8ea" points="160,420 250,380 420,320 262,605"/>'
+  + '<polygon fill="#e8e8ea" points="415,320 520,430 262,605"/>'
+  + '<polygon fill="#e8e8ea" points="205,100 300,340 405,310"/>'
+  + '<polygon fill="#e8e8ea" points="205,95 320,20 405,85"/>'
+  + '</svg>';
+
 const COMMUNITIES = [
-  {id:"c1", nm:"Комьюнити 1", sub:"Discord · 8 000", color:"#3b5bdb"},
-  {id:"c2", nm:"Комьюнити 2", sub:"Telegram · 100", color:"#7048e8"},
-  {id:"c3", nm:"Комьюнити 3", sub:"место под третьего", color:"#0b7285"},
+  {id:"blackswan", nm:"BlackSwan", sub:"комьюнити", svg:SWAN, color:"#0b0b0c"},
 ];
 const SOCIAL = [
-  {id:"tiktok", nm:"TikTok", color:"#111", glyph:"TT"},
   {id:"instagram", nm:"Instagram", color:"#c13584", glyph:"IG"},
-  {id:"youtube", nm:"YouTube", color:"#e03131", glyph:"YT"},
-  {id:"friend", nm:"Посоветовал знакомый", color:"#495057", glyph:"👤"},
+  {id:"tiktok", nm:"TikTok", color:"#111", glyph:"TT"},
 ];
 const OTHER = {id:"other", nm:"Другое", sub:"ни одно не подходит", glyph:"?"};
 
@@ -151,8 +159,8 @@ const V = {
     hint:"Два блока: комьюнити крупно с логотипами, ниже соцсети и «другое». Один тап и «Дальше». Самый короткий путь — три секунды, и человек в журнале.",
   },
   B: {
-    name:"Б · Сначала «откуда», потом «какое»",
-    hint:"Первый экран — четыре крупные кнопки: комьюнити / TikTok / Instagram / другое. Выбрал комьюнити — второй экран с логотипами. Меньше кнопок на экране, но два шага.",
+    name:"Б · Четыре крупные кнопки",
+    hint:"Без разделения на группы: BlackSwan, Instagram, TikTok, другое — четыре одинаковые крупные плашки. Пока комьюнити одно, второй шаг не нужен; появится второе — тут добавится экран «какое».",
   },
   C: {
     name:"В · Списком",
@@ -160,8 +168,8 @@ const V = {
   },
 };
 
-const logo = (o, txt) => '<span class="logo" style="background:' + (o.color || "var(--panel-3)") + '">'
-  + (o.glyph || txt || o.nm.slice(0,1)) + "</span>";
+const logo = (o, txt) => '<span class="logo' + (o.svg ? " pic" : "") + '" style="background:' + (o.color || "var(--panel-3)") + '">'
+  + (o.svg || o.glyph || txt || o.nm.slice(0,1)) + "</span>";
 
 function opt(o, extra){
   return '<button class="opt' + (picked === o.id ? " on" : "") + (extra || "") + '" onclick="pick(\'' + o.id + '\')">'
@@ -192,10 +200,10 @@ function paintB(){
   const steps = '<div class="steps"><i class="on"></i><i class="' + (step ? "on" : "") + '"></i></div>';
   if (step === 0){
     const big = [
-      {id:"community", nm:"Из комьюнити", sub:"Discord или Telegram", color:"#3b5bdb", glyph:"⌂"},
-      SOCIAL[0], SOCIAL[1], Object.assign({}, OTHER, {sub:"YouTube, знакомый, ещё что-то"})
+      Object.assign({}, COMMUNITIES[0], {sub:"из комьюнити"}),
+      SOCIAL[0], SOCIAL[1], OTHER
     ];
-    return steps + head()
+    return head()
       + '<div class="grid">' + big.map(b => opt(b, b.id === "other" ? " other" : "")).join("") + "</div>"
       + foot();
   }
@@ -221,9 +229,7 @@ function paint(){
 }
 
 function pick(id){
-  if (cur === "B" && step === 0){
-    if (id === "community"){ step = 1; picked = null; paint(); return; }
-  }
+  /* у варіанті Б другий крок лишився на майбутнє — коли комьюніті стане кілька */
   picked = id; paint();
 }
 function go(){
