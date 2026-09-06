@@ -367,6 +367,9 @@ const Prefs=(function(){
     tfHide(v){ if(!P.tfs.hide.includes(v)) P.tfs.hide.push(v); P.tfs.add=P.tfs.add.filter(x=>x!==v); save(); },
     tfAdd(v){ v=String(v).trim(); if(!v) return; P.tfs.hide=P.tfs.hide.filter(x=>x!==v); if(!TF_SLOTS.includes(v)&&!P.tfs.add.includes(v)) P.tfs.add.push(v); save(); },
     tfRestore(){ P.tfs.hide=[]; save(); },
+    /* довільне поле в тих самих налаштуваннях — наприклад, звідки людина про нас дізналась */
+    get(k){ return P[k]; },
+    set(k,v){ P[k]=v; save(); },
   };
 })();
 window.Prefs=Prefs;
@@ -1247,6 +1250,7 @@ function openModal(html){
    місці: повернутись треба туди, звідки прийшли. А якщо діалога немає,
    closeModal() кличуть із самої панелі — тоді закривається вона. */
 function closeModal(){
+  if(S.lockModal) return;          /* обов'язковий екран закриває лише сам себе */
   const m=$("#modal"), panel = window.Panel && Panel.isOpen();
   if(m && !m.hidden){
     m.hidden=true;
@@ -1294,7 +1298,7 @@ document.addEventListener("keydown", e=>{
   if(e.key!=="Escape") return;
   const box=$("#lightbox"), modal=$("#modal");
   if(box && !box.hidden){ e.stopPropagation(); closeLightbox(); return; }
-  if(modal && !modal.hidden){ e.stopPropagation(); closeModal(); }
+  if(modal && !modal.hidden){ e.stopPropagation(); if(!S.lockModal) closeModal(); }
 }, true);
 
 /* ---------- просмотр сделки ---------- */
@@ -2060,6 +2064,49 @@ function markDemo(){
   document.body.appendChild(b);
 }
 
+/* ---------- «Звідки ти про нас дізнався» — один раз після входу ----------
+   Без цього не зрозуміти, яке комьюніті і яка соцмережа реально приводять
+   людей. Тому пропустити не можна: хрестика немає, Esc не діє, «Далі»
+   вмикається лише після вибору. Відповідь лягає в user_prefs.data.source.
+   Комьюніті поки одне — BlackSwan; з'явиться друге — стане ще однією
+   кнопкою в тій же групі. */
+const Source=(function(){
+  const SWAN='<svg viewBox="0 0 520 630" aria-hidden="true">'+'<polygon fill="#2c6fe6" points="65,230 0,440 235,625"/>'+'<polygon fill="#e8e8ea" points="80,232 240,385 150,420"/>'+'<polygon fill="#e8e8ea" points="160,420 250,380 420,320 262,605"/>'+'<polygon fill="#e8e8ea" points="415,320 520,430 262,605"/>'+'<polygon fill="#e8e8ea" points="205,100 300,340 405,310"/>'+'<polygon fill="#e8e8ea" points="205,95 320,20 405,85"/></svg>';
+  const OPTS=()=>[
+    {id:"blackswan", nm:"BlackSwan", sub:T.hbCommunitySub, logo:SWAN, group:"community"},
+    {id:"instagram", nm:"Instagram", glyph:"IG", cls:"ig", group:"social"},
+    {id:"tiktok",    nm:"TikTok",    glyph:"TT", cls:"tt", group:"social"},
+    {id:"other",     nm:T.hbOther,   sub:T.hbOtherSub, glyph:"?", cls:"other", group:"social"},
+  ];
+  let picked=null;
+  const opt=o=>'<button type="button" class="hb-opt'+(picked===o.id?" on":"")+(o.cls?" "+o.cls:"")+
+    '" onclick="Source.pick(\''+o.id+'\')"><span class="hb-logo'+(o.logo?" pic":"")+'">'+(o.logo||o.glyph)+
+    '</span><span><span class="hb-nm">'+esc(o.nm)+'</span>'+(o.sub?'<span class="hb-sub">'+esc(o.sub)+"</span>":"")+"</span></button>";
+  function html(){
+    const all=OPTS();
+    return '<div class="hb">'+
+      '<div class="hb-eyebrow">'+esc(T.hbEyebrow)+'</div><h2>'+esc(T.hbTitle)+'</h2><p>'+esc(T.hbLead)+"</p>"+
+      '<div class="hb-group">'+esc(T.hbGroupCommunity)+'</div><div class="hb-grid">'+all.filter(o=>o.group==="community").map(opt).join("")+"</div>"+
+      '<div class="hb-group">'+esc(T.hbGroupSocial)+'</div><div class="hb-grid">'+all.filter(o=>o.group==="social").map(opt).join("")+"</div>"+
+      '<div class="hb-foot"><span class="hb-why">'+esc(T.hbNote)+'</span>'+
+      '<button type="button" class="btn primary hb-go'+(picked?" ready":"")+'" onclick="Source.go()">'+esc(T.hbNext)+"</button></div></div>";
+  }
+  function paint(){ const box=$("#modalBox"); if(box) box.innerHTML=html(); }
+  function maybeAsk(){
+    if(Prefs.get("source")) return;
+    picked=null; S.lockModal=true;
+    openModal(html());
+  }
+  function pick(id){ picked=id; paint(); }
+  function go(){
+    if(!picked) return;
+    Prefs.set("source", {id:picked, at:new Date().toISOString()});
+    S.lockModal=false; closeModal();
+  }
+  return {maybeAsk, pick, go};
+})();
+window.Source=Source;
+
 (async function init(){
   markTheme(); markLayout();
   /* /u/<нік> — чужий журнал: режим вмикається до першого запиту, бо він
@@ -2091,4 +2138,6 @@ function markDemo(){
   render();
   if(window.Sparks) Sparks.start();
   if(!DEMO && !(window.Pub && Pub.on)) refreshTelegramStatus();
+  /* перший екран після входу — поки людина не відповіла, звідки про нас знає */
+  if(!DEMO && !(window.Pub && Pub.on)) Source.maybeAsk();
 })();

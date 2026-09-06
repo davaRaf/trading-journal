@@ -894,5 +894,13 @@
   "impact": "Medium",
   "forecast": "56.2",
   "previous": "55.1"
+ },
+ {
+  "title": "ANZ Job Advertisements m/m",
+  "country": "AUD",
+  "date": "2026-09-06T21:30:00-04:00",
+  "impact": "Low",
+  "forecast": "",
+  "previous": "0.8%"
  }
 ]
