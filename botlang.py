@@ -27,6 +27,38 @@ PHRASES = {
                     "Чтобы добавить скрин, начни запись сделки — кнопка «%s» внизу.",
                     "To attach a screenshot, start a trade — the «%s» button below."),
 
+    # ---- прив'язка журналу ----
+    "linkHow":     ("Щоб почати, прив'яжи журнал:\n\n"
+                    "1. Відкрий %s\n"
+                    "2. Налаштування → «Telegram»\n"
+                    "3. Тисни «Отримати код» і надішли його мені",
+                    "Чтобы начать, привяжи журнал:\n\n"
+                    "1. Открой %s\n"
+                    "2. Настройки → «Telegram»\n"
+                    "3. Нажми «Получить код» и пришли его мне",
+                    "To start, link your journal:\n\n"
+                    "1. Open %s\n"
+                    "2. Settings → «Telegram»\n"
+                    "3. Tap «Get code» and send it to me"),
+    "linkShort":   ("Код чекає тут: %s\nНалаштування → «Telegram»",
+                    "Код ждёт здесь: %s\nНастройки → «Telegram»",
+                    "The code is here: %s\nSettings → «Telegram»"),
+    "whatNow":     ("Що тепер буде:\n\n"
+                    "• попереджу про важливі новини — за %d хв і вранці\n"
+                    "• після угоди без емоції спитаю, що ти відчував\n"
+                    "• попроси розбір — покажу, які емоції коштують тобі дорожче\n"
+                    "• кнопкою «%s» унизу запишеш угоду прямо з чату",
+                    "Что теперь будет:\n\n"
+                    "• предупрежу о важных новостях — за %d мин и утром\n"
+                    "• после сделки без эмоции спрошу, что ты чувствовал\n"
+                    "• попроси разбор — покажу, какие эмоции стоят тебе дороже\n"
+                    "• кнопкой «%s» внизу запишешь сделку прямо из чата",
+                    "What happens next:\n\n"
+                    "• I warn about important news — %d min ahead and in the morning\n"
+                    "• after a trade with no emotion I ask what you felt\n"
+                    "• ask for a review — I show which emotions cost you more\n"
+                    "• the «%s» button below saves a trade right from the chat"),
+
     # ---- питання кроків ----
     "qPair":       ("Яка пара?", "Какая пара?", "Which pair?"),
     "qDate":       ("Коли це було?", "Когда это было?", "When was it?"),

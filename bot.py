@@ -194,7 +194,7 @@ def on_start(chat_id, tg_id, username, arg):
                 "Привіт! Нагадую про важливі новини, після угод питаю про емоції "
                 "й показую розбір.",
                 lang=user_lang(tg_id))
-            tg_api.send_message(chat_id, hello + "\n\n" + LINK_BLOCK)
+            tg_api.send_message(chat_id, hello + "\n\n" + link_block(user_lang(tg_id)))
         return
     status, user = db.consume_link_code(arg.strip(), tg_id, username)
     if status == "ok":
@@ -204,14 +204,12 @@ def on_start(chat_id, tg_id, username, arg):
             % user["nickname"],
             "Готово, журнал «%s» прив'язано." % user["nickname"],
             lang=user_lang(tg_id))
-        tg_api.send_message(chat_id, hello + "\n\n" + (
-            "Що тепер буде:\n\n"
-            "• попереджу про важливі новини — за %d хв і вранці\n"
-            "• після угоди без емоції спитаю, що ти відчував\n"
-            "• попроси розбір — покажу, які емоції коштують тобі дорожче\n"
-            "• кнопкою «%s» унизу запишеш угоду прямо з чату"
-            % (ALERT_MINUTES, trade_flow.button(user_lang(tg_id)))),
-            reply_kb=trade_flow.reply_kb(user_lang(tg_id)))
+        lang = user_lang(tg_id)
+        tg_api.send_message(
+            chat_id,
+            hello + "\n\n" + botlang.t(lang, "whatNow", ALERT_MINUTES,
+                                       trade_flow.button(lang)),
+            reply_kb=trade_flow.reply_kb(lang))
     elif status == "taken":
         tg_api.send_message(chat_id, say(
             "Цей Telegram уже прив'язаний до іншого журналу. Скажи про це без "
@@ -226,7 +224,7 @@ def on_start(chat_id, tg_id, username, arg):
             "допишуть після твоїх слів.",
             "Код не підійшов — він діє 15 хвилин і лише один раз.",
             lang=user_lang(tg_id))
-        tg_api.send_message(chat_id, why + "\n\n" + LINK_SHORT)
+        tg_api.send_message(chat_id, why + "\n\n" + link_short(user_lang(tg_id)))
 
 
 def on_callback(cq):
@@ -273,13 +271,12 @@ def on_callback(cq):
 # Посилання й покрокову інструкцію складаємо кодом, а не моделлю: адресу вона
 # рано чи пізно перепише по-своєму, а кроки має бути видно з першого погляду —
 # суцільним абзацом їх ніхто не читає.
-LINK_BLOCK = (
-    "Щоб почати, прив'яжи журнал:\n\n"
-    "1. Відкрий %s\n"
-    "2. Налаштування → «Telegram»\n"
-    "3. Тисни «Отримати код» і надішли його мені" % SITE_URL
-)
-LINK_SHORT = "Код чекає тут: %s\nНалаштування → «Telegram»" % SITE_URL
+def link_block(lang):
+    return botlang.t(lang, "linkHow", SITE_URL)
+
+
+def link_short(lang):
+    return botlang.t(lang, "linkShort", SITE_URL)
 GREETED = set()          # кому вже показували знайомство; до перезапуску бота
 
 
@@ -377,7 +374,7 @@ def on_text(chat_id, tg_id, text):
                 "Привіт! Нагадую про важливі новини, після угод питаю про емоції "
                 "й показую, які з них коштують дорожче.",
                 lang=user_lang(tg_id, text))
-            tg_api.send_message(chat_id, hello + "\n\n" + LINK_BLOCK)
+            tg_api.send_message(chat_id, hello + "\n\n" + link_block(user_lang(tg_id)))
         else:
             nudge = say(
                 "Людина пише знову, журнал досі не прив'язаний. Одним коротким "
@@ -385,7 +382,7 @@ def on_text(chat_id, tg_id, text):
                 "Саме посилання не пиши — його допишуть після твоїх слів.",
                 "Журнал усе ще не прив'язаний.",
                 lang=user_lang(tg_id, text))
-            tg_api.send_message(chat_id, nudge + "\n\n" + LINK_SHORT)
+            tg_api.send_message(chat_id, nudge + "\n\n" + link_short(user_lang(tg_id, text)))
         return
     # Почата угода веде розмову сама: поки її не записали чи не скасували,
     # усе, що людина пише, — це відповідь на питання сценарію.
@@ -524,7 +521,7 @@ def handle_update(u):
             trade_flow.start(user, chat_id)
         else:
             tg_api.send_message(chat_id, botlang.t(user_lang(tg_id), "needLink")
-                                + "\n\n" + LINK_SHORT)
+                                + "\n\n" + link_short(lang))
     elif text.startswith("/"):
         tg_api.send_message(chat_id, say(
             "Людина надіслала невідому команду «%s». Скажи з легкою іронією, що "
@@ -748,7 +745,15 @@ def main():
     last_jobs = 0
     while True:
         try:
+            asked = time.time()
             updates = tg_api.get_updates(offset)
+            waited = time.time() - asked
+            # Довга «доставка» в журналі означає одне з двох: або запит до
+            # Телеграма висів, або повідомлення чекало наступного запиту.
+            # Розрізнити можна тільки звідси: скільки тривав сам опит і
+            # скільки він приніс.
+            if updates or waited > 26:
+                print("опит: %.1f с, оновлень %d" % (waited, len(updates)), flush=True)
             for u in updates:
                 # Оновлення віддаємо в чергу свого чату й одразу беремо
                 # наступне: головний цикл більше нічого не чекає.
