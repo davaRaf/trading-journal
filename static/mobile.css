@@ -326,3 +326,21 @@
 @media (prefers-reduced-motion:reduce){
   .fbody, .dbody, .fbody > *, .dbody > *{transition:none}
 }
+
+/* ============================================================
+   Фонові фігури на телефоні.
+
+   На маленькому екрані фігура займає майже всю ширину й лягає просто
+   під текст — те, що на моніторі читається як тінь на полях, тут
+   перебиває вміст. Тому тут вона ледь помітна: слабша заливка, тонше
+   обведення і власний кадр проявлення (opacity в keyframes сильніша
+   за будь-яке звичайне правило, тому окрема назва анімації).
+   ============================================================ */
+@media (max-width:900px){
+  #bgfx polygon{fill:color-mix(in srgb,var(--text) 20%,transparent); stroke-width:1.2;
+    animation-name:swanFoldSoft, sparkFade}
+  #bgfx polygon.wing{fill:color-mix(in srgb,var(--swan-blue) 20%,transparent)}
+  @keyframes swanFoldSoft{
+    from{opacity:0; transform:translateY(7px) scale(.93)}
+    to{opacity:.11; transform:none}}
+}
