@@ -504,6 +504,13 @@ uk: {
   suTelegram2: "Telegram (другий)",
   suWrite: "Написати",
   suCopy: "Скопіювати", suCopied: "Скопійовано",
+  suSocial: "Ми в мережах",
+  suOpen: "Відкрити",
+
+  // ---- соцмережі (підвал бічної панелі + вікно «Підтримка») ----
+  socHere: "Ми тут",
+  socIgTip: "Instagram — розбори й новини журналу",
+  socTtTip: "TikTok — короткі відео про торгівлю",
 },
 
 ru: {
@@ -970,6 +977,13 @@ ru: {
   suTelegram2: "Telegram (второй)",
   suWrite: "Написать",
   suCopy: "Скопировать", suCopied: "Скопировано",
+  suSocial: "Мы в соцсетях",
+  suOpen: "Открыть",
+
+  // ---- соцсети (подвал боковой панели + окно «Поддержка») ----
+  socHere: "Мы тут",
+  socIgTip: "Instagram — разборы и новости журнала",
+  socTtTip: "TikTok — короткие видео о торговле",
 },
 
 en: {
@@ -1436,6 +1450,13 @@ en: {
   suTelegram2: "Telegram (second)",
   suWrite: "Write",
   suCopy: "Copy", suCopied: "Copied",
+  suSocial: "Follow us",
+  suOpen: "Open",
+
+  // ---- socials (sidebar footer + Support window) ----
+  socHere: "Follow",
+  socIgTip: "Instagram — journal breakdowns and news",
+  socTtTip: "TikTok — short videos about trading",
 },
 
 };
@@ -1478,6 +1499,10 @@ function applyLang(code){
 
   const su = document.getElementById("supportBtn");
   if(su){ setTip(su, T.suTip); const sp = su.querySelector("span"); if(sp) sp.textContent = T.suTitle; }
+
+  setText("socLab", T.socHere);
+  const ig = document.getElementById("socIg"); if(ig) setTip(ig, T.socIgTip);
+  const tt = document.getElementById("socTt"); if(tt) setTip(tt, T.socTtTip);
 
   const st = document.getElementById("settingsBtn");
   if(st){ setTip(st, T.stTip); const sp = st.querySelector("span"); if(sp) sp.textContent = T.stTitle; }

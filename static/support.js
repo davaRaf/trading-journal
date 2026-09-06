@@ -39,6 +39,16 @@ const CONTACTS = [
    link: "https://t.me/danylo_mf"},
   {kind: "telegram", key: "suTelegram2", value: "@david_rafaelian",
    link: "https://t.me/david_rafaelian"},
+
+  /* Соцмережі йдуть окремою групою: це не підтримка, а «де нас читати».
+     sep — підпис-роздільник перед рядком, cta — своя назва кнопки
+     (у мережу не «пишуть», її відкривають). */
+  {kind: "instagram", key: "socIg", value: "@statsai_trading_journal",
+   link: "https://www.instagram.com/statsai_trading_journal",
+   sep: "suSocial", cta: "suOpen", nm: "Instagram"},
+  {kind: "tiktok", key: "socTt", value: "@statsai_trading_journal",
+   link: "https://www.tiktok.com/@statsai_trading_journal",
+   cta: "suOpen", nm: "TikTok"},
 ];
 
 const IC = {
@@ -46,6 +56,8 @@ const IC = {
   /* Той самий літачок, що й у «Підключеннях» бічної панелі — щоб
      Телеграм у двох місцях виглядав однаково. */
   telegram: '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M21 4L3 11l6 2.2L19 6.5l-7.5 8.3.4 5.2 2.6-3.6 4.2 3.1L21 4z" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/></svg>',
+  instagram: '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="5" stroke="currentColor" stroke-width="1.7"/><circle cx="12" cy="12" r="4" stroke="currentColor" stroke-width="1.7"/><circle cx="17.2" cy="6.8" r="1.1" fill="currentColor"/></svg>',
+  tiktok: '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M14 3v11.2a3.3 3.3 0 11-2.6-3.22" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/><path d="M14 3.4c.5 2.4 2.3 4 4.7 4.2" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>',
 };
 
 const isUrl = v => /^https?:\/\//i.test(String(v || ""));
@@ -59,14 +71,18 @@ function row(c){
      програма таки призначена. Рядок без посилання взагалі — кнопка
      «Скопіювати». */
   const act = isUrl(c.link)
-    ? '<a class="btn su-act" href="' + esc(c.link) + '" target="_blank" rel="noopener">' + esc(T.suWrite) + "</a>"
+    ? '<a class="btn su-act" href="' + esc(c.link) + '" target="_blank" rel="noopener">' + esc(T[c.cta] || T.suWrite) + "</a>"
     : '<button type="button" class="btn su-act" data-su-copy="' + esc(c.value) + '">' + esc(T.suCopy) + "</button>";
   const val = c.kind === "mail"
     ? '<a class="su-val" href="mailto:' + esc(c.value) + '">' + esc(c.value) + "</a>"
     : '<i class="su-val">' + esc(c.value) + "</i>";
-  return '<div class="su-row">'
+  /* Назва рядка: у контактів вона перекладається, у соцмереж це власна
+     назва сервісу — беремо nm як є. */
+  const nm = c.nm || T[c.key] || c.key;
+  const sep = c.sep ? '<div class="su-sep">' + esc(T[c.sep] || c.sep) + "</div>" : "";
+  return sep + '<div class="su-row su-' + esc(c.kind) + '">'
     + '<span class="su-ic">' + IC[c.kind] + "</span>"
-    + '<span class="su-text"><b class="su-nm">' + esc(T[c.key] || c.key) + "</b>"
+    + '<span class="su-text"><b class="su-nm">' + esc(nm) + "</b>"
     + val + "</span>"
     + act + "</div>";
 }

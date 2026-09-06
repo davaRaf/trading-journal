@@ -108,12 +108,14 @@ def check_state(value, from_cookie):
     return time.time() - int(ts) < 600           # десять хвилин на вхід
 
 
-def state_cookie(value):
-    return "oauth_state=%s; Path=/; Max-Age=600; HttpOnly; SameSite=Lax" % value
+def state_cookie(value, secure=False):
+    return ("oauth_state=%s; Path=/; Max-Age=600; HttpOnly; SameSite=Lax" % value
+            + ("; Secure" if secure else ""))
 
 
-def clear_state_cookie():
-    return "oauth_state=; Path=/; Max-Age=0; HttpOnly; SameSite=Lax"
+def clear_state_cookie(secure=False):
+    return ("oauth_state=; Path=/; Max-Age=0; HttpOnly; SameSite=Lax"
+            + ("; Secure" if secure else ""))
 
 
 # ------------------------------------------------------------ OAuth ----

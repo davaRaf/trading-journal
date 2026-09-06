@@ -312,23 +312,12 @@ body{
 .meter[data-lvl="3"] i:nth-child(-n+3){background:#d7a13c}
 .meter[data-lvl="4"] i{background:rgb(var(--pos-rgb))}
 
-/* ---------- запомнить меня / забыли пароль ---------- */
+/* ---------- срок входа / забыли пароль ---------- */
 .minor{
   display:flex; align-items:center; justify-content:space-between;
   gap:12px; margin:4px 0 16px; font-size:12.5px;
 }
-.check{display:flex; align-items:center; gap:8px; color:var(--dim); cursor:pointer}
-.check input{
-  appearance:none; width:15px; height:15px; border-radius:4px; cursor:pointer;
-  border:1px solid var(--hair); background:var(--surface-2); display:grid; place-items:center;
-  transition:background .2s var(--ease), border-color .2s var(--ease);
-}
-.check input:checked{background:rgb(var(--pos-rgb)); border-color:rgb(var(--pos-rgb))}
-.check input:checked::after{
-  content:""; width:8px; height:4px; border-left:1.6px solid var(--on-accent);
-  border-bottom:1.6px solid var(--on-accent); transform:rotate(-45deg) translate(1px,-1px);
-}
-.check input:focus-visible{outline:2px solid rgb(var(--pos-rgb)); outline-offset:2px}
+.keep{color:var(--dim)}
 .minor a{color:var(--dim); text-decoration:none; border-bottom:1px solid var(--hair)}
 .minor a:hover{color:var(--text)}
 
@@ -501,7 +490,7 @@ body{
       </div>
 
       <div class="minor">
-        <label class="check"><input type="checkbox" id="rem"><span>Запомнить меня</span></label>
+        <span class="keep" id="keepNote">Вход сохраняется на 30 дней</span>
         <a href="#" id="forgot">Забыли пароль?</a>
       </div>
 
@@ -932,7 +921,7 @@ const I18N = {
     lNick: "Нікнейм", phNick: "trader_davyd",
     lLogin: "Пошта або нікнейм", phLogin: "пошта або нікнейм",
     showPw: "Показати пароль", hidePw: "Сховати пароль",
-    remember: "Запам'ятати мене", forgot: "Забув пароль?",
+    remember: "Вхід зберігається на 30 днів", forgot: "Забув пароль?",
     errOauth: "Не вдалось увійти через сервіс. Спробуй ще раз або зайди поштою.",
     errOff: "Цей спосіб входу ще не увімкнено.",
     errServer: "Сервер не відповідає", errGeneric: "Не вийшло — спробуй ще раз",
@@ -958,7 +947,7 @@ const I18N = {
     lNick: "Никнейм", phNick: "trader_davyd",
     lLogin: "Почта или никнейм", phLogin: "почта или никнейм",
     showPw: "Показать пароль", hidePw: "Скрыть пароль",
-    remember: "Запомнить меня", forgot: "Забыл пароль?",
+    remember: "Вход сохраняется на 30 дней", forgot: "Забыл пароль?",
     errOauth: "Не удалось войти через сервис. Попробуй ещё раз или зайди почтой.",
     errOff: "Этот способ входа ещё не включён.",
     errServer: "Сервер не отвечает", errGeneric: "Не вышло — попробуй ещё раз",
@@ -984,7 +973,7 @@ const I18N = {
     lNick: "Nickname", phNick: "trader_davyd",
     lLogin: "Email or nickname", phLogin: "email or nickname",
     showPw: "Show password", hidePw: "Hide password",
-    remember: "Remember me", forgot: "Forgot password?",
+    remember: "You stay signed in for 30 days", forgot: "Forgot password?",
     errOauth: "Couldn't sign in with that service. Try again or use email.",
     errOff: "This sign-in method isn't enabled yet.",
     errServer: "Server isn't responding", errGeneric: "Didn't work — try again",
@@ -1016,7 +1005,7 @@ function applyLang(code){
   document.querySelector('label[for="pw"]').textContent = T.lPw;
   document.querySelector('label[for="nick"]').textContent = T.lNick;
   document.getElementById("nick").placeholder = T.phNick;
-  document.querySelector(".check span").textContent = T.remember;
+  document.getElementById("keepNote").textContent = T.remember;
   document.getElementById("forgot").textContent = T.forgot;
 
   const big = document.querySelector(".pitch .big");

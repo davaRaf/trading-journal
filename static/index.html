@@ -13,15 +13,15 @@
 <link rel="stylesheet" href="/static/import.css?v=3">
 <link rel="stylesheet" href="/static/themes.css?v=1">
 <link rel="stylesheet" href="/static/calc.css?v=1">
-<link rel="stylesheet" href="/static/links.css?v=1">
+<link rel="stylesheet" href="/static/links.css?v=2">
 <link rel="stylesheet" href="/static/ts.css?v=11">
 <link rel="stylesheet" href="/static/day.css?v=6">
-<link rel="stylesheet" href="/static/mobile.css?v=5">
+<link rel="stylesheet" href="/static/mobile.css?v=6">
 <link rel="stylesheet" href="/static/guest.css?v=3">
 <link rel="stylesheet" href="/static/pub.css?v=1">
 <link rel="stylesheet" href="/static/motion.css?v=1">
 <link rel="stylesheet" href="/static/settings.css?v=2">
-<link rel="stylesheet" href="/static/support.css?v=2">
+<link rel="stylesheet" href="/static/support.css?v=3">
 <link rel="stylesheet" href="/static/assistant.css?v=6">
 <script>
 /* тема применяется до отрисовки, чтобы не мигало */
@@ -99,6 +99,17 @@ try{document.documentElement.setAttribute("data-nav",localStorage.getItem("tj_na
     <button class="mini" id="settingsBtn" data-tip="Мова інтерфейсу й відкритий журнал" onclick="__settings.open()"><svg class="ic" width="14" height="14" viewBox="0 0 24 24" fill="none"><path d="M20 7h-7M7 7H4M20 17h-3M11 17H4" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/><circle cx="10" cy="7" r="2.5" stroke="currentColor" stroke-width="1.7"/><circle cx="14" cy="17" r="2.5" stroke="currentColor" stroke-width="1.7"/></svg> <span>Налаштування</span></button>
     <button class="mini" id="skinBtn" data-tip="Теми оформлення: світлі, темні й своя" onclick="__skin.open()"><svg class="ic" width="14" height="14" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="8.6" stroke="currentColor" stroke-width="1.7"/><path d="M12 3.4a8.6 8.6 0 000 17.2z" fill="currentColor" opacity=".55"/></svg> <span>Оформлення</span></button>
     <button class="mini" id="logoutBtn" data-tip="Вийти з акаунта" onclick="logout()"><svg class="ic" width="14" height="14" viewBox="0 0 24 24" fill="none"><path d="M15 17l5-5-5-5M20 12H9" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/><path d="M12 20H6a2 2 0 01-2-2V6a2 2 0 012-2h6" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></svg> <span>Вийти</span></button>
+
+    <!-- Соцмережі: тихий ряд під кнопками. Іконки сірі, фірмовий колір
+         з'являється лише під курсором — щоб не сперечатись із зеленим
+         акцентом самого журналу. -->
+    <div class="socs">
+      <span class="lab" id="socLab">Ми тут</span>
+      <a class="soc ig" id="socIg" href="https://www.instagram.com/statsai_trading_journal"
+         target="_blank" rel="noopener" aria-label="Instagram"><svg class="ic" width="15" height="15" viewBox="0 0 24 24" fill="none" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="5" stroke="currentColor" stroke-width="1.7"/><circle cx="12" cy="12" r="4" stroke="currentColor" stroke-width="1.7"/><circle cx="17.2" cy="6.8" r="1.1" fill="currentColor"/></svg></a>
+      <a class="soc tt" id="socTt" href="https://www.tiktok.com/@statsai_trading_journal"
+         target="_blank" rel="noopener" aria-label="TikTok"><svg class="ic" width="15" height="15" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M14 3v11.2a3.3 3.3 0 11-2.6-3.22" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/><path d="M14 3.4c.5 2.4 2.3 4 4.7 4.2" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg></a>
+    </div>
   </div>
 </aside>
 
@@ -129,7 +140,7 @@ try{document.documentElement.setAttribute("data-nav",localStorage.getItem("tj_na
 <div id="modal" class="modal" hidden><div class="modal-box" id="modalBox"></div></div>
 <div id="lightbox" class="lightbox" hidden onclick="closeLightbox()"><img id="lightboxImg" alt=""></div>
 
-<script src="/static/i18n.js?v=24"></script>
+<script src="/static/i18n.js?v=25"></script>
 <script src="/static/ui.js?v=3"></script>
 <script src="/static/demo.js?v=2"></script>
 <script src="/static/guest.js?v=3"></script>
@@ -138,7 +149,7 @@ try{document.documentElement.setAttribute("data-nav",localStorage.getItem("tj_na
 <script src="/static/profile.js?v=1"></script>
 <script src="/static/backup.js?v=1"></script>
 <script src="/static/settings.js?v=2"></script>
-<script src="/static/support.js?v=8"></script>
+<script src="/static/support.js?v=9"></script>
 <script src="/static/assistant.js?v=6"></script>
 <script src="/static/watch.js?v=1"></script>
 <script src="/static/news.js?v=5"></script>

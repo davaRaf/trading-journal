@@ -42,3 +42,33 @@
   .lk-head,.lk-row{grid-template-columns:minmax(0,1fr) 42px 58px 68px}
   .lk-head span:nth-child(2),.lk-row .of{display:none}
 }
+
+
+/* ============================================================
+   Соцмережі в підвалі бічної панелі (static/index.html).
+
+   Це не дія, а посилання «де нас знайти», тому ряд тихіший за кнопки
+   поруч: підпис дрібний, іконки сірі. Колір бренду вмикається тільки
+   під курсором — інакше два яскравих значка перетягують увагу на себе
+   з кнопки «Нова угода».
+   ============================================================ */
+.side .socs{
+  display:flex; align-items:center; gap:6px;
+  margin-top:6px; padding:9px 4px 2px;
+  border-top:1px solid var(--line-soft);
+}
+.side .socs .lab{
+  margin-right:auto; padding-left:5px;
+  font-family:var(--mono); font-size:9px; letter-spacing:.13em;
+  text-transform:uppercase; color:var(--faint);
+}
+.side .soc{
+  display:inline-grid; place-items:center;
+  width:26px; height:26px; border-radius:7px;
+  color:var(--faint); border:1px solid transparent;
+  transition:color .14s, background .14s, border-color .14s;
+}
+.side .soc:hover{background:var(--panel-2); border-color:var(--line)}
+.side .soc.ig:hover{color:#e1568f}
+.side .soc.tt:hover{color:#25f4ee}
+.side .soc .ic{display:block}
