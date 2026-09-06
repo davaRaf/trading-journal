@@ -17,6 +17,7 @@ import traceback
 from zoneinfo import ZoneInfo
 
 import assistant
+import botlang
 import calendar_feed
 import db
 import emotions
@@ -99,6 +100,25 @@ def user_lang(tg_id, text=None):
     return saved or "uk"
 
 
+def _first_lang(tg_id, code):
+    """Мова з налаштувань самого Телеграма — але тільки поки своєї немає.
+
+    Мова людини визначається за її текстом (user_lang), а в сценарії
+    запису людина здебільшого тисне кнопки: тексту немає, визначати нема
+    по чому — і перший діалог ішов українською всім підряд. Телеграм же
+    поруч із кожним повідомленням каже, якою мовою налаштований застосунок.
+    Записуємо її один раз: далі власний текст людини все одно переважить.
+    """
+    code = (code or "")[:2]
+    if not tg_id or code not in botlang.ORDER:
+        return
+    try:
+        if not db.meta_get("lang:%s" % tg_id, ""):
+            db.meta_set("lang:%s" % tg_id, code)
+    except Exception:
+        pass
+
+
 # Команди зі скісною рискою в тексті бота не пишемо ніколи. Правила моделі
 # це забороняють, але правила — це прохання, а не гарантія: вона все одно
 # дописувала «/report — розбір емоцій» у кінець привітання. Тому те саме
@@ -165,7 +185,7 @@ def on_start(chat_id, tg_id, username, arg):
                 "Акаунт «%s» уже прив'язаний. Нагадаю про важливі новини, запитаю "
                 "про емоції після угод і запишу угоду з чату." % user["nickname"],
                 lang=user_lang(tg_id)),
-                reply_kb=trade_flow.REPLY_KB)
+                reply_kb=trade_flow.reply_kb(user_lang(tg_id)))
         else:
             hello = say(
                 "Нова людина вперше пише боту. Привітайся і одним реченням скажи, для "
@@ -190,8 +210,8 @@ def on_start(chat_id, tg_id, username, arg):
             "• після угоди без емоції спитаю, що ти відчував\n"
             "• попроси розбір — покажу, які емоції коштують тобі дорожче\n"
             "• кнопкою «%s» унизу запишеш угоду прямо з чату"
-            % (ALERT_MINUTES, trade_flow.BUTTON)),
-            reply_kb=trade_flow.REPLY_KB)
+            % (ALERT_MINUTES, trade_flow.button(user_lang(tg_id)))),
+            reply_kb=trade_flow.reply_kb(user_lang(tg_id)))
     elif status == "taken":
         tg_api.send_message(chat_id, say(
             "Цей Telegram уже прив'язаний до іншого журналу. Скажи про це без "
@@ -215,7 +235,7 @@ def on_callback(cq):
     msg_id = cq["message"]["message_id"]
     user = db.get_user_by_telegram(cq["from"]["id"])
     if not user:
-        tg_api.answer_callback(cq["id"], "Журнал не прив'язаний")
+        tg_api.answer_callback(cq["id"], botlang.t(user_lang(cq["from"]["id"]), "noJournal"))
         return
 
     # Кнопки покрокового запису — окремим модулем, тут тільки розвилка.
@@ -237,13 +257,14 @@ def on_callback(cq):
         label = emotions.LABELS.get(code)
         trade = db.get_trade(trade_id, user["id"])
         if not trade or not label:
-            tg_api.answer_callback(cq["id"], "Угоду не знайдено")
+            tg_api.answer_callback(cq["id"], botlang.t(botlang.of(user), "emNoTrade"))
             return
         if db.set_trade_emotion(trade_id, label):
-            tg_api.edit_message_text(chat_id, msg_id, "Записав емоцію: %s ✍️" % label)
+            tg_api.edit_message_text(chat_id, msg_id,
+                                     botlang.t(botlang.of(user), "emSaved", label))
             tg_api.answer_callback(cq["id"])
         else:
-            tg_api.answer_callback(cq["id"], "Емоцію вже записано")
+            tg_api.answer_callback(cq["id"], botlang.t(botlang.of(user), "emTaken"))
         return
 
     tg_api.answer_callback(cq["id"])
@@ -368,7 +389,7 @@ def on_text(chat_id, tg_id, text):
         return
     # Почата угода веде розмову сама: поки її не записали чи не скасували,
     # усе, що людина пише, — це відповідь на питання сценарію.
-    if text == trade_flow.BUTTON:
+    if trade_flow.is_button(text):
         trade_flow.start(user, chat_id)
         return
     if trade_flow.on_text(user, chat_id, text):
@@ -385,8 +406,8 @@ def on_text(chat_id, tg_id, text):
         tg_api.send_message(chat_id, chat_answer(user, chat_id, tg_id, text))
         return
     if len(pending) > 1:
-        tg_api.send_message(chat_id, "Зараз чекаю емоції по %d угодах — натисни кнопку під "
-                            "потрібним повідомленням, щоб я не переплутав." % len(pending))
+        tg_api.send_message(chat_id, botlang.t(botlang.of(user), "emManyOpen",
+                                               len(pending)))
         return
     trade = pending[0]
     raw = text.strip()[:200]
@@ -396,7 +417,7 @@ def on_text(chat_id, tg_id, text):
         if trade["emotion_prompt_msg_id"]:
             try:
                 tg_api.edit_message_text(chat_id, trade["emotion_prompt_msg_id"],
-                                         "Записав емоцію: %s ✍️" % shown)
+                                         botlang.t(botlang.of(user), "emSaved", shown))
             except tg_api.TelegramError:
                 pass
         tg_api.send_message(chat_id, say(
@@ -479,14 +500,16 @@ def handle_update(u):
     sender = msg.get("from") or {}
     tg_id = sender.get("id")
     username = sender.get("username")
+    _first_lang(tg_id, sender.get("language_code"))
     if photos:
         # Картинку чекають лише всередині запису угоди — там це скрін. Поза
         # сценарієм не мовчимо: інакше здається, що бот проковтнув файл.
         user = db.get_user_by_telegram(tg_id)
         if not (user and trade_flow.on_photo(user, chat_id, photos)):
-            tg_api.send_message(chat_id, "Щоб додати скрін, почни запис угоди — "
-                                "кнопка «%s» унизу." % trade_flow.BUTTON,
-                                reply_kb=trade_flow.REPLY_KB)
+            lang = user_lang(tg_id)
+            tg_api.send_message(chat_id,
+                                botlang.t(lang, "shotOutside", trade_flow.button(lang)),
+                                reply_kb=trade_flow.reply_kb(lang))
         return
     # «друкує…» одразу: далі майже завжди йде запит до моделі, і без цього
     # людина секунду-дві дивиться в порожній чат
@@ -500,7 +523,8 @@ def handle_update(u):
         if user:
             trade_flow.start(user, chat_id)
         else:
-            tg_api.send_message(chat_id, "Спершу прив'яжи журнал.\n\n" + LINK_SHORT)
+            tg_api.send_message(chat_id, botlang.t(user_lang(tg_id), "needLink")
+                                + "\n\n" + LINK_SHORT)
     elif text.startswith("/"):
         tg_api.send_message(chat_id, say(
             "Людина надіслала невідому команду «%s». Скажи з легкою іронією, що "

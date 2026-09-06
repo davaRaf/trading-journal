@@ -3,6 +3,7 @@
 Опрос про эмоцию после сделки: список вариантов и сообщение с кнопками.
 Модуль общий — сайт отправляет вопрос, бот принимает ответ.
 """
+import botlang
 import db
 import llm
 import tg_api
@@ -21,23 +22,29 @@ OPTIONS = [
 LABELS = dict(OPTIONS)
 
 
-def keyboard(trade_id):
+def keyboard(trade_id, lang=botlang.DEFAULT):
+    """Підписи — мовою людини, у callback_data код. У журнал з коду
+    розгортається українська назва (LABELS): у базі має бути одне
+    написання на всіх, інакше розріз по емоціях розсиплеться на мовні
+    варіанти."""
     rows, row = [], []
-    for code, label in OPTIONS:
-        row.append({"text": label, "callback_data": "emo:%s:%s" % (trade_id, code)})
+    for code, _label in OPTIONS:
+        row.append({"text": botlang.t(lang, "em" + code.capitalize()),
+                    "callback_data": "emo:%s:%s" % (trade_id, code)})
         if len(row) == 2:
             rows.append(row); row = []
     if row:
         rows.append(row)
-    rows.append([{"text": "✍️ Написати своє", "callback_data": "emofree:%s" % trade_id}])
+    rows.append([{"text": botlang.t(lang, "ownWords"),
+                  "callback_data": "emofree:%s" % trade_id}])
     return rows
 
 
-def prompt_text(trade):
-    pair = (trade.get("pair") or "").strip() or "сделка"
+def prompt_text(trade, lang=botlang.DEFAULT):
+    pair = (trade.get("pair") or "").strip() or "—"
     date = (trade.get("date") or "").strip()
     head = "%s%s" % (pair, " · %s" % date if date else "")
-    return "Записав угоду: %s\nЯку емоцію відчував під час неї?" % head
+    return botlang.t(lang, "emAsk", head)
 
 
 OTHER = "Інше"
@@ -71,7 +78,12 @@ def classify(text):
 
 
 def send_prompt(chat_id, trade):
-    """Шлём вопрос и запоминаем id сообщения, чтобы потом заменить его ответом."""
-    msg = tg_api.send_message(chat_id, prompt_text(trade), keyboard(trade["id"]))
+    """Шлём вопрос и запоминаем id сообщения, чтобы потом заменить его ответом.
+
+    chat_id у бота совпадает с telegram_id человека, поэтому язык берём
+    прямо по нему: вопрос приходит с сайта, где о языке бота не знают."""
+    lang = botlang.of_tg(chat_id)
+    msg = tg_api.send_message(chat_id, prompt_text(trade, lang),
+                              keyboard(trade["id"], lang))
     db.set_emotion_prompt_msg(trade["id"], msg.get("message_id"))
     return msg

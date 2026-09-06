@@ -27,6 +27,10 @@ fake_db.frequent_values = lambda uid, field, limit=6: {
     "account": ["FundingPips"]}.get(field, [])
 fake_db.last_number = lambda uid, field: 1.0 if field == "risk" else None
 fake_db.insert_trade = lambda uid, t, status: STORE["saved"].append((t, status))
+# Мову бот тримає в meta під ключем «lang:<telegram_id>» (див. botlang).
+LANG = {"value": ""}
+fake_db.meta_get = lambda key, default="": LANG["value"] or default
+fake_db.meta_set = lambda key, value: LANG.__setitem__("value", value)
 
 fake_tg = types.ModuleType("tg_api")
 SENT = []
@@ -256,6 +260,33 @@ def check_old_button():
           and "position" not in trade())
 
 
+def check_language():
+    """Питання й кнопки — мовою людини, а значення в журнал ідуть як є."""
+    reset()
+    ru = {"id": 7, "telegram_id": 42}
+    LANG["value"] = "ru"
+    try:
+        tf.start(ru, CHAT)
+        check("питання російською", "Какая пара" in last()["text"])
+        check("навігація російською",
+              any("Отменить" in b["text"] for row in last()["kb"] for b in row))
+        check("кнопка запису російською", tf.button("ru") == "➕ Записать сделку")
+        check("кнопку впізнаємо будь-якою мовою",
+              tf.is_button("➕ Записать сделку") and tf.is_button("➕ Записати угоду"))
+
+        # Емоція: підпис російський, а в журнал іде українське написання —
+        # інакше розріз по емоціях розсиплеться на мовні варіанти.
+        STORE["draft"] = {"chat_id": CHAT, "step": "emotion",
+                          "data": {"trade": {"id": "tl", "pair": "NQ"}, "opts": []}}
+        tf._ask(ru, CHAT, STORE["draft"])
+        labels = [b["text"] for row in last()["kb"] for b in row]
+        check("емоції показані російською", "Спокойствие" in labels)
+        check("у журнал іде українське написання",
+              STORE["draft"]["data"]["opts"][0] == "Спокій")
+    finally:
+        LANG["value"] = ""
+
+
 def check_cancel():
     reset()
     STORE["draft"] = {"chat_id": CHAT, "step": "setup",
@@ -271,6 +302,7 @@ check_back()
 check_photo()
 check_full_walk()
 check_old_button()
+check_language()
 check_save()
 check_cancel()
 print("\nусе добре")
