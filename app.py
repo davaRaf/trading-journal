@@ -638,6 +638,25 @@ class H(BaseHTTPRequestHandler):
         pass
 
     # ---------- ответы ----------
+    def _old_host(self):
+        """Запит прийшов на старий адрес хостингу — перекидаємо на основний.
+
+        Сайт переїхав, а Railway лишився живим: люди реєструвались там уже
+        після того, як користувачів скопіювали, і на statsai.xyz їх немає.
+        GET — 301, решта — 308, щоб метод і тіло дійшли. /health не чіпаємо:
+        за ним Railway стежить, чи живий сервіс."""
+        host = (self.headers.get("Host") or "").split(":")[0].lower()
+        path = urlparse(self.path).path
+        if not host.endswith(".railway.app") or path == "/health":
+            return False
+        target = config.SITE_URL.rstrip("/") + self.path
+        self.send_response(301 if self.command in ("GET", "HEAD") else 308)
+        self.send_header("Location", target)
+        self.send_header("Cache-Control", "no-store")
+        self.send_header("Content-Length", "0")
+        self.end_headers()
+        return True
+
     def _json(self, obj, code=200, cookie=None):
         data = json.dumps(obj, ensure_ascii=False).encode("utf-8")
         enc = self._squeeze(data)
@@ -799,6 +818,7 @@ class H(BaseHTTPRequestHandler):
         return ok
 
     def do_GET(self):
+        if self._old_host(): return
         p = unquote(urlparse(self.path).path)
 
         if p == "/health":
@@ -1217,6 +1237,7 @@ class H(BaseHTTPRequestHandler):
 
     # ---------- POST ----------
     def do_POST(self):
+        if self._old_host(): return
         p = urlparse(self.path).path
         body = self._body()
 
@@ -1539,6 +1560,7 @@ class H(BaseHTTPRequestHandler):
 
     # ---------- PUT ----------
     def do_PUT(self):
+        if self._old_host(): return
         p = urlparse(self.path).path
 
         if p == "/api/prefs":
@@ -1576,6 +1598,7 @@ class H(BaseHTTPRequestHandler):
 
     # ---------- DELETE ----------
     def do_DELETE(self):
+        if self._old_host(): return
         p = urlparse(self.path).path
         m = re.match(r"^/api/trades/([\w-]+)$", p)
         if not m:
