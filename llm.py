@@ -15,6 +15,7 @@ import time
 import urllib.error
 import urllib.request
 
+import net4
 from config import DEEPSEEK_API_KEY
 
 URL = "https://api.deepseek.com/chat/completions"
@@ -62,7 +63,9 @@ def _once(data, model, timeout):
         headers={"Content-Type": "application/json",
                  "Authorization": "Bearer %s" % DEEPSEEK_API_KEY})
     try:
-        with urllib.request.urlopen(req, timeout=timeout) as r:
+        # Тільки по IPv4: маршрут звідси по IPv6 підвисає на 30 секунд
+        # (див. net4.py), і відповідь моделі чекала б стільки ж.
+        with net4.urlopen(req, timeout=timeout) as r:
             body = json.loads(r.read().decode("utf-8"))
     except urllib.error.HTTPError as ex:
         global last_error

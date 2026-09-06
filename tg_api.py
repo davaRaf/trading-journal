@@ -4,8 +4,11 @@ Telegram Bot API поверх urllib — библиотеки вроде aiogram
 нам хватает горстки методов.
 """
 import json
+import socket
 import urllib.error
 import urllib.request
+
+import net4
 
 from config import BOT_TOKEN
 
@@ -19,24 +22,41 @@ class TelegramError(Exception):
     pass
 
 
-def call(method, payload=None, timeout=30):
+def call(method, payload=None, timeout=10, tries=2):
+    """Один виклик Телеграма. Мовчання лікуємо повтором, а не терпінням.
+
+    Було: одна спроба з тайм-аутом 30 секунд. Виглядало це так, що бот
+    «іноді думає пів хвилини» — насправді запит висів на зламаному
+    маршруті (див. net4.py), і людина стільки ж чекала відповіді.
+    Тепер чекаємо 10 секунд і пробуємо ще раз: живий запит іде за 0.08 с,
+    тож повторна спроба обходиться дешевше за очікування.
+
+    HTTP-відмову (4xx/5xx) не повторюємо: Телеграм уже все сказав, і
+    другий такий самий запит скаже те саме.
+    """
     if not BOT_TOKEN:
         raise TelegramError("BOT_TOKEN не задан")
     data = json.dumps(payload or {}, ensure_ascii=False).encode("utf-8")
-    req = urllib.request.Request(API % (BOT_TOKEN, method), data=data,
-                                 headers={"Content-Type": "application/json"})
-    try:
-        with urllib.request.urlopen(req, timeout=timeout) as r:
-            body = json.loads(r.read().decode("utf-8"))
-    except urllib.error.HTTPError as ex:
+    last = None
+    for attempt in range(max(1, tries)):
+        req = urllib.request.Request(API % (BOT_TOKEN, method), data=data,
+                                     headers={"Content-Type": "application/json"})
         try:
-            body = json.loads(ex.read().decode("utf-8"))
-        except Exception:
-            raise TelegramError("%s: HTTP %s" % (method, ex.code))
-        raise TelegramError("%s: %s" % (method, body.get("description")))
-    if not body.get("ok"):
-        raise TelegramError("%s: %s" % (method, body.get("description")))
-    return body.get("result")
+            with net4.urlopen(req, timeout=timeout) as r:
+                body = json.loads(r.read().decode("utf-8"))
+        except urllib.error.HTTPError as ex:
+            try:
+                body = json.loads(ex.read().decode("utf-8"))
+            except Exception:
+                raise TelegramError("%s: HTTP %s" % (method, ex.code))
+            raise TelegramError("%s: %s" % (method, body.get("description")))
+        except (urllib.error.URLError, socket.timeout, OSError) as ex:
+            last = ex
+            continue
+        if not body.get("ok"):
+            raise TelegramError("%s: %s" % (method, body.get("description")))
+        return body.get("result")
+    raise TelegramError("%s: %s" % (method, last))
 
 
 def send_typing(chat_id):
@@ -72,7 +92,7 @@ def download(file_path, timeout=30):
         raise TelegramError("BOT_TOKEN не задан")
     req = urllib.request.Request(FILES % (BOT_TOKEN, file_path))
     try:
-        with urllib.request.urlopen(req, timeout=timeout) as r:
+        with net4.urlopen(req, timeout=timeout) as r:
             return r.read()
     except urllib.error.HTTPError as ex:
         raise TelegramError("download: HTTP %s" % ex.code)
