@@ -168,6 +168,8 @@ uk: {
   hbGroupCommunity: "Комьюніті", hbGroupSocial: "Соцмережі та інше", hbCommunitySub: "комьюніті",
   hbOther: "Інше", hbOtherSub: "жодне не підходить",
   hbNote: "Питаємо один раз. Далі цей екран не з'явиться.", hbNext: "Далі",
+  srTitle: "Звідки про нас дізнались", srNone: "ще не відповіли", srWeek: "за 7 днів",
+  srTotal: "Акаунтів", srAnswered: "відповіли",
 
   alertNeedPair: "Вкажи інструмент", alertNeedDate: "Вкажи дату",
   alertNeedResult: "Вкажи результат — TP / SL / BE− / BE+",
@@ -658,6 +660,8 @@ ru: {
   hbGroupCommunity: "Комьюнити", hbGroupSocial: "Соцсети и остальное", hbCommunitySub: "комьюнити",
   hbOther: "Другое", hbOtherSub: "ни одно не подходит",
   hbNote: "Спрашиваем один раз. Дальше этот экран не появится.", hbNext: "Дальше",
+  srTitle: "Откуда о нас узнали", srNone: "ещё не ответили", srWeek: "за 7 дней",
+  srTotal: "Аккаунтов", srAnswered: "ответили",
 
   alertNeedPair: "Укажи инструмент", alertNeedDate: "Укажи дату",
   alertNeedResult: "Укажи результат — TP / SL / BE− / BE+",
@@ -1136,6 +1140,8 @@ en: {
   hbGroupCommunity: "Community", hbGroupSocial: "Social and other", hbCommunitySub: "community",
   hbOther: "Other", hbOtherSub: "none of these",
   hbNote: "We ask once. This screen won't come back.", hbNext: "Continue",
+  srTitle: "How people found us", srNone: "not answered yet", srWeek: "last 7 days",
+  srTotal: "Accounts", srAnswered: "answered",
 
   alertNeedPair: "Enter an instrument", alertNeedDate: "Enter a date",
   alertNeedResult: "Choose a result — TP / SL / BE− / BE+",

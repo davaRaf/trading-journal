@@ -42,6 +42,9 @@ function body(){
   if (pp) h += sec(T.ppTitle, pp, "pp");
   const bk = (!inPub() && window.__backup) ? __backup.section() : "";
   if (bk) h += sec(T.bkTitle, bk, "bk");
+  /* службова статистика — розділ є лише в тих, кому сервер її віддав */
+  const sr = (!inPub() && window.__sources) ? __sources.section() : "";
+  if (sr) h += sec(T.srTitle, sr, "sr");
   return '<div class="m-body st">' + h + "</div>";
 }
 
@@ -61,6 +64,7 @@ async function open(){
   if (!inPub()) await Promise.all([
     window.__profile ? __profile.load() : null,
     window.__backup ? __backup.load() : null,
+    window.__sources ? __sources.load() : null,
   ]);
   draw();
 }

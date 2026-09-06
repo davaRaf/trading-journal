@@ -1545,3 +1545,16 @@ body::after{
 .hb-go{opacity:.35;pointer-events:none}
 .hb-go.ready{opacity:1;pointer-events:auto}
 @media (max-width:560px){ .hb{padding:20px 16px 16px} .hb-grid{grid-template-columns:1fr} .hb h2{font-size:19px} }
+
+/* ---------- налаштування: звідки про нас дізнались (лише власникам) ---------- */
+.sr-lead{margin:0 0 12px;color:var(--dim);font-size:13px}
+.sr-lead b{color:var(--text);font-family:var(--mono);font-weight:500}
+.sr-row{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:4px 12px;padding:8px 0;border-top:1px solid var(--line-soft)}
+.sr-row:first-of-type{border-top:none}
+.sr-nm{font-size:13.5px}
+.sr-row.none .sr-nm{color:var(--faint)}
+.sr-n{font-family:var(--mono);font-size:13px;text-align:right;font-variant-numeric:tabular-nums}
+.sr-n i{font-style:normal;color:var(--accent);font-size:11px;margin-left:6px}
+.sr-bar{grid-column:1 / -1;height:3px;border-radius:2px;background:var(--line-soft);overflow:hidden}
+.sr-bar i{display:block;height:100%;border-radius:2px;background:var(--accent);opacity:.75}
+.sr-row.none .sr-bar i{background:var(--faint)}

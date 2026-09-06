@@ -934,6 +934,27 @@ class H(BaseHTTPRequestHandler):
                 return self._json({"error": "auth required"}, 401)
             return self._json({"prefs": prefs_get(uid)})
 
+        # ---- звідки про нас дізнались: лише власникам ----
+        if p == "/api/admin/sources":
+            uid = self._uid()
+            if not uid:
+                return self._json({"error": "auth required"}, 401)
+            me = db.get_user(uid)
+            if not me or (me["nickname"] or "").strip().lower() not in config.ADMIN_NICKS:
+                return self._json({"error": "forbidden"}, 403)
+            _prefs_init()
+            with db.connect() as conn:
+                rows = conn.execute("""
+                    SELECT coalesce(p.data->'source'->>'id', '') AS id,
+                           count(*) AS n,
+                           count(*) FILTER (WHERE u.created_at >= now() - interval '7 days') AS week
+                    FROM users u LEFT JOIN user_prefs p ON p.user_id = u.id
+                    GROUP BY 1 ORDER BY n DESC""").fetchall()
+            out = [{"id": r["id"], "n": r["n"], "week": r["week"]} for r in rows]
+            total = sum(r["n"] for r in out)
+            return self._json({"rows": out, "total": total,
+                               "answered": sum(r["n"] for r in out if r["id"])})
+
         if p == "/api/auth/me":
             uid = self._uid()
             user = db.get_user(uid) if uid else None

@@ -40,6 +40,9 @@ SESSION_SECRET = os.environ.get("SESSION_SECRET", "")
 # боевой адрес на Hetzner; прежний railway.app остался от старого хостинга и
 # уводил людей на второй экземпляр журнала.
 SITE_URL      = os.environ.get("SITE_URL", "https://statsai.xyz/")
+# Хто бачить службову статистику (звідки приходять люди). Ніки через кому,
+# регістр не важить. За замовчуванням — власник і напарник.
+ADMIN_NICKS   = [x.strip().lower() for x in os.environ.get("ADMIN_NICKS", "davaraf,dania cripto").split(",") if x.strip()]
 # Разовый ключ для переноса скриншотов на новый сервер (tools/upload_shots.py).
 # Пока пустой — точка загрузки просто не существует. После переезда убрать.
 ADMIN_TOKEN   = os.environ.get("ADMIN_TOKEN", "")
