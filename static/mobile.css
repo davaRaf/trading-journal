@@ -111,6 +111,14 @@
   .card .in{padding:14px}
   .card h3{padding:11px 14px; font-size:12px}
   .sh-bar{flex-wrap:wrap}
+  /* «Поділитися» в шапці журналу: підпис займав місце в тому ж рядку, і
+     третя кнопка («Рік») зривалась на свій. Тепер підпис стоїть окремим
+     рядком, а кнопки ділять ширину порівну — скільки б їх не було. */
+  .jhead .sh-bar.sh-inline{display:flex; flex-wrap:wrap; width:100%; gap:7px;
+    align-items:center}
+  .jhead .sh-bar.sh-inline .sh-cap{flex:1 0 100%; margin:0}
+  .jhead .sh-bar.sh-inline .sh-btn{flex:1 1 0; min-width:0; justify-content:center;
+    padding:9px 6px; font-size:12.5px; white-space:nowrap}
 
   /* панелі збоку — на весь екран */
   .pnl-wrap[data-side="right"] .pnl{width:100%; border-radius:0; border:none}
