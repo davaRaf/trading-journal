@@ -19,6 +19,7 @@ uk: {
   htmlLang: "uk",
   label: "УКР",
   tagline: "помічник трейдера",
+  collabTip: "Колаборація зі спільнотою Black Swan",
 
   // ---- спільне ----
   months: ["Січень","Лютий","Березень","Квітень","Травень","Червень","Липень","Серпень","Вересень","Жовтень","Листопад","Грудень"],
@@ -319,6 +320,7 @@ uk: {
   slTtl1h: "1 година", slTtl24h: "24 години", slTtl7d: "7 днів", slTtl30d: "30 днів", slTtlForever: "без обмеження",
   slWinRate: "Win rate", slTotal: "Підсумок",
   slAssetsLabel: "Чим ділимось", slAssetsAll: "усі активи", slAssetNoName: "без назви",
+  slStyleLabel: "Оформлення", slStylePlain: "Звичайне",
   slKindTs: "торгова система", slOgTs: "Торгова система",
   tsShTitle: "Моя торгова система",
   tsShMarket: "Ринок і час", tsShAssets: "Чим торгую", tsShWindows: "Коли торгую",
@@ -383,6 +385,8 @@ uk: {
   // ---- теми оформлення ----
   thNight: "Ніч", thGraphite: "Графіт", thMidnight: "Опівніч", thWine: "Вино", thPine: "Хвоя",
   thDay: "День", thPaper: "Папір", thFog: "Туман", thSand: "Пісок",
+  thCollabGroup: "Колаборація · Black Swan",
+  thCollabNote: "Журнал у кольорах спільноти: білий, чорний і синій",
   thSelected: "обрана", thCustom: "Своя", thModalTitle: "Оформлення",
   thDarkGroup: "Темні", thLightGroup: "Світлі",
   thBase: "Основа", thBaseDark: "Темна", thBaseLight: "Світла", thBg: "Тло", thAccent: "Акцент",
@@ -524,6 +528,7 @@ ru: {
   htmlLang: "ru",
   label: "РУС",
   tagline: "помощник трейдера",
+  collabTip: "Коллаборация с сообществом Black Swan",
 
   months: ["Январь","Февраль","Март","Апрель","Май","Июнь","Июль","Август","Сентябрь","Октябрь","Ноябрь","Декабрь"],
   monShort: ["янв","фев","мар","апр","май","июн","июл","авг","сен","окт","ноя","дек"],
@@ -805,6 +810,7 @@ ru: {
   slTtl1h: "1 час", slTtl24h: "24 часа", slTtl7d: "7 дней", slTtl30d: "30 дней", slTtlForever: "без ограничения",
   slWinRate: "Win rate", slTotal: "Итог",
   slAssetsLabel: "Чем делимся", slAssetsAll: "все активы", slAssetNoName: "без названия",
+  slStyleLabel: "Оформление", slStylePlain: "Обычное",
   slKindTs: "торговая система", slOgTs: "Торговая система",
   tsShTitle: "Моя торговая система",
   tsShMarket: "Рынок и время", tsShAssets: "Чем торгую", tsShWindows: "Когда торгую",
@@ -866,6 +872,8 @@ ru: {
 
   thNight: "Ночь", thGraphite: "Графит", thMidnight: "Полночь", thWine: "Вино", thPine: "Хвоя",
   thDay: "День", thPaper: "Бумага", thFog: "Туман", thSand: "Песок",
+  thCollabGroup: "Коллаборация · Black Swan",
+  thCollabNote: "Журнал в цветах сообщества: белый, чёрный и синий",
   thSelected: "выбрана", thCustom: "Своя", thModalTitle: "Оформление",
   thDarkGroup: "Тёмные", thLightGroup: "Светлые",
   thBase: "Основа", thBaseDark: "Тёмная", thBaseLight: "Светлая", thBg: "Фон", thAccent: "Акцент",
@@ -1004,6 +1012,7 @@ en: {
   htmlLang: "en",
   label: "ENG",
   tagline: "trading assistant",
+  collabTip: "In collaboration with the Black Swan community",
 
   months: ["January","February","March","April","May","June","July","August","September","October","November","December"],
   monShort: ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"],
@@ -1285,6 +1294,7 @@ en: {
   slTtl1h: "1 hour", slTtl24h: "24 hours", slTtl7d: "7 days", slTtl30d: "30 days", slTtlForever: "no limit",
   slWinRate: "Win rate", slTotal: "Total",
   slAssetsLabel: "What to share", slAssetsAll: "all instruments", slAssetNoName: "unnamed",
+  slStyleLabel: "Style", slStylePlain: "Plain",
   slKindTs: "trading system", slOgTs: "Trading system",
   tsShTitle: "My trading system",
   tsShMarket: "Market and time", tsShAssets: "What I trade", tsShWindows: "When I trade",
@@ -1346,6 +1356,8 @@ en: {
 
   thNight: "Night", thGraphite: "Graphite", thMidnight: "Midnight", thWine: "Wine", thPine: "Pine",
   thDay: "Day", thPaper: "Paper", thFog: "Fog", thSand: "Sand",
+  thCollabGroup: "Collaboration · Black Swan",
+  thCollabNote: "The journal in the community colours: white, black and blue",
   thSelected: "selected", thCustom: "Custom", thModalTitle: "Appearance",
   thDarkGroup: "Dark", thLightGroup: "Light",
   thBase: "Base", thBaseDark: "Dark", thBaseLight: "Light", thBg: "Background", thAccent: "Accent",
@@ -1499,6 +1511,7 @@ function applyLang(code){
   const setTip  = (el, txt) => { if(el) el.setAttribute("data-tip", txt); };
 
   setText("brandTagline", T.tagline);
+  setTip(document.getElementById("collabMark"), T.collabTip);
 
   const ntb = document.getElementById("newTradeBtn");
   if(ntb){ setTip(ntb, T.sdNewTradeTip); const sp = ntb.querySelector("span"); if(sp) sp.textContent = T.fmNewTitle; }

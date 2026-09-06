@@ -31,6 +31,12 @@ function THEMES(){ return [
    line:"#d9dfe7", accent:"#475569", up:"#0f766e", down:"#be123c", be:"#a16207"},
   {id:"sand",     name:T.thSand,     base:"light", bg:"#f4f1e8", panel:"#fffefa",
    line:"#ded8c6", accent:"#4d7c0f", up:"#3f6212", down:"#9f1239", be:"#92400e"},
+
+  /* Колаборація з спільнотою Black Swan: три їхні кольори — білий, чорний
+     і синій. Назва бренду не перекладається, тому написана рядком. */
+  {id:"blackswan", name:"Black Swan", base:"light", bg:"#ffffff", panel:"#ffffff",
+   line:"#d7dade", accent:"#0066ff", up:"#0b7a42", down:"#c42b1c", be:"#8a6300",
+   collab:true},
 ]; }
 
 const DEFAULT_SEED = {base:"dark", bg:"#0b0f14", accent:"#7dd3fc"};
@@ -95,11 +101,25 @@ function draw(){
     '<div class="nt-sub">' + title + "</div>"
     + '<div class="th-grid">' + list.map(t => card(t, t.id === now)).join("") + "</div>";
 
+  /* Теми спільнот стоять окремим блоком: це не просто ще одна світла
+     тема, а оформлення партнера, і воно має читатись саме так. */
+  const own    = THEMES().filter(t => !t.collab);
+  const collab = THEMES().filter(t => t.collab);
+
   const h = '<div class="m-head"><h2>'+T.thModalTitle+'</h2>'
     + '<button class="x" onclick="closeModal()">×</button></div>'
     + '<div class="m-body"><div class="nt th-grp">'
-    + group(T.thDarkGroup,  THEMES().filter(t => t.base === "dark"))
-    + group(T.thLightGroup, THEMES().filter(t => t.base === "light"))
+    + group(T.thDarkGroup,  own.filter(t => t.base === "dark"))
+    + group(T.thLightGroup, own.filter(t => t.base === "light"))
+    + (collab.length
+        ? '<div class="th-collab">'
+          + '<div class="th-collab-head"><span class="th-collab-mark">'
+          +   '<svg class="swan" aria-hidden="true"><use href="#swanmark"/></svg></span>'
+          +   '<span><b>'+T.thCollabGroup+'</b><i>'+T.thCollabNote+'</i></span></div>'
+          + '<div class="th-grid">'
+          + collab.map(t => card(t, t.id === now)).join("")
+          + '</div></div>'
+        : "")
     + '<div class="nt-sub">'+T.thCustom+'</div>'
     + '<div class="th-grid">' + customCard(now === "custom") + "</div>"
     + '<div class="th-custom">'

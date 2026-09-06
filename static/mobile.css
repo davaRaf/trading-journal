@@ -26,7 +26,18 @@
   .mtop .mlogo .mark{width:30px; height:30px; border-radius:9px; background:var(--mark-bg);
     border:1px solid var(--mark-line); display:grid; place-items:center; color:var(--text)}
   .mtop .mlogo .mark svg{height:17px; width:auto}
-  .mtop .mlogo i{color:var(--accent); font-style:normal}
+  .mtop .mlogo i{color:var(--logo-green); font-style:normal}
+
+  /* ---- знак спільноти в мобільній шапці ---- */
+  /* У власних темах його немає зовсім; у темі колаборації стоїть після
+     назви, через «×» — той самий порядок, що й на широкому екрані. */
+  .mtop .mlogo .tie, .mtop .mlogo .mark.swan{display:none}
+  :root[data-skin="blackswan"] .mtop .mlogo .tie{display:inline; font-family:var(--mono);
+    font-size:11px; color:var(--faint)}
+  :root[data-skin="blackswan"] .mtop .mlogo .mark.swan{display:grid; width:30px; height:30px;
+    border-radius:9px}
+  :root[data-skin="blackswan"] .mtop .mlogo .mark.swan .swan{height:18px; width:auto;
+    aspect-ratio:80/100; display:block}
   .mtop .sp{flex:1}
   .mtop .mnew{display:flex; align-items:center; gap:6px; background:var(--accent);
     color:var(--accent-ink,#fff); border-radius:10px; padding:8px 12px; font-weight:600; font-size:13.5px}

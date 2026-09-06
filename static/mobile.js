@@ -16,8 +16,14 @@ if (!side) return;
 const top = document.createElement("header");
 top.className = "mtop";
 top.innerHTML =
+  /* Знак спільноти стоїть і тут: на телефоні шапка інша, але колаборація
+     має читатись так само, як на широкому екрані. У власних темах «×» і
+     лебідь сховані стилями. */
   '<a class="mlogo" href="#dashboard"><span class="mark"><svg class="logo" aria-hidden="true">'
-  + '<use href="#logomark"/></svg></span>Stats<i>AI</i></a>'
+  + '<use href="#logomark"/></svg></span><span class="nm">Stats<i>AI</i></span>'
+  + '<i class="tie" aria-hidden="true">×</i>'
+  + '<span class="mark swan"><svg class="swan" aria-hidden="true"><use href="#swanmark"/></svg></span>'
+  + '</a>'
   + '<span class="sp"></span>'
   + '<button class="mnew" type="button" onclick="openForm()">'
   + '<svg width="13" height="13" viewBox="0 0 24 24" fill="none"><path d="M12 5v14M5 12h14" '

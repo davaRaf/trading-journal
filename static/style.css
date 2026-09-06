@@ -78,10 +78,14 @@ body::before{content:"";position:fixed;inset:0;z-index:0;pointer-events:none;bac
 /* миллиметровка за интерфейсом: собственный слой ПОД сайдбаром и контентом,
    поэтому сквозь них не проступает (body::after занят плёночным зерном) */
 .side,.main{position:relative;z-index:1}
-/* ================= фоновые ломаные =================
-   Слой под контентом: линия рисуется слева направо, замирает и тает. */
+/* ================= фон под контентом =================
+   Слой под интерфейсом, кликам не мешает. Рисует одно из двух, смотря
+   какая тема: в своих темах — ломаную кривой доходности, как было
+   всегда; в теме колаборації — знак лебедя, гранями по очереди. */
 #bgfx{position:fixed;inset:0;z-index:0;pointer-events:none;overflow:hidden}
 #bgfx svg{position:absolute;overflow:visible}
+
+/* ---- ломаная: линия рисуется слева направо, замирает и тает ---- */
 #bgfx path{fill:none;stroke:var(--up);stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round;
   stroke-dasharray:1;stroke-dashoffset:1;opacity:.5;
   filter:drop-shadow(0 0 7px color-mix(in srgb,var(--up) 40%,transparent));
@@ -91,6 +95,22 @@ body::before{content:"";position:fixed;inset:0;z-index:0;pointer-events:none;bac
   animation:sparkTip .5s 1.75s ease forwards,sparkFade 1.5s 2.8s ease forwards}
 @keyframes sparkDraw{to{stroke-dashoffset:0}}
 @keyframes sparkTip{to{opacity:.75}}
+
+/* ---- знак лебедя: кольори як на самому знаку, грані темні,
+       одне крило синє; заливка прозоріша за обведення, тому в кожної
+       грані видно кант ---- */
+#bgfx polygon{
+  fill:color-mix(in srgb,var(--text) 42%,transparent);
+  stroke:var(--text);stroke-width:2;stroke-linejoin:round;
+  vector-effect:non-scaling-stroke;
+  opacity:0;transform-box:fill-box;transform-origin:50% 50%;
+  animation:swanFold .6s cubic-bezier(.16,1,.3,1) calc(var(--i) * .13s) forwards,
+            sparkFade 1.5s 3.4s ease forwards}
+#bgfx polygon.wing{
+  fill:color-mix(in srgb,var(--swan-blue) 42%,transparent);stroke:var(--swan-blue)}
+@keyframes swanFold{
+  from{opacity:0;transform:translateY(7px) scale(.93)}
+  to{opacity:.36;transform:none}}
 @keyframes sparkFade{to{opacity:0}}
 @media (prefers-reduced-motion:reduce){#bgfx{display:none}}
 body{margin:0;background:var(--bg);color:var(--text);font-family:var(--sans);font-size:15px;
@@ -1150,6 +1170,44 @@ a.mini.on .ic{opacity:1;color:var(--accent)}
   display:block; color:var(--text);
 }
 .brand .nm i{font-style:normal; color:var(--logo-green)}
+
+/* ---- знак спільноти поруч із нашим ---- */
+/* Колаборація має читатись із першого погляду, тому два знаки стоять
+   поруч, через тонкий «×». Їхній знак трохи менший за наш: журнал
+   лишається нашим, спільнота — партнером, а не власником. */
+:root{ --swan-blue:#0066ff }
+/* Знак спільноти й «×» живуть тільки в темі колаборації. У власних темах
+   їх немає зовсім, і шапка виглядає так, як виглядала завжди: один наш
+   знак, назва поруч. */
+.brand .marks{display:flex; align-items:center; gap:5px; flex:none}
+.brand .marks .tie,
+.brand .mark.swan{display:none}
+
+/* ---- тема колаборації: два знаки, обидва великі ---- */
+/* Такий розмір у рядок із назвою в панель 216px не вміщується, тому назва
+   йде під знаками. */
+:root[data-skin="blackswan"] .brand{flex-direction:column; align-items:flex-start; gap:12px}
+:root[data-skin="blackswan"] .brand .marks{gap:9px}
+:root[data-skin="blackswan"] .brand .marks .tie{display:block; font-style:normal;
+  font-family:var(--mono); font-size:13px; line-height:1; color:var(--faint);
+  flex:none; user-select:none}
+:root[data-skin="blackswan"] .brand .marks .mark{width:54px; height:54px; border-radius:16px}
+:root[data-skin="blackswan"] .brand .marks .mark .logo{height:33px}
+:root[data-skin="blackswan"] .brand .mark.swan{display:grid; width:54px; height:54px;
+  border-radius:16px}
+:root[data-skin="blackswan"] .brand .mark.swan .swan{height:32px; width:auto;
+  aspect-ratio:80/100; display:block}
+/* підпис під назвою тримаємо одним рядком */
+:root[data-skin="blackswan"] .brand .nm small{font-size:8.5px; letter-spacing:.10em;
+  white-space:nowrap}
+
+/* Вузька панель самих іконок: два знаки в рядок не влазять — ставимо
+   їх один під одним і прибираємо «×», зв'язок і так видно. */
+:root[data-skin="blackswan"][data-nav="icons"] .brand .marks{flex-direction:column; gap:6px}
+:root[data-skin="blackswan"][data-nav="icons"] .brand .marks .tie{display:none}
+:root[data-skin="blackswan"][data-nav="icons"] .brand .mark.swan{width:36px; height:36px;
+  border-radius:11px}
+:root[data-skin="blackswan"][data-nav="icons"] .brand .mark.swan .swan{height:21px}
 
 /* ---- Bklit UI · Profit/Loss Line ---- */
 .plwrap{position:relative;min-width:0}
