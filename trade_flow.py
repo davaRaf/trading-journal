@@ -51,20 +51,39 @@ RESULTS = [("Win", "TP"), ("WinM", "resHand"), ("Loss", "SL"),
 RR_RESULTS = {"Win", "WinM", "BE+"}
 
 
-def button(lang=botlang.DEFAULT):
-    return t(lang, "btnTrade")
+# Постійної кнопки внизу чату більше немає: вона стирчала над полем вводу
+# весь час, а потрібна раз на день. Запис починають словами («запиши
+# угоду») або командою /trade — далі бот питає, як зручніше: покроково
+# чи одним повідомленням (розбір — у trade_ai.py).
 
 
-def reply_kb(lang=botlang.DEFAULT):
-    """Постійна клавіатура біля поля вводу — одна кнопка запису."""
-    return [[{"text": button(lang)}]]
+def mode_kb(lang):
+    return [[{"text": t(lang, "modeStep"), "callback_data": "tw:step"}],
+            [{"text": t(lang, "modeText"), "callback_data": "tw:free"}]]
 
 
-def is_button(text):
-    """Чи це натиснута постійна кнопка. Порівнюємо з усіма мовами: людина
-    могла отримати клавіатуру українською, а потім перейти на російську —
-    кнопка в неї на екрані лишиться стара."""
-    return text in {t(code, "btnTrade") for code in botlang.ORDER}
+def ask_mode(user, chat_id):
+    """Питання «як записуємо» — на випадок, коли людина просто сказала
+    «запиши угоду», не назвавши жодної подробиці."""
+    lang = botlang.of(user)
+    tg_api.send_message(chat_id, t(lang, "modeAsk"), keyboard=mode_kb(lang))
+
+
+def propose(user, chat_id, fields):
+    """Показати розібрану з тексту угоду й спитати підтвердження.
+
+    Чернетку кладемо на крок підтвердження — далі працюють ті самі
+    кнопки, що й наприкінці покрокового сценарію.
+    """
+    lang = botlang.of(user)
+    trade = dict(fields)
+    trade["id"] = _new_id()
+    trade["screenshots"] = []
+    draft = {"chat_id": chat_id, "step": CONFIRM, "data": {"trade": trade}}
+    db.draft_save(user["id"], chat_id, CONFIRM, draft["data"])
+    tg_api.send_message(chat_id, t(lang, "gotIt") + "\n\n" + card(trade, lang)
+                        + "\n\n" + t(lang, "cardAsk"),
+                        keyboard=_confirm_kb(lang, with_step=True))
 
 
 def _new_id():
@@ -247,9 +266,16 @@ def card(trade, lang=botlang.DEFAULT):
     return "\n".join(lines) or t(lang, "cardEmpty")
 
 
-def _confirm_kb(lang):
-    return [[{"text": t(lang, "save"), "callback_data": "tw:ok"}],
-            nav_row(CONFIRM, lang)]
+def _confirm_kb(lang, with_step=False):
+    rows = [[{"text": t(lang, "save"), "callback_data": "tw:ok"}]]
+    if with_step:
+        # Розбір із тексту може щось не вловити — тоді простіше пройти
+        # покроково, ніж переписувати повідомлення.
+        rows.append([{"text": t(lang, "modeStep"), "callback_data": "tw:step"}])
+        rows.append([{"text": t(lang, "cancel"), "callback_data": "tw:x"}])
+    else:
+        rows.append(nav_row(CONFIRM, lang))
+    return rows
 
 
 # ------------------------------------------------------------------- показ ----
@@ -423,12 +449,26 @@ def on_callback(cq, user):
         return False
     chat_id = cq["message"]["chat"]["id"]
     lang = botlang.of(user)
+    parts = data.split(":")
+    action = parts[1]
+
+    # Вибір способу запису. Він трапляється й до того, як з'явилась
+    # чернетка, тому стоїть перед перевіркою на неї.
+    if action == "step":
+        tg_api.answer_callback(cq["id"])
+        db.draft_clear(user["id"])
+        start(user, chat_id)
+        return True
+    if action == "free":
+        tg_api.answer_callback(cq["id"])
+        db.draft_clear(user["id"])
+        tg_api.send_message(chat_id, t(lang, "writeIt"))
+        return True
+
     draft = db.draft_get(user["id"])
     if not draft:
         tg_api.answer_callback(cq["id"], t(lang, "gone"))
         return True
-    parts = data.split(":")
-    action = parts[1]
     from_step = parts[2] if len(parts) > 2 and not parts[2].isdigit() else None
     trade = draft["data"].setdefault("trade", {})
 
@@ -516,8 +556,5 @@ def _save(user, chat_id, draft):
     # «na» саме про це — «питання не стоїть».
     db.insert_trade(user["id"], t_, "na")
     db.draft_clear(user["id"])
-    # Клавіатуру повертаємо разом із відповіддю: наступну угоду записують
-    # тією ж кнопкою, і шукати її після розмови не доводиться.
     tg_api.send_message(chat_id, t(lang, "saved") + "\n\n" + card(t_, lang)
-                        + "\n\n" + t(lang, "openIt") + SITE_URL,
-                        reply_kb=reply_kb(lang))
+                        + "\n\n" + t(lang, "openIt") + SITE_URL)

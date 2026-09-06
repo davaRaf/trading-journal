@@ -24,6 +24,7 @@ import emotions
 import llm
 import news_msg
 import tg_api
+import trade_ai
 import trade_flow
 from config import BOT_TOKEN, SITE_URL
 
@@ -185,7 +186,10 @@ def on_start(chat_id, tg_id, username, arg):
                 "Акаунт «%s» уже прив'язаний. Нагадаю про важливі новини, запитаю "
                 "про емоції після угод і запишу угоду з чату." % user["nickname"],
                 lang=user_lang(tg_id)),
-                reply_kb=trade_flow.reply_kb(user_lang(tg_id)))
+                # Порожня клавіатура прибирає стару кнопку внизу чату:
+                # вона стирчала над полем вводу постійно, а потрібна раз
+                # на день. Запис тепер починають словами або /trade.
+                reply_kb=[])
         else:
             hello = say(
                 "Нова людина вперше пише боту. Привітайся і одним реченням скажи, для "
@@ -207,9 +211,8 @@ def on_start(chat_id, tg_id, username, arg):
         lang = user_lang(tg_id)
         tg_api.send_message(
             chat_id,
-            hello + "\n\n" + botlang.t(lang, "whatNow", ALERT_MINUTES,
-                                       trade_flow.button(lang)),
-            reply_kb=trade_flow.reply_kb(lang))
+            hello + "\n\n" + botlang.t(lang, "whatNow", ALERT_MINUTES),
+            reply_kb=[])
     elif status == "taken":
         tg_api.send_message(chat_id, say(
             "Цей Telegram уже прив'язаний до іншого журналу. Скажи про це без "
@@ -386,10 +389,21 @@ def on_text(chat_id, tg_id, text):
         return
     # Почата угода веде розмову сама: поки її не записали чи не скасували,
     # усе, що людина пише, — це відповідь на питання сценарію.
-    if trade_flow.is_button(text):
-        trade_flow.start(user, chat_id)
-        return
     if trade_flow.on_text(user, chat_id, text):
+        return
+    # Запис угоди з живого тексту. Спершу дешевий фільтр за словами, і лише
+    # потім модель: смикати її на кожне «як справи» — це і гроші, і секунда
+    # затримки на порожньому місці.
+    if trade_ai.wants_trade(text):
+        fields = trade_ai.parse(user["id"], text)
+        if fields:
+            trade_flow.propose(user, chat_id, fields)
+        elif trade_ai.INTENT.search(text):
+            # Сказав «запиши угоду», але без подробиць — питаємо, як
+            # зручніше: покроково чи одним повідомленням.
+            trade_flow.ask_mode(user, chat_id)
+        else:
+            tg_api.send_message(chat_id, botlang.t(botlang.of(user), "notTrade"))
         return
     news = news_answer(text)
     if news:
@@ -505,8 +519,8 @@ def handle_update(u):
         if not (user and trade_flow.on_photo(user, chat_id, photos)):
             lang = user_lang(tg_id)
             tg_api.send_message(chat_id,
-                                botlang.t(lang, "shotOutside", trade_flow.button(lang)),
-                                reply_kb=trade_flow.reply_kb(lang))
+                                botlang.t(lang, "shotOutside"),
+                                reply_kb=[])
         return
     # «друкує…» одразу: далі майже завжди йде запит до моделі, і без цього
     # людина секунду-дві дивиться в порожній чат
@@ -518,7 +532,7 @@ def handle_update(u):
     elif text.startswith("/trade"):
         user = db.get_user_by_telegram(tg_id)
         if user:
-            trade_flow.start(user, chat_id)
+            trade_flow.ask_mode(user, chat_id)
         else:
             tg_api.send_message(chat_id, botlang.t(user_lang(tg_id), "needLink")
                                 + "\n\n" + link_short(lang))

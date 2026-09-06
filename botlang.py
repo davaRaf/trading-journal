@@ -20,12 +20,36 @@ DEFAULT = "uk"
 
 PHRASES = {
     # ---- кнопка й команди ----
-    "btnTrade":    ("➕ Записати угоду", "➕ Записать сделку", "➕ Add a trade"),
+    "modeStep":    ("Покроково", "Пошагово", "Step by step"),
+    "modeText":    ("Напишу одним повідомленням", "Напишу одним сообщением",
+                    "I will write it in one message"),
+    "modeAsk":     ("Як записуємо? Покроково — питатиму поле за полем. Або напиши "
+                    "все одним повідомленням, і я сам розкладу.",
+                    "Как записываем? Пошагово — буду спрашивать поле за полем. Или "
+                    "напиши всё одним сообщением, и я сам разложу.",
+                    "How do we log it? Step by step — I ask field by field. Or write "
+                    "it all in one message and I will sort it out."),
+    "writeIt":     ("Пиши одним повідомленням: пара, напрямок, сесія, сетап, "
+                    "результат, RR, ризик. Чого не скажеш — лишиться порожнім.",
+                    "Пиши одним сообщением: пара, направление, сессия, сетап, "
+                    "результат, RR, риск. Чего не скажешь — останется пустым.",
+                    "Write it in one message: pair, direction, session, setup, "
+                    "result, RR, risk. What you skip stays empty."),
+    "gotIt":       ("Зрозумів так:", "Понял так:", "Here is what I got:"),
+    "notTrade":    ("Не зрозумів, що за угода. Напиши хоча б пару й результат — "
+                    "або скажи «покроково», і питатиму по одному.",
+                    "Не понял, что за сделка. Напиши хотя бы пару и результат — "
+                    "или скажи «пошагово», и буду спрашивать по одному.",
+                    "I did not get the trade. Give at least the pair and the result "
+                    "— or say «step by step» and I will ask one by one."),
     "needLink":    ("Спершу прив'яжи журнал.", "Сначала привяжи журнал.",
                     "Link your journal first."),
-    "shotOutside": ("Щоб додати скрін, почни запис угоди — кнопка «%s» унизу.",
-                    "Чтобы добавить скрин, начни запись сделки — кнопка «%s» внизу.",
-                    "To attach a screenshot, start a trade — the «%s» button below."),
+    "shotOutside": ("Скрін додаю до угоди, коли записуємо її покроково. Напиши "
+                    "«запиши угоду» — і почнемо.",
+                    "Скрин добавляю к сделке, когда записываем её пошагово. Напиши "
+                    "«запиши сделку» — и начнём.",
+                    "I attach screenshots while logging a trade step by step. Say "
+                    "«log a trade» to start."),
 
     # ---- прив'язка журналу ----
     "linkHow":     ("Щоб почати, прив'яжи журнал:\n\n"
@@ -47,17 +71,17 @@ PHRASES = {
                     "• попереджу про важливі новини — за %d хв і вранці\n"
                     "• після угоди без емоції спитаю, що ти відчував\n"
                     "• попроси розбір — покажу, які емоції коштують тобі дорожче\n"
-                    "• кнопкою «%s» унизу запишеш угоду прямо з чату",
+                    "• напиши «запиши угоду» — занесу її просто з чату",
                     "Что теперь будет:\n\n"
                     "• предупрежу о важных новостях — за %d мин и утром\n"
                     "• после сделки без эмоции спрошу, что ты чувствовал\n"
                     "• попроси разбор — покажу, какие эмоции стоят тебе дороже\n"
-                    "• кнопкой «%s» внизу запишешь сделку прямо из чата",
+                    "• напиши «запиши сделку» — занесу её прямо из чата",
                     "What happens next:\n\n"
                     "• I warn about important news — %d min ahead and in the morning\n"
                     "• after a trade with no emotion I ask what you felt\n"
                     "• ask for a review — I show which emotions cost you more\n"
-                    "• the «%s» button below saves a trade right from the chat"),
+                    "• say «log a trade» — I will save it right from the chat"),
 
     # ---- питання кроків ----
     "qPair":       ("Яка пара?", "Какая пара?", "Which pair?"),
