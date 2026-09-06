@@ -57,8 +57,19 @@
   .mtabs a.on{color:var(--text); background:var(--panel-2)}
   .mtabs a.on .ic{opacity:1; color:var(--accent)}
 
+  /* ---- калькулятор ризику ---- */
+  /* Ряд інструментів — «пігулка» з великим заокругленням. На телефоні він
+     не влазить в один рядок і переноситься, а кругла рамка навколо трьох
+     рядків виглядає кривою й ріже крайні кнопки. Тому тут звичайна рамка. */
+  .ck-pairs{border-radius:14px; gap:2px; padding:4px}
+  .ck-pair{font-size:12px; padding:7px 10px}
+
   /* ---- шторка меню ---- */
-  .mmenu-wrap{display:block; position:fixed; inset:0; z-index:60; visibility:hidden}
+  .mmenu-wrap{display:block; position:fixed; inset:0; z-index:60; visibility:hidden;
+    overscroll-behavior:contain}
+  /* палець по затемненню не має гортати сторінку під ним */
+  .mmenu-wrap .ov{touch-action:none}
+  .mmenu{overscroll-behavior:contain}
   .mmenu-wrap.in{visibility:visible}
   .mmenu-wrap .ov{position:absolute; inset:0; background:rgba(0,0,0,.55); opacity:0; transition:opacity .2s}
   .mmenu-wrap.in .ov{opacity:1}

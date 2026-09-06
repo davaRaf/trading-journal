@@ -77,10 +77,15 @@ function openMenu(){
     menu.appendChild(el);
   });
   wrap.classList.add("in");
+  /* Тримаємо сторінку на місці, поки шторка відкрита. Самого body мало:
+     на телефоні прокручується <html>, тому сторінка під шторкою все одно
+     їздила — і смуга тла збоку разом із нею. */
+  document.documentElement.style.overflow = "hidden";
   document.body.style.overflow = "hidden";
 }
 function closeMenu(){
   wrap.classList.remove("in");
+  document.documentElement.style.overflow = "";
   document.body.style.overflow = "";
   homes.forEach((h, el) => h.parent.insertBefore(el, h.next));
   homes.clear();
