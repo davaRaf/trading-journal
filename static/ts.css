@@ -404,3 +404,15 @@ textarea.ts-ask-inp{min-height:116px; resize:vertical}
   padding:11px 14px; border-radius:var(--r-sm); background:var(--panel-2);
   border-left:2px solid color-mix(in srgb, var(--accent) 55%, transparent)}
 .ts-tip b{color:var(--text); font-weight:600}
+
+/* ---------- опитувальник: прибрати варіант з підказок ---------- */
+.ts-optw{position:relative; display:inline-flex}
+.ts-optx{position:absolute; top:-6px; right:-6px; width:17px; height:17px; border-radius:50%;
+  background:var(--panel-3); border:1px solid var(--line); color:var(--faint); font-size:11px; line-height:15px;
+  text-align:center; cursor:pointer; font-style:normal; opacity:0; transition:opacity .12s, color .12s}
+.ts-optw:hover .ts-optx{opacity:1}
+.ts-optx:hover{color:var(--down); border-color:var(--down)}
+@media (hover:none){ .ts-optx{opacity:.85} }
+.ts-optundo{border:1px dashed var(--line); background:none; color:var(--faint); border-radius:10px;
+  padding:9px 12px; font-size:12.5px; cursor:pointer}
+.ts-optundo:hover{color:var(--accent); border-color:var(--accent)}

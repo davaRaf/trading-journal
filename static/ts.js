@@ -782,7 +782,7 @@ function QS(){
     {k:"manual", multi:true, opts:q.manualOpts, t:q.manual, h:q.manualH},
     {k:"skip",  text:true, t:q.skip, h:q.skipH, ph:q.skipPh},
     {k:"mind",  text:true, t:q.mind, h:q.mindH, ph:q.mindPh},
-  ];
+  ].map(q => (q.opts && window.Prefs) ? Object.assign(q, {opts: Prefs.vals("ts:" + q.k, q.opts)}) : q);
 }
 
 function askOpen(){
@@ -910,9 +910,15 @@ function drawAsk(){
     const opts = q.multi
       ? q.opts.concat((answers[q.k] || []).filter(v => !q.opts.includes(v)))
       : q.opts.concat(answers[q.k] && !q.opts.includes(answers[q.k]) ? [answers[q.k]] : []);
+    /* у кожної кнопки хрестик: прибрати з підказок те, чим не користуєшся */
+    const jsv = v => String(v).replace(/'/g, "\\'");
     body += '<div class="ts-opts">' + opts.map(v =>
-      '<button class="ts-opt' + (sel(v) ? " on" : "") + '" onclick="__ts.pick(\'' + q.k + "','"
-      + String(v).replace(/'/g, "\\'") + "',this)\">" + esc(v) + "</button>").join("") + "</div>";
+      '<span class="ts-optw"><button class="ts-opt' + (sel(v) ? " on" : "") + '" onclick="__ts.pick(\'' + q.k + "','"
+      + jsv(v) + "',this)\">" + esc(v) + "</button>"
+      + '<i class="ts-optx" title="' + esc(d.optHide) + '" onclick="__ts.hideOpt(\'' + q.k + "','" + jsv(v) + "')\">×</i></span>").join("")
+      + (window.Prefs && Prefs.hidden("ts:" + q.k).length
+          ? '<button class="ts-optundo" onclick="__ts.restoreOpts(\'' + q.k + '\')">' + esc(d.optRestore) + "</button>" : "")
+      + "</div>";
     /* Свій варіант є в кожному питанні з кнопками: готові підказки — це
        найчастіше, а не все. Вимкнути можна own:false, якби знадобилось. */
     if (q.own !== false){
@@ -1080,6 +1086,15 @@ window.__ts = {
   ask(){ if(guestStop()) return; askOpen(); }, close: askClose, prev: askPrev, next: askNext, pick: pick, own: own, finish: finish,
   again(){ step = 0; drawAsk(); },
   text(k, v){ answers[k] = v; },
+  /* прибрати варіант з підказок: і з екрана, і з відповіді, якщо був обраний */
+  hideOpt(k, v){
+    if (window.Prefs) Prefs.hide("ts:" + k, v);
+    const a = answers[k];
+    if (Array.isArray(a)){ const i = a.indexOf(v); if (i >= 0) a.splice(i, 1); }
+    else if (a === v) answers[k] = "";
+    drawAsk();
+  },
+  restoreOpts(k){ if (window.Prefs) Prefs.restore("ts:" + k); drawAsk(); },
   tick(i, v){ checked[i] = v; render(); },
   pull(){ if(guestStop()) return; pull(); },
   /* ще одне поле під посилання */
@@ -1252,7 +1267,7 @@ uk: {
     daysOpts: ["Понеділок","П'ятниця","Дні з червоними новинами","Останній день місяця"],
     model: "Твої моделі входу", modelH: "",
     stop: "Де ставиш стоп?", stopOpts: ["за структуру","за тінь свічки","за межу зони","фіксований у пунктах"],
-    ownPh: "свій варіант",
+    ownPh: "свій варіант", optHide: "прибрати з підказок", optRestore: "повернути приховані",
     target: "Де ціль?", targetOpts: ["найближчий імбаланс","PDH / PDL","PWH / PWL","денний фрактал","фіксований RR","попередній екстремум"],
     risk: "Скільки ризикуєш в одній угоді?", riskH: "Від депозиту. З цієї цифри рахується все інше.",
     rr: "Нижче якого RR не входиш?",
@@ -1370,7 +1385,7 @@ ru: {
     daysOpts: ["Понедельник","Пятница","Дни с красными новостями","Последний день месяца"],
     model: "Твои модели входа", modelH: "",
     stop: "Где ставишь стоп?", stopOpts: ["за структуру","за тень свечи","за границу зоны","фиксированный в пунктах"],
-    ownPh: "свой вариант",
+    ownPh: "свой вариант", optHide: "убрать из подсказок", optRestore: "вернуть скрытые",
     target: "Где цель?", targetOpts: ["ближайший имбаланс","PDH / PDL","PWH / PWL","дневной фрактал","фиксированный RR","предыдущий экстремум"],
     risk: "Сколько рискуешь в одной сделке?", riskH: "От депозита. С этой цифры считается всё остальное.",
     rr: "Ниже какого RR не входишь?",
@@ -1488,7 +1503,7 @@ en: {
     daysOpts: ["Monday","Friday","Days with red news","Last day of the month"],
     model: "Your entry models", modelH: "",
     stop: "Where do you put the stop?", stopOpts: ["behind structure","behind the wick","behind the zone edge","fixed in points"],
-    ownPh: "your own option",
+    ownPh: "your own option", optHide: "remove from suggestions", optRestore: "restore hidden",
     target: "Where is the target?", targetOpts: ["nearest imbalance","PDH / PDL","PWH / PWL","daily fractal","fixed RR","previous extreme"],
     risk: "How much do you risk per trade?", riskH: "Of the account. Everything else is counted from this.",
     rr: "Below which RR do you stay out?",

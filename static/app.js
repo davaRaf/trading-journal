@@ -191,6 +191,7 @@ async function api(method,url,body){
 async function reload(){
   S.all = await api("GET","/api/trades");
   S.trades = S.all;          // в статистике участвуют все сделки
+  await Prefs.load();        // після угод: тепер відомо, демо це чи ні
 }
 
 
@@ -323,6 +324,86 @@ function lastAccount(){
   try{ const v=localStorage.getItem("tj_account"); if(v) return v; }catch(e){}
   const last=sortDesc(S.trades).find(t=>(t.account||"").trim());
   return last ? last.account : "";
+}
+
+/* ---------- налаштування підказок: що приховано, що додано ----------
+   Кнопки-підказки збираються з історії й з готових списків, а людина може
+   прибрати зайве або додати своє. Живе на сервері (PUT /api/prefs), щоб
+   на телефоні й комп'ютері було одне й те саме; у демо — в браузері. */
+const Prefs=(function(){
+  const KEY="tj_prefs";
+  let P=norm(null), timer=null;
+  function norm(p){
+    p=(p&&typeof p==="object")?p:{};
+    p.chips=(p.chips&&typeof p.chips==="object")?p.chips:{};
+    p.tfs=(p.tfs&&typeof p.tfs==="object")?p.tfs:{};
+    p.tfs.hide=Array.isArray(p.tfs.hide)?p.tfs.hide:[]; p.tfs.add=Array.isArray(p.tfs.add)?p.tfs.add:[];
+    return p;
+  }
+  function local(){ try{ return norm(JSON.parse(localStorage.getItem(KEY)||"{}")); }catch(e){ return norm(null); } }
+  async function load(){
+    if(DEMO){ P=local(); return; }
+    try{ const r=await api("GET","/api/prefs"); P=norm(r&&r.prefs); }
+    catch(e){ P=local(); }
+  }
+  function save(){
+    clearTimeout(timer);
+    timer=setTimeout(()=>{
+      try{ localStorage.setItem(KEY, JSON.stringify(P)); }catch(e){}
+      if(!DEMO) api("PUT","/api/prefs",P).catch(()=>{});
+    },300);
+  }
+  const f=k=>{ const c=P.chips[k]||(P.chips[k]={}); c.hide=Array.isArray(c.hide)?c.hide:[]; c.add=Array.isArray(c.add)?c.add:[]; return c; };
+  const merge=(base,add,hide)=>{ const seen=new Set(); return [...(base||[]),...add].map(String).filter(v=>{ if(seen.has(v)||hide.includes(v)) return false; seen.add(v); return true; }); };
+  return {
+    load,
+    vals(k,base){ const c=f(k); return merge(base,c.add,c.hide); },
+    hidden(k){ return f(k).hide.slice(); },
+    hide(k,v){ const c=f(k); v=String(v); if(!c.hide.includes(v)) c.hide.push(v); c.add=c.add.filter(x=>x!==v); save(); },
+    add(k,v){ const c=f(k); v=String(v).trim(); if(!v) return; c.hide=c.hide.filter(x=>x!==v); if(!c.add.includes(v)) c.add.push(v); save(); },
+    restore(k){ f(k).hide=[]; save(); },
+    tfs(){ return merge(TF_SLOTS,P.tfs.add,P.tfs.hide); },
+    tfHidden(){ return P.tfs.hide.slice(); },
+    tfHide(v){ if(!P.tfs.hide.includes(v)) P.tfs.hide.push(v); P.tfs.add=P.tfs.add.filter(x=>x!==v); save(); },
+    tfAdd(v){ v=String(v).trim(); if(!v) return; P.tfs.hide=P.tfs.hide.filter(x=>x!==v); if(!TF_SLOTS.includes(v)&&!P.tfs.add.includes(v)) P.tfs.add.push(v); save(); },
+    tfRestore(){ P.tfs.hide=[]; save(); },
+  };
+})();
+window.Prefs=Prefs;
+
+/* Група швидких підказок: кнопки-значення, у кожної хрестик «прибрати».
+   Базовий список пам'ятаємо окремо, щоб після «прибрати» чи «повернути»
+   перемалювати саму групу, не чіпаючи форму. */
+const QUICK_BASE={};
+function quickHtml(field, base, cur, more){
+  QUICK_BASE[field]=base||[];
+  cur=(cur==null?"":cur).toString();
+  const chips=Prefs.vals(field, base).map(x=>
+    '<span class="qc"><button type="button" data-f="'+field+'" data-v="'+esc(x)+'"'+
+    (x===cur?' class="on"':"")+' onclick="quickSet(this)">'+esc(x)+'</button>'+
+    '<i class="qx" data-tip="'+esc(T.chipHideTip)+'" onclick="hideChip(this)">×</i></span>').join("");
+  const undo=Prefs.hidden(field).length
+    ? '<button type="button" class="undo" data-tip="'+esc(T.chipRestoreTip)+'" onclick="restoreChips(this)">↺</button>' : "";
+  return '<div class="quick" data-f="'+field+'">'+chips+(more||"")+undo+'</div>';
+}
+function repaintQuick(q){
+  const field=q.dataset.f;
+  const cur=($("#fld_"+field)||{}).value||"";
+  const more=q.querySelector(".more");
+  const tmp=document.createElement("div");
+  tmp.innerHTML=quickHtml(field, QUICK_BASE[field], cur, more?more.outerHTML:"");
+  q.replaceWith(tmp.firstElementChild);
+  markQuick();
+}
+function hideChip(x){ const q=x.closest(".quick"); Prefs.hide(q.dataset.f, x.previousElementSibling.dataset.v); repaintQuick(q); }
+function restoreChips(b){ const q=b.closest(".quick"); Prefs.restore(q.dataset.f); repaintQuick(q); }
+
+/* таймфрейми під скріни: приховати зайвий, додати свій */
+function hideTf(tf){ Prefs.tfHide(tf); renderShots(); }
+function addTf(){
+  const v=(prompt(T.tfAddPrompt)||"").trim().replace(/\s+/g,"");
+  if(!v) return;
+  Prefs.tfAdd(v.length>6?v.slice(0,6):v); renderShots();
 }
 
 function uniqueVals(field){
@@ -1326,12 +1407,9 @@ function openForm(id, presetDay){
   /* подсказки + скрытое поле: своё значение открывается кнопкой «＋» */
   const pick=(field,vals,cur,ph,num)=>{
     cur=(cur||"").toString();
-    const known=vals.some(x=>String(x)===cur);
-    const chips=vals.map(x=>
-      '<button type="button" data-f="'+field+'" data-v="'+esc(x)+'"'+
-      (String(x)===cur?' class="on"':"")+' onclick="quickSet(this)">'+esc(x)+"</button>").join("");
-    return '<div class="quick">'+chips+
-      '<button type="button" class="more" onclick="showOwn(\''+field+'\')" title="'+T.fmOwnValueTip+'">＋</button></div>'+
+    const known=Prefs.vals(field, vals).some(x=>x===cur);
+    const more='<button type="button" class="more" onclick="showOwn(\''+field+'\')" title="'+T.fmOwnValueTip+'">＋</button>';
+    return quickHtml(field, vals, cur, more)+
       '<input class="qinput" id="fld_'+field+'"'+(num?' type="number" step="0.25" min="0"':"")+
       ' value="'+esc(cur)+'" placeholder="'+esc(ph||"")+'" autocomplete="off"'+
       (cur&&!known?"":" hidden")+' oninput="markQuick();calcOutcome()">';
@@ -1422,12 +1500,10 @@ function openForm(id, presetDay){
     '<div class="f"><label id="labEntry">'+T.fEntryDetails+'</label><textarea id="fld_entry_details" placeholder="'+T.fmEntryDetailsPh+'">'+v("entry_details")+"</textarea></div>"+
     '<div class="f"><label>'+T.fmThoughtsLabel+'</label><textarea id="fld_notes" class="short">'+v("notes")+"</textarea></div>"+
     '<div class="f"><label>'+T.fmMistakeLabel+'</label>'+
-      '<div class="quick">'+mistakes.map(x=>
-        '<button type="button" data-f="mistakes" data-v="'+esc(x)+'" onclick="quickSet(this)">'+esc(x)+"</button>").join("")+"</div>"+
+      quickHtml("mistakes", mistakes, t?t.mistakes:"")+
       '<input id="fld_mistakes" value="'+v("mistakes")+'" placeholder="'+T.fmMistakeEmptyPh+'" autocomplete="off" oninput="markQuick()"></div>'+
     '<div class="f"><label>'+T.fmEmotionLabel+' <span class="autotag">'+T.fmEmotionAutotag+'</span></label>'+
-      '<div class="quick">'+T.emotions.map(x=>
-        '<button type="button" data-f="emotion" data-v="'+esc(x)+'" onclick="quickSet(this)">'+esc(x)+"</button>").join("")+"</div>"+
+      quickHtml("emotion", T.emotions, t?t.emotion:"")+
       '<input id="fld_emotion" value="'+v("emotion")+'" placeholder="'+T.fmEmotionPh+'" autocomplete="off" oninput="markQuick()"></div>'+
   "</div></section>"+
 
@@ -1563,7 +1639,7 @@ function renderShots(){
       '<img src="'+src+'" onclick="openLightbox(this.src)"></div>';
   };
   let h="";
-  for(const tf of TF_SLOTS){
+  for(const tf of Prefs.tfs()){
     const i=S.formShots.findIndex((s,idx)=>s.tf===tf && !used.has(idx));
     if(i>=0){ used.add(i); h+=filledTile(S.formShots[i],i,tf); }
     else{
@@ -1571,11 +1647,17 @@ function renderShots(){
       h+='<div class="tfslot'+(on?" active":"")+'" data-tf="'+tf+'" data-drop="'+tf+'" onclick="armSlot(this.dataset.tf)">'+
         '<div class="tfl"><span>'+tf+'</span>'+
         '<button type="button" class="pick" title="'+T.shotPickFileTip+'" data-tf="'+tf+
-        '" onclick="event.stopPropagation();pickFor(this.dataset.tf)">'+T.shotFileWord+'</button></div>'+
+        '" onclick="event.stopPropagation();pickFor(this.dataset.tf)">'+T.shotFileWord+'</button>'+
+        '<button type="button" class="rm" title="'+T.tfHideTip+'" data-tf="'+tf+
+        '" onclick="event.stopPropagation();hideTf(this.dataset.tf)">×</button></div>'+
         '<div class="drop">'+(on?'<span class="ready">Ctrl+V</span>':"+")+'</div></div>';
     }
   }
   S.formShots.forEach((s,i)=>{ if(!used.has(i)) h+=filledTile(s,i,s.tf||"?"); });
+  /* свій таймфрейм і повернення прихованих — тими ж плитками, що й слоти */
+  h+='<div class="tfslot addtf" onclick="addTf()"><div class="tfl"><span>'+T.tfAddTile+'</span></div><div class="drop">+</div></div>';
+  if(Prefs.tfHidden().length)
+    h+='<div class="tfslot addtf" onclick="Prefs.tfRestore();renderShots()"><div class="tfl"><span>'+T.tfRestoreTile+'</span></div><div class="drop">↺</div></div>';
   h+='<div class="attach" data-drop="" onclick="$(\'#shotFile\').click()">'+
     '<svg width="15" height="15" viewBox="0 0 24 24" fill="none">'+
     '<path d="M12 16V4M8 8l4-4 4 4" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/>'+
@@ -1635,7 +1717,7 @@ function putShot(tf,dataUrl,name){
   else S.formShots.push({tf,data:dataUrl,name});
   renderShots();
 }
-function firstEmptyTf(){ return TF_SLOTS.find(tf=>!S.formShots.some(s=>s.tf===tf))||"15m"; }
+function firstEmptyTf(){ const s=Prefs.tfs(); return s.find(tf=>!S.formShots.some(x=>x.tf===tf))||s[0]||"15m"; }
 function guessTf(name){
   const n=(name||"").toLowerCase();
   for(const tf of TF_ORDER){ if(n.includes(tf.toLowerCase()) && !S.formShots.some(s=>s.tf===tf)) return tf; }
@@ -1688,6 +1770,12 @@ async function saveTrade(id){
   if(t.result==="Skip"){ t.rr=""; t.risk=""; t.rr_plan=""; }
   if(t.result!=="WinM") t.rr_plan="";
   try{ localStorage.setItem("tj_account", t.account||""); }catch(e){}
+  /* Своє значення, вписане через «+», наступного разу стоїть кнопкою:
+     інакше його доводилось би вписувати щоразу, поки не набереться історія. */
+  for(const k of ["pair","session","account","entry_model","setup","risk"]){
+    const inp=$("#fld_"+k);
+    if(t[k] && inp && inp.classList.contains("qinput") && !inp.hidden) Prefs.add(k, t[k]);
+  }
   const btn=document.querySelector(".m-foot .primary"); if(btn){btn.disabled=true;btn.textContent=T.fmSaving;}
   try{
     let saved=null;

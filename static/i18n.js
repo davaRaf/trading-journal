@@ -160,6 +160,9 @@ uk: {
   shotTfHint: "Скопіюй графік у TradingView (<b>Ctrl+Alt+S</b>) → клікни потрібний таймфрейм → <b>Ctrl+V</b>. Зберігати картинку на комп'ютер не потрібно.",
   shotTfHintTouch: "Скопіюй графік у TradingView → тапни потрібний таймфрейм: вставиться з буфера. Два тапи — обрати файл.",
   shotTouchEmpty: "У буфері нема картинки. Два тапи — обрати файл.",
+  chipHideTip: "Прибрати з підказок", chipRestoreTip: "Повернути приховані підказки",
+  tfHideTip: "Прибрати цей таймфрейм", tfAddTile: "свій таймфрейм", tfRestoreTile: "повернути приховані",
+  tfAddPrompt: "Який таймфрейм додати? Наприклад 2H або 1W",
 
   alertNeedPair: "Вкажи інструмент", alertNeedDate: "Вкажи дату",
   alertNeedResult: "Вкажи результат — TP / SL / BE− / BE+",
@@ -635,6 +638,9 @@ ru: {
   shotTfHint: "Скопируй график в TradingView (<b>Ctrl+Alt+S</b>) → кликни нужный таймфрейм → <b>Ctrl+V</b>. Сохранять картинку на компьютер не нужно.",
   shotTfHintTouch: "Скопируй график в TradingView → тапни нужный таймфрейм: вставится из буфера. Два тапа — выбрать файл.",
   shotTouchEmpty: "В буфере нет картинки. Два тапа — выбрать файл.",
+  chipHideTip: "Убрать из подсказок", chipRestoreTip: "Вернуть скрытые подсказки",
+  tfHideTip: "Убрать этот таймфрейм", tfAddTile: "свой таймфрейм", tfRestoreTile: "вернуть скрытые",
+  tfAddPrompt: "Какой таймфрейм добавить? Например 2H или 1W",
 
   alertNeedPair: "Укажи инструмент", alertNeedDate: "Укажи дату",
   alertNeedResult: "Укажи результат — TP / SL / BE− / BE+",
@@ -1098,6 +1104,9 @@ en: {
   shotTfHint: "Copy the chart in TradingView (<b>Ctrl+Alt+S</b>) → click the timeframe you need → <b>Ctrl+V</b>. No need to save the image to your computer.",
   shotTfHintTouch: "Copy the chart in TradingView → tap the timeframe: it pastes from the clipboard. Double tap to pick a file.",
   shotTouchEmpty: "No image in the clipboard. Double tap to pick a file.",
+  chipHideTip: "Remove from suggestions", chipRestoreTip: "Restore hidden suggestions",
+  tfHideTip: "Remove this timeframe", tfAddTile: "own timeframe", tfRestoreTile: "restore hidden",
+  tfAddPrompt: "Which timeframe to add? For example 2H or 1W",
 
   alertNeedPair: "Enter an instrument", alertNeedDate: "Enter a date",
   alertNeedResult: "Choose a result — TP / SL / BE− / BE+",

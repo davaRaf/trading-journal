@@ -448,6 +448,46 @@ def drop_import(user_id, batch):
     return removed
 
 
+# ---------------------------------------------------------------------------
+# Налаштування підказок: що людина прибрала з кнопок, що додала свого.
+# Один JSON на людину — як notion_conf. Форму не описуємо: її знає
+# сторінка, сервер лише зберігає й повертає.
+# ---------------------------------------------------------------------------
+_PREFS_SCHEMA = """
+CREATE TABLE IF NOT EXISTS user_prefs (
+  user_id BIGINT PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
+  data    JSONB NOT NULL DEFAULT '{}'::jsonb
+);
+"""
+_prefs_ready = False
+PREFS_MAX = 32 * 1024      # більше — це вже не налаштування
+
+
+def _prefs_init():
+    global _prefs_ready
+    if _prefs_ready:
+        return
+    with db.connect() as conn:
+        conn.execute(_PREFS_SCHEMA)
+    _prefs_ready = True
+
+
+def prefs_get(uid):
+    _prefs_init()
+    with db.connect() as conn:
+        row = conn.execute("SELECT data FROM user_prefs WHERE user_id=%s", (uid,)).fetchone()
+    return dict(row["data"]) if row and row["data"] else {}
+
+
+def prefs_save(uid, data):
+    _prefs_init()
+    with db.connect() as conn:
+        conn.execute("INSERT INTO user_prefs (user_id, data) VALUES (%s,%s) "
+                     "ON CONFLICT (user_id) DO UPDATE SET data=EXCLUDED.data",
+                     (uid, Jsonb(data)))
+        conn.commit()
+
+
 def blank_filler(user_id, rows):
     """Куди дописувати поля, якщо угода вже в журналі.
 
@@ -866,6 +906,12 @@ class H(BaseHTTPRequestHandler):
             self.send_header("Set-Cookie", oauth.clear_state_cookie())
             self.end_headers()
             return
+
+        if p == "/api/prefs":
+            uid = self._uid()
+            if not uid:
+                return self._json({"error": "auth required"}, 401)
+            return self._json({"prefs": prefs_get(uid)})
 
         if p == "/api/auth/me":
             uid = self._uid()
@@ -1491,6 +1537,19 @@ class H(BaseHTTPRequestHandler):
     # ---------- PUT ----------
     def do_PUT(self):
         p = urlparse(self.path).path
+
+        if p == "/api/prefs":
+            uid = self._uid()
+            if not uid:
+                return self._json({"error": "auth required"}, 401)
+            body = self._body()
+            if not isinstance(body, dict):
+                return self._json({"error": "bad json"}, 400)
+            if len(json.dumps(body, ensure_ascii=False)) > PREFS_MAX:
+                return self._json({"error": "too big"}, 413)
+            prefs_save(uid, body)
+            return self._json({"ok": True})
+
         m = re.match(r"^/api/trades/([\w-]+)$", p)
         if not m:
             self.send_response(404); self.end_headers(); return

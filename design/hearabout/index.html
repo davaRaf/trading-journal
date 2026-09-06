@@ -1,0 +1,248 @@
+<title>Откуда ты о нас узнал</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600&family=Geist+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+/* ============================================================
+   Первый экран после входа: откуда человек о нас узнал.
+
+   Зачем: понять, какое комьюнити и какая соцсеть реально приводят
+   людей — без этого не посчитать, кому платить процент и куда нести
+   контент. Поэтому пропустить нельзя: один ответ, и дальше журнал.
+
+   Что решено:
+   • Только кнопки, никакого текста — «другое» это тоже кнопка.
+   • Комьюнити показываем логотипом и названием, крупно: узнаётся
+     с полувзгляда, читать не надо.
+   • Кнопка «Дальше» появляется только после выбора. Крестика нет.
+   • Показываем один раз: ответил — больше не спрашиваем.
+
+   Это макет: логотипы — заглушки под настоящие, сервер не нужен,
+   приложение из корня репозитория он не трогает.
+   ============================================================ */
+:root{
+  --bg:#050505; --panel:#0d0d0e; --panel-2:#111112; --panel-3:#161617;
+  --line:rgba(255,255,255,.08); --line-soft:rgba(255,255,255,.045);
+  --text:#f2f2f3; --dim:#8c8c90; --faint:#5c5c61;
+  --accent:#40e094; --accent-ink:#06130d; --accent-soft:rgba(64,224,148,.12);
+  --mono:"Geist Mono",ui-monospace,monospace;
+  --sans:"Geist",system-ui,sans-serif;
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--text);font:14px/1.5 var(--sans);-webkit-font-smoothing:antialiased}
+h1,h2,h3{margin:0;font-weight:600}
+button{font:inherit;color:inherit;background:none;border:0;cursor:pointer}
+
+.wrap{max-width:1180px;margin:0 auto;padding:34px 26px 90px}
+.lead h1{font-size:22px;letter-spacing:-.02em}
+.lead p{margin:9px 0 0;color:var(--dim);max-width:70ch;font-size:13.5px}
+.switch{display:flex;gap:7px;margin:22px 0 10px;flex-wrap:wrap}
+.switch button{padding:9px 15px;border:1px solid var(--line);border-radius:10px;background:var(--panel-2);
+  font-size:13px;color:var(--dim);transition:.16s}
+.switch button:hover{color:var(--text);border-color:rgba(255,255,255,.16)}
+.switch button.on{background:var(--accent-soft);border-color:rgba(64,224,148,.35);color:var(--accent)}
+.hint{margin:0 0 22px;color:var(--faint);font-size:12.5px;max-width:74ch}
+
+/* ---------- сцена: заблюренный журнал, поверх — окно ---------- */
+.stage{position:relative;height:720px;border:1px solid var(--line);border-radius:18px;overflow:hidden;
+  background:var(--bg)}
+.stage.phone{height:760px;max-width:390px;margin:0 auto;border-radius:34px}
+.fake{position:absolute;inset:0;padding:26px 30px;filter:blur(7px) brightness(.55);pointer-events:none}
+.fake .row{display:flex;gap:12px;margin-bottom:12px}
+.fake .blk{flex:1;height:78px;border-radius:12px;background:var(--panel)}
+.fake .blk.t{height:34px;width:180px;flex:none}
+.fake .blk.g{height:220px}
+.ov{position:absolute;inset:0;background:rgba(0,0,0,.45);display:grid;place-items:center;padding:20px}
+
+/* ---------- окно ---------- */
+.ask{width:min(560px,100%);background:var(--panel);border:1px solid var(--line);border-radius:18px;
+  padding:26px 26px 22px;box-shadow:0 30px 80px -30px rgba(0,0,0,.9)}
+.stage.phone .ask{padding:22px 18px 18px;border-radius:16px}
+.ask .eyebrow{font-family:var(--mono);font-size:10px;letter-spacing:.18em;text-transform:uppercase;
+  color:var(--accent);display:flex;align-items:center;gap:8px;margin-bottom:12px}
+.ask .eyebrow::before{content:"";width:3px;height:11px;border-radius:2px;background:var(--accent)}
+.ask h2{font-size:22px;letter-spacing:-.02em;line-height:1.2;text-wrap:balance}
+.ask p{margin:8px 0 18px;color:var(--dim);font-size:13.5px}
+
+.grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+.opt{display:flex;align-items:center;gap:12px;padding:12px 14px;border:1px solid var(--line);
+  border-radius:13px;background:var(--panel-2);text-align:left;transition:.15s;min-height:62px}
+.opt:hover{border-color:rgba(255,255,255,.18)}
+.opt.on{border-color:var(--accent);background:var(--accent-soft)}
+.opt .logo{width:38px;height:38px;border-radius:10px;flex:none;display:grid;place-items:center;
+  font-family:var(--mono);font-weight:600;font-size:13px;letter-spacing:-.02em;color:#fff}
+.opt .nm{font-weight:500;font-size:14px;line-height:1.2}
+.opt .sub{display:block;color:var(--faint);font-size:11.5px;margin-top:2px;font-weight:400}
+.opt.other .logo{background:var(--panel-3);color:var(--dim);border:1px dashed var(--line)}
+
+.group{font-family:var(--mono);font-size:9.5px;letter-spacing:.16em;text-transform:uppercase;color:var(--faint);
+  margin:14px 0 8px}
+.group:first-of-type{margin-top:0}
+
+.foot{display:flex;align-items:center;gap:12px;margin-top:20px;padding-top:16px;border-top:1px solid var(--line-soft)}
+.foot .why{color:var(--faint);font-size:12px;flex:1;line-height:1.45}
+.go{padding:11px 20px;border-radius:11px;background:var(--accent);color:var(--accent-ink);font-weight:600;
+  font-size:14px;transition:.15s;opacity:.35;pointer-events:none}
+.go.ready{opacity:1;pointer-events:auto}
+.go:hover{filter:brightness(1.06)}
+
+/* вариант В: список */
+.list .grid{grid-template-columns:1fr}
+.list .opt{min-height:54px;padding:10px 14px}
+.list .opt .logo{width:32px;height:32px;border-radius:8px;font-size:12px}
+
+/* вариант Б: сначала шаг, потом уточнение */
+.steps{display:flex;gap:6px;margin-bottom:16px}
+.steps i{flex:1;height:3px;border-radius:2px;background:var(--panel-3)}
+.steps i.on{background:var(--accent)}
+
+@media (max-width:560px){ .grid{grid-template-columns:1fr} .ask h2{font-size:19px} }
+</style>
+
+<div class="wrap">
+  <div class="lead">
+    <h1>Откуда ты о нас узнал — первый экран после входа</h1>
+    <p>Показывается один раз, сразу после регистрации или первого входа. Без этого не понять,
+      какое комьюнити и какая соцсеть реально приводят людей — а значит, кому платить процент и куда
+      нести контент. Поэтому пропустить нельзя: крестика нет, «Дальше» загорается только после выбора.
+      Только кнопки, никакого текста — «другое» тоже кнопка.</p>
+  </div>
+
+  <div class="switch" id="sw"></div>
+  <p class="hint" id="hint"></p>
+  <div class="switch" style="margin-top:0">
+    <button id="dev" onclick="togglePhone()">Показать на телефоне</button>
+  </div>
+
+  <div class="stage" id="stage">
+    <div class="fake">
+      <div class="row"><div class="blk t"></div></div>
+      <div class="row"><div class="blk"></div><div class="blk"></div><div class="blk"></div><div class="blk"></div></div>
+      <div class="row"><div class="blk g"></div><div class="blk g" style="flex:.5"></div></div>
+      <div class="row"><div class="blk"></div><div class="blk"></div></div>
+    </div>
+    <div class="ov"><div class="ask" id="ask"></div></div>
+  </div>
+</div>
+
+<script>
+/* Комьюнити — заглушки: логотипы и названия придут от владельца, сюда
+   подставятся как картинки. Цвет плашки — временный, чтобы отличались. */
+const COMMUNITIES = [
+  {id:"c1", nm:"Комьюнити 1", sub:"Discord · 8 000", color:"#3b5bdb"},
+  {id:"c2", nm:"Комьюнити 2", sub:"Telegram · 100", color:"#7048e8"},
+  {id:"c3", nm:"Комьюнити 3", sub:"место под третьего", color:"#0b7285"},
+];
+const SOCIAL = [
+  {id:"tiktok", nm:"TikTok", color:"#111", glyph:"TT"},
+  {id:"instagram", nm:"Instagram", color:"#c13584", glyph:"IG"},
+  {id:"youtube", nm:"YouTube", color:"#e03131", glyph:"YT"},
+  {id:"friend", nm:"Посоветовал знакомый", color:"#495057", glyph:"👤"},
+];
+const OTHER = {id:"other", nm:"Другое", sub:"ни одно не подходит", glyph:"?"};
+
+let picked = null;
+let cur = "A";
+let step = 0;   /* для варианта Б */
+
+const V = {
+  A: {
+    name:"А · Всё на одном экране",
+    hint:"Два блока: комьюнити крупно с логотипами, ниже соцсети и «другое». Один тап и «Дальше». Самый короткий путь — три секунды, и человек в журнале.",
+  },
+  B: {
+    name:"Б · Сначала «откуда», потом «какое»",
+    hint:"Первый экран — четыре крупные кнопки: комьюнити / TikTok / Instagram / другое. Выбрал комьюнити — второй экран с логотипами. Меньше кнопок на экране, но два шага.",
+  },
+  C: {
+    name:"В · Списком",
+    hint:"Всё одним списком сверху вниз, комьюнити первыми. Компактно, хорошо на телефоне, но логотипы мельче и выбор читается хуже.",
+  },
+};
+
+const logo = (o, txt) => '<span class="logo" style="background:' + (o.color || "var(--panel-3)") + '">'
+  + (o.glyph || txt || o.nm.slice(0,1)) + "</span>";
+
+function opt(o, extra){
+  return '<button class="opt' + (picked === o.id ? " on" : "") + (extra || "") + '" onclick="pick(\'' + o.id + '\')">'
+    + logo(o, o.nm.replace(/\D/g,"") ? "К" + o.nm.replace(/\D/g,"") : "")
+    + '<span><span class="nm">' + o.nm + "</span>"
+    + (o.sub ? '<span class="sub">' + o.sub + "</span>" : "") + "</span></button>";
+}
+
+function head(){
+  return '<div class="eyebrow">Последний шаг</div>'
+    + "<h2>Откуда ты о нас узнал?</h2>"
+    + "<p>Один ответ — и в журнал. Это нужно, чтобы понимать, где нас находят.</p>";
+}
+function foot(){
+  return '<div class="foot"><span class="why">Спрашиваем один раз. Дальше этот экран не появится.</span>'
+    + '<button class="go' + (picked ? " ready" : "") + '" onclick="go()">Дальше</button></div>';
+}
+
+function paintA(){
+  return head()
+    + '<div class="group">Комьюнити</div><div class="grid">' + COMMUNITIES.map(c => opt(c)).join("") + "</div>"
+    + '<div class="group">Соцсети и остальное</div><div class="grid">'
+    + SOCIAL.map(s => opt(s)).join("") + opt(OTHER, " other") + "</div>"
+    + foot();
+}
+
+function paintB(){
+  const steps = '<div class="steps"><i class="on"></i><i class="' + (step ? "on" : "") + '"></i></div>';
+  if (step === 0){
+    const big = [
+      {id:"community", nm:"Из комьюнити", sub:"Discord или Telegram", color:"#3b5bdb", glyph:"⌂"},
+      SOCIAL[0], SOCIAL[1], Object.assign({}, OTHER, {sub:"YouTube, знакомый, ещё что-то"})
+    ];
+    return steps + head()
+      + '<div class="grid">' + big.map(b => opt(b, b.id === "other" ? " other" : "")).join("") + "</div>"
+      + foot();
+  }
+  return steps + '<div class="eyebrow">Последний шаг</div><h2>Какое комьюнити?</h2>'
+    + "<p>Тапни своё — логотип узнаешь сразу.</p>"
+    + '<div class="grid">' + COMMUNITIES.map(c => opt(c)).join("")
+    + opt(Object.assign({}, OTHER, {nm:"Другое комьюнити", sub:"его нет в списке"}), " other") + "</div>"
+    + foot();
+}
+
+function paintC(){
+  return head()
+    + '<div class="grid">' + COMMUNITIES.map(c => opt(c)).join("") + SOCIAL.map(s => opt(s)).join("")
+    + opt(OTHER, " other") + "</div>" + foot();
+}
+
+function paint(){
+  const ask = document.getElementById("ask");
+  ask.className = "ask" + (cur === "C" ? " list" : "");
+  ask.innerHTML = cur === "A" ? paintA() : cur === "B" ? paintB() : paintC();
+  document.querySelectorAll("#sw button").forEach(b => b.classList.toggle("on", b.dataset.k === cur));
+  document.getElementById("hint").textContent = V[cur].hint;
+}
+
+function pick(id){
+  if (cur === "B" && step === 0){
+    if (id === "community"){ step = 1; picked = null; paint(); return; }
+  }
+  picked = id; paint();
+}
+function go(){
+  if (!picked) return;
+  const ask = document.getElementById("ask");
+  ask.innerHTML = '<div class="eyebrow">Готово</div><h2>Спасибо — идём в журнал</h2>'
+    + '<p>Записали: <b style="color:var(--text)">' + picked + '</b>. В настоящем окне тут ничего не будет: '
+    + "оно просто закроется, и человек увидит свой журнал.</p>"
+    + '<div class="foot"><span class="why">Нажми любой вариант сверху, чтобы посмотреть ещё раз.</span>'
+    + '<button class="go ready" onclick="picked=null;step=0;paint()">Ещё раз</button></div>';
+}
+function setVariant(k){ cur = k; picked = null; step = 0; paint(); }
+function togglePhone(){
+  const st = document.getElementById("stage");
+  st.classList.toggle("phone");
+  document.getElementById("dev").textContent = st.classList.contains("phone") ? "Показать на компьютере" : "Показать на телефоне";
+}
+
+document.getElementById("sw").innerHTML = Object.keys(V).map(k =>
+  '<button data-k="' + k + '" onclick="setVariant(\'' + k + '\')">' + V[k].name + "</button>").join("");
+paint();
+</script>

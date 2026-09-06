@@ -816,6 +816,21 @@ table.simple.mini td:last-child{white-space:nowrap;font-weight:600}
 /* поле «своё значение» рядом с подсказками */
 .quick button.more{border-style:dashed;color:var(--faint);font-weight:600;padding:5px 11px}
 .quick button.more:hover{color:var(--accent);border-color:var(--accent)}
+/* хрестик «прибрати» на підказці: на комп'ютері з'являється при наведенні,
+   на телефоні видно завжди — наведення там немає */
+.qc{position:relative;display:inline-flex}
+.qc .qx{position:absolute;top:-6px;right:-6px;width:16px;height:16px;border-radius:50%;
+  background:var(--panel-3);border:1px solid var(--line);color:var(--faint);font-size:11px;line-height:14px;
+  text-align:center;cursor:pointer;opacity:0;transition:opacity .12s,color .12s,border-color .12s;font-style:normal}
+.qc:hover .qx{opacity:1}
+.qc .qx:hover{color:var(--down);border-color:var(--down)}
+@media(hover:none){.qc .qx{opacity:.85}}
+.quick button.undo{border-style:dashed;color:var(--faint);padding:5px 10px}
+.quick button.undo:hover{color:var(--accent);border-color:var(--accent)}
+/* плитки «свій таймфрейм» і «повернути» — як слоти, але пунктиром і без дії скріна */
+.tfslot.addtf{border-style:dashed;cursor:pointer;opacity:.8}
+.tfslot.addtf:hover{opacity:1;border-color:var(--accent)}
+.tfslot.addtf .drop{font-size:18px;min-height:52px}
 .qinput{margin-top:7px}
 .qinput[hidden]{display:none !important}
 
