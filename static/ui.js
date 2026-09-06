@@ -22,8 +22,10 @@ const Sparks = (function(){
     document.documentElement.getAttribute("data-skin") === "blackswan";
 
   function place(svg, w, h, zone){
-    /* держимся правее сайдбара и не лезем под самый край */
-    const from = 280, to = Math.max(from + 40, window.innerWidth - w - 70);
+    /* держимся правее сайдбара и не лезем под самый край. На телефоне
+       и планшете панели слева нет — там начинаем от самого края. */
+    const from = window.innerWidth < 900 ? 16 : 280;
+    const to = Math.max(from + 40, window.innerWidth - w - (from < 100 ? 16 : 70));
     let a = from, b = to;
     if (zone === 0 || zone === 1){
       const mid = (from + to) / 2;
@@ -89,7 +91,9 @@ const Sparks = (function(){
      back: грані лягають у зворотному порядку, щоб пара не виглядала
      двома копіями одного руху. */
   function spawnSwan(zone, back){
-    const h = rnd(190, 330), w = h * 0.8;          /* знак вытянут: 80 на 100 */
+    /* на вузькому екрані знак менший: інакше він займає його майже весь */
+    const cap = window.innerWidth * 0.52 / 0.8;
+    const h = Math.min(rnd(190, 330), cap), w = h * 0.8;   /* знак вытянут: 80 на 100 */
     const svg = document.createElementNS("http://www.w3.org/2000/svg","svg");
     svg.setAttribute("width", w.toFixed(0)); svg.setAttribute("height", h.toFixed(0));
     svg.setAttribute("viewBox", "0 0 80 100");
@@ -121,7 +125,10 @@ const Sparks = (function(){
   }
 
   function start(){
-    if(calm() || window.innerWidth < 900) return;
+    /* Раніше на всьому, що вужче за 900px, тла не було зовсім. Тепер є й
+       на телефоні — просто фігура менша, і в темі спільноти вона там одна
+       (див. PAIR). */
+    if(calm() || window.innerWidth < 380) return;
     if(!box){
       box = document.createElement("div");
       box.id = "bgfx";
