@@ -12,6 +12,9 @@
    ============================================================ */
 
 .mtop, .mtabs, .mmenu-wrap, .fbtn, .dimbtn{display:none}
+/* обгортки згорток потрібні лише на телефоні; на широкому екрані вони
+   прозорі для розкладки, тому фільтри й розрізи стоять як стояли */
+.fbody, .dbody{display:contents}
 
 @media (max-width:900px){
   body{display:block; padding-bottom:calc(64px + env(safe-area-inset-bottom))}
@@ -170,15 +173,35 @@
   .dimbtn .k{color:var(--faint); font-size:11px; text-transform:uppercase; letter-spacing:.08em}
   .dimbtn b{font-weight:600}
 
-  .fwrap .filters, .dimsel .dims{display:none}
-  .fwrap.open .filters{display:grid; grid-template-columns:repeat(2,minmax(0,1fr));
-    gap:8px; margin-bottom:14px}
-  .fwrap.open .filters select{width:100%; min-width:0}
-  .fwrap.open .filters .dbtn, .fwrap.open .filters .clear{grid-column:1 / -1; width:100%;
+  /* Розкриття їде плавно: рядок гріда переходить з 0fr у 1fr, тож висота
+     анімується сама — без вгаданого max-height, який на довгому списку
+     або обрізає, або лишає паузу. Відступ знизу — падінгом усередині,
+     інакше він лишався б видимим і в згорнутому стані. */
+  .fbody, .dbody{display:grid; grid-template-rows:0fr;
+    transition:grid-template-rows .28s cubic-bezier(.16,1,.3,1)}
+  .fwrap.open .fbody, .dimsel.open .dbody{grid-template-rows:1fr}
+  .fbody > *, .dbody > *{overflow:hidden; opacity:0; transition:opacity .16s ease}
+  .fwrap.open .fbody > *, .dimsel.open .dbody > *{opacity:1; transition-delay:.08s}
+
+  .fwrap .filters{display:grid; grid-template-columns:repeat(2,minmax(0,1fr));
+    gap:8px; margin-bottom:0}
+  .fwrap.open .filters{padding-bottom:14px}
+  .fwrap .filters select{width:100%; min-width:0}
+  .fwrap .filters .dbtn, .fwrap .filters .clear{grid-column:1 / -1; width:100%;
     justify-content:center; text-align:center}
-  .dimsel.open .dims{display:grid; grid-template-columns:repeat(2,minmax(0,1fr));
-    gap:6px; margin-bottom:14px}
+  .dimsel .dims{display:grid; grid-template-columns:repeat(2,minmax(0,1fr));
+    gap:6px; margin-bottom:0}
+  .dimsel.open .dims{padding-bottom:14px}
   .dimsel .dims .pill{width:100%; padding:10px 8px; font-size:12.5px; text-align:center}
+
+  /* фонові фігури лізуть під таблиці розрізів і під розбір дня — там,
+     де суцільний текст і цифри, вони тільки заважають читати */
+  :root[data-page="analytics"] #bgfx, :root[data-page="day"] #bgfx{display:none}
+
+  /* «Моя ТС», порожній стан: список «що зміниться» стояв просто на тлі
+     сторінки й зливався з фігурою, що пропливала позаду */
+  .ts-why{margin-top:24px; padding:18px 16px; border:1px solid var(--line-soft);
+    border-top:1px solid var(--line-soft); border-radius:var(--r); background:var(--panel)}
   .lk-cols{grid-template-columns:1fr}
 
   /* помічник — нижче за вкладки не ховається */
@@ -298,4 +321,26 @@
 @media (min-width:901px) and (max-width:1100px){
   .side{width:188px; padding:16px 10px}
   .main{padding:18px}
+}
+
+@media (prefers-reduced-motion:reduce){
+  .fbody, .dbody, .fbody > *, .dbody > *{transition:none}
+}
+
+/* ============================================================
+   Фонові фігури на телефоні.
+
+   На маленькому екрані фігура займає майже всю ширину й лягає просто
+   під текст — те, що на моніторі читається як тінь на полях, тут
+   перебиває вміст. Тому тут вона ледь помітна: слабша заливка, тонше
+   обведення і власний кадр проявлення (opacity в keyframes сильніша
+   за будь-яке звичайне правило, тому окрема назва анімації).
+   ============================================================ */
+@media (max-width:900px){
+  #bgfx polygon{fill:color-mix(in srgb,var(--text) 20%,transparent); stroke-width:1.2;
+    animation-name:swanFoldSoft, sparkFade}
+  #bgfx polygon.wing{fill:color-mix(in srgb,var(--swan-blue) 20%,transparent)}
+  @keyframes swanFoldSoft{
+    from{opacity:0; transform:translateY(7px) scale(.93)}
+    to{opacity:.11; transform:none}}
 }

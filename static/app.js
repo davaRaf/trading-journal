@@ -440,7 +440,8 @@ function filterBar(){
      кнопки просто немає (mobile.css), фільтри стоять як завжди. */
   return '<div class="fwrap'+(S.mFlt?" open":"")+'">'+
     '<button class="fbtn" onclick="togFlt(this)"><span>'+T.mFilters+'</span>'+
-    (on?'<i class="cnt">'+on+'</i>':'')+CHEV_D+'</button>'+h+'</div>';
+    (on?'<i class="cnt">'+on+'</i>':'')+CHEV_D+'</button>'+
+    '<div class="fbody">'+h+'</div></div>';
 }
 /* обидві згортки живуть тільки на телефоні; стан памʼятаємо в S, щоб
    перемальовування після вибору фільтра не закривало панель */
@@ -1246,7 +1247,7 @@ function vAnalytics(){
   h+='<div class="dimsel'+(S.mDim?" open":"")+'">'+
     '<button class="dimbtn" onclick="togDim(this)"><span class="k">'+T.mDim+'</span>'+
     '<b>'+esc(DIMS().find(d=>d.k===S.dim).label)+'</b>'+CHEV_D+'</button>'+
-    '<div class="dims">'+DIMS().map(d=>'<button class="pill '+(S.dim===d.k?"on":"")+'" onclick="S.dim=\''+d.k+'\';S.mDim=false;render()">'+d.label+"</button>").join("")+"</div></div>";
+    '<div class="dbody"><div class="dims">'+DIMS().map(d=>'<button class="pill '+(S.dim===d.k?"on":"")+'" onclick="S.dim=\''+d.k+'\';S.mDim=false;render()">'+d.label+"</button>").join("")+"</div></div></div>";
   const groups=[...groupBy(list,t=>S.dim==="result"?resLabel(t.result):fieldVal(t,S.dim)).entries()].map(([name,arr])=>{
     const st=calc(arr); return {name,st};
   }).sort((a,b)=>b.st.net-a.st.net);
@@ -1988,6 +1989,7 @@ function render(){
   if(window.PL) PL.reset();
   /* «enter» только при смене раздела: перерисовка после правки угоди
      не должна каждый раз моргать всей страницей */
+  document.documentElement.setAttribute("data-page",v);
   const fresh = tickedView!==v && bootRendered;
   $("#main").innerHTML='<div class="page'+(fresh?" enter":"")+'">'+VIEWS[v]()+"</div>";
   /* блоки появляются тихо, как в макете — крім найпершого рендера: там
