@@ -32,6 +32,16 @@
   --card:linear-gradient(180deg,rgba(255,255,255,.062),rgba(255,255,255,.016));
   --g:#40e094;
 }
+/* Оформлення спільноти Black Swan. Стоїть після теми, тому перебиває і
+   світлу, і темну: знімок відкривається таким, яким його зробили. */
+:root[data-skin="blackswan"]{
+  --bg:#ffffff; --panel:#ffffff; --panel-2:#f4f6f8;
+  --line:rgba(0,0,0,.13); --line-soft:rgba(0,0,0,.07);
+  --text:#000000; --dim:#2b2e33; --faint:#585c63;
+  --up:#0b7a42; --down:#c42b1c; --be:#0066ff;
+  --up-soft:rgba(11,122,66,.10); --down-soft:rgba(196,43,28,.10); --be-soft:rgba(0,102,255,.10);
+  --card:#ffffff; --g:#0066ff;
+}
 *{box-sizing:border-box}
 /* Смуга прокрутки. Сторінку гортати можна як завжди, просто саму смугу не
    малюємо: коли розкриваєш угоду, вміст стає вищим за екран, смуга
@@ -747,6 +757,12 @@ document.addEventListener("click", e => {
 
 function render(rec){
   const d = rec.data || {};
+  /* Знімок міг бути зроблений в оформленні спільноти — тоді сторінка
+     фарбується так само, незалежно від того, яка тема в гостя. */
+  if (d.skin === "blackswan"){
+    document.documentElement.setAttribute("data-skin", "blackswan");
+    document.documentElement.setAttribute("data-theme", "light");
+  }
   const owner = (rec.owner && rec.owner.nick) || "";
   const rows = (title, items) => !items || !items.length ? "" :
     '<div class="sect">'+esc(title)+'</div><div class="rows">'

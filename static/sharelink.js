@@ -18,6 +18,20 @@ function TTL(){ return [
 let lastTtl = "7d";
 try{ lastTtl = localStorage.getItem("share_ttl") || "7d"; }catch(e){}
 
+/* ---------- оформлення знімка ----------
+   Ділитись можна у своєму вигляді або в оформленні спільноти. Коли журнал
+   і так у їхній темі, вибирати нічого: знімок іде в тому самому вигляді,
+   що й екран, тому перемикач не показуємо. */
+const COLLAB = "blackswan";
+const curSkin = () => document.documentElement.getAttribute("data-skin") || "";
+const inCollab = () => curSkin() === COLLAB;
+
+let lastSkin = "";
+try{ lastSkin = localStorage.getItem("share_skin") || ""; }catch(e){}
+
+/* стиль, у якому робимо знімок просто зараз */
+function shareSkin(){ return inCollab() ? COLLAB : lastSkin; }
+
 /* ---------- що саме показуємо ---------- */
 
 function statsOf(list){
@@ -382,6 +396,14 @@ function open(kind, arg){
               + esc(a.nm) + '</button>').join("")
           + '</div>'
         : "")
+    + (inCollab() ? "" :
+        '<div class="sh-lab">' + T.slStyleLabel + '</div>'
+        + '<div class="sh-skin" id="shSkin">'
+        +   '<button class="sh-chip' + (lastSkin ? "" : " on") + '" data-s="">'
+        +     esc(T.slStylePlain) + '</button>'
+        +   '<button class="sh-chip' + (lastSkin ? " on" : "") + '" data-s="' + COLLAB + '">'
+        +     'Black Swan</button>'
+        + '</div>')
     + '<div class="sh-lab">' + T.slDurationLabel + '</div>'
     + '<div class="sh-ttl">' + TTL().map(t =>
         '<button class="sh-chip' + (t.id===lastTtl ? " on" : "") + '" data-t="' + t.id + '">'
@@ -396,7 +418,26 @@ function open(kind, arg){
   /* Картинку малюємо з тих самих цифр, що пішли б у посилання, — тому
      віддаємо їх готовими, а не рахуємо вдруге. */
   const img = document.getElementById("shImg");
-  if (img) img.onclick = () => __tradeImg.open(kind, arg, build());
+  /* оформлення кладемо в самий знімок: календар і зведення малює OgCal,
+     і він бере стиль звідти ж, звідки його візьме сторінка за посиланням */
+  if (img) img.onclick = () => {
+    const d = build();
+    const skin = shareSkin();
+    if (d){ if (skin) d.skin = skin; else delete d.skin; }
+    __tradeImg.open(kind, arg, d, skin);
+  };
+
+  const skinBox = document.getElementById("shSkin");
+  if (skinBox) skinBox.querySelectorAll(".sh-chip").forEach(b => b.onclick = () => {
+    lastSkin = b.dataset.s || "";
+    try{ localStorage.setItem("share_skin", lastSkin); }catch(e){}
+    skinBox.querySelectorAll(".sh-chip").forEach(x => x.classList.toggle("on", x === b));
+    /* оформлення змінилось — стара адреса веде на знімок у старому вигляді */
+    const out = document.getElementById("shOut");
+    if (out){ out.hidden = true; out.innerHTML = ""; }
+    const go = document.getElementById("shGo");
+    if (go){ go.disabled = false; go.textContent = T.slCreateBtn; }
+  });
 
   document.querySelectorAll(".sh-ttl .sh-chip").forEach(b => b.onclick = () => {
     lastTtl = b.dataset.t;
@@ -448,6 +489,10 @@ function open(kind, arg){
           if (up.ok) data.og = (await up.json()).file;
         }catch(e){}
       }
+      /* оформлення їде разом зі знімком: сторінка за посиланням
+         пофарбується так само, як вибрали тут */
+      const skin = shareSkin();
+      if (skin) data.skin = skin; else delete data.skin;
       const res = await fetch("/api/share", {
         method:"POST", headers:{"Content-Type":"application/json"},
         body: JSON.stringify({ data, ttl: lastTtl })

@@ -8,14 +8,14 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Geist:wght@300;400;500;600;700&family=Archivo:wght@400;500;600&display=swap">
-<link rel="stylesheet" href="/static/style.css?v=14">
-<link rel="stylesheet" href="/static/news.css?v=15">
+<link rel="stylesheet" href="/static/style.css?v=18">
+<link rel="stylesheet" href="/static/news.css?v=16">
 <link rel="stylesheet" href="/static/import.css?v=3">
-<link rel="stylesheet" href="/static/themes.css?v=1">
+<link rel="stylesheet" href="/static/themes.css?v=5">
 <link rel="stylesheet" href="/static/calc.css?v=1">
 <link rel="stylesheet" href="/static/links.css?v=2">
 <link rel="stylesheet" href="/static/ts.css?v=11">
-<link rel="stylesheet" href="/static/day.css?v=6">
+<link rel="stylesheet" href="/static/day.css?v=7">
 <link rel="stylesheet" href="/static/mobile.css?v=6">
 <link rel="stylesheet" href="/static/guest.css?v=3">
 <link rel="stylesheet" href="/static/pub.css?v=1">
@@ -55,10 +55,29 @@ try{document.documentElement.setAttribute("data-nav",localStorage.getItem("tj_na
 <path transform="translate(0,0)" fill="currentColor" d="M 1007.77 1358.05 L 1041.3 1358 L 1041.14 1538.09 L 1041.3 1594.17 C 1041.34 1604.03 1041.86 1615.95 1041.16 1625.6 C 1039.85 1643.54 1015.04 1647.32 1007.77 1629.23 C 1009.05 1603.41 1007.95 1565.83 1007.96 1539.15 L 1007.77 1358.05 z"/>
 <path transform="translate(0,0)" fill="currentColor" d="M 1007.73 417.867 C 1012.96 407.472 1022.43 403.074 1033.28 408.302 C 1044.26 413.587 1041.3 436.645 1041.28 447.276 L 1041.16 500.837 C 1041.03 559.942 1042.37 622.699 1040.98 681.397 C 1035.71 674.277 1029.82 662.763 1024.31 654.534 C 1018.61 663.506 1013.14 672.625 1007.92 681.882 C 1007.27 653.296 1008.22 624.592 1008 596 C 1007.55 536.664 1008.45 477.184 1007.73 417.867 z"/>
   </symbol>
+
+    <!-- Знак спільноти Black Swan: лебідь-орігамі з семи трикутників.
+         Чорні грані малюються кольором тексту, одна грань — їхнім синім,
+         тому знак читається на будь-якій темі. -->
+    <symbol id="swanmark" viewBox="0 0 80 100">
+      <g fill="currentColor">
+        <polygon points="33.1,16.5 46.5,1.2 64.6,15.1"/>
+        <polygon points="33.5,17.4 63.7,49.7 40.9,56.2"/>
+        <polygon points="14.5,37.5 36.5,61.5 25.5,63.5"/>
+        <polygon points="26.5,65.5 39.5,63.5 36.2,99.2"/>
+        <polygon points="41.5,57.0 63.5,56.2 38.8,99.2"/>
+        <polygon points="65.4,51.5 78.2,67.7 44.6,99.2"/>
+      </g>
+      <polygon points="11.5,37.5 0.8,70.5 33.5,99.2" fill="var(--swan-blue)"/>
+    </symbol>
   </defs></svg>
 
   <div class="brand">
-    <span class="mark"><svg class="logo" aria-hidden="true"><use href="#logomark"/></svg></span>
+    <span class="marks" id="collabMark" data-tip="Колаборація зі спільнотою Black Swan">
+      <span class="mark"><svg class="logo" aria-hidden="true"><use href="#logomark"/></svg></span>
+      <i class="tie" aria-hidden="true">×</i>
+      <span class="mark swan"><svg class="swan" aria-hidden="true"><use href="#swanmark"/></svg></span>
+    </span>
     <span class="nm">Stats<i>AI</i><small id="brandTagline">помічник трейдера</small></span>
   </div>
 
@@ -141,11 +160,11 @@ try{document.documentElement.setAttribute("data-nav",localStorage.getItem("tj_na
 <div id="lightbox" class="lightbox" hidden onclick="closeLightbox()"><img id="lightboxImg" alt=""></div>
 
 <script src="/static/i18n.js?v=27"></script>
-<script src="/static/ui.js?v=3"></script>
+<script src="/static/ui.js?v=7"></script>
 <script src="/static/demo.js?v=2"></script>
 <script src="/static/guest.js?v=3"></script>
 <script src="/static/pub.js?v=2"></script>
-<script src="/static/app.js?v=18"></script>
+<script src="/static/app.js?v=19"></script>
 <script src="/static/profile.js?v=1"></script>
 <script src="/static/backup.js?v=1"></script>
 <script src="/static/sources.js?v=1"></script>
@@ -155,8 +174,8 @@ try{document.documentElement.setAttribute("data-nav",localStorage.getItem("tj_na
 <script src="/static/watch.js?v=1"></script>
 <script src="/static/news.js?v=5"></script>
 <script src="/static/newsay.js?v=1"></script>
-<script src="/static/ogcal.js?v=5"></script>
-<script src="/static/sharelink.js?v=20"></script>
+<script src="/static/ogcal.js?v=12"></script>
+<script src="/static/sharelink.js?v=22"></script>
 <script src="/static/tidy.js?v=1"></script>
 <script src="/static/notion.js?v=7"></script>
 <script src="/static/calc.js?v=1"></script>
@@ -164,8 +183,8 @@ try{document.documentElement.setAttribute("data-nav",localStorage.getItem("tj_na
 <script src="/static/ts.js?v=20"></script>
 <script src="/static/day.js?v=11"></script>
 <script src="/static/mobile.js?v=1"></script>
-<script src="/static/tradeimg.js?v=3"></script>
-<script src="/static/themes.js?v=1"></script>
+<script src="/static/tradeimg.js?v=7"></script>
+<script src="/static/themes.js?v=3"></script>
 <!-- останнім: підміняє openModal/closeModal, тож має бачити всі попередні -->
 <script src="/static/motion.js?v=3"></script>
 </body>

@@ -266,8 +266,10 @@ textarea.dv-in{min-height:84px; resize:vertical}
   padding:4px 8px; border-radius:6px; cursor:pointer}
 .dv-ah .x:hover{color:var(--text); background:var(--panel)}
 .dv-cb .dv-blk:first-child{border-top:none}
-.dv-empty{padding:26px 22px; border:1px dashed var(--line); border-radius:var(--r); color:var(--faint);
-  font-size:13.5px; text-align:center}
+/* Тло щільне, не прозоре: крізь пунктирну рамку просвічувала фонова
+   фігура, і підказку ставало важко читати. */
+.dv-empty{padding:26px 22px; border:1px dashed var(--line); border-radius:var(--r); color:var(--dim);
+  background:var(--panel); font-size:13.5px; text-align:center}
 
 /* назва блока у правій (фактовій) колонці */
 .dv-pt.fact b{color:var(--be); background:var(--be-soft)}

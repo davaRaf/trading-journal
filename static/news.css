@@ -205,6 +205,8 @@
 .sh-lab{font-family:var(--mono); font-size:10px; letter-spacing:.13em;
   text-transform:uppercase; color:var(--faint)}
 .sh-ttl{display:flex; gap:6px; flex-wrap:wrap}
+/* вибір оформлення знімка — ті самі фішки, що й термін життя */
+.sh-skin{display:flex; gap:6px; flex-wrap:wrap}
 /* Вибір активів у розборі дня: тими самими чіпами, що й строк життя
    посилання, але можна тримати кілька відразу. */
 .sh-assets{display:flex; gap:6px; flex-wrap:wrap; margin-bottom:16px}

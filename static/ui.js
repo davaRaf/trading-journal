@@ -4,17 +4,45 @@
    Здесь нет сборки и зависимостей — журнал остаётся статикой. */
 "use strict";
 
-/* ================= фоновые ломаные =================
-   Раз в несколько секунд где-нибудь за интерфейсом прорисовывается зелёный
-   график и тает. Живёт своим слоем под контентом, кликам не мешает.
+/* ================= фон под контентом =================
+   Раз в несколько секунд за интерфейсом что-нибудь появляется и тает.
+   Что именно — зависит от темы: в наших темах это ломаная кривой
+   доходности, как было всегда; в теме колаборації — знак лебедя, тот же
+   семигранный, что и в шапке, и сразу пара в разных половинах поля.
+   Тема читается в момент появления, поэтому переключение действует сразу.
+   Живёт своим слоем под контентом, кликам не мешает.
    Выключается при prefers-reduced-motion, на узких экранах и в фоновой вкладке. */
 const Sparks = (function(){
   let box = null, timer = 0, alive = 0;
-  const MAX = 2;                                   /* больше двух сразу — уже мельтешение */
+  const MAX = 4;                                   /* два залпи по дві фігури, якщо перекриються */
+  const PAIR = 1200;                               /* вужче — пара не розійдеться, пускаємо одну */
   const rnd = (a,b) => a + Math.random()*(b-a);
   const calm = () => window.matchMedia("(prefers-reduced-motion:reduce)").matches;
+  const swanMode = () =>
+    document.documentElement.getAttribute("data-skin") === "blackswan";
 
-  /* ломаная общим ходом вверх, но с откатами — как настоящая кривая доходности */
+  function place(svg, w, h, zone){
+    /* держимся правее сайдбара и не лезем под самый край */
+    const from = 280, to = Math.max(from + 40, window.innerWidth - w - 70);
+    let a = from, b = to;
+    if (zone === 0 || zone === 1){
+      const mid = (from + to) / 2;
+      /* половину звужуємо на ширину фігури плюс 60px від середини:
+         інакше пара нерідко збиралась докупи */
+      if (zone === 0) b = Math.max(a + 20, mid - w / 2 - 60);
+      else            a = Math.min(b - 20, mid + w / 2 + 60);
+    }
+    svg.style.left = Math.round(rnd(a, b))+"px";
+    svg.style.top  = Math.round(rnd(60, Math.max(100, window.innerHeight - h - 70)))+"px";
+  }
+
+  function add(svg, life){
+    box.appendChild(svg);
+    alive++;
+    setTimeout(()=>{ svg.remove(); alive--; }, life);
+  }
+
+  /* ---------- ломаная: общим ходом вверх, но с откатами ---------- */
   function shape(){
     const w = rnd(150,320), h = rnd(60,130);
     const n = Math.round(rnd(5,9));
@@ -31,28 +59,65 @@ const Sparks = (function(){
     return {d, w, h, end: pts[pts.length-1]};
   }
 
-  function spawn(){
-    if(!box || alive >= MAX || document.hidden) return;
+  function spawnLine(){
     const s = shape();
     const svg = document.createElementNS("http://www.w3.org/2000/svg","svg");
     svg.setAttribute("width", s.w); svg.setAttribute("height", s.h);
     svg.setAttribute("viewBox", "0 0 "+s.w+" "+s.h);
-    /* держимся правее сайдбара и не лезем под самый край */
-    const left = rnd(260, Math.max(300, window.innerWidth - s.w - 60));
-    const top  = rnd(70,  Math.max(110, window.innerHeight - s.h - 80));
-    svg.style.left = Math.round(left)+"px";
-    svg.style.top  = Math.round(top)+"px";
+    place(svg, s.w, s.h, null);
     /* pathLength=1 избавляет от замера длины: dashoffset считаем в долях */
     svg.innerHTML = '<path pathLength="1" d="'+s.d+'"/>'+
       '<circle class="tip" r="2.6" cx="'+s.end[0].toFixed(1)+'" cy="'+s.end[1].toFixed(1)+'"/>';
-    box.appendChild(svg);
-    alive++;
-    setTimeout(()=>{ svg.remove(); alive--; }, 4600);
+    add(svg, 4600);
+  }
+
+  /* ---------- знак лебедя ---------- */
+  /* Те же грани, что у знака в шапке (symbol #swanmark в index.html):
+     шесть тёмных и одна синяя. Порядок — порядок появления: голова,
+     шея, крылья, тело. */
+  const FACES = [
+    "33.1,16.5 46.5,1.2 64.6,15.1",
+    "33.5,17.4 63.7,49.7 40.9,56.2",
+    "14.5,37.5 36.5,61.5 25.5,63.5",
+    "26.5,65.5 39.5,63.5 36.2,99.2",
+    "41.5,57.0 63.5,56.2 38.8,99.2",
+    "65.4,51.5 78.2,67.7 44.6,99.2",
+  ];
+  const WING = "11.5,37.5 0.8,70.5 33.5,99.2";     /* синее крыло */
+
+  /* zone: 0 — ліва половина вільного поля, 1 — права.
+     back: грані лягають у зворотному порядку, щоб пара не виглядала
+     двома копіями одного руху. */
+  function spawnSwan(zone, back){
+    const h = rnd(190, 330), w = h * 0.8;          /* знак вытянут: 80 на 100 */
+    const svg = document.createElementNS("http://www.w3.org/2000/svg","svg");
+    svg.setAttribute("width", w.toFixed(0)); svg.setAttribute("height", h.toFixed(0));
+    svg.setAttribute("viewBox", "0 0 80 100");
+    place(svg, w, h, zone);
+    /* --i задаёт очередь: каждая следующая грань ложится на 130 мс позже */
+    const last = FACES.length;                     /* грані плюс крило */
+    const ord = i => back ? last - i : i;
+    svg.innerHTML = FACES.map((p,i) =>
+        '<polygon points="'+p+'" style="--i:'+ord(i)+'"/>').join("")
+      + '<polygon class="wing" points="'+WING+'" style="--i:'+ord(last)+'"/>';
+    add(svg, 5200);
+  }
+
+  /* Залп. У власних темах — одна ломана, як було завжди. У темі
+     колаборації — дві фігури одразу, у різних половинах поля; на вузькому
+     вікні половини вужчі за саму фігуру, там лишається одна. */
+  function burst(){
+    if(!box || alive >= MAX || document.hidden) return;
+    if(!swanMode()){ if (alive < 2) spawnLine(); return; }
+    if (window.innerWidth < PAIR){ spawnSwan(null, false); return; }
+    const back = Math.random() < 0.5;              /* кому з пари йти у зворотному порядку */
+    spawnSwan(0, back);
+    spawnSwan(1, !back);
   }
 
   function plan(){
     clearTimeout(timer);
-    timer = setTimeout(()=>{ spawn(); plan(); }, rnd(3600, 7000));
+    timer = setTimeout(()=>{ burst(); plan(); }, rnd(3600, 7000));
   }
 
   function start(){
@@ -63,7 +128,7 @@ const Sparks = (function(){
       box.setAttribute("aria-hidden","true");
       document.body.appendChild(box);
     }
-    setTimeout(spawn, 900);
+    setTimeout(burst, 900);
     plan();
     /* в скрытой вкладке не рисуем: незачем греть машину */
     document.addEventListener("visibilitychange", ()=>{

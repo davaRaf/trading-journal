@@ -19,13 +19,32 @@
 (function(){
 
 const W = 1200, H = 630;
-const C = {
+/* Дві палітри. Темна — звичайна, її бачать усі. Світла — оформлення
+   спільноти Black Swan: коли знімком діляться в їхньому стилі, картинка
+   має виглядати так само, як журнал у їхній темі.
+   Кольори задані явно, а не з теми: картинку побачать люди, у яких
+   ніякої нашої теми немає. */
+const DARK = {
   bg: "#0b0b0c", panel: "#111112", line: "rgba(255,255,255,.09)",
   soft: "rgba(255,255,255,.05)",
   text: "#f2f2f3", dim: "#8c8c90", faint: "#5c5c61",
   up: "#40e094", down: "#ff6e60", be: "#efc258",
   upBg: "rgba(64,224,148,.14)", downBg: "rgba(255,110,96,.13)", beBg: "rgba(239,194,88,.12)",
+  mark: "#40e094",
 };
+const SWAN = {
+  bg: "#ffffff", panel: "#f4f6f8", line: "rgba(0,0,0,.13)",
+  soft: "rgba(0,0,0,.06)",
+  text: "#000000", dim: "#2b2e33", faint: "#585c63",
+  up: "#0b7a42", down: "#c42b1c", be: "#0066ff",
+  upBg: "rgba(11,122,66,.12)", downBg: "rgba(196,43,28,.10)", beBg: "rgba(0,102,255,.10)",
+  mark: "#40e094",              /* наш знак лишається зеленим і тут */
+};
+let C = DARK;
+
+/* Оформлення їде в самому знімку — те саме поле, що читає сторінка
+   за посиланням. */
+function pick(data){ C = (data && data.skin === "blackswan") ? SWAN : DARK; }
 const SANS = '"Geist","Segoe UI",system-ui,sans-serif';
 const MONO = '"Archivo","Geist",system-ui,sans-serif';
 
@@ -55,7 +74,7 @@ function drawMark(ctx, x, y, size){
   ctx.scale(k, k);
   ctx.translate(-573, -366);
   paths.forEach((p, i) => {
-    ctx.fillStyle = i === 0 ? C.up : C.text;
+    ctx.fillStyle = i === 0 ? C.mark : C.text;
     try{ ctx.fill(new Path2D(p.getAttribute("d"))); }catch(e){}
   });
   ctx.restore();
@@ -64,15 +83,106 @@ function drawMark(ctx, x, y, size){
 /* Шапка. Тримаємо її низькою: головне на картинці — сітка днів, і саме
    їй потрібна висота. Тому знак і назва в один рядок, а період і підсумок
    у наступний. */
-function header(ctx, kindFull, title, total){
-  drawMark(ctx, 64, 40, 34);
+/* Знак спільноти Black Swan. Контури теж лежать у документі — <symbol
+   id="swanmark">, — тож координати граней тут не дублюємо. */
+function drawSwan(ctx, x, y, size){
+  const sym = document.getElementById("swanmark");
+  if (!sym) return 0;
+  const shapes = [...sym.querySelectorAll("polygon")];
+  if (!shapes.length) return 0;
+  const k = size / 100;                  /* viewBox 0 0 80 100 */
+  ctx.save();
+  ctx.translate(x, y);
+  ctx.scale(k, k);
+  shapes.forEach(pg => {
+    const pts = (pg.getAttribute("points") || "").trim().split(/\s+/)
+      .map(pair => pair.split(",").map(Number))
+      .filter(p => p.length === 2 && !isNaN(p[0]) && !isNaN(p[1]));
+    if (pts.length < 3) return;
+    ctx.beginPath();
+    pts.forEach((p, i) => i ? ctx.lineTo(p[0], p[1]) : ctx.moveTo(p[0], p[1]));
+    ctx.closePath();
+    /* одна грань синя — вона підписана їхнім кольором просто в symbol */
+    ctx.fillStyle = /swan-blue/.test(pg.getAttribute("fill") || "") ? "#0066ff" : C.text;
+    ctx.fill();
+    /* білі шви між гранями — інакше на такому розмірі знак злипається
+       в одну пляму */
+    ctx.strokeStyle = C.bg; ctx.lineWidth = 2.6; ctx.lineJoin = "round";
+    ctx.stroke();
+  });
+  ctx.restore();
+  return 80 * k;                         /* ширина знака */
+}
+
+/* Підпис угорі картинки: наш знак, назва, а в оформленні спільноти ще
+   «×» і їхній лебідь. Живе окремо, бо тим самим підписом користується й
+   картинка дня з tradeimg.js — щоб він був один на всі картинки.
+
+   col — кольори тієї картинки, куди малюємо (у дня своя палітра);
+   swan — чи показувати колаборацію. Повертає нижню межу підпису. */
+function brand(ctx, x, y, size, col, swan){
+  const keep = C;
+  C = col || C;                          /* drawMark і drawSwan читають C */
+  const base = y + size * 0.78;          /* лінія шрифту під знаком */
+
+  drawMark(ctx, x, y, size);
   ctx.textBaseline = "alphabetic";
-  ctx.font = "500 24px " + MONO;
+
+  const tx = x + size * 902 / 1315 + 14;
+  ctx.font = "500 " + Math.round(size * 0.58) + "px " + MONO;
   ctx.fillStyle = C.text;
-  ctx.fillText("Stats", 96, 66);
+  ctx.fillText("Stats", tx, base);
   const w = ctx.measureText("Stats").width;
-  ctx.fillStyle = C.up;
-  ctx.fillText("AI", 96 + w, 66);
+  ctx.fillStyle = C.mark;                /* «AI» — наш зелений, а не колір плюса */
+  ctx.fillText("AI", tx + w, base);
+
+  if (swan){
+    const after = tx + w + ctx.measureText("AI").width;
+    ctx.font = "400 " + Math.round(size * 0.41) + "px " + MONO;
+    ctx.fillStyle = C.faint;
+    ctx.fillText("×", after + 16, base - 3);
+    drawSwan(ctx, after + 42, y, size);
+  }
+
+  C = keep;
+  return y + size;
+}
+
+/* Знаки спільноти на тлі картинки: великі, напівпрозорі, і їх мало —
+   це фактура, а не малюнок. Малюємо одразу після заливки тла, тому
+   картки й текст лягають зверху й лишаються читними.
+
+   Розмір рахуємо від ширини, а розкидаємо по висоті: картинка дня буває
+   в кілька екранів заввишки, і прив'язка до висоти роздула б знак. */
+function watermark(ctx, w, h, col){
+  const keep = C;
+  C = col || C;
+  const size = w * 0.54;
+  const wide = size * 0.8;               /* знак 80 на 100 */
+  /* за край виходимо трохи: силует має читатись, а не бути смугою */
+  const spots = [
+    {x: w - wide * 0.88, y: h * 0.06},
+    {x: -wide * 0.16,    y: h * 0.54},
+    {x: w - wide * 0.72, y: h * 0.80},
+  ];
+  /* на короткій картинці двох досить, на довгій ставимо третій */
+  const n = h > w * 2.2 ? 3 : 2;
+  ctx.save();
+  ctx.globalAlpha = 0.07;
+  spots.slice(0, n).forEach(p => drawSwan(ctx, p.x, p.y, size));
+  ctx.restore();
+  C = keep;
+}
+
+function header(ctx, kindFull, title, total){
+  /* В оформленні спільноти знаки більші, і поруч із ними стоїть наша
+     назва — а вже за нею «×» і їхній лебідь. Так видно, чий це журнал
+     і з ким колаборація. */
+  const swan = C === SWAN;
+  const size = swan ? 46 : 34;
+
+  brand(ctx, 64, swan ? 36 : 40, size, C, swan);
+  ctx.textBaseline = "alphabetic";
 
   ctx.font = "500 18px " + MONO;
   ctx.fillStyle = C.faint;
@@ -262,6 +372,7 @@ function candles(ctx, x, y, w, h){
 
 /* ---------- картинка торгової системи ---------- */
 function system(data){
+  pick(data);
   const t = data.ts || {};
   const cv = document.createElement("canvas");
   cv.width = W; cv.height = H;
@@ -351,6 +462,7 @@ function months(ctx, items, top, bottom){
 
 /* ---------- картинка періоду ---------- */
 function period(data){
+  pick(data);
   const cv = document.createElement("canvas");
   cv.width = W; cv.height = H;
   const ctx = cv.getContext("2d");
@@ -375,6 +487,6 @@ function period(data){
   return cv.toDataURL("image/png");
 }
 
-window.OgCal = {period, system};
+window.OgCal = {period, system, brand, watermark};
 
 })();

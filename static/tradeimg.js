@@ -25,15 +25,64 @@ const SANS = '"Geist","IBM Plex Sans","Segoe UI",system-ui,sans-serif';
    екрані. Раніше ці три жили в share.js, поруч із картинкою місяця; той
    файл пішов разом зі своєю кнопкою, і малювання впало на порожньому
    місці — тепер вони тут, і файл ні від кого не залежить. */
+/* Стиль, у якому малюємо картинку: "" — поточна тема журналу, або id
+   теми спільноти, коли людина вибрала поділитись у їхньому оформленні. */
+let forceSkin = "";
+
+/* Чи це оформлення спільноти — байдуже, вибрали його для знімка чи журнал
+   і так у їхній темі. Від цього залежить підпис угорі картинки. */
+function collabMode(){
+  const skin = forceSkin || document.documentElement.getAttribute("data-skin");
+  return skin === "blackswan";
+}
+
+/* Підпис угорі: наш знак, назва, «×» і лебідь спільноти. Малює OgCal —
+   той самий підпис стоїть на зведенні за період, другого не заводимо. */
+const BRAND_H = 78;
+function drawBrand(ctx, C, x, y){
+  if (window.OgCal && typeof OgCal.brand === "function")
+    OgCal.brand(ctx, x, y, 46, C, true);
+}
+
+/* Знаки спільноти на тлі — теж із OgCal, щоб малюнок був один на всі
+   картинки.
+
+   Кладемо одразу після заливки тла, під увесь вміст: так знак не лізе
+   на графіки угод, а сам залишається тлом. Щоб його було видно крізь
+   картки, у цій темі вони йдуть без заливки — див. нижче. */
+function drawWatermark(ctx, C, w, h){
+  if (window.OgCal && typeof OgCal.watermark === "function")
+    OgCal.watermark(ctx, w, h, C);
+}
+
 function themeColors(){
-  const cs = getComputedStyle(document.documentElement);
+  const root = document.documentElement;
+  const prevSkin = root.getAttribute("data-skin");
+  const prevBase = root.getAttribute("data-theme");
+  /* Підміняємо тему на час зчитування: так кольори беруться з тих самих
+     змінних, що й на екрані, і другого списку кольорів у коді не заводимо.
+     Все синхронно, тому інтерфейс не встигає перемалюватись. */
+  const swap = forceSkin && forceSkin !== prevSkin;
+  if (swap){
+    root.setAttribute("data-skin", forceSkin);
+    root.setAttribute("data-theme", "light");   /* тема спільноти світла */
+  }
+  const cs = getComputedStyle(root);
   const g = n => cs.getPropertyValue(n).trim();
-  return {
+  const out = {
     bg:g("--bg"), panel:g("--panel"), panel2:g("--panel-2"),
     line:g("--line"), lineSoft:g("--line-soft"),
     text:g("--text"), dim:g("--dim"), faint:g("--faint"),
     accent:g("--accent"), up:g("--up"), down:g("--down"), be:g("--be"),
+    /* наш фірмовий зелений — ним підписується «AI» в назві */
+    mark:g("--logo-green") || "#40e094",
   };
+  if (swap){
+    if (prevSkin) root.setAttribute("data-skin", prevSkin);
+    else root.removeAttribute("data-skin");
+    if (prevBase) root.setAttribute("data-theme", prevBase);
+  }
+  return out;
 }
 
 function withAlpha(hex, a){
@@ -302,7 +351,9 @@ async function buildDayImage(dk){
     cards.push({t, texts, imgs, h: h + 26});
   }
 
-  let H = PAD + 108 + 118 + 20 + cards.reduce((a, c) => a + c.h + 18, 0) + 74;
+  /* в оформленні спільноти зверху додається підпис із двома знаками */
+  const brandH = collabMode() ? BRAND_H : 0;
+  let H = PAD + brandH + 108 + 118 + 20 + cards.reduce((a, c) => a + c.h + 18, 0) + 74;
 
   const cv = document.createElement("canvas");
   const dpr = 2;
@@ -311,9 +362,12 @@ async function buildDayImage(dk){
   ctx.scale(dpr, dpr);
 
   ctx.fillStyle = C.bg; ctx.fillRect(0, 0, W, H);
+  if (brandH) drawWatermark(ctx, C, W, H);
   ctx.textBaseline = "alphabetic";
 
-  let y = PAD + 20;
+  if (brandH) drawBrand(ctx, C, PAD, PAD - 4);
+
+  let y = PAD + brandH + 20;
   ctx.font = "600 46px " + SANS; ctx.fillStyle = C.text;
   ctx.fillText(title, PAD, y + 18);
   ctx.font = "500 44px " + MONO;
@@ -339,8 +393,11 @@ async function buildDayImage(dk){
 
   for (const c of cards){
     const t = c.t, r = netR(t);
-    ctx.fillStyle = C.panel;
-    roundRect(ctx, PAD, y, inner, c.h, 18); ctx.fill();
+    /* В оформленні спільноти картку не заливаємо: у цій темі її колір і
+       так дорівнює тлу, а без заливки крізь неї видно знак позаду. Межа
+       й смуга результату лишаються на місці. */
+    roundRect(ctx, PAD, y, inner, c.h, 18);
+    if (!brandH){ ctx.fillStyle = C.panel; ctx.fill(); }
     ctx.strokeStyle = C.lineSoft; ctx.stroke();
 
     ctx.fillStyle = r > 0 ? C.up : r < 0 ? C.down : C.be;
@@ -421,7 +478,9 @@ function fileName(kind, arg, data){
   return (kind === "trade" ? "trade" : kind) + "-" + (safe || "statsai") + ".png";
 }
 
-async function openImage(kind, arg, data){
+/* skin — id теми, у якій малювати. Порожньо — поточна тема журналу. */
+async function openImage(kind, arg, data, skin){
+  forceSkin = skin || "";
   openModal('<div class="m-head"><b>'
     + ((data && (data.kindFull || data.kind)) || (kind === "day" ? T.tiTitleDay : T.tiTitle))
     + '</b><span class="sp"></span>'
@@ -435,10 +494,12 @@ async function openImage(kind, arg, data){
   let cv;
   try{ cv = await build(kind, arg, data); }
   catch(e){
+    forceSkin = "";
     const w = document.getElementById("tiWrap");
     if (w) w.innerHTML = '<div class="empty">' + T.tiFail + esc(e.message) + "</div>";
     return;
   }
+  forceSkin = "";                       /* далі малюють у своїй темі */
   const wrapEl = document.getElementById("tiWrap");
   if (!wrapEl) return;
   wrapEl.innerHTML = "";
