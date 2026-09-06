@@ -677,10 +677,10 @@ tr.click:hover .go{opacity:1;color:var(--accent)}
    выход другой. Скип — серый и приглушённый: сделки не было, и он не
    должен спорить за внимание с настоящими. */
 .badge.hand,.mk.tp.hand{border:1px dashed var(--up)}
-.badge.skip,.mk.skip{background:var(--panel-3);color:var(--faint)}
+.badge.skip,.mk.skip{background:var(--panel-2);color:var(--faint)}
 .mk.skip{padding:3px 6px}
 .dtrade.skip,tr.skip{opacity:.72}
-.seg button.on.skipk{background:var(--panel-3);border-color:var(--faint);color:var(--dim)}
+.seg button.on.skipk{background:var(--panel-2);border-color:var(--faint);color:var(--dim)}
 .fhint{font-size:11.5px;color:var(--faint);margin-top:4px;display:block}
 
 /* ---------- BE+ отдельным цветом ---------- */
@@ -833,7 +833,7 @@ table.simple.mini td:last-child{white-space:nowrap;font-weight:600}
    при наведенні — там гаразд. */
 @media(hover:none){
   .qc .qx{opacity:1;transform:none;width:16px;height:16px;top:-6px;right:-6px;box-shadow:none;
-    background:var(--panel-3);border:1px solid var(--line);color:var(--faint)}
+    background:var(--panel-2);border:1px solid var(--line);color:var(--faint)}
   .qc .qx svg{width:8px;height:8px}
   .qc .qx:active{background:var(--down);border-color:var(--down);color:#fff}
   .tfslot .tfl .rm.trash{color:var(--faint);opacity:.8}
