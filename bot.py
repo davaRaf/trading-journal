@@ -9,6 +9,7 @@ Telegram-помощник журнала. Запуск:  python bot.py
   * напоминает о важных новостях — за полчаса и утренней сводкой.
 """
 import datetime
+import queue
 import re
 import threading
 import time
@@ -657,6 +658,47 @@ def _jobs_safely():
         traceback.print_exc()
 
 
+# Кожен чат обробляємо своєю чергою в своєму потоці.
+#
+# Раніше оновлення йшли одне за одним у головному циклі, і поки модель
+# думала над питанням (а вона має право думати до 18 секунд, див.
+# assistant.ask), усе інше стояло за ним: чуже повідомлення, власна
+# наступна відповідь, натиснута кнопка. Звідси й «то відповідає одразу,
+# то мовчить пів хвилини» — сам сценарій запису моделі не чіпає взагалі,
+# він просто чекав своєї черги.
+#
+# Усередині чату порядок зберігаємо: дві відповіді підряд у сценарії не
+# мають помінятись місцями. Черга на чат саме це й дає, на відміну від
+# «потік на кожне оновлення».
+_chat_queues = {}
+_queues_lock = threading.Lock()
+
+
+def _chat_of(u):
+    msg = u.get("message") or (u.get("callback_query") or {}).get("message") or {}
+    return (msg.get("chat") or {}).get("id")
+
+
+def _pump(q):
+    while True:
+        u = q.get()
+        try:
+            handle_update(u)
+        except Exception:
+            traceback.print_exc()
+
+
+def dispatch(u):
+    key = _chat_of(u)
+    with _queues_lock:
+        q = _chat_queues.get(key)
+        if q is None:
+            q = queue.Queue()
+            _chat_queues[key] = q
+            threading.Thread(target=_pump, args=(q,), daemon=True).start()
+    q.put(u)
+
+
 def main():
     if not BOT_TOKEN:
         raise SystemExit("BOT_TOKEN не задан — заполни .env (см. .env.example)")
@@ -671,10 +713,9 @@ def main():
         try:
             updates = tg_api.get_updates(offset)
             for u in updates:
-                try:
-                    handle_update(u)
-                except Exception:
-                    traceback.print_exc()
+                # Оновлення віддаємо в чергу свого чату й одразу беремо
+                # наступне: головний цикл більше нічого не чекає.
+                dispatch(u)
                 offset = u["update_id"] + 1
                 db.meta_set("tg_offset", offset)
             if time.time() - last_jobs >= JOB_EVERY:
