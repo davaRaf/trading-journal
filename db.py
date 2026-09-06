@@ -174,6 +174,18 @@ ALTER TABLE users ADD COLUMN IF NOT EXISTS public_journal BOOLEAN NOT NULL DEFAU
 
 -- Опитування «звідки дізнався» жило один день і прибране — колонку теж.
 ALTER TABLE users DROP COLUMN IF EXISTS heard_from;
+
+-- Недописана угода, яку людина заповнює в боті по кроках. Лежить у базі,
+-- а не в пам'яті процесу: виклад коду перезапускає бота, і чернетка,
+-- набрана до половини, інакше зникала б разом з ним.
+-- На людину одна: другу угоду починають, коли попередню записали чи кинули.
+CREATE TABLE IF NOT EXISTS trade_drafts (
+  user_id    BIGINT PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
+  chat_id    BIGINT NOT NULL,
+  step       TEXT NOT NULL DEFAULT '',
+  data       JSONB NOT NULL DEFAULT '{}'::jsonb,
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
 """
 
 
@@ -551,6 +563,64 @@ def unlink_telegram(user_id):
 
 
 # --------------------------------------------------------- напоминания ----
+
+def frequent_values(user_id, field, limit=6):
+    """Чим людина справді користується в цьому полі — від частого до рідкого.
+
+    Кнопки в боті збираємо саме звідси, а не зі списку «всі значення»:
+    інакше поруч із трьома робочими сетапами стоїть десяток тих, що
+    траплялись одного разу. Поле беремо тільки зі свого списку — воно
+    йде в SQL підстановкою, і чужому рядку тут не місце.
+    """
+    if field not in TEXT_FIELDS:
+        raise ValueError("невідоме поле: %s" % field)
+    with connect() as conn:
+        rows = conn.execute(
+            'SELECT "%s" AS v, count(*) AS n FROM trades '
+            'WHERE user_id=%%s AND "%s" <> %%s '
+            'GROUP BY v ORDER BY n DESC, v LIMIT %%s' % (field, field),
+            (user_id, "", limit)).fetchall()
+    return [r["v"] for r in rows]
+
+
+def last_number(user_id, field):
+    """Останнє число в полі — щоб запропонувати «як минулого разу»."""
+    if field not in NUM_FIELDS:
+        raise ValueError("невідоме поле: %s" % field)
+    with connect() as conn:
+        row = conn.execute(
+            'SELECT "%s" AS v FROM trades WHERE user_id=%%s AND "%s" IS NOT NULL '
+            'ORDER BY created_at DESC LIMIT 1' % (field, field), (user_id,)).fetchone()
+    return (row or {}).get("v")
+
+
+# ---------------------------------------------------------------- чернетка ----
+
+def draft_get(user_id):
+    with connect() as conn:
+        row = conn.execute("SELECT chat_id, step, data FROM trade_drafts WHERE user_id=%s",
+                           (user_id,)).fetchone()
+    if not row:
+        return None
+    return {"chat_id": row["chat_id"], "step": row["step"], "data": row["data"] or {}}
+
+
+def draft_save(user_id, chat_id, step, data):
+    with connect() as conn:
+        conn.execute(
+            "INSERT INTO trade_drafts (user_id, chat_id, step, data) "
+            "VALUES (%s, %s, %s, %s) "
+            "ON CONFLICT (user_id) DO UPDATE SET chat_id=EXCLUDED.chat_id, "
+            "step=EXCLUDED.step, data=EXCLUDED.data, updated_at=now()",
+            (user_id, chat_id, step, Jsonb(data or {})))
+        conn.commit()
+
+
+def draft_clear(user_id):
+    with connect() as conn:
+        conn.execute("DELETE FROM trade_drafts WHERE user_id=%s", (user_id,))
+        conn.commit()
+
 
 def already_notified(user_id, event_key, kind):
     with connect() as conn:

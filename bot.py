@@ -2,7 +2,9 @@
 """
 Telegram-помощник журнала. Запуск:  python bot.py
 
-Делает две вещи:
+Делает три вещи:
+  * записывает сделку по шагам, если нажали кнопку «Записати угоду»
+    (сам сценарий — в trade_flow.py);
   * спрашивает про эмоцию по сделкам, добавленным на сайте без неё;
   * напоминает о важных новостях — за полчаса и утренней сводкой.
 """
@@ -20,6 +22,7 @@ import emotions
 import llm
 import news_msg
 import tg_api
+import trade_flow
 from config import BOT_TOKEN, SITE_URL
 
 KYIV = ZoneInfo("Europe/Kyiv")
@@ -156,11 +159,12 @@ def on_start(chat_id, tg_id, username, arg):
         if user:
             tg_api.send_message(chat_id, say(
                 "Трейдер %s вітається знову, хоча журнал уже прив'язаний. Привітайся "
-                "й нагадай, що ти вже на посту: стежиш за новинами і питаєш про "
-                "емоції після угод." % user["nickname"],
-                "Акаунт «%s» уже прив'язаний. Нагадаю про важливі новини і "
-                "запитаю про емоції після угод." % user["nickname"],
-            lang=user_lang(tg_id)))
+                "й нагадай, що ти вже на посту: стежиш за новинами, питаєш про "
+                "емоції після угод і записуєш угоди прямо з чату." % user["nickname"],
+                "Акаунт «%s» уже прив'язаний. Нагадаю про важливі новини, запитаю "
+                "про емоції після угод і запишу угоду з чату." % user["nickname"],
+                lang=user_lang(tg_id)),
+                reply_kb=trade_flow.REPLY_KB)
         else:
             hello = say(
                 "Нова людина вперше пише боту. Привітайся і одним реченням скажи, для "
@@ -183,8 +187,10 @@ def on_start(chat_id, tg_id, username, arg):
             "Що тепер буде:\n\n"
             "• попереджу про важливі новини — за %d хв і вранці\n"
             "• після угоди без емоції спитаю, що ти відчував\n"
-            "• попроси розбір — покажу, які емоції коштують тобі дорожче"
-            % ALERT_MINUTES))
+            "• попроси розбір — покажу, які емоції коштують тобі дорожче\n"
+            "• кнопкою «%s» унизу запишеш угоду прямо з чату"
+            % (ALERT_MINUTES, trade_flow.BUTTON)),
+            reply_kb=trade_flow.REPLY_KB)
     elif status == "taken":
         tg_api.send_message(chat_id, say(
             "Цей Telegram уже прив'язаний до іншого журналу. Скажи про це без "
@@ -209,6 +215,10 @@ def on_callback(cq):
     user = db.get_user_by_telegram(cq["from"]["id"])
     if not user:
         tg_api.answer_callback(cq["id"], "Журнал не прив'язаний")
+        return
+
+    # Кнопки покрокового запису — окремим модулем, тут тільки розвилка.
+    if trade_flow.on_callback(cq, user):
         return
 
     if data.startswith("emofree:"):
@@ -355,6 +365,13 @@ def on_text(chat_id, tg_id, text):
                 lang=user_lang(tg_id, text))
             tg_api.send_message(chat_id, nudge + "\n\n" + LINK_SHORT)
         return
+    # Почата угода веде розмову сама: поки її не записали чи не скасували,
+    # усе, що людина пише, — це відповідь на питання сценарію.
+    if text == trade_flow.BUTTON:
+        trade_flow.start(user, chat_id)
+        return
+    if trade_flow.on_text(user, chat_id, text):
+        return
     news = news_answer(text)
     if news:
         tg_api.send_message(chat_id, news, parse_mode="HTML")
@@ -454,12 +471,22 @@ def handle_update(u):
         return
     msg = u.get("message") or {}
     text = (msg.get("text") or "").strip()
-    if not text:
+    photos = msg.get("photo") or []
+    if not text and not photos:
         return
     chat_id = msg["chat"]["id"]
     sender = msg.get("from") or {}
     tg_id = sender.get("id")
     username = sender.get("username")
+    if photos:
+        # Картинку чекають лише всередині запису угоди — там це скрін. Поза
+        # сценарієм не мовчимо: інакше здається, що бот проковтнув файл.
+        user = db.get_user_by_telegram(tg_id)
+        if not (user and trade_flow.on_photo(user, chat_id, photos)):
+            tg_api.send_message(chat_id, "Щоб додати скрін, почни запис угоди — "
+                                "кнопка «%s» унизу." % trade_flow.BUTTON,
+                                reply_kb=trade_flow.REPLY_KB)
+        return
     # «друкує…» одразу: далі майже завжди йде запит до моделі, і без цього
     # людина секунду-дві дивиться в порожній чат
     tg_api.send_typing(chat_id)
@@ -467,6 +494,12 @@ def handle_update(u):
         on_start(chat_id, tg_id, username, text[len("/start"):].strip())
     elif text.startswith("/report"):
         on_report(chat_id, tg_id)
+    elif text.startswith("/trade"):
+        user = db.get_user_by_telegram(tg_id)
+        if user:
+            trade_flow.start(user, chat_id)
+        else:
+            tg_api.send_message(chat_id, "Спершу прив'яжи журнал.\n\n" + LINK_SHORT)
     elif text.startswith("/"):
         tg_api.send_message(chat_id, say(
             "Людина надіслала невідому команду «%s». Скажи з легкою іронією, що "

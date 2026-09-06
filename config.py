@@ -36,8 +36,10 @@ BOT_TOKEN     = os.environ.get("BOT_TOKEN", "")
 BOT_USERNAME  = os.environ.get("BOT_USERNAME", "")
 SESSION_SECRET = os.environ.get("SESSION_SECRET", "")
 # Адрес журнала — бот вставляет его в сообщения. Меняется вместе с хостингом,
-# поэтому берём из окружения, а не зашиваем в текст.
-SITE_URL      = os.environ.get("SITE_URL", "https://trading-journal-production-440c.up.railway.app/")
+# поэтому берём из окружения, а не зашиваем в текст. Значение по умолчанию —
+# боевой адрес на Hetzner; прежний railway.app остался от старого хостинга и
+# уводил людей на второй экземпляр журнала.
+SITE_URL      = os.environ.get("SITE_URL", "https://statsai.xyz/")
 # Разовый ключ для переноса скриншотов на новый сервер (tools/upload_shots.py).
 # Пока пустой — точка загрузки просто не существует. После переезда убрать.
 ADMIN_TOKEN   = os.environ.get("ADMIN_TOKEN", "")
