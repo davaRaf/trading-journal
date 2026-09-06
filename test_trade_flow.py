@@ -65,9 +65,15 @@ def last():
     return SENT[-1]
 
 
-def press(action, arg=None):
-    """Натиснути кнопку сценарію."""
-    data = "tw:%s" % action + (":%d" % arg if arg is not None else "")
+def press(action, arg=None, step_key=None):
+    """Натиснути кнопку сценарію. За замовчуванням — кнопку поточного кроку;
+    step_key дозволяє натиснути кнопку зі старого повідомлення."""
+    key = step_key or (STORE["draft"] or {}).get("step") or ""
+    data = "tw:%s" % action
+    if action in ("v", "s", "b"):
+        data += ":%s" % key
+    if arg is not None:
+        data += ":%d" % arg
     tf.on_callback({"id": "c", "data": data, "message": {"chat": {"id": CHAT}}}, USER)
 
 
@@ -205,6 +211,30 @@ def check_save():
     check("без пари не записуємо", not STORE["saved"] and STORE["draft"] is None)
 
 
+def check_old_button():
+    """Кнопка зі старого повідомлення не записує чуже значення.
+
+    Саме на цьому сценарій спіткнувся живцем: людина прокрутила чат до
+    попереднього питання й натиснула кнопку там, а номер кнопки пішов у
+    список варіантів уже іншого кроку — IndexError і мовчання у відповідь.
+    """
+    reset()
+    STORE["draft"] = {"chat_id": CHAT, "step": "position",
+                      "data": {"trade": {"id": "t9", "pair": "NQ"},
+                               "opts": ["Long", "Short"]}}
+    press("v", 5, step_key="result")          # кнопка з кроку результату
+    check("чужий крок нічого не записав", "result" not in trade()
+          and "position" not in trade())
+    check("лишились на своєму кроці", step() == "position")
+    check("питання повторили", "Напрямок" in last()["text"])
+
+    # А ще номер може вилетіти за межі списку вже свого кроку — теж не падаємо.
+    STORE["draft"]["data"]["opts"] = ["Long"]
+    press("v", 7)
+    check("номер поза списком — питаємо ще раз", step() == "position"
+          and "position" not in trade())
+
+
 def check_cancel():
     reset()
     STORE["draft"] = {"chat_id": CHAT, "step": "setup",
@@ -218,6 +248,7 @@ check_loss_skips_rr()
 check_text_answers()
 check_back()
 check_photo()
+check_old_button()
 check_save()
 check_cancel()
 print("\nусе добре")

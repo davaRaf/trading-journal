@@ -105,7 +105,16 @@ def edit_message_text(chat_id, message_id, text, keyboard=None):
 
 
 def answer_callback(callback_id, text=None):
+    """Гасить «годинник» на кнопці. Помилку ковтаємо: Телеграм не приймає
+    відповідь на запит, старший за хвилину («query is too old»), а це
+    трапляється щоразу, коли людина тисне кнопку в старому повідомленні
+    або поки бот перезапускався. Робота від цього не залежить — але
+    непроковтнутий виняток раніше валив увесь обробник, і людина
+    замість відповіді не отримувала нічого."""
     payload = {"callback_query_id": callback_id}
     if text:
         payload["text"] = text
-    return call("answerCallbackQuery", payload)
+    try:
+        return call("answerCallbackQuery", payload)
+    except TelegramError:
+        return None

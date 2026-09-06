@@ -150,23 +150,31 @@ def _keyboard(step, labels, skip_ok, first):
     """Кнопки значень по дві в ряд, унизу — навігація.
 
     У callback_data кладемо номер варіанта, а не сам текст: у Телеграма
-    на неї 64 байти, а назви сетапів у людей бувають довгі.
+    на неї 64 байти, а назви сетапів у людей бувають довгі. Поруч —
+    назва кроку: старі повідомлення з чату нікуди не діваються, і без неї
+    натиснута кнопка попереднього питання рахувалась би відповіддю на
+    поточне — з чужого списку й чужим номером.
     """
+    key = step["key"]
     rows, row = [], []
     for i, label in enumerate(labels):
-        row.append({"text": label, "callback_data": "tw:v:%d" % i})
+        row.append({"text": label, "callback_data": "tw:v:%s:%d" % (key, i)})
         if len(row) == 2:
             rows.append(row); row = []
     if row:
         rows.append(row)
-    nav = []
-    if not first:
-        nav.append({"text": "← Назад", "callback_data": "tw:b"})
-    if skip_ok:
-        nav.append({"text": "Пропустити", "callback_data": "tw:s"})
-    nav.append({"text": "✕ Скасувати", "callback_data": "tw:x"})
-    rows.append(nav)
+    rows.append(nav_row(key, back=not first, skip=skip_ok))
     return rows
+
+
+def nav_row(key, back=True, skip=False):
+    nav = []
+    if back:
+        nav.append({"text": "← Назад", "callback_data": "tw:b:%s" % key})
+    if skip:
+        nav.append({"text": "Пропустити", "callback_data": "tw:s:%s" % key})
+    nav.append({"text": "✕ Скасувати", "callback_data": "tw:x"})
+    return nav
 
 
 def _num(v):
@@ -205,8 +213,7 @@ def card(trade):
 
 def _confirm_kb():
     return [[{"text": "✅ Записати", "callback_data": "tw:ok"}],
-            [{"text": "← Назад", "callback_data": "tw:b"},
-             {"text": "✕ Скасувати", "callback_data": "tw:x"}]]
+            nav_row(CONFIRM)]
 
 
 # ------------------------------------------------------------------- показ ----
@@ -363,9 +370,8 @@ def on_photo(user, chat_id, photos):
         tg_api.send_message(
             chat_id, "Скрін прийняв (%d). Можна ще один або далі."
             % len(trade["screenshots"]),
-            keyboard=[[{"text": "Далі →", "callback_data": "tw:s"}],
-                      [{"text": "← Назад", "callback_data": "tw:b"},
-                       {"text": "✕ Скасувати", "callback_data": "tw:x"}]])
+            keyboard=[[{"text": "Далі →", "callback_data": "tw:s:shot"}],
+                      nav_row("shot")])
     else:
         db.draft_save(user["id"], chat_id, draft["step"], draft["data"])
         tg_api.send_message(chat_id, "Скрін прийняв — додам до цієї угоди.")
@@ -384,8 +390,19 @@ def on_callback(cq, user):
     if not draft:
         tg_api.answer_callback(cq["id"], "Ця угода вже закрита")
         return True
-    action = data.split(":")[1]
+    parts = data.split(":")
+    action = parts[1]
+    from_step = parts[2] if len(parts) > 2 and not parts[2].isdigit() else None
     trade = draft["data"].setdefault("trade", {})
+
+    # Кнопка з чужого кроку — тобто зі старого повідомлення, до якого людина
+    # прокрутила чат. Відповідати на неї не можна: варіанти в чернетці вже
+    # інші, і номер кнопки вказав би на чуже значення. Просто нагадуємо, де
+    # ми зараз, і повторюємо поточне питання.
+    if from_step and from_step != draft["step"] and action in ("v", "s", "b"):
+        tg_api.answer_callback(cq["id"], "Це кнопка з попереднього кроку")
+        _ask(user["id"], chat_id, draft)
+        return True
 
     if action == "x":
         db.draft_clear(user["id"])
@@ -420,10 +437,13 @@ def on_callback(cq, user):
 
     if action == "v":
         try:
-            idx = int(data.split(":")[2])
+            idx = int(parts[-1])
             value = (draft["data"].get("opts") or [])[idx]
         except (IndexError, ValueError):
+            # Список варіантів не збігся з кнопкою — питаємо ще раз замість
+            # того, щоб мовчки записати не те.
             tg_api.answer_callback(cq["id"], "Кнопка застаріла")
+            _ask(user["id"], chat_id, draft)
             return True
         step = BY_KEY.get(draft["step"])
         if step and step["kind"] == "number":
