@@ -375,13 +375,16 @@ window.Prefs=Prefs;
    Базовий список пам'ятаємо окремо, щоб після «прибрати» чи «повернути»
    перемалювати саму групу, не чіпаючи форму. */
 const QUICK_BASE={};
+/* корзина — один значок на всі місця, де щось прибирають */
+const TRASH_ICON='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h16M10 11v6M14 11v6M6 7l1 12a2 2 0 002 2h6a2 2 0 002-2l1-12M9 7V4h6v3"/></svg>';
+window.TRASH_ICON=TRASH_ICON;
 function quickHtml(field, base, cur, more){
   QUICK_BASE[field]=base||[];
   cur=(cur==null?"":cur).toString();
   const chips=Prefs.vals(field, base).map(x=>
     '<span class="qc"><button type="button" data-f="'+field+'" data-v="'+esc(x)+'"'+
     (x===cur?' class="on"':"")+' onclick="quickSet(this)">'+esc(x)+'</button>'+
-    '<i class="qx" data-tip="'+esc(T.chipHideTip)+'" onclick="hideChip(this)">×</i></span>').join("");
+    '<i class="qx" data-tip="'+esc(T.chipHideTip)+'" onclick="hideChip(this)">'+TRASH_ICON+'</i></span>').join("");
   const undo=Prefs.hidden(field).length
     ? '<button type="button" class="undo" data-tip="'+esc(T.chipRestoreTip)+'" onclick="restoreChips(this)">↺</button>' : "";
   return '<div class="quick" data-f="'+field+'">'+chips+(more||"")+undo+'</div>';
@@ -1499,12 +1502,11 @@ function openForm(id, presetDay){
   '<section class="fcard"><h4>'+T.fNotes+'</h4><div class="fbody">'+
     '<div class="f"><label id="labEntry">'+T.fEntryDetails+'</label><textarea id="fld_entry_details" placeholder="'+T.fmEntryDetailsPh+'">'+v("entry_details")+"</textarea></div>"+
     '<div class="f"><label>'+T.fmThoughtsLabel+'</label><textarea id="fld_notes" class="short">'+v("notes")+"</textarea></div>"+
+    /* помилки й емоції — як решта полів: кнопки, «+» і своє значення */
     '<div class="f"><label>'+T.fmMistakeLabel+'</label>'+
-      quickHtml("mistakes", mistakes, t?t.mistakes:"")+
-      '<input id="fld_mistakes" value="'+v("mistakes")+'" placeholder="'+T.fmMistakeEmptyPh+'" autocomplete="off" oninput="markQuick()"></div>'+
+      pick("mistakes",mistakes,t?t.mistakes:"",T.fmMistakeEmptyPh)+"</div>"+
     '<div class="f"><label>'+T.fmEmotionLabel+' <span class="autotag">'+T.fmEmotionAutotag+'</span></label>'+
-      quickHtml("emotion", T.emotions, t?t.emotion:"")+
-      '<input id="fld_emotion" value="'+v("emotion")+'" placeholder="'+T.fmEmotionPh+'" autocomplete="off" oninput="markQuick()"></div>'+
+      pick("emotion",T.emotions,t?t.emotion:"",T.fmEmotionPh)+"</div>"+
   "</div></section>"+
 
   "</div>";
@@ -1648,8 +1650,8 @@ function renderShots(){
         '<div class="tfl"><span>'+tf+'</span>'+
         '<button type="button" class="pick" title="'+T.shotPickFileTip+'" data-tf="'+tf+
         '" onclick="event.stopPropagation();pickFor(this.dataset.tf)">'+T.shotFileWord+'</button>'+
-        '<button type="button" class="rm" title="'+T.tfHideTip+'" data-tf="'+tf+
-        '" onclick="event.stopPropagation();hideTf(this.dataset.tf)">×</button></div>'+
+        '<button type="button" class="rm trash" title="'+T.tfHideTip+'" data-tf="'+tf+
+        '" onclick="event.stopPropagation();hideTf(this.dataset.tf)">'+TRASH_ICON+'</button></div>'+
         '<div class="drop">'+(on?'<span class="ready">Ctrl+V</span>':"+")+'</div></div>';
     }
   }
@@ -1772,7 +1774,7 @@ async function saveTrade(id){
   try{ localStorage.setItem("tj_account", t.account||""); }catch(e){}
   /* Своє значення, вписане через «+», наступного разу стоїть кнопкою:
      інакше його доводилось би вписувати щоразу, поки не набереться історія. */
-  for(const k of ["pair","session","account","entry_model","setup","risk"]){
+  for(const k of ["pair","session","account","entry_model","setup","risk","mistakes","emotion"]){
     const inp=$("#fld_"+k);
     if(t[k] && inp && inp.classList.contains("qinput") && !inp.hidden) Prefs.add(k, t[k]);
   }

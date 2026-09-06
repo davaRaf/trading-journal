@@ -818,13 +818,20 @@ table.simple.mini td:last-child{white-space:nowrap;font-weight:600}
 .quick button.more:hover{color:var(--accent);border-color:var(--accent)}
 /* хрестик «прибрати» на підказці: на комп'ютері з'являється при наведенні,
    на телефоні видно завжди — наведення там немає */
+/* червоний бейдж із корзиною на кутку плашки — як видалення застосунків
+   на телефоні: з першого погляду ясно, що це прибрати, а не зняти вибір */
 .qc{position:relative;display:inline-flex}
-.qc .qx{position:absolute;top:-6px;right:-6px;width:16px;height:16px;border-radius:50%;
-  background:var(--panel-3);border:1px solid var(--line);color:var(--faint);font-size:11px;line-height:14px;
-  text-align:center;cursor:pointer;opacity:0;transition:opacity .12s,color .12s,border-color .12s;font-style:normal}
-.qc:hover .qx{opacity:1}
-.qc .qx:hover{color:var(--down);border-color:var(--down)}
-@media(hover:none){.qc .qx{opacity:.85}}
+.qc .qx{position:absolute;top:-7px;right:-7px;width:18px;height:18px;border-radius:50%;
+  background:var(--down);color:#fff;display:grid;place-items:center;font-style:normal;cursor:pointer;
+  box-shadow:0 2px 8px rgba(0,0,0,.45);opacity:0;transform:scale(.7);transition:opacity .14s,transform .14s,filter .14s;z-index:1}
+.qc .qx svg{width:10px;height:10px}
+.qc:hover .qx{opacity:1;transform:scale(1)}
+.qc .qx:hover{filter:brightness(1.12)}
+@media(hover:none){.qc .qx{opacity:1;transform:none}}
+/* корзина в шапці слота таймфрейму */
+.tfslot .tfl .rm.trash{color:var(--down);opacity:.7;display:inline-grid;place-items:center;padding:0 3px}
+.tfslot .tfl .rm.trash svg{width:12px;height:12px}
+.tfslot .tfl .rm.trash:hover{opacity:1;color:var(--down)}
 .quick button.undo{border-style:dashed;color:var(--faint);padding:5px 10px}
 .quick button.undo:hover{color:var(--accent);border-color:var(--accent)}
 /* плитки «свій таймфрейм» і «повернути» — як слоти, але пунктиром і без дії скріна */

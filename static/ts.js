@@ -915,7 +915,8 @@ function drawAsk(){
     body += '<div class="ts-opts">' + opts.map(v =>
       '<span class="ts-optw"><button class="ts-opt' + (sel(v) ? " on" : "") + '" onclick="__ts.pick(\'' + q.k + "','"
       + jsv(v) + "',this)\">" + esc(v) + "</button>"
-      + '<i class="ts-optx" title="' + esc(d.optHide) + '" onclick="__ts.hideOpt(\'' + q.k + "','" + jsv(v) + "')\">×</i></span>").join("")
+      + '<i class="ts-optx" title="' + esc(d.optHide) + '" onclick="__ts.hideOpt(\'' + q.k + "','" + jsv(v) + "')\">"
+      + (window.TRASH_ICON || "×") + "</i></span>").join("")
       + (window.Prefs && Prefs.hidden("ts:" + q.k).length
           ? '<button class="ts-optundo" onclick="__ts.restoreOpts(\'' + q.k + '\')">' + esc(d.optRestore) + "</button>" : "")
       + "</div>";
