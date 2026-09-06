@@ -41,3 +41,16 @@ a.su-val:hover{color:var(--text); text-decoration:underline}
   .su-row{flex-wrap:wrap}
   .su-act{width:100%; margin-top:2px}
 }
+
+/* Соцмережі окремою групою в кінці списку: підпис-роздільник відділяє
+   «як з нами зв'язатись» від «де нас читати». Фірмовий колір — тільки
+   на іконці й тільки під курсором. */
+.su-sep{
+  display:flex; align-items:center; gap:10px; margin:8px 2px 2px;
+  font-family:var(--mono); font-size:9px; letter-spacing:.14em;
+  text-transform:uppercase; color:var(--faint);
+}
+.su-sep::after{content:""; flex:1; height:1px; background:var(--line-soft)}
+.su-instagram:hover .su-ic{background:#e1568f; color:#fff}
+.su-tiktok:hover .su-ic{background:#25f4ee; color:#04100f}
+.su-row .su-ic{transition:background .14s, color .14s}
