@@ -39,6 +39,7 @@ uk: {
   fMistakes: "Помилки", fEmotion: "Емоція", fResult: "Результат", fRisk: "Ризик",
   fDate: "Дата", fNotes: "Нотатки", fEntryDetails: "Як заходив",
   flModel: "Модель", flClear: "Скинути ×", flPeriod: "Період",
+  mFilters: "Фільтри", mDim: "Розріз",
   flPeriodTip: "Показати угоди за проміжок дат", impDirTypeShort: "Прод./Розв.",
 
   // ---- KPI ----
@@ -546,6 +547,7 @@ ru: {
   fMistakes: "Ошибки", fEmotion: "Эмоция", fResult: "Результат", fRisk: "Риск",
   fDate: "Дата", fNotes: "Заметки", fEntryDetails: "Как заходил",
   flModel: "Модель", flClear: "Сбросить ×", flPeriod: "Период",
+  mFilters: "Фильтры", mDim: "Разрез",
   flPeriodTip: "Показать сделки за промежуток дат", impDirTypeShort: "Прод./Разв.",
 
   kCount: "Сделок", kCountTip: "Сколько сделок попало в выборку",
@@ -1030,6 +1032,7 @@ en: {
   fMistakes: "Mistakes", fEmotion: "Emotion", fResult: "Result", fRisk: "Risk",
   fDate: "Date", fNotes: "Notes", fEntryDetails: "How you entered",
   flModel: "Model", flClear: "Clear ×", flPeriod: "Period",
+  mFilters: "Filters", mDim: "Breakdown",
   flPeriodTip: "Show trades over a date range", impDirTypeShort: "Cont./Rev.",
 
   kCount: "Trades", kCountTip: "How many trades made it into the sample",
