@@ -413,7 +413,12 @@ textarea.ts-ask-inp{min-height:116px; resize:vertical}
 .ts-optx svg{width:10px; height:10px}
 .ts-optw:hover .ts-optx{opacity:1; transform:scale(1)}
 .ts-optx:hover{filter:brightness(1.12)}
-@media (hover:none){ .ts-optx{opacity:1; transform:none} }
+@media (hover:none){
+  .ts-optx{opacity:1; transform:none; width:16px; height:16px; top:-6px; right:-6px; box-shadow:none;
+    background:var(--panel-3); border:1px solid var(--line); color:var(--faint)}
+  .ts-optx svg{width:8px; height:8px}
+  .ts-optx:active{background:var(--down); border-color:var(--down); color:#fff}
+}
 .ts-optundo{border:1px dashed var(--line); background:none; color:var(--faint); border-radius:10px;
   padding:9px 12px; font-size:12.5px; cursor:pointer}
 .ts-optundo:hover{color:var(--accent); border-color:var(--accent)}

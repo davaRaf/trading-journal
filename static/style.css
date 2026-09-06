@@ -827,7 +827,18 @@ table.simple.mini td:last-child{white-space:nowrap;font-weight:600}
 .qc .qx svg{width:10px;height:10px}
 .qc:hover .qx{opacity:1;transform:scale(1)}
 .qc .qx:hover{filter:brightness(1.12)}
-@media(hover:none){.qc .qx{opacity:1;transform:none}}
+/* На телефоні бейдж видно завжди, тож у спокої він сірий і меншій, а
+   червоним стає лише під пальцем — інакше двадцять червоних кружків
+   перебивали самі підказки. На комп'ютері він червоний і з'являється
+   при наведенні — там гаразд. */
+@media(hover:none){
+  .qc .qx{opacity:1;transform:none;width:16px;height:16px;top:-6px;right:-6px;box-shadow:none;
+    background:var(--panel-3);border:1px solid var(--line);color:var(--faint)}
+  .qc .qx svg{width:8px;height:8px}
+  .qc .qx:active{background:var(--down);border-color:var(--down);color:#fff}
+  .tfslot .tfl .rm.trash{color:var(--faint);opacity:.8}
+  .tfslot .tfl .rm.trash:active{color:var(--down);opacity:1}
+}
 /* корзина в шапці слота таймфрейму */
 .tfslot .tfl .rm.trash{color:var(--down);opacity:.7;display:inline-grid;place-items:center;padding:0 3px}
 .tfslot .tfl .rm.trash svg{width:12px;height:12px}
