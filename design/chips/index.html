@@ -1,0 +1,157 @@
+<title>Убрать подсказку</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600&family=Geist+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+/* ============================================================
+   Как убирать подсказку из ряда кнопок.
+
+   Первая версия — серый крестик на углу — получилась невнятной: не
+   видно, что это удаление, и на кнопке-подсказке крестик читается
+   как «снять выбор». Здесь четыре способа показать «убрать» так,
+   чтобы это было понятно с первого взгляда, — с красной корзиной.
+
+   Это макет: одна группа подсказок (сессия) в четырёх вариантах,
+   каждую можно потыкать. Сервер не нужен.
+   ============================================================ */
+:root{
+  --bg:#050505; --panel:#0d0d0e; --panel-2:#111112; --panel-3:#161617;
+  --line:rgba(255,255,255,.08); --line-soft:rgba(255,255,255,.045);
+  --text:#f2f2f3; --dim:#8c8c90; --faint:#5c5c61;
+  --accent:#40e094; --accent-ink:#06130d; --accent-soft:rgba(64,224,148,.12);
+  --down:#ff6e60; --down-soft:rgba(255,110,96,.14);
+  --mono:"Geist Mono",ui-monospace,monospace; --sans:"Geist",system-ui,sans-serif;
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--text);font:14px/1.5 var(--sans);-webkit-font-smoothing:antialiased}
+h1,h2,h3{margin:0;font-weight:600}
+button{font:inherit;color:inherit;background:none;border:0;cursor:pointer}
+.wrap{max-width:1100px;margin:0 auto;padding:34px 26px 90px}
+.lead h1{font-size:22px;letter-spacing:-.02em}
+.lead p{margin:9px 0 0;color:var(--dim);max-width:70ch;font-size:13.5px}
+
+.vars{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:18px;margin-top:28px}
+@media (max-width:820px){.vars{grid-template-columns:1fr}}
+.card{border:1px solid var(--line);border-radius:14px;background:var(--panel);overflow:hidden}
+.card>.h{padding:12px 16px;border-bottom:1px solid var(--line-soft);display:flex;align-items:baseline;gap:10px}
+.card>.h b{font-size:14px}
+.card>.h span{color:var(--faint);font-size:12px}
+.card>.b{padding:18px 16px 16px}
+.card .why{margin:14px 0 0;color:var(--faint);font-size:12.5px;line-height:1.5}
+.card .rec{display:inline-block;margin-left:auto;font-family:var(--mono);font-size:9px;letter-spacing:.14em;
+  text-transform:uppercase;color:var(--accent);border:1px solid rgba(64,224,148,.4);border-radius:5px;padding:2px 6px}
+
+/* ---------- как в форме ---------- */
+.f label{display:block;font-size:12px;color:var(--faint);margin-bottom:8px}
+.quick{display:flex;flex-wrap:wrap;gap:6px;align-items:center}
+.chip{display:inline-flex;align-items:center;gap:8px;padding:7px 13px;border:1px solid var(--line);
+  border-radius:20px;background:var(--panel-2);color:var(--dim);font-size:13px;transition:.14s;position:relative}
+.chip:hover{color:var(--text);border-color:var(--faint)}
+.chip.on{background:var(--accent);border-color:var(--accent);color:var(--accent-ink);font-weight:600}
+.more{border:1px dashed var(--line);border-radius:20px;padding:6px 12px;color:var(--faint);font-weight:600}
+.more:hover{color:var(--accent);border-color:var(--accent)}
+.undo{border:1px dashed var(--line);border-radius:20px;padding:6px 11px;color:var(--faint);font-size:12.5px}
+.undo:hover{color:var(--accent);border-color:var(--accent)}
+svg.tr{width:13px;height:13px;flex:none}
+
+/* А: корзина внутри плашки, справа, всегда видна */
+.vA .chip .bin{display:inline-grid;place-items:center;width:18px;height:18px;border-radius:50%;
+  color:var(--down);opacity:.55;margin-right:-4px;transition:.14s}
+.vA .chip .bin:hover{opacity:1;background:var(--down-soft)}
+.vA .chip.on .bin{color:var(--accent-ink);opacity:.6}
+
+/* Б: режим правки — корзины появляются только после «править» */
+.vB .chip .bin{display:none}
+.vB.edit .chip{padding-right:9px;border-style:dashed;animation:wob 1.6s ease-in-out infinite}
+.vB.edit .chip:nth-child(2n){animation-delay:-.8s}
+.vB.edit .chip .bin{display:inline-grid;place-items:center;width:20px;height:20px;border-radius:50%;
+  background:var(--down);color:#fff}
+.vB .editbtn{border:1px solid var(--line);border-radius:20px;padding:6px 12px;color:var(--faint);font-size:12.5px}
+.vB.edit .editbtn{color:var(--accent);border-color:var(--accent);background:var(--accent-soft)}
+@keyframes wob{0%,100%{transform:rotate(-.6deg)}50%{transform:rotate(.6deg)}}
+@media (prefers-reduced-motion:reduce){.vB.edit .chip{animation:none}}
+
+/* В: красная плашка-бейдж на углу, как удаление приложений на телефоне */
+.vC .chip .bin{position:absolute;top:-8px;right:-8px;width:20px;height:20px;border-radius:50%;
+  background:var(--down);color:#fff;display:grid;place-items:center;box-shadow:0 2px 8px rgba(0,0,0,.5);
+  opacity:0;transform:scale(.7);transition:.14s}
+.vC .chip:hover .bin{opacity:1;transform:scale(1)}
+@media (hover:none){.vC .chip .bin{opacity:1;transform:none}}
+.vC .chip .bin:hover{filter:brightness(1.12)}
+
+/* Г: наведение — плашка целиком краснеет и меняет смысл на «убрать» */
+.vD .chip{overflow:hidden}
+.vD .chip .bin{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;gap:6px;
+  background:var(--down);color:#fff;font-size:12.5px;font-weight:600;opacity:0;transition:.16s}
+.vD .chip:hover .bin{opacity:1}
+.vD .chip .bin span{white-space:nowrap}
+@media (hover:none){
+  .vD .chip .bin{display:none}
+  .vD .chip::after{content:"⋯";position:absolute;right:8px;color:var(--faint)}
+}
+
+.toast{margin-top:10px;font-size:12.5px;color:var(--accent);min-height:18px}
+</style>
+
+<div class="wrap">
+  <div class="lead">
+    <h1>Как убирать подсказку из ряда кнопок</h1>
+    <p>Серый крестик на углу получился невнятным: не видно, что это удаление, и на кнопке он читается как
+      «снять выбор». Ниже четыре способа с красной корзиной — потыкай в каждом, всё живое.
+      Выбранная сессия подсвечивается зелёным, как в форме.</p>
+  </div>
+
+  <div class="vars" id="vars"></div>
+</div>
+
+<script>
+const TRASH = '<svg class="tr" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">'
+  + '<path d="M4 7h16M10 11v6M14 11v6M6 7l1 12a2 2 0 002 2h6a2 2 0 002-2l1-12M9 7V4h6v3"/></svg>';
+
+const BASE = ["LONDON","NY","FRANKFURT","PH","PM"];
+const V = [
+  {k:"A", name:"А · Корзина в плашке", sub:"всегда видна",
+   why:"Маленькая красная корзина справа внутри каждой подсказки. Понятно без объяснений, работает одинаково на телефоне и компьютере. Минус — ряд становится чуть «шумнее»: корзины стоят всё время."},
+  {k:"B", name:"Б · Режим правки", sub:"кнопка «править»", rec:true,
+   why:"В обычном состоянии ряд чистый. Нажал «править» — плашки чуть покачиваются, у каждой красная корзина, «+» становится крупнее. Так убирают приложения на телефоне, привычно всем. Убрал лишнее — нажал «готово»."},
+  {k:"C", name:"В · Красный бейдж на углу", sub:"при наведении / на телефоне всегда",
+   why:"Красный кружок с корзиной на правом верхнем углу плашки. На компьютере появляется при наведении, на телефоне виден всегда. Компактно, но на телефоне много красных точек в ряду."},
+  {k:"D", name:"Г · Плашка краснеет", sub:"наведение = «убрать»",
+   why:"Наводишь на подсказку — она целиком становится красной с надписью «убрать». Очень наглядно на компьютере, но на телефоне наведения нет: там пришлось бы держать палец. Поэтому годится только как дополнение."},
+];
+
+const state = {};   // k -> {sel, hidden:[], edit}
+V.forEach(v => state[v.k] = {sel:"LONDON", hidden:[], edit:false});
+
+function chips(k){
+  const st = state[k];
+  const list = BASE.filter(x => !st.hidden.includes(x));
+  return list.map(x =>
+    '<span class="chip' + (st.sel === x ? " on" : "") + '" onclick="pick(\'' + k + "','" + x + "')\">"
+    + x
+    + '<i class="bin" title="Убрать из подсказок" onclick="event.stopPropagation();hide(\'' + k + "','" + x + "')\">"
+    + TRASH + (k === "D" ? "<span>убрать</span>" : "") + "</i></span>").join("")
+    + '<button class="more" title="свой вариант" onclick="event.stopPropagation()">＋</button>'
+    + (k === "B" ? '<button class="editbtn" onclick="toggleEdit(\'' + k + '\')">' + (st.edit ? "готово" : "править") + "</button>" : "")
+    + (st.hidden.length ? '<button class="undo" onclick="restore(\'' + k + '\')">↺ вернуть скрытые</button>' : "");
+}
+
+function paint(){
+  document.getElementById("vars").innerHTML = V.map(v =>
+    '<div class="card"><div class="h"><b>' + v.name + "</b><span>" + v.sub + "</span>"
+    + (v.rec ? '<span class="rec">мой выбор</span>' : "") + "</div>"
+    + '<div class="b"><div class="f"><label>Сессия</label>'
+    + '<div class="quick v' + v.k + (state[v.k].edit ? " edit" : "") + '" id="q' + v.k + '">' + chips(v.k) + "</div></div>"
+    + '<div class="toast" id="t' + v.k + '"></div>'
+    + '<p class="why">' + v.why + "</p></div></div>").join("");
+}
+function pick(k, x){ state[k].sel = state[k].sel === x ? "" : x; paint(); }
+function hide(k, x){
+  state[k].hidden.push(x); if (state[k].sel === x) state[k].sel = "";
+  paint(); const t = document.getElementById("t" + k); t.textContent = x + " убрана из подсказок";
+  setTimeout(() => { if (t.textContent.startsWith(x)) t.textContent = ""; }, 1800);
+}
+function restore(k){ state[k].hidden = []; paint(); }
+function toggleEdit(k){ state[k].edit = !state[k].edit; paint(); }
+paint();
+</script>
