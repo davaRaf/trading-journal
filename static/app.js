@@ -15,6 +15,7 @@ const S = {
   yYear: now.getFullYear(),     // Yearly
   dim: "pair",                  // Analytics — інструменти завжди заповнені, на відміну від сетапу
   filters: {},
+  mFlt: false, mDim: false,     // на телефоні фільтри й розрізи згорнуті під кнопку
   formShots: [],
   all: [], mRep:null, ovPeriod:"month",
   pages:{},                     // номер страницы для каждого списка сделок                // сделка, открытая во второй панели журнала
@@ -430,9 +431,28 @@ function filterBar(){
       vals.map(v=>'<option '+(S.filters[f]===v?"selected":"")+' value="'+esc(v)+'">'+esc(f==="result"?resLabel(v):v)+"</option>").join("")+"</select>";
   }
   h+=periodBtn();
-  if(Object.keys(S.filters).some(k=>S.filters[k])) h+='<button class="clear" onclick="clearFilters()">'+T.flClear+'</button>';
-  return h+"</div>";
+  const on=Object.keys(S.filters).filter(k=>S.filters[k]&&k!=="from"&&k!=="to").length+
+    ((S.filters.from||S.filters.to)?1:0);
+  if(on) h+='<button class="clear" onclick="clearFilters()">'+T.flClear+'</button>';
+  h+="</div>";
+  /* Девʼять списків підряд займають на телефоні пів екрана, тому там вони
+     згорнуті під одну кнопку з лічильником вибраних. На широкому екрані
+     кнопки просто немає (mobile.css), фільтри стоять як завжди. */
+  return '<div class="fwrap'+(S.mFlt?" open":"")+'">'+
+    '<button class="fbtn" onclick="togFlt(this)"><span>'+T.mFilters+'</span>'+
+    (on?'<i class="cnt">'+on+'</i>':'')+CHEV_D+'</button>'+h+'</div>';
 }
+/* обидві згортки живуть тільки на телефоні; стан памʼятаємо в S, щоб
+   перемальовування після вибору фільтра не закривало панель */
+function togFlt(b){
+  const w=b.parentNode; S.mFlt=!w.classList.contains("open"); w.classList.toggle("open",S.mFlt);
+}
+function togDim(b){
+  const w=b.parentNode; S.mDim=!w.classList.contains("open"); w.classList.toggle("open",S.mDim);
+}
+const CHEV_D='<svg class="chev" width="14" height="14" aria-hidden="true" viewBox="0 0 24 24" fill="none">'+
+  '<path d="M6 9.5l6 6 6-6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+
 /* ---------- выбор даты и периода (shadcn/ui · Date Picker) ---------- */
 const CAL_ICON='<svg width="13" height="13" aria-hidden="true" viewBox="0 0 24 24" fill="none">'+
   '<rect x="3" y="4.5" width="18" height="16" rx="3" stroke="currentColor" stroke-width="1.7"/>'+
@@ -1221,7 +1241,12 @@ function vAnalytics(){
   const list=applyFilters(S.trades);
   let h='<div class="vhead"><h1>'+T.anTitle+'</h1><span class="sub">'+list.length+" "+T.anSampleSuffix+"</span></div>";
   h+=filterBar();
-  h+='<div class="dims">'+DIMS().map(d=>'<button class="pill '+(S.dim===d.k?"on":"")+'" onclick="S.dim=\''+d.k+'\';render()">'+d.label+"</button>").join("")+"</div>";
+  /* Десять розрізів у рядок — стіна кнопок на телефоні. Там вони живуть
+     під кнопкою з поточним розрізом і закриваються після вибору. */
+  h+='<div class="dimsel'+(S.mDim?" open":"")+'">'+
+    '<button class="dimbtn" onclick="togDim(this)"><span class="k">'+T.mDim+'</span>'+
+    '<b>'+esc(DIMS().find(d=>d.k===S.dim).label)+'</b>'+CHEV_D+'</button>'+
+    '<div class="dims">'+DIMS().map(d=>'<button class="pill '+(S.dim===d.k?"on":"")+'" onclick="S.dim=\''+d.k+'\';S.mDim=false;render()">'+d.label+"</button>").join("")+"</div></div>";
   const groups=[...groupBy(list,t=>S.dim==="result"?resLabel(t.result):fieldVal(t,S.dim)).entries()].map(([name,arr])=>{
     const st=calc(arr); return {name,st};
   }).sort((a,b)=>b.st.net-a.st.net);
