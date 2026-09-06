@@ -100,17 +100,17 @@ body::before{content:"";position:fixed;inset:0;z-index:0;pointer-events:none;bac
        одне крило синє; заливка прозоріша за обведення, тому в кожної
        грані видно кант ---- */
 #bgfx polygon{
-  fill:color-mix(in srgb,var(--text) 42%,transparent);
+  fill:color-mix(in srgb,var(--text) 30%,transparent);
   stroke:var(--text);stroke-width:2;stroke-linejoin:round;
   vector-effect:non-scaling-stroke;
   opacity:0;transform-box:fill-box;transform-origin:50% 50%;
   animation:swanFold .6s cubic-bezier(.16,1,.3,1) calc(var(--i) * .13s) forwards,
             sparkFade 1.5s 3.4s ease forwards}
 #bgfx polygon.wing{
-  fill:color-mix(in srgb,var(--swan-blue) 42%,transparent);stroke:var(--swan-blue)}
+  fill:color-mix(in srgb,var(--swan-blue) 30%,transparent);stroke:var(--swan-blue)}
 @keyframes swanFold{
   from{opacity:0;transform:translateY(7px) scale(.93)}
-  to{opacity:.36;transform:none}}
+  to{opacity:.22;transform:none}}
 @keyframes sparkFade{to{opacity:0}}
 @media (prefers-reduced-motion:reduce){#bgfx{display:none}}
 body{margin:0;background:var(--bg);color:var(--text);font-family:var(--sans);font-size:15px;
