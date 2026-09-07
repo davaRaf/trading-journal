@@ -35,10 +35,11 @@ let day = "all";                  // виставимо на поточний, �
 let impact = pick(saved.impact);
 let cur = pick(saved.cur);
 let stick = false;                // людина сама вибрала день
+let q = "";                       // пошук по назві; живе, доки розділ відкритий
 
 /* Перехід між розділами йде через hash — на ньому й скидаємо вибір дня:
    наступного разу «Новини» знову відкриються на сьогоднішньому. */
-addEventListener("hashchange", () => { stick = false; });
+addEventListener("hashchange", () => { stick = false; q = ""; });
 
 function keep(){
   try{ localStorage.setItem(FKEY, JSON.stringify({impact, cur})); }catch(e){}
@@ -71,7 +72,17 @@ window.__news = {
   day(v){ day = v; stick = true; render(); },
   imp(v){ impact = v; keep(); render(); },
   cur(v){ cur = v; keep(); render(); },
+  /* перемальовуємо лише список — інакше поле втрачає фокус на кожній літері */
+  q(v){ q = v; const l = document.querySelector(".nw-list"); if (l) l.innerHTML = rows(items()); },
 };
+
+function scope(){ return day === "all" ? events : events.filter(e => dkey(e._d) === day); }
+function items(){
+  const needle = q.trim().toLowerCase();
+  return scope().filter(e => (impact==="all" || e._i===impact)
+                          && (cur==="all"    || e.country===cur)
+                          && (!needle || String(e.title||"").toLowerCase().includes(needle)));
+}
 
 function vNews(){
   if (events === null){
@@ -93,7 +104,7 @@ function vNews(){
     day = days.includes(today) ? today : "all";
   }
 
-  const inScope = day === "all" ? events : events.filter(e => dkey(e._d) === day);
+  const inScope = scope();
   const cnt = i => inScope.filter(e => e._i === i).length;
 
   let h = "";
@@ -133,10 +144,16 @@ function vNews(){
      + curs.map(c => chip(c, c, inScope.filter(e => e.country===c).length, cur, "cur", c)).join("")
      + '</div></div>';
 
+  /* ---- пошук по назві ---- */
+  h += '<label class="nw-search">'
+     + '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" aria-hidden="true">'
+     + '<circle cx="11" cy="11" r="7" stroke="currentColor" stroke-width="1.8"/>'
+     + '<path d="M20 20l-3.5-3.5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>'
+     + '<input type="search" value="' + esc(q) + '" placeholder="' + esc(T.nwSearchPh) + '"'
+     + ' autocomplete="off" oninput="__news.q(this.value)"></label>';
+
   /* ---- список ---- */
-  const items = inScope.filter(e => (impact==="all" || e._i===impact)
-                                 && (cur==="all"    || e.country===cur));
-  h += '<div class="nw-list">' + rows(items) + '</div>';
+  h += '<div class="nw-list">' + rows(items()) + '</div>';
   return h;
 }
 
