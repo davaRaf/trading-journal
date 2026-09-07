@@ -296,3 +296,29 @@ def event_time(event):
 
 def is_high(event):
     return (event.get("impact") or "").lower() == "high"
+
+
+def is_holiday(event):
+    """Банківський вихідний.
+
+    Фід віддає його окремою важливістю "Holiday", а не новиною: цифр там
+    немає, зате є те, чого немає в жодній новині — біржі й банки країни не
+    працюють, і денний обсяг падає. Тому вихідні не змішуємо з «жовтими»,
+    а показуємо окремо — і в списку новин, і в зведеннях бота.
+    """
+    return (event.get("impact") or "").lower() == "holiday"
+
+
+def holidays(events, tz, day):
+    """Валюти, у яких цього дня банківський вихідний, без повторів."""
+    out = []
+    for e in events:
+        if not is_holiday(e):
+            continue
+        dt = event_time(e)
+        if not dt or dt.astimezone(tz).date() != day:
+            continue
+        cur = (e.get("country") or "").upper()
+        if cur and cur not in out:
+            out.append(cur)
+    return out

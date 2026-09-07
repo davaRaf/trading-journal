@@ -3,10 +3,10 @@
 
 :root{
   /* важливість: червоний · помаранчевий · жовтий */
-  --n-h:#c94430; --n-m:#c2701a; --n-l:#a8860f;
+  --n-h:#c94430; --n-m:#c2701a; --n-l:#a8860f; --n-x:#6b7280;
 }
 :root[data-theme="dark"]{
-  --n-h:#f2645f; --n-m:#f0964a; --n-l:#efc258;
+  --n-h:#f2645f; --n-m:#f0964a; --n-l:#efc258; --n-x:#9aa2ad;
 }
 /* Підкладка плашок замішується з кольором картки, а не кладеться напівпрозорою:
    за списком живе фонова анімація, і крізь прозорий фон просвічували її лінії. */
@@ -14,6 +14,7 @@
   --n-h-bg:color-mix(in srgb, var(--n-h) 10%, var(--card));
   --n-m-bg:color-mix(in srgb, var(--n-m) 11%, var(--card));
   --n-l-bg:color-mix(in srgb, var(--n-l) 11%, var(--card));
+  --n-x-bg:color-mix(in srgb, var(--n-x) 11%, var(--card));
 }
 
 /* ---------- попередження ---------- */
@@ -49,6 +50,8 @@
 .nw-day .dots i.h{background:var(--n-h)}
 .nw-day .dots i.m{background:var(--n-m)}
 .nw-day .dots i.l{background:var(--n-l)}
+/* банківський вихідний — сірим: не важливість, а відсутність торгів */
+.nw-day .dots i.x{background:var(--n-x)}
 
 /* ---------- фільтри сегментами ---------- */
 .nw-filters{display:flex; flex-direction:column; align-items:flex-start; gap:10px;
@@ -71,6 +74,7 @@
 .nw-chip i.h{background:var(--n-h)}
 .nw-chip i.m{background:var(--n-m)}
 .nw-chip i.l{background:var(--n-l)}
+.nw-chip i.x{background:var(--n-x)}
 .nw-chip .n{font-family:var(--mono); font-size:10.5px; color:var(--faint)}
 .nw-chip.on .n{color:var(--dim)}
 
@@ -92,6 +96,7 @@
 .nw-ev.h{border-left-color:var(--n-h); background:var(--n-h-bg)}
 .nw-ev.m{border-left-color:var(--n-m); background:var(--n-m-bg)}
 .nw-ev.l{border-left-color:var(--n-l); background:var(--n-l-bg)}
+.nw-ev.x{border-left-color:var(--n-x); background:var(--n-x-bg)}
 /* що вже минуло — гасимо кольором, не прозорістю: інакше крізь плашку
    знову видно фонову анімацію */
 .nw-ev.past{filter:saturate(.45)}
@@ -158,6 +163,7 @@
 .nv-imp.h i{background:var(--n-h)}
 .nv-imp.m i{background:var(--n-m)}
 .nv-imp.l i{background:var(--n-l)}
+.nv-imp.x i{background:var(--n-x)}
 .nv-when{font-size:13px; color:var(--text)}
 .nv-left{margin-left:auto; font-family:var(--mono); font-size:11px; letter-spacing:.04em;
   color:var(--up); border:1px solid color-mix(in srgb, var(--up) 40%, transparent);

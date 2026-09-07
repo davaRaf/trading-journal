@@ -284,6 +284,7 @@ uk: {
 
   // ---- новини ----
   nwImpactHigh: "Червоні", nwImpactMed: "Помаранчеві", nwImpactLow: "Жовті",
+  nwImpactHoliday: "Сірі · вихідні",
   nwLoading: "Завантаження календаря…", nwNoEvents: "Подій немає.",
   nwRetryHint: "Спробуй оновити сторінку за кілька хвилин.", nwAttention: "Увага.",
   nwWeekAll1: "увесь", nwWeekAll2: "тиждень",
@@ -489,6 +490,28 @@ uk: {
   pubCtaText: "Журнал відкритий: угоди й статистику видно цілком. Для цього потрібен свій акаунт — реєстрація за хвилину.",
   ppBtn: "Відкритий журнал",
   ppTip: "Показати журнал іншим за посиланням",
+
+  // ---- підтвердження пошти ----
+  ecTitle: "Пошта",
+  ecOk: "підтверджена", ecNo: "не підтверджена",
+  ecLead: "Ми надіслали на неї лист із посиланням. Підтверджена пошта потрібна "
+        + "для одного: щоб ви могли повернути доступ, якщо забудете пароль.",
+  ecSend: "Надіслати лист ще раз", ecSending: "Надсилаю…",
+  ecSent: "Лист пішов — подивись у скриньці та в теці «Спам»",
+  ecMany: "Забагато спроб — спробуй за %d с",
+  ecFail: "Не вийшло — спробуй ще раз",
+
+  // ---- зміна пароля ----
+  pwTitle: "Пароль",
+  pwLead: "Щоб змінити пароль, спершу введи теперішній — так акаунт не перехопить той, "
+        + "хто дістався до відкритої вкладки.",
+  pwOld: "Теперішній пароль", pwNew: "Новий пароль", pwRepeat: "Ще раз новий",
+  pwSave: "Змінити пароль", pwSaving: "Міняю…", pwDone: "Готово — пароль змінено",
+  pwErrEmpty: "Заповни всі три поля", pwErrShort: "Новий пароль — від 6 символів",
+  pwErrMatch: "Нові паролі не збігаються", pwErrSame: "Новий пароль такий самий, як теперішній",
+  pwErrOld: "Теперішній пароль не підходить",
+  pwErrMany: "Забагато спроб — спробуй за %d с",
+  pwErrGeneric: "Не вийшло — спробуй ще раз",
   ppTitle: "Відкритий журнал",
   ppLead: "Журнал можна відкрити іншим: за посиланням вони побачать твої угоди й статистику. Змінити щось не зможе ніхто, крім тебе.",
   ppOn: "Відкрити журнал іншим",
@@ -779,6 +802,7 @@ ru: {
   ckNoteRateDep: "зависит от курса", ckNoteBtc: "1 лот = 1 BTC",
 
   nwImpactHigh: "Красные", nwImpactMed: "Оранжевые", nwImpactLow: "Жёлтые",
+  nwImpactHoliday: "Серые · выходные",
   nwLoading: "Загрузка календаря…", nwNoEvents: "Событий нет.",
   nwRetryHint: "Попробуй обновить страницу через пару минут.", nwAttention: "Внимание.",
   nwWeekAll1: "вся", nwWeekAll2: "неделя",
@@ -975,6 +999,28 @@ ru: {
   pubCtaText: "Журнал открытый: сделки и статистику видно целиком. Для этого нужен свой аккаунт — регистрация за минуту.",
   ppBtn: "Открытый журнал",
   ppTip: "Показать журнал другим по ссылке",
+
+  // ---- подтверждение почты ----
+  ecTitle: "Почта",
+  ecOk: "подтверждена", ecNo: "не подтверждена",
+  ecLead: "Мы отправили на неё письмо со ссылкой. Подтверждённая почта нужна "
+        + "для одного: чтобы вы могли вернуть доступ, если забудете пароль.",
+  ecSend: "Отправить письмо ещё раз", ecSending: "Отправляю…",
+  ecSent: "Письмо ушло — посмотри в ящике и в папке «Спам»",
+  ecMany: "Слишком много попыток — попробуй через %d с",
+  ecFail: "Не вышло — попробуй ещё раз",
+
+  // ---- смена пароля ----
+  pwTitle: "Пароль",
+  pwLead: "Чтобы сменить пароль, сначала введи текущий — так аккаунт не перехватит тот, "
+        + "кто добрался до открытой вкладки.",
+  pwOld: "Текущий пароль", pwNew: "Новый пароль", pwRepeat: "Ещё раз новый",
+  pwSave: "Сменить пароль", pwSaving: "Меняю…", pwDone: "Готово — пароль изменён",
+  pwErrEmpty: "Заполни все три поля", pwErrShort: "Новый пароль — от 6 символов",
+  pwErrMatch: "Новые пароли не совпадают", pwErrSame: "Новый пароль такой же, как текущий",
+  pwErrOld: "Текущий пароль не подходит",
+  pwErrMany: "Слишком много попыток — попробуй через %d с",
+  pwErrGeneric: "Не вышло — попробуй ещё раз",
   ppTitle: "Открытый журнал",
   ppLead: "Журнал можно открыть другим: по ссылке они увидят твои сделки и статистику. Изменить что-то не сможет никто, кроме тебя.",
   ppOn: "Открыть журнал другим",
@@ -1265,6 +1311,7 @@ en: {
   ckNoteRateDep: "depends on the rate", ckNoteBtc: "1 lot = 1 BTC",
 
   nwImpactHigh: "Red", nwImpactMed: "Orange", nwImpactLow: "Yellow",
+  nwImpactHoliday: "Grey · holidays",
   nwLoading: "Loading the calendar…", nwNoEvents: "No events.",
   nwRetryHint: "Try refreshing the page in a few minutes.", nwAttention: "Heads up.",
   nwWeekAll1: "whole", nwWeekAll2: "week",
@@ -1461,6 +1508,28 @@ en: {
   pubCtaText: "The journal is open: trades and stats can be seen in full. That needs an account of your own — signing up takes a minute.",
   ppBtn: "Open journal",
   ppTip: "Show your journal to others by link",
+
+  // ---- email confirmation ----
+  ecTitle: "Email",
+  ecOk: "confirmed", ecNo: "not confirmed",
+  ecLead: "We have sent a letter with a link to it. A confirmed email serves "
+        + "one purpose: it lets you regain access if you forget your password.",
+  ecSend: "Send the letter again", ecSending: "Sending…",
+  ecSent: "The letter is on its way — check your inbox and the spam folder",
+  ecMany: "Too many attempts — try again in %d s",
+  ecFail: "Did not work — try again",
+
+  // ---- password change ----
+  pwTitle: "Password",
+  pwLead: "To change the password, enter the current one first — so nobody who reaches "
+        + "an open tab can take the account.",
+  pwOld: "Current password", pwNew: "New password", pwRepeat: "Repeat new password",
+  pwSave: "Change password", pwSaving: "Changing…", pwDone: "Done — password changed",
+  pwErrEmpty: "Fill in all three fields", pwErrShort: "New password must be 6+ characters",
+  pwErrMatch: "New passwords do not match", pwErrSame: "New password is the same as the current one",
+  pwErrOld: "Current password is wrong",
+  pwErrMany: "Too many attempts — try again in %d s",
+  pwErrGeneric: "Did not work — try again",
   ppTitle: "Open journal",
   ppLead: "You can open your journal to others: they will see your trades and stats by link. Nobody but you can change anything.",
   ppOn: "Open my journal to others",

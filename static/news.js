@@ -7,8 +7,12 @@
    ============================================================ */
 (function(){
 
-const IMPACT = {High:"h", Medium:"m", Low:"l", Holiday:"l"};
-function NAME(){ return {h:T.nwImpactHigh, m:T.nwImpactMed, l:T.nwImpactLow}; }
+/* Банківський вихідний — не «жовта» новина: цифр у ньому немає, зате
+   є те, чого в жодній новині немає — біржа не працює. Тому в нього
+   свій, сірий рівень і своя фішка у фільтрі. */
+const IMPACT = {High:"h", Medium:"m", Low:"l", Holiday:"x"};
+function NAME(){ return {h:T.nwImpactHigh, m:T.nwImpactMed, l:T.nwImpactLow,
+                         x:T.nwImpactHoliday}; }
 
 let events = null;       // null — ще не завантажено
 let warning = null;
@@ -133,7 +137,7 @@ function vNews(){
   /* ---- фільтри сегментами ---- */
   h += '<div class="nw-filters"><div class="nw-grp"><span class="lab">'+T.nwImportance+'</span>'
      + chip("all", T.nwAll, inScope.length, impact, "imp", "all")
-     + ["h","m","l"].map(i => chip(i, NAME()[i], cnt(i), impact, "imp", i)).join("")
+     + ["h","m","l","x"].map(i => chip(i, NAME()[i], cnt(i), impact, "imp", i)).join("")
      + '</div>';
 
   const curs = [...new Set(events.map(e => e.country))].filter(c => c && c !== "All").sort();

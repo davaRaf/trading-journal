@@ -33,6 +33,7 @@ from psycopg.types.json import Jsonb
 import notion_import as notion
 import notion_public as npub
 import notion_sync
+import authmail
 import oauth
 import ratelimit
 import day_store
@@ -582,6 +583,41 @@ def bot_username():
     return name
 
 
+# Пошта на око: одна «собачка», крапка після неї, ніяких пробілів. Строгішу
+# перевірку робити нема сенсу — чи існує скринька, скаже тільки лист, який
+# туди піде.
+EMAIL_RE = re.compile(r"^[^@\s]{1,64}@[^@\s]{1,190}\.[A-Za-z]{2,24}$")
+
+
+def nick_from_email(email):
+    """Нікнейм із пошти: до «собачки», літери й цифри.
+
+    Нікнейм потрібен лише для адреси відкритого журналу (/u/<нік>) і для
+    звертання в боті. На реєстрації його більше не питаємо — людині це
+    зайве поле, а придумати ім'я з пошти можна й самому. Так само робить
+    вхід через Google (oauth.py).
+    """
+    base = (email or "").split("@")[0]
+    base = "".join(ch for ch in base if ch.isalnum() or ch in "_-.").strip("._-")[:24]
+    return base or "trader"
+
+
+def in_background(fn, *args):
+    """Зробити повільне діло після відповіді.
+
+    Лист іде через чужий сервер і забирає секунду-другу. Тримати на ньому
+    відповідь ні до чого, а на «забув пароль» ще й шкідливо: знайома пошта
+    відповідала б помітно повільніше за незнайому, і однакова відповідь
+    перестала б бути однаковою.
+    """
+    def run():
+        try:
+            fn(*args)
+        except Exception as ex:
+            print("лист не пішов:", ex, flush=True)
+    threading.Thread(target=run, daemon=True).start()
+
+
 def user_public(user):
     return {"id": user["id"], "email": user["email"], "nickname": user["nickname"],
             "telegram": user["telegram_username"] or (str(user["telegram_id"])
@@ -589,7 +625,8 @@ def user_public(user):
             "telegram_linked": user["telegram_id"] is not None,
             "digest_hour": user["digest_hour"], "digest_minute": user["digest_minute"],
             "digest_enabled": user["digest_enabled"],
-            "public_journal": bool(user["public_journal"])}
+            "public_journal": bool(user["public_journal"]),
+            "email_confirmed": user["email_confirmed_at"] is not None}
 
 
 # ---------------------------------------------------------------------------
@@ -1159,7 +1196,24 @@ class H(BaseHTTPRequestHandler):
         if p in ("/privacy", "/terms"):
             return self._file(os.path.join(STATIC, p.strip("/") + ".html"), "text/html; charset=utf-8")
 
-        if p == "/login":
+        # Перехід із листа: гасимо посилання, ставимо позначку й ведемо
+        # на сторінку входу — там людина побачить, що пошту прийнято.
+        # Робимо це на GET, хоч посилання й відкриє будь-хто, кому лист
+        # потрапив до рук (буває, що поштові сторожі відкривають посилання
+        # самі): нічого небезпечного за ним немає — тільки підтвердження,
+        # якого ми й домагаємось.
+        if p == "/confirm":
+            args = urllib.parse.parse_qs(urlparse(self.path).query)
+            token = (args.get("t") or [""])[0].strip()
+            user = db.take_link(authmail.token_hash(token), "confirm") if token else None
+            if not user:
+                return self._redirect("/login?err=confirm")
+            db.confirm_email(user["id"])
+            return self._redirect("/login?ok=confirmed")
+
+        # Сторінка нового пароля — та сама сторінка входу: вона побачить
+        # у адресі ключ і сама покаже потрібні поля.
+        if p in ("/login", "/reset"):
             # Месенджери хочуть в og:image повну адресу, а у файлі вона
             # відносна — сторінка ж не знає, під яким доменом її відкриють.
             # Дописуємо базу на віддачі.
@@ -1267,17 +1321,35 @@ class H(BaseHTTPRequestHandler):
             if not isinstance(body, dict):
                 return self._json({"error": "bad json"}, 400)
             email = str(body.get("email") or "").strip()
-            nickname = str(body.get("nickname") or "").strip()
             password = str(body.get("password") or "")
-            if not email or not nickname or len(password) < 6:
-                return self._json({"error": "потрібні пошта, нікнейм і пароль від 6 символів", "code": "need_fields"}, 400)
+            if not EMAIL_RE.match(email) or len(password) < 6:
+                return self._json({"error": "потрібні пошта і пароль від 6 символів",
+                                   "code": "need_fields"}, 400)
+            if db.get_user_by_email(email):
+                return self._json({"error": "така пошта вже зайнята", "code": "taken"}, 409)
             pw_hash, pw_salt, iters = auth.hash_password(password)
-            try:
-                user = db.create_user(email, nickname, pw_hash, pw_salt, iters)
-            except Exception as ex:
-                if "unique" in str(ex).lower() or "duplicate" in str(ex).lower():
-                    return self._json({"error": "така пошта або нікнейм уже зайняті", "code": "taken"}, 409)
-                raise
+            # Нікнейм робимо з пошти. Він може збігтися з чужим — тоді
+            # пробуємо ще раз із хвостиком: людина про це навіть не знає,
+            # бо ніде його не вводила.
+            nick = nick_from_email(email)
+            user = None
+            for attempt in range(6):
+                try:
+                    user = db.create_user(email, nick if attempt == 0
+                                          else "%s-%s" % (nick, secrets.token_hex(2)),
+                                          pw_hash, pw_salt, iters)
+                    break
+                except Exception as ex:
+                    low = str(ex).lower()
+                    if "unique" not in low and "duplicate" not in low:
+                        raise
+            if not user:
+                return self._json({"error": "така пошта вже зайнята", "code": "taken"}, 409)
+            # Впускаємо одразу, а підтвердження просимо листом: тримати
+            # людину на порозі, поки вона ходить у скриньку, — найшвидший
+            # спосіб втратити її ще до першої угоди.
+            in_background(authmail.start_confirm, user, self._base(),
+                          str(body.get("lang") or "uk"))
             return self._json({"user": user_public(user)}, 201,
                               cookie=auth.cookie_header(auth.make_session(user["id"]),
                                                         secure=auth.is_https(self)))
@@ -1301,6 +1373,56 @@ class H(BaseHTTPRequestHandler):
                 ratelimit.miss(keys)
                 return self._json({"error": "невірна пошта або пароль", "code": "bad_login"}, 401)
             ratelimit.forget(keys)
+            return self._json({"user": user_public(user)},
+                              cookie=auth.cookie_header(auth.make_session(user["id"]),
+                                                        secure=auth.is_https(self)))
+
+        # ---- забув пароль ----
+        # Відповідь однакова завжди: «якщо така пошта є — надіслали».
+        # Скажи ми чесно «такої пошти немає», і сторінкою входу можна було б
+        # перевіряти, хто тут зареєстрований.
+        if p == "/api/auth/forgot":
+            if not isinstance(body, dict):
+                return self._json({"error": "bad json"}, 400)
+            mail = str(body.get("email") or "").strip()
+            lang = str(body.get("lang") or "uk")
+            keys = ["forgot:" + self._guest()] + (["forgot:" + mail.lower()] if mail else [])
+            wait = ratelimit.check(keys)
+            if wait:
+                return self._json({"error": "забагато спроб — спробуй за %d с" % wait,
+                                   "code": "too_many", "wait": wait}, 429)
+            # Лічильник крутимо на кожен запит, а не лише на невдалий: тут
+            # немає «вдалого», і без цього листами можна було б засипати
+            # чужу скриньку.
+            ratelimit.miss(keys)
+            if EMAIL_RE.match(mail):
+                user = db.get_user_by_email(mail)
+                if user:
+                    in_background(authmail.start, user, self._base(), lang)
+            return self._json({"ok": True})
+
+        # ---- новий пароль за посиланням ----
+        if p == "/api/auth/reset":
+            if not isinstance(body, dict):
+                return self._json({"error": "bad json"}, 400)
+            token = str(body.get("token") or "")
+            password = str(body.get("password") or "")
+            if len(password) < 6:
+                return self._json({"error": "пароль від 6 символів", "code": "short"}, 400)
+            keys = ["reset:" + self._guest()]
+            wait = ratelimit.check(keys)
+            if wait:
+                return self._json({"error": "забагато спроб — спробуй за %d с" % wait,
+                                   "code": "too_many", "wait": wait}, 429)
+            user = db.take_link(authmail.token_hash(token), "password") if token else None
+            if not user:
+                ratelimit.miss(keys)
+                return self._json({"error": "посилання застаріло", "code": "bad_token"}, 400)
+            ratelimit.forget(keys)
+            pw_hash, pw_salt, iters = auth.hash_password(password)
+            db.set_password(user["id"], pw_hash, pw_salt, iters)
+            # Одразу впускаємо: людина щойно довела, що скринька її, і
+            # вводити пароль удруге тим самим рухом — зайве.
             return self._json({"user": user_public(user)},
                               cookie=auth.cookie_header(auth.make_session(user["id"]),
                                                         secure=auth.is_https(self)))
@@ -1341,6 +1463,50 @@ class H(BaseHTTPRequestHandler):
             on = bool((body or {}).get("on"))
             db.set_public(uid, on)
             return self._json({"public_journal": on})
+
+        # ---- зміна власного пароля ----
+        # Старий пароль питаємо навіть у того, хто вже увійшов: сесія живе
+        # 30 днів, і чужий комп'ютер із незакритою вкладкою не повинен
+        # давати змогу перебити пароль і забрати акаунт. Перебір старого
+        # обмежуємо так само, як вхід.
+        # ---- надіслати підтвердження пошти ще раз ----
+        if p == "/api/me/confirm":
+            me = db.get_user(uid)
+            if not me:
+                return self._json({"error": "no user"}, 404)
+            if me["email_confirmed_at"] is not None:
+                return self._json({"ok": True, "confirmed": True})
+            keys = ["confirm:%d" % uid]
+            wait = ratelimit.check(keys)
+            if wait:
+                return self._json({"error": "забагато спроб — спробуй за %d с" % wait,
+                                   "code": "too_many", "wait": wait}, 429)
+            ratelimit.miss(keys)
+            in_background(authmail.start_confirm, me, self._base(),
+                          str((body or {}).get("lang") or "uk"))
+            return self._json({"ok": True, "sent": True})
+
+        if p == "/api/me/password":
+            old = str((body or {}).get("old") or "")
+            new = str((body or {}).get("new") or "")
+            if len(new) < 6:
+                return self._json({"error": "пароль від 6 символів",
+                                   "code": "short"}, 400)
+            keys = ["pw:%d" % uid]
+            wait = ratelimit.check(keys)
+            if wait:
+                return self._json({"error": "забагато спроб — спробуй за %d с" % wait,
+                                   "code": "too_many", "wait": wait}, 429)
+            me = db.get_user(uid)
+            if not me or not auth.verify_password(old, me["pw_hash"], me["pw_salt"],
+                                                  me["pw_iters"]):
+                ratelimit.miss(keys)
+                return self._json({"error": "старий пароль не підходить",
+                                   "code": "bad_old"}, 403)
+            ratelimit.forget(keys)
+            pw_hash, pw_salt, iters = auth.hash_password(new)
+            db.set_password(uid, pw_hash, pw_salt, iters)
+            return self._json({"ok": True})
 
         if p == "/api/telegram/link-code":
             bot = bot_username()
