@@ -1378,9 +1378,12 @@ class H(BaseHTTPRequestHandler):
                                                         secure=auth.is_https(self)))
 
         # ---- забув пароль ----
-        # Відповідь однакова завжди: «якщо така пошта є — надіслали».
-        # Скажи ми чесно «такої пошти немає», і сторінкою входу можна було б
-        # перевіряти, хто тут зареєстрований.
+        # Відповідаємо чесно: є така пошта чи немає, дійшов лист чи ні.
+        # Плата за це відома — сторінкою входу можна перевіряти, хто тут
+        # зареєстрований. Власник журналу зважив і вибрав ясність: людина,
+        # яка помилилась адресою, інакше дивиться на «якщо така пошта є,
+        # ми надіслали» і не розуміє, чому нічого не приходить. Перебір
+        # стримує той самий лічильник, що й на вході: 5 спроб за хвилину.
         if p == "/api/auth/forgot":
             if not isinstance(body, dict):
                 return self._json({"error": "bad json"}, 400)
@@ -1395,11 +1398,24 @@ class H(BaseHTTPRequestHandler):
             # немає «вдалого», і без цього листами можна було б засипати
             # чужу скриньку.
             ratelimit.miss(keys)
-            if EMAIL_RE.match(mail):
-                user = db.get_user_by_email(mail)
-                if user:
-                    in_background(authmail.start, user, self._base(), lang)
-            return self._json({"ok": True})
+            if not EMAIL_RE.match(mail):
+                return self._json({"error": "це не схоже на пошту",
+                                   "code": "bad_email"}, 400)
+            user = db.get_user_by_email(mail)
+            if not user:
+                return self._json({"error": "такої пошти в нас немає",
+                                   "code": "no_user"}, 404)
+            # Чекаємо на відправку, а не кидаємо її у фон: обіцяти «лист
+            # пішов», не знаючи цього, — гірше за секунду очікування.
+            try:
+                done = authmail.start(user, self._base(), lang)
+            except Exception as ex:
+                print("пароль: не вдалось надіслати —", ex, flush=True)
+                done = []
+            if not done:
+                return self._json({"error": "лист не вдалось надіслати",
+                                   "code": "send_failed"}, 502)
+            return self._json({"ok": True, "sent": done})
 
         # ---- новий пароль за посиланням ----
         if p == "/api/auth/reset":

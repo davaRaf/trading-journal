@@ -996,8 +996,11 @@ const I18N = {
     btnForgot: "Надіслати посилання", btnReset: "Зберегти пароль",
     fgHint: "Введи пошту, з якою реєструвався. Надішлемо на неї посилання на "
           + "новий пароль — а якщо до журналу прив'язаний Телеграм, то й туди.",
-    fgSent: "Якщо така пошта в нас є — посилання вже пішло. Подивись у скриньці "
-          + "(і в теці «Спам») та в чаті бота. Воно живе 30 хвилин.",
+    fgSent: "Посилання надіслано на %s. Подивись у скриньці (і в теці «Спам») "
+          + "та в чаті бота: воно живе 30 хвилин.",
+    fgNone: "Такої пошти в нас немає. Перевір адресу або створи акаунт.",
+    fgBad: "Це не схоже на адресу пошти.",
+    fgFail: "Листа надіслати не вдалось. Спробуй ще раз трохи згодом.",
     rsHint: "Придумай новий пароль — і одразу зайдемо в журнал.",
     lvl: ["Слабкий", "Слабкий", "Середній", "Добрий", "Надійний"],
     pitchBig: "Журнал, який<br>пояснює результат",
@@ -1033,8 +1036,11 @@ const I18N = {
     btnForgot: "Прислать ссылку", btnReset: "Сохранить пароль",
     fgHint: "Введи почту, с которой регистрировался. Пришлём на неё ссылку на "
           + "новый пароль — а если к журналу привязан Telegram, то и туда.",
-    fgSent: "Если такая почта у нас есть — ссылка уже ушла. Посмотри в ящике "
-          + "(и в папке «Спам») и в чате бота. Она живёт 30 минут.",
+    fgSent: "Ссылка отправлена на %s. Посмотри в ящике (и в папке «Спам») "
+          + "и в чате бота: она живёт 30 минут.",
+    fgNone: "Такой почты у нас нет. Проверь адрес или создай аккаунт.",
+    fgBad: "Это не похоже на адрес почты.",
+    fgFail: "Письмо отправить не удалось. Попробуй ещё раз чуть позже.",
     rsHint: "Придумай новый пароль — и сразу зайдём в журнал.",
     lvl: ["Слабый", "Слабый", "Средний", "Хороший", "Надёжный"],
     pitchBig: "Журнал, который<br>объясняет результат",
@@ -1070,8 +1076,11 @@ const I18N = {
     btnForgot: "Send the link", btnReset: "Save password",
     fgHint: "Enter the email you signed up with. We will send a link for a new "
           + "password — and to Telegram as well, if the journal is linked to it.",
-    fgSent: "If we have that email, the link is already on its way. Check your "
-          + "inbox (and the spam folder) and the bot chat. It lives for 30 minutes.",
+    fgSent: "The link has been sent to %s. Check your inbox (and the spam "
+          + "folder) and the bot chat: it lives for 30 minutes.",
+    fgNone: "We have no such email. Check the address or create an account.",
+    fgBad: "That does not look like an email address.",
+    fgFail: "The letter could not be sent. Please try again a bit later.",
     rsHint: "Pick a new password — and we will take you straight to the journal.",
     lvl: ["Weak", "Weak", "Fair", "Good", "Strong"],
     pitchBig: "The journal that<br>explains your results",
@@ -1184,6 +1193,7 @@ function errText(d){
   const map = {
     need_fields: T.errNeed, taken: T.errTaken, bad_login: T.errBad,
     short: T.errShort, bad_token: T.errToken,
+    no_user: T.fgNone, bad_email: T.fgBad, send_failed: T.fgFail,
     too_many: T.errMany.replace("%d", d.wait != null ? d.wait : "…"),
   };
   return map[d.code] || d.error || T.errGeneric;
@@ -1274,8 +1284,15 @@ async function sendForgot(){
     showErr(T.errServer); shake(); return;
   }
   goBtn.classList.remove("busy");
-  if (!res.ok){ showErr(errText(data)); shake(); return; }
-  showOk(T.fgSent);
+  if (!res.ok){
+    showErr(errText(data));
+    /* Такої пошти немає — найкорисніше, що можна запропонувати далі,
+       це створити акаунт. */
+    if (data.code === "no_user")
+      document.getElementById("altLine").innerHTML = T.altIn;
+    shake(); return;
+  }
+  showOk(T.fgSent.replace("%s", mail));
   document.getElementById("emField").hidden = true;
   document.getElementById("hint").hidden = true;
   goBtn.hidden = true;
