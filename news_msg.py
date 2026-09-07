@@ -51,6 +51,8 @@ WORDS = {
         "empty_day": "%s важливих новин немає",
         "week": "Важливі новини на тиждень",
         "empty_week": "На найближчий тиждень важливих новин немає",
+        "holiday": "Банківський вихідний: %s",
+        "holiday_sub": "Обсяги тонші, рухи рвані — тримай це на увазі.",
     },
     "ru": {
         "today": "Важные новости сегодня",
@@ -71,6 +73,8 @@ WORDS = {
         "empty_day": "%s важных новостей нет",
         "week": "Важные новости на неделю",
         "empty_week": "На ближайшую неделю важных новостей нет",
+        "holiday": "Банковский выходной: %s",
+        "holiday_sub": "Объёмы тоньше, движения рваные — держи это в виду.",
     },
     "en": {
         "today": "High-impact news today",
@@ -91,6 +95,8 @@ WORDS = {
         "empty_day": "No high-impact news on %s",
         "week": "High-impact news this week",
         "empty_week": "No high-impact news in the week ahead",
+        "holiday": "Bank holiday: %s",
+        "holiday_sub": "Thinner volume and choppy moves — keep it in mind.",
     },
 }
 
@@ -231,6 +237,21 @@ def day_name(day, today, lang="uk"):
     return "%s, %s" % (w["weekdays"][day.weekday()], day.strftime("%d.%m"))
 
 
+def holiday_line(events, tz, day, lang="uk"):
+    """Рядок про банківський вихідний — або порожньо, якщо його немає.
+
+    Вихідний не «важлива новина» і до зведення сам не потрапляв: воно
+    бере тільки «червоні». Але для торгівлі це важливіше за половину новин:
+    біржа країни не працює, обсяг тонкий. Тому дописуємо окремим рядком.
+    """
+    curs = calendar_feed.holidays(events, tz, day)
+    if not curs:
+        return ""
+    w = _w(lang)
+    names = ", ".join("%s %s" % (flag(c), c) for c in curs)
+    return "\n\n🏦 <b>%s</b>\n%s" % (w["holiday"] % names, w["holiday_sub"])
+
+
 def digest(events, tz, day, lang="uk", today=None):
     """Ранкове зведення: усі «червоні» новини дня.
 
@@ -244,16 +265,19 @@ def digest(events, tz, day, lang="uk", today=None):
     w = _w(lang)
     gs = groups([e for e in events if calendar_feed.is_high(e)], tz, day)
     other = today is not None and day != today
+    hol = holiday_line(events, tz, day, lang)
     if not gs:
         if other:
-            return "☀️ <b>%s</b>\n%s" % (
+            head = "☀️ <b>%s</b>\n%s" % (
                 w["empty_day"] % day_name(day, today, lang).capitalize(), w["empty_sub"])
-        return "☀️ <b>%s</b>\n%s" % (w["empty"], w["empty_sub"])
+        else:
+            head = "☀️ <b>%s</b>\n%s" % (w["empty"], w["empty_sub"])
+        return head + hol
     n = sum(len(g["titles"]) for g in gs)
     title = w["day"] % day_name(day, today, lang) if other else w["today"]
     head = "☀️ <b>%s</b>\n%d %s · %s" % (
         title, n, _count(n, lang), w["nearest"] % gs[0]["time"])
-    return "%s\n\n%s\n\n%s" % (head, _body(gs), w["footer"])
+    return "%s%s\n\n%s\n\n%s" % (head, hol, _body(gs), w["footer"])
 
 
 def week_digest(events, tz, today, lang="uk", days=7):

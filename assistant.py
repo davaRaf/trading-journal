@@ -407,11 +407,17 @@ def calendar_block():
             name = "завтра"
         else:
             name = "%s, %s" % (WEEKDAYS[day.weekday()], day.isoformat())
-        lines.append("%s: %s" % (name, ("\n  " + "\n  ".join(rows)) if rows else "немає"))
+        hol = calendar_feed.holidays(events, KYIV, day)
+        mark = ("  [банківський вихідний: %s]" % ", ".join(hol)) if hol else ""
+        any_rows = any_rows or bool(hol)
+        lines.append("%s:%s %s" % (name, mark,
+                     ("\n  " + "\n  ".join(rows)) if rows else "немає"))
     if not any_rows:
         return "\n\nВАЖЛИВІ НОВИНИ: на найближчий тиждень їх немає.\n"
     return ("\n\nВАЖЛИВІ НОВИНИ (економічний календар, час київський):\n"
-            + "\n".join(lines) + "\n")
+            + "\n".join(lines)
+            + "\nБанківський вихідний значить, що біржі тієї країни не працюють: "
+              "обсяг тонкий, рухи рвані. Кажи про нього, коли питають про день.\n")
 
 
 def ts_block(user_id):
