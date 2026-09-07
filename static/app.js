@@ -2104,51 +2104,6 @@ function markDemo(){
   document.body.appendChild(b);
 }
 
-/* ---------- «Звідки ти про нас дізнався» — один раз після входу ----------
-   Без цього не зрозуміти, яке комьюніті і яка соцмережа реально приводять
-   людей. Тому пропустити не можна: хрестика немає, Esc не діє, «Далі»
-   вмикається лише після вибору. Відповідь лягає в user_prefs.data.source.
-   Комьюніті поки одне — BlackSwan; з'явиться друге — стане ще однією
-   кнопкою в тій же групі. */
-const Source=(function(){
-  /* Знак Black Swan — їхній малюнок ручкою, той самий файл, що в шапці */
-  const SWAN='<img class="swan" src="/static/swan.png?v=1" alt="" aria-hidden="true">';
-  const OPTS=()=>[
-    {id:"blackswan", nm:"BlackSwan", sub:T.hbCommunitySub, logo:SWAN, group:"community"},
-    {id:"instagram", nm:"Instagram", glyph:"IG", cls:"ig", group:"social"},
-    {id:"tiktok",    nm:"TikTok",    glyph:"TT", cls:"tt", group:"social"},
-    {id:"other",     nm:T.hbOther,   sub:T.hbOtherSub, glyph:"?", cls:"other", group:"social"},
-  ];
-  let picked=null;
-  const opt=o=>'<button type="button" class="hb-opt'+(picked===o.id?" on":"")+(o.cls?" "+o.cls:"")+
-    '" onclick="Source.pick(\''+o.id+'\')"><span class="hb-logo'+(o.logo?" pic":"")+'">'+(o.logo||o.glyph)+
-    '</span><span><span class="hb-nm">'+esc(o.nm)+'</span>'+(o.sub?'<span class="hb-sub">'+esc(o.sub)+"</span>":"")+"</span></button>";
-  function html(){
-    const all=OPTS();
-    return '<div class="hb">'+
-      '<div class="hb-eyebrow">'+esc(T.hbEyebrow)+'</div><h2>'+esc(T.hbTitle)+'</h2><p>'+esc(T.hbLead)+"</p>"+
-      '<div class="hb-group">'+esc(T.hbGroupCommunity)+'</div><div class="hb-grid">'+all.filter(o=>o.group==="community").map(opt).join("")+"</div>"+
-      '<div class="hb-group">'+esc(T.hbGroupSocial)+'</div><div class="hb-grid">'+all.filter(o=>o.group==="social").map(opt).join("")+"</div>"+
-      '<div class="hb-foot"><span class="hb-why">'+esc(T.hbNote)+'</span>'+
-      '<button type="button" class="btn primary hb-go'+(picked?" ready":"")+'" onclick="Source.go()">'+esc(T.hbNext)+"</button></div></div>";
-  }
-  function paint(){ const box=$("#modalBox"); if(box) box.innerHTML=html(); }
-  function maybeAsk(){
-    if(Prefs.get("source")) return;
-    picked=null;
-    openModal(html());
-    S.lockModal=true;
-  }
-  function pick(id){ picked=id; paint(); }
-  function go(){
-    if(!picked) return;
-    Prefs.set("source", {id:picked, at:new Date().toISOString()});
-    S.lockModal=false; closeModal();
-  }
-  return {maybeAsk, pick, go};
-})();
-window.Source=Source;
-
 (async function init(){
   markTheme(); markLayout();
   /* /u/<нік> — чужий журнал: режим вмикається до першого запиту, бо він
@@ -2180,6 +2135,4 @@ window.Source=Source;
   render();
   if(window.Sparks) Sparks.start();
   if(!DEMO && !(window.Pub && Pub.on)) refreshTelegramStatus();
-  /* перший екран після входу — поки людина не відповіла, звідки про нас знає */
-  if(!DEMO && !(window.Pub && Pub.on)) Source.maybeAsk();
 })();

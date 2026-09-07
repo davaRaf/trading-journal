@@ -43,6 +43,9 @@ SITE_URL      = os.environ.get("SITE_URL", "https://statsai.xyz/")
 # Хто бачить службову статистику (звідки приходять люди). Ніки через кому,
 # регістр не важить. За замовчуванням — власник і напарник.
 ADMIN_NICKS   = [x.strip().lower() for x in os.environ.get("ADMIN_NICKS", "davaraf,dania cripto").split(",") if x.strip()]
+# Партнери-спільноти: мітка в адресі (?ref=blackswan) → рахунок партнера.
+# Мітка стає полем users.ref_source. Новий партнер — ще одне слово тут.
+PARTNERS      = [x.strip().lower() for x in os.environ.get("PARTNERS", "blackswan").split(",") if x.strip()]
 # Разовый ключ для переноса скриншотов на новый сервер (tools/upload_shots.py).
 # Пока пустой — точка загрузки просто не существует. После переезда убрать.
 ADMIN_TOKEN   = os.environ.get("ADMIN_TOKEN", "")

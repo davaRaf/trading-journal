@@ -16,12 +16,13 @@ import time
 from concurrent.futures import ThreadPoolExecutor
 from http.server import BaseHTTPRequestHandler, HTTPServer
 import urllib.parse
-from urllib.parse import urlparse, unquote
+from urllib.parse import urlparse, unquote, parse_qs
 
 import assistant
 import delete_ai
 import auth
 import backup
+import http.cookies
 import config
 import db
 import emotions
@@ -473,6 +474,59 @@ def _prefs_init():
     _prefs_ready = True
 
 
+# ---------------------------------------------------------------------------
+# Реферальні мітки. Власник спільноти не довіряє відповідям людей — рахуємо
+# за посиланнями: ?ref=<партнер> у адресі → кука на 30 днів у гостя → поле
+# users.ref_source при реєстрації. Раз і назавжди: пишемо лише туди, де
+# порожньо, тож ні людина, ні інший партнер мітку не переб'ють.
+# ---------------------------------------------------------------------------
+REF_COOKIE = "ref"
+REF_TTL = 30 * 24 * 3600
+
+
+def _ref_init():
+    with db.connect() as conn:
+        conn.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS ref_source TEXT")
+        conn.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS ref_at TIMESTAMPTZ")
+        conn.commit()
+    # Одноразово: хто відповів партнером у старому опитуванні «звідки
+    # дізнався» — отримує мітку. Для старих акаунтів це єдине, що є.
+    if db.meta_get("refs_from_survey"):
+        return
+    _prefs_init()
+    with db.connect() as conn:
+        conn.execute("""UPDATE users u SET ref_source = p.data->'source'->>'id', ref_at = now()
+                        FROM user_prefs p
+                        WHERE p.user_id = u.id AND u.ref_source IS NULL
+                          AND p.data->'source'->>'id' = ANY(%s)""", (list(config.PARTNERS),))
+        conn.commit()
+    db.meta_set("refs_from_survey", "1")
+
+
+def ref_claim(uid, ref):
+    """Поставити мітку на акаунт, якщо її ще нема. True — поставили."""
+    ref = (ref or "").strip().lower()
+    if not uid or ref not in config.PARTNERS:
+        return False
+    with db.connect() as conn:
+        cur = conn.execute("UPDATE users SET ref_source=%s, ref_at=now() "
+                           "WHERE id=%s AND ref_source IS NULL", (ref, uid))
+        n = cur.rowcount
+        conn.commit()
+    return n > 0
+
+
+def ref_of_user(uid):
+    """Мітка хазяїна сторінки: його гості рахуються тому ж партнерові."""
+    if not uid:
+        return None
+    try:
+        u = db.get_user(uid)
+    except Exception:
+        return None
+    return (u and u["ref_source"]) or None
+
+
 def prefs_get(uid):
     _prefs_init()
     with db.connect() as conn:
@@ -809,6 +863,47 @@ class H(BaseHTTPRequestHandler):
     def _uid(self):
         return auth.current_user_id(self)
 
+    def _cookie(self, name):
+        try:
+            jar = http.cookies.SimpleCookie()
+            jar.load(self.headers.get("Cookie") or "")
+            m = jar.get(name)
+            return m.value if m else ""
+        except Exception:
+            return ""
+
+    def _ref_query(self):
+        """?ref=<партнер> у адресі — або нічого."""
+        q = parse_qs(urlparse(self.path).query)
+        ref = (q.get("ref") or [""])[0].strip().lower()
+        return ref if ref in config.PARTNERS else ""
+
+    def _ref_touch(self, owner_ref=None):
+        """Сторінка з міткою (своя в адресі або мітка хазяїна сторінки).
+        Увійшов — мітка на акаунт, якщо порожньо. Гість — кука на 30 днів;
+        наявну не перебиваємо: перша мітка головніша."""
+        ref = self._ref_query() or (owner_ref or "")
+        if ref not in config.PARTNERS:
+            return
+        uid = self._uid()
+        if uid:
+            ref_claim(uid, ref)
+            return
+        if self._cookie(REF_COOKIE) in config.PARTNERS:
+            return
+        parts = ["%s=%s" % (REF_COOKIE, ref), "Path=/", "SameSite=Lax", "Max-Age=%d" % REF_TTL]
+        if auth.is_https(self):
+            parts.append("Secure")
+        self._pending = getattr(self, "_pending", []) + ["; ".join(parts)]
+
+    def end_headers(self):
+        """Відкладені Set-Cookie (мітка партнера) — до будь-якої відповіді,
+        якою б гілкою вона не пішла."""
+        for c in getattr(self, "_pending", []):
+            self.send_header("Set-Cookie", c)
+        self._pending = []
+        BaseHTTPRequestHandler.end_headers(self)
+
     def _guest(self):
         """Адреса гостя. За проксі хостингу справжня приходить у заголовку,
         а client_address — це вже сам проксі, один на всіх.
@@ -857,6 +952,9 @@ class H(BaseHTTPRequestHandler):
     def do_GET(self):
         if self._old_host(): return
         p = unquote(urlparse(self.path).path)
+        # ?ref=<партнер> у будь-якій адресі — /, /login, /demo, /s/…
+        if "ref=" in self.path and not p.startswith("/api/"):
+            self._ref_touch()
 
         if p == "/health":
             if self._db_alive():
@@ -899,6 +997,8 @@ class H(BaseHTTPRequestHandler):
             except Exception:
                 self.send_response(404); self.end_headers(); return
             if rec:
+                # гості хазяїна рахуються його партнерові
+                self._ref_touch(ref_of_user(rec.get("user_id")))
                 proto = self.headers.get("X-Forwarded-Proto") or "http"
                 host = self.headers.get("X-Forwarded-Host") or self.headers.get("Host") or ""
                 base = "%s://%s" % (proto, host)
@@ -950,6 +1050,7 @@ class H(BaseHTTPRequestHandler):
                 if not ext_id:
                     raise ValueError("сервіс не віддав профіль")
                 user = oauth.find_or_create_user(prov, ext_id, email, name)
+                ref_claim(user["id"], self._cookie(REF_COOKIE))
             except Exception as ex:
                 print("oauth %s: %s" % (prov, ex))
                 self.send_response(302)
@@ -972,25 +1073,23 @@ class H(BaseHTTPRequestHandler):
             return self._json({"prefs": prefs_get(uid)})
 
         # ---- звідки про нас дізнались: лише власникам ----
-        if p == "/api/admin/sources":
+        # ---- скільки людей за кожним партнером: лише адмінам ----
+        if p == "/api/admin/refs":
             uid = self._uid()
             if not uid:
                 return self._json({"error": "auth required"}, 401)
             me = db.get_user(uid)
             if not me or (me["nickname"] or "").strip().lower() not in config.ADMIN_NICKS:
                 return self._json({"error": "forbidden"}, 403)
-            _prefs_init()
             with db.connect() as conn:
                 rows = conn.execute("""
-                    SELECT coalesce(p.data->'source'->>'id', '') AS id,
+                    SELECT coalesce(ref_source, '') AS ref,
                            count(*) AS n,
-                           count(*) FILTER (WHERE u.created_at >= now() - interval '7 days') AS week
-                    FROM users u LEFT JOIN user_prefs p ON p.user_id = u.id
-                    GROUP BY 1 ORDER BY n DESC""").fetchall()
-            out = [{"id": r["id"], "n": r["n"], "week": r["week"]} for r in rows]
-            total = sum(r["n"] for r in out)
-            return self._json({"rows": out, "total": total,
-                               "answered": sum(r["n"] for r in out if r["id"])})
+                           count(*) FILTER (WHERE ref_at >= date_trunc('month', now())) AS month,
+                           count(*) FILTER (WHERE ref_at >= now() - interval '30 days') AS d30
+                    FROM users GROUP BY 1 ORDER BY n DESC""").fetchall()
+            out = [{"ref": r["ref"], "n": r["n"], "month": r["month"], "d30": r["d30"]} for r in rows]
+            return self._json({"rows": out, "total": sum(r["n"] for r in out)})
 
         if p == "/api/auth/me":
             uid = self._uid()
@@ -1278,6 +1377,11 @@ class H(BaseHTTPRequestHandler):
         # Rafaelian"). Далі він іде тільки в запит до бази за точним збігом,
         # у файлові шляхи не потрапляє.
         if re.match(r"^/u/[^/\x00-\x1f]{1,40}/?$", p):
+            try:
+                owner = db.get_user_by_nick(p[len("/u/"):].strip("/"))
+                self._ref_touch(owner and owner["ref_source"])
+            except Exception:
+                pass
             return self._file(os.path.join(STATIC, "index.html"),
                               "text/html; charset=utf-8")
 
@@ -1345,6 +1449,7 @@ class H(BaseHTTPRequestHandler):
                         raise
             if not user:
                 return self._json({"error": "така пошта вже зайнята", "code": "taken"}, 409)
+            ref_claim(user["id"], self._cookie(REF_COOKIE))
             # Впускаємо одразу, а підтвердження просимо листом: тримати
             # людину на порозі, поки вона ходить у скриньку, — найшвидший
             # спосіб втратити її ще до першої угоди.
@@ -1861,6 +1966,7 @@ class Server(HTTPServer):
 
 if __name__ == "__main__":
     db.init()
+    _ref_init()
     # календар гріємо одразу: помічник підкладає новини до кожного питання,
     # а поки кеш порожній, перше питання після перезапуску летить до моделі
     # без них — і вона чесно відповідає, що новин немає
