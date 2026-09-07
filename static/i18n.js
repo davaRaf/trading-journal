@@ -491,6 +491,16 @@ uk: {
   ppBtn: "Відкритий журнал",
   ppTip: "Показати журнал іншим за посиланням",
 
+  // ---- підтвердження пошти ----
+  ecTitle: "Пошта",
+  ecOk: "підтверджена", ecNo: "не підтверджена",
+  ecLead: "Ми надіслали на неї лист із посиланням. Підтверджена пошта потрібна "
+        + "для одного: щоб ви могли повернути доступ, якщо забудете пароль.",
+  ecSend: "Надіслати лист ще раз", ecSending: "Надсилаю…",
+  ecSent: "Лист пішов — подивись у скриньці та в теці «Спам»",
+  ecMany: "Забагато спроб — спробуй за %d с",
+  ecFail: "Не вийшло — спробуй ще раз",
+
   // ---- зміна пароля ----
   pwTitle: "Пароль",
   pwLead: "Щоб змінити пароль, спершу введи теперішній — так акаунт не перехопить той, "
@@ -990,6 +1000,16 @@ ru: {
   ppBtn: "Открытый журнал",
   ppTip: "Показать журнал другим по ссылке",
 
+  // ---- подтверждение почты ----
+  ecTitle: "Почта",
+  ecOk: "подтверждена", ecNo: "не подтверждена",
+  ecLead: "Мы отправили на неё письмо со ссылкой. Подтверждённая почта нужна "
+        + "для одного: чтобы вы могли вернуть доступ, если забудете пароль.",
+  ecSend: "Отправить письмо ещё раз", ecSending: "Отправляю…",
+  ecSent: "Письмо ушло — посмотри в ящике и в папке «Спам»",
+  ecMany: "Слишком много попыток — попробуй через %d с",
+  ecFail: "Не вышло — попробуй ещё раз",
+
   // ---- смена пароля ----
   pwTitle: "Пароль",
   pwLead: "Чтобы сменить пароль, сначала введи текущий — так аккаунт не перехватит тот, "
@@ -1488,6 +1508,16 @@ en: {
   pubCtaText: "The journal is open: trades and stats can be seen in full. That needs an account of your own — signing up takes a minute.",
   ppBtn: "Open journal",
   ppTip: "Show your journal to others by link",
+
+  // ---- email confirmation ----
+  ecTitle: "Email",
+  ecOk: "confirmed", ecNo: "not confirmed",
+  ecLead: "We have sent a letter with a link to it. A confirmed email serves "
+        + "one purpose: it lets you regain access if you forget your password.",
+  ecSend: "Send the letter again", ecSending: "Sending…",
+  ecSent: "The letter is on its way — check your inbox and the spam folder",
+  ecMany: "Too many attempts — try again in %d s",
+  ecFail: "Did not work — try again",
 
   // ---- password change ----
   pwTitle: "Password",

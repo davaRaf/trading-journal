@@ -179,18 +179,31 @@ ALTER TABLE users DROP COLUMN IF EXISTS heard_from;
 -- а не в пам'яті процесу: виклад коду перезапускає бота, і чернетка,
 -- набрана до половини, інакше зникала б разом з ним.
 -- На людину одна: другу угоду починають, коли попередню записали чи кинули.
--- Відновлення пароля: одноразове посилання з обмеженим часом життя.
+-- Одноразові посилання з листів: новий пароль (kind='password') і
+-- підтвердження пошти (kind='confirm'). Механіка в них однакова, різні
+-- лише час життя й те, що робиться на тому кінці, — тому тримаємо в
+-- одній таблиці.
 -- Тримаємо відбиток ключа, а не сам ключ: витік бази не має відкривати
 -- чужі акаунти. Рядок лишається й після використання — по ньому видно,
 -- що посилання вже спрацювало, і другий раз воно не відкриється.
-CREATE TABLE IF NOT EXISTS pw_resets (
+CREATE TABLE IF NOT EXISTS auth_links (
   token_hash TEXT PRIMARY KEY,
   user_id    BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  kind       TEXT NOT NULL DEFAULT 'password',
   expires_at TIMESTAMPTZ NOT NULL,
   used_at    TIMESTAMPTZ,
   created_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
-CREATE INDEX IF NOT EXISTS pw_resets_user ON pw_resets (user_id);
+CREATE INDEX IF NOT EXISTS auth_links_user ON auth_links (user_id, kind);
+
+-- Попередня назва тієї ж таблиці. Жила рівно один день і тільки на моїй
+-- машині — на сервер не потрапила, тому просто прибираємо.
+DROP TABLE IF EXISTS pw_resets;
+
+-- Чи підтвердив людина свою пошту, перейшовши за посиланням із листа.
+-- NULL — ще ні. Тим, хто вже був у журналі до появи підтвердження,
+-- ставимо позначку одноразово в init(): просити їх зайвий раз нема за що.
+ALTER TABLE users ADD COLUMN IF NOT EXISTS email_confirmed_at TIMESTAMPTZ;
 
 CREATE TABLE IF NOT EXISTS trade_drafts (
   user_id    BIGINT PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
@@ -206,6 +219,22 @@ def init():
     with connect() as conn:
         conn.execute(SCHEMA)
         conn.commit()
+    _grandfather_emails()
+
+
+def _grandfather_emails():
+    """Хто зареєструвався до появи підтвердження — вважається підтвердженим.
+
+    Робимо це рівно один раз (позначка в meta), інакше кожен запуск
+    підтверджував би й тих, хто щойно зареєструвався й ще не відкрив листа.
+    """
+    if meta_get("emails_grandfathered"):
+        return
+    with connect() as conn:
+        conn.execute("UPDATE users SET email_confirmed_at=created_at "
+                     "WHERE email_confirmed_at IS NULL")
+        conn.commit()
+    meta_set("emails_grandfathered", "1")
 
 
 # ----------------------------------------------------------------- meta ----
@@ -409,35 +438,49 @@ def set_password(user_id, pw_hash, pw_salt, pw_iters):
                      (pw_hash, pw_salt, pw_iters, user_id))
 
 
-def create_reset(user_id, token_hash, minutes=30):
-    """Нове посилання на пароль. Старі невикористані цієї ж людини гасимо:
+def create_link(user_id, token_hash, kind="password", minutes=30):
+    """Нове посилання з листа. Старі невикористані того ж виду гасимо:
     попросив ще раз — значить, попереднє не дійшло або загубилось."""
     with connect() as conn:
-        conn.execute("DELETE FROM pw_resets WHERE user_id=%s AND used_at IS NULL",
-                     (user_id,))
+        conn.execute("DELETE FROM auth_links "
+                     "WHERE user_id=%s AND kind=%s AND used_at IS NULL",
+                     (user_id, kind))
         conn.execute(
-            "INSERT INTO pw_resets (token_hash, user_id, expires_at) "
-            "VALUES (%s, %s, now() + make_interval(mins => %s))",
-            (token_hash, user_id, int(minutes)))
+            "INSERT INTO auth_links (token_hash, user_id, kind, expires_at) "
+            "VALUES (%s, %s, %s, now() + make_interval(mins => %s))",
+            (token_hash, user_id, kind, int(minutes)))
         conn.commit()
 
 
-def take_reset(token_hash):
+def take_link(token_hash, kind="password"):
     """Погасити посилання й повернути господаря. None — не годиться.
+
+    Вид перевіряємо разом із ключем: посиланням на підтвердження пошти
+    не можна відкрити зміну пароля, навіть якщо ключ підійшов.
 
     Позначку «використано» ставимо тим самим запитом, що й перевіряємо:
     два одночасні натискання не мають обидва відкрити зміну пароля.
     """
     with connect() as conn:
         row = conn.execute(
-            "UPDATE pw_resets SET used_at=now() "
-            "WHERE token_hash=%s AND used_at IS NULL AND expires_at > now() "
-            "RETURNING user_id", (token_hash,)).fetchone()
+            "UPDATE auth_links SET used_at=now() "
+            "WHERE token_hash=%s AND kind=%s AND used_at IS NULL "
+            "AND expires_at > now() "
+            "RETURNING user_id", (token_hash, kind)).fetchone()
         conn.commit()
         if not row:
             return None
         return conn.execute("SELECT * FROM users WHERE id=%s",
                             (row["user_id"],)).fetchone()
+
+
+def confirm_email(user_id):
+    """Пошту підтверджено. Повторне підтвердження часу не зсуває —
+    цікавить перший раз."""
+    with connect() as conn:
+        conn.execute("UPDATE users SET email_confirmed_at=now() "
+                     "WHERE id=%s AND email_confirmed_at IS NULL", (user_id,))
+        conn.commit()
 
 
 def public_screenshot(user_id, filename):

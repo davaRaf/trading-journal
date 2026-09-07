@@ -1,19 +1,25 @@
 # -*- coding: utf-8 -*-
 """
-«Забув пароль»: одноразове посилання, яке приходить на пошту і в Телеграм.
+Листи, якими людина доводить, що адреса її: підтвердження пошти при
+реєстрації і посилання на новий пароль.
 
-Чому саме посилання, а не код: код доводиться переносити руками, а
-посилання відкривається одним дотиком — і з листа, і з чату бота.
-Живе воно пів години й згорає після першого використання (db.take_reset),
-тому лист, що залишився в скриньці, другого разу вже нічого не відкриє.
+Обидва влаштовані однаково — одноразове посилання з обмеженим часом
+життя (db.create_link / db.take_link). Різниця в тому, скільки воно живе
+і що робиться на тому кінці:
 
-Шлемо в усі канали, які є в людини. Пошта могла загубитись у спамі,
-телефон — лишитись удома; хай приходить туди й туди, а людина візьме
-те, що ближче.
+  password — пів години. Лист із таким посиланням лежить у скриньці, і
+             що менше він живе, то менше з ним можна зробити.
+  confirm  — доба. Людина відкриває пошту, коли зручно, а нічого небез-
+             печного за цим посиланням не стоїть.
 
-Тон листа — діловий, на «ви», хоч бот в усьому іншому говорить просто і
-на «ти». Лист про пароль людина бачить у скриньці поряд із банківськими
-й службовими, часто на тлі тривоги «мене зламали»: панібратство тут
+Посилання на новий пароль шлемо ще й у Телеграм, якщо журнал до нього
+прив'язаний: пошта могла загубитись у спамі, телефон — лишитись удома.
+А от підтвердження пошти — тільки поштою: воно саме про те, що адреса
+робоча, і надіслане повз неї нічого не доводить.
+
+Тон листів діловий, на «ви», хоч бот в усьому іншому говорить просто і
+на «ти». Такі листи людина бачить у скриньці поряд із банківськими й
+службовими, часто на тлі тривоги «мене зламали»: панібратство тут
 читається як підробка, а не як дружність.
 """
 import hashlib
@@ -24,7 +30,8 @@ import db
 import mailer
 import tg_api
 
-TTL_MIN = 30
+RESET_MIN = 30
+CONFIRM_MIN = 24 * 60
 # Пошта, яку сайт вигадав сам за людину, коли вона зайшла через Google
 # чи Discord і сервіс адреси не дав. Листи туди слати нікуди.
 FAKE_DOMAIN = "@login.statsai"
@@ -108,6 +115,51 @@ TG_TEXT = (
     "make this request, please ignore this message.",
 )
 
+CONFIRM_SUBJECT = ("Підтвердження пошти в журналі StatsAI",
+                   "Подтверждение почты в журнале StatsAI",
+                   "Confirm your StatsAI email")
+
+CONFIRM_LETTER = (
+    "Доброго дня!\n\n"
+    "На цю адресу зареєстровано акаунт у журналі трейдера StatsAI. "
+    "Залишилось підтвердити, що пошта справді ваша.\n\n"
+    "Для цього перейдіть за посиланням:\n"
+    "%(link)s\n\n"
+    "Посилання дійсне добу. Підтверджена пошта потрібна для одного: щоб "
+    "ви могли повернути доступ, якщо забудете пароль.\n\n"
+    "Якщо акаунт створювали не ви, залиште цей лист без уваги — без "
+    "підтвердження адреса до журналу не прив'яжеться.\n\n"
+    "--\n"
+    "StatsAI — помічник трейдера\n"
+    "%(site)s\n",
+
+    "Здравствуйте!\n\n"
+    "На этот адрес зарегистрирован аккаунт в журнале трейдера StatsAI. "
+    "Осталось подтвердить, что почта действительно ваша.\n\n"
+    "Для этого перейдите по ссылке:\n"
+    "%(link)s\n\n"
+    "Ссылка действительна сутки. Подтверждённая почта нужна для одного: "
+    "чтобы вы могли вернуть доступ, если забудете пароль.\n\n"
+    "Если аккаунт создавали не вы, оставьте это письмо без внимания — без "
+    "подтверждения адрес к журналу не привяжется.\n\n"
+    "--\n"
+    "StatsAI — помощник трейдера\n"
+    "%(site)s\n",
+
+    "Hello,\n\n"
+    "An account in the StatsAI trading journal has been registered with this "
+    "address. All that is left is to confirm the email is yours.\n\n"
+    "To do that, follow this link:\n"
+    "%(link)s\n\n"
+    "The link is valid for one day. A confirmed email serves one purpose: it "
+    "lets you regain access if you forget your password.\n\n"
+    "If you did not create the account, please ignore this message — without "
+    "confirmation the address stays unlinked.\n\n"
+    "--\n"
+    "StatsAI — trading assistant\n"
+    "%(site)s\n",
+)
+
 
 def _t(row, lang):
     return row[ORDER.index(lang)] if lang in ORDER else row[0]
@@ -115,23 +167,24 @@ def _t(row, lang):
 
 # ------------------------------------------------------------- робота ----
 
-def link_for(base_url, token):
-    return "%s/reset?t=%s" % ((base_url or config.SITE_URL).rstrip("/"), token)
+def _make(user, base_url, kind, minutes, page):
+    """Спільний початок обох листів: ключ, запис у базу, готова адреса."""
+    token = secrets.token_urlsafe(32)
+    db.create_link(user["id"], token_hash(token), kind, minutes)
+    site = (base_url or config.SITE_URL).rstrip("/")
+    return site, "%s/%s?t=%s" % (site, page, token)
 
 
 def start(user, base_url, lang="uk"):
-    """Зробити посилання й надіслати його всюди, куди можемо.
+    """Посилання на новий пароль — поштою і в Телеграм.
 
     Повертає список каналів, які спрацювали: ["email", "telegram"].
     Порожній список означає, що сказати людині нема куди — але назовні
     ми про це не говоримо (див. app.py): відповідь на «забув пароль»
     однакова завжди, інакше нею можна перевіряти, хто тут є.
     """
-    token = secrets.token_urlsafe(32)
-    db.create_reset(user["id"], token_hash(token), TTL_MIN)
-    site = (base_url or config.SITE_URL).rstrip("/")
-    link = link_for(site, token)
-    words = {"link": link, "min": TTL_MIN, "site": site}
+    site, link = _make(user, base_url, "password", RESET_MIN, "reset")
+    words = {"link": link, "min": RESET_MIN, "site": site}
     done = []
 
     if has_email(user) and mailer.enabled():
@@ -161,3 +214,21 @@ def start(user, base_url, lang="uk"):
         print("пароль: нема куди надіслати (%s) — посилання %s"
               % (user.get("email"), link), flush=True)
     return done
+
+
+def start_confirm(user, base_url, lang="uk"):
+    """Лист із підтвердженням пошти. True — пішов.
+
+    Тільки поштою: лист саме про те, що адреса робоча, і надісланий повз
+    неї (у Телеграм) нічого не доводив би.
+    """
+    if not has_email(user):
+        return False
+    site, link = _make(user, base_url, "confirm", CONFIRM_MIN, "confirm")
+    words = {"link": link, "site": site}
+    if not mailer.enabled():
+        print("пошта: підтвердження для %s не пішло (скринька не налаштована) "
+              "— посилання %s" % (user.get("email"), link), flush=True)
+        return False
+    return mailer.send(user["email"], _t(CONFIRM_SUBJECT, lang),
+                       _t(CONFIRM_LETTER, lang) % words)

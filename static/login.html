@@ -980,6 +980,8 @@ const I18N = {
     remember: "Вхід зберігається на 30 днів", forgot: "Забув пароль?",
     errOauth: "Не вдалось увійти через сервіс. Спробуй ще раз або зайди поштою.",
     errOff: "Цей спосіб входу ще не увімкнено.",
+    errConfirm: "Посилання для підтвердження пошти застаріло або вже спрацювало.",
+    okConfirmed: "Пошту підтверджено — можна заходити.",
     errServer: "Сервер не відповідає", errGeneric: "Не вийшло — спробуй ще раз",
     errNeed: "Потрібні пошта і пароль від 6 символів",
     errTaken: "Така пошта вже зайнята",
@@ -1015,6 +1017,8 @@ const I18N = {
     remember: "Вход сохраняется на 30 дней", forgot: "Забыл пароль?",
     errOauth: "Не удалось войти через сервис. Попробуй ещё раз или зайди почтой.",
     errOff: "Этот способ входа ещё не включён.",
+    errConfirm: "Ссылка для подтверждения почты устарела или уже сработала.",
+    okConfirmed: "Почта подтверждена — можно входить.",
     errServer: "Сервер не отвечает", errGeneric: "Не вышло — попробуй ещё раз",
     errNeed: "Нужны почта и пароль от 6 символов",
     errTaken: "Такая почта уже занята",
@@ -1050,6 +1054,8 @@ const I18N = {
     remember: "You stay signed in for 30 days", forgot: "Forgot password?",
     errOauth: "Couldn't sign in with that service. Try again or use email.",
     errOff: "This sign-in method isn't enabled yet.",
+    errConfirm: "That confirmation link has expired or was already used.",
+    okConfirmed: "Email confirmed — you can sign in.",
     errServer: "Server isn't responding", errGeneric: "Didn't work — try again",
     errNeed: "An email and a password of 6+ characters are required",
     errTaken: "That email is already taken",
@@ -1162,9 +1168,13 @@ document.querySelectorAll(".soc").forEach(b => b.addEventListener("click", () =>
    текст був зашитий українською, і людині з російським інтерфейсом
    помилка приходила чужою мовою. */
 function showUrlErr(){
-  const err = new URLSearchParams(location.search).get("err");
+  const q = new URLSearchParams(location.search);
+  const err = q.get("err");
   if (err === "oauth") showErr(T.errOauth);
   else if (err === "off") showErr(T.errOff);
+  else if (err === "confirm") showErr(T.errConfirm);
+  /* Прийшли за посиланням із листа про пошту — кажемо, що прийнято. */
+  if (q.get("ok") === "confirmed") showOk(T.okConfirmed);
 }
 
 /* Сервер надсилає код помилки, слова підбираємо тут. Невідомий код —

@@ -86,3 +86,30 @@
   .pw-row .btn{width:100%}
   .pw-msg{width:100%}
 }
+
+/* ---------- розділ «Пошта» ---------- */
+.st-sec.ec .ec-row{
+  display:flex; align-items:center; gap:9px; flex-wrap:wrap;
+  font-size:13.5px;
+}
+/* Кружечок замість слова «увага»: сірий — чекаємо, зелений — прийнято. */
+.st-sec.ec .ec-mark{
+  width:9px; height:9px; border-radius:50%; flex:none;
+  background:var(--faint);
+}
+.st-sec.ec .ec-mark.ok{background:var(--up)}
+.st-sec.ec .ec-mail{
+  /* min-width:0 — щоб довга адреса стискалась і лишалась в одному рядку
+     з кружечком, а не зіштовхувала його на рядок вище. */
+  flex:0 1 auto; min-width:0; font-weight:500; word-break:break-all;
+}
+.st-sec.ec .ec-state{color:var(--dim)}
+.st-sec.ec .ec-lead{
+  margin:9px 0 0; font-size:12.5px; line-height:1.55; color:var(--dim);
+}
+.st-sec.ec .ec-act{
+  display:flex; align-items:center; gap:12px; flex-wrap:wrap; margin-top:12px;
+}
+.st-sec.ec .ec-msg{font-size:12.5px; line-height:1.4; color:var(--dim)}
+.st-sec.ec .ec-msg.ok{color:var(--up)}
+.st-sec.ec .ec-msg.bad{color:var(--down)}

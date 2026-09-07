@@ -219,6 +219,10 @@ def find_or_create_user(provider, ext_id, email, name):
                     raise
         if not user:
             raise ValueError("не вдалось створити акаунт")
+        # Пошту вже перевірив сам сервіс, коли пускав людину до себе —
+        # просити її підтвердити те саме листом було б знущанням.
+        if email:
+            db.confirm_email(user["id"])
 
     with db.connect() as conn:
         conn.execute("INSERT INTO identities (provider, ext_id, user_id, email, name) "

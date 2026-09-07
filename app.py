@@ -33,8 +33,8 @@ from psycopg.types.json import Jsonb
 import notion_import as notion
 import notion_public as npub
 import notion_sync
+import authmail
 import oauth
-import pwreset
 import ratelimit
 import day_store
 import tg_api
@@ -602,6 +602,22 @@ def nick_from_email(email):
     return base or "trader"
 
 
+def in_background(fn, *args):
+    """Зробити повільне діло після відповіді.
+
+    Лист іде через чужий сервер і забирає секунду-другу. Тримати на ньому
+    відповідь ні до чого, а на «забув пароль» ще й шкідливо: знайома пошта
+    відповідала б помітно повільніше за незнайому, і однакова відповідь
+    перестала б бути однаковою.
+    """
+    def run():
+        try:
+            fn(*args)
+        except Exception as ex:
+            print("лист не пішов:", ex, flush=True)
+    threading.Thread(target=run, daemon=True).start()
+
+
 def user_public(user):
     return {"id": user["id"], "email": user["email"], "nickname": user["nickname"],
             "telegram": user["telegram_username"] or (str(user["telegram_id"])
@@ -609,7 +625,8 @@ def user_public(user):
             "telegram_linked": user["telegram_id"] is not None,
             "digest_hour": user["digest_hour"], "digest_minute": user["digest_minute"],
             "digest_enabled": user["digest_enabled"],
-            "public_journal": bool(user["public_journal"])}
+            "public_journal": bool(user["public_journal"]),
+            "email_confirmed": user["email_confirmed_at"] is not None}
 
 
 # ---------------------------------------------------------------------------
@@ -1179,6 +1196,21 @@ class H(BaseHTTPRequestHandler):
         if p in ("/privacy", "/terms"):
             return self._file(os.path.join(STATIC, p.strip("/") + ".html"), "text/html; charset=utf-8")
 
+        # Перехід із листа: гасимо посилання, ставимо позначку й ведемо
+        # на сторінку входу — там людина побачить, що пошту прийнято.
+        # Робимо це на GET, хоч посилання й відкриє будь-хто, кому лист
+        # потрапив до рук (буває, що поштові сторожі відкривають посилання
+        # самі): нічого небезпечного за ним немає — тільки підтвердження,
+        # якого ми й домагаємось.
+        if p == "/confirm":
+            args = urllib.parse.parse_qs(urlparse(self.path).query)
+            token = (args.get("t") or [""])[0].strip()
+            user = db.take_link(authmail.token_hash(token), "confirm") if token else None
+            if not user:
+                return self._redirect("/login?err=confirm")
+            db.confirm_email(user["id"])
+            return self._redirect("/login?ok=confirmed")
+
         # Сторінка нового пароля — та сама сторінка входу: вона побачить
         # у адресі ключ і сама покаже потрібні поля.
         if p in ("/login", "/reset"):
@@ -1313,6 +1345,11 @@ class H(BaseHTTPRequestHandler):
                         raise
             if not user:
                 return self._json({"error": "така пошта вже зайнята", "code": "taken"}, 409)
+            # Впускаємо одразу, а підтвердження просимо листом: тримати
+            # людину на порозі, поки вона ходить у скриньку, — найшвидший
+            # спосіб втратити її ще до першої угоди.
+            in_background(authmail.start_confirm, user, self._base(),
+                          str(body.get("lang") or "uk"))
             return self._json({"user": user_public(user)}, 201,
                               cookie=auth.cookie_header(auth.make_session(user["id"]),
                                                         secure=auth.is_https(self)))
@@ -1361,10 +1398,7 @@ class H(BaseHTTPRequestHandler):
             if EMAIL_RE.match(mail):
                 user = db.get_user_by_email(mail)
                 if user:
-                    try:
-                        pwreset.start(user, self._base(), lang)
-                    except Exception as ex:
-                        print("пароль: не вдалось надіслати —", ex)
+                    in_background(authmail.start, user, self._base(), lang)
             return self._json({"ok": True})
 
         # ---- новий пароль за посиланням ----
@@ -1380,7 +1414,7 @@ class H(BaseHTTPRequestHandler):
             if wait:
                 return self._json({"error": "забагато спроб — спробуй за %d с" % wait,
                                    "code": "too_many", "wait": wait}, 429)
-            user = db.take_reset(pwreset.token_hash(token)) if token else None
+            user = db.take_link(authmail.token_hash(token), "password") if token else None
             if not user:
                 ratelimit.miss(keys)
                 return self._json({"error": "посилання застаріло", "code": "bad_token"}, 400)
@@ -1435,6 +1469,23 @@ class H(BaseHTTPRequestHandler):
         # 30 днів, і чужий комп'ютер із незакритою вкладкою не повинен
         # давати змогу перебити пароль і забрати акаунт. Перебір старого
         # обмежуємо так само, як вхід.
+        # ---- надіслати підтвердження пошти ще раз ----
+        if p == "/api/me/confirm":
+            me = db.get_user(uid)
+            if not me:
+                return self._json({"error": "no user"}, 404)
+            if me["email_confirmed_at"] is not None:
+                return self._json({"ok": True, "confirmed": True})
+            keys = ["confirm:%d" % uid]
+            wait = ratelimit.check(keys)
+            if wait:
+                return self._json({"error": "забагато спроб — спробуй за %d с" % wait,
+                                   "code": "too_many", "wait": wait}, 429)
+            ratelimit.miss(keys)
+            in_background(authmail.start_confirm, me, self._base(),
+                          str((body or {}).get("lang") or "uk"))
+            return self._json({"ok": True, "sent": True})
+
         if p == "/api/me/password":
             old = str((body or {}).get("old") or "")
             new = str((body or {}).get("new") or "")
