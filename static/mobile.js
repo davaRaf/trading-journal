@@ -22,7 +22,7 @@ top.innerHTML =
   '<a class="mlogo" href="#dashboard"><span class="mark"><svg class="logo" aria-hidden="true">'
   + '<use href="#logomark"/></svg></span><span class="nm">Stats<i>AI</i></span>'
   + '<i class="tie" aria-hidden="true">×</i>'
-  + '<span class="mark swan"><svg class="swan" aria-hidden="true"><use href="#swanmark"/></svg></span>'
+  + '<span class="mark swan"><img class="swan" src="/static/swan.png?v=1" alt="" aria-hidden="true"></span>'
   + '</a>'
   + '<span class="sp"></span>'
   + '<button class="mnew" type="button" onclick="openForm()">'

@@ -83,35 +83,16 @@ function drawMark(ctx, x, y, size){
 /* Шапка. Тримаємо її низькою: головне на картинці — сітка днів, і саме
    їй потрібна висота. Тому знак і назва в один рядок, а період і підсумок
    у наступний. */
-/* Знак спільноти Black Swan. Контури теж лежать у документі — <symbol
-   id="swanmark">, — тож координати граней тут не дублюємо. */
+/* Знак спільноти Black Swan — їхній малюнок ручкою (static/swan.png).
+   Файл підвантажуємо одразу, бо малювання синхронне: до першого знімка
+   він уже в пам'яті. Не встиг — знак просто пропускаємо. */
+const SWAN_IMG = new Image();
+SWAN_IMG.src = "/static/swan.png?v=1";
 function drawSwan(ctx, x, y, size){
-  const sym = document.getElementById("swanmark");
-  if (!sym) return 0;
-  const shapes = [...sym.querySelectorAll("polygon")];
-  if (!shapes.length) return 0;
-  const k = size / 100;                  /* viewBox 0 0 80 100 */
-  ctx.save();
-  ctx.translate(x, y);
-  ctx.scale(k, k);
-  shapes.forEach(pg => {
-    const pts = (pg.getAttribute("points") || "").trim().split(/\s+/)
-      .map(pair => pair.split(",").map(Number))
-      .filter(p => p.length === 2 && !isNaN(p[0]) && !isNaN(p[1]));
-    if (pts.length < 3) return;
-    ctx.beginPath();
-    pts.forEach((p, i) => i ? ctx.lineTo(p[0], p[1]) : ctx.moveTo(p[0], p[1]));
-    ctx.closePath();
-    /* одна грань синя — вона підписана їхнім кольором просто в symbol */
-    ctx.fillStyle = /swan-blue/.test(pg.getAttribute("fill") || "") ? "#0066ff" : C.text;
-    ctx.fill();
-    /* білі шви між гранями — інакше на такому розмірі знак злипається
-       в одну пляму */
-    ctx.strokeStyle = C.bg; ctx.lineWidth = 2.6; ctx.lineJoin = "round";
-    ctx.stroke();
-  });
-  ctx.restore();
-  return 80 * k;                         /* ширина знака */
+  if (!SWAN_IMG.complete || !SWAN_IMG.naturalWidth) return 0;
+  const w = size * SWAN_IMG.naturalWidth / SWAN_IMG.naturalHeight;
+  ctx.drawImage(SWAN_IMG, x, y, w, size);
+  return w;                              /* ширина знака */
 }
 
 /* Підпис угорі картинки: наш знак, назва, а в оформленні спільноти ще

@@ -74,36 +74,20 @@ const Sparks = (function(){
   }
 
   /* ---------- знак лебедя ---------- */
-  /* Те же грани, что у знака в шапке (symbol #swanmark в index.html):
-     шесть тёмных и одна синяя. Порядок — порядок появления: голова,
-     шея, крылья, тело. */
-  const FACES = [
-    "46.6,0.0 64.4,13.9 32.6,14.1",
-    "33.3,15.8 63.6,47.3 48.8,54.3",
-    "12.5,36.3 39.0,59.4 24.2,66.2",
-    "25.4,69.1 39.5,59.4 41.5,63.8 47.6,55.4 63.2,52.3 39.6,97.2",
-    "43.5,95.1 66.2,50.6 80.0,69.3 45.9,97.3",
-  ];
-  const WING = "9.5,38.1 34.2,96.5 0.9,69.1";     /* синее крыло */
+  /* Їхній малюнок ручкою (static/swan.png), той самий, що в шапці.
+     Проявляється цілим і тане; грані окремо не анімуємо — це малюнок. */
+  const SWAN_SRC = "/static/swan.png?v=1";
 
-  /* zone: 0 — ліва половина вільного поля, 1 — права.
-     back: грані лягають у зворотному порядку, щоб пара не виглядала
-     двома копіями одного руху. */
-  function spawnSwan(zone, back){
+  /* zone: 0 — ліва половина вільного поля, 1 — права. */
+  function spawnSwan(zone){
     /* на вузькому екрані знак менший: інакше він займає його майже весь */
     const cap = window.innerWidth * 0.52 / 0.8;
     const h = Math.min(rnd(190, 330), cap), w = h * 0.8;   /* знак вытянут: 80 на 100 */
-    const svg = document.createElementNS("http://www.w3.org/2000/svg","svg");
-    svg.setAttribute("width", w.toFixed(0)); svg.setAttribute("height", h.toFixed(0));
-    svg.setAttribute("viewBox", "0 0 80 100");
-    place(svg, w, h, zone);
-    /* --i задаёт очередь: каждая следующая грань ложится на 130 мс позже */
-    const last = FACES.length;                     /* грані плюс крило */
-    const ord = i => back ? last - i : i;
-    svg.innerHTML = FACES.map((p,i) =>
-        '<polygon points="'+p+'" style="--i:'+ord(i)+'"/>').join("")
-      + '<polygon class="wing" points="'+WING+'" style="--i:'+ord(last)+'"/>';
-    add(svg, 5200);
+    const img = document.createElement("img");
+    img.src = SWAN_SRC; img.alt = ""; img.className = "swan";
+    img.style.width = w.toFixed(0) + "px"; img.style.height = h.toFixed(0) + "px";
+    place(img, w, h, zone);
+    add(img, 5200);
   }
 
   /* Залп. У власних темах — одна ломана, як було завжди. У темі
@@ -112,10 +96,9 @@ const Sparks = (function(){
   function burst(){
     if(!box || alive >= MAX || document.hidden) return;
     if(!swanMode()){ if (alive < 2) spawnLine(); return; }
-    if (window.innerWidth < PAIR){ spawnSwan(null, false); return; }
-    const back = Math.random() < 0.5;              /* кому з пари йти у зворотному порядку */
-    spawnSwan(0, back);
-    spawnSwan(1, !back);
+    if (window.innerWidth < PAIR){ spawnSwan(null); return; }
+    spawnSwan(0);
+    spawnSwan(1);
   }
 
   function plan(){

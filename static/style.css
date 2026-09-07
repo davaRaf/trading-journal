@@ -83,7 +83,7 @@ body::before{content:"";position:fixed;inset:0;z-index:0;pointer-events:none;bac
    какая тема: в своих темах — ломаную кривой доходности, как было
    всегда; в теме колаборації — знак лебедя, гранями по очереди. */
 #bgfx{position:fixed;inset:0;z-index:0;pointer-events:none;overflow:hidden}
-#bgfx svg{position:absolute;overflow:visible}
+#bgfx svg,#bgfx img{position:absolute;overflow:visible}
 
 /* ---- ломаная: линия рисуется слева направо, замирает и тает ---- */
 #bgfx path{fill:none;stroke:var(--up);stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round;
@@ -96,21 +96,13 @@ body::before{content:"";position:fixed;inset:0;z-index:0;pointer-events:none;bac
 @keyframes sparkDraw{to{stroke-dashoffset:0}}
 @keyframes sparkTip{to{opacity:.75}}
 
-/* ---- знак лебедя: кольори як на самому знаку, грані темні,
-       одне крило синє; заливка прозоріша за обведення, тому в кожної
-       грані видно кант ---- */
-#bgfx polygon{
-  fill:color-mix(in srgb,var(--text) 30%,transparent);
-  stroke:var(--text);stroke-width:2;stroke-linejoin:round;
-  vector-effect:non-scaling-stroke;
-  opacity:0;transform-box:fill-box;transform-origin:50% 50%;
-  animation:swanFold .6s cubic-bezier(.16,1,.3,1) calc(var(--i) * .13s) forwards,
+/* ---- знак лебедя: їхній малюнок ручкою, проявляється цілим і тане ---- */
+#bgfx img.swan{position:absolute;opacity:0;object-fit:contain;
+  animation:swanIn .9s cubic-bezier(.16,1,.3,1) forwards,
             sparkFade 1.5s 3.4s ease forwards}
-#bgfx polygon.wing{
-  fill:color-mix(in srgb,var(--swan-blue) 30%,transparent);stroke:var(--swan-blue)}
-@keyframes swanFold{
-  from{opacity:0;transform:translateY(7px) scale(.93)}
-  to{opacity:.22;transform:none}}
+@keyframes swanIn{
+  from{opacity:0;transform:translateY(7px) scale(.96)}
+  to{opacity:.2;transform:none}}
 @keyframes sparkFade{to{opacity:0}}
 @media (prefers-reduced-motion:reduce){#bgfx{display:none}}
 body{margin:0;background:var(--bg);color:var(--text);font-family:var(--sans);font-size:15px;
@@ -1196,8 +1188,7 @@ a.mini.on .ic{opacity:1;color:var(--accent)}
 :root[data-skin="blackswan"] .brand .marks .mark .logo{height:33px}
 :root[data-skin="blackswan"] .brand .mark.swan{display:grid; width:54px; height:54px;
   border-radius:16px}
-:root[data-skin="blackswan"] .brand .mark.swan .swan{height:32px; width:auto;
-  aspect-ratio:80/100; display:block}
+:root[data-skin="blackswan"] .brand .mark.swan .swan{height:34px; width:auto; display:block}
 /* підпис під назвою тримаємо одним рядком */
 :root[data-skin="blackswan"] .brand .nm small{font-size:8.5px; letter-spacing:.10em;
   white-space:nowrap}
@@ -1592,8 +1583,8 @@ body::after{
 .hb-opt.on{border-color:var(--accent);background:var(--accent-soft)}
 .hb-logo{width:38px;height:38px;border-radius:10px;flex:none;display:grid;place-items:center;
   font-family:var(--mono);font-weight:600;font-size:13px;letter-spacing:-.02em;color:#fff;background:#495057}
-.hb-logo.pic{background:#0b0b0c;border:1px solid var(--line);padding:5px}
-.hb-logo.pic svg{width:100%;height:100%;display:block}
+.hb-logo.pic{background:#fff;border:1px solid var(--line);padding:4px}
+.hb-logo.pic img{width:100%;height:100%;object-fit:contain;display:block}
 .hb-opt.ig .hb-logo{background:#c13584}
 .hb-opt.tt .hb-logo{background:#111}
 .hb-opt.other .hb-logo{background:var(--panel-2);color:var(--dim);border:1px dashed var(--line)}

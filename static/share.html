@@ -93,20 +93,18 @@ body{margin:0; background:var(--bg); color:var(--text); font-family:var(--sans);
 .sheet-top .x:hover{border-color:var(--dim); color:var(--text)}
 /* знімок у оформленні спільноти: після нашої назви — «×» і їхній знак */
 .sheet-top .tie{font-family:var(--mono); font-size:12px; color:var(--faint); font-style:normal}
-.sheet-top .mk.swan svg{width:13px; color:var(--text)}
-.sheet-top .mk.swan svg .wing{fill:#0066ff}
+.sheet-top .mk.swan img{height:16px; width:auto; display:block}
 
 /* ---- лебеді на тлі навколо картки: ті самі грані, що на знаку, лягають
    по черзі й тануть. Тло тут темне, тому грані білі. Шар живе всередині
    .stage під карткою: над затемненням, але під самим знімком. ---- */
 #bgfx{position:fixed; inset:0; z-index:0; pointer-events:none; overflow:hidden}
-#bgfx svg{position:absolute; overflow:visible}
-#bgfx polygon{fill:rgba(255,255,255,.28); stroke:#fff; stroke-width:2; stroke-linejoin:round;
-  vector-effect:non-scaling-stroke; opacity:0; transform-box:fill-box; transform-origin:50% 50%;
-  animation:swanFold .6s cubic-bezier(.16,1,.3,1) calc(var(--i) * .13s) forwards,
-            sparkFade 1.5s 3.4s ease forwards}
-#bgfx polygon.wing{fill:rgba(0,102,255,.32); stroke:#3d8bff}
-@keyframes swanFold{from{opacity:0; transform:translateY(7px) scale(.93)} to{opacity:.26; transform:none}}
+#bgfx svg, #bgfx img{position:absolute; overflow:visible}
+#bgfx img{position:absolute; opacity:0; object-fit:contain;
+  /* тло темне, а чорнило чорне: інвертуємо, синій після hue-rotate лишається синім */
+  filter:invert(1) hue-rotate(180deg);
+  animation:swanIn .9s cubic-bezier(.16,1,.3,1) forwards, sparkFade 1.5s 3.4s ease forwards}
+@keyframes swanIn{from{opacity:0; transform:translateY(7px) scale(.96)} to{opacity:.22; transform:none}}
 @keyframes sparkFade{to{opacity:0}}
 @media (prefers-reduced-motion:reduce){#bgfx{display:none}}
 /* min-height:0 — без нього гортати не виходило: вміст, що не вліз
@@ -726,25 +724,14 @@ document.addEventListener("click", e => {
 });
 
 /* ---- оформлення спільноти Black Swan: знак у шапці й лебеді на тлі ----
-   Грані ті самі, що в symbol #swanmark журналу (index.html). */
-const SWAN_FACES = [
-  "46.6,0.0 64.4,13.9 32.6,14.1",
-  "33.3,15.8 63.6,47.3 48.8,54.3",
-  "12.5,36.3 39.0,59.4 24.2,66.2",
-  "25.4,69.1 39.5,59.4 41.5,63.8 47.6,55.4 63.2,52.3 39.6,97.2",
-  "43.5,95.1 66.2,50.6 80.0,69.3 45.9,97.3",
-];
-const SWAN_WING = "9.5,38.1 34.2,96.5 0.9,69.1";
-const swanSvg = (attrs, ord) => '<svg ' + attrs + ' viewBox="0 0 80 100" aria-hidden="true">'
-  + SWAN_FACES.map((p, i) => '<polygon points="' + p + '"' + (ord ? ' style="--i:' + ord(i) + '"' : ' fill="currentColor"') + '/>').join("")
-  + '<polygon class="wing" points="' + SWAN_WING + '"' + (ord ? ' style="--i:' + ord(SWAN_FACES.length) + '"' : "") + '/></svg>';
-
+   Знак — їхній малюнок ручкою, той самий файл, що в журналі. */
+const SWAN_SRC = "/static/swan.png?v=1";
 let swanOn = false;
 function collab(){
   if (swanOn) return;
   swanOn = true;
   document.getElementById("sheetWho").insertAdjacentHTML("afterend",
-    '<i class="tie" aria-hidden="true">×</i><span class="mk swan">' + swanSvg("", null) + '</span>');
+    '<i class="tie" aria-hidden="true">×</i><span class="mk swan"><img src="' + SWAN_SRC + '" alt=""></span>');
   swans();
 }
 
@@ -755,26 +742,23 @@ function swans(){
   if (!box || matchMedia("(prefers-reduced-motion:reduce)").matches || innerWidth < 380) return;
   const rnd = (a, b) => a + Math.random() * (b - a);
   let alive = 0, timer = 0;
-  function one(zone, back){
+  function one(zone){
     const h = Math.min(rnd(190, 330), innerWidth * 0.52 / 0.8), w = h * 0.8;
     let a = 16, b = Math.max(a + 40, innerWidth - w - 16);
     if (zone === 0) b = Math.max(a + 20, innerWidth / 2 - w / 2 - 60);
     if (zone === 1) a = Math.min(b - 20, innerWidth / 2 + w / 2 + 60);
-    const wrap = document.createElement("div");
-    const last = SWAN_FACES.length;
-    wrap.innerHTML = swanSvg('width="' + w.toFixed(0) + '" height="' + h.toFixed(0) + '"',
-                             i => back ? last - i : i);
-    const svg = wrap.firstChild;
-    svg.style.left = Math.round(rnd(a, b)) + "px";
-    svg.style.top = Math.round(rnd(40, Math.max(80, innerHeight - h - 50))) + "px";
-    box.appendChild(svg); alive++;
-    setTimeout(() => { svg.remove(); alive--; }, 5200);
+    const img = document.createElement("img");
+    img.src = SWAN_SRC; img.alt = "";
+    img.style.width = w.toFixed(0) + "px"; img.style.height = h.toFixed(0) + "px";
+    img.style.left = Math.round(rnd(a, b)) + "px";
+    img.style.top = Math.round(rnd(40, Math.max(80, innerHeight - h - 50))) + "px";
+    box.appendChild(img); alive++;
+    setTimeout(() => { img.remove(); alive--; }, 5200);
   }
   function burst(){
     if (alive >= 4 || document.hidden) return;
-    if (innerWidth < 1200){ one(null, false); return; }
-    const back = Math.random() < 0.5;
-    one(0, back); one(1, !back);
+    if (innerWidth < 1200){ one(null); return; }
+    one(0); one(1);
   }
   function plan(){ clearTimeout(timer); timer = setTimeout(() => { burst(); plan(); }, rnd(3600, 7000)); }
   setTimeout(burst, 900); plan();

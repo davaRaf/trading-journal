@@ -114,7 +114,7 @@ function draw(){
     + (collab.length
         ? '<div class="th-collab">'
           + '<div class="th-collab-head"><span class="th-collab-mark">'
-          +   '<svg class="swan" aria-hidden="true"><use href="#swanmark"/></svg></span>'
+          +   '<img class="swan" src="/static/swan.png?v=1" alt="" aria-hidden="true"></span>'
           +   '<span><b>'+T.thCollabGroup+'</b><i>'+T.thCollabNote+'</i></span></div>'
           + '<div class="th-grid">'
           + collab.map(t => card(t, t.id === now)).join("")

@@ -2111,16 +2111,8 @@ function markDemo(){
    Комьюніті поки одне — BlackSwan; з'явиться друге — стане ще однією
    кнопкою в тій же групі. */
 const Source=(function(){
-  /* Знак BlackSwan — той самий, що стоїть у шапці журналу (symbol
-     #swanmark в index.html). Тут він окремим SVG, бо плашка малюється
-     рядком; координати граней ті самі, щоб знак усюди був один. */
-  const SWAN='<svg viewBox="0 0 80 100" aria-hidden="true">'
-    +'<polygon fill="#e8e8ea" points="46.6,0.0 64.4,13.9 32.6,14.1"/>'
-    +'<polygon fill="#e8e8ea" points="33.3,15.8 63.6,47.3 48.8,54.3"/>'
-    +'<polygon fill="#e8e8ea" points="12.5,36.3 39.0,59.4 24.2,66.2"/>'
-    +'<polygon fill="#e8e8ea" points="25.4,69.1 39.5,59.4 41.5,63.8 47.6,55.4 63.2,52.3 39.6,97.2"/>'
-    +'<polygon fill="#e8e8ea" points="43.5,95.1 66.2,50.6 80.0,69.3 45.9,97.3"/>'
-    +'<polygon fill="#0066ff" points="9.5,38.1 34.2,96.5 0.9,69.1"/></svg>';
+  /* Знак Black Swan — їхній малюнок ручкою, той самий файл, що в шапці */
+  const SWAN='<img class="swan" src="/static/swan.png?v=1" alt="" aria-hidden="true">';
   const OPTS=()=>[
     {id:"blackswan", nm:"BlackSwan", sub:T.hbCommunitySub, logo:SWAN, group:"community"},
     {id:"instagram", nm:"Instagram", glyph:"IG", cls:"ig", group:"social"},
