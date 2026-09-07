@@ -60,6 +60,18 @@ DISCORD_CLIENT_SECRET = os.environ.get("DISCORD_CLIENT_SECRET", "")
 # Зовнішня адреса сайту для зворотних посилань OAuth (https://…). Якщо
 # порожня — береться з заголовків запиту.
 PUBLIC_URL    = os.environ.get("PUBLIC_URL", "").rstrip("/")
+# Поштова скринька, з якої йде лист «забув пароль». Своєї пошти сайт не
+# має — беремо звичайний ящик за SMTP. Немає цих змінних (як на своїй
+# машині) — лист просто не піде: лишиться відновлення через Телеграм, а
+# саме посилання видно в журналі сервера.
+# Gmail: SMTP_HOST=smtp.gmail.com, SMTP_PORT=465, SMTP_PASS — пароль
+# застосунку (не пароль від акаунта, звичайний Гугл не пропустить).
+SMTP_HOST     = os.environ.get("SMTP_HOST", "")
+SMTP_PORT     = int(os.environ.get("SMTP_PORT", 465))
+SMTP_USER     = os.environ.get("SMTP_USER", "")
+SMTP_PASS     = os.environ.get("SMTP_PASS", "")
+SMTP_FROM     = os.environ.get("SMTP_FROM", "") or SMTP_USER
+SMTP_NAME     = os.environ.get("SMTP_NAME", "StatsAI")
 PORT          = int(os.environ.get("PORT", 8172))
 # На своєму комп'ютері слухаємо тільки себе, на хостингу — усі інтерфейси,
 # інакше платформа не достукається до сервера й вважатиме його мертвим.

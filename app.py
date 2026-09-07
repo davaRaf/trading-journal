@@ -34,6 +34,7 @@ import notion_import as notion
 import notion_public as npub
 import notion_sync
 import oauth
+import pwreset
 import ratelimit
 import day_store
 import tg_api
@@ -580,6 +581,25 @@ def bot_username():
         return None
     db.meta_set("bot_username", name)
     return name
+
+
+# Пошта на око: одна «собачка», крапка після неї, ніяких пробілів. Строгішу
+# перевірку робити нема сенсу — чи існує скринька, скаже тільки лист, який
+# туди піде.
+EMAIL_RE = re.compile(r"^[^@\s]{1,64}@[^@\s]{1,190}\.[A-Za-z]{2,24}$")
+
+
+def nick_from_email(email):
+    """Нікнейм із пошти: до «собачки», літери й цифри.
+
+    Нікнейм потрібен лише для адреси відкритого журналу (/u/<нік>) і для
+    звертання в боті. На реєстрації його більше не питаємо — людині це
+    зайве поле, а придумати ім'я з пошти можна й самому. Так само робить
+    вхід через Google (oauth.py).
+    """
+    base = (email or "").split("@")[0]
+    base = "".join(ch for ch in base if ch.isalnum() or ch in "_-.").strip("._-")[:24]
+    return base or "trader"
 
 
 def user_public(user):
@@ -1159,7 +1179,9 @@ class H(BaseHTTPRequestHandler):
         if p in ("/privacy", "/terms"):
             return self._file(os.path.join(STATIC, p.strip("/") + ".html"), "text/html; charset=utf-8")
 
-        if p == "/login":
+        # Сторінка нового пароля — та сама сторінка входу: вона побачить
+        # у адресі ключ і сама покаже потрібні поля.
+        if p in ("/login", "/reset"):
             # Месенджери хочуть в og:image повну адресу, а у файлі вона
             # відносна — сторінка ж не знає, під яким доменом її відкриють.
             # Дописуємо базу на віддачі.
@@ -1267,17 +1289,30 @@ class H(BaseHTTPRequestHandler):
             if not isinstance(body, dict):
                 return self._json({"error": "bad json"}, 400)
             email = str(body.get("email") or "").strip()
-            nickname = str(body.get("nickname") or "").strip()
             password = str(body.get("password") or "")
-            if not email or not nickname or len(password) < 6:
-                return self._json({"error": "потрібні пошта, нікнейм і пароль від 6 символів", "code": "need_fields"}, 400)
+            if not EMAIL_RE.match(email) or len(password) < 6:
+                return self._json({"error": "потрібні пошта і пароль від 6 символів",
+                                   "code": "need_fields"}, 400)
+            if db.get_user_by_email(email):
+                return self._json({"error": "така пошта вже зайнята", "code": "taken"}, 409)
             pw_hash, pw_salt, iters = auth.hash_password(password)
-            try:
-                user = db.create_user(email, nickname, pw_hash, pw_salt, iters)
-            except Exception as ex:
-                if "unique" in str(ex).lower() or "duplicate" in str(ex).lower():
-                    return self._json({"error": "така пошта або нікнейм уже зайняті", "code": "taken"}, 409)
-                raise
+            # Нікнейм робимо з пошти. Він може збігтися з чужим — тоді
+            # пробуємо ще раз із хвостиком: людина про це навіть не знає,
+            # бо ніде його не вводила.
+            nick = nick_from_email(email)
+            user = None
+            for attempt in range(6):
+                try:
+                    user = db.create_user(email, nick if attempt == 0
+                                          else "%s-%s" % (nick, secrets.token_hex(2)),
+                                          pw_hash, pw_salt, iters)
+                    break
+                except Exception as ex:
+                    low = str(ex).lower()
+                    if "unique" not in low and "duplicate" not in low:
+                        raise
+            if not user:
+                return self._json({"error": "така пошта вже зайнята", "code": "taken"}, 409)
             return self._json({"user": user_public(user)}, 201,
                               cookie=auth.cookie_header(auth.make_session(user["id"]),
                                                         secure=auth.is_https(self)))
@@ -1301,6 +1336,59 @@ class H(BaseHTTPRequestHandler):
                 ratelimit.miss(keys)
                 return self._json({"error": "невірна пошта або пароль", "code": "bad_login"}, 401)
             ratelimit.forget(keys)
+            return self._json({"user": user_public(user)},
+                              cookie=auth.cookie_header(auth.make_session(user["id"]),
+                                                        secure=auth.is_https(self)))
+
+        # ---- забув пароль ----
+        # Відповідь однакова завжди: «якщо така пошта є — надіслали».
+        # Скажи ми чесно «такої пошти немає», і сторінкою входу можна було б
+        # перевіряти, хто тут зареєстрований.
+        if p == "/api/auth/forgot":
+            if not isinstance(body, dict):
+                return self._json({"error": "bad json"}, 400)
+            mail = str(body.get("email") or "").strip()
+            lang = str(body.get("lang") or "uk")
+            keys = ["forgot:" + self._guest()] + (["forgot:" + mail.lower()] if mail else [])
+            wait = ratelimit.check(keys)
+            if wait:
+                return self._json({"error": "забагато спроб — спробуй за %d с" % wait,
+                                   "code": "too_many", "wait": wait}, 429)
+            # Лічильник крутимо на кожен запит, а не лише на невдалий: тут
+            # немає «вдалого», і без цього листами можна було б засипати
+            # чужу скриньку.
+            ratelimit.miss(keys)
+            if EMAIL_RE.match(mail):
+                user = db.get_user_by_email(mail)
+                if user:
+                    try:
+                        pwreset.start(user, self._base(), lang)
+                    except Exception as ex:
+                        print("пароль: не вдалось надіслати —", ex)
+            return self._json({"ok": True})
+
+        # ---- новий пароль за посиланням ----
+        if p == "/api/auth/reset":
+            if not isinstance(body, dict):
+                return self._json({"error": "bad json"}, 400)
+            token = str(body.get("token") or "")
+            password = str(body.get("password") or "")
+            if len(password) < 6:
+                return self._json({"error": "пароль від 6 символів", "code": "short"}, 400)
+            keys = ["reset:" + self._guest()]
+            wait = ratelimit.check(keys)
+            if wait:
+                return self._json({"error": "забагато спроб — спробуй за %d с" % wait,
+                                   "code": "too_many", "wait": wait}, 429)
+            user = db.take_reset(pwreset.token_hash(token)) if token else None
+            if not user:
+                ratelimit.miss(keys)
+                return self._json({"error": "посилання застаріло", "code": "bad_token"}, 400)
+            ratelimit.forget(keys)
+            pw_hash, pw_salt, iters = auth.hash_password(password)
+            db.set_password(user["id"], pw_hash, pw_salt, iters)
+            # Одразу впускаємо: людина щойно довела, що скринька її, і
+            # вводити пароль удруге тим самим рухом — зайве.
             return self._json({"user": user_public(user)},
                               cookie=auth.cookie_header(auth.make_session(user["id"]),
                                                         secure=auth.is_https(self)))

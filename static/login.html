@@ -170,6 +170,16 @@ body{
 
 .err{margin:12px 0 0; text-align:center; font-size:12.5px; color:rgb(var(--neg-rgb))}
 .err[hidden]{display:none}
+/* Пояснення над кнопкою: навіщо тут пошта і що буде далі. Показуємо
+   тільки у станах «забув пароль» і «новий пароль» — на вході й реєстрації
+   пояснювати нічого. */
+.hint{margin:0 0 14px; font-size:12.5px; line-height:1.5; color:var(--dim)}
+.hint[hidden]{display:none}
+.ok{margin:12px 0 0; text-align:center; font-size:12.5px; line-height:1.55;
+  color:rgb(var(--pos-rgb))}
+.ok[hidden]{display:none}
+.go[hidden]{display:none}
+.tabs[hidden], .social[hidden], .or[hidden], .minor[hidden]{display:none}
 
 .alt{margin-top:16px; text-align:center; font-size:12.5px; color:var(--faint)}
 .alt a{color:var(--dim); text-decoration:none; border-bottom:1px solid var(--hair)}
@@ -470,18 +480,13 @@ body{
     <div class="or"><span>или почтой</span></div>
 
     <form onsubmit="return false">
-      <div class="field" id="nickField" hidden>
-        <label for="nick">Нікнейм</label>
-        <input id="nick" type="text" placeholder="trader_davyd" autocomplete="username"
+      <div class="field" id="emField">
+        <label for="em" id="emLabel">Пошта</label>
+        <input id="em" type="email" placeholder="trader@mail.com" autocomplete="username"
                spellcheck="false" autocapitalize="off">
       </div>
-      <div class="field">
-        <label for="em" id="emLabel">Пошта або нікнейм</label>
-        <input id="em" type="text" placeholder="trader@mail.com" autocomplete="username"
-               spellcheck="false" autocapitalize="off">
-      </div>
-      <div class="field">
-        <label for="pw">Пароль</label>
+      <div class="field" id="pwField">
+        <label for="pw" id="pwLabel">Пароль</label>
         <div class="pwwrap">
           <input id="pw" type="password" placeholder="••••••••" autocomplete="current-password">
           <button class="eye" id="eyeBtn" type="button" aria-label="Показать пароль">
@@ -490,11 +495,17 @@ body{
         </div>
         <div class="meter" id="meter" hidden><i></i><i></i><i></i><i></i><span id="meterTxt">Слабый</span></div>
       </div>
+      <div class="field" id="pw2Field" hidden>
+        <label for="pw2" id="pw2Label">Ще раз пароль</label>
+        <input id="pw2" type="password" placeholder="••••••••" autocomplete="new-password">
+      </div>
 
       <div class="minor">
         <span class="keep" id="keepNote">Вход сохраняется на 30 дней</span>
-        <a href="#" id="forgot">Забыли пароль?</a>
+        <a href="#" id="forgot" data-goto="forgot">Забыли пароль?</a>
       </div>
+
+      <p class="hint" id="hint" hidden></p>
 
       <button class="go" id="goBtn">
         <span class="lbl">Войти</span>
@@ -502,6 +513,7 @@ body{
         <svg class="tick" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 12.5l5.2 5.2L20 7"/></svg>
       </button>
       <p class="err" id="errMsg" hidden></p>
+      <p class="ok" id="okMsg" hidden></p>
     </form>
 
     <div class="alt" id="altLine">Нет аккаунта? <a href="#" data-goto="up">Создать</a></div>
@@ -825,35 +837,78 @@ function frame(ts){
   requestAnimationFrame(frame);
 }
 
+/* ============================================================
+   Стани картки. Два звичайні — «Вхід» і «Реєстрація», їх перемикають
+   вкладки. Ще два живуть без вкладок: «забув пароль» (сама лише пошта)
+   і «новий пароль» (два поля), куди приводить посилання з листа.
+   ============================================================ */
+let MODE = "in";
+let RESET_TOKEN = "";
+try{
+  const q = new URLSearchParams(location.search);
+  if (location.pathname === "/reset" && q.get("t")){
+    RESET_TOKEN = q.get("t");
+    MODE = "reset";
+  }
+}catch(e){}
+
+/* Чи є взагалі кнопки сервісів: коли ключів немає, сервер каже про це, і
+   ми ховаємо і кнопки, і роздільник — назавжди, а не до першого перемикання. */
+let SOC = true;
+
 function setTab(t){
+  MODE = t;
   // содержимое коротко гаснет и возвращается — переход не рвётся
   const c = document.querySelector(".card");
   if (c){ c.classList.add("swap"); setTimeout(() => c.classList.remove("swap"), 180); }
   document.querySelectorAll(".tabs button").forEach(b => b.classList.toggle("on", b.dataset.tab === t));
 
-  const reg = t === "up";
+  const reg = t === "up", forgot = t === "forgot", reset = t === "reset";
+  const usual = !forgot && !reset;          // звичайні вхід і реєстрація
 
-  /* Вход: одно поле — можно ввести почту или ник.
-     Регистрация: сначала ник, потом почта отдельным полем. */
-  document.getElementById("nickField").hidden = !reg;
-  document.getElementById("emLabel").textContent = reg ? T.lEmail : T.lLogin;
-  em.placeholder = reg ? T.phEmail : T.phLogin;
-  em.type = reg ? "email" : "text";
-  em.setAttribute("autocomplete", reg ? "email" : "username");
+  showErr(""); showOk("");
+  goBtn.hidden = false;
+  goBtn.classList.remove("done");
 
-  document.querySelector("#goBtn .lbl").textContent = reg ? T.btnUp : T.btnIn;
-  document.getElementById("pw").setAttribute("autocomplete", reg ? "new-password" : "current-password");
-  document.getElementById("altLine").innerHTML = reg ? T.altUp : T.altIn;
+  /* Вкладки, сервіси й роздільник — тільки у звичайних станах: у людини,
+     яка прийшла по посиланню з листа, вибору немає, і показувати їй
+     «Реєстрація» ні до чого. */
+  document.querySelector(".tabs").hidden = !usual;
+  document.querySelector(".social").hidden = !usual || !SOC;
+  const div = document.querySelector(".or");
+  if (div) div.hidden = !usual || !SOC;
+
+  document.getElementById("emField").hidden = reset;
+  document.getElementById("pwField").hidden = forgot;
+  document.getElementById("pw2Field").hidden = !reset;
+
+  document.getElementById("emLabel").textContent = T.lEmail;
+  em.placeholder = T.phEmail;
+  document.getElementById("pwLabel").textContent = reset ? T.lPwNew : T.lPw;
+  document.getElementById("pw2Label").textContent = T.lPwRepeat;
+
+  const hint = document.getElementById("hint");
+  hint.textContent = forgot ? T.fgHint : (reset ? T.rsHint : "");
+  hint.hidden = usual;
+
+  document.querySelector("#goBtn .lbl").textContent =
+    forgot ? T.btnForgot : reset ? T.btnReset : reg ? T.btnUp : T.btnIn;
+  document.getElementById("pw").setAttribute("autocomplete",
+    (reg || reset) ? "new-password" : "current-password");
+  document.getElementById("altLine").innerHTML =
+    (forgot || reset) ? T.altBack : reg ? T.altUp : T.altIn;
   document.getElementById("demoLine").innerHTML = '<a href="/demo">' + T.demoLink + "</a>";
 
-  // при регистрации показываем надёжность пароля, при входе — «запомнить меня»
+  // при регистрации и при новом пароле показываем надёжность
   const meterEl = document.getElementById("meter");
-  meterEl.hidden = !reg;
+  meterEl.hidden = !(reg || reset);
   // сбрасываем оценку, иначе на пустом поле остаётся надпись от прошлого раза
   meterEl.dataset.lvl = "0";
   document.getElementById("meterTxt").textContent = pw.value ? T.lvl[scorePw(pw.value)] : "";
   if (pw.value) meterEl.dataset.lvl = String(scorePw(pw.value));
-  document.querySelector(".minor").style.display = reg ? "none" : "flex";
+  /* «Вхід зберігається на 30 днів» і «Забув пароль?» доречні лише на вході:
+     на реєстрації забувати ще нічого. */
+  document.querySelector(".minor").hidden = !usual || reg;
   document.querySelectorAll(".soc").forEach(b => {
     b.childNodes[b.childNodes.length - 1].textContent =
       (reg ? T.regWith : T.contWith) + b.dataset.svc;
@@ -920,19 +975,28 @@ const I18N = {
     contWith: "Продовжити з ", regWith: "Зареєструватися через ",
     orEmail: "або поштою",
     lEmail: "Пошта", lPw: "Пароль", phEmail: "trader@mail.com",
-    lNick: "Нікнейм", phNick: "trader_davyd",
-    lLogin: "Пошта або нікнейм", phLogin: "пошта або нікнейм",
+    lPwNew: "Новий пароль", lPwRepeat: "Ще раз новий",
     showPw: "Показати пароль", hidePw: "Сховати пароль",
     remember: "Вхід зберігається на 30 днів", forgot: "Забув пароль?",
     errOauth: "Не вдалось увійти через сервіс. Спробуй ще раз або зайди поштою.",
     errOff: "Цей спосіб входу ще не увімкнено.",
     errServer: "Сервер не відповідає", errGeneric: "Не вийшло — спробуй ще раз",
-    errNeed: "Потрібні пошта, нікнейм і пароль від 6 символів",
-    errTaken: "Така пошта або нікнейм уже зайняті",
+    errNeed: "Потрібні пошта і пароль від 6 символів",
+    errTaken: "Така пошта вже зайнята",
+    errShort: "Пароль — від 6 символів", errMatch: "Паролі не збігаються",
+    errToken: "Посилання застаріло або вже спрацювало",
     errMany: "Забагато спроб — спробуй за %d с", errBad: "Невірна пошта або пароль",
     btnIn: "Увійти", btnUp: "Створити акаунт",
     altIn: 'Немає акаунта? <a href="#" data-goto="up">Створити</a>',
     altUp: 'Вже є акаунт? <a href="#" data-goto="in">Увійти</a>',
+    altBack: 'Згадав пароль? <a href="#" data-goto="in">Увійти</a>',
+    altAgain: '<a href="#" data-goto="forgot">Попросити нове посилання</a>',
+    btnForgot: "Надіслати посилання", btnReset: "Зберегти пароль",
+    fgHint: "Введи пошту, з якою реєструвався. Надішлемо на неї посилання на "
+          + "новий пароль — а якщо до журналу прив'язаний Телеграм, то й туди.",
+    fgSent: "Якщо така пошта в нас є — посилання вже пішло. Подивись у скриньці "
+          + "(і в теці «Спам») та в чаті бота. Воно живе 30 хвилин.",
+    rsHint: "Придумай новий пароль — і одразу зайдемо в журнал.",
     lvl: ["Слабкий", "Слабкий", "Середній", "Добрий", "Надійний"],
     pitchBig: "Журнал, який<br>пояснює результат",
     pitchFacts: ["входи за своїм біасом", "входи проти біасу", "угод у розборі"],
@@ -946,19 +1010,28 @@ const I18N = {
     contWith: "Продолжить с ", regWith: "Зарегистрироваться через ",
     orEmail: "или почтой",
     lEmail: "Почта", lPw: "Пароль", phEmail: "trader@mail.com",
-    lNick: "Никнейм", phNick: "trader_davyd",
-    lLogin: "Почта или никнейм", phLogin: "почта или никнейм",
+    lPwNew: "Новый пароль", lPwRepeat: "Ещё раз новый",
     showPw: "Показать пароль", hidePw: "Скрыть пароль",
     remember: "Вход сохраняется на 30 дней", forgot: "Забыл пароль?",
     errOauth: "Не удалось войти через сервис. Попробуй ещё раз или зайди почтой.",
     errOff: "Этот способ входа ещё не включён.",
     errServer: "Сервер не отвечает", errGeneric: "Не вышло — попробуй ещё раз",
-    errNeed: "Нужны почта, никнейм и пароль от 6 символов",
-    errTaken: "Такая почта или никнейм уже заняты",
+    errNeed: "Нужны почта и пароль от 6 символов",
+    errTaken: "Такая почта уже занята",
+    errShort: "Пароль — от 6 символов", errMatch: "Пароли не совпадают",
+    errToken: "Ссылка устарела или уже сработала",
     errMany: "Слишком много попыток — попробуй через %d с", errBad: "Неверная почта или пароль",
     btnIn: "Войти", btnUp: "Создать аккаунт",
     altIn: 'Нет аккаунта? <a href="#" data-goto="up">Создать</a>',
     altUp: 'Уже есть аккаунт? <a href="#" data-goto="in">Войти</a>',
+    altBack: 'Вспомнил пароль? <a href="#" data-goto="in">Войти</a>',
+    altAgain: '<a href="#" data-goto="forgot">Попросить новую ссылку</a>',
+    btnForgot: "Прислать ссылку", btnReset: "Сохранить пароль",
+    fgHint: "Введи почту, с которой регистрировался. Пришлём на неё ссылку на "
+          + "новый пароль — а если к журналу привязан Telegram, то и туда.",
+    fgSent: "Если такая почта у нас есть — ссылка уже ушла. Посмотри в ящике "
+          + "(и в папке «Спам») и в чате бота. Она живёт 30 минут.",
+    rsHint: "Придумай новый пароль — и сразу зайдём в журнал.",
     lvl: ["Слабый", "Слабый", "Средний", "Хороший", "Надёжный"],
     pitchBig: "Журнал, который<br>объясняет результат",
     pitchFacts: ["входы по своему биасу", "входы против биаса", "сделок в разборе"],
@@ -972,19 +1045,28 @@ const I18N = {
     contWith: "Continue with ", regWith: "Sign up with ",
     orEmail: "or with email",
     lEmail: "Email", lPw: "Password", phEmail: "trader@mail.com",
-    lNick: "Nickname", phNick: "trader_davyd",
-    lLogin: "Email or nickname", phLogin: "email or nickname",
+    lPwNew: "New password", lPwRepeat: "Repeat new password",
     showPw: "Show password", hidePw: "Hide password",
     remember: "You stay signed in for 30 days", forgot: "Forgot password?",
     errOauth: "Couldn't sign in with that service. Try again or use email.",
     errOff: "This sign-in method isn't enabled yet.",
     errServer: "Server isn't responding", errGeneric: "Didn't work — try again",
-    errNeed: "Email, nickname and a password of 6+ characters are required",
-    errTaken: "That email or nickname is already taken",
+    errNeed: "An email and a password of 6+ characters are required",
+    errTaken: "That email is already taken",
+    errShort: "Password must be 6+ characters", errMatch: "Passwords do not match",
+    errToken: "That link has expired or was already used",
     errMany: "Too many attempts — try again in %d s", errBad: "Wrong email or password",
     btnIn: "Sign in", btnUp: "Create account",
     altIn: 'No account? <a href="#" data-goto="up">Create one</a>',
     altUp: 'Already have an account? <a href="#" data-goto="in">Sign in</a>',
+    altBack: 'Remembered it? <a href="#" data-goto="in">Sign in</a>',
+    altAgain: '<a href="#" data-goto="forgot">Ask for a new link</a>',
+    btnForgot: "Send the link", btnReset: "Save password",
+    fgHint: "Enter the email you signed up with. We will send a link for a new "
+          + "password — and to Telegram as well, if the journal is linked to it.",
+    fgSent: "If we have that email, the link is already on its way. Check your "
+          + "inbox (and the spam folder) and the bot chat. It lives for 30 minutes.",
+    rsHint: "Pick a new password — and we will take you straight to the journal.",
     lvl: ["Weak", "Weak", "Fair", "Good", "Strong"],
     pitchBig: "The journal that<br>explains your results",
     pitchFacts: ["entries with your bias", "entries against it", "trades reviewed"],
@@ -1003,10 +1085,7 @@ function applyLang(code){
   document.querySelector('.tabs [data-tab="in"]').textContent = T.tabIn;
   document.querySelector('.tabs [data-tab="up"]').textContent = T.tabUp;
   document.querySelector(".or span").textContent = T.orEmail;
-  document.querySelector('label[for="em"]').textContent = T.lEmail;
-  document.querySelector('label[for="pw"]').textContent = T.lPw;
-  document.querySelector('label[for="nick"]').textContent = T.lNick;
-  document.getElementById("nick").placeholder = T.phNick;
+  document.getElementById("pw2Label").textContent = T.lPwRepeat;
   document.getElementById("keepNote").textContent = T.remember;
   document.getElementById("forgot").textContent = T.forgot;
 
@@ -1019,7 +1098,10 @@ function applyLang(code){
 
   /* із журналу й зі сторінки «поділитись» ведуть на /login#signup —
      людина натиснула «створити журнал», отже їй потрібна реєстрація */
-  const want = location.hash === "#signup" ? "up"
+  /* Стани без вкладок («забув пароль», «новий пароль») перемиканням мови
+     не збиваються: показуємо те саме, тільки іншими словами. */
+  const want = (MODE === "forgot" || MODE === "reset") ? MODE
+             : location.hash === "#signup" ? "up"
              : (document.querySelector('.tabs button.on')?.dataset.tab || "in");
   setTab(want);
   showUrlErr();
@@ -1046,6 +1128,12 @@ function showErr(text){
   errMsg.hidden = !text;
 }
 
+const okMsg = document.getElementById("okMsg");
+function showOk(text){
+  okMsg.textContent = text;
+  okMsg.hidden = !text;
+}
+
 /* ---- вхід через сервіси ----
    Google і Discord — звичайний перехід на /auth/<сервіс>, далі все робить
    сервер. Кнопки сервісів без ключів ховаємо: краще не показати, ніж
@@ -1057,9 +1145,12 @@ fetch("/api/auth/providers").then(r => r.json()).then(j => {
     const k = (b.dataset.svc || "").toLowerCase();
     if (PROV.providers && PROV.providers[k] === false) b.hidden = true;
   });
-  const anyOn = PROV.providers && Object.values(PROV.providers).some(Boolean);
+  SOC = !!(PROV.providers && Object.values(PROV.providers).some(Boolean));
   const divider = document.querySelector(".or, .divider");
-  if (!anyOn && divider) divider.hidden = true;
+  if (!SOC){
+    if (divider) divider.hidden = true;
+    document.querySelector(".social").hidden = true;
+  }
 }).catch(() => {});
 
 document.querySelectorAll(".soc").forEach(b => b.addEventListener("click", () => {
@@ -1082,6 +1173,7 @@ function errText(d){
   d = d || {};
   const map = {
     need_fields: T.errNeed, taken: T.errTaken, bad_login: T.errBad,
+    short: T.errShort, bad_token: T.errToken,
     too_many: T.errMany.replace("%d", d.wait != null ? d.wait : "…"),
   };
   return map[d.code] || d.error || T.errGeneric;
@@ -1109,9 +1201,11 @@ goBtn.addEventListener("click", async () => {
   if (goBtn.classList.contains("busy") || goBtn.classList.contains("done")) return;
   showErr("");
 
-  const reg = document.querySelector('.tabs button.on').dataset.tab === "up";
-  const nick = document.getElementById("nick");
-  const empty = (reg ? [nick, em, pw] : [em, pw]).filter(i => !i.value.trim());
+  if (MODE === "forgot") return sendForgot();
+  if (MODE === "reset")  return sendReset();
+
+  const reg = MODE === "up";
+  const empty = [em, pw].filter(i => !i.value.trim());
   if (empty.length){
     empty.forEach(markBad);
     shake();
@@ -1121,7 +1215,7 @@ goBtn.addEventListener("click", async () => {
 
   goBtn.classList.add("busy");
   const body = reg
-    ? { email: em.value.trim(), nickname: nick.value.trim(), password: pw.value }
+    ? { email: em.value.trim(), password: pw.value }
     : { login: em.value.trim(), password: pw.value };
   let res, data = {};
   try {
@@ -1148,6 +1242,70 @@ goBtn.addEventListener("click", async () => {
   goBtn.classList.add("done");
   setTimeout(enter, 700);            // показали галочку — и в журнал
 });
+
+/* ---- забув пароль: просимо посилання ----
+   Відповідь сервера однакова і для знайомої пошти, і для незнайомої —
+   тому й ми кажемо одне й те саме. Після відправки ховаємо поле й кнопку:
+   тиснути вдруге нема сенсу, а лічильник на сервері за це насварить. */
+async function sendForgot(){
+  const mail = em.value.trim();
+  if (!mail){ markBad(em); shake(); em.focus(); return; }
+  goBtn.classList.add("busy");
+  let res, data = {};
+  try{
+    res = await fetch("/api/auth/forgot", {
+      method: "POST", credentials: "same-origin",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ email: mail, lang: LANG })
+    });
+    data = await res.json().catch(() => ({}));
+  }catch(e){
+    goBtn.classList.remove("busy");
+    showErr(T.errServer); shake(); return;
+  }
+  goBtn.classList.remove("busy");
+  if (!res.ok){ showErr(errText(data)); shake(); return; }
+  showOk(T.fgSent);
+  document.getElementById("emField").hidden = true;
+  document.getElementById("hint").hidden = true;
+  goBtn.hidden = true;
+}
+
+/* ---- новий пароль за посиланням ----
+   Ключ уже в адресі, пошту питати не треба: посилання дійшло — отже,
+   скринька (або чат бота) її. Сервер сам впускає у журнал. */
+async function sendReset(){
+  const a = pw.value, b = document.getElementById("pw2").value;
+  const empty = [pw, document.getElementById("pw2")].filter(i => !i.value);
+  if (empty.length){ empty.forEach(markBad); shake(); empty[0].focus(); return; }
+  if (a.length < 6) return (markBad(pw), shake(), showErr(T.errShort));
+  if (a !== b) return (markBad(document.getElementById("pw2")), shake(), showErr(T.errMatch));
+
+  goBtn.classList.add("busy");
+  let res, data = {};
+  try{
+    res = await fetch("/api/auth/reset", {
+      method: "POST", credentials: "same-origin",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ token: RESET_TOKEN, password: a })
+    });
+    data = await res.json().catch(() => ({}));
+  }catch(e){
+    goBtn.classList.remove("busy");
+    showErr(T.errServer); shake(); return;
+  }
+  goBtn.classList.remove("busy");
+  if (!res.ok){
+    showErr(errText(data));
+    // Посилання вже не годиться — пропонуємо попросити нове тим самим рядком,
+    // де зазвичай стоїть «згадав пароль».
+    if (data.code === "bad_token")
+      document.getElementById("altLine").innerHTML = T.altAgain;
+    shake(); return;
+  }
+  goBtn.classList.add("done");
+  setTimeout(enter, 700);
+}
 
 /* ============================================================
    Параллакс. Слои двигаются за курсором с разной силой:
