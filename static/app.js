@@ -1267,10 +1267,16 @@ function vAnalytics(){
 
 /* ================= МОДАЛКИ ================= */
 function openModal(html){
+  /* Поверх обов'язкового екрана нічого не малюємо. Він живе в тому ж
+     #modal і тримає closeModal(), тож будь-яке вікно, відкрите згори,
+     виходило нерухомим: ні «Скасувати», ні «×», ні клік по підкладці
+     його не прибирали. */
+  if(S.lockModal) return false;
   const m=$("#modal");
   m.style.zIndex = window.nextTop ? nextTop() : "";
   $("#modalBox").innerHTML=html; m.hidden=false;
   document.body.style.overflow="hidden";
+  return true;
 }
 /* Закриваємо те, що зверху. Діалог, відкритий з панелі, лишає панель на
    місці: повернутись треба туди, звідки прийшли. А якщо діалога немає,
@@ -1838,8 +1844,9 @@ function openImport(){
   '<div id="impMap"></div></div>'+
   '<div class="m-foot"><span class="sp"></span><button class="btn" onclick="closeModal()">'+T.fmCancel+'</button>'+
   '<button class="btn primary" id="impGo" disabled onclick="doImport()">'+T.imGoBtn+'</button></div>';
-  openModal(h);
+  if(!openModal(h)) return false;
   $("#impFile").addEventListener("change", onImpFile);
+  return true;
 }
 function onImpFile(e){
   const f=e.target.files[0]; if(!f) return;
@@ -2131,8 +2138,9 @@ const Source=(function(){
   function paint(){ const box=$("#modalBox"); if(box) box.innerHTML=html(); }
   function maybeAsk(){
     if(Prefs.get("source")) return;
-    picked=null; S.lockModal=true;
+    picked=null;
     openModal(html());
+    S.lockModal=true;
   }
   function pick(id){ picked=id; paint(); }
   function go(){

@@ -362,6 +362,7 @@ uk: {
   tiCopied: "Скопійовано — встав через Ctrl+V", tiNoCopy: "Копіювання недоступне, збережи файлом",
   tiSaved: "Файл збережено", tiHowTraded: "ЯК ТОРГУВАВ", tiCharts: "ГРАФІКИ",
   tiMadeIn: "зроблено в StatsAI",
+  tiReviewEmpty: "Розбору за цей день ще немає.",
   slCreateError: "Не вдалося створити посилання: ",
   slDay: "День", slWeek: "Тиждень", slShareCap: "Поділитися", slShareDay: "Поділитися днем",
 
@@ -853,6 +854,7 @@ ru: {
   tiCopied: "Скопировано — вставь через Ctrl+V", tiNoCopy: "Копирование недоступно, сохрани файлом",
   tiSaved: "Файл сохранён", tiHowTraded: "КАК ТОРГОВАЛ", tiCharts: "ГРАФИКИ",
   tiMadeIn: "сделано в StatsAI",
+  tiReviewEmpty: "Разбора за этот день ещё нет.",
   slCreateError: "Не удалось создать ссылку: ",
   slDay: "День", slWeek: "Неделя", slShareCap: "Поделиться", slShareDay: "Поделиться днём",
 
@@ -1338,6 +1340,7 @@ en: {
   tiCopied: "Copied — paste with Ctrl+V", tiNoCopy: "Copying unavailable, save as a file",
   tiSaved: "File saved", tiHowTraded: "HOW I TRADED", tiCharts: "CHARTS",
   tiMadeIn: "made in StatsAI",
+  tiReviewEmpty: "No day review yet.",
   slCreateError: "Couldn't create the link: ",
   slDay: "Day", slWeek: "Week", slShareCap: "Share", slShareDay: "Share the day",
 

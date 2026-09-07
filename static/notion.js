@@ -542,7 +542,7 @@ async function openNotion(){
 function open(){
   if (window.Guest && Guest.block(T.gsGateConnect)) return;
   if (typeof openImport !== "function") return;
-  openImport();          // малює рідне вікно імпорту
+  if (openImport() === false) return;   // обов'язковий екран зайняв вікно
   remember();
   tab("notion");
 }
@@ -588,9 +588,10 @@ window.__notion = {
    вікно другу вкладку. */
 const origOpenImport = window.openImport;
 window.openImport = function(){
-  origOpenImport.apply(this, arguments);
+  if (origOpenImport.apply(this, arguments) === false) return false;
   remember();
   tabs("file");
+  return true;
 };
 
 /* Один раз після реєстрації пропонуємо перенести журнал — щоб новачок не
@@ -629,6 +630,16 @@ window.addEventListener("load", () => {
       try{ localStorage.setItem(SEEN_KEY, "1"); }catch(e){}
       return;
     }
+    /* Перший екран після входу — питання «звідки про нас дізнався»; воно
+       обов'язкове й теж живе в #modal. Поки на нього не відповіли, з
+       пропозицією не лізем: інакше вона накриє питання і не закриється.
+       SEEN_KEY тут не чіпаємо — запропонуємо, щойно екран звільниться. */
+    const locked = () => typeof S !== "undefined" && S.lockModal;
+    for (let i = 0; i < 90 && locked(); i++){
+      await new Promise(r => setTimeout(r, 700));
+    }
+    if (locked()) return;
+
     try{ localStorage.setItem(SEEN_KEY, "1"); }catch(e){}
     open();
   }, 1200);

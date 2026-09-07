@@ -130,7 +130,7 @@ function loadImg(src){
    Обрізаємо не з кінця, а з середини: раніше зайві відкидались після
    сортування, і першим вилітав якраз вхід — той графік, заради якого
    картинку й роблять. */
-async function shotsOf(t, limit){
+async function shotsOf(t, limit, srcOf){
   let list = (t.screenshots || []).slice()
     .sort((a, b) => TF_ORDER.indexOf(a.tf) - TF_ORDER.indexOf(b.tf));
   if (list.length > limit){
@@ -139,7 +139,7 @@ async function shotsOf(t, limit){
   }
   const out = [];
   for (const s of list){
-    const im = await loadImg(shotSrc(s));
+    const im = await loadImg((srcOf || shotSrc)(s));
     if (im) out.push({im, tf: s.tf || ""});
   }
   return out;
@@ -445,6 +445,222 @@ async function buildDayImage(dk){
   return cv;
 }
 
+/* ============================ розбір дня ============================ */
+/* Картинку розбору малював загальний шаблон зведення за період — той, що
+   вміє лише календар, стовпчики місяців і рядок показників. У розбору
+   немає ні першого, ні другого, а все, заради чого його шлють, лежить у
+   data.review, куди той шаблон не заглядає: виходила шапка й порожнеча
+   під нею. Тепер у розбору свій малюнок — той самий, що й на сторінці за
+   посиланням: по активу картка з графіками, рівнями, планами й вечірнім
+   записом, а під ними правила дня й висновок. */
+
+/* Скріни розбору лежать не там, де скріни угод, і віддаються іншою
+   адресою: /dnshot/ замість /shots/. Через /shots/ сервер відповідав 404
+   (він шукає файл серед скріншотів угод), картинка мовчки лишалась без
+   графіків — саме тих, заради яких розбір і показують. */
+function dayShotSrc(s){
+  if (!s.file) return s.data || "";
+  return /^data:/.test(s.file) ? s.file : "/dnshot/" + s.file;
+}
+
+const H_TITLE = 26;   /* підпис розділу всередині картки */
+const H_LINE  = 34;   /* рядок тексту */
+const H_ROW   = 36;   /* рядок рівня або плану */
+
+async function buildReviewImage(data){
+  await document.fonts.ready;
+  const C = themeColors();
+  const rv = (data && data.review) || {};
+  const assets = rv.assets || [];
+
+  const inner = W - PAD * 2;
+  const CW = inner - 40;
+  const probe = document.createElement("canvas").getContext("2d");
+
+  /* Спершу міряємо: висота полотна має бути відома до першого штриха. */
+  const cards = [];
+  for (const a of assets){
+    const parts = [];
+    const imgs = await shotsOf({screenshots: a.shots || []}, 4, dayShotSrc);
+    if (imgs.length) parts.push({t: T.shRvCharts, imgs, h: shotsHeight(imgs, CW)});
+
+    probe.font = "24px " + SANS;
+    if ((a.why || "").trim()){
+      const lines = wrap(probe, a.why.trim(), CW);
+      parts.push({t: T.shRvWhere, lines, h: lines.length * H_LINE});
+    }
+    if ((a.levels || []).length)
+      parts.push({t: T.shRvLevels, levels: a.levels, h: a.levels.length * H_ROW});
+    if ((a.plans || []).length){
+      const rows = a.plans.map(pl => ({k: pl.k, lines: wrap(probe, pl.tx || "", CW - 46)}));
+      parts.push({t: T.shRvPlans, plans: rows,
+                  h: rows.reduce((acc, r) => acc + Math.max(H_ROW, r.lines.length * H_LINE) + 8, 0)});
+    }
+    const eve = a.eve || {};
+    const eveImgs = await shotsOf({screenshots: eve.shots || []}, 2, dayShotSrc);
+    if ((eve.text || "").trim() || eveImgs.length){
+      const lines = (eve.text || "").trim() ? wrap(probe, eve.text.trim(), CW) : [];
+      parts.push({t: T.shRvEvening, lines, imgs: eveImgs,
+                  h: lines.length * H_LINE + (eveImgs.length ? shotsHeight(eveImgs, CW) + 10 : 0)});
+    }
+
+    const marks = [[T.shRvMatch, (a.marks || {}).match], [T.shRvHold, (a.marks || {}).hold]]
+      .filter(m => (m[1] || "").trim());
+
+    let h = 64;                                    /* шапка картки */
+    for (const pt of parts) h += H_TITLE + pt.h + 20;
+    if (marks.length) h += 34;
+    cards.push({a, parts, marks, h: h + 18});
+  }
+
+  const notes = [[T.shRvSkip, rv.skip], [T.shRvLesson, rv.lesson]]
+    .filter(n => (n[1] || "").trim())
+    .map(function(n){
+      probe.font = "24px " + SANS;
+      const lines = wrap(probe, String(n[1]).trim(), inner - 40);
+      return {k: n[0], lines, h: 30 + lines.length * H_LINE + 30};
+    });
+
+  const brandH = collabMode() ? BRAND_H : 0;
+  const kpis = data.kpis || [];
+  const kpiH = kpis.length ? 78 : 0;
+  const bodyH = cards.reduce((acc, c) => acc + c.h + 18, 0)
+              + notes.reduce((acc, n) => acc + n.h + 18, 0);
+  /* порожній розбір — щоб замість дірки був чесний рядок */
+  const H = PAD + brandH + 108 + kpiH + 20 + (bodyH || 60) + 74;
+
+  const cv = document.createElement("canvas");
+  const dpr = 2;
+  cv.width = W * dpr; cv.height = H * dpr;
+  const ctx = cv.getContext("2d");
+  ctx.scale(dpr, dpr);
+
+  ctx.fillStyle = C.bg; ctx.fillRect(0, 0, W, H);
+  if (brandH) drawWatermark(ctx, C, W, H);
+  ctx.textBaseline = "alphabetic";
+  if (brandH) drawBrand(ctx, C, PAD, PAD - 4);
+
+  let y = PAD + brandH + 20;
+  ctx.font = "600 46px " + SANS; ctx.fillStyle = C.text;
+  ctx.fillText(data.title || "", PAD, y + 18);
+  if (data.total != null){
+    ctx.font = "500 44px " + MONO;
+    ctx.fillStyle = data.total > 0 ? C.up : data.total < 0 ? C.down : C.be;
+    ctx.textAlign = "right"; ctx.fillText(fmtR(data.total), W - PAD, y + 18); ctx.textAlign = "left";
+  }
+
+  y += 62;
+  ctx.strokeStyle = C.line; ctx.lineWidth = 1; ctx.beginPath();
+  ctx.moveTo(PAD, y); ctx.lineTo(W - PAD, y); ctx.stroke();
+  y += 26;
+
+  if (kpis.length){
+    y += 18;
+    kpis.slice(0, 4).forEach(function(k, i){
+      const x = PAD + i * (inner / 4);
+      ctx.font = "20px " + MONO; ctx.fillStyle = C.faint;
+      ctx.fillText(String(k.k != null ? k.k : (k[0] || "")).toUpperCase(), x, y);
+      ctx.font = "500 36px " + MONO; ctx.fillStyle = C.text;
+      ctx.fillText(String(k.v != null ? k.v : (k[1] != null ? k[1] : "")), x, y + 46);
+    });
+    y += 72;
+  }
+
+  if (!cards.length && !notes.length){
+    ctx.font = "26px " + SANS; ctx.fillStyle = C.faint;
+    ctx.fillText(T.tiReviewEmpty, PAD, y + 34);
+  }
+
+  for (const c of cards){
+    const a = c.a;
+    roundRect(ctx, PAD, y, inner, c.h, 18);
+    if (!brandH){ ctx.fillStyle = C.panel; ctx.fill(); }
+    ctx.strokeStyle = C.lineSoft; ctx.stroke();
+
+    let iy = y + 22;
+    const ix = PAD + 20;
+
+    ctx.font = "600 30px " + SANS; ctx.fillStyle = C.text;
+    ctx.fillText(a.nm || "—", ix, iy + 24);
+    if ((a.side || "").trim()){
+      const w0 = ctx.measureText(a.nm || "—").width;
+      ctx.font = "22px " + MONO; ctx.fillStyle = C.faint;
+      ctx.fillText(a.side, ix + w0 + 16, iy + 24);
+    }
+    if (a.net != null){
+      ctx.font = "500 26px " + MONO;
+      ctx.fillStyle = a.net > 0 ? C.up : a.net < 0 ? C.down : C.be;
+      ctx.textAlign = "right"; ctx.fillText(fmtR(a.net), PAD + inner - 20, iy + 24);
+      ctx.textAlign = "left";
+    }
+    iy += 42;
+
+    for (const pt of c.parts){
+      ctx.font = "19px " + MONO; ctx.fillStyle = C.faint;
+      ctx.fillText(String(pt.t).toUpperCase(), ix, iy + 14);
+      iy += H_TITLE;
+
+      if (pt.levels){
+        for (const l of pt.levels){
+          ctx.font = "500 23px " + MONO; ctx.fillStyle = C.text;
+          ctx.fillText(l.p || "—", ix, iy + 22);
+          ctx.font = "22px " + SANS; ctx.fillStyle = C.dim;
+          ctx.fillText([l.t, l.n].filter(Boolean).join(" · "), ix + 150, iy + 22);
+          if ((l.did || "").trim()){
+            ctx.fillStyle = l.cls === "ok" ? C.up : l.cls === "no" ? C.down : C.faint;
+            ctx.textAlign = "right";
+            ctx.fillText(l.did, PAD + inner - 20, iy + 22);
+            ctx.textAlign = "left";
+          }
+          iy += H_ROW;
+        }
+      }else if (pt.plans){
+        for (const r of pt.plans){
+          ctx.font = "600 22px " + MONO; ctx.fillStyle = C.accent;
+          ctx.fillText(r.k, ix, iy + 22);
+          ctx.font = "24px " + SANS; ctx.fillStyle = C.dim;
+          let ly = iy;
+          for (const line of r.lines){ ctx.fillText(line, ix + 46, ly + 22); ly += H_LINE; }
+          iy += Math.max(H_ROW, r.lines.length * H_LINE) + 8;
+        }
+      }else{
+        if (pt.lines && pt.lines.length){
+          ctx.font = "24px " + SANS; ctx.fillStyle = C.dim;
+          for (const line of pt.lines){ ctx.fillText(line, ix, iy + 20); iy += H_LINE; }
+        }
+        if (pt.imgs && pt.imgs.length){
+          if (pt.lines && pt.lines.length) iy += 10;
+          iy = drawShots(ctx, C, pt.imgs, ix, CW, iy);
+        }
+      }
+      iy += 20;
+    }
+
+    if (c.marks.length){
+      ctx.font = "22px " + SANS; ctx.fillStyle = C.faint;
+      ctx.fillText(c.marks.map(m => m[0] + ": " + m[1]).join("     "), ix, iy + 18);
+    }
+    y += c.h + 18;
+  }
+
+  for (const n of notes){
+    roundRect(ctx, PAD, y, inner, n.h, 18);
+    if (!brandH){ ctx.fillStyle = C.panel; ctx.fill(); }
+    ctx.strokeStyle = C.lineSoft; ctx.stroke();
+    let iy = y + 20;
+    ctx.font = "19px " + MONO; ctx.fillStyle = C.faint;
+    ctx.fillText(String(n.k).toUpperCase(), PAD + 20, iy + 14);
+    iy += 30;
+    ctx.font = "24px " + SANS; ctx.fillStyle = C.dim;
+    for (const line of n.lines){ ctx.fillText(line, PAD + 20, iy + 20); iy += H_LINE; }
+    y += n.h + 18;
+  }
+
+  ctx.font = "20px " + MONO; ctx.fillStyle = C.faint;
+  ctx.fillText(T.tiMadeIn, PAD, H - PAD + 6);
+  return cv;
+}
+
 /* ============================== вікно ============================== */
 /* Картинку з готового зображення переносимо в canvas: далі однаково
    працюють і «скопіювати», і «завантажити». */
@@ -468,6 +684,10 @@ async function build(kind, arg, data){
     return await buildTradeImage(t);
   }
   if (kind === "day") return await buildDayImage(arg);
+  if (kind === "review"){
+    if (!data) throw new Error(T.tiFailNoData || "нема з чого малювати");
+    return await buildReviewImage(data);
+  }
   if (!window.OgCal || !data) throw new Error(T.tiFailNoData || "нема з чого малювати");
   return await canvasOf(kind === "ts" ? OgCal.system(data) : OgCal.period(data));
 }
