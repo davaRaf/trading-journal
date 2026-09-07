@@ -130,7 +130,7 @@ function loadImg(src){
    Обрізаємо не з кінця, а з середини: раніше зайві відкидались після
    сортування, і першим вилітав якраз вхід — той графік, заради якого
    картинку й роблять. */
-async function shotsOf(t, limit){
+async function shotsOf(t, limit, srcOf){
   let list = (t.screenshots || []).slice()
     .sort((a, b) => TF_ORDER.indexOf(a.tf) - TF_ORDER.indexOf(b.tf));
   if (list.length > limit){
@@ -139,7 +139,7 @@ async function shotsOf(t, limit){
   }
   const out = [];
   for (const s of list){
-    const im = await loadImg(shotSrc(s));
+    const im = await loadImg((srcOf || shotSrc)(s));
     if (im) out.push({im, tf: s.tf || ""});
   }
   return out;
@@ -454,6 +454,15 @@ async function buildDayImage(dk){
    посиланням: по активу картка з графіками, рівнями, планами й вечірнім
    записом, а під ними правила дня й висновок. */
 
+/* Скріни розбору лежать не там, де скріни угод, і віддаються іншою
+   адресою: /dnshot/ замість /shots/. Через /shots/ сервер відповідав 404
+   (він шукає файл серед скріншотів угод), картинка мовчки лишалась без
+   графіків — саме тих, заради яких розбір і показують. */
+function dayShotSrc(s){
+  if (!s.file) return s.data || "";
+  return /^data:/.test(s.file) ? s.file : "/dnshot/" + s.file;
+}
+
 const H_TITLE = 26;   /* підпис розділу всередині картки */
 const H_LINE  = 34;   /* рядок тексту */
 const H_ROW   = 36;   /* рядок рівня або плану */
@@ -472,7 +481,7 @@ async function buildReviewImage(data){
   const cards = [];
   for (const a of assets){
     const parts = [];
-    const imgs = await shotsOf({screenshots: a.shots || []}, 4);
+    const imgs = await shotsOf({screenshots: a.shots || []}, 4, dayShotSrc);
     if (imgs.length) parts.push({t: T.shRvCharts, imgs, h: shotsHeight(imgs, CW)});
 
     probe.font = "24px " + SANS;
@@ -488,7 +497,7 @@ async function buildReviewImage(data){
                   h: rows.reduce((acc, r) => acc + Math.max(H_ROW, r.lines.length * H_LINE) + 8, 0)});
     }
     const eve = a.eve || {};
-    const eveImgs = await shotsOf({screenshots: eve.shots || []}, 2);
+    const eveImgs = await shotsOf({screenshots: eve.shots || []}, 2, dayShotSrc);
     if ((eve.text || "").trim() || eveImgs.length){
       const lines = (eve.text || "").trim() ? wrap(probe, eve.text.trim(), CW) : [];
       parts.push({t: T.shRvEvening, lines, imgs: eveImgs,
