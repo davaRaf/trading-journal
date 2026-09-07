@@ -52,5 +52,5 @@ def send(to, subject, text):
                 s.send_message(msg)
         return True
     except Exception as ex:
-        print("пошта: лист на %s не пішов — %s" % (to, ex))
+        print("пошта: лист на %s не пішов — %s" % (to, ex), flush=True)
         return False
