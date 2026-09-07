@@ -156,6 +156,7 @@ uk: {
   calcStopMsg: "Стоп забирає ризик повністю",
   calcBePlusMsg: "Беззбиток, але ціна дійшла б до цілі",
   calcBeMinusMsg: "Беззбиток, далі пішло проти",
+  calcSkipMsg: "Скіп — угоду не відкривав, у статистику не йде",
 
   shotRemoveTip: "Прибрати", shotPickFileTip: "Обрати файл", shotFileWord: "файл",
   shotDragHint: "Перетягни картинки сюди або <b>обери файли</b> — розкладемо по таймфреймах",
@@ -507,6 +508,7 @@ uk: {
         + "хто дістався до відкритої вкладки.",
   pwOld: "Теперішній пароль", pwNew: "Новий пароль", pwRepeat: "Ще раз новий",
   pwSave: "Змінити пароль", pwSaving: "Міняю…", pwDone: "Готово — пароль змінено",
+  pwBack: "Назад",
   pwErrEmpty: "Заповни всі три поля", pwErrShort: "Новий пароль — від 6 символів",
   pwErrMatch: "Нові паролі не збігаються", pwErrSame: "Новий пароль такий самий, як теперішній",
   pwErrOld: "Теперішній пароль не підходить",
@@ -677,6 +679,7 @@ ru: {
   calcStopMsg: "Стоп забирает риск полностью",
   calcBePlusMsg: "Безубыток, но цена дошла бы до цели",
   calcBeMinusMsg: "Безубыток, дальше пошло против",
+  calcSkipMsg: "Скип — сделку не открывал, в статистику не идёт",
 
   shotRemoveTip: "Убрать", shotPickFileTip: "Выбрать файл", shotFileWord: "файл",
   shotDragHint: "Перетащи картинки сюда или <b>выбери файлы</b> — разложим по таймфреймам",
@@ -1016,6 +1019,7 @@ ru: {
         + "кто добрался до открытой вкладки.",
   pwOld: "Текущий пароль", pwNew: "Новый пароль", pwRepeat: "Ещё раз новый",
   pwSave: "Сменить пароль", pwSaving: "Меняю…", pwDone: "Готово — пароль изменён",
+  pwBack: "Назад",
   pwErrEmpty: "Заполни все три поля", pwErrShort: "Новый пароль — от 6 символов",
   pwErrMatch: "Новые пароли не совпадают", pwErrSame: "Новый пароль такой же, как текущий",
   pwErrOld: "Текущий пароль не подходит",
@@ -1186,6 +1190,7 @@ en: {
   calcStopMsg: "The stop takes the full risk",
   calcBePlusMsg: "Breakeven, but price would have reached target",
   calcBeMinusMsg: "Breakeven, then it went against you",
+  calcSkipMsg: "Skip — no trade taken, not counted in stats",
 
   shotRemoveTip: "Remove", shotPickFileTip: "Choose file", shotFileWord: "file",
   shotDragHint: "Drag images here or <b>choose files</b> — we'll sort them by timeframe",
@@ -1525,6 +1530,7 @@ en: {
         + "an open tab can take the account.",
   pwOld: "Current password", pwNew: "New password", pwRepeat: "Repeat new password",
   pwSave: "Change password", pwSaving: "Changing…", pwDone: "Done — password changed",
+  pwBack: "Back",
   pwErrEmpty: "Fill in all three fields", pwErrShort: "New password must be 6+ characters",
   pwErrMatch: "New passwords do not match", pwErrSame: "New password is the same as the current one",
   pwErrOld: "Current password is wrong",

@@ -76,6 +76,8 @@
   transition:border-color .14s}
 .pw-f input:focus{outline:none; border-color:var(--accent)}
 .pw-row{display:flex; align-items:center; gap:12px; flex-wrap:wrap; margin-top:14px}
+.st-sec.pw > .pw-row{margin-top:0}
+.pw-row:empty{display:none}
 .pw-row .btn{min-height:44px}
 .pw-msg{font-size:13px; color:var(--dim)}
 .pw-msg.ok{color:var(--up)}

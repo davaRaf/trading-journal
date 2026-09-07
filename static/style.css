@@ -825,6 +825,7 @@ table.simple.mini td:last-child{white-space:nowrap;font-weight:600}
 .outcome.pos{border-color:var(--up);background:var(--up-soft)} .outcome.pos .big{color:var(--up)}
 .outcome.neg{border-color:var(--down);background:var(--down-soft)} .outcome.neg .big{color:var(--down)}
 .outcome.be{border-color:var(--be);background:var(--be-soft)} .outcome.be .big{color:var(--be)}
+.outcome.skip{border-color:var(--line);background:var(--panel-2)} .outcome.skip .big{color:var(--faint)}
 
 /* форма стоит окном по центру: шапка и подвал держатся, поля прокручиваются */
 .modal-box:has(.form){max-width:940px;max-height:88vh;display:flex;flex-direction:column}

@@ -1609,6 +1609,12 @@ function calcOutcome(){
   let val=0, txt="";
   if(res==="Win"){ val=r*rr; txt=T.calcTakePrefix+r1(r)+T.calcTakeMid+r1(rr); }
   else if(res==="Loss"){ val=-r; txt=T.calcStopMsg; }
+  else if(res==="Skip"){
+    /* угоди не було — ні відсотка, ні жовтого: скіп у статистику не йде */
+    box.className="outcome skip";
+    box.innerHTML='<span class="big">—</span><span class="txt">'+T.calcSkipMsg+"</span>";
+    return;
+  }
   else { val=0; txt = res==="BE+" ? T.calcBePlusMsg : T.calcBeMinusMsg; }
   box.className="outcome "+(val>0.0001?"pos":val<-0.0001?"neg":"be");
   box.innerHTML='<span class="big">'+fmtR(val)+'</span><span class="txt">'+txt+"</span>";
@@ -2109,13 +2115,12 @@ const Source=(function(){
      #swanmark в index.html). Тут він окремим SVG, бо плашка малюється
      рядком; координати граней ті самі, щоб знак усюди був один. */
   const SWAN='<svg viewBox="0 0 80 100" aria-hidden="true">'
-    +'<polygon fill="#e8e8ea" points="33.1,16.5 46.5,1.2 64.6,15.1"/>'
-    +'<polygon fill="#e8e8ea" points="33.5,17.4 63.7,49.7 40.9,56.2"/>'
-    +'<polygon fill="#e8e8ea" points="14.5,37.5 36.5,61.5 25.5,63.5"/>'
-    +'<polygon fill="#e8e8ea" points="26.5,65.5 39.5,63.5 36.2,99.2"/>'
-    +'<polygon fill="#e8e8ea" points="41.5,57.0 63.5,56.2 38.8,99.2"/>'
-    +'<polygon fill="#e8e8ea" points="65.4,51.5 78.2,67.7 44.6,99.2"/>'
-    +'<polygon fill="#0066ff" points="11.5,37.5 0.8,70.5 33.5,99.2"/></svg>';
+    +'<polygon fill="#e8e8ea" points="46.6,0.0 64.4,13.9 32.6,14.1"/>'
+    +'<polygon fill="#e8e8ea" points="33.3,15.8 63.6,47.3 48.8,54.3"/>'
+    +'<polygon fill="#e8e8ea" points="12.5,36.3 39.0,59.4 24.2,66.2"/>'
+    +'<polygon fill="#e8e8ea" points="25.4,69.1 39.5,59.4 41.5,63.8 47.6,55.4 63.2,52.3 39.6,97.2"/>'
+    +'<polygon fill="#e8e8ea" points="43.5,95.1 66.2,50.6 80.0,69.3 45.9,97.3"/>'
+    +'<polygon fill="#0066ff" points="9.5,38.1 34.2,96.5 0.9,69.1"/></svg>';
   const OPTS=()=>[
     {id:"blackswan", nm:"BlackSwan", sub:T.hbCommunitySub, logo:SWAN, group:"community"},
     {id:"instagram", nm:"Instagram", glyph:"IG", cls:"ig", group:"social"},

@@ -37,15 +37,41 @@ function section(){
   if (typeof DEMO !== "undefined" && DEMO) return "";
   if (window.Pub && Pub.on) return "";
   if (!user || !user.nickname) return "";
-  return '<p class="pw-lead">' + esc(T.pwLead) + "</p>"
-    + '<div class="pw-grid">'
-    +   field("pwOld", T.pwOld, "current-password")
-    +   field("pwNew", T.pwNew, "new-password")
-    +   field("pwNew2", T.pwRepeat, "new-password")
-    + "</div>"
-    + '<div class="pw-row"><button class="btn" type="button" id="pwGo">'
-    +   esc(T.pwSave) + "</button>"
-    +   '<span class="pw-msg" id="pwMsg"></span></div>';
+  /* у розділі — лише кнопка; поля живуть в окремому вікні (dialog) */
+  return '<div class="pw-row"><button class="btn" type="button" id="pwOpen">'
+    + esc(T.pwSave) + "</button></div>";
+}
+
+/* Вікно зміни пароля. Малюється в тому ж #modal, що й налаштування, тому
+   «Назад» і «×» просто відкривають налаштування знову. */
+function back(){ if (window.__settings) __settings.open(); else closeModal(); }
+
+function dialog(){
+  openModal(
+    '<div class="m-head"><h2>' + esc(T.pwTitle) + "</h2>"
+    + '<button class="x" type="button" id="pwX" aria-label="' + esc(T.pwBack) + '">×</button></div>'
+    + '<div class="m-body st"><section class="st-sec pw">'
+    +   '<p class="pw-lead">' + esc(T.pwLead) + "</p>"
+    +   '<div class="pw-grid">'
+    +     field("pwOld", T.pwOld, "current-password")
+    +     field("pwNew", T.pwNew, "new-password")
+    +     field("pwNew2", T.pwRepeat, "new-password")
+    +   "</div>"
+    +   '<div class="pw-row"><span class="pw-msg" id="pwMsg"></span></div>'
+    + "</section></div>"
+    + '<div class="m-foot"><button class="btn" type="button" id="pwBack">' + esc(T.pwBack) + "</button>"
+    + '<span class="sp"></span>'
+    + '<button class="btn primary" type="button" id="pwGo">' + esc(T.pwSave) + "</button></div>");
+  $id("pwX").onclick = back;
+  $id("pwBack").onclick = back;
+  $id("pwGo").onclick = save;
+  /* Enter у будь-якому з трьох полів — те саме, що натиснути кнопку. */
+  ["pwOld", "pwNew", "pwNew2"].forEach(id => {
+    const n = $id(id);
+    if (n) n.onkeydown = e => { if (e.key === "Enter") save(); };
+  });
+  const first = $id("pwOld");
+  if (first) setTimeout(() => first.focus(), 50);
 }
 
 function say(text, ok){
@@ -101,13 +127,8 @@ async function save(){
 }
 
 function wire(){
-  const btn = $id("pwGo");
-  if (btn) btn.onclick = save;
-  /* Enter у будь-якому з трьох полів — те саме, що натиснути кнопку. */
-  ["pwOld", "pwNew", "pwNew2"].forEach(id => {
-    const n = $id(id);
-    if (n) n.onkeydown = e => { if (e.key === "Enter") save(); };
-  });
+  const btn = $id("pwOpen");
+  if (btn) btn.onclick = dialog;
 }
 
 window.__pwd = {load: load, section: section, wire: wire};
