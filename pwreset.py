@@ -10,6 +10,11 @@
 Шлемо в усі канали, які є в людини. Пошта могла загубитись у спамі,
 телефон — лишитись удома; хай приходить туди й туди, а людина візьме
 те, що ближче.
+
+Тон листа — діловий, на «ви», хоч бот в усьому іншому говорить просто і
+на «ти». Лист про пароль людина бачить у скриньці поряд із банківськими
+й службовими, часто на тлі тривоги «мене зламали»: панібратство тут
+читається як підробка, а не як дружність.
 """
 import hashlib
 import secrets
@@ -44,45 +49,63 @@ def has_telegram(user):
 
 ORDER = ("uk", "ru", "en")
 
-SUBJECT = ("StatsAI — відновлення пароля",
-           "StatsAI — восстановление пароля",
-           "StatsAI — password reset")
+SUBJECT = ("Відновлення пароля до журналу StatsAI",
+           "Восстановление пароля к журналу StatsAI",
+           "StatsAI password reset")
 
 LETTER = (
-    "Привіт!\n\n"
-    "Хтось (сподіваємось, ти) попросив новий пароль до журналу StatsAI.\n"
-    "Відкрий це посилання й задай пароль — воно живе %(min)d хвилин:\n\n"
+    "Доброго дня!\n\n"
+    "Ми отримали запит на відновлення пароля до вашого акаунта в журналі "
+    "StatsAI.\n\n"
+    "Щоб задати новий пароль, перейдіть за посиланням:\n"
     "%(link)s\n\n"
-    "Якщо пароль ти не забував — просто не відкривай листа. Поки посилання\n"
-    "ніхто не відкрив, старий пароль працює як працював.\n",
+    "Посилання дійсне %(min)d хвилин і спрацьовує один раз.\n\n"
+    "Якщо запиту ви не надсилали, залиште цей лист без уваги: поточний "
+    "пароль лишається чинним.\n\n"
+    "--\n"
+    "StatsAI — помічник трейдера\n"
+    "%(site)s\n",
 
-    "Привет!\n\n"
-    "Кто-то (надеемся, ты) попросил новый пароль к журналу StatsAI.\n"
-    "Открой эту ссылку и задай пароль — она живёт %(min)d минут:\n\n"
+    "Здравствуйте!\n\n"
+    "Мы получили запрос на восстановление пароля к вашему аккаунту в журнале "
+    "StatsAI.\n\n"
+    "Чтобы задать новый пароль, перейдите по ссылке:\n"
     "%(link)s\n\n"
-    "Если пароль ты не забывал — просто не открывай письмо. Пока ссылку\n"
-    "никто не открыл, старый пароль работает как работал.\n",
+    "Ссылка действительна %(min)d минут и срабатывает один раз.\n\n"
+    "Если запрос отправляли не вы, оставьте это письмо без внимания: текущий "
+    "пароль остаётся действующим.\n\n"
+    "--\n"
+    "StatsAI — помощник трейдера\n"
+    "%(site)s\n",
 
-    "Hi!\n\n"
-    "Someone (hopefully you) asked for a new StatsAI password.\n"
-    "Open this link and set one — it lives for %(min)d minutes:\n\n"
+    "Hello,\n\n"
+    "We have received a request to reset the password for your StatsAI "
+    "account.\n\n"
+    "To set a new password, follow this link:\n"
     "%(link)s\n\n"
-    "If you did not ask, just ignore this letter. Until the link is opened,\n"
-    "your old password keeps working.\n",
+    "The link is valid for %(min)d minutes and works once.\n\n"
+    "If you did not make this request, please ignore this message: your "
+    "current password remains valid.\n\n"
+    "--\n"
+    "StatsAI — trading assistant\n"
+    "%(site)s\n",
 )
 
 TG_TEXT = (
-    "🔑 <b>Новий пароль до журналу</b>\n\n"
-    "Відкрий посилання й задай пароль — воно живе %(min)d хвилин:\n%(link)s\n\n"
-    "Не ти просив? Тоді нічого не роби: старий пароль лишається чинним.",
+    "🔑 <b>Відновлення пароля StatsAI</b>\n\n"
+    "Щоб задати новий пароль, перейдіть за посиланням:\n%(link)s\n\n"
+    "Посилання дійсне %(min)d хвилин і спрацьовує один раз. Якщо запиту ви "
+    "не надсилали, залиште це повідомлення без уваги.",
 
-    "🔑 <b>Новый пароль к журналу</b>\n\n"
-    "Открой ссылку и задай пароль — она живёт %(min)d минут:\n%(link)s\n\n"
-    "Не ты просил? Тогда ничего не делай: старый пароль остаётся в силе.",
+    "🔑 <b>Восстановление пароля StatsAI</b>\n\n"
+    "Чтобы задать новый пароль, перейдите по ссылке:\n%(link)s\n\n"
+    "Ссылка действительна %(min)d минут и срабатывает один раз. Если запрос "
+    "отправляли не вы, оставьте это сообщение без внимания.",
 
-    "🔑 <b>New journal password</b>\n\n"
-    "Open the link and set a password — it lives for %(min)d minutes:\n%(link)s\n\n"
-    "Did not ask? Do nothing: your old password stays valid.",
+    "🔑 <b>StatsAI password reset</b>\n\n"
+    "To set a new password, follow this link:\n%(link)s\n\n"
+    "The link is valid for %(min)d minutes and works once. If you did not "
+    "make this request, please ignore this message.",
 )
 
 
@@ -106,8 +129,9 @@ def start(user, base_url, lang="uk"):
     """
     token = secrets.token_urlsafe(32)
     db.create_reset(user["id"], token_hash(token), TTL_MIN)
-    link = link_for(base_url, token)
-    words = {"link": link, "min": TTL_MIN}
+    site = (base_url or config.SITE_URL).rstrip("/")
+    link = link_for(site, token)
+    words = {"link": link, "min": TTL_MIN, "site": site}
     done = []
 
     if has_email(user) and mailer.enabled():
