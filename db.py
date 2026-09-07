@@ -374,6 +374,13 @@ def owns_screenshot(user_id, filename):
     return row is not None
 
 
+def set_password(user_id, pw_hash, pw_salt, pw_iters):
+    """Новий пароль. Старий перевіряє той, хто кличе — тут лише запис."""
+    with connect() as conn:
+        conn.execute("UPDATE users SET pw_hash=%s, pw_salt=%s, pw_iters=%s WHERE id=%s",
+                     (pw_hash, pw_salt, pw_iters, user_id))
+
+
 def public_screenshot(user_id, filename):
     """Скрин из чужого журнала. Открытость проверяем тем же запросом, что и
     владение файлом: закрыл журнал — картинки перестали отдаваться сразу."""

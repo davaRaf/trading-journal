@@ -1342,6 +1342,33 @@ class H(BaseHTTPRequestHandler):
             db.set_public(uid, on)
             return self._json({"public_journal": on})
 
+        # ---- зміна власного пароля ----
+        # Старий пароль питаємо навіть у того, хто вже увійшов: сесія живе
+        # 30 днів, і чужий комп'ютер із незакритою вкладкою не повинен
+        # давати змогу перебити пароль і забрати акаунт. Перебір старого
+        # обмежуємо так само, як вхід.
+        if p == "/api/me/password":
+            old = str((body or {}).get("old") or "")
+            new = str((body or {}).get("new") or "")
+            if len(new) < 6:
+                return self._json({"error": "пароль від 6 символів",
+                                   "code": "short"}, 400)
+            keys = ["pw:%d" % uid]
+            wait = ratelimit.check(keys)
+            if wait:
+                return self._json({"error": "забагато спроб — спробуй за %d с" % wait,
+                                   "code": "too_many", "wait": wait}, 429)
+            me = db.get_user(uid)
+            if not me or not auth.verify_password(old, me["pw_hash"], me["pw_salt"],
+                                                  me["pw_iters"]):
+                ratelimit.miss(keys)
+                return self._json({"error": "старий пароль не підходить",
+                                   "code": "bad_old"}, 403)
+            ratelimit.forget(keys)
+            pw_hash, pw_salt, iters = auth.hash_password(new)
+            db.set_password(uid, pw_hash, pw_salt, iters)
+            return self._json({"ok": True})
+
         if p == "/api/telegram/link-code":
             bot = bot_username()
             if not bot:

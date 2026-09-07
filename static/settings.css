@@ -59,3 +59,30 @@
   .bk-get{width:100%}
   .bk-kept{display:block; margin-top:2px}
 }
+
+/* ---- зміна пароля ---- */
+
+/* Три поля в ряд на широкому вікні й стовпчиком на вузькому. Підпис над
+   полем, а не плейсхолдером усередині: плейсхолдер зникає, щойно почав
+   писати, і в трьох однакових полях уже не зрозуміти, де яке. */
+.st-sec.pw .pw-lead{margin:0 0 14px; font-size:13px; line-height:1.6; color:var(--dim)}
+.pw-grid{display:grid; grid-template-columns:repeat(3, minmax(0, 1fr)); gap:10px}
+.pw-f{display:flex; flex-direction:column; gap:6px; min-width:0}
+.pw-f span{font-family:var(--mono); font-size:10px; letter-spacing:.1em;
+  text-transform:uppercase; color:var(--faint)}
+.pw-f input{width:100%; min-width:0; min-height:44px; box-sizing:border-box;
+  background:var(--panel-2); border:1px solid var(--line); border-radius:var(--r-sm);
+  color:var(--text); padding:10px 12px; font-size:14px;
+  transition:border-color .14s}
+.pw-f input:focus{outline:none; border-color:var(--accent)}
+.pw-row{display:flex; align-items:center; gap:12px; flex-wrap:wrap; margin-top:14px}
+.pw-row .btn{min-height:44px}
+.pw-msg{font-size:13px; color:var(--dim)}
+.pw-msg.ok{color:var(--up)}
+.pw-msg.bad{color:var(--down)}
+
+@media (max-width:560px){
+  .pw-grid{grid-template-columns:minmax(0, 1fr)}
+  .pw-row .btn{width:100%}
+  .pw-msg{width:100%}
+}

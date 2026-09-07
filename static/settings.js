@@ -40,6 +40,8 @@ function body(){
   let h = sec(T.stLang, langs());
   const pp = (!inPub() && window.__profile) ? __profile.section() : "";
   if (pp) h += sec(T.ppTitle, pp, "pp");
+  const pw = (!inPub() && window.__pwd) ? __pwd.section() : "";
+  if (pw) h += sec(T.pwTitle, pw, "pw");
   const bk = (!inPub() && window.__backup) ? __backup.section() : "";
   if (bk) h += sec(T.bkTitle, bk, "bk");
   /* службова статистика — розділ є лише в тих, кому сервер її віддав */
@@ -56,6 +58,7 @@ function draw(){
     + '<div class="m-foot"><span class="sp"></span>'
     + '<button class="btn" onclick="closeModal()">' + esc(T.mrClose) + "</button></div>");
   if (!inPub() && window.__profile && __profile.section()) __profile.wire();
+  if (!inPub() && window.__pwd && __pwd.section()) __pwd.wire();
 }
 
 async function open(){
@@ -63,6 +66,7 @@ async function open(){
      зайва пауза перед відкриттям вікна. */
   if (!inPub()) await Promise.all([
     window.__profile ? __profile.load() : null,
+    window.__pwd ? __pwd.load() : null,
     window.__backup ? __backup.load() : null,
     window.__sources ? __sources.load() : null,
   ]);
