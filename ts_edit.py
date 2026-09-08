@@ -242,4 +242,4 @@ if __name__ == "__main__":
     assert len(done) == 5, done
     assert looks_like("добавь золото в активы") and looks_like("убери модель BOS из ТС")
     assert not looks_like("как дела?") and not looks_like("сколько у меня сделок")
-    print("ts_edit: ok", done)
+    print("ts_edit: ok, changes:", len(done))   # без «−»: консоль Windows у cp1251 падає
