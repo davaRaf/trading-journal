@@ -476,6 +476,11 @@ function open(kind, arg){
   document.getElementById("shGo").onclick = async function(){
     this.disabled = true; this.textContent = T.slCreating;
     try{
+      /* оформлення їде разом зі знімком: сторінка за посиланням
+         пофарбується так само, як вибрали тут. Ставимо ДО малювання
+         превʼю — воно читає data.skin, інакше виходило темним. */
+      const skin = shareSkin();
+      if (skin) data.skin = skin; else delete data.skin;
       /* Для тижня й місяця малюємо календар — він піде в превью посилання.
          Не вийшло намалювати чи покласти — не біда: посилання створиться
          й без картинки, просто в месенджері буде без неї. */
@@ -489,10 +494,6 @@ function open(kind, arg){
           if (up.ok) data.og = (await up.json()).file;
         }catch(e){}
       }
-      /* оформлення їде разом зі знімком: сторінка за посиланням
-         пофарбується так само, як вибрали тут */
-      const skin = shareSkin();
-      if (skin) data.skin = skin; else delete data.skin;
       const res = await fetch("/api/share", {
         method:"POST", headers:{"Content-Type":"application/json"},
         body: JSON.stringify({ data, ttl: lastTtl })

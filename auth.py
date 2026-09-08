@@ -18,9 +18,37 @@ PBKDF2_ITERS = 200_000
 SECRET_FILE = os.path.join(ROOT, "data", ".session_secret")
 
 
+_SECRET = None
+
+
 def _secret():
+    """Ключ підпису сесій. Змінна оточення → база (meta) → файл.
+
+    У базі — бо на сервері папка data/ не переживає перезапуск чи
+    перезбірку: ключ народжувався заново після кожного викладу, і всі
+    входи злітали. База переживає все. Читаємо ліниво, на першому
+    запиті: на момент імпорту таблиць ще може не бути."""
+    global _SECRET
+    if _SECRET:
+        return _SECRET
     if SESSION_SECRET:
-        return SESSION_SECRET.encode("utf-8")
+        _SECRET = SESSION_SECRET.encode("utf-8")
+        return _SECRET
+    try:
+        import db
+        val = db.meta_get("session_secret")
+        if not val:
+            val = os.urandom(32).hex()
+            db.meta_set("session_secret", val)
+        _SECRET = val.encode("utf-8")
+        return _SECRET
+    except Exception as ex:
+        print("SESSION_SECRET: база недоступна (%s) — беру файл" % ex, flush=True)
+    _SECRET = _file_secret()
+    return _SECRET
+
+
+def _file_secret():
     if not os.path.exists(SECRET_FILE):
         os.makedirs(os.path.dirname(SECRET_FILE), exist_ok=True)
         with open(SECRET_FILE, "w", encoding="utf-8") as f:
@@ -33,9 +61,6 @@ def _secret():
         print("!" * 70)
     with open(SECRET_FILE, "r", encoding="utf-8") as f:
         return f.read().strip().encode("utf-8")
-
-
-SECRET = _secret()
 
 
 # -------------------------------------------------------------- пароли ----
@@ -55,7 +80,7 @@ def verify_password(password, pw_hash, pw_salt, iters):
 # ------------------------------------------------------------- сессия ----
 
 def _sign(payload):
-    return hmac.new(SECRET, payload.encode("utf-8"), hashlib.sha256).hexdigest()
+    return hmac.new(_secret(), payload.encode("utf-8"), hashlib.sha256).hexdigest()
 
 
 def make_session(user_id, ttl=SESSION_TTL):

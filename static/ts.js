@@ -1080,6 +1080,18 @@ window.__ts = {
   assets(){ return (TS && Array.isArray(TS.assets)) ? TS.assets.filter(Boolean).slice() : []; },
   /* сама стратегія назовні — з неї sharelink.js збирає знімок */
   data(){ return TS || null; },
+  /* довантажити ТС, якщо ще не читали — форма угоди бере з неї підказки */
+  ensure(){ if (TS === undefined) load(); },
+  /* що з ТС іде в підказки форми: інструменти, моделі входу, таймфрейми */
+  hints(){
+    const t = TS || {};
+    const clean = a => (Array.isArray(a) ? a : []).map(v => String(v || "").trim()).filter(Boolean);
+    return {
+      assets: clean(t.assets),
+      models: clean((t.models || []).map(m => m && m.name)),
+      tfs:    clean((t.tfs || []).map(r => r && r.tf)),
+    };
+  },
   share(){
     if (window.Guest && Guest.block(T.gsGateTs)) return;
     if (window.Share) Share.open("ts");

@@ -9,6 +9,23 @@ const Assistant = (function(){
   let log = [];          // {who:"me"|"ai", text}
   let busy = false;
 
+  /* Діалог живе день: F5 його не скидає, а наступного дня починається
+     чистий — інакше помічник тягне в контекст учорашнє. Картки
+     підтвердження видалення не зберігаємо: кнопка після F5 нікуди не веде. */
+  const KEY = "tj_assist";
+  const today = () => new Date().toISOString().slice(0, 10);
+  function restore(){
+    try{
+      const v = JSON.parse(localStorage.getItem(KEY) || "null");
+      if (v && v.day === today() && Array.isArray(v.log)) log = v.log.filter(m => m && !m.card);
+    }catch(e){ log = []; }
+  }
+  function persist(){
+    try{ localStorage.setItem(KEY, JSON.stringify({day: today(), log: log.filter(m => !m.card).slice(-40)})); }
+    catch(e){}
+  }
+  restore();
+
   const esc = s => String(s == null ? "" : s)
     .replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;");
 
@@ -59,6 +76,7 @@ const Assistant = (function(){
   }
 
   function paint(){
+    persist();
     const box = document.querySelector(".as-log");
     if(!box) return;
     box.innerHTML = bodyHtml();
@@ -307,7 +325,7 @@ const Assistant = (function(){
     send(question);
   }
 
-  return { open, say, hush, bring, sound: ping, reset: () => { log = []; } };
+  return { open, say, hush, bring, sound: ping, reset: () => { log = []; persist(); } };
 })();
 
 window.Assistant = Assistant;

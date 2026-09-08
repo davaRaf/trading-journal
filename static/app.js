@@ -363,7 +363,10 @@ const Prefs=(function(){
     hide(k,v){ const c=f(k); v=String(v); if(!c.hide.includes(v)) c.hide.push(v); c.add=c.add.filter(x=>x!==v); save(); },
     add(k,v){ const c=f(k); v=String(v).trim(); if(!v) return; c.hide=c.hide.filter(x=>x!==v); if(!c.add.includes(v)) c.add.push(v); save(); },
     restore(k){ f(k).hide=[]; save(); },
-    tfs(){ return merge(TF_SLOTS,P.tfs.add,P.tfs.hide); },
+    tfs(){
+      const ts=(window.__ts&&__ts.hints)?__ts.hints().tfs:[];
+      return merge([...TF_SLOTS,...ts],P.tfs.add,P.tfs.hide);
+    },
     tfHidden(){ return P.tfs.hide.slice(); },
     tfHide(v){ if(!P.tfs.hide.includes(v)) P.tfs.hide.push(v); P.tfs.add=P.tfs.add.filter(x=>x!==v); save(); },
     tfAdd(v){ v=String(v).trim(); if(!v) return; P.tfs.hide=P.tfs.hide.filter(x=>x!==v); if(!TF_SLOTS.includes(v)&&!P.tfs.add.includes(v)) P.tfs.add.push(v); save(); },
@@ -1457,14 +1460,17 @@ function openForm(id, presetDay){
   /* Названия счетов — то, что человек уже вводил. Пока пусто, подсказываем
      самые ходовые; справочника нет, пишет он сам. */
   const accounts=[...new Set([...topVals("account",4), ...accHints()])].slice(0,4);
-  const models=[...new Set(["cisd",...topVals("entry_model",4)])];
+  /* підказки з «Моєї ТС» — першими: що людина записала як свою систему,
+     те й має бути під рукою в формі. Далі — що вже є в журналі. */
+  const tsH=(window.__ts&&__ts.hints)?__ts.hints():{assets:[],models:[],tfs:[]};
+  const models=[...new Set([...tsH.models,"cisd",...topVals("entry_model",4)])];
   const setups=topVals("setup",4);
   const mistakes=topVals("mistakes",5);
   /* інструменти беремо з журналу, як моделі й сетапи. Жорсткий PAIRS_ACTIVE
      підсовував US100/ES500, яких у журналі немає, тож свій індекс щоразу
      вписували руками — звідси «NAS 100» і «NAS100» поруч. Список лишаємо
      тільки як підказку для порожнього журналу */
-  const ownPairs=topVals("pair",5);
+  const ownPairs=[...new Set([...tsH.assets,...topVals("pair",5)])];
   const pairs=ownPairs.length?ownPairs:PAIRS_ACTIVE;
 
   let h='<div class="m-head"><h2>'+(t?T.fmEditTitle:T.fmNewTitle)+
@@ -2135,4 +2141,6 @@ function markDemo(){
   render();
   if(window.Sparks) Sparks.start();
   if(!DEMO && !(window.Pub && Pub.on)) refreshTelegramStatus();
+  /* ТС потрібна формі угоди як джерело підказок — читаємо одразу */
+  if(window.__ts && __ts.ensure) __ts.ensure();
 })();
