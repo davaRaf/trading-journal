@@ -434,11 +434,18 @@ function filterBar(){
     ["pair",T.fPair,uniqueVals("pair")],["session",T.fSession,uniqueVals("session")],
     ["setup",T.fSetup,uniqueVals("setup")],["entry_model",T.flModel,uniqueVals("entry_model")],
     ["bias",T.fBias,uniqueVals("bias")],["direction_type",T.fDirTypeFilter,["Continuation","Reversal"]]];
+  /* Списки свои, а не системные: у системного вид рисует браузер, и в тёмной
+     теме он выпадал белым прямоугольником без анимации. Значения складываем
+     в FLT_OPTS, разворачивает их Pick (ui.js). */
+  FLT_OPTS={};
   let h='<div class="filters">';
   for(const [f,label,vals] of selects){
     if(!vals.length) continue;
-    h+='<select onchange="setFilter(\''+f+'\',this.value)"><option value="">'+label+"</option>"+
-      vals.map(v=>'<option '+(S.filters[f]===v?"selected":"")+' value="'+esc(v)+'">'+esc(f==="result"?resLabel(v):v)+"</option>").join("")+"</select>";
+    FLT_OPTS[f]=[{v:"",label:label}].concat(vals.map(v=>({v:v,label:f==="result"?resLabel(v):v})));
+    const on=S.filters[f]||"";
+    const shown=on?(f==="result"?resLabel(on):on):label;
+    h+='<button type="button" class="fsel'+(on?" set":"")+'" data-f="'+f+'" aria-haspopup="listbox"'+
+      ' aria-expanded="false" onclick="pickFilter(this)"><span>'+esc(shown)+"</span>"+CHEV_D+"</button>";
   }
   h+=periodBtn();
   const on=Object.keys(S.filters).filter(k=>S.filters[k]&&k!=="from"&&k!=="to").length+
@@ -485,6 +492,12 @@ function pickDate(btn){
   DatePicker.open(btn,{mode:"single",value:S.selDay,onPick:key=>pickDay(key)});
 }
 function setFilter(f,v){ if(v)S.filters[f]=v; else delete S.filters[f]; S.pages={}; render(); }
+/* значения списков собирает filterBar — тут только раскрываем их у кнопки */
+let FLT_OPTS={};
+function pickFilter(btn){
+  const f=btn.dataset.f;
+  Pick.open(btn, FLT_OPTS[f]||[], S.filters[f]||"", v=>setFilter(f,v));
+}
 function clearFilters(){ S.filters={}; S.pages={}; render(); }
 function applyFilters(list){
   return list.filter(t=>{
@@ -2023,6 +2036,8 @@ function render(){
      і там, інакше відкритий розділ ніде не позначався */
   document.querySelectorAll(".nav a, .side a[data-v]").forEach(a=>a.classList.toggle("on",a.dataset.v===v));
   if(window.PL) PL.reset();
+  /* кнопка-якорь сейчас исчезнет вместе с разделом — список без неё не нужен */
+  if(window.Pick) Pick.close();
   /* «enter» только при смене раздела: перерисовка после правки угоди
      не должна каждый раз моргать всей страницей */
   document.documentElement.setAttribute("data-page",v);

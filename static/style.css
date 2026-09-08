@@ -411,9 +411,17 @@ svg.chart{display:block;width:100%;height:auto}
 
 /* ---------- фильтры ---------- */
 .filters{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-bottom:14px}
-.filters select,.filters input{background:var(--panel);border:1px solid var(--line);color:var(--text);
-  border-radius:var(--r-sm);font-family:var(--mono);font-size:12px;padding:6px 9px}
+.filters select,.filters input,.filters .fsel{background:var(--panel);border:1px solid var(--line);
+  color:var(--text);border-radius:var(--r-sm);font-family:var(--mono);font-size:12px;padding:6px 9px}
 .filters select:hover{border-color:var(--faint)}
+/* Кнопка вместо системного <select>: тот же вид, но список свой — см. .spop */
+.filters .fsel{display:inline-flex;align-items:center;gap:8px;cursor:pointer;line-height:1.35}
+.filters .fsel .chev{flex:none;color:var(--faint);transition:transform .18s var(--m-ease-out,ease)}
+.filters .fsel[aria-expanded="true"] .chev{transform:rotate(180deg)}
+.filters .fsel:hover,.filters .fsel[aria-expanded="true"]{border-color:var(--faint)}
+/* выбранное значение видно и не читая текст */
+.filters .fsel.set{border-color:color-mix(in srgb, var(--accent) 45%, var(--line));color:var(--text)}
+.filters .fsel.set .chev{color:var(--accent)}
 .filters .clear{color:var(--faint);font-family:var(--mono);font-size:11px;text-transform:uppercase;letter-spacing:.08em}
 .filters .clear:hover{color:var(--text)}
 
@@ -1308,6 +1316,20 @@ button[data-tip],a[data-tip],.mk[data-tip]{cursor:pointer}
   opacity:0;transform:translateY(-4px) scale(.985);
   transition:opacity .15s ease,transform .15s cubic-bezier(.16,1,.3,1)}
 .dpop.in{opacity:1;transform:none}
+/* ---------- свой список для фильтров (shadcn/ui · Select) ----------
+   Появляется тем же жестом, что и календарь выше: 150 мс, лёгкий подъём.
+   Живёт в body, потому что внутри панели его резал бы overflow. */
+.spop{position:fixed;z-index:205;max-height:min(320px,60vh);overflow-y:auto;padding:5px;
+  border-radius:11px;border:1px solid var(--line);background:var(--card);box-shadow:var(--shadow-pop);
+  opacity:0;transform:translateY(-4px) scale(.985);
+  transition:opacity .15s ease,transform .15s cubic-bezier(.16,1,.3,1)}
+.spop.in{opacity:1;transform:none}
+.sopt{padding:7px 10px;border-radius:7px;font-family:var(--mono);font-size:12px;color:var(--dim);
+  cursor:pointer;white-space:nowrap}
+.sopt.on{background:var(--panel-2);color:var(--text)}
+.sopt[aria-selected="true"]{color:var(--text);font-weight:600}
+.sopt[aria-selected="true"]::after{content:"·";margin-left:8px;color:var(--accent)}
+@media (prefers-reduced-motion: reduce){.spop{transition:none}}
 .dp-head{display:flex;align-items:center;gap:6px;margin-bottom:8px}
 .dp-title{flex:1;text-align:center;font-size:13px;font-weight:600}
 .dp-nav{width:26px;height:26px;border-radius:7px;border:1px solid var(--line);color:var(--dim);
