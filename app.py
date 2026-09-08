@@ -1565,6 +1565,26 @@ class H(BaseHTTPRequestHandler):
                               cookie=auth.cookie_header(auth.make_session(user["id"]),
                                                         secure=auth.is_https(self)))
 
+        # ---- чи знайома нам ця пошта ----
+        # Питає сама форма входу, щойно адресу дописано: про незнайому пошту
+        # людина має дізнатись там, де її вводить, а не аж після кнопки
+        # «надіслати посилання». Ясність тут та сама, що й у forgot нижче, і
+        # плата та сама — тож і лічильник спроб той самий, 5 за хвилину.
+        if p == "/api/auth/known":
+            if not isinstance(body, dict):
+                return self._json({"error": "bad json"}, 400)
+            mail = str(body.get("email") or "").strip()
+            keys = ["known:" + self._guest()]
+            wait = ratelimit.check(keys)
+            if wait:
+                return self._json({"error": "забагато спроб — спробуй за %d с" % wait,
+                                   "code": "too_many", "wait": wait}, 429)
+            ratelimit.miss(keys)
+            if not EMAIL_RE.match(mail):
+                return self._json({"error": "це не схоже на пошту",
+                                   "code": "bad_email"}, 400)
+            return self._json({"known": bool(db.get_user_by_email(mail))})
+
         # ---- забув пароль ----
         # Відповідаємо чесно: є така пошта чи немає, дійшов лист чи ні.
         # Плата за це відома — сторінкою входу можна перевіряти, хто тут
