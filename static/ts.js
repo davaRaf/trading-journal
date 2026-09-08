@@ -99,7 +99,7 @@ function save(){
    решта коду знала лише про список. */
 function normalize(ts){
   if (!ts) return ts;
-  (ts.models || []).forEach(m => {
+  [].concat(ts.models || [], ts.setups || []).forEach(m => {
     if (!Array.isArray(m.shots)) m.shots = m.shot ? [m.shot] : [];
     delete m.shot;
   });
@@ -266,23 +266,33 @@ function secTf(){
                : '<div class="empty">' + esc(d.noTfs) + "</div>") + add("tfs", d.addTf);
 }
 
+/* Моделі входу й сетапи показуються однаково: назва, опис і приклади входів
+   картинками. Різниця лише в тому, що трейдер вкладає в ці слова, тож малює
+   їх один код — і виправляти вигляд треба в одному місці. */
+function namedCards(path, list, d, none){
+  return (list.length
+    ? '<div class="ts-mods">' + list.map((m, i) =>
+        '<div class="ts-mod"><div class="ts-row"><b class="nm">'
+        + ed(path + "." + i + ".name", "", d.emptyName) + "</b>" + x(path, i) + "</div>"
+        + '<div class="note">' + edArea(path + "." + i + ".note", d.emptyNote) + "</div>"
+        + '<div class="ts-shots">'
+        +   (m.shots || []).map((f, j) =>
+              shot(path + "." + i + ".shots." + j, d.shotExample, true)).join("")
+        +   shot(path + "." + i + ".shots." + (m.shots || []).length,
+                 (m.shots || []).length ? d.shotAddShort : d.shotExample, true)
+        + "</div></div>").join("") + "</div>"
+    : '<div class="empty">' + esc(none) + "</div>");
+}
+
 function secEntry(){
   const d = D();
-  const mods = (TS.models || []);
   let h = '<p class="ts-sub2">' + esc(d.lModels) + "</p>"
-    + (mods.length
-        ? '<div class="ts-mods">' + mods.map((m, i) =>
-            '<div class="ts-mod"><div class="ts-row"><b class="nm">'
-            + ed("models." + i + ".name", "", d.emptyName) + "</b>" + x("models", i) + "</div>"
-            + '<div class="note">' + edArea("models." + i + ".note", d.emptyNote) + "</div>"
-            + '<div class="ts-shots">'
-            +   (m.shots || []).map((f, j) =>
-                  shot("models." + i + ".shots." + j, d.shotExample, true)).join("")
-            +   shot("models." + i + ".shots." + (m.shots || []).length,
-                     (m.shots || []).length ? d.shotAddShort : d.shotExample, true)
-            + "</div></div>").join("") + "</div>"
-        : '<div class="empty">' + esc(d.noModels) + "</div>")
+    + namedCards("models", TS.models || [], d, d.noModels)
     + add("models", d.addModel);
+
+  h += '<p class="ts-sub2">' + esc(d.lSetups) + "</p>"
+    + namedCards("setups", TS.setups || [], d, d.noSetups)
+    + add("setups", d.addSetup);
 
   h += '<p class="ts-sub2">' + esc(d.lRules) + '</p><div class="ts-lines">'
     + '<div class="ts-line"><div class="k">' + esc(d.lBias) + '</div><div class="v">'
@@ -1082,6 +1092,9 @@ window.__ts = {
   data(){ return TS || null; },
   /* довантажити ТС, якщо ще не читали — форма угоди бере з неї підказки */
   ensure(){ if (TS === undefined) load(); },
+  /* перечитати з сервера: помічник міг щось дописати на прохання трейдера,
+     і розділ під вікном має показати це без F5 */
+  reload(){ return load(); },
   /* що з ТС іде в підказки форми: інструменти й моделі входу. Таймфрейми
      ні — у ТС їх пишуть як завгодно («1M», «D»), і слоти під скріни двоїлись. */
   hints(){
@@ -1140,6 +1153,7 @@ window.__ts = {
       windows: {name: "", time: "", note: ""},
       tfs: {tf: "", role: "", what: "", shot: ""},
       models: {name: "", note: "", shots: []},
+      setups: {name: "", note: "", shots: []},
       riskCases: {k: "", v: ""},
       manage: {k: "", v: "", shots: []},
       extra: {k: "", v: "", shots: []},
@@ -1227,7 +1241,7 @@ uk: {
 
   lAssets: "Чим торгую", lWindows: "Вікна", lDaysNews: "Дні та новини",
   lTradeDays: "Торгові дні", lRedNews: "Червоні новини",
-  lModels: "Моделі входу", lRules: "Правила входу", lBias: "Біас визначаю",
+  lModels: "Моделі входу", lSetups: "Сетапи", lRules: "Правила входу", lBias: "Біас визначаю",
   lStop: "Де стоп", lTarget: "Де ціль", lMaxTrades: "Угод за день",
   lRrMin: "Мінімальний RR", lRiskPer: "Ризик на угоду", lDayLimit: "Ліміт за день",
   lWeekLimit: "Ліміт за тиждень", lRiskCases: "Окремі випадки",
@@ -1235,9 +1249,10 @@ uk: {
   lNoMarket: "За ринком", lNoTime: "За часом", lNoSelf: "За собою", lMind: "Нагадування",
 
   addAsset: "інструмент", addWindow: "вікно", addTf: "таймфрейм", addModel: "модель",
+  addSetup: "сетап",
   addCase: "випадок", addRule: "правило", addLine: "рядок", addCheck: "пункт",
   noTfs: "Таймфреймів ще немає", noCheck: "Чек-листа ще немає",
-  noModels: "Моделей входу ще немає", noneYet: "поки порожньо",
+  noModels: "Моделей входу ще немає", noSetups: "Сетапів ще немає", noneYet: "поки порожньо",
   shotAdd: "вставити скрін", shotAddShort: "ще скрін",
   shotHint: "клік → Ctrl+V · подвійний → файл", shotArmed: "тепер Ctrl+V",
   shotHintTouch: "тап → вставити з буфера · два тапи → файл",
@@ -1345,7 +1360,7 @@ ru: {
 
   lAssets: "Чем торгую", lWindows: "Окна", lDaysNews: "Дни и новости",
   lTradeDays: "Торговые дни", lRedNews: "Красные новости",
-  lModels: "Модели входа", lRules: "Правила входа", lBias: "Биас определяю",
+  lModels: "Модели входа", lSetups: "Сетапы", lRules: "Правила входа", lBias: "Биас определяю",
   lStop: "Где стоп", lTarget: "Где цель", lMaxTrades: "Сделок за день",
   lRrMin: "Минимальный RR", lRiskPer: "Риск на сделку", lDayLimit: "Лимит за день",
   lWeekLimit: "Лимит за неделю", lRiskCases: "Отдельные случаи",
@@ -1353,9 +1368,10 @@ ru: {
   lNoMarket: "По рынку", lNoTime: "По времени", lNoSelf: "По себе", lMind: "Напоминание",
 
   addAsset: "инструмент", addWindow: "окно", addTf: "таймфрейм", addModel: "модель",
+  addSetup: "сетап",
   addCase: "случай", addRule: "правило", addLine: "строку", addCheck: "пункт",
   noTfs: "Таймфреймов ещё нет", noCheck: "Чек-листа ещё нет",
-  noModels: "Моделей входа ещё нет", noneYet: "пока пусто",
+  noModels: "Моделей входа ещё нет", noSetups: "Сетапов ещё нет", noneYet: "пока пусто",
   shotAdd: "вставить скрин", shotAddShort: "ещё скрин",
   shotHint: "клик → Ctrl+V · двойной → файл", shotArmed: "теперь Ctrl+V",
   shotHintTouch: "тап → вставить из буфера · два тапа → файл",
@@ -1463,7 +1479,7 @@ en: {
 
   lAssets: "What I trade", lWindows: "Windows", lDaysNews: "Days and news",
   lTradeDays: "Trading days", lRedNews: "Red news",
-  lModels: "Entry models", lRules: "Entry rules", lBias: "Bias from",
+  lModels: "Entry models", lSetups: "Setups", lRules: "Entry rules", lBias: "Bias from",
   lStop: "Stop goes", lTarget: "Target", lMaxTrades: "Trades per day",
   lRrMin: "Minimum RR", lRiskPer: "Risk per trade", lDayLimit: "Daily limit",
   lWeekLimit: "Weekly limit", lRiskCases: "Special cases",
@@ -1471,9 +1487,10 @@ en: {
   lNoMarket: "Market", lNoTime: "Time", lNoSelf: "Myself", lMind: "Reminder",
 
   addAsset: "instrument", addWindow: "window", addTf: "timeframe", addModel: "model",
+  addSetup: "setup",
   addCase: "case", addRule: "rule", addLine: "line", addCheck: "item",
   noTfs: "No timeframes yet", noCheck: "No checklist yet",
-  noModels: "No entry models yet", noneYet: "empty so far",
+  noModels: "No entry models yet", noSetups: "No setups yet", noneYet: "empty so far",
   shotAdd: "add a screenshot", shotAddShort: "one more",
   shotHint: "click → Ctrl+V · double → file", shotArmed: "now press Ctrl+V",
   shotHintTouch: "tap → paste from clipboard · double tap → file",

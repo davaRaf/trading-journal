@@ -41,6 +41,7 @@ import day_store
 import tg_api
 import tidy
 import ts_check
+import ts_edit
 import ts_notion
 import ts_store
 import calendar_feed
@@ -1732,6 +1733,16 @@ class H(BaseHTTPRequestHandler):
             # історія розмови приходить з браузера — беремо тільки останні репліки
             raw = (body or {}).get("history")
             history = [m for m in raw if isinstance(m, dict)][-16:] if isinstance(raw, list) else []
+            lang = str((body or {}).get("lang") or "")
+            lang = lang if lang in ("uk", "ru", "en") else None
+            # прохання змінити «Мою ТС» — окрема гілка: модель лише каже, ЩО
+            # змінити, а перевіряє шляхи й пише в базу код (ts_edit.py).
+            # Йде першою, коли прохання явно про ТС: «прибери модель BOS з ТС»
+            # інакше перехопить видалення угод — там теж своє «прибери».
+            if ts_edit.looks_like(question) and ts_edit.about_ts(question):
+                r = ts_edit.plan(uid, question, history, lang)
+                if r:
+                    return self._json(r)
             # прохання видалити угоди — окрема гілка: модель лише каже, ЩО
             # видаляти, угоди добирає код, а зникають вони тільки після
             # натиснутої кнопки в підтвердженні (delete_ai.py)
@@ -1739,9 +1750,12 @@ class H(BaseHTTPRequestHandler):
                 card = delete_ai.plan(uid, question, history)
                 if card:
                     return self._json(card)
-            lang = str((body or {}).get("lang") or "")
-            return self._json({"answer": assistant.ask(
-                uid, question, history, lang if lang in ("uk", "ru", "en") else None)})
+            # решта прохань про ТС — без явного слова «ТС» («додай золото в активи»)
+            if ts_edit.looks_like(question):
+                r = ts_edit.plan(uid, question, history, lang)
+                if r:
+                    return self._json(r)
+            return self._json({"answer": assistant.ask(uid, question, history, lang)})
 
         if p == "/api/assistant/nudge":
             lang = str((body or {}).get("lang") or "ru")

@@ -21,7 +21,8 @@ _VERB = re.compile(
     r"add|remove|delete|drop|set|change|update|put)", re.I | re.U)
 _WHAT = re.compile(
     r"(\bтс\b|торгов\w* систем|систем[ау]\b|стратег|trading system|strategy|"
-    r"актив|инструмент|інструмент|пар[ау]\b|модел|таймфрейм|тф\b|timeframe|"
+    r"актив|инструмент|інструмент|пар[ау]\b|модел|сетап|сэтап|setup|"
+    r"таймфрейм|тф\b|timeframe|"
     r"правил|чек-?лист|checklist|риск|ризик|сесси|сесі|окн[оа]\b|не вхо|не захо|"
     r"стоп|цел[ьи]\b|таргет|напоминан|нагадуван|asset|model|rule|risk)", re.I | re.U)
 
@@ -38,6 +39,7 @@ STR_LISTS = ("assets", "check", "no.market", "no.time", "no.self")
 OBJ_LISTS = {
     "tfs":       ("tf",   ("tf", "role", "what")),
     "models":    ("name", ("name", "note")),
+    "setups":    ("name", ("name", "note")),
     "windows":   ("name", ("name", "time", "note")),
     "manage":    ("k",    ("k", "v")),
     "riskCases": ("k",    ("k", "v")),
@@ -55,9 +57,11 @@ RULES = (
     "\"say\":\"одне речення трейдеру його мовою, що саме зроблено\"}.\n"
     "Шляхи-списки рядків: assets (інструменти), check (чек-лист), no.market, no.time, "
     "no.self (коли не входить). value — рядок.\n"
-    "Шляхи-списки обʼєктів: tfs {tf, what}, models {name, note}, windows {name, time, note}, "
-    "manage {k, v}, riskCases {k, v}, extra {k, v}. Для add value — обʼєкт; для remove — "
-    "рядок-назва (tf, name або k).\n"
+    "Шляхи-списки обʼєктів: tfs {tf, what}, models {name, note}, setups {name, note}, "
+    "windows {name, time, note}, manage {k, v}, riskCases {k, v}, extra {k, v}. Для add "
+    "value — обʼєкт; для remove — рядок-назва (tf, name або k).\n"
+    "«Сетап», «сэтап», «setup» — це шлях setups (окремий розділ «Сетапи»). «Модель входу», "
+    "«модель» — це models. Не плутай їх між собою.\n"
     "Скалярні шляхи (лише op=set, value — рядок): bias, days, news, mind, maxtrades, "
     "stop.v, target.v, risk.per, risk.rr, risk.day, risk.week.\n"
     "Назви інструментів пиши великими латинськими, як прийнято: XAUUSD, US100, GER40, "
@@ -178,7 +182,7 @@ def apply(ts, ops):
                 if not isinstance(val, dict) or not _s(val.get(idk)):
                     continue
                 item = {f: _s(val.get(f)) for f in fields}
-                if path == "models":
+                if path in ("models", "setups"):
                     item["shots"] = []
                 if _key(item[idk]) in [_key(x.get(idk)) for x in lst]:
                     continue
@@ -206,8 +210,38 @@ def apply(ts, ops):
     return ts, done
 
 
-def plan(user_id, question, history=None):
-    """None — це не прохання змінити ТС; інакше {"answer": …, "ts": True}."""
+# Прохання саме про ТС, а не про угоди. Потрібне, щоб «прибери модель BOS з ТС»
+# не перехопило видалення угод (delete_ai теж бачить тут своє «прибери»).
+_TS_WORD = re.compile(
+    r"(\bтс\b|торгов\w* систем|стратег|trading system|strategy|"
+    r"сетап|сэтап|setup|модел\w*\s+вход)", re.I | re.U)
+
+# Коли записати не вийшло, мовчати не можна: питання піде у звичайного
+# помічника, а той радо відповість «додав», нічого не додавши. Саме через це
+# власник двічі повірив дарма.
+_FAIL = {
+    "uk": "Не зміг записати це в «Мою ТС»: або не зрозумів, куди саме, або таке там "
+          "уже є. Скажи конкретніше — наприклад «додай сетап FVG-континуація» чи "
+          "«додай модель входу CISD».",
+    "ru": "Не смог записать это в «Мою ТС»: либо не понял, куда именно, либо такое "
+          "там уже есть. Скажи конкретнее — например «добавь сетап FVG-континуация» "
+          "или «добавь модель входа CISD».",
+    "en": "I could not write that into your strategy: either I did not get where it "
+          "belongs, or it is already there. Try naming it directly — e.g. \"add setup "
+          "FVG continuation\" or \"add entry model CISD\".",
+}
+
+
+def about_ts(text):
+    return bool(_TS_WORD.search(text or ""))
+
+
+def plan(user_id, question, history=None, lang=None):
+    """None — це не прохання змінити ТС; інакше {"answer": …, "ts": …}.
+
+    ts=True — записали, розділ на сторінці треба перечитати; ts=False —
+    зрозуміли, що просять, але записати не було чого.
+    """
     ts = None
     try:
         ts = ts_store.get(user_id)
@@ -218,7 +252,7 @@ def plan(user_id, question, history=None):
         return None
     new_ts, done = apply(ts, data["ops"])
     if not done:
-        return None
+        return {"answer": _FAIL.get(lang) or _FAIL["ru"], "ts": False}
     ts_store.put(user_id, new_ts)
     say = _s(data.get("say")) or ("Готово: " + "; ".join(done))
     return {"answer": say, "ts": True, "changes": done}
@@ -234,12 +268,18 @@ if __name__ == "__main__":
         {"op": "set", "path": "risk.per", "value": "0.5%"},
         {"op": "set", "path": "nope.field", "value": "x"},             # чужий шлях — ігноруємо
         {"op": "add", "path": "no.self", "value": "після двох стопів"},
+        {"op": "add", "path": "setups", "value": {"name": "FVG", "note": "вхід у розрив"}},
     ])
     assert ts["assets"] == ["US100", "XAUUSD"], ts["assets"]
     assert [m["name"] for m in ts["models"]] == ["BOS"] and ts["models"][0]["shots"] == []
     assert ts["risk"]["per"] == "0.5%" and "nope" not in ts
     assert ts["no"]["self"] == ["після двох стопів"]
-    assert len(done) == 5, done
+    assert [s["name"] for s in ts["setups"]] == ["FVG"] and ts["setups"][0]["shots"] == []
+    assert len(done) == 6, done
     assert looks_like("добавь золото в активы") and looks_like("убери модель BOS из ТС")
+    assert looks_like("добавь сетап FVG континуация")
     assert not looks_like("как дела?") and not looks_like("сколько у меня сделок")
+    # прохання про ТС мусить обійти видалення угод, а прохання про угоди — ні
+    assert about_ts("убери модель BOS из ТС") and about_ts("добавь сэтап на золоте")
+    assert not about_ts("удали все сделки за вчера")
     print("ts_edit: ok, changes:", len(done))   # без «−»: консоль Windows у cp1251 падає

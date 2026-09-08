@@ -111,6 +111,11 @@ const Assistant = (function(){
         else log.push({who:"ai", text:T.asDelNone});
       }else{
         log.push({who:"ai", text: r.answer || T.asEmptyAnswer});
+        /* помічник дописав щось у «Мою ТС» — перечитуємо, щоб розділ під
+           вікном показав це одразу, без F5 */
+        if(r.ts && window.__ts && __ts.reload){
+          try{ await __ts.reload(); }catch(e){}
+        }
       }
     }catch(e){
       log.push({who:"ai", text: T.asAskFailed + e.message});

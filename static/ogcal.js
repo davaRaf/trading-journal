@@ -372,6 +372,7 @@ function system(data){
     [T.tsShAssets, (t.assets || [])],
     [T.tsShTfs, (t.tfs || []).map(r => r.tf).filter(Boolean)],
     [T.tsShModels, (t.models || []).map(m => m.name).filter(Boolean)],
+    [T.tsShSetups, (t.setups || []).map(m => m.name).filter(Boolean)],
   ].filter(r => r[1].length);
 
   rows.forEach(r => {
