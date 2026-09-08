@@ -1408,11 +1408,15 @@ class H(BaseHTTPRequestHandler):
             # партнерське посилання (?ref=blackswan): превʼю і назва — в стилі
             # колаборації, щоб у чаті спільноти картка була «наша × їхня»
             ref = self._ref_query()
-            if ref and os.path.exists(os.path.join(STATIC, "og-%s.png" % ref)):
+            og_path = os.path.join(STATIC, "og-%s.png" % ref) if ref else ""
+            if ref and os.path.exists(og_path):
                 title = PARTNER_TITLES.get(ref, ref)
                 desc = ("Журнал трейдера в оформлении %s: сделки, статистика, "
                         "анализ дня и своя ТС." % title)
-                html = html.replace("/static/og-main.png", "/static/og-%s.png" % ref)
+                # у адресі картинки — час її зміни: месенджери кешують превʼю за
+                # адресою, і без цього нова картинка не показувалась
+                html = html.replace("/static/og-main.png",
+                                    "/static/og-%s.png?v=%d" % (ref, int(os.path.getmtime(og_path))))
                 for attr in ('property="og:title"', 'name="twitter:title"'):
                     html = re.sub(r'(%s content=")[^"]*' % re.escape(attr),
                                   lambda m: m.group(1) + "StatsAI × " + title, html, 1)
