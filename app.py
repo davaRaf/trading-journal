@@ -1473,7 +1473,7 @@ class H(BaseHTTPRequestHandler):
             # людину на порозі, поки вона ходить у скриньку, — найшвидший
             # спосіб втратити її ще до першої угоди.
             in_background(authmail.start_confirm, user, self._base(),
-                          str(body.get("lang") or "uk"))
+                          str(body.get("lang") or "ru"))
             return self._json({"user": user_public(user)}, 201,
                               cookie=auth.cookie_header(auth.make_session(user["id"]),
                                                         secure=auth.is_https(self)))
@@ -1512,7 +1512,7 @@ class H(BaseHTTPRequestHandler):
             if not isinstance(body, dict):
                 return self._json({"error": "bad json"}, 400)
             mail = str(body.get("email") or "").strip()
-            lang = str(body.get("lang") or "uk")
+            lang = str(body.get("lang") or "ru")
             keys = ["forgot:" + self._guest()] + (["forgot:" + mail.lower()] if mail else [])
             wait = ratelimit.check(keys)
             if wait:
@@ -1623,7 +1623,7 @@ class H(BaseHTTPRequestHandler):
                                    "code": "too_many", "wait": wait}, 429)
             ratelimit.miss(keys)
             in_background(authmail.start_confirm, me, self._base(),
-                          str((body or {}).get("lang") or "uk"))
+                          str((body or {}).get("lang") or "ru"))
             return self._json({"ok": True, "sent": True})
 
         if p == "/api/me/password":
@@ -1681,9 +1681,9 @@ class H(BaseHTTPRequestHandler):
                 uid, question, history, lang if lang in ("uk", "ru", "en") else None)})
 
         if p == "/api/assistant/nudge":
-            lang = str((body or {}).get("lang") or "uk")
+            lang = str((body or {}).get("lang") or "ru")
             return self._json(assistant.nudge(
-                uid, lang if lang in ("uk", "ru", "en") else "uk"))
+                uid, lang if lang in ("uk", "ru", "en") else "ru"))
 
         if p == "/api/assistant/review":
             if not llm.enabled():
@@ -1830,8 +1830,8 @@ class H(BaseHTTPRequestHandler):
                 return self._json({"items": [], "text": ""})
             day = ts_check.same_day(db.list_trades(uid), trade)
             items = ts_check.check(ts, trade, day)
-            lang = str((body or {}).get("lang") or "uk")
-            text = ts_check.say(items, lang if lang in ("uk", "ru", "en") else "uk")
+            lang = str((body or {}).get("lang") or "ru")
+            text = ts_check.say(items, lang if lang in ("uk", "ru", "en") else "ru")
             # мовчазний помічник виглядає зламаним: коли звіряти нема за
             # що, кажемо про це прямо, а не вдаємо, що все гаразд
             return self._json({"items": items, "text": text,

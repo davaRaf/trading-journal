@@ -1557,14 +1557,14 @@ en: {
 
 };
 
-let LANG = "uk", T = I18N.uk;
+let LANG = "ru", T = I18N.ru;
 
 /* Переключити мову: оновити T/LANG, застосувати статичні шматки бічної
    панелі (якщо вона є на сторінці), перемалювати #main через render()
    застосунку (якщо він уже підключений і завантажив дані) і запам'ятати
    вибір у тому самому ключі, що й на сторінці входу. */
 function applyLang(code){
-  LANG = I18N[code] ? code : "uk";
+  LANG = I18N[code] ? code : "ru";
   T = I18N[LANG];
   try{ window.T = T; window.LANG = LANG; }catch(e){}
   document.documentElement.setAttribute("lang", T.htmlLang);
@@ -1640,7 +1640,8 @@ function applyLang(code){
 window.applyLang = applyLang;
 
 (function(){
-  let saved = "uk";
-  try{ saved = localStorage.getItem("statsai_lang") || "uk"; }catch(e){}
+  /* мова за замовчуванням — російська: так просив власник; вибір людини в localStorage головніший */
+  let saved = "ru";
+  try{ saved = localStorage.getItem("statsai_lang") || "ru"; }catch(e){}
   applyLang(saved);
 })();

@@ -175,7 +175,7 @@ def _make(user, base_url, kind, minutes, page):
     return site, "%s/%s?t=%s" % (site, page, token)
 
 
-def start(user, base_url, lang="uk"):
+def start(user, base_url, lang="ru"):
     """Посилання на новий пароль — поштою і в Телеграм.
 
     Повертає список каналів, які спрацювали: ["email", "telegram"].

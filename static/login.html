@@ -1097,10 +1097,10 @@ const I18N = {
   },
 };
 
-let LANG = "uk", T = I18N.uk;
+let LANG = "ru", T = I18N.ru;
 
 function applyLang(code){
-  LANG = I18N[code] ? code : "uk";
+  LANG = I18N[code] ? code : "ru";
   T = I18N[LANG];
   document.documentElement.setAttribute("lang", T.htmlLang);
 
@@ -1414,8 +1414,8 @@ document.documentElement.setAttribute("data-pal", SETUP.palette);
 document.documentElement.setAttribute("data-card", SETUP.card);
 readPalette(); readTone();
 
-let startLang = "uk";
-try { startLang = localStorage.getItem("statsai_lang") || "uk"; } catch(e){}
+let startLang = "ru";
+try { startLang = localStorage.getItem("statsai_lang") || "ru"; } catch(e){}
 applyLang(startLang);
 resize();
 pickBg(SETUP.bg);
