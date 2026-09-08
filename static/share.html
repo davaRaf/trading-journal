@@ -637,7 +637,9 @@ function reviewHtml(rv){
 
   return '<div class="sect">' + esc(T.shRvTitle) + "</div>"
     + '<div class="rv">' + rv.assets.map(one).join("")
-    + note(T.shRvSkip, rv.skip) + note(T.shRvLesson, rv.lesson) + "</div>";
+    + note(T.shRvSkip, rv.skip) + note(T.shRvLesson, rv.lesson)
+    /* запрошення подивитись сам аналіз — це знімок, а не весь розбір */
+    + note(T.shRvMoreLab, T.shRvMore) + "</div>";
 }
 
 /* Оцінки й напрям приходять словами тією мовою, якою їх ставили, — тому

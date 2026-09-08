@@ -489,6 +489,13 @@ def _ref_init():
         conn.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS ref_source TEXT")
         conn.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS ref_at TIMESTAMPTZ")
         conn.commit()
+    # Власники журналу мітки не носять — знімаємо, якщо колись причепилась
+    # (клік по партнерському посиланню, старе опитування).
+    with db.connect() as conn:
+        conn.execute("UPDATE users SET ref_source=NULL, ref_at=NULL "
+                     "WHERE ref_source IS NOT NULL AND lower(nickname) = ANY(%s)",
+                     (list(config.ADMIN_NICKS),))
+        conn.commit()
     # Одноразово: хто відповів партнером у старому опитуванні «звідки
     # дізнався» — отримує мітку. Для старих акаунтів це єдине, що є.
     if db.meta_get("refs_from_survey"):
@@ -503,10 +510,19 @@ def _ref_init():
     db.meta_set("refs_from_survey", "1")
 
 
+def _is_admin(uid):
+    try:
+        u = db.get_user(uid)
+    except Exception:
+        return False
+    return bool(u) and (u["nickname"] or "").strip().lower() in config.ADMIN_NICKS
+
+
 def ref_claim(uid, ref):
-    """Поставити мітку на акаунт, якщо її ще нема. True — поставили."""
+    """Поставити мітку на акаунт, якщо її ще нема. True — поставили.
+    Власники журналу (ADMIN_NICKS) мітки не носять: їхні посилання — свої."""
     ref = (ref or "").strip().lower()
-    if not uid or ref not in config.PARTNERS:
+    if not uid or ref not in config.PARTNERS or _is_admin(uid):
         return False
     with db.connect() as conn:
         cur = conn.execute("UPDATE users SET ref_source=%s, ref_at=now() "
