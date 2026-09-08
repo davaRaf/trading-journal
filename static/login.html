@@ -844,6 +844,9 @@ function frame(ts){
    ============================================================ */
 let MODE = "in";
 let RESET_TOKEN = "";
+/* яку адресу вже питали в сервера — щоб не смикати його на кожну літеру
+   (сама перевірка нижче, поряд з полем пошти) */
+let knownTimer = null, knownAsked = "";
 try{
   const q = new URLSearchParams(location.search);
   if (location.pathname === "/reset" && q.get("t")){
@@ -867,6 +870,9 @@ function setTab(t){
   const usual = !forgot && !reset;          // звичайні вхід і реєстрація
 
   showErr(""); showOk("");
+  /* підказку про незнайому пошту щойно стерли разом з рештою — щоб на новій
+     вкладці вона з'явилась знову, забуваємо, яку адресу вже питали */
+  knownAsked = "";
   goBtn.hidden = false;
   goBtn.classList.remove("done");
 
@@ -1213,6 +1219,51 @@ const shell = document.querySelector(".shell");
 const card  = document.querySelector(".card");
 const goBtn = document.getElementById("goBtn");
 const em    = document.getElementById("em");
+
+/* ---- незнайома пошта: кажемо там, де її вводять ----
+   Раніше це з'ясовувалось аж після кнопки «надіслати посилання»: людина
+   набирала адресу, тиснула, чекала — і лише тоді дізнавалась, що такої
+   пошти в журналі немає. Тепер питаємо сервер, щойно адресу дописано —
+   за півсекунди тиші або коли пішли з поля.
+
+   Мовчимо, поки адреса ще недописана, і не чіпаємо чужих повідомлень:
+   прибираємо тільки своє. Помилку запиту (ліміт спроб, немає мережі)
+   ковтаємо — форма має працювати й без цієї підказки. */
+const EM_RE = /^[^@\s]+@[^@\s]+\.[^@\s]{2,}$/;
+
+async function checkKnown(){
+  if (MODE !== "in" && MODE !== "forgot") return;
+  const mail = em.value.trim();
+  if (!EM_RE.test(mail) || mail === knownAsked) return;
+  knownAsked = mail;
+  let data = {};
+  try{
+    const res = await fetch("/api/auth/known", {
+      method: "POST", credentials: "same-origin",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ email: mail })
+    });
+    data = await res.json().catch(() => ({}));
+    if (!res.ok) return;
+  }catch(e){ return; }
+  /* поки ходили на сервер, людина могла дописати адресу або піти на іншу
+     вкладку — тоді відповідь уже не про те, що зараз у полі */
+  if (em.value.trim() !== mail) return;
+  if (MODE !== "in" && MODE !== "forgot") return;
+  if (data.known){
+    if (errMsg.textContent === T.fgNone) showErr("");
+    return;
+  }
+  showErr(T.fgNone);
+  document.getElementById("altLine").innerHTML = T.altIn;
+}
+
+em.addEventListener("input", () => {
+  clearTimeout(knownTimer);
+  if (errMsg.textContent === T.fgNone) showErr("");   // правлять адресу — прибираємо своє
+  knownTimer = setTimeout(checkKnown, 500);
+});
+em.addEventListener("blur", () => { clearTimeout(knownTimer); checkKnown(); });
 
 function markBad(input){
   const f = input.closest(".field");
