@@ -121,6 +121,17 @@ function dirType(t){
   return p===b ? "Continuation" : "Reversal";
 }
 function fieldVal(t,k){ return k==="direction_type" ? dirType(t) : (t[k]||""); }
+/* Помилок і емоцій в угоді може бути кілька: лежать одним рядком через «, ».
+   Схема не міняється, а в аналітиці така угода рахується в кожній групі. */
+const MULTI_FIELDS=["mistakes","emotion"];
+const isMulti=k=>MULTI_FIELDS.includes(k);
+function splitVals(v){ return String(v==null?"":v).split(",").map(x=>x.trim()).filter(Boolean); }
+function fieldVals(t,k){ const v=fieldVal(t,k).toString().trim(); return isMulti(k)?splitVals(v):(v?[v]:[]); }
+function groupByField(list,k){
+  const m=new Map();
+  for(const t of list) for(const v of fieldVals(t,k)){ if(!m.has(v)) m.set(v,[]); m.get(v).push(t); }
+  return m;
+}
 
 function calc(all){
   /* Скипы считаем отдельно и в остальную арифметику не пускаем: сделки не
@@ -307,8 +318,7 @@ function calHtml(ym, clickFn, selDay){
 /* самые частые осмысленные значения поля — для быстрых подсказок */
 function topVals(field,n){
   const cnt=new Map();
-  for(const t of S.trades){
-    const v=fieldVal(t,field).toString().trim();
+  for(const t of S.trades) for(const v of fieldVals(t,field)){
     if(v.length<3) continue;                 // мусор вроде "-" пропускаем
     if(/^[-—\s.,()]+$/.test(v)) continue;
     cnt.set(v,(cnt.get(v)||0)+1);
@@ -415,7 +425,7 @@ function addTf(){
 
 function uniqueVals(field){
   const set=new Set();
-  for(const t of S.trades){ const v=fieldVal(t,field).toString().trim(); if(v) set.add(v); }
+  for(const t of S.trades) for(const v of fieldVals(t,field)) set.add(v);
   return [...set].sort();
 }
 function filterBar(){
@@ -1042,7 +1052,7 @@ function bestWorstHtml(list){
               ["account",T.fAccount]];
   let cells="";
   for(const [k,label] of dims){
-    const groups=[...groupBy(list,t=>fieldVal(t,k)).entries()].map(([name,arr])=>({name,net:arr.reduce((a,t)=>a+netR(t),0),n:arr.length}));
+    const groups=[...groupByField(list,k).entries()].map(([name,arr])=>({name,net:arr.reduce((a,t)=>a+netR(t),0),n:arr.length}));
     if(!groups.length) continue;
     groups.sort((a,b)=>b.net-a.net);
     const best=groups[0], worst=groups[groups.length-1];
@@ -1051,7 +1061,7 @@ function bestWorstHtml(list){
       (groups.length>1?'<div class="row"><span class="k">↓ '+esc(worst.name)+' · '+worst.n+'</span><span class="v '+clsR(worst.net)+'">'+fmtR(worst.net)+"</span></div>":"")+
       "</div>";
   }
-  const mist=[...groupBy(list,t=>t.mistakes).entries()].map(([name,arr])=>({name,net:arr.reduce((a,t)=>a+netR(t),0),n:arr.length})).sort((a,b)=>a.net-b.net).slice(0,4);
+  const mist=[...groupByField(list,"mistakes").entries()].map(([name,arr])=>({name,net:arr.reduce((a,t)=>a+netR(t),0),n:arr.length})).sort((a,b)=>a.net-b.net).slice(0,4);
   if(mist.length){
     cells+='<div class="cell"><div class="t">'+T.fMistakes+'</div>'+
       mist.map(m=>'<div class="row"><span class="k">'+esc(m.name)+' · '+m.n+'</span><span class="v '+clsR(m.net)+'">'+fmtR(m.net)+"</span></div>").join("")+"</div>";
@@ -1073,7 +1083,7 @@ function gotoDayFromReport(day){
 
 /* ---------- подробный разбор месяца (из Yearly) ---------- */
 function dimTable(list,key,label){
-  const rows=[...groupBy(list,t=>fieldVal(t,key)).entries()]
+  const rows=[...groupByField(list,key).entries()]
     .map(([name,arr])=>({name,st:calc(arr)}))
     .sort((a,b)=>b.st.net-a.st.net);
   if(!rows.length) return "";
@@ -1128,7 +1138,7 @@ function openMonthReport(ym){
       "</div>";
 
     /* ошибки */
-    const mist=[...groupBy(list,t=>t.mistakes).entries()].map(([name,arr])=>({name,st:calc(arr)}))
+    const mist=[...groupByField(list,"mistakes").entries()].map(([name,arr])=>({name,st:calc(arr)}))
       .sort((a,b)=>a.st.net-b.st.net);
     const withM=list.filter(t=>(t.mistakes||"").trim()), noM=list.filter(t=>!(t.mistakes||"").trim());
     h+='<div class="rep-sec">'+T.fMistakes+'</div>';
@@ -1446,7 +1456,8 @@ function openForm(id, presetDay){
   /* подсказки + скрытое поле: своё значение открывается кнопкой «＋» */
   const pick=(field,vals,cur,ph,num)=>{
     cur=(cur||"").toString();
-    const known=Prefs.vals(field, vals).some(x=>x===cur);
+    const all=Prefs.vals(field, vals);
+    const known=isMulti(field) ? splitVals(cur).every(x=>all.includes(x)) : all.some(x=>x===cur);
     const more='<button type="button" class="more" onclick="showOwn(\''+field+'\')" title="'+T.fmOwnValueTip+'">＋</button>';
     return quickHtml(field, vals, cur, more)+
       '<input class="qinput" id="fld_'+field+'"'+(num?' type="number" step="0.25" min="0"':"")+
@@ -1567,19 +1578,27 @@ function openForm(id, presetDay){
 function quickSet(btn){
   const el=$("#fld_"+btn.dataset.f);
   if(!el) return;
-  el.value = (el.value.trim()===btn.dataset.v) ? "" : btn.dataset.v;
+  if(isMulti(btn.dataset.f)){
+    /* кілька за раз: клік додає або знімає, порядок — як натискали */
+    const cur=splitVals(el.value), v=btn.dataset.v;
+    el.value = cur.includes(v) ? cur.filter(x=>x!==v).join(", ") : [...cur,v].join(", ");
+  } else {
+    el.value = (el.value.trim()===btn.dataset.v) ? "" : btn.dataset.v;
+  }
   markQuick(); calcOutcome();
 }
 function showOwn(field){
   const el=$("#fld_"+field); if(!el) return;
   el.hidden=false; el.focus();
+  /* у полі на кілька значень своє дописується до вибраних, а не замість них */
+  if(isMulti(field)){ if(el.value.trim()) el.value=el.value.trim().replace(/,?\s*$/,", "); return; }
   document.querySelectorAll('.quick button[data-f="'+field+'"]').forEach(b=>b.classList.remove("on"));
   el.value=""; calcOutcome();
 }
 function markQuick(){
   document.querySelectorAll(".quick button").forEach(b=>{
     const el=$("#fld_"+b.dataset.f);
-    b.classList.toggle("on", !!el && el.value.trim()===b.dataset.v);
+    b.classList.toggle("on", !!el && (isMulti(b.dataset.f) ? splitVals(el.value).includes(b.dataset.v) : el.value.trim()===b.dataset.v));
   });
 }
 
@@ -1821,7 +1840,8 @@ async function saveTrade(id){
      інакше його доводилось би вписувати щоразу, поки не набереться історія. */
   for(const k of ["pair","session","account","entry_model","setup","risk","mistakes","emotion"]){
     const inp=$("#fld_"+k);
-    if(t[k] && inp && inp.classList.contains("qinput") && !inp.hidden) Prefs.add(k, t[k]);
+    if(t[k] && inp && inp.classList.contains("qinput") && !inp.hidden)
+      for(const part of (isMulti(k)?splitVals(t[k]):[t[k]])) Prefs.add(k, part);
   }
   const btn=document.querySelector(".m-foot .primary"); if(btn){btn.disabled=true;btn.textContent=T.fmSaving;}
   try{
