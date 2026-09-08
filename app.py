@@ -493,8 +493,8 @@ def _ref_init():
     # (клік по партнерському посиланню, старе опитування).
     with db.connect() as conn:
         conn.execute("UPDATE users SET ref_source=NULL, ref_at=NULL "
-                     "WHERE ref_source IS NOT NULL AND lower(nickname) = ANY(%s)",
-                     (list(config.ADMIN_NICKS),))
+                     "WHERE ref_source IS NOT NULL AND (lower(nickname) = ANY(%s) OR lower(email) = ANY(%s))",
+                     (list(config.ADMIN_NICKS), list(config.ADMIN_EMAILS)))
         conn.commit()
     # Одноразово: хто відповів партнером у старому опитуванні «звідки
     # дізнався» — отримує мітку. Для старих акаунтів це єдине, що є.
@@ -515,7 +515,10 @@ def _is_admin(uid):
         u = db.get_user(uid)
     except Exception:
         return False
-    return bool(u) and (u["nickname"] or "").strip().lower() in config.ADMIN_NICKS
+    if not u:
+        return False
+    return ((u["nickname"] or "").strip().lower() in config.ADMIN_NICKS
+            or (u["email"] or "").strip().lower() in config.ADMIN_EMAILS)
 
 
 def ref_claim(uid, ref):
@@ -1158,8 +1161,7 @@ class H(BaseHTTPRequestHandler):
             uid = self._uid()
             if not uid:
                 return self._json({"error": "auth required"}, 401)
-            me = db.get_user(uid)
-            if not me or (me["nickname"] or "").strip().lower() not in config.ADMIN_NICKS:
+            if not _is_admin(uid):
                 return self._json({"error": "forbidden"}, 403)
             with db.connect() as conn:
                 rows = conn.execute("""
