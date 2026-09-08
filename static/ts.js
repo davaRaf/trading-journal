@@ -1082,14 +1082,14 @@ window.__ts = {
   data(){ return TS || null; },
   /* довантажити ТС, якщо ще не читали — форма угоди бере з неї підказки */
   ensure(){ if (TS === undefined) load(); },
-  /* що з ТС іде в підказки форми: інструменти, моделі входу, таймфрейми */
+  /* що з ТС іде в підказки форми: інструменти й моделі входу. Таймфрейми
+     ні — у ТС їх пишуть як завгодно («1M», «D»), і слоти під скріни двоїлись. */
   hints(){
     const t = TS || {};
     const clean = a => (Array.isArray(a) ? a : []).map(v => String(v || "").trim()).filter(Boolean);
     return {
       assets: clean(t.assets),
       models: clean((t.models || []).map(m => m && m.name)),
-      tfs:    clean((t.tfs || []).map(r => r && r.tf)),
     };
   },
   share(){
