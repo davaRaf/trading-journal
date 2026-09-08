@@ -85,12 +85,23 @@
 .ts-why .after{margin:18px 0 0; font-size:13px; color:var(--dim)}
 
 /* ---------- заповнена ТС ---------- */
-/* дата збірки в шапці була майже невидима */
-.ts-head .sub{color:var(--dim)}
 /* слоти під скрін трохи нижчі: інакше картка таймфрейму роздувається */
 .ts-tf .ts-shot .ph{height:88px}
-.ts-sub2{font-family:var(--mono); font-size:10.5px; font-weight:600; letter-spacing:.13em;
-  text-transform:uppercase; color:var(--dim); margin:26px 0 12px}
+/* ---------- три рівні заголовків ----------
+   Було два рівні, набрані однаково: назва розділу («Ринок і час») і підзаголовок
+   усередині («Чим торгую») — обидва моно, капсом, 10.5px, кольором --dim, а
+   підзаголовок ще й жирніший за назву розділу. Око не бачило, де починається
+   розділ, а де блок усередині: усе читалось однією сірою стрічкою.
+
+   Тепер крок помітний на кожному рівні — розміром, накресленням і яскравістю:
+     назва розділу — 15px звичайним шрифтом, не капсом, кольором тексту;
+     підзаголовок  — 11.5px моно капсом, теж яскравий, із більшим повітрям зверху;
+     підпис рядка  — лишається 13px приглушеним.
+   Капс лишили тільки підзаголовку: він тримає зв'язок із рештою сайту. */
+:root[data-page="ts"] .card > h3{font-family:var(--sans); font-size:15px; font-weight:650;
+  letter-spacing:-.015em; text-transform:none; color:var(--text); padding:14px 16px}
+.ts-sub2{font-family:var(--mono); font-size:11.5px; font-weight:600; letter-spacing:.12em;
+  text-transform:uppercase; color:var(--text); margin:30px 0 12px}
 .ts-sub2:first-child{margin-top:0}
 
 .ts-assets{display:flex; gap:8px; flex-wrap:wrap}
@@ -174,20 +185,18 @@
   border-left:2px solid var(--accent); font-size:14px; line-height:1.6; color:var(--text)}
 
 /* чек-лист */
+/* Перелік правил, а не робочий чек-лист на угоду: квадратики й лічильник
+   «0 / 1» звідси прибрані. Номер замість галочки — той самий вигляд, що й у
+   спільному посиланні, де цей блок завжди був простим переліком. */
 .ts-q{display:flex; flex-direction:column}
-.ts-q label{display:flex; align-items:center; gap:13px; padding:12px 10px; margin:0 -10px;
-  border-radius:var(--r-sm); border-bottom:1px solid var(--line-soft); cursor:pointer;
+.ts-qi{display:flex; align-items:flex-start; gap:13px; padding:12px 10px; margin:0 -10px;
+  border-radius:var(--r-sm); border-bottom:1px solid var(--line-soft);
   transition:background .15s}
-.ts-q label:hover{background:var(--panel-2)}
-.ts-q label:last-of-type{border-bottom:none}
-.ts-q input{width:18px; height:18px; accent-color:var(--accent); flex:none; cursor:pointer}
-.ts-q .t{font-size:14px; color:var(--text)}
-.ts-q label:has(input:checked) .t{color:var(--dim)}
-.ts-gate{display:flex; align-items:center; gap:13px; margin-top:16px; padding:13px 16px;
-  border:1px solid var(--line); border-radius:var(--r-sm); background:var(--panel-2)}
-.ts-gate b{font-family:var(--mono); font-size:19px; line-height:1}
-.ts-gate b.pos{color:var(--up)} .ts-gate b.neg{color:var(--down)}
-.ts-gate span{font-size:13.5px; color:var(--text)}
+.ts-qi:hover{background:var(--panel-2)}
+.ts-qi:last-child{border-bottom:none}
+.ts-qi>i{font-family:var(--mono); font-style:normal; font-size:11px; letter-spacing:.08em;
+  color:var(--faint); flex:none; padding-top:3px}
+.ts-q .t{font-size:14px; color:var(--text); flex:1; min-width:0}
 
 /* звірка з журналом */
 .ts-cmp{display:flex; flex-direction:column}

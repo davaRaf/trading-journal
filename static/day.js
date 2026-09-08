@@ -629,11 +629,18 @@ function human(dt){
   return date.toLocaleDateString(loc, {weekday: "short", day: "numeric", month: "long"});
 }
 
+/* Заголовок блока: номер і назва. Пояснень дрібним збоку більше немає —
+   вони лише засмічували рядок, назви й так говорять самі за себе. */
+function pt(n, t, fact){
+  return '<div class="dv-pt' + (fact ? " fact" : "") + '"><b>' + n + "</b>" + esc(t) + "</div>";
+}
+
 /* ---------------- вигляд: день іде ---------------- */
 function assetHead(a, i, extra){
   const d = D();
   const cls = a.side === d.short ? "short" : a.side === d.long ? "long" : "";
   return '<div class="dv-ah">'
+    + (N.closed ? "" : '<span class="lab">' + esc(d.morningCharts) + "</span>")
     + '<span class="nm">' + (N.closed ? esc(a.nm || d.phAsset) : ed("assets." + i + ".nm", d.phAsset)) + "</span>"
     + (a.ts ? '<span class="from">' + esc(d.fromTsTag) + "</span>" : "")
     + (a.side ? '<span class="tag ' + cls + '">' + esc(a.side) + "</span>" : "")
@@ -646,14 +653,10 @@ function cardOpen(a, i){
   const d = D();
   return '<div class="dv-card">' + assetHead(a, i)
     + '<div class="dv-cb">'
-    +   '<div class="dv-blk"><div class="dv-pt"><b>01</b>' + esc(d.p1) + "<i>" + esc(d.p1s) + "</i></div>"
-    +     shotsRow("assets." + i + ".shots", d.shotPlan) + "</div>"
-    +   '<div class="dv-blk"><div class="dv-pt"><b>02</b>' + esc(d.p2) + "<i>" + esc(d.p2s) + "</i></div>"
-    +     biasEd(i) + "</div>"
-    +   '<div class="dv-blk"><div class="dv-pt"><b>03</b>' + esc(d.p3) + "<i>" + esc(d.p3s) + "</i></div>"
-    +     levelsEd(i) + "</div>"
-    +   '<div class="dv-blk"><div class="dv-pt"><b>04</b>' + esc(d.p4) + "<i>" + esc(d.p4s) + "</i></div>"
-    +     plansEd(i) + "</div>"
+    +   '<div class="dv-blk">' + pt("01", d.p1) + shotsRow("assets." + i + ".shots", d.shotPlan) + "</div>"
+    +   '<div class="dv-blk">' + pt("02", d.p2) + biasEd(i) + "</div>"
+    +   '<div class="dv-blk">' + pt("03", d.p3) + levelsEd(i) + "</div>"
+    +   '<div class="dv-blk">' + pt("04", d.p4) + plansEd(i) + "</div>"
     + "</div></div>";
 }
 
@@ -675,7 +678,7 @@ function vOpen(){
     +     (popOpen ? assetPop() : "")
     +   "</div>"
     + "</div>"
-    + '<div class="dv-common"><div class="dv-pt"><b>05</b>' + esc(d.p5) + "<i>" + esc(d.p5s) + "</i></div>"
+    + '<div class="dv-common">' + pt("05", d.p5)
     +   skipEd() + "</div>"
     + '<div class="dv-closebar">'
     +   '<div class="t">' + esc(ok ? d.closeNote : d.closeNoteOff) + "</div>"
@@ -691,24 +694,23 @@ function cardClosed(a, i){
   const list = tradesFor(a);
   const r = sumR(list);
   const res = list.length ? '<span class="res ' + clsR(r) + '">' + fmtR(r) + "</span>" : "";
-  const pt = (n, t, s, fact) => '<div class="dv-pt' + (fact ? " fact" : "") + '"><b>' + n + "</b>" + esc(t) + "<i>" + esc(s) + "</i></div>";
   return '<div class="dv-card">' + assetHead(a, i, res)
     + '<div class="dv-two">'
     +   '<div class="col left">'
     +     '<div class="dv-colhead"><b class="plan">' + esc(d.morning) + " · " + esc(d.planTag) + "</b></div>"
-    +     '<div class="dv-blk">' + pt("01", d.p1, d.p1s) + shotsRow("assets." + i + ".shots", d.shotPlan, true) + "</div>"
-    +     '<div class="dv-blk">' + pt("02", d.p2, d.p2s) + biasRead(a) + "</div>"
-    +     '<div class="dv-blk">' + pt("03", d.p3, d.p3s) + levelsRead(a) + "</div>"
-    +     '<div class="dv-blk">' + pt("04", d.p4, d.p4s) + plansRead(a) + "</div>"
+    +     '<div class="dv-blk">' + pt("01", d.p1) + shotsRow("assets." + i + ".shots", d.shotPlan, true) + "</div>"
+    +     '<div class="dv-blk">' + pt("02", d.p2) + biasRead(a) + "</div>"
+    +     '<div class="dv-blk">' + pt("03", d.p3) + levelsRead(a) + "</div>"
+    +     '<div class="dv-blk">' + pt("04", d.p4) + plansRead(a) + "</div>"
     +   "</div>"
     +   '<div class="col">'
     +     '<div class="dv-colhead"><b class="fact">' + esc(d.evening) + " · " + esc(d.factTag) + "</b></div>"
-    +     '<div class="dv-blk">' + pt("01", d.q1, d.q1s, true) + shotsRow("assets." + i + ".eve.shots", d.shotFact) + "</div>"
-    +     '<div class="dv-blk">' + pt("02", d.q2, d.q2s, true) + ed("assets." + i + ".eve.text", d.phFact, true) + "</div>"
-    +     '<div class="dv-blk">' + pt("03", d.q3, d.q3s, true) + levelsDone(i) + "</div>"
-    +     '<div class="dv-blk">' + pt("04", d.q4, d.q4s.replace("%s", a.nm || "—"), true)
+    +     '<div class="dv-blk">' + pt("01", d.q1, true) + shotsRow("assets." + i + ".eve.shots", d.shotFact) + "</div>"
+    +     '<div class="dv-blk">' + pt("02", d.q2, true) + ed("assets." + i + ".eve.text", d.phFact, true) + "</div>"
+    +     '<div class="dv-blk">' + pt("03", d.q3, true) + levelsDone(i) + "</div>"
+    +     '<div class="dv-blk">' + pt("04", d.q4, true)
     +        tradesHtml(list, d.tradesAuto) + "</div>"
-    +     '<div class="dv-blk">' + pt("05", d.q5, d.q5s, true) + marksEd(i) + "</div>"
+    +     '<div class="dv-blk">' + pt("05", d.q5, true) + marksEd(i) + "</div>"
     +   "</div>"
     + "</div></div>";
 }
@@ -755,7 +757,7 @@ function vClosed(){
         : "")
     + "</div>"
     + '<div style="height:14px"></div>' + summary()
-    + '<div class="dv-common" style="margin-top:14px"><div class="dv-pt"><b>05</b>' + esc(d.p5) + "<i>" + esc(d.p5s) + "</i></div>"
+    + '<div class="dv-common" style="margin-top:14px">' + pt("05", d.p5)
     +   ed("skip", d.phSkip, true) + "</div>"
     + '<p class="dv-hint" style="margin-top:14px">'
     +   '<button class="dv-add" onclick="__dv.reopen()">' + esc(d.reopen) + "</button></p>"
@@ -828,7 +830,11 @@ document.addEventListener("click", e => {
   const cur = get(path);
   f.value = cur == null ? "" : cur;
   el.textContent = "";
+  el.classList.add("editing");
   el.appendChild(f);
+  /* Поле росте під текст, а не ховає його за смугою прокрутки: раніше
+     textarea мала сталу висоту, і довгий сценарій обрізався на клік. */
+  if (multi) autoGrow(f);
   f.focus();
   if (f.setSelectionRange) f.setSelectionRange(f.value.length, f.value.length);
   let done = false;
@@ -839,11 +845,20 @@ document.addEventListener("click", e => {
     render();
   };
   f.addEventListener("blur", () => commit(true));
+  if (multi) f.addEventListener("input", () => autoGrow(f));
   f.addEventListener("keydown", ev => {
     if (ev.key === "Escape"){ ev.stopPropagation(); commit(false); }
     if (ev.key === "Enter" && (!multi || ev.ctrlKey || ev.metaKey)){ ev.preventDefault(); commit(true); }
   });
 });
+
+/* Висота textarea по її вмісту: спершу скидаємо, інакше поле вміє тільки
+   рости. Мінімум — один рядок, як у тексту, що лежав тут до кліку. */
+function autoGrow(f){
+  f.rows = 1;                       /* інакше порожнє поле міряється у два рядки */
+  f.style.height = "auto";
+  f.style.height = f.scrollHeight + "px";
+}
 
 /* Підсвічуємо націлений слот без перемальовки розділу. */
 function paintArmed(){
@@ -1029,17 +1044,18 @@ uk: {
   tfPick: "таймфрейм", addTf: "таймфрейм", noShots: "скрінів не було",
   otherTrades: "Інші угоди дня", otherTradesNote: "Угоди по інструментах, яких зранку не розбирали",
 
-  p1: "Графіки зранку", p1s: "по таймфреймах",
-  p2: "Куди дивишся", p2s: "лонг чи шорт і чому",
-  p3: "Рівні, які відмітив", p3s: "ціна і що це",
-  p4: "Що плануєш робити", p4s: "сценарії на день",
-  p5: "Чого не робити", p5s: "правила на день, спільні для всіх активів",
+  morningCharts: "Графіки зранку",
+  p1: "Таймфрейм",
+  p2: "Куди дивишся",
+  p3: "Рівні, які відмітив",
+  p4: "Що плануєш робити",
+  p5: "Чого не робити",
 
-  q1: "Той самий графік увечері", q1s: "як усе закінчилось",
-  q2: "Куди ринок пішов", q2s: "своїми словами",
-  q3: "Що з ними сталось", q3s: "по кожному рівню",
-  q4: "Що зробив насправді", q4s: "угоди з журналу по %s",
-  q5: "Чи втримався", q5s: "по цьому активу",
+  q1: "Той самий графік увечері",
+  q2: "Куди ринок пішов",
+  q3: "Що з ними сталось",
+  q4: "Що зробив насправді",
+  q5: "Чи втримався",
 
   phWhy: "Чому саме так — одним-двома реченнями",
   phPrice: "ціна", phWhat: "що це", phWhy2: "навіщо він мені",
@@ -1100,17 +1116,18 @@ ru: {
   tfPick: "таймфрейм", addTf: "таймфрейм", noShots: "скринов не было",
   otherTrades: "Другие сделки дня", otherTradesNote: "Сделки по инструментам, которые утром не разбирали",
 
-  p1: "Графики утром", p1s: "по таймфреймам",
-  p2: "Куда смотришь", p2s: "лонг или шорт и почему",
-  p3: "Уровни, которые отметил", p3s: "цена и что это",
-  p4: "Что планируешь делать", p4s: "сценарии на день",
-  p5: "Чего не делать", p5s: "правила на день, общие для всех активов",
+  morningCharts: "Графики утром",
+  p1: "Таймфрейм",
+  p2: "Куда смотришь",
+  p3: "Уровни, которые отметил",
+  p4: "Что планируешь делать",
+  p5: "Чего не делать",
 
-  q1: "Тот же график вечером", q1s: "как всё закончилось",
-  q2: "Куда рынок пошёл", q2s: "своими словами",
-  q3: "Что с ними стало", q3s: "по каждому уровню",
-  q4: "Что сделал на самом деле", q4s: "сделки из журнала по %s",
-  q5: "Удержался ли", q5s: "по этому активу",
+  q1: "Тот же график вечером",
+  q2: "Куда рынок пошёл",
+  q3: "Что с ними стало",
+  q4: "Что сделал на самом деле",
+  q5: "Удержался ли",
 
   phWhy: "Почему именно так — одним-двумя предложениями",
   phPrice: "цена", phWhat: "что это", phWhy2: "зачем он мне",
@@ -1171,17 +1188,18 @@ en: {
   tfPick: "timeframe", addTf: "timeframe", noShots: "no screenshots",
   otherTrades: "Other trades of the day", otherTradesNote: "Trades on instruments you did not review in the morning",
 
-  p1: "Charts in the morning", p1s: "by timeframe",
-  p2: "Which way you look", p2s: "long or short and why",
-  p3: "Levels you marked", p3s: "price and what it is",
-  p4: "What you plan to do", p4s: "scenarios for the day",
-  p5: "What not to do", p5s: "rules for the day, shared by all instruments",
+  morningCharts: "Charts in the morning",
+  p1: "Timeframe",
+  p2: "Which way you look",
+  p3: "Levels you marked",
+  p4: "What you plan to do",
+  p5: "What not to do",
 
-  q1: "The same chart in the evening", q1s: "how it ended",
-  q2: "Where the market went", q2s: "in your own words",
-  q3: "What happened to them", q3s: "level by level",
-  q4: "What you actually did", q4s: "journal trades on %s",
-  q5: "Did you hold to it", q5s: "for this instrument",
+  q1: "The same chart in the evening",
+  q2: "Where the market went",
+  q3: "What happened to them",
+  q4: "What you actually did",
+  q5: "Did you hold to it",
 
   phWhy: "Why exactly — one or two sentences",
   phPrice: "price", phWhat: "what it is", phWhy2: "why it matters",

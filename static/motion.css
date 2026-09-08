@@ -95,6 +95,27 @@ a, button, input, select, textarea{
   .trow{transition:background var(--m-tap) ease}
 }
 
+/* ---------- список, що змінився ---------- */
+
+/* Перемикання дня в новинах чи розрізу в аналітиці міняє лише список —
+   решта сторінки лишається як була. Раніше список підмінявся миттєво, і
+   око не встигало зрозуміти, що саме змінилось. Тепер він проявляється
+   тим самим рухом, що й вікна: 180 мс, легкий підйом.
+
+   Окремого виклику з JS не треба: розділ малюється заново, вузол зі
+   списком щоразу новий — анімація на новому вузлі стартує сама.
+
+   fill:backwards, а не both: кінець руху збігається зі звичайним станом,
+   і після нього на елементі не лишається transform. Інакше список назавжди
+   ставав би системою координат для всього, що всередині позиціоноване. */
+@media (prefers-reduced-motion: no-preference){
+  .m-swap{animation:mSwap var(--m-in) var(--m-ease-out) backwards}
+}
+@keyframes mSwap{
+  from{opacity:0; transform:translateY(6px)}
+  to{opacity:1; transform:none}
+}
+
 /* ---------- прокрутка ---------- */
 
 /* Перехід за якорем і повернення до дня в журналі — без ривка. */
@@ -108,5 +129,6 @@ a, button, input, select, textarea{
   .modal, .modal .modal-box, .lightbox, .lightbox img{animation:none !important}
   .btn, .mini, .nw-chip, .sh-chip, .nw-day, .nw-week, .st-langs button,
   .trow{transition:none; transform:none}
+  .m-swap{animation:none}
   html{scroll-behavior:auto}
 }

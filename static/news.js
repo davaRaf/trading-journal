@@ -157,7 +157,7 @@ function vNews(){
      + ' autocomplete="off" oninput="__news.q(this.value)"></label>';
 
   /* ---- список ---- */
-  h += '<div class="nw-list">' + rows(items()) + '</div>';
+  h += '<div class="nw-list m-swap">' + rows(items()) + '</div>';
   return h;
 }
 
