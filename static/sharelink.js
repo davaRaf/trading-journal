@@ -135,10 +135,13 @@ function tsSnapshot(){
     .map(r => ({tf: str(r.tf), role: str(r.role), what: str(r.what),
                 shots: shots([r.shot])}));
 
-  const models = (ts.models || [])
+  /* моделі входу й сетапи влаштовані однаково — збираємо одним кодом */
+  const named = list => (list || [])
     .filter(m => str(m.name) || str(m.note))
     .map(m => ({name: str(m.name), note: str(m.note),
                 shots: shots((m.shots || []).concat(m.shot ? [m.shot] : []))}));
+  const models = named(ts.models);
+  const setups = named(ts.setups);
 
   const windows = (ts.windows || [])
     .filter(w => str(w.name) || str(w.time))
@@ -177,6 +180,7 @@ function tsSnapshot(){
       days: str(ts.days), news: str(ts.news),
       tfs: tfs,
       models: models,
+      setups: setups,
       bias: str(ts.bias),
       stop: {v: str((ts.stop || {}).v), shots: shots([(ts.stop || {}).shot])},
       target: {v: str((ts.target || {}).v), shots: shots([(ts.target || {}).shot])},
@@ -192,7 +196,7 @@ function tsSnapshot(){
 
   /* порожньою стратегією ділитись нема чого */
   const t = data.ts;
-  const any = has(t.assets) || has(t.tfs) || has(t.models) || has(t.manage)
+  const any = has(t.assets) || has(t.tfs) || has(t.models) || has(t.setups) || has(t.manage)
     || has(t.check) || has(t.extra) || t.bias || t.mind || t.stop.v || t.target.v
     || has(t.no.market) || has(t.no.time) || has(t.no.self) || rk.length;
   return any ? data : null;

@@ -524,16 +524,20 @@ function tsHtml(ts){
       + (r.what ? '<div class="what">' + esc(r.what) + "</div>" : "")
       + shotsHtml(r.shots) + "</div>").join("") + "</div>";
 
-  /* вхід */
-  const models = !ts.models.length ? "" :
-    '<div class="ts-grid">' + ts.models.map(m =>
+  /* вхід. Сетапи прийшли пізніше за моделі, тож у старих знімках посилань
+     їх немає — звідси `|| []`. */
+  const namedHtml = list => !(list || []).length ? "" :
+    '<div class="ts-grid">' + list.map(m =>
       '<div class="ts-mod"><span class="nm">' + esc(m.name || "—") + "</span>"
       + (m.note ? '<div class="note">' + esc(m.note) + "</div>" : "")
       + shotsHtml(m.shots) + "</div>").join("") + "</div>";
+  const models = namedHtml(ts.models);
+  const setups = namedHtml(ts.setups);
   const entryRules = rows([[T.tsShBias, ts.bias], [T.tsShStop, ts.stop.v],
                            [T.tsShTarget, ts.target.v]]);
   const entryShots = shotsHtml((ts.stop.shots || []).concat(ts.target.shots || []));
-  const entry = sub(T.tsShModels, models) + sub(T.tsShRules, entryRules + entryShots);
+  const entry = sub(T.tsShModels, models) + sub(T.tsShSetups, setups)
+    + sub(T.tsShRules, entryRules + entryShots);
 
   /* ризик */
   const cases = rows(ts.riskCases.map(c => [c.k || "—", c.v]));
