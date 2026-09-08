@@ -1092,6 +1092,67 @@ class H(BaseHTTPRequestHandler):
             return self._json({"prefs": prefs_get(uid)})
 
         # ---- звідки про нас дізнались: лише власникам ----
+        # ---- службова сторінка з цифрами: лише власникам ----
+        if p == "/admin":
+            uid = self._uid()
+            if not uid:
+                return self._redirect("/login")
+            if not _is_admin(uid):
+                self.send_response(403); self.end_headers(); return
+            with db.connect() as conn:
+                q = lambda sql, *a: conn.execute(sql, a).fetchone()
+                u = q("""SELECT count(*) AS n,
+                                count(*) FILTER (WHERE created_at >= now() - interval '7 days') AS d7,
+                                count(*) FILTER (WHERE created_at >= now() - interval '30 days') AS d30,
+                                count(*) FILTER (WHERE telegram_id IS NOT NULL) AS tg,
+                                count(*) FILTER (WHERE email_confirmed_at IS NOT NULL) AS mail
+                         FROM users""")
+                t = q("""SELECT count(*) AS n,
+                                count(*) FILTER (WHERE created_at >= now() - interval '7 days') AS d7,
+                                count(DISTINCT user_id) AS users,
+                                count(DISTINCT user_id) FILTER (WHERE created_at >= now() - interval '7 days') AS act7,
+                                count(DISTINCT user_id) FILTER (WHERE created_at >= now() - interval '30 days') AS act30
+                         FROM trades""")
+                refs = conn.execute("""SELECT coalesce(ref_source,'') AS ref, count(*) AS n,
+                                              count(*) FILTER (WHERE ref_at >= now() - interval '30 days') AS d30
+                                       FROM users GROUP BY 1 ORDER BY n DESC""").fetchall()
+                last = conn.execute("""SELECT u.nickname, u.created_at, coalesce(u.ref_source,'') AS ref,
+                                              (SELECT count(*) FROM trades t WHERE t.user_id=u.id) AS trades
+                                       FROM users u ORDER BY u.created_at DESC LIMIT 20""").fetchall()
+            e = lambda x: str(x).replace("&","&amp;").replace("<","&lt;")
+            row = lambda k, v: "<tr><td>%s</td><td><b>%s</b></td></tr>" % (e(k), e(v))
+            html = ("<!doctype html><html lang=ru><meta charset=utf-8>"
+                    "<meta name=viewport content='width=device-width,initial-scale=1'>"
+                    "<title>StatsAI · цифры</title>"
+                    "<style>body{font:15px/1.5 -apple-system,Segoe UI,sans-serif;background:#0b0b0d;color:#eee;"
+                    "margin:0;padding:20px;max-width:640px}h1{font-size:18px;margin:0 0 16px}h2{font-size:12px;"
+                    "letter-spacing:.12em;text-transform:uppercase;color:#8a8a90;margin:22px 0 8px}table{width:100%;"
+                    "border-collapse:collapse}td{padding:7px 0;border-top:1px solid #222}td+td{text-align:right}"
+                    "small{color:#8a8a90}</style>"
+                    "<h1>StatsAI · цифры <small>" + e(datetime.datetime.now().strftime("%d.%m.%Y %H:%M")) + "</small></h1>"
+                    "<h2>Аккаунты</h2><table>"
+                    + row("Всего", u["n"]) + row("За 7 дней", u["d7"]) + row("За 30 дней", u["d30"])
+                    + row("С Telegram", u["tg"]) + row("С подтверждённой почтой", u["mail"]) + "</table>"
+                    "<h2>Активность</h2><table>"
+                    + row("Сделок всего", t["n"]) + row("Сделок за 7 дней", t["d7"])
+                    + row("Людей хотя бы с одной сделкой", t["users"])
+                    + row("Писали сделки за 7 дней", t["act7"]) + row("Писали сделки за 30 дней", t["act30"]) + "</table>"
+                    "<h2>Откуда пришли (метки)</h2><table>"
+                    + "".join(row((r["ref"] or "без метки") + (" · за 30 дн. +%d" % r["d30"] if r["d30"] else ""), r["n"]) for r in refs) + "</table>"
+                    "<h2>Последние регистрации</h2><table>"
+                    + "".join("<tr><td>%s <small>%s%s</small></td><td>%s сд.</td></tr>" % (
+                        e(r["nickname"]), r["created_at"].strftime("%d.%m %H:%M"),
+                        (" · " + e(r["ref"])) if r["ref"] else "", r["trades"]) for r in last)
+                    + "</table></html>")
+            data = html.encode("utf-8")
+            self.send_response(200)
+            self.send_header("Content-Type", "text/html; charset=utf-8")
+            self.send_header("Content-Length", str(len(data)))
+            self.send_header("Cache-Control", "no-store")
+            self.end_headers()
+            self.wfile.write(data)
+            return
+
         # ---- скільки людей за кожним партнером: лише адмінам ----
         if p == "/api/admin/refs":
             uid = self._uid()
