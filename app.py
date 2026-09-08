@@ -984,6 +984,9 @@ class H(BaseHTTPRequestHandler):
             # Хазяїна віддаємо ніком і тільки поки журнал відкритий: id
             # користувача назовні не потрібен, а стан питаємо щоразу заново.
             out = {k: v for k, v in rec.items() if k != "user_id"}
+            ref = ref_of_user(rec.get("user_id"))
+            if ref:
+                out["ref"] = ref            # сторінка допише ?ref= в адресу
             nick = public_owner(rec.get("user_id"))
             if nick:
                 out["owner"] = {"nick": nick}
@@ -1697,7 +1700,11 @@ class H(BaseHTTPRequestHandler):
             if len(raw.encode("utf-8")) > SHARE_MAX:
                 return self._json({"error": "снимок слишком большой"}, 413)
             rec = share_create(body["data"], body.get("ttl", "7d"), uid)
-            return self._json({"id": rec["id"], "url": "/s/" + rec["id"],
+            # мітка партнера — прямо в адресі: власник спільноти бачить, що
+            # посилання рахується йому. Сама мітка й так береться з хазяїна.
+            ref = ref_of_user(uid)
+            url = "/s/" + rec["id"] + ("?ref=" + ref if ref else "")
+            return self._json({"id": rec["id"], "url": url,
                                "expires": rec["expires"]}, 201)
 
         # ---- одно и то же под разными именами (tidy.py) ----
