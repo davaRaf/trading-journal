@@ -684,3 +684,107 @@ const Attach = (function(){
   return { mount };
 })();
 window.Attach = Attach;
+
+/* ================= shadcn/ui · Select =================
+   Свій список замість системного <select>.
+
+   Системний малює сам браузер: у тёмной теме он всё равно выпадал белым
+   прямоугольником, появлялся мгновенно и не знал ни наших скруглений, ни
+   наших цветов. Здесь всё своё — и вид, и движение: список всплывает тем
+   же жестом, что и календарь рядом (та же .dpop-механика, 150 мс).
+
+   Разметка тривиальная: кнопка с текущим значением, а список живёт в body
+   и позиционируется у кнопки — иначе его резали бы `overflow` панелей.
+
+   Клавиатура работает как у настоящего select: Enter/Пробел/стрелки
+   открывают, ↑↓ ходят, Enter выбирает, Esc закрывает и возвращает фокус
+   на кнопку. Роли выставлены, чтобы читалка называла это списком. */
+const Pick = (function(){
+  let pop = null, anchor = null, opts = null, onPick = null, cur = -1;
+
+  function place(){
+    const r = anchor.getBoundingClientRect();
+    pop.style.minWidth = r.width + "px";
+    pop.style.maxHeight = "";                /* меряем на своей высоте */
+    const h = pop.offsetHeight;
+    const below = innerHeight - r.bottom - 14, above = r.top - 14;
+    /* Снизу тесно — открываем вверх. Не влезает и там — берём сторону, где
+       просторнее, и подрезаем высоту: список прокрутится, но не накроет
+       собой кнопку, из которой вырос. */
+    const up = h > below && above > below;
+    const room = Math.max(80, up ? above : below);
+    if(h > room) pop.style.maxHeight = room + "px";
+    const H = Math.min(h, room);
+    pop.style.top = (up ? Math.max(8, r.top - H - 6) : r.bottom + 6) + "px";
+    const w = Math.max(pop.offsetWidth, r.width);
+    pop.style.left = Math.min(Math.max(8, r.left), innerWidth - w - 8) + "px";
+  }
+
+  function paint(){
+    [...pop.children].forEach((el, i) => {
+      el.classList.toggle("on", i === cur);
+      if(i === cur) el.scrollIntoView({block:"nearest"});
+    });
+  }
+
+  function choose(i){
+    const o = opts[i];
+    const cb = onPick;
+    close();
+    if(o) cb(o.v);          /* «всі» — це порожнє значення, а не відсутнє */
+  }
+
+  function key(e){
+    if(e.key === "Escape"){ e.stopPropagation(); const a = anchor; close(); a && a.focus(); return; }
+    if(e.key === "ArrowDown" || e.key === "ArrowUp"){
+      e.preventDefault();
+      cur = Math.min(opts.length - 1, Math.max(0, cur + (e.key === "ArrowDown" ? 1 : -1)));
+      paint(); return;
+    }
+    if(e.key === "Enter" || e.key === " "){ e.preventDefault(); if(cur >= 0) choose(cur); }
+  }
+  function outside(e){ if(pop && !pop.contains(e.target) && !anchor.contains(e.target)) close(); }
+
+  /* el — кнопка, list — [{v, label}], value — что выбрано сейчас */
+  function open(el, list, value, cb){
+    if(pop && anchor === el){ close(); return; }
+    close();
+    anchor = el; opts = list; onPick = cb;
+    cur = Math.max(0, list.findIndex(o => o.v === value));
+    pop = document.createElement("div");
+    pop.className = "spop";
+    pop.setAttribute("role", "listbox");
+    pop.innerHTML = list.map((o, i) =>
+      '<div class="sopt" role="option" data-i="' + i + '"'
+      + (o.v === value ? ' aria-selected="true"' : "")
+      + '>' + esc(o.label) + "</div>").join("");
+    document.body.appendChild(pop);
+    place();
+    paint();
+    el.setAttribute("aria-expanded", "true");
+    requestAnimationFrame(() => pop && pop.classList.add("in"));
+    pop.addEventListener("pointerdown", e => {
+      const o = e.target.closest(".sopt[data-i]");
+      if(o) choose(+o.dataset.i);
+    });
+    pop.addEventListener("pointermove", e => {
+      const o = e.target.closest(".sopt[data-i]");
+      if(o && +o.dataset.i !== cur){ cur = +o.dataset.i; paint(); }
+    });
+    setTimeout(() => {
+      document.addEventListener("pointerdown", outside);
+      document.addEventListener("keydown", key, true);
+    }, 0);
+  }
+
+  function close(){
+    document.removeEventListener("pointerdown", outside);
+    document.removeEventListener("keydown", key, true);
+    if(anchor) anchor.setAttribute("aria-expanded", "false");
+    if(pop && pop.parentNode) pop.parentNode.removeChild(pop);
+    pop = null; anchor = null; opts = null;
+  }
+
+  return { open, close, isOpen: () => !!pop };
+})();
+window.Pick = Pick;
