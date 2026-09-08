@@ -999,6 +999,14 @@ body:has(.ovw){font-size:14px;line-height:1.6;font-weight:300}
 .shell{border:1px solid var(--line-soft);border-radius:22px;padding:6px;margin-bottom:var(--stack);background:var(--shell-bg)}
 /* в журнале оболочки идут в общем потоке: отступ держит правило .shell+... сверху */
 .page > .shell:last-child{margin-bottom:0}
+/* Оболочка прямо на странице стоит среди обычных карточек — значит и выглядеть
+   должна карточкой. Двойная рама уместна на «Обзоре», где такие все блоки.
+   В журнале она мешала: карточка рисует свой бортик тенью СНАРУЖИ коробки, а
+   оболочка — отступом ВНУТРИ, и панель эквити выходила на 14px уже соседних,
+   с другим радиусом и подписью, сдвинутой внутрь на 12px. Убираем коврик —
+   ядро само становится карточкой, а бортик ему добавит тема. */
+.page > .shell{padding:0;border:0;background:none;border-radius:var(--r)}
+.page > .shell > .core{border-radius:var(--r);padding:13px 16px 16px}
 .core{background:var(--card);border:1px solid var(--line-soft);border-radius:17px;padding:26px 30px;
   box-shadow:var(--shadow)}
 
@@ -1376,7 +1384,8 @@ body::after{
    Оболочка нарисована кольцами тени, поэтому разметка не меняется.
    Отступы сеток подняты, чтобы соседние оболочки не соприкасались. */
 :root[data-theme="dark"] .card,
-:root[data-theme="dark"] .qcard{
+:root[data-theme="dark"] .qcard,
+:root[data-theme="dark"] .page > .shell > .core{
   border-radius:16px;
   box-shadow:0 0 0 6px var(--shell-bg),0 0 0 7px var(--line-soft),var(--shadow);
 }
@@ -1387,7 +1396,12 @@ body::after{
 :root[data-theme="dark"] .split+.card,
 :root[data-theme="dark"] .card+.split,
 :root[data-theme="dark"] .jgrid+.split,
-:root[data-theme="dark"] .jgrid+.card{margin-top:28px}
+:root[data-theme="dark"] .jgrid+.card,
+:root[data-theme="dark"] .jgrid+.shell,
+:root[data-theme="dark"] .kpis+.shell,
+:root[data-theme="dark"] .card+.shell,
+:root[data-theme="dark"] .shell+.card,
+:root[data-theme="dark"] .shell+.shell{margin-top:28px}
 :root[data-theme="dark"] .page > .card:first-child,
 :root[data-theme="dark"] .jgrid{margin-top:8px}
 :root[data-theme="dark"] .kpis{margin-bottom:22px}
@@ -1547,7 +1561,8 @@ body::after{
 .ovw .day{border-color:transparent}
 /* внешняя оболочка карточек рисуется одним фоном, без волоска по краю */
 :root[data-theme="dark"] .card,
-:root[data-theme="dark"] .qcard{box-shadow:0 0 0 6px var(--shell-bg),var(--shadow)}
+:root[data-theme="dark"] .qcard,
+:root[data-theme="dark"] .page > .shell > .core{box-shadow:0 0 0 6px var(--shell-bg),var(--shadow)}
 
 /* ================== цифры ==================
    Archivo вместо моноширинного: рисунок живее, а колонки не «плывут»

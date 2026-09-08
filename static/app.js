@@ -1268,7 +1268,7 @@ function vAnalytics(){
       '<span class="rr">'+(g.st.avgRR!=null?r1(g.st.avgRR):"—")+"</span>"+
       '<span class="netr '+clsR(g.st.net)+'">'+fmtR(g.st.net)+"</span></div>";
   }).join("");
-  h+='<div class="card"><h3>'+T.anResultsPrefix+' '+esc(DIMS().find(d=>d.k===S.dim).label)+"</h3>"+
+  h+='<div class="card m-swap"><h3>'+T.anResultsPrefix+' '+esc(DIMS().find(d=>d.k===S.dim).label)+"</h3>"+
     '<div class="ahead"><span>'+T.anColName+'</span><span>'+T.kCount+'</span><span>'+T.kWinRate+'</span><span>'+T.kAvgRRShort+'</span><span>'+T.kNetPct+'</span></div>'+
     (rows||'<div class="empty">'+T.anNoData+'</div>')+"</div>";
   h+=window.__links ? __links.html(list) : "";      /* зв'язки, static/links.js */

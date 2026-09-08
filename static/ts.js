@@ -20,7 +20,6 @@
 let TS = undefined;        /* undefined — ще не питали сервер, null — немає ТС */
 let busy = false;          /* тягнемо з Notion */
 let pullErr = "";
-let checked = {};          /* чек-лист: ритуал перед входом, на сервері не тримаємо */
 let hotShot = null;        /* слот, куди піде Ctrl+V */
 /* Посилання, з яких тягнемо ТС. Їх кілька, бо в Notion систему тримають
    розділами: контекст на одній сторінці, моделі входу на іншій. Порожній
@@ -383,19 +382,17 @@ function secCheck(){
   const d = D();
   const list = TS.check || [];
   if (!list.length) return '<div class="empty">' + esc(d.noCheck) + "</div>" + add("check", d.addCheck);
-  const done = list.filter((_, i) => checked[i]).length;
-  const left = list.length - done;
+  /* Просто перелік правил — тим самим виглядом, що й у спільному посиланні.
+     Галочки й лічильник «0 / 1» звідси прибрані: «Моя ТС» описує систему, а не
+     веде окрему угоду. Відмітка однаково нікуди не зберігалась і зникала на
+     першому ж оновленні сторінки. */
   return '<div class="ts-q">'
     + list.map((c, i) =>
-        "<label><input type=\"checkbox\"" + (checked[i] ? " checked" : "")
-        + ' onchange="__ts.tick(' + i + ',this.checked)">'
+        '<div class="ts-qi"><i>' + String(i + 1).padStart(2, "0") + "</i>"
         + '<span class="t"><div class="ts-row">' + edArea("check." + i) + x("check", i)
-        + "</div></span></label>").join("")
+        + "</div></span></div>").join("")
     + "</div>"
-    /* кнопка йде одразу за списком: під підсумком її не бачили й шукали */
-    + add("check", d.addCheck)
-    + '<div class="ts-gate"><b class="' + (left ? "neg" : "pos") + '">' + done + " / " + list.length + "</b>"
-    + "<span>" + esc(left ? d.gateBad : d.gateOk) + "</span></div>";
+    + add("check", d.addCheck);
 }
 
 /* ---------- звірка з журналом ---------- */
@@ -526,9 +523,10 @@ function secRaw(){
 
 function vFull(){
   const d = D();
-  const src = TS.source === "notion" ? d.subNotion : d.subHand;
-  let h = '<div class="vhead ts-head"><h1>' + esc(d.title) + "</h1>"
-    + '<span class="sub">' + esc(src) + (TS.updated ? " · " + esc(TS.updated) : "") + "</span>"
+  /* Біля назви розділу нічого не пишемо: звідки взялась ТС і коли її чіпали
+     востаннє — службова дрібниця, а не заголовок. Дату збірки далі зберігаємо
+     в самій ТС, просто не показуємо в шапці. */
+  let h = '<div class="vhead"><h1>' + esc(d.title) + "</h1>"
     + '<span class="right">'
     +   '<button class="pill" onclick="__ts.ask()">' + esc(d.btnAsk) + "</button>"
     +   '<button class="pill" onclick="__ts.share()">' + esc(d.btnShare) + "</button>"
@@ -1016,7 +1014,6 @@ function finish(){
     check: check,
     notion: keep.notion || null,
   };
-  checked = {};
   save();
   askClose(true);          // збережено — питати «точно вийти?» тут нема сенсу
   render();
@@ -1121,7 +1118,6 @@ window.__ts = {
     drawAsk();
   },
   restoreOpts(k){ if (window.Prefs) Prefs.restore("ts:" + k); drawAsk(); },
-  tick(i, v){ checked[i] = v; render(); },
   pull(){ if(guestStop()) return; pull(); },
   /* ще одне поле під посилання */
   srcAdd(){
@@ -1170,7 +1166,7 @@ window.__ts = {
     if (!await Ask.yes(D().confirmDelete, {ok:T.askYes, cancel:T.askNo, danger:true})) return;
     if (demo()){ try{ localStorage.removeItem(DEMO_KEY); }catch(e){} }
     else { try{ await api("POST", "/api/ts/clear"); }catch(e){} }
-    TS = null; checked = {};
+    TS = null;
     render();
   },
 };
@@ -1207,7 +1203,6 @@ uk: {
   emptyMind: "що нагадати собі перед торгівлею",
   remove: "прибрати", back: "назад",
 
-  subHand: "зібрана вручну", subNotion: "підтягнуто з Notion",
   noneTitle: "Ще немає торгової стратегії",
   noneLead: "Журнал уміє звіряти кожну угоду з твоїми ж правилами — але спершу має їх знати. "
           + "<b>Двома способами:</b> зібрати тут, відповідаючи на питання, або підтягнути готову з Notion.",
@@ -1259,7 +1254,6 @@ uk: {
   shotTouchEmpty: "У буфері нема картинки. Два тапи — обрати файл.",
   shotReplace: "замінити скрін", shotOpen: "відкрити", shotExample: "приклад", shotHow: "як це виглядає",
 
-  gateOk: "усе закрито — за твоїми правилами вхід є", gateBad: "поки не все закрито — за твоїми ж правилами входу немає",
   btnAsk: "Пройти опитування", btnShare: "Поділитись", btnDelete: "Видалити ТС",
   confirmDelete: "Видалити стратегію? Скріни до неї теж зникнуть.",
   confirmQuitAsk: "Вийти з опитування? Відповіді не збережуться.",
@@ -1326,7 +1320,6 @@ ru: {
   emptyMind: "что напомнить себе перед торговлей",
   remove: "убрать", back: "назад",
 
-  subHand: "собрана вручную", subNotion: "подтянуто из Notion",
   noneTitle: "Ещё нет торговой стратегии",
   noneLead: "Журнал умеет сверять каждую сделку с твоими же правилами — но сначала должен их знать. "
           + "<b>Двумя способами:</b> собрать здесь, отвечая на вопросы, или подтянуть готовую из Notion.",
@@ -1378,7 +1371,6 @@ ru: {
   shotTouchEmpty: "В буфере нет картинки. Два тапа — выбрать файл.",
   shotReplace: "заменить скрин", shotOpen: "открыть", shotExample: "пример", shotHow: "как это выглядит",
 
-  gateOk: "всё закрыто — по твоим правилам вход есть", gateBad: "пока закрыто не всё — по твоим же правилам входа нет",
   btnAsk: "Пройти опрос", btnShare: "Поделиться", btnDelete: "Удалить ТС",
   confirmDelete: "Удалить стратегию? Скрины к ней тоже пропадут.",
   confirmQuitAsk: "Выйти из опроса? Ответы не сохранятся.",
@@ -1445,7 +1437,6 @@ en: {
   emptyMind: "what to remind yourself before trading",
   remove: "remove", back: "back",
 
-  subHand: "built by hand", subNotion: "pulled from Notion",
   noneTitle: "No trading system yet",
   noneLead: "The journal can check every trade against your own rules — but it has to know them first. "
           + "<b>Two ways:</b> build it here by answering questions, or pull a ready one from Notion.",
@@ -1497,7 +1488,6 @@ en: {
   shotTouchEmpty: "No image in the clipboard. Double tap to pick a file.",
   shotReplace: "replace screenshot", shotOpen: "open", shotExample: "example", shotHow: "what it looks like",
 
-  gateOk: "all ticked — by your rules the entry is valid", gateBad: "not everything is ticked — by your own rules there is no entry",
   btnAsk: "Run the questions", btnShare: "Share", btnDelete: "Delete system",
   confirmDelete: "Delete the system? Its screenshots go too.",
   confirmQuitAsk: "Leave the questionnaire? Your answers will be lost.",

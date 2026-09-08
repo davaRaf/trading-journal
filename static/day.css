@@ -43,7 +43,6 @@
   font-weight:600; letter-spacing:-.01em; flex-wrap:wrap}
 .dv-pt b{font-family:var(--mono); font-size:11px; font-weight:500; color:var(--faint);
   padding:3px 7px; border-radius:6px; background:var(--panel-2); letter-spacing:.06em}
-.dv-pt i{font-style:normal; font-size:12.5px; color:var(--faint); font-weight:400}
 
 /* ---------- поля ---------- */
 .dv-f{cursor:text; border-radius:6px; padding:2px 6px; margin:0 -6px; display:inline-block;
@@ -55,7 +54,17 @@
   border:1px solid color-mix(in srgb, var(--accent) 50%, transparent); border-radius:var(--r-sm);
   padding:9px 11px; font:inherit; font-size:14px; line-height:1.55}
 .dv-in:focus{outline:none}
-textarea.dv-in{min-height:84px; resize:vertical}
+/* Багаторядкове поле не має «перетворюватись» на клік: текст лишається
+   рівно там і таким, як був, а поле просто оживає. Тому всередині
+   широкого поля textarea без власної рамки й відступів — рамку показує
+   сам блок, той самий прямокутник, що підсвічувався при наведенні.
+   Висоту textarea тримає по тексту (autoGrow у day.js), тож ні смуги
+   прокрутки, ні куточка-розтяжки більше немає. */
+textarea.dv-in{resize:none; overflow:hidden}
+.dv-f.wide .dv-in{display:block; padding:0; border:0; border-radius:0;
+  background:transparent; line-height:inherit}
+.dv-f.wide.editing{background:var(--panel-2);
+  box-shadow:inset 0 0 0 1px color-mix(in srgb, var(--accent) 50%, transparent)}
 
 .dv-pick{display:flex; gap:8px; flex-wrap:wrap}
 .dv-pick button{border:1px solid var(--line); background:var(--panel-2); color:var(--dim);
@@ -115,6 +124,15 @@ textarea.dv-in{min-height:84px; resize:vertical}
   flex:none; width:16px}
 .dv-scr.main .k{color:var(--accent)}
 .dv-scr .tx{flex:1; min-width:0; font-size:13.5px; line-height:1.6; color:var(--dim)}
+
+/* Усередині сценарію поле займає весь ряд, тож підсвічувати ще й його
+   окремим прямокутником нема сенсу — це другий кадр у кадрі. Наведення
+   й набір показує сам ряд: рамка теплішає, більше нічого не рухається. */
+.dv-scr .dv-f.wide:hover, .dv-scr .dv-f.wide.editing{background:none; box-shadow:none}
+.dv-scr:not(.main):hover{border-color:var(--line)}
+.dv-scr.main:hover{border-color:color-mix(in srgb, var(--accent) 55%, transparent)}
+.dv-scr:has(.dv-f.editing){border-color:color-mix(in srgb, var(--accent) 70%, transparent);
+  box-shadow:0 0 0 3px color-mix(in srgb, var(--accent) 12%, transparent)}
 
 /* ---------- угоди дня ---------- */
 .dv-trs{display:flex; flex-direction:column}
@@ -249,8 +267,12 @@ textarea.dv-in{min-height:84px; resize:vertical}
 .dv-stack{display:flex; flex-direction:column; gap:14px}
 .dv-card{background:var(--card); border:1px solid var(--line); border-radius:var(--r);
   overflow:hidden; box-shadow:var(--shadow)}
-.dv-ah{display:flex; align-items:center; gap:10px; padding:12px 20px;
+.dv-ah{display:flex; align-items:center; gap:10px; padding:12px 20px; flex-wrap:wrap;
   border-bottom:1px solid var(--line-soft); background:var(--panel-2)}
+/* Підпис картки стоїть перед назвою активу: спершу що це — потім по чому.
+   На вузькому екрані шапка переноситься, а не тисне назву. */
+.dv-ah .lab{font-size:12.5px; color:var(--dim); white-space:nowrap;
+  padding-right:10px; border-right:1px solid var(--line-soft)}
 .dv-ah .nm{font-family:var(--mono); font-size:14.5px; font-weight:600; letter-spacing:.02em; min-width:0}
 .dv-ah .nm .dv-f{font-family:var(--mono); font-size:14.5px; font-weight:600; min-width:70px}
 .dv-ah .from{font-family:var(--mono); font-size:9px; letter-spacing:.14em; text-transform:uppercase;
