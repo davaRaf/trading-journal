@@ -483,6 +483,7 @@ def _prefs_init():
 # ---------------------------------------------------------------------------
 REF_COOKIE = "ref"
 REF_TTL = 30 * 24 * 3600
+PARTNER_TITLES = {"blackswan": "Black Swan"}      # як партнера звуть у превʼю
 
 
 def _ref_init():
@@ -1404,6 +1405,20 @@ class H(BaseHTTPRequestHandler):
                     html = f.read()
             except OSError:
                 self.send_response(404); self.end_headers(); return
+            # партнерське посилання (?ref=blackswan): превʼю і назва — в стилі
+            # колаборації, щоб у чаті спільноти картка була «наша × їхня»
+            ref = self._ref_query()
+            if ref and os.path.exists(os.path.join(STATIC, "og-%s.png" % ref)):
+                title = PARTNER_TITLES.get(ref, ref)
+                desc = ("Журнал трейдера в оформлении %s: сделки, статистика, "
+                        "анализ дня и своя ТС." % title)
+                html = html.replace("/static/og-main.png", "/static/og-%s.png" % ref)
+                for attr in ('property="og:title"', 'name="twitter:title"'):
+                    html = re.sub(r'(%s content=")[^"]*' % re.escape(attr),
+                                  lambda m: m.group(1) + "StatsAI × " + title, html, 1)
+                for attr in ('property="og:description"', 'name="twitter:description"'):
+                    html = re.sub(r'(%s content=")[^"]*' % re.escape(attr),
+                                  lambda m: m.group(1) + desc, html, 1)
             html = html.replace('content="/static/', 'content="%s/static/' % self._base())
             if 'property="og:url"' not in html:
                 html = html.replace("</title>",
@@ -1470,7 +1485,10 @@ class H(BaseHTTPRequestHandler):
 
         if p in ("/", "/index.html"):
             if not self._uid():
-                return self._redirect("/login")
+                # ?ref=партнер лишаємо в адресі: месенджер іде за редіректом і
+                # бере превʼю вже зі сторінки входу — там воно в стилі партнера
+                q = urlparse(self.path).query
+                return self._redirect("/login" + ("?" + q if q else ""))
             return self._file(os.path.join(STATIC, "index.html"), "text/html; charset=utf-8")
 
         if p == "/demo":
