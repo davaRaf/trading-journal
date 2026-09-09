@@ -62,6 +62,12 @@ function looksLikePair(v){
   if(v.split(/\s+/).length>3) return false;
   return /[A-Za-z]/.test(v);                     // хоть одна латинская буква
 }
+/* «GER40», «ger 40» і «GER 40» — одне ім'я. Сервер зводить їх при записі
+   (db.py: _one_spelling), і те саме потрібно списку підказок — інакше поруч
+   стоять дві кнопки на той самий інструмент. */
+function plainName(v){
+  return (v==null?"":v).toString().replace(/[^0-9A-Za-zА-Яа-яЁёІіЇїЄєҐґ]+/g,"").toUpperCase();
+}
 function num(v){ const x=parseFloat(v); return isNaN(x)?null:x; }
 /* в интерфейсе результат называется TP / SL / BE, внутри хранится Win / Loss / BE.
    WinM — тот же тейк, но закрытый рукой: для денег это TP, метка нужна,
@@ -1854,7 +1860,12 @@ async function saveTrade(id){
   for(const k of ["pair","session","account","entry_model","setup","risk","mistakes","emotion"]){
     const inp=$("#fld_"+k);
     if(t[k] && inp && inp.classList.contains("qinput") && !inp.hidden)
-      for(const part of (isMulti(k)?splitVals(t[k]):[t[k]])) Prefs.add(k, part);
+      for(const part of (isMulti(k)?splitVals(t[k]):[t[k]])){
+        /* інструмент сервер запише вже прийнятим написанням — запам'ятовувати
+           своє зайве: у списку з'явиться двійник, який нічого не додає */
+        if(k==="pair" && Prefs.vals(k, QUICK_BASE[k]||[]).some(x=>plainName(x)===plainName(part))) continue;
+        Prefs.add(k, part);
+      }
   }
   const btn=document.querySelector(".m-foot .primary"); if(btn){btn.disabled=true;btn.textContent=T.fmSaving;}
   try{

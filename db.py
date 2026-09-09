@@ -11,6 +11,7 @@ import psycopg
 from psycopg.rows import dict_row
 from psycopg.types.json import Jsonb
 
+import tidy
 from config import DATABASE_URL, DB_POOL_MAX
 
 # Текстовые поля сделки. Порядок важен: по нему строятся INSERT/UPDATE.
@@ -506,8 +507,62 @@ _PLACEHOLDERS = ", ".join(["%s"] * (len(FIELDS) + 2))
 _SETS = ", ".join('"%s"=%%s' % f for f in FIELDS) + ", screenshots=%s, hidden=%s"
 
 
+# ---------------------------------------------------------------------------
+# Один инструмент — одно написание.
+#
+# Поле свободное: сегодня человек напишет «GER40», завтра «ger 40» — и в
+# статистике это два разных инструмента, винрейт и профит-фактор делятся
+# пополам. Перед записью подставляем то написание, которое в журнале уже
+# есть.
+#
+# Сводим только регистр, пробелы и знаки. «USTEC» и «NAS100» — тоже один
+# индекс, но эту границу машине видно не всегда, и решает её человек в окне
+# сведения (tidy.py).
+# ---------------------------------------------------------------------------
+def _known_pairs(conn, user_id, skip_id=None):
+    """Написание -> как этот инструмент чаще всего записан в журнале.
+
+    Поровну — берём первое по алфавиту, чтобы от запуска к запуску
+    подставлялось одно и то же.
+    """
+    sql = 'SELECT "pair" AS p, count(*) AS n FROM trades WHERE user_id=%s'
+    args = [user_id]
+    if skip_id:                 # своё же прежнее написание не эталон себе
+        sql += " AND id<>%s"
+        args.append(skip_id)
+    sql += ' GROUP BY "pair"'
+    rows = conn.execute(sql, args).fetchall()
+    best = {}
+    for r in sorted(rows, key=lambda r: (-r["n"], (r["p"] or ""))):
+        v = (r["p"] or "").strip()
+        k = tidy.plain(v)
+        if k and k not in best:
+            best[k] = v
+    return best
+
+
+def _one_spelling(conn, user_id, trades, skip_id=None):
+    """Приводит инструмент к написанию, принятому в журнале.
+
+    Незнакомый инструмент остаётся как написан — и задаёт написание
+    остальным в этой же пачке: из таблицы «ger 40» и «GER 40» приезжают
+    вперемешку.
+    """
+    known = _known_pairs(conn, user_id, skip_id)
+    for t in trades:
+        v = str(t.get("pair") or "").strip()
+        k = tidy.plain(v)
+        if not k:
+            continue
+        if k in known:
+            t["pair"] = known[k]
+        else:
+            known[k] = v
+
+
 def insert_trade(user_id, t, emotion_status="na"):
     with connect() as conn:
+        _one_spelling(conn, user_id, [t])
         conn.execute(
             "INSERT INTO trades (id, user_id, %s, emotion_prompt_status) "
             "VALUES (%%s, %%s, %s, %%s)" % (_COLS, _PLACEHOLDERS),
@@ -523,8 +578,9 @@ def insert_trades(user_id, trades, emotion_status="na"):
         return 0
     sql = ("INSERT INTO trades (id, user_id, %s, emotion_prompt_status) "
            "VALUES (%%s, %%s, %s, %%s)" % (_COLS, _PLACEHOLDERS))
-    rows = [[t["id"], user_id] + _trade_values(t) + [emotion_status] for t in trades]
     with connect() as conn:
+        _one_spelling(conn, user_id, trades)
+        rows = [[t["id"], user_id] + _trade_values(t) + [emotion_status] for t in trades]
         with conn.cursor() as cur:
             cur.executemany(sql, rows)
         conn.commit()
@@ -575,6 +631,7 @@ def fill_blanks(user_id, trade_id, t):
 
 def update_trade(user_id, t):
     with connect() as conn:
+        _one_spelling(conn, user_id, [t], skip_id=t["id"])
         cur = conn.execute(
             "UPDATE trades SET %s WHERE id=%%s AND user_id=%%s" % _SETS,
             _trade_values(t) + [t["id"], user_id])
