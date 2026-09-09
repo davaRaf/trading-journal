@@ -447,6 +447,13 @@ def drop_import(user_id, batch):
     conf["sources"] = [s for s in conf.get("sources") or [] if s["id"] != batch]
     if (conf.get("last") or {}).get("id") == batch:
         conf.pop("last", None)
+    if not conf["sources"]:
+        # Сняли последнюю базу — это и есть «отвязать Notion». Ссылку,
+        # название и сверку колонок держать больше не за чем: они описывают
+        # перенесение, которого уже нет. Отметку об автообновлении убираем
+        # тоже, иначе окно показывало бы дату обхода несуществующих баз.
+        for k in ("url", "title", "mapping", "auto"):
+            conf.pop(k, None)
     notion_save(user_id, conf)
     return removed
 
