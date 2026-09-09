@@ -217,6 +217,9 @@ function sourcesHtml(){
     +   "<span>" + (s.count || 0) + " " + word(s.count || 0) + "</span>"
     +   "<i>" + esc([s.when, shortLink(s.url)].filter(Boolean).join(" · ")) + "</i>"
     + "</button>"
+    + '<button type="button" class="btn nt-src-x" onclick="__notion.off(\'' + esc(s.id) + '\')">'
+    +   T.ntSrcOff
+    + "</button>"
     + '<button type="button" class="btn nt-src-x" onclick="__notion.undo(\'' + esc(s.id) + '\')">'
     +   T.ntSrcRemove
     + "</button></div>").join("");
@@ -547,6 +550,18 @@ function open(){
   tab("notion");
 }
 
+/* Відв'язати базу: оновлення з неї припиняється, угоди лишаються.
+   Окремо від «прибрати угоди» — людина, яка відключає Notion, майже
+   ніколи не хоче заразом стерти півтори сотні своїх записів. */
+async function off(id){
+  if (!await Ask.yes(T.ntConfirmOff, {ok:T.askYes, cancel:T.askNo})) return;
+  try{ await call("POST", "/api/notion/off/" + id, {}); }
+  catch(e){ return err(e.message); }
+  await refresh();
+  try{ await reload(); render(); }catch(e){}
+  stepLink(T.ntOffDone);
+}
+
 async function undo(id){
   if (!await Ask.yes(T.ntConfirmUndo, {ok:T.askYes, cancel:T.askNo, danger:true})) return;
   let r;
@@ -561,7 +576,7 @@ async function undo(id){
 }
 
 window.__notion = {
-  open, tab, run, toMap, undo,
+  open, tab, run, toMap, undo, off,
   back: stepLink,
   toTables(){ stepTables([]); },
   /* Натиснули на вже перенесену базу — читаємо її ще раз: у Notion
@@ -608,13 +623,12 @@ async function refresh(){
   try{
     state = await call("GET", "/api/notion/state");
     sources = state.sources || [];
-    /* «Підключено» — це коли з Notion щось є в журналі: жива база або
-       угоди з неї. Раніше сюди входило й state.url — остання посилання,
-       яку людина колись вставляла. Вона лишається в налаштуваннях назавжди,
-       тож індикатор горів і після того, як журнал відв'язали й угод з
-       Notion не лишилось. Посилання й далі підставляється у вікні, але
-       підключенням більше не вважається. */
-    connected = !!(sources.length || state.imported);
+    /* «Підключено» — це коли лишилась база, з якої ми оновлюємось; так
+       каже сервер (state.connected). Ні остання посилання, ні колись
+       перенесені угоди підключенням не є: посилання лежить у налаштуваннях
+       назавжди, а угоди лишаються в журналі й після відв'язки — від них
+       індикатор не гаснув би ніколи. */
+    connected = !!state.connected;
     paintBtn();
   }catch(e){}
 }
