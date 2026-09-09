@@ -389,16 +389,18 @@ def notion_sources(uid, conf=None):
     откатить первый. Теперь помним все.
 
     Количество сделок считаем по журналу, а не по записанному числу: цифра
-    верна, даже если браузер закрыли посреди переноса. Перенесение, от
-    которого в журнале ничего не осталось, из списка выпадает само.
+    верна, даже если браузер закрыли посреди переноса.
+
+    Базы, от которых в журнале не осталось ни одной сделки, раньше из списка
+    выпадали — и человек не мог их отвязать: суточное обновление ходило в
+    Notion, а показать было нечего. Теперь показываем все подключённые базы,
+    хоть с нулём: список отвечает на вопрос «откуда ко мне ещё ходят», а не
+    только «откуда пришли сделки».
     """
     conf = notion_conf(uid) if conf is None else conf
     counts = db.count_imports(uid)
-    out = []
-    for s in conf.get("sources") or []:
-        n = counts.get(s["id"]) or 0
-        if n:
-            out.append(dict(s, count=n))
+    out = [dict(s, count=counts.get(s["id"]) or 0)
+           for s in conf.get("sources") or []]
     out.sort(key=lambda s: s.get("when") or "", reverse=True)
     return out
 
@@ -440,22 +442,46 @@ def drop_import(user_id, batch):
     if not batch:
         return 0
     removed, orphan_files = db.drop_import(user_id, batch)
-    if not removed:
-        return 0
     delete_files(orphan_files)
     conf = notion_conf(user_id)
     conf["sources"] = [s for s in conf.get("sources") or [] if s["id"] != batch]
     if (conf.get("last") or {}).get("id") == batch:
         conf.pop("last", None)
     if not conf["sources"]:
-        # Сняли последнюю базу — это и есть «отвязать Notion». Ссылку,
-        # название и сверку колонок держать больше не за чем: они описывают
-        # перенесение, которого уже нет. Отметку об автообновлении убираем
-        # тоже, иначе окно показывало бы дату обхода несуществующих баз.
-        for k in ("url", "title", "mapping", "auto"):
-            conf.pop(k, None)
+        _forget_notion(conf)
     notion_save(user_id, conf)
     return removed
+
+
+def disconnect_source(user_id, batch):
+    """Відв'язує базу: оновлення з неї більше не ходить, угоди лишаються.
+
+    Це не те саме, що «прибрати угоди». Людина, яка відв'язує Notion, майже
+    завжди хоче зупинити обмін, а не викинути півтори сотні своїх записів —
+    раніше ці дві дії робила одна кнопка, і відв'язатись, не втративши
+    журнал, було нічим."""
+    batch = str(batch or "")[:32]
+    if not batch:
+        return False
+    conf = notion_conf(user_id)
+    left = [s for s in conf.get("sources") or [] if s["id"] != batch]
+    if len(left) == len(conf.get("sources") or []):
+        return False
+    conf["sources"] = left
+    if (conf.get("last") or {}).get("id") == batch:
+        conf.pop("last", None)
+    if not left:
+        _forget_notion(conf)
+    notion_save(user_id, conf)
+    return True
+
+
+def _forget_notion(conf):
+    """Останню базу зняли — прибираємо й те, що її описувало. Інакше сайт
+    вважав би Notion підключеним через саме лише посилання, яке людина
+    колись вставила."""
+    for k in ("url", "title", "mapping", "auto"):
+        conf.pop(k, None)
 
 
 # ---------------------------------------------------------------------------
@@ -490,7 +516,7 @@ def _prefs_init():
 # ---------------------------------------------------------------------------
 REF_COOKIE = "ref"
 REF_TTL = 30 * 24 * 3600
-PARTNER_TITLES = {"blackswan": "Black Swan"}      # як партнера звуть у превʼю
+PARTNER_TITLES = {"blackswan": "Black Swan"}      # як партнера звуть у прев'ю
 KIND_RU = {"trade": "Сделка", "day": "День", "week": "Неделя", "month": "Месяц", "year": "Год",
            "ts": "Торговая система", "review": "Анализ дня", "period": "Период (старые)",
            "other": "Другое"}
@@ -1390,8 +1416,12 @@ class H(BaseHTTPRequestHandler):
                 "sources": sources,
                 "last": last,
                 "mapping": conf.get("mapping") or {},
-                # угоди з Notion уже в журналі — значить, підключали, навіть якщо
-                # запис про посилання не зберігся
+                # Підключено — це коли є база, з якої ми оновлюємось. Угоди,
+                # перенесені колись, лишаються в журналі назавжди й про
+                # підключення не говорять нічого.
+                "connected": bool(sources),
+                # а це — «людина вже переносила»: вікно-пропозиція новачкові
+                # більше не потрібне
                 "imported": bool(db.notion_known(uid)[1]),
                 # коли востаннє перечитували Notion самі (notion_sync.py)
                 "auto": conf.get("auto") or None,
@@ -1439,7 +1469,7 @@ class H(BaseHTTPRequestHandler):
                     html = f.read()
             except OSError:
                 self.send_response(404); self.end_headers(); return
-            # партнерське посилання (?ref=blackswan): превʼю і назва — в стилі
+            # партнерське посилання (?ref=blackswan): прев'ю і назва — в стилі
             # колаборації, щоб у чаті спільноти картка була «наша × їхня»
             ref = self._ref_query()
             og_path = os.path.join(STATIC, "og-%s.png" % ref) if ref else ""
@@ -1447,7 +1477,7 @@ class H(BaseHTTPRequestHandler):
                 title = PARTNER_TITLES.get(ref, ref)
                 desc = ("Журнал трейдера в оформлении %s: сделки, статистика, "
                         "анализ дня и своя ТС." % title)
-                # у адресі картинки — час її зміни: месенджери кешують превʼю за
+                # у адресі картинки — час її зміни: месенджери кешують прев'ю за
                 # адресою, і без цього нова картинка не показувалась
                 html = html.replace("/static/og-main.png",
                                     "/static/og-%s.png?v=%d" % (ref, int(os.path.getmtime(og_path))))
@@ -1524,7 +1554,7 @@ class H(BaseHTTPRequestHandler):
         if p in ("/", "/index.html"):
             if not self._uid():
                 # ?ref=партнер лишаємо в адресі: месенджер іде за редіректом і
-                # бере превʼю вже зі сторінки входу — там воно в стилі партнера
+                # бере прев'ю вже зі сторінки входу — там воно в стилі партнера
                 q = urlparse(self.path).query
                 return self._redirect("/login" + ("?" + q if q else ""))
             return self._file(os.path.join(STATIC, "index.html"), "text/html; charset=utf-8")
@@ -1909,6 +1939,14 @@ class H(BaseHTTPRequestHandler):
         if p.startswith("/api/notion/undo/"):
             n = drop_import(uid, p[len("/api/notion/undo/"):])
             return self._json({"removed": n})
+
+        # Відв'язати базу: оновлення з неї припиняється, угоди лишаються
+        # в журналі. Прибирання угод — сусідній маршрут, і це навмисно
+        # дві різні дії.
+        if p.startswith("/api/notion/off/"):
+            off = disconnect_source(uid, p[len("/api/notion/off/"):])
+            conf = notion_conf(uid)
+            return self._json({"ok": off, "left": len(conf.get("sources") or [])})
 
         if p == "/api/notion/forget":
             try:
