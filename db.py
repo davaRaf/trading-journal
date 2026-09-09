@@ -213,6 +213,29 @@ CREATE TABLE IF NOT EXISTS trade_drafts (
   data       JSONB NOT NULL DEFAULT '{}'::jsonb,
   updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
+
+-- Угоди з Notion, які людина прибрала з журналу руками. Тримаємо не саму
+-- угоду, а позначки, за якими перенесення її впізнає: id запису в Notion,
+-- відбиток (день, інструмент, напрямок, результат) і те, яким перенесенням
+-- вона приїхала.
+--
+-- Навіщо: Notion перечитується сам раз на добу (notion_sync.py), а що вже
+-- перенесено — рахувалося по тому, що лежить у журналі. Прибрана вчора
+-- угода зникала з цього рахунку й наступного дня приїжджала знову, наче
+-- нова. Людина викидає — журнал відрощує назад.
+--
+-- Рядки прив'язані до перенесення: коли базу знімають цілком («прибрати»),
+-- її могильник теж прибирається — після цього перенести базу заново можна
+-- повністю.
+CREATE TABLE IF NOT EXISTS notion_gone (
+  id         BIGSERIAL PRIMARY KEY,
+  user_id    BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  notion_id  TEXT NOT NULL DEFAULT '',
+  import_id  TEXT NOT NULL DEFAULT '',
+  mark       TEXT NOT NULL DEFAULT '',
+  removed_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS notion_gone_user ON notion_gone (user_id);
 """
 
 
@@ -368,6 +391,51 @@ def notion_known(user_id):
     return known, seen
 
 
+def notion_gone(user_id):
+    """Що людина прибрала з журналу руками: id записів у Notion і скільки
+    угод із кожним відбитком прибрано. Перенесення рахує їх такими, що вже
+    приїжджали, — інакше прибране повертається наступним автооновленням."""
+    with connect() as conn:
+        rows = conn.execute("SELECT notion_id, mark FROM notion_gone "
+                            "WHERE user_id=%s", (user_id,)).fetchall()
+    ids = {r["notion_id"] for r in rows if r["notion_id"]}
+    marks = {}
+    for r in rows:
+        if r["mark"]:
+            marks[r["mark"]] = marks.get(r["mark"], 0) + 1
+    return ids, marks
+
+
+def import_seen(user_id, rows):
+    """Усе, за чим перенесення впізнає «це в нас уже було»: інструменти,
+    id записів Notion і відбитки. Рахуємо разом і живі угоди, і прибрані —
+    ручне перенесення й автооновлення мають дивитись однаково."""
+    known, seen = notion_known(user_id)
+    gone_ids, gone_marks = notion_gone(user_id)
+    marks = tidy.prints(rows)
+    for k, n in gone_marks.items():
+        marks[k] = marks.get(k, 0) + n
+    return known, seen | gone_ids, marks
+
+
+def _remember_gone(conn, user_id, t):
+    """Кладемо прибрану угоду в могильник — але тільки ту, що приїхала з
+    Notion: записану на сайті звідти ніхто не привезе.
+
+    Той самий запис двічі не пишемо: id у Notion один, і другий рядок лише
+    зайвий раз відняв би відбиток."""
+    nid = (t.get("notion_id") or "").strip()
+    imp = (t.get("import_id") or "").strip()
+    if not nid and not imp:
+        return
+    conn.execute(
+        "INSERT INTO notion_gone (user_id, notion_id, import_id, mark) "
+        "SELECT %s, %s, %s, %s WHERE NOT EXISTS ("
+        "  SELECT 1 FROM notion_gone WHERE user_id=%s AND notion_id=%s "
+        "  AND notion_id <> '')",
+        (user_id, nid, imp, tidy.same_trade_key(t) or "", user_id, nid))
+
+
 def count_import(user_id, batch):
     with connect() as conn:
         row = conn.execute('SELECT count(*) AS n FROM trades WHERE user_id=%s '
@@ -414,6 +482,10 @@ def drop_import(user_id, batch):
         if not gone:
             return 0, []
         conn.execute('DELETE FROM trades WHERE user_id=%s AND "import_id"=%s',
+                     (user_id, batch))
+        # Базу зняли цілком — могильник цього перенесення більше ні до чого:
+        # хто перенесе її заново, має отримати всі угоди, а не з дірками.
+        conn.execute("DELETE FROM notion_gone WHERE user_id=%s AND import_id=%s",
                      (user_id, batch))
         left = conn.execute("SELECT screenshots FROM trades WHERE user_id=%s",
                             (user_id,)).fetchall()
@@ -640,10 +712,17 @@ def update_trade(user_id, t):
 
 
 def delete_trade(user_id, tid):
+    """Прибирає угоду й запам'ятовує, що її прибрали: угоди з Notion інакше
+    повертаються наступним автооновленням (див. notion_gone)."""
     with connect() as conn:
-        cur = conn.execute("DELETE FROM trades WHERE id=%s AND user_id=%s", (tid, user_id))
+        row = conn.execute("SELECT * FROM trades WHERE id=%s AND user_id=%s",
+                           (tid, user_id)).fetchone()
+        if not row:
+            return False
+        conn.execute("DELETE FROM trades WHERE id=%s AND user_id=%s", (tid, user_id))
+        _remember_gone(conn, user_id, dict(row))
         conn.commit()
-    return cur.rowcount > 0
+    return True
 
 
 # ------------------------------------------------------- эмоция по сделке ----

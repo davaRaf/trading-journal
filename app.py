@@ -612,11 +612,11 @@ def start_import(user_id, tables, mapping, opts):
         # старые задания не копим
         for old_id in list(_jobs)[:-8]:
             _jobs.pop(old_id, None)
-    known, seen = db.notion_known(user_id)
-    # отпечатки того, что уже в журнале: по ним узнаём сделку, записанную
-    # в другой базе Notion, — там у неё свой notion_id, и он не совпадёт
+    # что уже было: сделки в журнале плюс те, что человек из него убрал.
+    # Отпечатки нужны, чтобы узнать сделку, записанную в другой базе Notion, —
+    # там у неё свой notion_id, и он не совпадёт
     rows = db.list_trades(user_id)
-    marks = tidy.prints(rows)
+    known, seen, marks = db.import_seen(user_id, rows)
     th = threading.Thread(
         target=npub.run_public_import,
         args=(job, tables, mapping, opts, SHOTS, known, seen,
