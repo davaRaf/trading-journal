@@ -1613,6 +1613,14 @@ class H(BaseHTTPRequestHandler):
         if p in ("/privacy", "/terms"):
             return self._file(os.path.join(STATIC, p.strip("/") + ".html"), "text/html; charset=utf-8")
 
+        # Ярлик на телефоні. Коли на сторінці немає посилання на іконку —
+        # або воно не встигло завантажитись — Safari шукає її в корені
+        # сайту. Там був 404, і iOS малювала на робочому столі саму лише
+        # літеру «S» замість нашого знака.
+        if p in ("/apple-touch-icon.png", "/apple-touch-icon-precomposed.png"):
+            return self._file(os.path.join(STATIC, "apple-touch-icon.png"),
+                              "image/png", cache="public, max-age=86400")
+
         # Перехід із листа: гасимо посилання, ставимо позначку й ведемо
         # на сторінку входу — там людина побачить, що пошту прийнято.
         # Робимо це на GET, хоч посилання й відкриє будь-хто, кому лист
