@@ -1200,17 +1200,106 @@ class H(BaseHTTPRequestHandler):
                     "<h2>Ссылки по типу</h2><table>"
                     + "".join(row(KIND_RU.get(r["kind"], r["kind"] or "—") + " · переходов " + str(r["views"]), r["n"]) for r in sh_kind) + "</table>"
                     "<h2>Кто делится</h2><table>"
-                    + "".join("<tr><td>%s <small>%s · переходов %s</small></td><td>%s</td></tr>" % (
-                        e(r["nickname"] or "—"),
+                    + "".join("<tr><td><a href='/admin/u/%s'>%s</a> <small>%s · переходов %s</small></td><td>%s</td></tr>" % (
+                        e(r["nickname"] or ""), e(r["nickname"] or "—"),
                         datetime.datetime.fromtimestamp(r["last"]).strftime("%d.%m") if r["last"] else "",
                         r["views"], r["n"]) for r in sh_top) + "</table>"
                     "<h2>Последние регистрации</h2><table>"
-                    + "".join("<tr><td>%s <small>%s%s</small></td><td>%s сд.</td></tr>" % (
-                        e(r["nickname"]), r["created_at"].strftime("%d.%m %H:%M"),
+                    + "".join("<tr><td><a href='/admin/u/%s'>%s</a> <small>%s%s</small></td><td>%s сд.</td></tr>" % (
+                        e(r["nickname"]), e(r["nickname"]), r["created_at"].strftime("%d.%m %H:%M"),
                         (" · " + e(r["ref"])) if r["ref"] else "", r["trades"]) for r in last)
                     + "</table></html>")
             data = html.encode("utf-8")
             self.send_response(200)
+            self.send_header("Content-Type", "text/html; charset=utf-8")
+            self.send_header("Content-Length", str(len(data)))
+            self.send_header("Cache-Control", "no-store")
+            self.end_headers()
+            self.wfile.write(data)
+            return
+
+        # ---- картка користувача: лише власникам ----
+        m = re.match(r"^/admin/u/([^/\x00-\x1f]{1,40})/?$", p)
+        if m:
+            uid = self._uid()
+            if not uid:
+                return self._redirect("/login")
+            if not _is_admin(uid):
+                self.send_response(403); self.end_headers(); return
+            nick = unquote(m.group(1))
+            u = None
+            try:
+                u = db.get_user_by_nick(nick) or db.get_user_by_email(nick)
+            except Exception:
+                u = None
+            e = lambda x: str(x if x is not None else "").replace("&", "&amp;").replace("<", "&lt;")
+            row = lambda k, v: "<tr><td>%s</td><td><b>%s</b></td></tr>" % (e(k), e(v))
+            head = ("<!doctype html><html lang=ru><meta charset=utf-8>"
+                    "<meta name=viewport content='width=device-width,initial-scale=1'>"
+                    "<title>StatsAI · %s</title>"
+                    "<style>body{font:15px/1.5 -apple-system,Segoe UI,sans-serif;background:#0b0b0d;color:#eee;"
+                    "margin:0;padding:20px;max-width:640px}h1{font-size:18px;margin:0 0 16px}h2{font-size:12px;"
+                    "letter-spacing:.12em;text-transform:uppercase;color:#8a8a90;margin:22px 0 8px}table{width:100%%;"
+                    "border-collapse:collapse}td{padding:7px 0;border-top:1px solid #222}td+td{text-align:right}"
+                    "a{color:#8ab4ff}small{color:#8a8a90}</style>" % e(nick))
+            if not u:
+                data = (head + "<h1>%s</h1><p>Такого пользователя нет.</p><p><a href='/admin'>← все цифры</a></p></html>" % e(nick)).encode("utf-8")
+                self.send_response(404)
+            else:
+                dt = lambda v: v.strftime("%d.%m.%Y %H:%M") if v else "—"
+                with db.connect() as conn:
+                    t = conn.execute("""SELECT count(*) AS n,
+                                               count(*) FILTER (WHERE result='Skip') AS skips,
+                                               min("date") AS first, max("date") AS last,
+                                               max(created_at) AS last_at,
+                                               count(*) FILTER (WHERE created_at >= now() - interval '7 days') AS d7,
+                                               count(*) FILTER (WHERE created_at >= now() - interval '30 days') AS d30,
+                                               count(DISTINCT left("date", 10)) AS days
+                                        FROM trades WHERE user_id=%s""", (u["id"],)).fetchone()
+                    pairs = conn.execute("""SELECT "pair", count(*) AS n FROM trades WHERE user_id=%s AND "pair"<>''
+                                            GROUP BY 1 ORDER BY n DESC LIMIT 5""", (u["id"],)).fetchall()
+                    share_store.init()
+                    sh = conn.execute("""SELECT count(*) AS n, coalesce(sum(views),0) AS views, max(created) AS last
+                                         FROM share_stats WHERE user_id=%s""", (u["id"],)).fetchone()
+                    kinds = conn.execute("""SELECT kind, count(*) AS n FROM share_stats WHERE user_id=%s
+                                            GROUP BY kind ORDER BY n DESC""", (u["id"],)).fetchall()
+                    _prefs_init()
+                    pr = conn.execute("SELECT data FROM user_prefs WHERE user_id=%s", (u["id"],)).fetchone()
+                try:
+                    ts = ts_store.get(u["id"])
+                except Exception:
+                    ts = None
+                prefs = (pr or {}).get("data") or {}
+                ts_line = "нет"
+                if ts:
+                    bits = []
+                    if ts.get("assets"): bits.append("активы: " + ", ".join(str(x) for x in ts["assets"][:6]))
+                    if ts.get("models"): bits.append("моделей: %d" % len(ts["models"]))
+                    if ts.get("updated"): bits.append("обновлена " + str(ts["updated"]))
+                    ts_line = "есть · " + " · ".join(bits) if bits else "есть"
+                html = (head + "<h1>%s <small>id %s</small></h1>" % (e(u["nickname"]), u["id"])
+                    + "<h2>Аккаунт</h2><table>"
+                    + row("Почта", u["email"]) + row("Почта подтверждена", dt(u["email_confirmed_at"]))
+                    + row("Зарегистрирован", dt(u["created_at"]))
+                    + row("Telegram", ("@" + u["telegram_username"]) if u["telegram_username"] else ("да" if u["telegram_id"] else "нет"))
+                    + row("Открытый журнал", "да · /u/%s" % e(u["nickname"]) if u["public_journal"] else "нет")
+                    + row("Метка партнёра", (u["ref_source"] + " · с " + dt(u["ref_at"])) if u["ref_source"] else "нет")
+                    + "</table>"
+                    + "<h2>Сделки</h2><table>"
+                    + row("Всего", t["n"]) + row("Из них скипов", t["skips"]) + row("Торговых дней", t["days"])
+                    + row("Первая · последняя", "%s · %s" % (str(t["first"] or "—")[:10], str(t["last"] or "—")[:10]))
+                    + row("Последняя запись", dt(t["last_at"])) + row("За 7 дней", t["d7"]) + row("За 30 дней", t["d30"])
+                    + row("Инструменты", ", ".join("%s (%d)" % (r["pair"], r["n"]) for r in pairs) or "—")
+                    + "</table>"
+                    + "<h2>Торговая система</h2><table>" + row("ТС", ts_line) + "</table>"
+                    + "<h2>Ссылки</h2><table>"
+                    + row("Поделился", sh["n"]) + row("Переходов", sh["views"])
+                    + row("Последняя", datetime.datetime.fromtimestamp(sh["last"]).strftime("%d.%m.%Y") if sh["last"] else "—")
+                    + "".join(row("· " + KIND_RU.get(r["kind"], r["kind"]), r["n"]) for r in kinds)
+                    + "</table>"
+                    + "<p><a href='/admin'>← все цифры</a></p></html>")
+                data = html.encode("utf-8")
+                self.send_response(200)
             self.send_header("Content-Type", "text/html; charset=utf-8")
             self.send_header("Content-Length", str(len(data)))
             self.send_header("Cache-Control", "no-store")
