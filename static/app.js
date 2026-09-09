@@ -546,9 +546,17 @@ function ovPeriod(){
 }
 
 function ovSign(r){ return r>0.0001?"pos":r<-0.0001?"neg":"be"; }
-/* в обзоре проценты пишем как в макете: два знака в итогах, один в клетках дня */
+/* в обзоре проценты пишем как в макете: два знака в итогах */
 function ovFmt(v){ return (v>0?"+":"")+(v==null?0:v).toFixed(2)+"%"; }
 function ovFmt1(v){ return (v>0?"+":"")+v.toFixed(1)+"%"; }
+/* тиждень зверху показує відсоток як є: 0.75 % — це 0.75 %, а не 0.8 %.
+   Округлення до десятої брехало на клітинках дня. Прибираємо тільки хвіст
+   нулів і сміття плаваючої крапки (0.7500000000000001), знаків не додаємо. */
+function ovFmtRaw(v){
+  const x=(v==null||isNaN(v))?0:v;
+  const s=x.toFixed(6).replace(/\.?0+$/,"");
+  return (s==="0"||s==="-0") ? "0%" : (x>0?"+":"")+s+"%";
+}
 function ovWord(n){
   if(LANG==="en") return n===1?T.wordTrade:T.wordTradePl;
   const a=n%10, b=n%100;
@@ -582,7 +590,7 @@ function ovWeekHtml(){
     for(const t of list) cnt[t.result]=(cnt[t.result]||0)+1;
     const top=Object.keys(cnt).sort((a,b)=>cnt[b]-cnt[a])[0];
     const cls=(top==="Win"||top==="WinM")?"w":top==="Loss"?"l":"b";
-    const val=Math.abs(r)<0.005?"0%":ovFmt1(r);
+    const val=ovFmtRaw(r);
     cells+='<div class="day '+ovSign(r)+'" onclick="ovOpenDay(\''+key+'\')" title="'+
       list.length+" "+ovWord(list.length)+'">'+
       '<span class="glow '+cls+'">'+(RES_TAG[top]||"")+'</span>'+
@@ -592,7 +600,7 @@ function ovWeekHtml(){
   return '<div class="week rise">'+
     '<div class="sec-lab"><span class="t">'+T.ovLastWeek+'</span>'+
     '<span class="wn">'+n+" "+ovWord(n)+'</span>'+
-    '<span class="wsum '+ovSign(sum)+'">'+ovFmt(sum)+'</span>'+
+    '<span class="wsum '+ovSign(sum)+'">'+ovFmtRaw(sum)+'</span>'+
     '<a href="#journal">'+T.ovWholeMonth+'</a></div>'+
     '<div class="days">'+cells+"</div></div>";
 }
