@@ -408,13 +408,17 @@ def on_text(chat_id, tg_id, text):
         fields = trade_ai.parse(user["id"], text)
         if fields:
             trade_flow.propose(user, chat_id, fields)
-        elif trade_ai.INTENT.search(text):
+            return
+        if trade_ai.INTENT.search(text):
             # Сказав «запиши угоду», але без подробиць — питаємо, як
             # зручніше: покроково чи одним повідомленням.
             trade_flow.ask_mode(user, chat_id)
-        else:
-            tg_api.send_message(chat_id, botlang.t(botlang.of(user), "notTrade"))
-        return
+            return
+        # Слова про тейк чи беззбиток були, а угоди в тексті немає: людина
+        # просто говорить про торгівлю — «у всіх тейки, а в мене бу, і мені
+        # прикро». Раніше тут стояла заготовка «не зрозумів, що за угода», і
+        # бот повторював її на кожну таку фразу. Тепер просто йдемо далі, до
+        # звичайної розмови.
     news = news_answer(text)
     if news:
         tg_api.send_message(chat_id, news, parse_mode="HTML")
