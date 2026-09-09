@@ -68,7 +68,8 @@ function tradeDetail(t){
     time: (t.date || "").slice(11, 16),
     pair: t.pair || "",
     result: resLabel(t.result),
-    cls: t.result === "Win" ? "pos" : t.result === "Loss" ? "neg" : "be",
+    cls: isWin(t) ? "pos" : t.result === "Loss" ? "neg" : "be",
+    skip: isSkip(t),                 /* скіп — не угода: без відсотка й кольору */
     net: netR(t),
     info: info,
     texts: texts,
@@ -488,9 +489,12 @@ function open(kind, arg){
       /* Для тижня й місяця малюємо календар — він піде в превью посилання.
          Не вийшло намалювати чи покласти — не біда: посилання створиться
          й без картинки, просто в месенджері буде без неї. */
-      if ((data.calendar || data.ts) && window.OgCal){
+      if (window.OgCal
+          && (data.calendar || data.ts || kind === "day" || kind === "review")){
         try{
-          const png = data.ts ? OgCal.system(data) : OgCal.period(data);
+          const png = data.ts ? OgCal.system(data)
+                    : (kind === "day" || kind === "review") ? OgCal.day(data)
+                    : OgCal.period(data);
           const up = await fetch("/api/share/shot", {
             method:"POST", headers:{"Content-Type":"application/json"},
             body: JSON.stringify({data: png})
