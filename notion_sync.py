@@ -16,6 +16,11 @@
 лишиться — журнал тут головний, і мовчки викидати з нього записи через
 чужу правку було б найгіршим із можливих сюрпризів.
 
+І навпаки: угоду, яку прибрали в журналі, назад не привозимо. Раніше
+привозили — що вже перенесено, рахувалося по самому журналу, і викинута
+вчора угода наступного проходу виглядала новою. Тепер прибране лежить
+у notion_gone (db.py) і рахується так само, як те, що в журналі.
+
 Нові угоди позначаємо тим самим ключем перенесення, що й початкове:
 тоді кнопка «прибрати» біля бази й далі прибирає її цілком, а не лише те,
 що переносили руками.
@@ -32,7 +37,6 @@ import time
 import db
 import notion_import as notion
 import notion_public as npub
-import tidy
 
 EVERY = 24 * 3600          # раз на добу
 FIRST = 300                # перший прохід — через 5 хв після старту сервера
@@ -76,11 +80,13 @@ def sync_source(uid, src):
     job = notion.Job(secrets.token_urlsafe(6))
     # нові угоди належать тому самому перенесенню, що й попередні
     job.batch = src["id"]
-    known, seen = db.notion_known(uid)
     rows = db.list_trades(uid)
+    # прибране руками сюди теж входить: інакше кожен прохід повертав би те,
+    # що людина вчора викинула з журналу
+    known, seen, marks = db.import_seen(uid, rows)
     npub.run_public_import(
         job, tables, mapping, OPTS, _hooks["shots"], known, seen,
-        lambda items: _hooks["add"](uid, items), tidy.prints(rows),
+        lambda items: _hooks["add"](uid, items), marks,
         fill=_hooks["fill"](uid, rows))
     if job.state == "error":
         raise RuntimeError(job.error or "перенесення обірвалось")

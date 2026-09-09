@@ -42,14 +42,17 @@ def fake_source(rows, prefix):
     npub.row_props = lambda block, schema: (block.get("__row") or {}, [])
 
 
-def run(rows, prefix, seen=None, skip_similar=True):
-    """Одне перенесення. Повертає (що доїхало, завдання)."""
+def run(rows, prefix, seen=None, skip_similar=True, ids=None):
+    """Одне перенесення. Повертає (що доїхало, завдання).
+
+    ids — id записів Notion, які вже приїжджали: і ті, що лежать у журналі,
+    і ті, що людина з журналу прибрала."""
     got = []
     job = Job("t")
     npub.run_public_import(
         job, TABLE, MAPPING,
         {"notes": False, "shots": False, "skipSimilar": skip_similar},
-        ".", set(), set(), lambda items: got.extend(items), seen or {})
+        ".", set(), set(ids or ()), lambda items: got.extend(items), seen or {})
     return got, job
 
 
@@ -71,6 +74,7 @@ def main():
     ok &= case("порожній журнал — беремо все", (len(got), job.similar), (3, 0))
 
     journal = got                      # тепер це вміст журналу
+    first_trades = list(got)           # знадобляться нижче, коли одну приберуть
     marks = tidy.prints(journal)
 
     # другий журнал: ті самі угоди, але свої id і своє написання інструмента
@@ -102,6 +106,23 @@ def main():
     fake_source(day, "e")
     got, job = run(day, "e", tidy.prints(got[:2]))
     ok &= case("два вже є — беремо третій", (len(got), job.similar), (1, 2))
+
+    # угода, яку людина прибрала з журналу руками. У журналі її вже немає,
+    # але перенесення має пам'ятати, що вона приїжджала: інакше автооновлення
+    # привозить її назад щодоби (db.notion_gone).
+    fake_source(first, "a")
+    got, job = run(first, "a", ids=["a-0"])
+    ok &= case("прибрану угоду вдруге не привозимо",
+               ([t["date"][:10] for t in got], job.skipped),
+               (["2026-05-05", "2026-05-06"], 1))
+
+    # та сама прибрана угода, але приїжджає з другої бази — там свій id,
+    # і впізнати її можна тільки за відбитком
+    fake_source(second, "b")
+    got, job = run(second, "b", {tidy.same_trade_key(first_trades[0]): 1})
+    ok &= case("прибрана не повертається й з іншої бази",
+               ([t["date"][:10] for t in got], job.similar),
+               (["2026-05-05", "2026-05-06"], 1))
 
     print("\n" + ("усе добре" if ok else "є помилки"))
     return 0 if ok else 1
