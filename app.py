@@ -548,6 +548,67 @@ def _ref_init():
     db.meta_set("refs_from_survey", "1")
 
 
+# Таблиці, у яких лежить чуже добро з user_id. Частина зникає каскадом за
+# зовнішнім ключем, частина (shares, share_stats) ключа не має — тому
+# проходимо списком і не покладаємось на каскад.
+PER_USER_TABLES = ("trades", "strategies", "notion_conf", "user_prefs", "day_notes",
+                   "trade_drafts", "backups", "shares", "share_stats", "identities",
+                   "link_codes", "notified_events", "auth_links")
+
+
+def _files_in(obj, out):
+    """Імена скрінів усередині будь-якого JSON: ключі file / shot / shots."""
+    if isinstance(obj, dict):
+        for k, v in obj.items():
+            if k in ("file", "shot") and isinstance(v, str) and v.strip():
+                out.add(os.path.basename(v.strip()))
+            elif k == "shots" and isinstance(v, list):
+                for x in v:
+                    if isinstance(x, str) and x.strip():
+                        out.add(os.path.basename(x.strip()))
+                    else:
+                        _files_in(x, out)
+            else:
+                _files_in(v, out)
+    elif isinstance(obj, list):
+        for x in obj:
+            _files_in(x, out)
+    return out
+
+
+def user_files(uid):
+    """Усі файли скрінів людини: угоди, ТС, аналіз дня."""
+    out = set()
+    try:
+        for t in db.list_trades(uid):
+            _files_in(t, out)
+    except Exception:
+        pass
+    for get in (lambda: [ts_store.get(uid)], lambda: day_store.days(uid, 2000)):
+        try:
+            _files_in(get(), out)
+        except Exception:
+            pass
+    return [n for n in out if n]
+
+
+def delete_user_fully(uid):
+    """Прибрати людину й усе її. Повертає кількість видалених файлів."""
+    names = user_files(uid)
+    for table in PER_USER_TABLES:
+        try:
+            with db.connect() as conn:
+                conn.execute("DELETE FROM %s WHERE user_id=%%s" % table, (uid,))
+                conn.commit()
+        except Exception:
+            pass                       # немає такої таблиці або колонки — не біда
+    with db.connect() as conn:
+        conn.execute("DELETE FROM users WHERE id=%s", (uid,))
+        conn.commit()
+    delete_files(names)
+    return len(names)
+
+
 def _is_admin(uid):
     try:
         u = db.get_user(uid)
@@ -1297,6 +1358,26 @@ class H(BaseHTTPRequestHandler):
                     + row("Последняя", datetime.datetime.fromtimestamp(sh["last"]).strftime("%d.%m.%Y") if sh["last"] else "—")
                     + "".join(row("· " + KIND_RU.get(r["kind"], r["kind"]), r["n"]) for r in kinds)
                     + "</table>"
+                    + "<h2>Опасная зона</h2>"
+                      "<p><small>Удаляет аккаунт и всё, что в нём: сделки, ТС, анализ дня, "
+                      "настройки, ссылки и скриншоты. Отменить нельзя. Чтобы подтвердить, "
+                      "впишите ник точно так: <b>%s</b></small></p>"
+                      "<p><input id=cf placeholder='%s' style=\"padding:8px;border-radius:8px;"
+                      "border:1px solid #333;background:#111;color:#eee;width:60%%\">"
+                      "<button id=go style=\"margin-left:8px;padding:9px 14px;border-radius:8px;"
+                      "border:0;background:#7a1f1f;color:#fff;cursor:pointer\">Удалить аккаунт</button></p>"
+                      "<p id=msg></p>"
+                      "<script>go.onclick=async()=>{if(!confirm('Удалить аккаунт %s? Отменить нельзя.'))return;"
+                      "go.disabled=true;msg.textContent='Удаляю…';"
+                      "const r=await fetch('/api/admin/delete-user',{method:'POST',"
+                      "headers:{'Content-Type':'application/json'},"
+                      "body:JSON.stringify({nick:%s,confirm:cf.value})});"
+                      "const d=await r.json().catch(()=>({}));"
+                      "if(r.ok){msg.textContent='Удалён. Файлов убрано: '+d.files;"
+                      "setTimeout(()=>location.href='/admin',1200);}"
+                      "else{go.disabled=false;msg.textContent=d.error||('Ошибка '+r.status);}};</script>"
+                      % (e(u["nickname"]), e(u["nickname"]), e(u["nickname"]),
+                         json.dumps(u["nickname"], ensure_ascii=False))
                     + "<p><a href='/admin'>← все цифры</a></p></html>")
                 data = html.encode("utf-8")
                 self.send_response(200)
@@ -1679,6 +1760,33 @@ class H(BaseHTTPRequestHandler):
         body = self._body()
 
         # ---- вход и регистрация ----
+        # ---- видалення акаунта на прохання людини: лише власникам ----
+        if p == "/api/admin/delete-user":
+            who = self._uid()
+            if not who:
+                return self._json({"error": "auth required"}, 401)
+            if not _is_admin(who):
+                return self._json({"error": "forbidden"}, 403)
+            if not isinstance(body, dict):
+                return self._json({"error": "bad json"}, 400)
+            nick = str(body.get("nick") or "").strip()
+            u = None
+            try:
+                u = db.get_user_by_nick(nick) or db.get_user_by_email(nick)
+            except Exception:
+                u = None
+            if not u:
+                return self._json({"error": "такого пользователя нет"}, 404)
+            # Підтвердження словом: щоб випадковий клік нічого не зніс.
+            if str(body.get("confirm") or "").strip() != (u["nickname"] or ""):
+                return self._json({"error": "ник в подтверждении не совпадает"}, 400)
+            if _is_admin(u["id"]) and u["id"] != who:
+                return self._json({"error": "аккаунт владельца так не удаляют"}, 403)
+            print("admin: %s видаляє акаунт %s (%s, id %s)" % (
+                who, u["nickname"], u["email"], u["id"]), flush=True)
+            n = delete_user_fully(u["id"])
+            return self._json({"deleted": u["nickname"], "files": n})
+
         if p == "/api/auth/register":
             if not isinstance(body, dict):
                 return self._json({"error": "bad json"}, 400)
