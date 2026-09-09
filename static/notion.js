@@ -608,7 +608,13 @@ async function refresh(){
   try{
     state = await call("GET", "/api/notion/state");
     sources = state.sources || [];
-    connected = !!(state.url || sources.length || state.imported);
+    /* «Підключено» — це коли з Notion щось є в журналі: жива база або
+       угоди з неї. Раніше сюди входило й state.url — остання посилання,
+       яку людина колись вставляла. Вона лишається в налаштуваннях назавжди,
+       тож індикатор горів і після того, як журнал відв'язали й угод з
+       Notion не лишилось. Посилання й далі підставляється у вікні, але
+       підключенням більше не вважається. */
+    connected = !!(sources.length || state.imported);
     paintBtn();
   }catch(e){}
 }
