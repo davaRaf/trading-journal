@@ -484,6 +484,9 @@ def _prefs_init():
 REF_COOKIE = "ref"
 REF_TTL = 30 * 24 * 3600
 PARTNER_TITLES = {"blackswan": "Black Swan"}      # як партнера звуть у превʼю
+KIND_RU = {"trade": "Сделка", "day": "День", "week": "Неделя", "month": "Месяц", "year": "Год",
+           "ts": "Торговая система", "review": "Анализ дня", "period": "Период (старые)",
+           "other": "Другое"}
 
 
 def _ref_init():
@@ -1023,6 +1026,7 @@ class H(BaseHTTPRequestHandler):
             if rec:
                 # гості хазяїна рахуються його партнерові
                 self._ref_touch(ref_of_user(rec.get("user_id")))
+                share_store.hit(sid, self.headers.get("User-Agent") or "")
                 proto = self.headers.get("X-Forwarded-Proto") or "http"
                 host = self.headers.get("X-Forwarded-Host") or self.headers.get("Host") or ""
                 base = "%s://%s" % (proto, host)
@@ -1121,6 +1125,19 @@ class H(BaseHTTPRequestHandler):
                 refs = conn.execute("""SELECT coalesce(ref_source,'') AS ref, count(*) AS n,
                                               count(*) FILTER (WHERE ref_at >= now() - interval '30 days') AS d30
                                        FROM users GROUP BY 1 ORDER BY n DESC""").fetchall()
+                share_store.init()
+                sh = q("""SELECT count(*) AS n,
+                                 count(*) FILTER (WHERE created >= extract(epoch from now()) - 7*86400) AS d7,
+                                 count(*) FILTER (WHERE created >= extract(epoch from now()) - 30*86400) AS d30,
+                                 coalesce(sum(views),0) AS views,
+                                 count(DISTINCT user_id) AS people
+                          FROM share_stats""")
+                sh_kind = conn.execute("""SELECT kind, count(*) AS n, coalesce(sum(views),0) AS views
+                                          FROM share_stats GROUP BY kind ORDER BY n DESC""").fetchall()
+                sh_top = conn.execute("""SELECT u.nickname, count(*) AS n, coalesce(sum(s.views),0) AS views,
+                                                max(s.created) AS last
+                                         FROM share_stats s LEFT JOIN users u ON u.id = s.user_id
+                                         GROUP BY u.nickname ORDER BY n DESC LIMIT 20""").fetchall()
                 last = conn.execute("""SELECT u.nickname, u.created_at, coalesce(u.ref_source,'') AS ref,
                                               (SELECT count(*) FROM trades t WHERE t.user_id=u.id) AS trades
                                        FROM users u ORDER BY u.created_at DESC LIMIT 20""").fetchall()
@@ -1144,6 +1161,16 @@ class H(BaseHTTPRequestHandler):
                     + row("Писали сделки за 7 дней", t["act7"]) + row("Писали сделки за 30 дней", t["act30"]) + "</table>"
                     "<h2>Откуда пришли (метки)</h2><table>"
                     + "".join(row((r["ref"] or "без метки") + (" · за 30 дн. +%d" % r["d30"] if r["d30"] else ""), r["n"]) for r in refs) + "</table>"
+                    "<h2>Ссылки (поделились)</h2><table>"
+                    + row("Всего ссылок", sh["n"]) + row("За 7 дней", sh["d7"]) + row("За 30 дней", sh["d30"])
+                    + row("Людей делились", sh["people"]) + row("Переходов по ссылкам (без превью)", sh["views"]) + "</table>"
+                    "<h2>Ссылки по типу</h2><table>"
+                    + "".join(row(KIND_RU.get(r["kind"], r["kind"] or "—") + " · переходов " + str(r["views"]), r["n"]) for r in sh_kind) + "</table>"
+                    "<h2>Кто делится</h2><table>"
+                    + "".join("<tr><td>%s <small>%s · переходов %s</small></td><td>%s</td></tr>" % (
+                        e(r["nickname"] or "—"),
+                        datetime.datetime.fromtimestamp(r["last"]).strftime("%d.%m") if r["last"] else "",
+                        r["views"], r["n"]) for r in sh_top) + "</table>"
                     "<h2>Последние регистрации</h2><table>"
                     + "".join("<tr><td>%s <small>%s%s</small></td><td>%s сд.</td></tr>" % (
                         e(r["nickname"]), r["created_at"].strftime("%d.%m %H:%M"),

@@ -498,6 +498,7 @@ function open(kind, arg){
           if (up.ok) data.og = (await up.json()).file;
         }catch(e){}
       }
+      data.type = kind;               /* стабільний тип для статистики: kind у даних локалізований */
       const res = await fetch("/api/share", {
         method:"POST", headers:{"Content-Type":"application/json"},
         body: JSON.stringify({ data, ttl: lastTtl })
