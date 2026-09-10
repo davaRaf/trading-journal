@@ -10,10 +10,10 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Geist:wght@300;400;500;600;700&family=Archivo:wght@400;500;600&display=swap">
-<link rel="stylesheet" href="/static/style.css?v=28">
+<link rel="stylesheet" href="/static/style.css?v=29">
 <link rel="stylesheet" href="/static/accounts.css?v=6">
 <link rel="stylesheet" href="/static/news.css?v=19">
-<link rel="stylesheet" href="/static/import.css?v=4">
+<link rel="stylesheet" href="/static/import.css?v=5">
 <link rel="stylesheet" href="/static/themes.css?v=7">
 <link rel="stylesheet" href="/static/calc.css?v=1">
 <link rel="stylesheet" href="/static/links.css?v=2">
@@ -100,15 +100,16 @@ try{document.documentElement.setAttribute("data-nav",localStorage.getItem("tj_na
     <a class="mini" href="#news"      data-v="news" data-tip="Економічний календар на тиждень"><svg class="ic" width="16" height="16" viewBox="0 0 24 24" fill="none"><rect x="3" y="5" width="14" height="15" rx="2.5" stroke="currentColor" stroke-width="1.6"/><path d="M17 9h2.5a1.5 1.5 0 011.5 1.5v7a2.5 2.5 0 01-5 0" stroke="currentColor" stroke-width="1.6"/><path d="M6.5 9h7M6.5 12.5h7M6.5 16h4" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg> <span>Новини</span></a>
   </div>
 
-  <!-- Підключення: два значки в один рядок. Раніше це був розділ, що
-       згортався, з двома великими рядками по два написи в кожному —
-       він займав чверть панелі заради двох кнопок. Стан показує крапка,
-       а слово «Підключено» лишилось для читалок екрана й підказки. -->
-  <div class="conn" id="conn">
-    <div class="lab" id="connTitle">Підключення</div>
-    <div class="conn-line">
-      <button class="conn-row" id="notionBtn" data-tip="Перенести свої угоди з Notion — записи, нотатки й скріншоти" onclick="__notion.open()"><span class="conn-ic"><svg width="14" height="14" viewBox="0 0 24 24" fill="none"><rect x="3.5" y="3.5" width="17" height="17" rx="3.5" stroke="currentColor" stroke-width="1.7"/><path d="M9 16V8l6 8V8" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg></span><b class="conn-nm">Notion</b><i class="conn-dot" aria-hidden="true"></i><i class="conn-st" id="notionStatus">Не підключено</i></button>
-      <button class="conn-row" id="telegramBtn" data-tip="Нагадування про новини та питання про емоції" onclick="openTelegram()"><span class="conn-ic"><svg width="14" height="14" viewBox="0 0 24 24" fill="none"><path d="M21 4L3 11l6 2.2L19 6.5l-7.5 8.3.4 5.2 2.6-3.6 4.2 3.1L21 4z" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/></svg></span><b class="conn-nm">Telegram</b><i class="conn-dot" aria-hidden="true"></i><i class="conn-st" id="telegramStatus">Не підключено</i></button>
+  <div class="conn open" id="conn">
+    <button class="conn-head" id="connToggle" onclick="toggleConn()">
+      <span id="connTitle">Підключення</span>
+      <svg class="chev" width="12" height="12" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M6 9l6 6 6-6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+    </button>
+    <div class="conn-list" id="connList">
+      <div class="conn-list-inner">
+        <button class="conn-row" id="notionBtn" data-tip="Перенести свої угоди з Notion — записи, нотатки й скріншоти" onclick="__notion.open()"><span class="conn-ic"><svg width="14" height="14" viewBox="0 0 24 24" fill="none"><rect x="3.5" y="3.5" width="17" height="17" rx="3.5" stroke="currentColor" stroke-width="1.7"/><path d="M9 16V8l6 8V8" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg></span><span class="conn-text"><b class="conn-nm">Notion</b><i class="conn-st" id="notionStatus">Не підключено</i></span></button>
+        <button class="conn-row" id="telegramBtn" data-tip="Нагадування про новини та питання про емоції" onclick="openTelegram()"><span class="conn-ic"><svg width="14" height="14" viewBox="0 0 24 24" fill="none"><path d="M21 4L3 11l6 2.2L19 6.5l-7.5 8.3.4 5.2 2.6-3.6 4.2 3.1L21 4z" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/></svg></span><span class="conn-text"><b class="conn-nm">Telegram</b><i class="conn-st" id="telegramStatus">Не підключено</i></span></button>
+      </div>
     </div>
   </div>
 
@@ -167,7 +168,7 @@ try{document.documentElement.setAttribute("data-nav",localStorage.getItem("tj_na
 <script src="/static/demo.js?v=2"></script>
 <script src="/static/guest.js?v=3"></script>
 <script src="/static/pub.js?v=4"></script>
-<script src="/static/app.js?v=39"></script>
+<script src="/static/app.js?v=40"></script>
 <script src="/static/profile.js?v=1"></script>
 <script src="/static/backup.js?v=1"></script>
 <script src="/static/mailcheck.js?v=1"></script>

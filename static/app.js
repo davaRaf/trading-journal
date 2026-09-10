@@ -2235,11 +2235,16 @@ async function unlinkTelegram(){
   refreshTelegramStatus();
 }
 
-/* ---------- «Підключення» (Notion + Telegram) у сайдбарі ---------- */
-/* Розділ більше не згортається: два значки в рядок видно одразу, і стан
-   обох читається без кліку. Тому й перечитувати статус по розкриттю
-   нема коли — Telegram питаємо на старті (init нижче), Notion питає себе
-   сам у своєму window.load. */
+/* ---------- розділ «Підключення» (Notion + Telegram) у сайдбарі ---------- */
+function toggleConn(){
+  const box=document.getElementById("conn"); if(!box) return;
+  const open=!box.classList.contains("open");
+  box.classList.toggle("open",open);
+  if(open){
+    refreshTelegramStatus();
+    if(window.__notion && window.__notion.refreshState) window.__notion.refreshState();
+  }
+}
 
 let telegramLinked=false;
 function paintTelegramStatus(){
