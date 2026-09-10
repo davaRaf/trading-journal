@@ -408,6 +408,35 @@ function topVals(field,n){
    рахунок у «Моїх рахунках» чи хоч раз вписала свою назву в угоду,
    цей список зникає — див. збірку підказок у формі угоди. */
 function accHints(){ return [T.accOwn,"FTMO","FundingPips"]; }
+/* Названия счетов для формы сделки. Первыми — заведённые карточки из
+   «Моих счетов»: связь сделки со счётом идёт по названию, и пока их тут
+   не было, название приходилось набирать заново. Одна опечатка — и
+   карточка счёта оставалась без сделок, хотя человек записывал их именно
+   туда. Дальше — то, что он уже вводил сам.
+
+   Зашитые «FTMO» и «FundingPips» показываем только пустому журналу.
+   Стоять рядом со своими счетами им незачем: это чужие названия, их
+   легко нажать по ошибке, и в журнале заводится счёт, которого у
+   человека нет. Поле остаётся текстовым — счёт можно и не выбирать. */
+function accountVals(){
+  const cards=(window.__acc&&__acc.names)?__acc.names():[];
+  const own=[...new Set([...cards, ...topVals("account",4)])];
+  return (own.length?own:accHints()).slice(0,6);
+}
+/* Карточки счетов едут отдельным запросом и могут не успеть к открытию
+   формы. Приехали — перерисовываем ряд подсказок, чтобы человек не видел
+   чужие названия там, где уже есть свои. */
+function repaintAccounts(){
+  if(!(window.__acc&&__acc.preload)) return;
+  __acc.preload().then(()=>{
+    const q=document.querySelector('.quick[data-f="account"]');
+    if(!q) return;
+    const fresh=accountVals();
+    if(String(fresh)===String(QUICK_BASE.account||[])) return;
+    QUICK_BASE.account=fresh;
+    repaintQuick(q);
+  }).catch(()=>{});
+}
 function lastAccount(){
   try{ const v=localStorage.getItem("tj_account"); if(v) return v; }catch(e){}
   const last=sortDesc(S.trades).find(t=>(t.account||"").trim());
@@ -1779,19 +1808,7 @@ function openForm(id, presetDay){
       (cur&&!known?"":" hidden")+' oninput="markQuick();calcOutcome()">';
   };
 
-  /* Названия счетов. Первыми — заведённые карточки из «Моих счетов»:
-     связь сделки со счётом идёт по названию, и пока их тут не было,
-     название приходилось набирать заново. Одна опечатка — и карточка
-     счёта оставалась без сделок, хотя человек записывал их именно туда.
-     Дальше — то, что он уже вводил сам.
-
-     Зашитые «FTMO» и «FundingPips» показываем только пустому журналу.
-     Стоять рядом со своими счетами им незачем: это чужие названия, их
-     легко нажать по ошибке, и в журнале заводится счёт, которого у
-     человека нет. Поле остаётся текстовым — счёт можно и не выбирать. */
-  const accCards=(window.__acc&&__acc.names)?__acc.names():[];
-  const accOwn=[...new Set([...accCards, ...topVals("account",4)])];
-  const accounts=(accOwn.length?accOwn:accHints()).slice(0,6);
+  const accounts=accountVals();
   /* підказки з «Моєї ТС» — першими: що людина записала як свою систему,
      те й має бути під рукою в формі. Далі — що вже є в журналі. */
   const tsH=(window.__ts&&__ts.hints)?__ts.hints():{assets:[],models:[]};
@@ -1903,6 +1920,7 @@ function openForm(id, presetDay){
   markQuick(); autoDirType(); calcOutcome();
   $("#shotFile").addEventListener("change", onShotFiles);
   document.addEventListener("paste", onPasteShot);
+  repaintAccounts();
   /* незаписане з минулого разу — назад у поля */
   Draft.start(id||"");
   if(!t) setTimeout(()=>{ const el=$("#fld_pair"); if(el) el.focus(); },60);
@@ -2530,4 +2548,6 @@ function markDemo(){
   if(!DEMO && !(window.Pub && Pub.on)) refreshTelegramStatus();
   /* ТС потрібна формі угоди як джерело підказок — читаємо одразу */
   if(window.__ts && __ts.ensure) __ts.ensure();
+  /* Рахунки — теж джерело підказок для форми, і теж потрібні одразу. */
+  if(window.__acc && __acc.preload) __acc.preload();
 })();
