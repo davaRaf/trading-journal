@@ -2049,27 +2049,6 @@ class H(BaseHTTPRequestHandler):
                 return self._json({"error": "not found"}, 404)
             return self._json({"account": saved})
 
-        # Привʼязати вже записані угоди до рахунку. Тим, хто вів журнал до
-        # появи рахунків, інакше нічого не порахується: угоди в них є, а
-        # поле «рахунок» порожнє або підписане інакше.
-        if p == "/api/accounts/attach":
-            try:
-                acc_id = int((body or {}).get("id"))
-            except (TypeError, ValueError):
-                return self._json({"error": "bad id"}, 400)
-            acc = accounts_store.get(uid, acc_id)
-            if not acc:
-                return self._json({"error": "not found"}, 404)
-            raw = (body or {}).get("values")
-            if not isinstance(raw, list):
-                return self._json({"error": "bad values"}, 400)
-            # Рядки як є: порожній рядок означає «рахунок не проставлений».
-            values = [str(v or "") for v in raw][:200]
-            since = accounts_store.date_only((body or {}).get("from"))
-            until = accounts_store.date_only((body or {}).get("to"))
-            n = db.assign_account(uid, acc["name"], values, since, until)
-            return self._json({"n": n})
-
         if p == "/api/accounts/drop":
             try:
                 acc_id = int((body or {}).get("id"))
