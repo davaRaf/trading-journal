@@ -2139,8 +2139,13 @@ class H(BaseHTTPRequestHandler):
                 return self._json({"error": "помічник вимкнений — немає DEEPSEEK_API_KEY"}, 503)
             raw = (body or {}).get("history")
             history = [m for m in raw if isinstance(m, dict)][-16:] if isinstance(raw, list) else []
+            # мова журналу: факти під відповіддю показуються як є, і в
+            # російському журналі український рядок виглядав чужим
+            rlang = str((body or {}).get("lang") or "")
             return self._json(assistant.review(
-                uid, history, "bt" if (body or {}).get("kind") == "bt" else ""))
+                uid, history,
+                lang=rlang if rlang in ("uk", "ru", "en") else None,
+                kind="bt" if (body or {}).get("kind") == "bt" else ""))
 
         # друга половина видалення на прохання: ключ одноразовий, список id
         # у ньому вже зафіксований — тут нічого не добирається заново

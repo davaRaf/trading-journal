@@ -692,7 +692,9 @@ document.addEventListener("click", e => {
        не треба нікуди його перетягувати */
     const have = get(sl.dataset.p);
     if (have && typeof openLightbox === "function"){
-      openLightbox(tsShotSrc(have));
+      /* передаємо саму картинку: поруч у блоці лежать сусідні скріни,
+         і перегляд гортається стрілками, не закриваючись */
+      openLightbox(sl.querySelector("img") || tsShotSrc(have));
       return;
     }
     if (touchOnly()){

@@ -162,7 +162,8 @@ const Assistant = (function(){
     log.push({who:"me", text:T.asReviewMsg});
     paint();
     try{
-      const r = await api("POST", "/api/assistant/review", {history, kind: btOn()?"bt":""});
+      const r = await api("POST", "/api/assistant/review",
+        {history, kind: btOn()?"bt":"", lang: LANG});
       const facts = (r.facts || []).map(f => "• " + f).join("\n");
       log.push({who:"ai", text: r.text
         ? r.text + (facts ? "\n\n" + facts : "")
