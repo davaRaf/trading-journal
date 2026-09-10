@@ -271,6 +271,10 @@
      під ним кнопки «поділитись» одним рядком — гортаються вбік */
   .ohead{gap:12px; margin-bottom:16px}
   .ohead h1{font-size:26px; width:100%}
+  /* Заголовок-перемикач на телефоні — головна навігація розділу, тож
+     висота посилання доростає до 44px за рахунок відступу зверху:
+     риска під відкритою вкладкою лишається на місці. */
+  h1.ovh a{padding-top:8px; padding-bottom:10px}
   .ovw .per{margin-left:0; width:100%; display:grid; grid-template-columns:repeat(3,minmax(0,1fr))}
   .ovw .per button{padding:8px 6px; text-align:center}
   .ovw .ohead .sh-bar.sh-inline{width:100%; flex-wrap:nowrap; overflow-x:auto; padding-bottom:2px;

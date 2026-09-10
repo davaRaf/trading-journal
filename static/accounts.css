@@ -201,18 +201,64 @@
 .ac-seg button.on{background:var(--text); border-color:var(--text); color:var(--bg); font-weight:500}
 
 /* ---------------- телефон ---------------- */
+/* Журнал дивляться з телефона частіше, ніж із ноутбука. Тут не «щоб
+   влізло»: у все, що натискають, треба потрапити пальцем, а поля мусять
+   бути такі, щоб Safari не наближав сторінку сам. */
 @media (max-width:900px){
   .ac-grid{grid-template-columns:minmax(0,1fr)}
-  .ac-head h1{width:100%}
-  .ac-new{margin-left:0; width:100%}
+  /* Ширину заголовка на телефоні задає спільна .ohead у mobile.css. */
+  .ac-new{margin-left:0; width:100%; min-height:46px}
   .ac-total{width:100%}
 }
 @media (max-width:560px){
-  .ac-row2, .ac-row3, .ac-money{grid-template-columns:minmax(0,1fr)}
+  /* ---- картка ---- */
+  .ac-card{padding:16px 15px 8px; gap:12px}
+  .ac-bal .big{font-size:26px}
+  /* Тип рахунку окремим рядком: довга назва переносилась, і «челендж»
+     приклеювався до хвоста другого рядка — виходило «100k ЧЕЛЕНДЖ». */
+  .ac-kind{display:block; margin-left:0; margin-top:4px}
   .ac-cells{grid-template-columns:repeat(2,minmax(0,1fr))}
   .ac-cell:nth-child(2n){border-right:none}
   .ac-cell:nth-child(-n+2){border-bottom:1px solid var(--line-soft)}
-  .ac-bal .big{font-size:26px}
+  .ac-chip{min-height:44px}
+
+  /* ---- розбір злитого рахунку ---- */
+  /* Підпис і значення в один рядок тут не вміщуються: «найчастіша
+     помилка» плюс саму помилку в 330 пікселів не вкласти. Значення
+     переїжджає під підпис. */
+  .ac-wline{flex-direction:column; align-items:flex-start; gap:2px}
+  .ac-wline b{margin-left:0; text-align:left}
+
+  /* ---- форма нижнім листом ---- */
+  /* Вікно посеред екрана на телефоні незручне: до кнопок унизу треба
+     тягтись через півекрана. Лист приїжджає знизу, кнопки лишаються під
+     великим пальцем, а вміст гортається всередині. */
+  .modal:has(.ac-form){align-items:flex-end; padding:0}
+  .modal-box:has(.ac-form){max-width:none; max-height:94vh; margin-bottom:0;
+    border-radius:16px 16px 0 0; border-bottom:0}
+  .modal-box:has(.ac-form) .m-foot{padding-bottom:calc(15px + env(safe-area-inset-bottom))}
+  /* 16px — межа, нижче якої Safari сам наближає сторінку на фокусі, і
+     потім людина вручну відсуває її назад. */
+  .ac-in{font-size:16px}
+  .ac-row2{grid-template-columns:minmax(0,1fr)}
+  /* Три відсотки — по двоє в ряд: числа короткі, а рядків у формі
+     й без того чотирнадцять. */
+  .ac-row3{grid-template-columns:repeat(2,minmax(0,1fr))}
+  /* Валюта поруч зі стартовим балансом, «баланс зараз» — рядком нижче:
+     три поля в ряд на телефоні перетворюються на три вузькі колонки. */
+  .ac-money{grid-template-columns:minmax(0,1fr) 86px}
+  .ac-money > :nth-child(1){grid-column:1; grid-row:1}
+  .ac-money > :nth-child(3){grid-column:2; grid-row:1}
+  .ac-money > :nth-child(2){grid-column:1 / -1; grid-row:2}
+  /* Підказки під полем — теж кнопки, і тикають у них пальцем. */
+  .ac-pick{min-height:44px; padding:9px 13px; font-size:12.5px; display:inline-flex;
+    align-items:center}
+  /* Хрестик вікна на телефоні мусить бути кнопкою, а не значком у 24 пікселі. */
+  .modal-box:has(.ac-form) .m-head .x{padding:10px 13px; font-size:22px}
+  /* Стрілка списку фірм: поле відкриває той самий список, але в саму
+     стрілку теж мають потрапляти. */
+  .ac-combo-x{width:40px; height:40px}
+  .ac-combo-in .ac-in{padding-right:44px}
 }
 @media (prefers-reduced-motion:reduce){
   .ac-bul-t i{transition:none}
