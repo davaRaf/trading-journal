@@ -469,10 +469,8 @@ function day(data){
   const list = dayList(data);
   const left = 64, w = W - 128, top = 190, bottom = H - 104;
 
-  if (!list.length){
-    /* день без угод ділять рідко, але картинка не має бути порожньою */
-    candles(ctx, 340, 300, 520, 200);
-  } else {
+  if (!list.length) return null;            /* нема чого показувати — хай сервер бере скрін */
+  {
     const show = list.slice(0, 6);
     const rest = list.length - show.length;
     const gap = 10, tail = rest > 0 ? 34 : 0;
@@ -536,6 +534,82 @@ function day(data){
   return cv.toDataURL("image/png");
 }
 
+/* ---------- картинка аналізу дня ----------
+   Аналізом діляться заради графіка, а не заради цифр: у ньому взагалі
+   може не бути угод. Тому в превʼю йде сам скрін — наймолодший
+   таймфрейм із тих, що людина поклала в аналіз, на весь кадр. Зверху
+   тонка смужка зі знаком, щоб було видно, чий це журнал. */
+const TF_UNIT = {M: 1, H: 60, D: 1440, W: 10080};
+function tfWeight(tf){
+  const m = String(tf || "").trim().toUpperCase().match(/^(\d+)\s*([MHDW])$/);
+  return m ? Number(m[1]) * (TF_UNIT[m[2]] || 1) : 1e9;   /* без підпису — в кінець */
+}
+
+function reviewShot(data){
+  const all = [];
+  (((data.review || {}).assets) || []).forEach(a => {
+    (a.shots || []).forEach(s => { if (s && s.file) all.push(s); });
+    ((((a.eve || {}).shots) || [])).forEach(s => { if (s && s.file) all.push(s); });
+  });
+  if (!all.length) return null;
+  all.sort((x, y) => tfWeight(x.tf) - tfWeight(y.tf));
+  return all[0];
+}
+
+function loadImg(src){
+  return new Promise(ok => {
+    const img = new Image();
+    img.onload = () => ok(img);
+    img.onerror = () => ok(null);
+    img.src = src;
+  });
+}
+
+async function review(data){
+  const shot = reviewShot(data);
+  if (!shot) return day(data);                 /* графіка немає — хоч угоди рядками */
+  const src = /^data:/.test(shot.file) ? shot.file
+            : "/dnshot/" + encodeURIComponent(shot.file);
+  const img = await loadImg(src);
+  if (!img || !img.naturalWidth) return day(data);
+
+  pick(data);
+  const cv = document.createElement("canvas");
+  cv.width = W; cv.height = H;
+  const ctx = cv.getContext("2d");
+  ctx.fillStyle = C.bg; ctx.fillRect(0, 0, W, H);
+
+  /* графік заповнює кадр цілком: краще обрізати краї, ніж лишати поля */
+  const k = Math.max(W / img.naturalWidth, H / img.naturalHeight);
+  const w = img.naturalWidth * k, h = img.naturalHeight * k;
+  ctx.drawImage(img, (W - w) / 2, (H - h) / 2, w, h);
+
+  /* смужка згори: без неї знак губиться на світлому графіку */
+  const light = C === SWAN;
+  const g = ctx.createLinearGradient(0, 0, 0, 170);
+  g.addColorStop(0, light ? "rgba(255,255,255,.94)" : "rgba(0,0,0,.82)");
+  g.addColorStop(1, light ? "rgba(255,255,255,0)" : "rgba(0,0,0,0)");
+  ctx.fillStyle = g;
+  ctx.fillRect(0, 0, W, 170);
+
+  header(ctx, data.kindFull || data.kind, data.title, data.total);
+
+  /* який саме таймфрейм — маленькою плашкою в кутку */
+  if (shot.tf){
+    ctx.font = "500 20px " + MONO;
+    const tw = ctx.measureText(String(shot.tf)).width + 26;
+    const x = W - 64 - tw, y = H - 78;
+    ctx.fillStyle = light ? "rgba(255,255,255,.9)" : "rgba(0,0,0,.62)";
+    roundRect(ctx, x, y, tw, 42, 11); ctx.fill();
+    ctx.strokeStyle = C.line; ctx.lineWidth = 1;
+    roundRect(ctx, x, y, tw, 42, 11); ctx.stroke();
+    ctx.fillStyle = C.dim;
+    ctx.fillText(String(shot.tf), x + 13, y + 28);
+  }
+
+  return cv.toDataURL("image/png");
+}
+
 /* ---------- картинка періоду ---------- */
 function period(data){
   pick(data);
@@ -563,6 +637,6 @@ function period(data){
   return cv.toDataURL("image/png");
 }
 
-window.OgCal = {period, system, day, brand, watermark};
+window.OgCal = {period, system, day, review, brand, watermark};
 
 })();

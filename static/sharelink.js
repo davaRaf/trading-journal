@@ -493,8 +493,10 @@ function open(kind, arg){
           && (data.calendar || data.ts || kind === "day" || kind === "review")){
         try{
           const png = data.ts ? OgCal.system(data)
-                    : (kind === "day" || kind === "review") ? OgCal.day(data)
+                    : kind === "review" ? await OgCal.review(data)
+                    : kind === "day" ? OgCal.day(data)
                     : OgCal.period(data);
+          if (!png) throw new Error("no image");
           const up = await fetch("/api/share/shot", {
             method:"POST", headers:{"Content-Type":"application/json"},
             body: JSON.stringify({data: png})
