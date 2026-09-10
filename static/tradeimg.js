@@ -208,9 +208,9 @@ async function buildTradeImage(t){
   const probe = document.createElement("canvas").getContext("2d");
   probe.font = "26px " + SANS;
 
-  const facts = [["Сесія", t.session], ["Біас", t.bias],
-    ["Модель входу", t.entry_model], ["Сетап", t.setup],
-    ["Прод. / Розв.", dirType(t)]].map(([k, v]) => [k, v || "—"]);
+  const facts = [[T.fSession, t.session], [T.fBias, t.bias],
+    [T.fEntryModel, t.entry_model], [T.fSetup, t.setup],
+    [T.fDirTypeFilter, dirType(t)]].map(([k, v]) => [k, v || "—"]);
   const rows = Math.ceil(facts.length / 2);
 
   const blocks = [[T.tiHowEntered, t.entry_details], [T.tiNotes, t.notes],
@@ -284,7 +284,7 @@ async function buildTradeImage(t){
   ctx.moveTo(PAD, y); ctx.lineTo(W - PAD, y); ctx.stroke();
 
   y += 44;
-  [["Результат", resLabel(t.result) || "—"],
+  [[T.fResult, resLabel(t.result) || "—"],
    ["RR", (t.rr != null && t.rr !== "") ? String(r1(t.rr)) : "—"],
    [T.tiRisk, (t.risk != null && t.risk !== "") ? r1(t.risk) + "%" : "—"]
   ].forEach(([k, v], i) => {

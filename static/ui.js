@@ -533,8 +533,10 @@ const Ask = (function(){
           "</div></div>";
       /* подписи ставим текстом: в вопросе бывают кавычки и имена файлов */
       box.querySelector(".asktext").textContent = text;
-      box.querySelector(".askno").textContent = o.cancel || "Скасувати";
-      box.querySelector(".askyes").textContent = o.ok || "Так";
+      /* запасні підписи теж зі словника: інакше в російському журналі
+         вискакували українські кнопки */
+      box.querySelector(".askno").textContent = o.cancel || (window.T && T.askNo) || "Cancel";
+      box.querySelector(".askyes").textContent = o.ok || (window.T && T.askYes) || "OK";
       box.querySelector(".askno").onclick = () => close(false);
       box.querySelector(".askyes").onclick = () => close(true);
       box.onmousedown = e => { if (e.target === box) close(false); };

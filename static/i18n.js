@@ -166,6 +166,7 @@ uk: {
   chipHideTip: "Прибрати з підказок", chipRestoreTip: "Повернути приховані підказки",
   tfHideTip: "Прибрати цей таймфрейм", tfAddTile: "свій таймфрейм", tfRestoreTile: "повернути приховані",
   tfAddPrompt: "Який таймфрейм додати? Наприклад 2H або 1W",
+  aMenu: "Меню", shotClip: "з буфера",
 
   alertNeedPair: "Вкажи інструмент", alertNeedDate: "Вкажи дату",
   alertNeedResult: "Вкажи результат — TP / SL / BE− / BE+",
@@ -701,6 +702,7 @@ ru: {
   chipHideTip: "Убрать из подсказок", chipRestoreTip: "Вернуть скрытые подсказки",
   tfHideTip: "Убрать этот таймфрейм", tfAddTile: "свой таймфрейм", tfRestoreTile: "вернуть скрытые",
   tfAddPrompt: "Какой таймфрейм добавить? Например 2H или 1W",
+  aMenu: "Меню", shotClip: "из буфера",
 
   alertNeedPair: "Укажи инструмент", alertNeedDate: "Укажи дату",
   alertNeedResult: "Укажи результат — TP / SL / BE− / BE+",
@@ -1224,6 +1226,7 @@ en: {
   chipHideTip: "Remove from suggestions", chipRestoreTip: "Restore hidden suggestions",
   tfHideTip: "Remove this timeframe", tfAddTile: "own timeframe", tfRestoreTile: "restore hidden",
   tfAddPrompt: "Which timeframe to add? For example 2H or 1W",
+  aMenu: "Menu", shotClip: "from clipboard",
 
   alertNeedPair: "Enter an instrument", alertNeedDate: "Enter a date",
   alertNeedResult: "Choose a result — TP / SL / BE− / BE+",

@@ -442,6 +442,119 @@ function months(ctx, items, top, bottom){
   });
 }
 
+/* ---------- картинка дня ----------
+   Раніше в превʼю дня йшов скрін випадкової угоди: з нього не видно ні
+   дня, ні того, скільки угод було й чим вони закінчились. Тепер малюємо
+   сам день — угоди рядками: час, інструмент, результат, відсоток. */
+function dayList(data){
+  if ((data.trades || []).length) return data.trades;
+  /* «Аналіз дня» тримає угоди всередині активів */
+  const out = [];
+  ((data.review || {}).assets || []).forEach(a =>
+    (a.trades || []).forEach(t => out.push(t)));
+  return out;
+}
+
+function day(data){
+  pick(data);
+  const cv = document.createElement("canvas");
+  cv.width = W; cv.height = H;
+  const ctx = cv.getContext("2d");
+  ctx.fillStyle = C.bg; ctx.fillRect(0, 0, W, H);
+
+  header(ctx, data.kindFull || data.kind, data.title, data.total);
+  ctx.strokeStyle = C.line; ctx.lineWidth = 1;
+  ctx.beginPath(); ctx.moveTo(64, 164); ctx.lineTo(W - 64, 164); ctx.stroke();
+
+  const list = dayList(data);
+  const left = 64, w = W - 128, top = 190, bottom = H - 104;
+
+  if (!list.length) return null;            /* нема чого показувати — хай сервер бере скрін */
+  {
+    const show = list.slice(0, 6);
+    const rest = list.length - show.length;
+    const gap = 10, tail = rest > 0 ? 34 : 0;
+    const rh = Math.min(74, (bottom - top - gap * (show.length - 1) - tail) / show.length);
+    const blockH = show.length * rh + gap * (show.length - 1) + tail;
+    let y = top + Math.max(0, (bottom - top - blockH) / 2);
+
+    show.forEach(t => {
+      const skip = !!t.skip;
+      const tn = skip ? null : tone(t.net);
+      const ink = skip ? C.faint : tn === "up" ? C.up : tn === "down" ? C.down : C.be;
+      const bg  = skip ? C.panel : tn === "up" ? C.upBg : tn === "down" ? C.downBg : C.beBg;
+
+      ctx.fillStyle = bg;
+      roundRect(ctx, left, y, w, rh, 14); ctx.fill();
+      ctx.strokeStyle = C.soft; ctx.lineWidth = 1;
+      roundRect(ctx, left, y, w, rh, 14); ctx.stroke();
+
+      const mid = y + rh / 2;
+      ctx.font = "500 20px " + MONO;
+      ctx.fillStyle = C.faint;
+      ctx.fillText(String(t.time || ""), left + 24, mid + 7);
+
+      ctx.font = "600 28px " + SANS;
+      ctx.fillStyle = C.text;
+      ctx.fillText(String(t.pair || "—"), left + 128, mid + 9);
+
+      const lab = String(t.result || "");
+      if (lab){
+        ctx.font = "500 20px " + MONO;
+        const lw = ctx.measureText(lab).width + 28, lx = left + 372, lh = 38;
+        ctx.fillStyle = skip ? C.soft : bg;
+        roundRect(ctx, lx, mid - lh / 2, lw, lh, 10); ctx.fill();
+        ctx.strokeStyle = ink; ctx.globalAlpha = .45;
+        roundRect(ctx, lx, mid - lh / 2, lw, lh, 10); ctx.stroke();
+        ctx.globalAlpha = 1;
+        ctx.fillStyle = ink;
+        ctx.fillText(lab, lx + 14, mid + 7);
+      }
+
+      ctx.font = "500 32px " + MONO;
+      ctx.fillStyle = ink;
+      ctx.textAlign = "right";
+      ctx.fillText(skip ? "—" : pct(t.net), left + w - 24, mid + 11);
+      ctx.textAlign = "left";
+
+      y += rh + gap;
+    });
+
+    if (rest > 0){
+      ctx.font = "500 20px " + MONO;
+      ctx.fillStyle = C.faint;
+      ctx.fillText("+" + rest, left + 24, y + 22);
+    }
+  }
+
+  ctx.strokeStyle = C.line; ctx.lineWidth = 1;
+  ctx.beginPath(); ctx.moveTo(64, H - 90); ctx.lineTo(W - 64, H - 90); ctx.stroke();
+  kpiRow(ctx, data.kpis, H - 58);
+
+  return cv.toDataURL("image/png");
+}
+
+/* ---------- скрін для аналізу дня ----------
+   У превʼю аналізу йде сам графік — наймолодший таймфрейм із тих, що
+   людина поклала. Нічого не малюємо: ні смужки, ні знаків, ні теми —
+   тільки скрін. Тому тут лише вибір потрібного файлу. */
+const TF_UNIT = {M: 1, H: 60, D: 1440, W: 10080};
+function tfWeight(tf){
+  const m = String(tf || "").trim().toUpperCase().match(/^(\d+)\s*([MHDW])$/);
+  return m ? Number(m[1]) * (TF_UNIT[m[2]] || 1) : 1e9;   /* без підпису — в кінець */
+}
+
+function reviewShot(data){
+  const all = [];
+  (((data.review || {}).assets) || []).forEach(a => {
+    (a.shots || []).forEach(sh => { if (sh && sh.file) all.push(sh); });
+    ((((a.eve || {}).shots) || [])).forEach(sh => { if (sh && sh.file) all.push(sh); });
+  });
+  if (!all.length) return null;
+  all.sort((x, y) => tfWeight(x.tf) - tfWeight(y.tf));
+  return all[0];
+}
+
 /* ---------- картинка періоду ---------- */
 function period(data){
   pick(data);
@@ -469,6 +582,6 @@ function period(data){
   return cv.toDataURL("image/png");
 }
 
-window.OgCal = {period, system, brand, watermark};
+window.OgCal = {period, system, day, reviewShot, brand, watermark};
 
 })();

@@ -12,6 +12,10 @@
 він буде тим самим сервісом.
 
 Ключі — з оточення: GOOGLE_CLIENT_ID/SECRET, DISCORD_CLIENT_ID/SECRET.
+
+Кожен запит підписуємо своїм User-Agent: Discord стоїть за Cloudflare,
+і той відбиває стандартний "Python-urllib/..." кодом 1010 — вхід падав
+на обміні коду з "HTTP Error 403: Forbidden".
 """
 import hmac
 import json
@@ -23,6 +27,9 @@ import urllib.request
 import auth
 import config
 import db
+
+# Discord просить назватись у такому вигляді, Google на це не дивиться.
+USER_AGENT = "StatsAI (https://statsai.xyz, 1.0)"
 
 SCHEMA = """
 CREATE TABLE IF NOT EXISTS identities (
@@ -142,6 +149,7 @@ def _post_form(url, data, headers=None):
     req = urllib.request.Request(url, data=body, method="POST")
     req.add_header("Content-Type", "application/x-www-form-urlencoded")
     req.add_header("Accept", "application/json")
+    req.add_header("User-Agent", USER_AGENT)
     for k, v in (headers or {}).items():
         req.add_header(k, v)
     with urllib.request.urlopen(req, timeout=20) as r:
@@ -152,6 +160,7 @@ def _get_json(url, token):
     req = urllib.request.Request(url)
     req.add_header("Authorization", "Bearer " + token)
     req.add_header("Accept", "application/json")
+    req.add_header("User-Agent", USER_AGENT)
     with urllib.request.urlopen(req, timeout=20) as r:
         return json.loads(r.read().decode("utf-8"))
 

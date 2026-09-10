@@ -28,7 +28,7 @@ top.innerHTML =
   + '<button class="mnew" type="button" onclick="openForm()">'
   + '<svg width="13" height="13" viewBox="0 0 24 24" fill="none"><path d="M12 5v14M5 12h14" '
   + 'stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg><span></span></button>'
-  + '<button class="mburger" type="button" aria-label="Меню">'
+  + '<button class="mburger" type="button" aria-label="' + esc(T.aMenu) + '">'
   + '<svg width="18" height="18" viewBox="0 0 24 24" fill="none"><path d="M4 7h16M4 12h16M4 17h16" '
   + 'stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg></button>';
 document.body.insertBefore(top, document.body.firstChild);
