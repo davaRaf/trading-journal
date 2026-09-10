@@ -63,7 +63,7 @@ def main():
     ok &= case("злитий проходить",
                accounts_store.clean({"status": "failed"})["status"], "failed")
 
-    # --- у фандеда лише два стани ---
+    # --- стан залежить від типу ---
     ok &= case("фандед не буває пройденим",
                accounts_store.clean({"kind": "funded", "status": "passed"})["status"], "active")
     ok &= case("фандед не буває закритим",
@@ -72,6 +72,12 @@ def main():
                accounts_store.clean({"kind": "funded", "status": "failed"})["status"], "failed")
     ok &= case("у челенджа пройдений лишається",
                accounts_store.clean({"kind": "challenge", "status": "passed"})["status"], "passed")
+    ok &= case("свій депозит не буває пройденим",
+               accounts_store.clean({"kind": "own", "status": "passed"})["status"], "active")
+    ok &= case("свій депозит можна закрити",
+               accounts_store.clean({"kind": "own", "status": "closed"})["status"], "closed")
+    ok &= case("свій депозит можна злити",
+               accounts_store.clean({"kind": "own", "status": "failed"})["status"], "failed")
 
     # --- живий рахунок не носить причини ---
     live = accounts_store.clean({"name": "Свій", "status": "active",
