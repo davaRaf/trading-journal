@@ -625,14 +625,19 @@ async function save(id){
     closed_at: val("acClosed"), reason: val("acReason"), note: val("acNote"),
   };
   if (!acc.name){ show(err, d.errName); return; }
+  let saved = null;
   try{
-    await api("POST", "/api/accounts", {account: acc});
+    saved = (await api("POST", "/api/accounts", {account: acc})).account;
   }catch(e){
     /* 409 — таку назву вже носить інший рахунок. Помилка не про мережу,
        і людині треба сказати саме це. */
     show(err, /409/.test(String((e && e.message) || "")) ? d.errTaken : d.errSave);
     return;
   }
+  /* Назва рахунку — підказка у формі угоди. Знімаємо з неї приховування,
+     якщо рахунок із таким іменем колись прибирали: інакше заведений
+     наново рахунок мовчки не показувався б у ряду підказок. */
+  if (window.Prefs && saved && saved.name) Prefs.add("account", saved.name);
   closeModal();
   ACCS = undefined;
   await load();
@@ -649,6 +654,12 @@ async function drop(id){
   const ask = n ? d.delAskN.replace("%n", n) : d.delAsk;
   if (!await Ask.yes(ask, {ok: d.delYes, cancel: d.cancel, danger: true})) return;
   try{ await api("POST", "/api/accounts/drop", {id: id}); }catch(e){ return; }
+  /* Угоди лишились, і разом з ними лишилась би назва в підказках форми:
+     історія підставляє її знову, а колись вписане «своє значення» взагалі
+     живе в налаштуваннях окремо. Прибрали картку — прибираємо й підказку.
+     Це те саме приховування, що й кошик на самій кнопці, тож людина може
+     повернути її звідти. */
+  if (window.Prefs && a && a.name) Prefs.hide("account", a.name);
   closeModal();
   ACCS = undefined;
   await load();
