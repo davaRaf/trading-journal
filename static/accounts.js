@@ -199,10 +199,14 @@ function card(a){
     + '<span class="sp"></span>'
     + '<button class="ac-link" onclick="__acc.edit(' + a.id + ')">' + esc(d.edit) + "</button></div>";
 
+  /* Тип, фірма й дата — одним сірим рядком під назвою. Раніше тип стояв
+     одразу за назвою, і в картці вужчій за 380 пікселів назва
+     переносилась, а тип приклеювався до її хвоста: «100k ЧЕЛЕНДЖ». */
+  const under = (kind ? '<i class="ac-kind">' + esc(kind) + "</i>" : "")
+    + (sub ? (kind ? " · " : "") + esc(sub) : "");
   return '<div class="shell"><div class="core ac-card ' + st + '">'
     + '<div class="ac-top"><div class="ac-name"><b>' + esc(a.name) + "</b>"
-    +   (kind ? '<i class="ac-kind">' + esc(kind) + "</i>" : "")
-    +   (sub ? '<div class="ac-sub">' + esc(sub) + "</div>" : "") + "</div>"
+    +   (under ? '<div class="ac-sub">' + under + "</div>" : "") + "</div>"
     + '<span class="ac-st ' + st + '">' + esc(d.status[a.status] || "") + "</span></div>"
     + head + spark(s.curve) + bars + stats
     + (dead && openId === a.id ? why(a, s) : "")
@@ -453,7 +457,9 @@ function form(a){
     + '<div class="ac-row3">' + field(d.fTarget, "acTarget", a.target_pct, d.noLimit, "number")
     +   field(d.fDdTotal, "acDdTotal", a.dd_total_pct, d.noLimit, "number")
     +   field(d.fDdDaily, "acDdDaily", a.dd_daily_pct, d.noLimit, "number") + "</div>"
-    + '<div class="ac-row2">' + dateField(d.fOpened, "acOpened", a.opened_at)
+    /* Дата вужча за половину рядка, а станів буває чотири — і в рівних
+       половинках четвертий зривався на свій рядок. */
+    + '<div class="ac-row2 ac-row-st">' + dateField(d.fOpened, "acOpened", a.opened_at)
     +   '<div class="ac-f"><span>' + esc(d.fStatus) + "</span>"
     +   statusSeg(a.kind || "own", a.status || "active") + "</div></div>"
     /* Дата закриття й причина зʼявляються тільки тоді, коли рахунку вже

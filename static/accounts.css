@@ -21,14 +21,22 @@
 .ac-total b{color:var(--text); font-size:15px; font-variant-numeric:tabular-nums}
 
 /* ---------------- сітка карток ---------------- */
-.ac-grid{display:grid; grid-template-columns:repeat(auto-fill,minmax(330px,1fr)); gap:var(--stack)}
-.ac-grid > .shell{margin-bottom:0}
+/* Скільки колонок — вирішує 330: стільки треба картці, щоб підписи цифр
+   не обрізались. Стеля картки окремим правилом, а не другим числом у
+   minmax: з definite-максимумом браузер рахує колонки саме по ньому, і
+   на ноутбуці замість трьох колонок виходило дві.
+
+   auto-fit, а не auto-fill: у кого рахунків два, порожня колонка
+   сплющується, і картки не тиснуться до лівого краю з дірою праворуч. */
+.ac-grid{display:grid; grid-template-columns:repeat(auto-fit,minmax(330px,1fr));
+  gap:var(--stack)}
+.ac-grid > .shell{margin-bottom:0; max-width:430px}
 .ac-card{padding:18px 20px 14px; display:flex; flex-direction:column; gap:14px}
 
 .ac-top{display:flex; align-items:flex-start; gap:10px}
 .ac-name{min-width:0}
 .ac-name b{font-size:16px; font-weight:600; letter-spacing:-.01em}
-.ac-kind{font-style:normal; margin-left:7px; font-family:var(--mono); font-size:9.5px;
+.ac-kind{font-style:normal; font-family:var(--mono); font-size:9.5px;
   letter-spacing:.10em; text-transform:uppercase; color:var(--faint)}
 .ac-sub{margin-top:3px; color:var(--faint); font-size:12px}
 
@@ -76,10 +84,15 @@
 .ac-bul.hot .ac-bul-h b{color:var(--down)}
 
 /* ---------------- цифри рахунку ---------------- */
-.ac-cells{display:grid; grid-template-columns:repeat(4,minmax(0,1fr));
+/* Двома рядами по дві, а не чотирма в ряд: у чотирьох колонках картки
+   підписи «середній RR» і «просадка від піку» обрізались трьома крапками
+   на будь-якому екрані, де картка вужча за 490 пікселів — тобто майже
+   завжди. Краще зайвий ряд, ніж підпис, який доводиться вгадувати. */
+.ac-cells{display:grid; grid-template-columns:repeat(2,minmax(0,1fr));
   border-top:1px solid var(--line-soft); margin-top:2px}
-.ac-cell{padding:10px 8px 2px; border-right:1px solid var(--line-soft); min-width:0}
-.ac-cell:last-child{border-right:none}
+.ac-cell{padding:10px 10px 4px; border-right:1px solid var(--line-soft); min-width:0}
+.ac-cell:nth-child(2n){border-right:none}
+.ac-cell:nth-child(-n+2){border-bottom:1px solid var(--line-soft)}
 .ac-cell .l{font-family:var(--mono); font-size:8.5px; letter-spacing:.11em;
   text-transform:uppercase; color:var(--faint); white-space:nowrap; overflow:hidden;
   text-overflow:ellipsis}
@@ -137,6 +150,9 @@
 .ac-form{display:flex; flex-direction:column; gap:12px}
 .ac-row2{display:grid; grid-template-columns:1fr 1fr; gap:12px}
 .ac-row3{display:grid; grid-template-columns:repeat(3,1fr); gap:12px}
+/* Дата й стан: даті вистачає вузької колонки, а станам потрібна ширша —
+   інакше «Закритий» зривається на власний рядок під рештою. */
+.ac-row-st{grid-template-columns:minmax(0,220px) minmax(0,1fr)}
 .ac-f{display:block; min-width:0}
 /* Підпис поля. Приписка збоку — тихіша за сам підпис: вона уточнює, а не
    називає. Раніше на її місці був абзац під полем; два слова поруч із
@@ -214,12 +230,6 @@
   /* ---- картка ---- */
   .ac-card{padding:16px 15px 8px; gap:12px}
   .ac-bal .big{font-size:26px}
-  /* Тип рахунку окремим рядком: довга назва переносилась, і «челендж»
-     приклеювався до хвоста другого рядка — виходило «100k ЧЕЛЕНДЖ». */
-  .ac-kind{display:block; margin-left:0; margin-top:4px}
-  .ac-cells{grid-template-columns:repeat(2,minmax(0,1fr))}
-  .ac-cell:nth-child(2n){border-right:none}
-  .ac-cell:nth-child(-n+2){border-bottom:1px solid var(--line-soft)}
   .ac-chip{min-height:44px}
 
   /* ---- розбір злитого рахунку ---- */
