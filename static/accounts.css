@@ -34,10 +34,6 @@
 .ac-grid{display:grid; grid-template-columns:repeat(auto-fit,minmax(330px,1fr));
   gap:var(--stack)}
 .ac-grid > .shell{margin-bottom:0; max-width:430px}
-/* Назви з угод без картки — виноска до сітки, а не ще одна картка в ній.
-   На звичайному відступі вони й читались як продовження ряду, тому тут
-   він подвійний: така сама відбивка, як між розділами. */
-.ac-grid + .shell{margin-top:calc(var(--stack) * 2)}
 .ac-card{padding:18px 20px 14px; display:flex; flex-direction:column; gap:14px}
 
 .ac-top{display:flex; align-items:flex-start; gap:10px}
@@ -134,25 +130,6 @@
 .ac-empty{text-align:center; padding:34px 26px}
 .ac-empty p{margin:0 0 8px; font-size:15px}
 .ac-empty .btn{margin-top:14px}
-
-/* ---------------- назви з угод без картки ---------------- */
-.ac-rest .l{font-family:var(--mono); font-size:9px; letter-spacing:.12em;
-  text-transform:uppercase; color:var(--faint); margin-bottom:10px}
-.ac-chips{display:flex; flex-wrap:wrap; gap:8px}
-.ac-chip{display:inline-flex; align-items:center; gap:8px; min-height:38px;
-  border:1px solid var(--line); background:var(--panel-2); border-radius:20px;
-  padding:8px 14px; font-size:13px; color:var(--dim); cursor:pointer; transition:.16s}
-.ac-chip:hover{color:var(--text); border-color:var(--faint)}
-.ac-chip i{font-style:normal; font-family:var(--mono); font-size:11px; color:var(--faint)}
-/* Приписка пояснює кнопки над собою, але не приклеєна до них: спільне
-   правило .ac-hint підтягує текст на 4 пікселі вгору (там воно стоїть під
-   полем форми, і так треба), а тут кнопка висока, і текст заходив їй під
-   край. Знизу теж додаємо повітря: під останнім рядком нема нічого, що
-   тримало б око, і край блоку здається ближчим, ніж він є. */
-.ac-rest .ac-hint{margin:12px 0 8px}
-/* І під самим блоком: він закриває розділ, і кінець сторінки не має
-   впиратись у його край. Стільки ж, скільки відбиває його від сітки. */
-.ac-grid + .shell{margin-bottom:calc(var(--stack) * 2)}
 
 /* ---------------- форма ---------------- */
 /* Форма висока: фірма, тип, три числа, назва, три ліміти, дати й нотатка.
@@ -251,7 +228,6 @@
   /* ---- картка ---- */
   .ac-card{padding:16px 15px 8px; gap:12px}
   .ac-bal .big{font-size:26px}
-  .ac-chip{min-height:44px}
 
   /* ---- розбір злитого рахунку ---- */
   /* Підпис і значення в один рядок тут не вміщуються: «найчастіша

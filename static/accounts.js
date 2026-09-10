@@ -690,8 +690,11 @@ async function preload(){
 }
 
 /* Рахунки, які людина вже вписувала в угоди, але картки не завела.
-   Не показати їх було б дивно: у журналі вони є, а в розділі про
-   рахунки — немає. */
+   Потрібні одному місцю — підказкам під полем «Назва» у формі рахунку:
+   там людина саме заводить картку, і збігтись із написанням в угодах їй
+   важливо, бо звʼязок іде по імені. Окремим рядом унизу розділу вони
+   стояли й раніше, але повну назву рахунку в угоді пишуть рідко, і ряд
+   майже завжди висів там дарма. */
 function unlisted(){
   const known = new Set((ACCS || []).map(a => key(a.name)));
   const seen = new Map();
@@ -730,17 +733,6 @@ function total(){
     + "</div>";
 }
 
-function hints(){
-  const d = D();
-  const rest = unlisted();
-  if (!rest.length) return "";
-  return '<div class="shell"><div class="core ac-rest"><div class="l">' + esc(d.unlisted) + "</div>"
-    + '<div class="ac-chips">' + rest.map(r =>
-        '<button class="ac-chip" data-name="' + esc(r.name) + '">'
-        + esc(r.name) + "<i>" + r.n + "</i></button>").join("") + "</div>"
-    + '<p class="ac-hint">' + esc(d.unlistedHint) + "</p></div></div>";
-}
-
 function vAccounts(){
   const d = D();
   if (ACCS === undefined){
@@ -758,10 +750,10 @@ function vAccounts(){
       + '<div class="shell"><div class="core ac-empty">'
       + "<p>" + esc(d.emptyLead) + '</p><p class="ac-hint">' + esc(d.emptyHint) + "</p>"
       + '<button class="btn primary" id="acAdd2">' + esc(d.add) + "</button>"
-      + "</div></div>" + hints() + "</div>";
+      + "</div></div></div>";
   }
   return '<div class="acw">' + head
-    + '<div class="ac-grid">' + ACCS.map(card).join("") + "</div>" + hints() + "</div>";
+    + '<div class="ac-grid">' + ACCS.map(card).join("") + "</div></div>";
 }
 
 function blank(){ return {name: "", firm: "", kind: "own", currency: "USD", status: "active"}; }
@@ -826,8 +818,6 @@ document.addEventListener("click", e => {
   if (S.view !== "accounts") return;
   const add = e.target.closest("#acAdd, #acAdd2");
   if (add){ __acc.add(); return; }
-  const chip = e.target.closest(".ac-chip");
-  if (chip){ __acc.addNamed(chip.dataset.name || ""); return; }
 });
 
 /* Набрав руками — підсвітка підказки має відповідати тому, що в полі,
@@ -864,12 +854,6 @@ window.__acc = {
   add(){
     if (window.Guest && Guest.block(D().title)) return;
     openForm(blank());
-  },
-  addNamed(name){
-    if (window.Guest && Guest.block(D().title)) return;
-    const a = blank();
-    a.name = name;
-    openForm(a);
   },
   edit(id){
     const a = (ACCS || []).find(x => x.id === id);
@@ -946,8 +930,6 @@ uk: {
   phNote: "що завгодно про цей рахунок",
   emptyLead: "Тут будуть твої рахунки: свій депозит і все, що взяв у проп-фірм.",
   emptyHint: "Заведи рахунок — і журнал перестане рахувати самими відсотками: покаже баланс у грошах, скільки лишилось до цілі й скільки до ліміту просадки.",
-  unlisted: "Є в угодах, але картки немає",
-  unlistedHint: "Ці назви вже стоять у твоїх угодах. Натисни — і заведемо картку з цією назвою.",
   errName: "Без назви рахунок не знайде своїх угод.", errTaken: "Рахунок з такою назвою вже є.",
   errSave: "Не вдалось зберегти. Спробуй ще раз.",
 },
@@ -988,8 +970,6 @@ ru: {
   phNote: "что угодно про этот счёт",
   emptyLead: "Здесь будут твои счета: свой депозит и всё, что взял у проп-фирм.",
   emptyHint: "Заведи счёт — и журнал перестанет считать одними процентами: покажет баланс в деньгах, сколько осталось до цели и сколько до лимита просадки.",
-  unlisted: "Есть в сделках, но карточки нет",
-  unlistedHint: "Эти названия уже стоят в твоих сделках. Нажми — и заведём карточку с этим названием.",
   errName: "Без названия счёт не найдёт своих сделок.", errTaken: "Счёт с таким названием уже есть.",
   errSave: "Не удалось сохранить. Попробуй ещё раз.",
 },
@@ -1030,8 +1010,6 @@ en: {
   phNote: "anything about this account",
   emptyLead: "Your accounts live here: your own deposit and everything you took from prop firms.",
   emptyHint: "Add an account and the journal stops counting in percent alone: it shows the balance in money, how far the target is and how much drawdown is left.",
-  unlisted: "In your trades, but no card yet",
-  unlistedHint: "These names already appear in your trades. Tap one and we will create a card with that name.",
   errName: "Without a name the account cannot find its trades.", errTaken: "An account with this name already exists.",
   errSave: "Could not save. Please try again.",
 },
