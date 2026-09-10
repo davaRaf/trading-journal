@@ -62,6 +62,12 @@ ALTER TABLE accounts ADD COLUMN IF NOT EXISTS current_balance DOUBLE PRECISION;
 -- а картка показувала те саме число, ніби угод не було.
 ALTER TABLE accounts ADD COLUMN IF NOT EXISTS balance_at TEXT NOT NULL DEFAULT '';
 
+-- Скільки угод цього рахунку вже лежало в журналі, коли баланс вписали.
+-- Дата для цього замало точна: угоди того самого дня, що й сам баланс,
+-- випадали з підрахунку зовсім — людина заводила рахунок і тут-таки
+-- записувала дві угоди, а картка показувала колишнє число.
+ALTER TABLE accounts ADD COLUMN IF NOT EXISTS balance_n INTEGER NOT NULL DEFAULT 0;
+
 -- Разова чистка імен, які лягли в базу до нормалізації: пробіл на кінці
 -- робив «FTMO » і «FTMO» різними рахунками, а в браузері вони склеювались
 -- в одну картку. Пари, де чисте імʼя вже зайняте, не чіпаємо — інакше
@@ -106,7 +112,10 @@ NUM_FIELDS = ("start_balance", "current_balance", "target_pct",
                "dd_daily_pct", "dd_total_pct")
 TEXT_FIELDS = ("name", "firm", "kind", "currency", "opened_at", "closed_at",
                "status", "reason", "note", "balance_at")
-FIELDS = TEXT_FIELDS + NUM_FIELDS
+# Лічильник угод — окремо: це ціле число, і зберігати його дробовим було б
+# просто неправдою про те, що воно означає.
+INT_FIELDS = ("balance_n",)
+FIELDS = TEXT_FIELDS + NUM_FIELDS + INT_FIELDS
 
 
 def _num(v):
@@ -184,6 +193,9 @@ def clean(body):
         a[k] = str((body or {}).get(k) or "").strip()[:200]
     for k in NUM_FIELDS:
         a[k] = _num((body or {}).get(k))
+    for k in INT_FIELDS:
+        n = _num((body or {}).get(k))
+        a[k] = max(0, int(n)) if n is not None else 0
     a["kind"] = a["kind"] if a["kind"] in KINDS else "own"
     a["status"] = a["status"] if a["status"] in STATUS else "active"
     a["currency"] = (a["currency"] or "USD")[:8]
@@ -191,9 +203,10 @@ def clean(body):
     a["opened_at"] = _date(a["opened_at"])
     a["closed_at"] = _date(a["closed_at"])
     a["balance_at"] = _date(a["balance_at"])
-    # Дата без самого балансу нічого не означає.
+    # Дата й лічильник без самого балансу нічого не означають.
     if a["current_balance"] is None:
         a["balance_at"] = ""
+        a["balance_n"] = 0
     # Не кожен стан має сенс для кожного типу. «Пройдений» буває тільки в
     # челенджа — це його єдина мета; свій депозит і фандед проходити нема
     # куди. Фандед ще й не «закривають»: його торгують або зливають.
@@ -241,15 +254,23 @@ def _stamp_balance(a, old=None):
     Окремим полем у формі її не питаємо: людина переписує баланс з кабінету
     саме сьогодні, і зайве питання тут нікому не потрібне. Стару дату
     зберігаємо, поки саме число не змінилось, — інакше кожне збереження
-    картки (правка нотатки, ліміту) зсувало б дату вперед і викидало з
+    картки (правка нотатки, ліміту) зсувало б мітку вперед і викидало з
     підрахунку всі угоди, записані після неї.
+
+    Разом із датою тримаємо `balance_n` — скільки угод цього рахунку вже
+    було в журналі, коли баланс вписали. Саме він і рахує: угоди після
+    цієї позначки додаються до балансу, попередні вважаються врахованими
+    в цифрі з кабінету. Лічильник приходить із браузера, бо тільки він
+    бачить угоди в момент збереження; дата лишається для підпису на картці.
     """
     if a["current_balance"] is None:
         a["balance_at"] = ""
+        a["balance_n"] = 0
         return a
     same = old is not None and old.get("current_balance") == a["current_balance"]
     if same and old.get("balance_at"):
         a["balance_at"] = old["balance_at"]
+        a["balance_n"] = old.get("balance_n") or 0
     elif not a["balance_at"] or not same:
         a["balance_at"] = datetime.date.today().isoformat()
     return a

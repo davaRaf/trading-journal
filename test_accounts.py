@@ -165,18 +165,33 @@ def main():
     # --- дата, на яку правдивий вписаний баланс ---
     # Без неї цифра з кабінету застигала: угоди після неї не враховувались.
     stamp = accounts_store._stamp_balance
-    fresh = stamp(accounts_store.clean({"current_balance": 103000}))
+    fresh = stamp(accounts_store.clean({"current_balance": 103000, "balance_n": 7}))
     ok &= case("новий баланс отримує сьогоднішню дату",
                fresh["balance_at"], datetime.date.today().isoformat())
+    ok &= case("лічильник угод приїхав із браузера", fresh["balance_n"], 7)
     ok &= case("без балансу дати немає",
                stamp(accounts_store.clean({}))["balance_at"], "")
-    keep = stamp(accounts_store.clean({"current_balance": 103000}),
-                 {"current_balance": 103000.0, "balance_at": "2026-09-01"})
+    ok &= case("без балансу й лічильника немає",
+               stamp(accounts_store.clean({"balance_n": 7}))["balance_n"], 0)
+    keep = stamp(accounts_store.clean({"current_balance": 103000, "balance_n": 9}),
+                 {"current_balance": 103000.0, "balance_at": "2026-09-01",
+                  "balance_n": 4})
     ok &= case("незмінний баланс не зсуває дату", keep["balance_at"], "2026-09-01")
-    moved = stamp(accounts_store.clean({"current_balance": 104000}),
-                  {"current_balance": 103000.0, "balance_at": "2026-09-01"})
+    # Інакше правка нотатки зсувала б позначку, і всі угоди, записані після
+    # вписаного балансу, тихо випадали б з підрахунку.
+    ok &= case("незмінний баланс не зсуває лічильник", keep["balance_n"], 4)
+    moved = stamp(accounts_store.clean({"current_balance": 104000, "balance_n": 9}),
+                  {"current_balance": 103000.0, "balance_at": "2026-09-01",
+                   "balance_n": 4})
     ok &= case("новий баланс — нова дата",
                moved["balance_at"], datetime.date.today().isoformat())
+    ok &= case("новий баланс — новий лічильник", moved["balance_n"], 9)
+    # Лічильник живе тільки поруч із балансом, тому й перевіряємо разом із ним.
+    ok &= case("лічильник цілий, не дробовий",
+               accounts_store.clean({"current_balance": 1, "balance_n": "3.7"})["balance_n"], 3)
+    ok &= case("від'ємний лічильник не проходить",
+               accounts_store.clean({"current_balance": 1, "balance_n": -5})["balance_n"], 0)
+    ok &= case("лічильник є серед полів", "balance_n" in accounts_store.FIELDS, True)
 
     # --- дрібниці ---
     ok &= case("валюта за замовчуванням", accounts_store.clean({})["currency"], "USD")

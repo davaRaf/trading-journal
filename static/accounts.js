@@ -121,15 +121,18 @@ function stat(acc){
      журнал знає лише ті угоди, що в ньому записані, а рахунок могли почати
      до журналу. Але сама по собі та цифра застигає: людина переписала
      баланс, записала ще десять угод — і картка показувала б те саме число.
-     Тому від вписаного балансу далі йдемо угодами, записаними після дати,
-     на яку його вписали. */
+     Тому від вписаного балансу далі йдемо угодами, записаними після нього.
+
+     Межа — не дата, а `balance_n`: скільки угод цього рахунку вже лежало
+     в журналі, коли баланс вписали. Дата тут занадто груба міра — угоди
+     того самого дня випадали з підрахунку зовсім, і людина, яка завела
+     рахунок і тут-таки записала дві угоди, бачила колишнє число. */
   const cur = acc.current_balance;
   const manual = cur != null && !isNaN(cur);
-  const at = acc.balance_at || "";
   let since = 1;
-  if (manual && at){
-    for (const t of list){
-      if ((t.date || "").slice(0, 10) > at) since *= 1 + netR(t) / 100;
+  if (manual){
+    for (const t of named.slice(Math.max(0, acc.balance_n || 0))){
+      since *= 1 + netR(t) / 100;
     }
   }
   const balance = manual ? cur * since : (has ? start * f : null);
@@ -600,13 +603,23 @@ function show(el, text){
   el.hidden = false;
 }
 
+/* Скільки угод цього рахунку вже в журналі. Разом із балансом з кабінету
+   це і є позначка «звідси рахуємо далі»: угоди після неї додаються до
+   вписаного балансу, попередні вважаються врахованими в самій цифрі.
+   Рахуємо за тією назвою, яку рахунок носить зараз, а не за новою: угоди
+   перейменуються слідом, але зараз вони лежать під старою. */
+function tradesNow(id, name){
+  const was = (ACCS || []).find(a => a.id === id);
+  return tradesOf({name: (was && was.name) || name}).length;
+}
+
 async function save(id){
   const d = D();
   const err = document.getElementById("acErr");
   const acc = {
     id: id || null, name: val("acName"), firm: val("acFirm"), kind: segVal("acKind"),
     currency: val("acCur") || "USD", start_balance: num("acStart"),
-    current_balance: num("acNow"),
+    current_balance: num("acNow"), balance_n: tradesNow(id || null, val("acName")),
     target_pct: num("acTarget"), dd_total_pct: num("acDdTotal"), dd_daily_pct: num("acDdDaily"),
     opened_at: val("acOpened"), status: segVal("acStatus"),
     closed_at: val("acClosed"), reason: val("acReason"), note: val("acNote"),
