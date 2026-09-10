@@ -33,6 +33,7 @@ ALERT_MINUTES = 30       # за сколько минут до новости п
 REMIND_HOUR = 13         # днём повторяем, что из важного ещё впереди
 REMIND_MINUTE = 0
 JOB_EVERY = 60           # как часто проверяем расписание
+JOB_WINDOW = 30          # сколько минут после назначенного часа рассылка ещё уместна
 
 
 def now_kyiv():
@@ -586,6 +587,22 @@ def news_answer(text):
     return news_msg.digest(events, KYIV, when or today, lang, today=today)
 
 
+def time_has_come(local, hour, minute):
+    """Призначена хвилина вже настала і вікно ще не минуло.
+
+    Раніше тут стояла точна рівність хвилини — і зведення не приходило.
+    Коло бота обертається не рівно раз на хвилину: опит Телеграма триває
+    до 25 с, тому між перевірками розкладу виходить 60-90 с і потрібна
+    хвилина просто випадає (так сталося 10.09 — ранковий випуск не пішов
+    нікому). Тепер дивимось на вікно після призначеного часу, а від
+    повторів боронить record_notified: ключ на добу вже є.
+
+    Вікно ще й рятує після перезапуску: піднялися о 8:10 — зведення
+    все одно поїде, а от опівдні вже мовчимо, це не новина.
+    """
+    return 0 <= (local.hour * 60 + local.minute) - (hour * 60 + minute) < JOB_WINDOW
+
+
 def high_of_day(events, day):
     """«Червоні» новини одного дня за київським часом."""
     out = []
@@ -645,7 +662,7 @@ def job_digest(events, users):
     for user in users:
         if not user["digest_enabled"]:
             continue
-        if local.hour != user["digest_hour"] or local.minute != user["digest_minute"]:
+        if not time_has_come(local, user["digest_hour"], user["digest_minute"]):
             continue
         if not db.record_notified(user["id"], "digest:%s" % today, "digest"):
             continue
@@ -666,7 +683,7 @@ def job_remind(events, users):
     частину, яка ще не вийшла. Нема чого нагадувати — мовчимо.
     """
     local = now_kyiv()
-    if local.hour != REMIND_HOUR or local.minute != REMIND_MINUTE:
+    if not time_has_come(local, REMIND_HOUR, REMIND_MINUTE):
         return
     today = local.date()
     now = datetime.datetime.now(datetime.timezone.utc)
