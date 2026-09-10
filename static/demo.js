@@ -31,7 +31,8 @@
       const v = parseFloat(raw);
       t[k] = raw === "" || isNaN(v) ? null : v;
     }
-    t.screenshots = (body.screenshots || []).map(s => ({ tf: s.tf || "", data: s.data || "", file: s.file || "" }))
+    t.screenshots = (body.screenshots || []).map(s => ({ tf: s.tf || "", data: s.data || "",
+                                                        file: s.file || "", note: s.note || "" }))
                                             .filter(s => s.data || s.file);
     if (body.hidden) t.hidden = true;
     return t;

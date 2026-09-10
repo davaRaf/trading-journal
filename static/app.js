@@ -1674,7 +1674,9 @@ function openForm(id, presetDay){
      всю форму й аж тоді сказати, що записати нікуди */
   if(window.Guest && Guest.block(T.gsGateTrade)) return;
   const t=id?(S.all.length?S.all:S.trades).find(x=>x.id===id):null;
-  S.formShots=(t&&t.screenshots?t.screenshots.map(s=>({tf:s.tf,file:s.file})):[]);
+  /* підпис береться разом із таймфреймом: без нього форма правки відкривала
+     скріни з порожніми полями, і написане зникало на першому ж збереженні */
+  S.formShots=(t&&t.screenshots?t.screenshots.map(s=>({tf:s.tf,file:s.file,note:s.note||""})):[]);
   const v=k=>esc(t?(t[k]!=null?t[k]:""):"");
   const nowT=pad(new Date().getHours())+":"+pad(new Date().getMinutes());
   const dt=t&&t.date?t.date:(presetDay||isoDay(new Date()))+"T"+nowT;
