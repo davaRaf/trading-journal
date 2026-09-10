@@ -32,6 +32,7 @@ CREATE TABLE IF NOT EXISTS accounts (
   firm          TEXT NOT NULL DEFAULT '',
   kind          TEXT NOT NULL DEFAULT 'own',
   start_balance DOUBLE PRECISION,
+  current_balance DOUBLE PRECISION,
   currency      TEXT NOT NULL DEFAULT 'USD',
   target_pct    DOUBLE PRECISION,
   dd_daily_pct  DOUBLE PRECISION,
@@ -48,6 +49,12 @@ CREATE INDEX IF NOT EXISTS accounts_user ON accounts (user_id, id);
 -- Два рахунки з однаковою назвою в однієї людини не мають сенсу: угоди
 -- звʼязані саме по імені, і розрізнити їх було б нічим.
 CREATE UNIQUE INDEX IF NOT EXISTS accounts_user_name ON accounts (user_id, lower(name));
+
+-- Баланс, переписаний з кабінету фірми. Зʼявився пізніше за саму таблицю:
+-- журнал рахує баланс сам, але його арифметика знає лише ті угоди, що в
+-- ньому записані. Хто прийшов у журнал посеред челенджу, бачив розбіжність
+-- із кабінетом і не мав чим її виправити.
+ALTER TABLE accounts ADD COLUMN IF NOT EXISTS current_balance DOUBLE PRECISION;
 """
 
 _ready = False
@@ -70,7 +77,8 @@ KINDS = ("own", "challenge", "funded")
 
 DATE_RE = re.compile(r"^\d{4}-\d{2}-\d{2}$")
 
-NUM_FIELDS = ("start_balance", "target_pct", "dd_daily_pct", "dd_total_pct")
+NUM_FIELDS = ("start_balance", "current_balance", "target_pct",
+               "dd_daily_pct", "dd_total_pct")
 TEXT_FIELDS = ("name", "firm", "kind", "currency", "opened_at", "closed_at",
                "status", "reason", "note")
 FIELDS = TEXT_FIELDS + NUM_FIELDS

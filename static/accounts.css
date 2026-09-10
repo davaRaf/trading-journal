@@ -126,7 +126,14 @@
 .ac-chip i{font-style:normal; font-family:var(--mono); font-size:11px; color:var(--faint)}
 
 /* ---------------- форма ---------------- */
-.modal-box:has(.ac-form){max-width:620px}
+/* Форма висока: фірма, тип, три числа, назва, три ліміти, дати й нотатка.
+   На ноутбуці вона не вміщується у вікно, тому гортається всередині, а
+   шапка з кнопками лишаються на місці — так само, як у формі угоди. */
+.modal-box:has(.ac-form){max-width:620px; max-height:88vh;
+  display:flex; flex-direction:column}
+.modal-box:has(.ac-form) .m-head, .modal-box:has(.ac-form) .m-foot{flex:none}
+.modal-box:has(.ac-form) .ac-form{flex:1; overflow-y:auto; min-height:0}
+.modal-box:has(.ac-form) .ac-form > *{flex:none}
 .ac-form{display:flex; flex-direction:column; gap:12px}
 .ac-row2{display:grid; grid-template-columns:1fr 1fr; gap:12px}
 .ac-row3{display:grid; grid-template-columns:repeat(3,1fr); gap:12px}
@@ -137,6 +144,21 @@
 .ac-in:focus{outline:2px solid var(--accent); outline-offset:1px; border-color:var(--accent)}
 .ac-hint{margin:-4px 0 0; color:var(--faint); font-size:12px; line-height:1.5}
 .ac-err{margin:0; color:var(--down); font-size:13px}
+
+/* Кнопка дати виглядає як поле вводу, бо нею й є: рідний календар
+   браузера не піддається оформленню, тож дату обирає свій DatePicker.
+   Порожня дата підписана словами, а не сірим «дд.мм.гггг». */
+.ac-date{display:flex; align-items:center; gap:10px; text-align:left; cursor:pointer}
+.ac-date > span{flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis;
+  white-space:nowrap}
+.ac-date svg{flex:none; color:var(--faint)}
+.ac-date:hover{border-color:var(--faint)}
+.ac-date:hover svg{color:var(--dim)}
+/* дата ще не обрана — підпис тихіший за справжнє значення */
+.ac-date:not([data-set]) > span{color:var(--faint)}
+
+/* розбіжність із кабінетом фірми */
+.ac-drift{margin-top:4px; color:var(--faint); font-size:11.5px; font-family:var(--mono)}
 
 /* Підказки під полем: назви рахунків з угод і ходові проп-фірми.
    Дрібніші за перемикачі — це не вибір із закритого списку, а швидкий

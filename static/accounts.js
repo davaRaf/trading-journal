@@ -70,20 +70,34 @@ function stat(acc){
   byDay.forEach((v, d) => { if (v < worstDayVal){ worstDayVal = v; worstDay = d; } });
   const start = acc.start_balance;
   const has = start != null && !isNaN(start) && start > 0;
+  /* Баланс, переписаний з кабінету фірми, головніший за нашу арифметику:
+     журнал знає лише ті угоди, що в ньому записані, а рахунок могли почати
+     до журналу. Коли він заданий — рахуємо все від нього, а свою цифру
+     лишаємо поруч окремим рядком, щоб розбіжність було видно, а не сховано. */
+  const cur = acc.current_balance;
+  const manual = cur != null && !isNaN(cur);
+  const balance = manual ? cur : (has ? start * (1 + c.net / 100) : null);
+  const net = (manual && has) ? (cur / start - 1) * 100 : c.net;
   return {
     n: c.n, skips: c.skips, wr: c.wr, avgRR: c.avgRR,
-    net: c.net,                       /* підсумок у % від депозиту */
+    net: net,                         /* підсумок у % від депозиту */
+    journalNet: c.net,                /* стільки набігло за угодами журналу */
+    manual: manual,
+    /* Розбіжність показуємо лише коли вона помітна: копійка різниці —
+       це округлення, а не привід малювати ще один рядок. */
+    drift: (manual && has && Math.abs(c.net - net) > 0.01),
     maxDD: -dd,                       /* просадка від піку, у % (додатне) */
     worstDay, worstDayVal,
     curve, list, all,
-    hasMoney: has,
+    hasMoney: has || manual,
+    hasPct: has,
     start: has ? start : null,
-    profit: has ? start * c.net / 100 : null,
-    balance: has ? start * (1 + c.net / 100) : null,
+    profit: has ? balance - start : null,
+    balance: balance,
     /* Скільки з дозволеної просадки вже витрачено. Рахуємо від старту, а
        не від піку: фірми рахують саме так, і людина порівнює з їхньою
        цифрою в кабінеті. */
-    lost: Math.max(0, -c.net),
+    lost: Math.max(0, -net),
   };
 }
 
@@ -143,9 +157,17 @@ function card(a){
   if (s.hasMoney){
     head = '<div class="ac-bal"><div class="big ' + cls(s.net) + '">'
       +   esc(money(s.balance, a.currency)) + "</div>"
-      + '<div class="ac-delta ' + cls(s.net) + '">' + esc(fmtR(s.net))
-      +   '<i>·</i>' + esc(moneySigned(s.profit, a.currency)) + "</div>"
-      + '<div class="ac-from">' + esc(d.fromStart + " " + money(s.start, a.currency)) + "</div></div>";
+      + (s.hasPct
+          ? '<div class="ac-delta ' + cls(s.net) + '">' + esc(fmtR(s.net))
+            +   '<i>·</i>' + esc(moneySigned(s.profit, a.currency)) + "</div>"
+            + '<div class="ac-from">' + esc(d.fromStart + " " + money(s.start, a.currency))
+            + "</div>"
+          : '<div class="ac-from">' + esc(d.noStartPct) + "</div>")
+      /* Своя цифра поруч, коли вона розійшлась із кабінетом: журнал бачить
+         тільки записані угоди, і різниця — це те, чого в ньому немає. */
+      + (s.drift ? '<div class="ac-drift">' + esc(d.byJournal) + " "
+            + esc(fmtR(s.journalNet)) + "</div>" : "")
+      + "</div>";
   } else {
     head = '<div class="ac-bal"><div class="big ' + cls(s.net) + '">' + esc(fmtR(s.net)) + "</div>"
       + '<div class="ac-nomoney">' + esc(d.noStart)
@@ -281,30 +303,83 @@ function seg(id, val, opts){
     + ">" + esc(o[1]) + "</button>").join("") + "</div>";
 }
 
+/* Поле дати. Рідний <input type="date"> відкриває календар браузера — його
+   не можна ні пофарбувати, ні підігнати під теми: у темному журналі він
+   світиться білим вікном Chrome. У журналі свій календар (DatePicker в
+   ui.js), тим самим користуються фільтри й «Аналіз дня» — беремо його.
+   Саме значення лежить у прихованому полі в ISO, на кнопці — по-людськи. */
+function dateField(label, id, val){
+  return '<div class="ac-f"><span>' + esc(label) + '</span>'
+    + '<button type="button" class="ac-in ac-date" id="' + id + '_btn"'
+    +   ' data-date="' + id + '"' + (val ? ' data-set="1"' : '') + '>'
+    +   '<span>' + esc(val ? human(val) : D().pickDate) + '</span>'
+    +   '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" aria-hidden="true">'
+    +   '<rect x="3" y="5" width="18" height="16" rx="3" stroke="currentColor" stroke-width="1.6"/>'
+    +   '<path d="M3 10h18M8 3v4M16 3v4" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/>'
+    +   '</svg></button>'
+    + '<input type="hidden" id="' + id + '" value="' + esc(val || '') + '"></div>';
+}
+
+/* Назва рахунку збирається сама: фірма, тип і розмір — «FTMO Челендж 100k».
+   Саме так рахунки називають у розмові, і саме це людина потім впише в поле
+   «рахунок» в угоді. Щойно назву правлять руками, збірка замовкає: своє імʼя
+   головніше за наше. Порожнє поле знову вмикає її. */
+function sizeTag(v){
+  const n = Math.abs(Number(v));
+  if (!n || isNaN(n)) return "";
+  if (n >= 1000000) return (Math.round(n / 100000) / 10) + "M";
+  if (n >= 1000) return Math.round(n / 1000) + "k";
+  return String(Math.round(n));
+}
+function madeName(){
+  const d = D();
+  const firm = val("acFirm");
+  const kind = segVal("acKind") || "own";
+  const size = sizeTag(num("acStart"));
+  /* Свій депозит фірми не має — його називаємо словом, інакше з порожньої
+     фірми лишився б самий розмір: просто «100k». */
+  /* У словнику типи написані з малої: там вони підписи кнопок. У назві
+     рахунку це вже імʼя — «FTMO Челендж 100k», а не «FTMO челендж 100k». */
+  const cap = t => t ? t.charAt(0).toUpperCase() + t.slice(1) : "";
+  const head = firm || (kind === "own" ? cap(d.kinds.own) : "");
+  const tag = kind === "own" ? "" : cap(d.kinds[kind]);
+  return [head, tag, size].filter(Boolean).join(" ").trim();
+}
+let nameTouched = false;
+function syncName(){
+  const inp = document.getElementById("acName");
+  if (!inp || nameTouched) return;
+  inp.value = madeName();
+}
+
 function form(a){
   const d = D();
   const dead = a.status && a.status !== "active";
+  nameTouched = !!(a.name || "").trim();   /* у готового рахунку назва вже своя */
   return '<div class="m-body ac-form">'
-    /* Назву підказуємо тим, що вже стоїть у самих угодах: саме по ній
-       рахунок і знайде свої угоди, тож збіг тут важливіший за красу. */
+    /* Спершу фірма й тип, потім розмір — у цьому порядку з них і збирається
+       назва. Саме поле назви стоїть нижче: воно тут підсумок, а не перше
+       питання. */
     + '<div class="ac-row2">'
-    +   '<div>' + field(d.fName, "acName", a.name, d.phName)
-    +     picks("acName", unlisted().slice(0, 6).map(r => r.name), a.name) + '</div>'
     +   '<div>' + field(d.fFirm, "acFirm", a.firm, d.phFirm)
     +     picks("acFirm", FIRMS, a.firm) + '</div>'
-    + "</div>"
-    + '<div class="ac-f"><span>' + esc(d.fKind) + "</span>"
-    +   seg("acKind", a.kind || "own",
-          [["own", d.kinds.own], ["challenge", d.kinds.challenge], ["funded", d.kinds.funded]])
-    + "</div>"
-    + '<div class="ac-row2">' + field(d.fStart, "acStart", a.start_balance, "100000", "number")
+    +   '<div class="ac-f"><span>' + esc(d.fKind) + "</span>"
+    +     seg("acKind", a.kind || "own",
+            [["own", d.kinds.own], ["challenge", d.kinds.challenge], ["funded", d.kinds.funded]])
+    +   "</div></div>"
+    + '<div class="ac-row3">' + field(d.fStart, "acStart", a.start_balance, "100000", "number")
+    +   field(d.fNow, "acNow", a.current_balance, d.phNow, "number")
     +   field(d.fCur, "acCur", a.currency || "USD", "USD") + "</div>"
-    + '<p class="ac-hint">' + esc(d.startHint) + "</p>"
+    + '<p class="ac-hint">' + esc(d.nowHint) + "</p>"
+    /* Назва — звʼязок з угодами, тому підказуємо тим, що вже стоїть в угодах. */
+    + '<div>' + field(d.fName, "acName", a.name, d.phName)
+    +   picks("acName", unlisted().slice(0, 6).map(r => r.name), a.name) + '</div>'
+    + '<p class="ac-hint">' + esc(d.nameHint) + "</p>"
     + '<div class="ac-row3">' + field(d.fTarget, "acTarget", a.target_pct, "10", "number")
     +   field(d.fDdTotal, "acDdTotal", a.dd_total_pct, "10", "number")
     +   field(d.fDdDaily, "acDdDaily", a.dd_daily_pct, "5", "number") + "</div>"
     + '<p class="ac-hint">' + esc(d.limitHint) + "</p>"
-    + '<div class="ac-row2">' + field(d.fOpened, "acOpened", a.opened_at, "", "date")
+    + '<div class="ac-row2">' + dateField(d.fOpened, "acOpened", a.opened_at)
     +   '<div class="ac-f"><span>' + esc(d.fStatus) + "</span>"
     +   seg("acStatus", a.status || "active",
           [["active", d.status.active], ["passed", d.status.passed],
@@ -312,7 +387,7 @@ function form(a){
     /* Дата закриття й причина зʼявляються тільки тоді, коли рахунку вже
        нема: живому рахунку їх заповнювати нема чого. */
     + '<div class="ac-dead" id="acDead"' + (dead ? "" : " hidden") + ">"
-    +   '<div class="ac-row2">' + field(d.fClosed, "acClosed", a.closed_at, "", "date")
+    +   '<div class="ac-row2">' + dateField(d.fClosed, "acClosed", a.closed_at)
     +     field(d.fReason, "acReason", a.reason, d.phReason) + "</div></div>"
     + field(d.fNote, "acNote", a.note, d.phNote)
     + '<p class="ac-err" id="acErr" hidden></p>'
@@ -362,6 +437,7 @@ async function save(id){
   const acc = {
     id: id || null, name: val("acName"), firm: val("acFirm"), kind: segVal("acKind"),
     currency: val("acCur") || "USD", start_balance: num("acStart"),
+    current_balance: num("acNow"),
     target_pct: num("acTarget"), dd_total_pct: num("acDdTotal"), dd_daily_pct: num("acDdDaily"),
     opened_at: val("acOpened"), status: segVal("acStatus"),
     closed_at: val("acClosed"), reason: val("acReason"), note: val("acNote"),
@@ -474,10 +550,27 @@ document.addEventListener("click", e => {
       const dead = document.getElementById("acDead");
       if (dead) dead.hidden = seg.dataset.v === "active";
     }
+    if (box.dataset.seg === "acKind") syncName();
     return;
   }
   /* Підказка під полем: підставляємо значення й підсвічуємо саме її.
      Стоїть до перевірки на розділ — форма живе у вікні, а не на сторінці. */
+  /* Кнопка дати: свій календар журналу. Він малюється в body, тож вікно
+     форми його не обрізає. */
+  const db = e.target.closest(".ac-date");
+  if (db){
+    const hid = document.getElementById(db.dataset.date);
+    DatePicker.open(db, {mode: "single", value: (hid && hid.value) || "",
+      onPick: key => {
+        if (hid) hid.value = key;
+        const lab = db.querySelector("span");
+        if (lab) lab.textContent = key ? human(key) : D().pickDate;
+        if (key) db.setAttribute("data-set", "1");
+        else db.removeAttribute("data-set");
+      }});
+    return;
+  }
+
   const p = e.target.closest(".ac-pick");
   if (p){
     const inp = document.getElementById(p.dataset.target);
@@ -486,6 +579,8 @@ document.addEventListener("click", e => {
       inp.focus();
       p.parentNode.querySelectorAll(".ac-pick")
         .forEach(b => b.classList.toggle("on", b === p));
+      if (p.dataset.target === "acName") nameTouched = true;
+      else syncName();
     }
     return;
   }
@@ -510,6 +605,17 @@ document.addEventListener("input", e => {
   const now = inp.value.trim().toLowerCase();
   mine.forEach(b => b.classList.toggle("on", b.dataset.fill.toLowerCase() === now));
 });
+
+/* Назва живе своїм життям, щойно її торкнулись руками. Порожнє поле
+   означає «збери сам» — так її можна повернути, стерши. */
+document.addEventListener("input", e => {
+  const id = e.target && e.target.id;
+  if (id === "acName") nameTouched = !!e.target.value.trim();
+  else if (id === "acFirm" || id === "acStart") syncName();
+});
+
+/* Гачок для перевірок: збірку назви інакше не викликати ззовні. */
+window.__accTest = {sync: syncName, made: madeName};
 
 window.__acc = {
   add(){
@@ -585,9 +691,13 @@ uk: {
   fTarget: "Ціль, %", fDdTotal: "Ліміт просадки, %", fDdDaily: "Денний ліміт, %",
   fOpened: "Відкритий", fStatus: "Стан", fClosed: "Закритий", fReason: "Причина",
   fNote: "Нотатка",
+  fNow: "Баланс зараз", phNow: "з кабінету", pickDate: "обрати дату",
+  nowHint: "Баланс зараз — з кабінету фірми. Порожньо — журнал порахує сам за угодами.",
+  nameHint: "Назва збирається сама з фірми, типу й розміру. Впишеш своє — лишиться твоє; зітреш — знову збереться. Головне, щоб вона збігалась із полем «рахунок» в угоді: по ній угоди й знаходяться.",
+  noStartPct: "Стартовий баланс не заданий — відсотків не порахувати.",
+  byJournal: "за угодами журналу:",
   phName: "FTMO 100k", phFirm: "FTMO", phReason: "перевищив денний ліміт",
   phNote: "що завгодно про цей рахунок",
-  startHint: "Назва має збігатися з тим, що ти пишеш у полі «рахунок» в угоді — по ній угоди й знаходяться.",
   limitHint: "Ліміти бери з умов фірми. Порожнє поле означає «ліміту немає», а не нуль.",
   emptyLead: "Тут будуть твої рахунки: свій депозит і все, що взяв у проп-фірм.",
   emptyHint: "Заведи рахунок — і журнал перестане рахувати самими відсотками: покаже баланс у грошах, скільки лишилось до цілі й скільки до ліміту просадки.",
@@ -619,9 +729,13 @@ ru: {
   fTarget: "Цель, %", fDdTotal: "Лимит просадки, %", fDdDaily: "Дневной лимит, %",
   fOpened: "Открыт", fStatus: "Состояние", fClosed: "Закрыт", fReason: "Причина",
   fNote: "Заметка",
+  fNow: "Баланс сейчас", phNow: "из кабинета", pickDate: "выбрать дату",
+  nowHint: "Баланс сейчас — из кабинета фирмы. Пусто — журнал посчитает сам по сделкам.",
+  nameHint: "Название собирается само из фирмы, типа и размера. Впишешь своё — останется твоё; сотрёшь — соберётся снова. Главное, чтобы оно совпадало с полем «счёт» в сделке: по нему сделки и находятся.",
+  noStartPct: "Стартовый баланс не задан — процентов не посчитать.",
+  byJournal: "по сделкам журнала:",
   phName: "FTMO 100k", phFirm: "FTMO", phReason: "превысил дневной лимит",
   phNote: "что угодно про этот счёт",
-  startHint: "Название должно совпадать с тем, что ты пишешь в поле «счёт» в сделке — по нему сделки и находятся.",
   limitHint: "Лимиты бери из условий фирмы. Пустое поле значит «лимита нет», а не ноль.",
   emptyLead: "Здесь будут твои счета: свой депозит и всё, что взял у проп-фирм.",
   emptyHint: "Заведи счёт — и журнал перестанет считать одними процентами: покажет баланс в деньгах, сколько осталось до цели и сколько до лимита просадки.",
@@ -653,9 +767,13 @@ en: {
   fTarget: "Target, %", fDdTotal: "Drawdown limit, %", fDdDaily: "Daily limit, %",
   fOpened: "Opened", fStatus: "Status", fClosed: "Closed", fReason: "Reason",
   fNote: "Note",
+  fNow: "Balance now", phNow: "from the dashboard", pickDate: "pick a date",
+  nowHint: "Balance now comes from the firm dashboard. Leave it empty and the journal counts from your trades.",
+  nameHint: "The name is assembled from firm, type and size. Type your own and it stays; clear it and it comes back. It must match the trade's account field — that is how trades are found.",
+  noStartPct: "No starting balance — percentages cannot be counted.",
+  byJournal: "by journal trades:",
   phName: "FTMO 100k", phFirm: "FTMO", phReason: "went past the daily limit",
   phNote: "anything about this account",
-  startHint: "The name must match what you type in the trade's account field — that is how trades are found.",
   limitHint: "Take the limits from the firm's terms. An empty field means no limit, not zero.",
   emptyLead: "Your accounts live here: your own deposit and everything you took from prop firms.",
   emptyHint: "Add an account and the journal stops counting in percent alone: it shows the balance in money, how far the target is and how much drawdown is left.",

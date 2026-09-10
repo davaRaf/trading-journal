@@ -41,6 +41,18 @@ def main():
     ok &= case("нуль лишається нулем",
                accounts_store.clean({"dd_daily_pct": 0})["dd_daily_pct"], 0.0)
 
+    # --- баланс з кабінету фірми ---
+    b = accounts_store.clean({"start_balance": 100000, "current_balance": 103000})
+    ok &= case("баланс зараз числом", b["current_balance"], 103000.0)
+    ok &= case("порожній баланс зараз — не нуль",
+               accounts_store.clean({"current_balance": ""})["current_balance"], None)
+    ok &= case("мінус проходить",
+               accounts_store.clean({"current_balance": -500})["current_balance"], -500.0)
+    ok &= case("сміття замість балансу — порожньо",
+               accounts_store.clean({"current_balance": "багато"})["current_balance"], None)
+    ok &= case("баланс зараз є серед полів",
+               "current_balance" in accounts_store.FIELDS, True)
+
     # --- перелічення ---
     ok &= case("свій тип проходить",
                accounts_store.clean({"kind": "challenge"})["kind"], "challenge")
