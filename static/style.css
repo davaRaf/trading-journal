@@ -944,8 +944,13 @@ body:has(.ovw){font-size:14px;line-height:1.6;font-weight:300}
 /* Заголовок-перемикач: відкрита вкладка чорна з рискою знизу, сусідня сіра.
    Селектор без шапки навмисне — у порожньому журналі цей заголовок живе
    в .vhead, і там він мусить виглядати так само. */
-h1.ovh{display:flex;align-items:baseline;gap:18px;flex-wrap:wrap}
+h1.ovh{display:flex;align-items:baseline;gap:22px;flex-wrap:wrap}
 h1.ovh a{position:relative;padding-bottom:7px;color:var(--dim);transition:color .15s}
+/* Волосинка між вкладками: без неї дві назви поруч читались одним рядком,
+   а не вибором. Висота в em — щоб риска трималась висоти самих літер,
+   коли заголовок дрібнішає на телефоні. */
+h1.ovh a + a::before{content:"";position:absolute;left:-11px;top:.16em;height:.74em;
+  width:1px;background:var(--line)}
 h1.ovh a:hover{color:var(--text)}
 h1.ovh a.on{color:var(--text)}
 h1.ovh a.on::after{content:"";position:absolute;left:0;right:0;bottom:0;height:2px;
