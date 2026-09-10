@@ -468,21 +468,37 @@ def count_import(user_id, batch):
     return row["n"]
 
 
-def rename_value(user_id, field, values, to):
+def rename_value(user_id, field, values, to, kind="", conn=None):
     """Сводит несколько написаний одного имени в одно.
 
     Имя колонки подставляется в SQL, поэтому берём его только из своего
-    списка — снаружи сюда приходит поле из запроса."""
+    списка — снаружи сюда приходит поле из запроса.
+
+    `kind` — в каком журнале переименовываем: "" реальный, "bt" бэктест,
+    "all" оба. Умолчание то же, что у `list_trades`: списки написаний
+    человек видит по реальным сделкам, и правка не должна молча трогать
+    прогоны на истории, которых в том списке не было.
+
+    `conn` — готовое соединение, когда переименование должно уехать в базу
+    одной транзакцией с чем-то ещё (так это делает карточка счёта: имя
+    карточки и имя в сделках обязаны меняться вместе или никак).
+    """
     if field not in TIDY_FIELDS:
         raise ValueError("нельзя менять поле %r" % (field,))
     values = [v for v in (values or []) if v != to]
     if not values:
         return 0
-    with connect() as conn:
-        cur = conn.execute('UPDATE trades SET "%s"=%%s WHERE user_id=%%s '
-                           'AND "%s" = ANY(%%s)' % (field, field),
-                           (to, user_id, values))
-        conn.commit()
+    sql = ('UPDATE trades SET "%s"=%%s WHERE user_id=%%s '
+           'AND "%s" = ANY(%%s)' % (field, field))
+    args = [to, user_id, values]
+    if kind != "all":
+        sql += " AND kind=%s"
+        args.append("bt" if kind == "bt" else "")
+    if conn is not None:
+        return conn.execute(sql, tuple(args)).rowcount
+    with connect() as c:
+        cur = c.execute(sql, tuple(args))
+        c.commit()
     return cur.rowcount
 
 

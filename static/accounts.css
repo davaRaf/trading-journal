@@ -19,6 +19,9 @@
 .ac-total{display:flex; align-items:baseline; gap:10px; color:var(--faint);
   font-family:var(--mono); font-size:12px}
 .ac-total b{color:var(--text); font-size:15px; font-variant-numeric:tabular-nums}
+/* Скільки рахунків у суму не ввійшло. Дрібним і без нахилу: це виноска
+   до цифри поруч, а не окрема думка. */
+.ac-total .ac-muted{font-style:normal; font-size:11.5px; color:var(--faint)}
 
 /* ---------------- сітка карток ---------------- */
 /* Скільки колонок — вирішує 330: стільки треба картці, щоб підписи цифр
@@ -168,6 +171,9 @@
 .ac-in:focus{outline:2px solid var(--accent); outline-offset:1px; border-color:var(--accent)}
 .ac-hint{margin:-4px 0 0; color:var(--faint); font-size:12px; line-height:1.5}
 .ac-err{margin:0; color:var(--down); font-size:13px}
+/* Не помилка, а попередження: рахунок збережеться, просто під іншою
+   назвою. Тому колір не червоний — це стан справ, а не перешкода. */
+.ac-warn{margin:6px 0 0; color:var(--faint); font-size:12px; line-height:1.5}
 
 /* Поле фірми зі списком. Стрілка праворуч каже, що є з чого вибрати, і
    при цьому не заважає вписати своє: поле лишається звичайним текстовим.
@@ -197,6 +203,8 @@
 
 /* розбіжність із кабінетом фірми */
 .ac-drift{margin-top:4px; color:var(--faint); font-size:11.5px; font-family:var(--mono)}
+/* Тиха приписка внизу картки: чого в підрахунку немає і чому. */
+.ac-note{margin:10px 0 0; color:var(--faint); font-size:11.5px; line-height:1.45}
 
 /* Підказки під полем: назви рахунків з угод і ходові проп-фірми.
    Дрібніші за перемикачі — це не вибір із закритого списку, а швидкий

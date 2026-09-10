@@ -12,11 +12,44 @@
 
 Бази не треба: перевіряємо чисту функцію.
 """
+import datetime
 import os
 
 os.environ.setdefault("DATABASE_URL", "postgresql://x/y")
 
 import accounts_store
+
+
+class _Rows(object):
+    """Заглушка бази: `free_name` ходить по список уже заведених назв.
+
+    Справжнього зʼєднання тут не треба — перевіряємо саме підбір назви.
+    """
+
+    def __init__(self, names):
+        self.names = names
+
+    def execute(self, sql, args=None):
+        return self
+
+    def fetchall(self):
+        return [{"id": i + 1, "name": nm} for i, nm in enumerate(self.names)]
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *a):
+        return False
+
+
+def free(name, existing, skip_id=None):
+    accounts_store._ready = True                 # схему не створюємо
+    was = accounts_store.db.connect
+    accounts_store.db.connect = lambda: _Rows(existing)
+    try:
+        return accounts_store.free_name(1, name, skip_id)
+    finally:
+        accounts_store.db.connect = was
 
 
 def case(name, got, want):
@@ -98,9 +131,54 @@ def main():
     ok &= case("крива дата — порожньо",
                accounts_store.clean({"opened_at": "12.08.2026"})["opened_at"], "")
 
-    # --- дрібниці ---
+    # --- імʼя рахунку ---
+    # Звʼязок з угодами йде саме по імені, і невидима різниця в ньому
+    # лишає картку зовсім без угод.
+    n = accounts_store.norm_name
     ok &= case("пробіли по краях назви",
                accounts_store.clean({"name": "  FTMO 100k  "})["name"], "FTMO 100k")
+    ok &= case("подвійний пробіл усередині", n("FTMO   100k"), "FTMO 100k")
+    ok &= case("нерозривний пробіл — звичайний", n("FTMO\u00a0100k"), "FTMO 100k")
+    ok &= case("вузький нерозривний теж", n("FTMO\u202f100k"), "FTMO 100k")
+    ok &= case("перенос рядка з буфера", n("FTMO\n100k"), "FTMO 100k")
+    ok &= case("порожнє лишається порожнім", n("   "), "")
+    ok &= case("назва в clean теж нормалізується",
+               accounts_store.clean({"name": "FTMO\u00a0 100k"})["name"], "FTMO 100k")
+
+    # --- вільна назва: замість відмови дописуємо номер ---
+    ok &= case("вільна назва лишається собою",
+               free("FTMO 100k", ["Свій депозит"]), "FTMO 100k")
+    ok &= case("зайнята отримує двійку",
+               free("FTMO 100k", ["FTMO 100k"]), "FTMO 100k 2")
+    ok &= case("регістр не рятує від збігу",
+               free("ftmo 100k", ["FTMO 100k"]), "ftmo 100k 2")
+    ok &= case("пробіли не рятують від збігу",
+               free("  FTMO   100k ", ["FTMO 100k"]), "FTMO 100k 2")
+    ok &= case("номер росте далі, а не множиться",
+               free("FTMO 100k", ["FTMO 100k", "FTMO 100k 2"]), "FTMO 100k 3")
+    ok &= case("пронумеровану назву нарощуємо від основи",
+               free("FTMO 100k 2", ["FTMO 100k 2"]), "FTMO 100k 3")
+    ok &= case("свою ж назву не рахуємо зайнятою",
+               free("FTMO 100k", ["FTMO 100k"], skip_id=1), "FTMO 100k")
+    ok &= case("порожню назву не нумеруємо", free("", ["FTMO"]), "")
+
+    # --- дата, на яку правдивий вписаний баланс ---
+    # Без неї цифра з кабінету застигала: угоди після неї не враховувались.
+    stamp = accounts_store._stamp_balance
+    fresh = stamp(accounts_store.clean({"current_balance": 103000}))
+    ok &= case("новий баланс отримує сьогоднішню дату",
+               fresh["balance_at"], datetime.date.today().isoformat())
+    ok &= case("без балансу дати немає",
+               stamp(accounts_store.clean({}))["balance_at"], "")
+    keep = stamp(accounts_store.clean({"current_balance": 103000}),
+                 {"current_balance": 103000.0, "balance_at": "2026-09-01"})
+    ok &= case("незмінний баланс не зсуває дату", keep["balance_at"], "2026-09-01")
+    moved = stamp(accounts_store.clean({"current_balance": 104000}),
+                  {"current_balance": 103000.0, "balance_at": "2026-09-01"})
+    ok &= case("новий баланс — нова дата",
+               moved["balance_at"], datetime.date.today().isoformat())
+
+    # --- дрібниці ---
     ok &= case("валюта за замовчуванням", accounts_store.clean({})["currency"], "USD")
 
     print("\n" + ("Усе зійшлось." if ok else "Є розбіжності."))

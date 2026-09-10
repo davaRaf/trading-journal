@@ -2038,10 +2038,11 @@ class H(BaseHTTPRequestHandler):
                 acc_id = int(acc_id) if acc_id not in (None, "") else None
             except (TypeError, ValueError):
                 return self._json({"error": "bad id"}, 400)
-            # Назва — це і є звʼязок з угодами, тому двох однакових бути
-            # не може: угоди однієї назви розділити було б нічим.
-            if accounts_store.name_taken(uid, name, acc_id):
-                return self._json({"error": "name taken"}, 409)
+            # Двох рахунків з однією назвою бути не може: угоди звʼязані
+            # саме по імені, і розрізнити їх було б нічим. Але відмовляти
+            # через це — погана відповідь: два челенджі однієї фірми
+            # одного розміру людина заводить постійно. Тому сервер сам
+            # дописує номер («FTMO 100k 2») і повертає підсумкову назву.
             if acc_id is None:
                 return self._json({"account": accounts_store.add(uid, acc)})
             saved = accounts_store.put(uid, acc_id, acc)

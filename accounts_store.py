@@ -20,6 +20,7 @@
 Один людський рахунок — один рядок. Видалення рахунку не чіпає угод:
 угоди лишаються, просто без картки.
 """
+import datetime
 import re
 
 import db
@@ -55,6 +56,22 @@ CREATE UNIQUE INDEX IF NOT EXISTS accounts_user_name ON accounts (user_id, lower
 -- ньому записані. Хто прийшов у журнал посеред челенджу, бачив розбіжність
 -- із кабінетом і не мав чим її виправити.
 ALTER TABLE accounts ADD COLUMN IF NOT EXISTS current_balance DOUBLE PRECISION;
+
+-- На яку дату той баланс правдивий. Без цієї дати вписана цифра застигала
+-- назавжди: людина переписала баланс з кабінету, записала ще десять угод —
+-- а картка показувала те саме число, ніби угод не було.
+ALTER TABLE accounts ADD COLUMN IF NOT EXISTS balance_at TEXT NOT NULL DEFAULT '';
+
+-- Разова чистка імен, які лягли в базу до нормалізації: пробіл на кінці
+-- робив «FTMO » і «FTMO» різними рахунками, а в браузері вони склеювались
+-- в одну картку. Пари, де чисте імʼя вже зайняте, не чіпаємо — інакше
+-- впав би унікальний індекс; їх розведе нумерація при наступному збереженні.
+UPDATE accounts a SET name = btrim(regexp_replace(name, '[[:space:]]+', ' ', 'g'))
+ WHERE name <> btrim(regexp_replace(name, '[[:space:]]+', ' ', 'g'))
+   AND NOT EXISTS (SELECT 1 FROM accounts b WHERE b.user_id = a.user_id
+                     AND b.id <> a.id
+                     AND lower(b.name)
+                       = lower(btrim(regexp_replace(a.name, '[[:space:]]+', ' ', 'g'))));
 """
 
 _ready = False
@@ -81,11 +98,14 @@ STATUS_FOR = {
 KINDS = ("own", "challenge", "funded")
 
 DATE_RE = re.compile(r"^\d{4}-\d{2}-\d{2}$")
+# Будь-який пробільний символ, зокрема нерозривний: такі приїжджають
+# із буфера обміну й на око не відрізняються від звичайного.
+SPACE_RE = re.compile(r"[\s\u00a0\u202f\u2007]+")
 
 NUM_FIELDS = ("start_balance", "current_balance", "target_pct",
                "dd_daily_pct", "dd_total_pct")
 TEXT_FIELDS = ("name", "firm", "kind", "currency", "opened_at", "closed_at",
-               "status", "reason", "note")
+               "status", "reason", "note", "balance_at")
 FIELDS = TEXT_FIELDS + NUM_FIELDS
 
 
@@ -106,6 +126,57 @@ def _date(v):
     return v if DATE_RE.match(v) else ""
 
 
+def norm_name(v):
+    """Імʼя рахунку до одного вигляду.
+
+    Звʼязок з угодами йде саме по імені, і будь-яка невидима різниця в
+    ньому — пробіл на кінці, два пробіли поспіль, нерозривний пробіл з
+    буфера обміну — залишає картку без угод, хоча на око все збігається.
+    Тому пробіли зводимо до одного звичайного, а краї обрізаємо.
+    """
+    return SPACE_RE.sub(" ", str(v or "")).strip()[:200]
+
+
+# Хвіст-лічильник у кінці імені: «FTMO 100k 2». Другий рахунок під тією ж
+# назвою отримує двійку — перший лишається без номера, бо він і був перший.
+_TAIL_RE = re.compile(r"^(.*?)\s+(\d{1,3})$")
+
+
+def free_name(user_id, name, skip_id=None):
+    """Вільне імʼя для рахунку: якщо таке вже є, дописуємо номер.
+
+    Раніше сервер відповідав «назва зайнята» і не зберігав нічого. Але два
+    челенджі однієї фірми одного розміру — звичайна річ, і людині все одно
+    доводилось вигадувати назву руками. Тепер вигадуємо ми: «FTMO 100k»,
+    «FTMO 100k 2», «FTMO 100k 3».
+    """
+    init()
+    base = norm_name(name)
+    if not base:
+        return base
+    with db.connect() as conn:
+        rows = conn.execute(
+            "SELECT id, name FROM accounts WHERE user_id=%s", (user_id,)).fetchall()
+    taken = set()
+    for r in rows:
+        if skip_id is not None and r["id"] == skip_id:
+            continue
+        taken.add(norm_name(r["name"]).lower())
+    if base.lower() not in taken:
+        return base
+    # Уже пронумероване імʼя нарощуємо далі, а не ліпимо номер до номера:
+    # інакше з «FTMO 2» вийшло б «FTMO 2 2».
+    m = _TAIL_RE.match(base)
+    stem = m.group(1) if m else base
+    n = 2
+    while n < 1000:
+        cand = "%s %d" % (stem, n)
+        if cand.lower() not in taken:
+            return cand[:200]
+        n += 1
+    return base
+
+
 def clean(body):
     """Що прийшло з браузера — до вигляду, який кладеться в базу."""
     a = {}
@@ -116,8 +187,13 @@ def clean(body):
     a["kind"] = a["kind"] if a["kind"] in KINDS else "own"
     a["status"] = a["status"] if a["status"] in STATUS else "active"
     a["currency"] = (a["currency"] or "USD")[:8]
+    a["name"] = norm_name(a["name"])
     a["opened_at"] = _date(a["opened_at"])
     a["closed_at"] = _date(a["closed_at"])
+    a["balance_at"] = _date(a["balance_at"])
+    # Дата без самого балансу нічого не означає.
+    if a["current_balance"] is None:
+        a["balance_at"] = ""
     # Не кожен стан має сенс для кожного типу. «Пройдений» буває тільки в
     # челенджа — це його єдина мета; свій депозит і фандед проходити нема
     # куди. Фандед ще й не «закривають»: його торгують або зливають.
@@ -159,19 +235,33 @@ def get(user_id, acc_id):
     return _row(r) if r else None
 
 
-def name_taken(user_id, name, skip_id=None):
-    init()
-    with db.connect() as conn:
-        r = conn.execute(
-            "SELECT id FROM accounts WHERE user_id=%s AND lower(name)=lower(%s) "
-            "AND (%s::bigint IS NULL OR id<>%s::bigint)",
-            (user_id, str(name or "").strip(), skip_id, skip_id)).fetchone()
-    return bool(r)
+def _stamp_balance(a, old=None):
+    """Дата, на яку правдивий вписаний руками баланс.
+
+    Окремим полем у формі її не питаємо: людина переписує баланс з кабінету
+    саме сьогодні, і зайве питання тут нікому не потрібне. Стару дату
+    зберігаємо, поки саме число не змінилось, — інакше кожне збереження
+    картки (правка нотатки, ліміту) зсувало б дату вперед і викидало з
+    підрахунку всі угоди, записані після неї.
+    """
+    if a["current_balance"] is None:
+        a["balance_at"] = ""
+        return a
+    same = old is not None and old.get("current_balance") == a["current_balance"]
+    if same and old.get("balance_at"):
+        a["balance_at"] = old["balance_at"]
+    elif not a["balance_at"] or not same:
+        a["balance_at"] = datetime.date.today().isoformat()
+    return a
 
 
 def add(user_id, body):
     init()
-    a = clean(body)
+    a = _stamp_balance(clean(body))
+    # Назву підбираємо вільну: два челенджі однієї фірми одного розміру —
+    # звичайна річ, і відмовляти через збіг імен означало б змушувати
+    # людину вигадувати назву руками.
+    a["name"] = free_name(user_id, a["name"])
     cols = ", ".join(FIELDS)
     marks = ", ".join(["%s"] * len(FIELDS))
     with db.connect() as conn:
@@ -184,29 +274,40 @@ def add(user_id, body):
 
 def put(user_id, acc_id, body):
     """Правка рахунку. Перейменування веде за собою угоди: звʼязок у нас
-    по імені, і без цього всі угоди старої назви лишились би без картки."""
+    по імені, і без цього всі угоди старої назви лишились би без картки.
+
+    Обидві дії їдуть однією транзакцією. Раніше картка й угоди зберігались
+    окремо, а помилка перейменування ще й глушилась мовчки — картка
+    отримувала нове імʼя, угоди лишались на старому, і рахунок на очах
+    ставав порожнім без жодного слова.
+    """
     init()
     old = get(user_id, acc_id)
     if not old:
         return None
-    a = clean(body)
+    a = _stamp_balance(clean(body), old)
+    a["name"] = free_name(user_id, a["name"], acc_id)
     sets = ", ".join("%s=%%s" % k for k in FIELDS)
     with db.connect() as conn:
         conn.execute("UPDATE accounts SET %s, updated_at=now() "
                      "WHERE user_id=%%s AND id=%%s" % sets,
                      tuple([a[k] for k in FIELDS] + [user_id, acc_id]))
-    if old["name"] and a["name"] and old["name"] != a["name"]:
-        try:
-            db.rename_value(user_id, "account", [old["name"]], a["name"])
-        except Exception:
-            pass
+        if old["name"] and a["name"] and old["name"] != a["name"]:
+            db.rename_value(user_id, "account", [old["name"]], a["name"], conn=conn)
+        conn.commit()
     a["id"] = acc_id
     return a
 
 
 def drop(user_id, acc_id):
     """Прибираємо тільки картку. Угоди лишаються як були: людина
-    видаляє опис рахунку, а не свою історію."""
+    видаляє опис рахунку, а не свою історію.
+
+    Через це картка з тією самою назвою, заведена пізніше, підбере ті самі
+    угоди. Це навмисно — саме так рахунок можна завести заднім числом, —
+    але сказати про це людина має право заздалегідь, тому у вікні
+    підтвердження стоїть кількість угод, які лишаються з цією назвою.
+    """
     init()
     with db.connect() as conn:
         conn.execute("DELETE FROM accounts WHERE user_id=%s AND id=%s", (user_id, acc_id))
