@@ -1700,7 +1700,7 @@ function onPasteShot(e){
     const f=it.getAsFile();
     if(f) resizeImage(f).then(dataUrl=>{
       const tf = idx===0 && S.activeTf ? S.activeTf : firstEmptyTf();
-      putShot(tf,dataUrl,"з буфера");
+      putShot(tf,dataUrl,T.shotClip);
       if(idx===0) S.activeTf=null;
     });
   });

@@ -1007,6 +1007,7 @@ const I18N = {
     fgSentTg: "Посилання надіслано в чат бота в Телеграмі: воно живе 30 хвилин. "
           + "На пошту лист поки не йде.",
     fgSentMail: "Посилання надіслано на %s. Подивись у скриньці (і в теці «Спам»): воно живе 30 хвилин.",
+    aShowPw: "Показати пароль",
     fgNone: "Такої пошти в нас немає. Перевір адресу або створи акаунт.",
     fgBad: "Це не схоже на адресу пошти.",
     fgFail: "Листа надіслати не вдалось. Спробуй ще раз трохи згодом.",
@@ -1050,6 +1051,7 @@ const I18N = {
     fgSentTg: "Ссылка отправлена в чат бота в Telegram: она живёт 30 минут. "
           + "На почту письмо пока не уходит.",
     fgSentMail: "Ссылка отправлена на %s. Посмотри в ящике (и в папке «Спам»): она живёт 30 минут.",
+    aShowPw: "Показать пароль",
     fgNone: "Такой почты у нас нет. Проверь адрес или создай аккаунт.",
     fgBad: "Это не похоже на адрес почты.",
     fgFail: "Письмо отправить не удалось. Попробуй ещё раз чуть позже.",
@@ -1093,6 +1095,7 @@ const I18N = {
     fgSentTg: "The link has been sent to the Telegram bot chat: it lives for 30 minutes. "
           + "Email delivery is not available yet.",
     fgSentMail: "The link has been sent to %s. Check your inbox (and the spam folder): it lives for 30 minutes.",
+    aShowPw: "Show password",
     fgNone: "We have no such email. Check the address or create an account.",
     fgBad: "That does not look like an email address.",
     fgFail: "The letter could not be sent. Please try again a bit later.",
@@ -1123,6 +1126,8 @@ function applyLang(code){
   if (big) big.innerHTML = T.pitchBig;
   document.querySelectorAll(".pitch .fact span").forEach((el, i) => el.textContent = T.pitchFacts[i]);
 
+  const eye = document.getElementById("eyeBtn");
+  if (eye) eye.setAttribute("aria-label", T.aShowPw);
   document.querySelectorAll("#langs button").forEach(b => b.classList.toggle("on", b.dataset.lang === LANG));
   try { localStorage.setItem("statsai_lang", LANG); } catch(e){}
 

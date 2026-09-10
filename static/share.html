@@ -778,7 +778,9 @@ document.getElementById("sheetMark").innerHTML = MARK;
 document.getElementById("sheetWho").innerHTML = "Stats<i>AI</i>";
 
 function toJournal(){ location.href = "/demo"; }
-document.getElementById("sheetClose").onclick = toJournal;
+const closeBtn = document.getElementById("sheetClose");
+closeBtn.setAttribute("aria-label", T.mrClose);
+closeBtn.onclick = toJournal;
 document.getElementById("stage").addEventListener("click", e => {
   if (e.target.id === "stage") toJournal();          // клік повз карту
 });

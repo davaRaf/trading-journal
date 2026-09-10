@@ -318,7 +318,7 @@ function drawMap(){
         + " · " + esc(c.type) + "</option>").join("");
 
   const rowsHtml = fields.map(f =>
-    '<div class="nt-row"><span>' + esc(f.label) + "</span>"
+    '<div class="nt-row"><span>' + esc(fieldLab(f)) + "</span>"
     + '<select data-f="' + f.k + '" onchange="__notion.setMap(this)">' + opts(mapping[f.k]) + "</select></div>"
   ).join("");
 
@@ -371,6 +371,20 @@ function safeHtml(){
   if (typeof exportData !== "function") return "";
   return '<div class="nt-safe"><p>' + T.ntBackupHint + "</p>"
     + '<button class="btn" onclick="exportData()">' + T.ntSaveBackup + '</button></div>';
+}
+
+/* Підпис поля беремо зі свого словника, а не з сервера: сервер шле їх
+   однією мовою, і в російському журналі половина рядків виходила
+   українською. Ключ (k) той самий, тому вистачає таблиці. */
+function fieldLab(f){
+  const M = {
+    date: T.fDate, pair: T.fPair, position: T.fPosition, bias: T.fBias,
+    direction_type: T.fDirType, entry_model: T.fEntryModel, setup: T.fSetup,
+    session: T.fSession, result: T.fResult, rr: "RR", risk: T.fRisk + ", %",
+    entry_details: T.fEntryDetails, notes: T.fNotes, mistakes: T.fMistakes,
+    comments: T.tcComments,
+  };
+  return M[f.k] || f.label || f.k;
 }
 
 function optChk(id, label, on){
