@@ -594,10 +594,10 @@ function vAccounts(){
     load();
     return '<div class="empty">' + esc(d.loading) + "</div>";
   }
-  /* Шапка спільна з «Оглядом»: рахунки — його вкладка, а не окремий
-     пункт меню. Назва розділу лишилась у підписі вкладки. */
-  const tabs = window.ovTabsHtml ? ovTabsHtml("accounts") : "";
-  const head = '<div class="ohead ac-head"><h1>' + esc(T.ovTitle) + "</h1>" + tabs + total()
+  /* Шапка спільна з «Оглядом»: заголовок там і є перемикачем вкладок.
+     Без app.js (такого не буває, але хай) лишиться просто назва. */
+  const head = '<div class="ohead ac-head">'
+    + (window.ovTabsHtml ? ovTabsHtml("accounts") : "<h1>" + esc(d.title) + "</h1>") + total()
     + '<button class="btn primary ac-new" id="acAdd">' + esc(d.add) + "</button></div>";
 
   if (!ACCS.length){

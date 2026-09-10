@@ -58,7 +58,7 @@ uk: {
   calBeMinusTip: "Беззбиток, потім ціна пішла проти",
 
   // ---- огляд ----
-  ovTitle: "Огляд", ovTabSum: "Підсумки", ovEmptyTitle: "Журнал порожній",
+  ovTitle: "Огляд", ovEmptyTitle: "Журнал порожній",
   ovEmptyHint: "Додай першу угоду — статистика збереться сама.<br>Старі угоди можна завантажити через «Імпорт» ліворуч унизу.",
   ovEmptyBtn: "+ New Trade", ovBestWorst: "Найкраща · найгірша",
   ovLastWeek: "Поточний тиждень", ovWholeMonth: "весь місяць", ovSkip: "пропуск",
@@ -601,7 +601,7 @@ ru: {
   calBePlusTip: "Безубыток, потом цена дошла бы до цели",
   calBeMinusTip: "Безубыток, потом цена пошла против",
 
-  ovTitle: "Обзор", ovTabSum: "Итоги", ovEmptyTitle: "Журнал пуст",
+  ovTitle: "Обзор", ovEmptyTitle: "Журнал пуст",
   ovEmptyHint: "Добавь первую сделку — статистика соберётся сама.<br>Старые сделки можно загрузить через «Импорт» слева внизу.",
   ovEmptyBtn: "+ New Trade", ovBestWorst: "Лучшая · худшая",
   ovLastWeek: "Текущая неделя", ovWholeMonth: "весь месяц", ovSkip: "пропуск",
@@ -1124,7 +1124,7 @@ en: {
   calBePlusTip: "Breakeven, then price would have reached target",
   calBeMinusTip: "Breakeven, then price went against",
 
-  ovTitle: "Overview", ovTabSum: "Summary", ovEmptyTitle: "Journal is empty",
+  ovTitle: "Overview", ovEmptyTitle: "Journal is empty",
   ovEmptyHint: "Add your first trade — the stats will build themselves.<br>Old trades can be loaded via «Import» in the bottom left.",
   ovEmptyBtn: "+ New Trade", ovBestWorst: "Best · worst",
   ovLastWeek: "Current week", ovWholeMonth: "whole month", ovSkip: "skip",

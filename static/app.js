@@ -910,21 +910,23 @@ function ovRailHtml(){
     "</div></div></aside>";
 }
 
-/* Вкладки «Огляду»: підсумки й рахунки. Рахунки були шостим пунктом
-   бічного меню — на телефоні нижні вкладки ділять ширину порівну, і шоста
-   колонка стискала решту. Розділ лишився собою, адреса #accounts жива,
-   просто заходять у нього звідси.
+/* Заголовок «Огляду» — це і є перемикач: «Огляд» і «Рахунки» поруч,
+   відкритий чорним, сусідній сірим. Рахунки були шостим пунктом бічного
+   меню, і воно від цього перевантажилось; окремою маленькою смужкою
+   вкладок їх було б не знайти — поруч у шапці стоїть така сама смужка
+   періодів, і одна ставала схожа на другу.
 
-   Підпис береться з accounts.js: словник розділу живе там, і в i18n.js
-   його дублювати не будемо. Немає розділу — немає й вкладок. */
+   Заголовком їх видно здалеку, і місце в рядку в обох вкладках однакове,
+   тож перемикач не стрибає під курсором.
+
+   Підпис береться з accounts.js: словник розділу живе там. Немає розділу
+   (бектест, чужий журнал) — лишається звичайний заголовок. */
 function ovTabsHtml(cur){
-  if(!viewAllowed("accounts")) return "";
-  const nm=(window.__acc&&__acc.navLabel)?__acc.navLabel():"";
-  if(!nm) return "";
-  /* Лапки в onclick — сутністю: інакше рядок довелось би екранувати
-     двічі, а тут і без того три рівні лапок. */
-  const b=(v,l)=>'<button class="'+(cur===v?"on":"")+'" onclick="location.hash=&quot;'+v+'&quot;">'+esc(l)+"</button>";
-  return '<div class="seg-tabs">'+b("dashboard",T.ovTabSum)+b("accounts",nm)+"</div>";
+  const nm=viewAllowed("accounts")&&window.__acc&&__acc.navLabel?__acc.navLabel():"";
+  if(!nm) return "<h1>"+esc(T.ovTitle)+"</h1>";
+  const tab=(v,l)=>'<a href="#'+v+'" class="'+(cur===v?"on":"")+'"'
+    +(cur===v?' aria-current="page"':"")+">"+esc(l)+"</a>";
+  return '<h1 class="ovh">'+tab("dashboard",T.ovTitle)+tab("accounts",nm)+"</h1>";
 }
 window.ovTabsHtml=ovTabsHtml;
 
@@ -940,7 +942,7 @@ function vDashboard(){
        та й Notion тут не при справах. Лишаються два шляхи — записати
        прогін або спершу описати свою ТС. */
     const bt=btOn();
-    return '<div class="vhead"><h1>'+T.ovTitle+'</h1>'+ovTabsHtml("dashboard")+'</div>'+
+    return '<div class="vhead">'+ovTabsHtml("dashboard")+'</div>'+
       '<div class="card"><div class="in" style="padding:26px 24px">'+
       '<div style="font-size:20px;font-weight:600;letter-spacing:-.01em">'+T.bgTitle+'</div>'+
       '<div class="hint" style="margin-top:8px;max-width:62ch;line-height:1.6">'+(bt?T.btEmpty:T.bgLead)+'</div>'+
@@ -965,7 +967,7 @@ function vDashboard(){
   }
 
   return '<div class="ovw">'+
-    '<div class="ohead"><h1>'+T.ovTitle+'</h1>'+ovTabsHtml("dashboard")+
+    '<div class="ohead">'+ovTabsHtml("dashboard")+
       '<div class="per">'+btns+"</div></div>"+
     '<div class="flow">'+
       ovWeekHtml()+
