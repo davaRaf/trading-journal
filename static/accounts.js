@@ -594,7 +594,10 @@ function vAccounts(){
     load();
     return '<div class="empty">' + esc(d.loading) + "</div>";
   }
-  const head = '<div class="ohead ac-head"><h1>' + esc(d.title) + "</h1>" + total()
+  /* Шапка спільна з «Оглядом»: рахунки — його вкладка, а не окремий
+     пункт меню. Назва розділу лишилась у підписі вкладки. */
+  const tabs = window.ovTabsHtml ? ovTabsHtml("accounts") : "";
+  const head = '<div class="ohead ac-head"><h1>' + esc(T.ovTitle) + "</h1>" + tabs + total()
     + '<button class="btn primary ac-new" id="acAdd">' + esc(d.add) + "</button></div>";
 
   if (!ACCS.length){
@@ -718,6 +721,9 @@ window.__acc = {
     if (a) openForm(Object.assign({}, a));
   },
   why(id){ openId = openId === id ? null : id; render(); },
+  /* Підпис вкладки для шапки «Огляду»: словник розділу лежить у цьому
+     файлі, тож app.js питає його звідси. */
+  navLabel(){ return D().navTitle; },
   save: save,
   drop: drop,
   reload(){ ACCS = undefined; },
@@ -731,22 +737,9 @@ if (typeof BT_HIDDEN !== "undefined") BT_HIDDEN.accounts = 1;
    тож на window його немає, і звичайне звернення до нього до виїзду
    бектесту впало б з ReferenceError — разом з усім розділом. */
 
-/* ---------------- підпис у бічній панелі ---------------- */
-function paintNav(){
-  const a = document.querySelector('.nav a[data-v="accounts"]');
-  if (!a) return;
-  const sp = a.querySelector("span");
-  if (sp) sp.textContent = D().navTitle;
-  a.setAttribute("data-tip", D().navTip);
-}
-const realApply = window.applyLang;
-if (typeof realApply === "function"){
-  window.applyLang = function(){
-    const r = realApply.apply(this, arguments);
-    paintNav();
-    return r;
-  };
-}
+/* Окремого пункту в бічній панелі більше немає: рахунки — вкладка
+   «Огляду». Підпис вкладки бере ovTabsHtml() з __acc.navLabel(), а мову
+   він перечитує сам — applyLang наприкінці перемальовує весь екран. */
 
 /* ============================================================
    Словник розділу. Лежить тут, а не в i18n.js: розділ ще ворушиться,
@@ -866,12 +859,5 @@ en: {
 },
 };
 
-
-/* Підпис пункту в меню ставимо одразу. Мову журнал застосовує в i18n.js
-   при завантаженні — раніше, ніж цей файл узагалі виконався, тож обгортка
-   над applyLang спрацює тільки на наступному перемиканні мови. Так само
-   роблять day.js і ts.js; без цього рядка пункт лишався українським
-   посеред російського меню. */
-paintNav();
 
 })();

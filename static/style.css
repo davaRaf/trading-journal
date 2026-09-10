@@ -939,6 +939,7 @@ body:has(.ovw){font-size:14px;line-height:1.6;font-weight:300}
 .ovw .ohead h1{margin:0;font-size:34px;font-weight:500;letter-spacing:-.035em;line-height:1.05}
 
 /* период: сегменты, по которым видно, что на них жмут */
+.ovw .ohead .seg-tabs{margin-left:0}
 .seg-tabs,.ovw .per{margin-left:auto;display:flex;gap:3px;padding:4px;border-radius:13px;
   border:1px solid var(--line-soft);box-shadow:var(--card-lip);background:var(--seg-bg)}
 .seg-tabs button,.ovw .per button{padding:7px 15px;border-radius:9px;border:1px solid transparent;background:none;
@@ -1168,7 +1169,6 @@ body:has(.ovw){font-size:14px;line-height:1.6;font-weight:300}
 /* Без .nav навмисне: на телефоні нижні вкладки — копії цих посилань,
    і сховати треба заразом і їх. */
 :root[data-mode="bt"] a[data-v="day"],
-:root[data-mode="bt"] a[data-v="accounts"],
 :root[data-mode="bt"] #toolsGrp,
 :root[data-mode="bt"] #conn{display:none}
 
@@ -1474,6 +1474,12 @@ body::after{
 :root[data-layout="top"] .side .grp .lab{display:none}
 :root[data-layout="top"] .side .mini{padding:7px 11px}
 :root[data-layout="top"] .side .mini span{display:none}
+:root[data-layout="top"] .conn{flex-direction:row;align-items:center;gap:6px}
+:root[data-layout="top"] .conn .lab{display:none}
+:root[data-layout="top"] .conn-row{flex:none;padding:7px 11px}
+:root[data-layout="top"] .conn-nm{display:none}
+:root[data-layout="top"] .conn-ic{display:grid}
+:root[data-layout="top"] .conn-dot{display:none}
 :root[data-layout="top"] .side-foot{margin-top:0;flex-direction:row}
 :root[data-layout="top"] .newtrade{order:9;padding:8px 15px;white-space:nowrap}
 :root[data-layout="top"] .laybox{order:8}
@@ -1553,8 +1559,9 @@ body::after{
 :root[data-nav="flat"] .side .grp{gap:1px;padding-top:16px;border-top:1px solid var(--line-soft)}
 /* підпис розділу тихіший за пункти: він орієнтир, а не пункт меню */
 :root[data-nav="flat"] .side .lab{padding:0 10px 7px;font-size:9px;letter-spacing:.16em;color:var(--faint);opacity:.75}
-:root[data-nav="flat"] .conn-head{padding:6px 10px;border-radius:6px}
-:root[data-nav="flat"] .conn-head:hover{background:var(--panel-2)}
+:root[data-nav="flat"] .conn{padding-top:16px;border-top:1px solid var(--line-soft);gap:6px}
+:root[data-nav="flat"] .conn-row{background:none;border-color:transparent}
+:root[data-nav="flat"] .conn-row:hover{background:var(--panel-2)}
 :root[data-nav="flat"] .mini{background:none;border:none;padding:8px 10px;border-radius:6px;
   color:var(--faint);font-size:13px;gap:11px}
 :root[data-nav="flat"] .mini:hover{background:var(--panel-2);color:var(--text)}
@@ -1581,6 +1588,14 @@ body::after{
 :root[data-nav="icons"] .side .lab{display:none}
 :root[data-nav="icons"] .mini{font-size:0;justify-content:center;padding:11px 0;border-radius:12px}
 :root[data-nav="icons"] .mini .ic{width:17px;height:17px}
+:root[data-nav="icons"] .conn{width:100%;padding-top:16px;border-top:1px solid var(--line-soft)}
+:root[data-nav="icons"] .conn-line{flex-direction:column;gap:4px}
+:root[data-nav="icons"] .conn-row{justify-content:center;padding:11px 0;border-radius:12px}
+:root[data-nav="icons"] .conn-nm{display:none}
+/* У смузі значків лишається сам значок: підпису тут немає ні в кого, і
+   без нього рядок був би порожнім. */
+:root[data-nav="icons"] .conn-ic{display:grid}
+:root[data-nav="icons"] .conn-dot{display:none}
 :root[data-nav="icons"] .side-foot{width:100%;padding-top:16px;border-top:1px solid var(--line-soft)}
 :root[data-nav="icons"] #themeBtn{font-size:0;justify-content:center;padding:11px 0}
 :root[data-nav="icons"] #themeBtn span{display:none}

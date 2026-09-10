@@ -49,7 +49,10 @@ function paintTabs(){
   syncTabs();
 }
 function syncTabs(){
-  const cur = (location.hash || "#dashboard").slice(1);
+  let cur = (location.hash || "#dashboard").slice(1);
+  /* Рахунки — вкладка всередині «Огляду», своєї кнопки внизу не мають:
+     підсвічуємо «Огляд», інакше жодна вкладка не світилась би. */
+  if (cur === "accounts") cur = "dashboard";
   tabs.querySelectorAll("a").forEach(a => a.classList.toggle("on", a.dataset.v === cur));
   const nt = document.getElementById("newTradeBtn");
   const lbl = top.querySelector(".mnew span");

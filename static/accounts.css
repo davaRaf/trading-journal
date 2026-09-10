@@ -13,6 +13,7 @@
 .acw{max-width:1180px}
 .ac-head{display:flex; align-items:center; gap:14px; flex-wrap:wrap; margin-bottom:var(--stack)}
 .ac-head h1{margin:0}
+.ac-head .seg-tabs{margin-left:0}
 .ac-new{margin-left:auto}
 
 /* підсумок по живих рахунках: тихий рядок біля заголовка */

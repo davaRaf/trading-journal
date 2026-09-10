@@ -910,6 +910,24 @@ function ovRailHtml(){
     "</div></div></aside>";
 }
 
+/* Вкладки «Огляду»: підсумки й рахунки. Рахунки були шостим пунктом
+   бічного меню — на телефоні нижні вкладки ділять ширину порівну, і шоста
+   колонка стискала решту. Розділ лишився собою, адреса #accounts жива,
+   просто заходять у нього звідси.
+
+   Підпис береться з accounts.js: словник розділу живе там, і в i18n.js
+   його дублювати не будемо. Немає розділу — немає й вкладок. */
+function ovTabsHtml(cur){
+  if(!viewAllowed("accounts")) return "";
+  const nm=(window.__acc&&__acc.navLabel)?__acc.navLabel():"";
+  if(!nm) return "";
+  /* Лапки в onclick — сутністю: інакше рядок довелось би екранувати
+     двічі, а тут і без того три рівні лапок. */
+  const b=(v,l)=>'<button class="'+(cur===v?"on":"")+'" onclick="location.hash=&quot;'+v+'&quot;">'+esc(l)+"</button>";
+  return '<div class="seg-tabs">'+b("dashboard",T.ovTabSum)+b("accounts",nm)+"</div>";
+}
+window.ovTabsHtml=ovTabsHtml;
+
 function vDashboard(){
   if(!S.trades.length){
     /* Порожній журнал — це перший екран нової людини. Замість однієї
@@ -922,7 +940,7 @@ function vDashboard(){
        та й Notion тут не при справах. Лишаються два шляхи — записати
        прогін або спершу описати свою ТС. */
     const bt=btOn();
-    return '<div class="vhead"><h1>'+T.ovTitle+'</h1></div>'+
+    return '<div class="vhead"><h1>'+T.ovTitle+'</h1>'+ovTabsHtml("dashboard")+'</div>'+
       '<div class="card"><div class="in" style="padding:26px 24px">'+
       '<div style="font-size:20px;font-weight:600;letter-spacing:-.01em">'+T.bgTitle+'</div>'+
       '<div class="hint" style="margin-top:8px;max-width:62ch;line-height:1.6">'+(bt?T.btEmpty:T.bgLead)+'</div>'+
@@ -947,7 +965,8 @@ function vDashboard(){
   }
 
   return '<div class="ovw">'+
-    '<div class="ohead"><h1>'+T.ovTitle+'</h1><div class="per">'+btns+"</div></div>"+
+    '<div class="ohead"><h1>'+T.ovTitle+'</h1>'+ovTabsHtml("dashboard")+
+      '<div class="per">'+btns+"</div></div>"+
     '<div class="flow">'+
       ovWeekHtml()+
       '<div class="shell rise"><div class="core">'+
@@ -2140,7 +2159,10 @@ function render(){
   const v=viewAllowed(S.view)?S.view:"dashboard";
   /* «Новини» переїхали з меню в групу інструментів — підсвічування шукаємо
      і там, інакше відкритий розділ ніде не позначався */
-  document.querySelectorAll(".nav a, .side a[data-v]").forEach(a=>a.classList.toggle("on",a.dataset.v===v));
+  /* «Рахунки» — вкладка всередині «Огляду», окремого пункту в меню немає:
+     підсвічуємо «Огляд», інакше при #accounts не світилось би нічого. */
+  const navV=v==="accounts"?"dashboard":v;
+  document.querySelectorAll(".nav a, .side a[data-v]").forEach(a=>a.classList.toggle("on",a.dataset.v===navV));
   if(window.PL) PL.reset();
   /* кнопка-якорь сейчас исчезнет вместе с разделом — список без неё не нужен */
   if(window.Pick) Pick.close();
@@ -2213,16 +2235,11 @@ async function unlinkTelegram(){
   refreshTelegramStatus();
 }
 
-/* ---------- розділ «Підключення» (Notion + Telegram) у сайдбарі ---------- */
-function toggleConn(){
-  const box=document.getElementById("conn"); if(!box) return;
-  const open=!box.classList.contains("open");
-  box.classList.toggle("open",open);
-  if(open){
-    refreshTelegramStatus();
-    if(window.__notion && window.__notion.refreshState) window.__notion.refreshState();
-  }
-}
+/* ---------- «Підключення» (Notion + Telegram) у сайдбарі ---------- */
+/* Розділ більше не згортається: два значки в рядок видно одразу, і стан
+   обох читається без кліку. Тому й перечитувати статус по розкриттю
+   нема коли — Telegram питаємо на старті (init нижче), Notion питає себе
+   сам у своєму window.load. */
 
 let telegramLinked=false;
 function paintTelegramStatus(){
