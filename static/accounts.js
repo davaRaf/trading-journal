@@ -196,8 +196,18 @@ function card(a){
   const foot = '<div class="ac-foot">'
     + (dead ? '<button class="ac-link" onclick="__acc.why(' + a.id + ')">'
         + esc(openId === a.id ? d.hideWhy : d.showWhy) + "</button>" : "")
+    + '<button class="ac-link" onclick="__acc.attach(' + a.id + ')">'
+    +   esc(d.attach) + "</button>"
     + '<span class="sp"></span>'
     + '<button class="ac-link" onclick="__acc.edit(' + a.id + ')">' + esc(d.edit) + "</button></div>";
+
+  /* Рахунок без жодної угоди — найчастіше не порожній рахунок, а журнал,
+     який вели до появи рахунків. Кажемо про це прямо в картці. */
+  const orphan = (!s.n && !s.skips && S.trades.length)
+    ? '<p class="ac-orphan">' + esc(d.noTrades)
+      + ' <button class="ac-link" onclick="__acc.attach(' + a.id + ')">'
+      + esc(d.attach) + "</button></p>"
+    : "";
 
   /* Тип, фірма й дата — одним сірим рядком під назвою. Раніше тип стояв
      одразу за назвою, і в картці вужчій за 380 пікселів назва
@@ -208,7 +218,7 @@ function card(a){
     + '<div class="ac-top"><div class="ac-name"><b>' + esc(a.name) + "</b>"
     +   (under ? '<div class="ac-sub">' + under + "</div>" : "") + "</div>"
     + '<span class="ac-st ' + st + '">' + esc(d.status[a.status] || "") + "</span></div>"
-    + head + spark(s.curve) + bars + stats
+    + head + orphan + spark(s.curve) + bars + stats
     + (dead && openId === a.id ? why(a, s) : "")
     + foot + "</div></div>";
 }
@@ -315,8 +325,12 @@ function seg(id, val, opts){
    світиться білим вікном Chrome. У журналі свій календар (DatePicker в
    ui.js), тим самим користуються фільтри й «Аналіз дня» — беремо його.
    Саме значення лежить у прихованому полі в ISO, на кнопці — по-людськи. */
-function dateField(label, id, val){
-  return '<div class="ac-f"><span>' + esc(label) + '</span>'
+function dateField(label, id, val, clear){
+  /* «будь-коли» стоїть у рядку підпису праворуч: календар уміє поставити
+     дату, але не прибрати, а порожня дата тут — це «за весь час». */
+  return '<div class="ac-f"><span>' + esc(label)
+    + (clear ? '<button type="button" class="ac-clear" data-clear="' + id + '">'
+        + esc(D().anyDate) + "</button>" : "") + "</span>"
     + '<button type="button" class="ac-in ac-date" id="' + id + '_btn"'
     +   ' data-date="' + id + '"' + (val ? ' data-set="1"' : '') + '>'
     +   '<span>' + esc(val ? human(val) : D().pickDate) + '</span>'
@@ -617,6 +631,125 @@ function vAccounts(){
     + '<div class="ac-grid">' + ACCS.map(card).join("") + "</div>" + hints() + "</div>";
 }
 
+/* ---------------- привʼязати вже записані угоди ---------------- */
+/* Журнал вели й до того, як зʼявились рахунки: угоди лежать або зовсім
+   без рахунку, або підписані як завгодно. Переносимо їх пачкою —
+   міняється тільки поле «рахунок», самі угоди лишаються на місці. */
+
+/* Під якими іменами лежать угоди зараз. Порожній рядок — окремим
+   пунктом: «без рахунку» це теж відповідь, і саме він потрібен тим, хто
+   поле ніколи не заповнював. */
+function sources(acc){
+  const mine = key(acc.name);
+  const m = new Map();
+  for (const t of S.trades){
+    const v = (t.account || "").trim();
+    if (key(v) === mine) continue;
+    const k = v.toLowerCase();
+    if (!m.has(k)) m.set(k, {value: v, n: 0});
+    m.get(k).n++;
+  }
+  /* «Без рахунку» першим: з нього переносять найчастіше. Решта — за
+     кількістю угод, бо великий рахунок шукають очима першим. */
+  return [...m.values()].sort((a, b) =>
+    (a.value === "" ? -1 : b.value === "" ? 1 : b.n - a.n));
+}
+
+/* Скільки угод потрапляє під вибір. Рахуємо тут, а не на сервері: угоди
+   вже завантажені, і цифра має мінятись одразу, поки крутять дати. */
+function hits(vals, from, to){
+  const set = new Set(vals.map(v => v.toLowerCase()));
+  let n = 0;
+  for (const t of S.trades){
+    if (!set.has((t.account || "").trim().toLowerCase())) continue;
+    const day = (t.date || "").slice(0, 10);
+    if (from && day < from) continue;
+    if (to && day > to) continue;
+    n++;
+  }
+  return n;
+}
+
+let atAcc = null;   /* до якого рахунку прикріплюємо — читає обробник */
+
+function atPicked(){
+  return [...document.querySelectorAll(".ac-srcb.on")].map(b => b.dataset.v);
+}
+function atVal(id){
+  const el = document.getElementById(id);
+  return el ? el.value : "";
+}
+
+/* Підпис під вибором і стан кнопки. Одна функція на всі зміни у вікні:
+   що змінилось — байдуже, цифру однаково перераховуємо повністю. */
+function atPaint(){
+  const d = D(), box = document.getElementById("atFound");
+  if (!box || !atAcc) return;
+  const n = hits(atPicked(), atVal("atFrom"), atVal("atTo"));
+  box.textContent = n
+    ? d.attachFound.replace("%n", n + " " + (typeof ovWord === "function" ? ovWord(n) : ""))
+    : d.attachNone;
+  box.classList.toggle("none", !n);
+  const go = document.getElementById("atGo");
+  if (go){ go.disabled = !n; go.textContent = d.attach; }
+}
+
+function attachForm(acc){
+  const d = D();
+  atAcc = acc;
+  const src = sources(acc);
+  if (!src.length){
+    Ask.yes(d.attachEmpty, {ok: d.close, cancel: ""});
+    return;
+  }
+  /* «Без рахунку» вибрано одразу, якщо таке є: це той самий випадок,
+     заради якого вікно й зроблене. */
+  const first = src.find(x => x.value === "") || src[0];
+  const chips = src.map(x =>
+    '<button type="button" class="ac-srcb' + (x === first ? " on" : "") + '"'
+    + ' data-v="' + esc(x.value) + '">'
+    + esc(x.value || d.noAcc) + "<i>" + x.n + "</i></button>").join("");
+
+  openModal('<div class="m-head"><h2>' + esc(d.attach) + "</h2>"
+    + '<button class="x" onclick="closeModal()" aria-label="' + esc(d.close) + '">×</button></div>'
+    + '<div class="m-body ac-form ac-attach">'
+    +   '<p class="ac-hint">' + esc(d.attachTo.replace("%s", acc.name)) + "</p>"
+    +   '<div class="ac-f"><span>' + esc(d.attachFrom) + "</span>"
+    +     '<div class="ac-src">' + chips + "</div></div>"
+    +   '<div class="ac-row2">' + dateField(d.attachSince, "atFrom", "", 1)
+    +     dateField(d.attachUntil, "atTo", "", 1) + "</div>"
+    +   '<p class="ac-found" id="atFound"></p>'
+    + "</div>"
+    + '<div class="m-foot"><span class="sp"></span>'
+    + '<button class="btn" onclick="closeModal()">' + esc(d.cancel) + "</button>"
+    + '<button class="btn primary" id="atGo" onclick="__acc.attachGo()">'
+    +   esc(d.attach) + "</button></div>");
+  atPaint();
+}
+
+async function attachGo(){
+  const d = D(), acc = atAcc;
+  if (!acc) return;
+  const vals = atPicked(), from = atVal("atFrom"), to = atVal("atTo");
+  const n = hits(vals, from, to);
+  if (!n) return;
+  /* Питаємо перед тим, як міняти: правка гуртова, і відкотити її можна
+     лише таким самим перенесенням назад. */
+  const ask = d.attachAsk.replace("%n", n + " " + (typeof ovWord === "function" ? ovWord(n) : ""))
+    .replace("%s", acc.name);
+  if (!await Ask.yes(ask, {ok: d.attach, cancel: d.cancel})) return;
+  try{
+    await api("POST", "/api/accounts/attach",
+      {id: acc.id, values: vals, from: from, to: to});
+  }catch(e){ return; }
+  closeModal();
+  atAcc = null;
+  ACCS = undefined;
+  /* Угоди перечитуємо: рахунок у них тепер інший, а з них рахується все. */
+  try{ await reload(); }catch(e){}
+  await load();
+}
+
 function blank(){ return {name: "", firm: "", kind: "own", currency: "USD", status: "active"}; }
 
 /* Один обробник на весь розділ і на вікно форми: розмітка
@@ -634,6 +767,30 @@ document.addEventListener("click", e => {
     if (box.dataset.seg === "acKind"){ syncName(); paintStatus(); }
     return;
   }
+  /* Звідки брати угоди: кілька імен одночасно, тож не сегмент, а
+     незалежні перемикачі. Після кожного — перерахунок цифри. */
+  const src = e.target.closest(".ac-srcb");
+  if (src){
+    src.classList.toggle("on");
+    atPaint();
+    return;
+  }
+
+  /* Скинути дату: календар уміє поставити дату, але не прибрати. */
+  const clr = e.target.closest(".ac-clear");
+  if (clr){
+    const hid = document.getElementById(clr.dataset.clear);
+    const btn = document.getElementById(clr.dataset.clear + "_btn");
+    if (hid) hid.value = "";
+    if (btn){
+      btn.removeAttribute("data-set");
+      const lab = btn.querySelector("span");
+      if (lab) lab.textContent = D().pickDate;
+    }
+    atPaint();
+    return;
+  }
+
   /* Підказка під полем: підставляємо значення й підсвічуємо саме її.
      Стоїть до перевірки на розділ — форма живе у вікні, а не на сторінці. */
   /* Поле фірми: список виїжджає знизу. Ловимо і саме поле, і стрілку
@@ -658,6 +815,9 @@ document.addEventListener("click", e => {
         if (lab) lab.textContent = key ? human(key) : D().pickDate;
         if (key) db.setAttribute("data-set", "1");
         else db.removeAttribute("data-set");
+        /* У вікні привʼязки від дати залежить цифра під вибором. У формі
+           рахунку цієї цифри немає, і виклик нічого не робить. */
+        atPaint();
       }});
     return;
   }
@@ -709,7 +869,8 @@ document.addEventListener("input", e => {
 });
 
 /* Гачок для перевірок: збірку назви інакше не викликати ззовні. */
-window.__accTest = {sync: syncName, made: madeName, firms: openFirms, status: paintStatus};
+window.__accTest = {sync: syncName, made: madeName, firms: openFirms,
+  status: paintStatus, hits: hits, sources: sources};
 
 window.__acc = {
   add(){
@@ -727,6 +888,12 @@ window.__acc = {
     if (a) openForm(Object.assign({}, a));
   },
   why(id){ openId = openId === id ? null : id; render(); },
+  attach(id){
+    if (window.Guest && Guest.block(D().attach)) return;
+    const a = (ACCS || []).find(x => x.id === id);
+    if (a) attachForm(a);
+  },
+  attachGo: attachGo,
   /* Підпис вкладки для шапки «Огляду»: словник розділу лежить у цьому
      файлі, тож app.js питає його звідси. */
   navLabel(){ return D().navTitle; },
@@ -788,6 +955,19 @@ uk: {
   unlistedHint: "Ці назви вже стоять у твоїх угодах. Натисни — і заведемо картку з цією назвою.",
   errName: "Без назви рахунок не знайде своїх угод.", errTaken: "Рахунок з такою назвою вже є.",
   errSave: "Не вдалось зберегти. Спробуй ще раз.",
+  /* перенесення вже записаних угод на рахунок */
+  attach: "Прив'язати угоди",
+  attachTo: "До рахунку «%s». Самі угоди лишаться на місці — зміниться тільки те, на якому вони рахунку.",
+  attachFrom: "Звідки брати",
+  noAcc: "без рахунку",
+  attachSince: "З дати",
+  attachUntil: "По дату",
+  anyDate: "будь-коли",
+  attachFound: "Потрапляє %n",
+  attachNone: "Нічого не потрапляє",
+  attachAsk: "Перенести %n на рахунок «%s»?",
+  attachEmpty: "Усі угоди журналу вже стоять на цьому рахунку — переносити нема чого.",
+  noTrades: "Жодної угоди на цьому рахунку. Якщо журнал вели раніше — угоди можна перенести сюди.",
 },
 ru: {
   title: "Мои счета", navTitle: "Счета", navTip: "Свой депозит и счета проп-фирм: баланс, цель, лимиты",
@@ -825,6 +1005,19 @@ ru: {
   unlistedHint: "Эти названия уже стоят в твоих сделках. Нажми — и заведём карточку с этим названием.",
   errName: "Без названия счёт не найдёт своих сделок.", errTaken: "Счёт с таким названием уже есть.",
   errSave: "Не удалось сохранить. Попробуй ещё раз.",
+  /* перенесення вже записаних угод на рахунок */
+  attach: "Привязать сделки",
+  attachTo: "К счёту «%s». Сами сделки останутся на месте — изменится только то, на каком они счёте.",
+  attachFrom: "Откуда брать",
+  noAcc: "без счёта",
+  attachSince: "С даты",
+  attachUntil: "По дату",
+  anyDate: "любая",
+  attachFound: "Попадает %n",
+  attachNone: "Ничего не попадает",
+  attachAsk: "Перенести %n на счёт «%s»?",
+  attachEmpty: "Все сделки журнала уже стоят на этом счёте — переносить нечего.",
+  noTrades: "Ни одной сделки на этом счёте. Если журнал вели раньше — сделки можно перенести сюда.",
 },
 en: {
   title: "My accounts", navTitle: "Accounts", navTip: "Your own deposit and prop firm accounts: balance, target, limits",
@@ -862,6 +1055,19 @@ en: {
   unlistedHint: "These names already appear in your trades. Tap one and we will create a card with that name.",
   errName: "Without a name the account cannot find its trades.", errTaken: "An account with this name already exists.",
   errSave: "Could not save. Please try again.",
+  /* перенесення вже записаних угод на рахунок */
+  attach: "Attach trades",
+  attachTo: "To “%s”. The trades stay where they are — only the account on them changes.",
+  attachFrom: "Take from",
+  noAcc: "no account",
+  attachSince: "From",
+  attachUntil: "To",
+  anyDate: "any",
+  attachFound: "Matches %n",
+  attachNone: "Nothing matches",
+  attachAsk: "Move %n to “%s”?",
+  attachEmpty: "Every trade in the journal already sits on this account — nothing to move.",
+  noTrades: "No trades on this account yet. If you kept the journal earlier, the trades can be moved here.",
 },
 };
 

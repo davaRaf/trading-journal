@@ -486,6 +486,44 @@ def rename_value(user_id, field, values, to):
     return cur.rowcount
 
 
+def assign_sql(user_id, to, values, since="", until=""):
+    """Собирает запрос массовой привязки сделок к счёту.
+
+    Отдельно от самого запроса, чтобы условия можно было проверить без
+    базы: тут легко ошибиться в границах периода и переписать чужие
+    сделки, а откатить такое нечем.
+
+    `values` — под какими именами счёта сделки лежат сейчас; пустая
+    строка означает «счёт не проставлен». Бэктест не трогаем: счета
+    про настоящие деньги, в прогоне на истории их нет.
+    """
+    values = [v for v in (values or []) if v != to]
+    if not values:
+        return None, None
+    sql = ('UPDATE trades SET "account"=%s WHERE user_id=%s '
+           'AND "account" = ANY(%s) AND "kind"=%s')
+    args = [to, user_id, values, ""]
+    # Дата лежит текстом, иногда со временем — сравниваем первые 10 знаков.
+    if since:
+        sql += ' AND left("date",10) >= %s'
+        args.append(since)
+    if until:
+        sql += ' AND left("date",10) <= %s'
+        args.append(until)
+    return sql, args
+
+
+def assign_account(user_id, to, values, since="", until=""):
+    """Переносит уже записанные сделки на счёт. Возвращает, сколько тронули."""
+    sql, args = assign_sql(user_id, to, values, since, until)
+    if not sql:
+        return 0
+    with connect() as conn:
+        cur = conn.execute(sql, args)
+        conn.commit()
+    return cur.rowcount
+
+
 def count_imports(user_id):
     """Сколько сделок принесло каждое перенесение — одним запросом.
 

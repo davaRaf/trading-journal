@@ -101,9 +101,13 @@ def _num(v):
     return f if f == f and abs(f) != float("inf") else None
 
 
-def _date(v):
+def date_only(v):
+    """Дата як ISO-рядок або порожньо. Час відрізаємо, криве — відкидаємо."""
     v = str(v or "").strip()[:10]
     return v if DATE_RE.match(v) else ""
+
+
+_date = date_only   # коротка назва для clean() нижче
 
 
 def clean(body):
