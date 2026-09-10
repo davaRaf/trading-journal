@@ -140,9 +140,42 @@ async function shotsOf(t, limit, srcOf){
   const out = [];
   for (const s of list){
     const im = await loadImg((srcOf || shotSrc)(s));
-    if (im) out.push({im, tf: s.tf || ""});
+    if (im) out.push({im, tf: s.tf || "", note: (s.note || "").trim()});
   }
   return out;
+}
+
+/* Підпис під скріном — те, чому людина бачить на цьому графіку саме це.
+   На картинці місця менше, ніж у журналі, тож довгий підпис ріжемо: у сітці
+   до трьох рядків, під великим графіком до чотирьох. Міряємо тим самим
+   шрифтом, яким малюємо, — інакше висота полотна розійдеться з текстом і
+   підпис або наліз би на наступний блок, або лишив би порожнечу. */
+const NOTE_FONT = "22px " + SANS;
+const NOTE_LH = 30;                  /* висота рядка підпису */
+const NOTE_TOP = 10;                 /* відступ від картинки до першого рядка */
+const GRID_NOTE = 3, BIG_NOTE = 4;   /* скільки рядків лишаємо */
+let noteProbe = null;
+
+function noteLines(note, maxW, maxLines){
+  const text = String(note || "").trim();
+  if (!text) return [];
+  if (!noteProbe) noteProbe = document.createElement("canvas").getContext("2d");
+  noteProbe.font = NOTE_FONT;
+  const all = wrap(noteProbe, text, maxW).filter(l => l !== "");
+  if (all.length <= maxLines) return all;
+  const cut = all.slice(0, maxLines);
+  cut[maxLines - 1] = cut[maxLines - 1].replace(/[\s.,;:—-]+$/, "") + "…";
+  return cut;
+}
+/* скільки місця з'їдають рядки підпису — нуль, коли підпису немає */
+function noteBox(lines){
+  return lines.length ? NOTE_TOP + lines.length * NOTE_LH : 0;
+}
+function drawNote(ctx, C, lines, x, y){
+  if (!lines.length) return 0;
+  ctx.font = NOTE_FONT; ctx.fillStyle = C.dim;
+  lines.forEach((l, i) => ctx.fillText(l, x, y + NOTE_TOP + (i + 1) * NOTE_LH - 8));
+  return noteBox(lines);
 }
 
 function split(imgs){
@@ -156,9 +189,12 @@ function shotsHeight(imgs, w){
   let h = 0;
   for (let r = 0; r * 2 < grid.length; r++){
     const row = grid.slice(r * 2, r * 2 + 2);
-    h += Math.max(...row.map(g => Math.round(iw * g.im.height / g.im.width))) + 28 + 14;
+    /* у ряду два скріни, підписи різної довжини — ряд росте за вищим */
+    const note = Math.max(...row.map(g => noteBox(noteLines(g.note, iw, GRID_NOTE))));
+    h += Math.max(...row.map(g => Math.round(iw * g.im.height / g.im.width))) + 28 + 14 + note;
   }
-  if (big) h += Math.round(w * big.im.height / big.im.width) + 32 + 14;
+  if (big) h += Math.round(w * big.im.height / big.im.width) + 32 + 14
+             + noteBox(noteLines(big.note, w, BIG_NOTE));
   return h;
 }
 
@@ -168,6 +204,7 @@ function drawShots(ctx, C, imgs, x, w, y){
   for (let r = 0; r * 2 < grid.length; r++){
     const row = grid.slice(r * 2, r * 2 + 2);
     const rh = Math.max(...row.map(g => Math.round(iw * g.im.height / g.im.width)));
+    let note = 0;
     row.forEach((g, i) => {
       const gx = x + i * (iw + GAP);
       const gh = Math.round(iw * g.im.height / g.im.width);
@@ -177,8 +214,10 @@ function drawShots(ctx, C, imgs, x, w, y){
       ctx.drawImage(g.im, gx, y + 28, iw, gh); ctx.restore();
       ctx.strokeStyle = C.line; ctx.lineWidth = 1;
       roundRect(ctx, gx, y + 28, iw, gh, 10); ctx.stroke();
+      /* підпис під своїм скріном, від низу ряду — щоб сусідні починались рівно */
+      note = Math.max(note, drawNote(ctx, C, noteLines(g.note, iw, GRID_NOTE), gx, y + 28 + rh));
     });
-    y += rh + 28 + 14;
+    y += rh + 28 + 14 + note;
   }
   if (big){
     const gh = Math.round(w * big.im.height / big.im.width);
@@ -192,7 +231,7 @@ function drawShots(ctx, C, imgs, x, w, y){
     ctx.drawImage(big.im, x, y + 32, w, gh); ctx.restore();
     ctx.strokeStyle = withAlpha(C.accent, .5); ctx.lineWidth = 1.5;
     roundRect(ctx, x, y + 32, w, gh, 12); ctx.stroke(); ctx.lineWidth = 1;
-    y += gh + 32 + 14;
+    y += gh + 32 + 14 + drawNote(ctx, C, noteLines(big.note, w, BIG_NOTE), x, y + 32 + gh);
   }
   return y;
 }
