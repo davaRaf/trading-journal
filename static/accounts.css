@@ -138,7 +138,15 @@
 .ac-row2{display:grid; grid-template-columns:1fr 1fr; gap:12px}
 .ac-row3{display:grid; grid-template-columns:repeat(3,1fr); gap:12px}
 .ac-f{display:block; min-width:0}
-.ac-f > span{display:block; font-size:12px; color:var(--faint); margin-bottom:5px}
+/* Підпис поля. Приписка збоку — тихіша за сам підпис: вона уточнює, а не
+   називає. Раніше на її місці був абзац під полем; два слова поруч із
+   назвою читаються з одного погляду, а абзац доводилось саме читати. */
+.ac-f > span{display:flex; align-items:baseline; gap:7px; font-size:12px;
+  color:var(--faint); margin-bottom:5px}
+.ac-f > span i{font-style:normal; font-size:11px; color:var(--faint); opacity:.62}
+
+/* Валюта — три літери, повна третина рядка їй ні до чого. */
+.ac-money{grid-template-columns:1fr 1fr 92px}
 .ac-in{width:100%; min-height:44px; border:1px solid var(--line); border-radius:var(--r-sm);
   background:var(--panel-2); color:var(--text); padding:10px 12px; font:inherit; font-size:15px}
 .ac-in:focus{outline:2px solid var(--accent); outline-offset:1px; border-color:var(--accent)}
@@ -200,7 +208,7 @@
   .ac-total{width:100%}
 }
 @media (max-width:560px){
-  .ac-row2, .ac-row3{grid-template-columns:minmax(0,1fr)}
+  .ac-row2, .ac-row3, .ac-money{grid-template-columns:minmax(0,1fr)}
   .ac-cells{grid-template-columns:repeat(2,minmax(0,1fr))}
   .ac-cell:nth-child(2n){border-right:none}
   .ac-cell:nth-child(-n+2){border-bottom:1px solid var(--line-soft)}

@@ -286,8 +286,11 @@ function picks(target, vals, cur){
     + '" data-fill="' + esc(v) + '" data-target="' + esc(target) + '">'
     + esc(v) + "</button>").join("") + "</div>";
 }
-function field(label, id, val, ph, type){
-  return '<label class="ac-f"><span>' + esc(label) + "</span>"
+/* `note` — тиха приписка збоку від підпису. Замінює абзац під полем:
+   те, що вміщається у два слова, не варте окремого рядка тексту. */
+function field(label, id, val, ph, type, note){
+  return '<label class="ac-f"><span>' + esc(label)
+    + (note ? '<i>' + esc(note) + '</i>' : "") + "</span>"
     + '<input class="ac-in" id="' + id + '" type="' + (type || "text") + '"'
     + (type === "number" ? ' step="any" inputmode="decimal"' : "")
     + ' value="' + esc(val == null ? "" : val) + '"'
@@ -404,18 +407,15 @@ function form(a){
     +     seg("acKind", a.kind || "own",
             [["own", d.kinds.own], ["challenge", d.kinds.challenge], ["funded", d.kinds.funded]])
     +   "</div></div>"
-    + '<div class="ac-row3">' + field(d.fStart, "acStart", a.start_balance, "100000", "number")
+    + '<div class="ac-row3 ac-money">' + field(d.fStart, "acStart", a.start_balance, "100000", "number")
     +   field(d.fNow, "acNow", a.current_balance, d.phNow, "number")
     +   field(d.fCur, "acCur", a.currency || "USD", "USD") + "</div>"
-    + '<p class="ac-hint">' + esc(d.nowHint) + "</p>"
     /* Назва — звʼязок з угодами, тому підказуємо тим, що вже стоїть в угодах. */
-    + '<div>' + field(d.fName, "acName", a.name, d.phName)
+    + '<div>' + field(d.fName, "acName", a.name, d.phName, "text", d.nName)
     +   picks("acName", unlisted().slice(0, 6).map(r => r.name), a.name) + '</div>'
-    + '<p class="ac-hint">' + esc(d.nameHint) + "</p>"
-    + '<div class="ac-row3">' + field(d.fTarget, "acTarget", a.target_pct, "10", "number")
-    +   field(d.fDdTotal, "acDdTotal", a.dd_total_pct, "10", "number")
-    +   field(d.fDdDaily, "acDdDaily", a.dd_daily_pct, "5", "number") + "</div>"
-    + '<p class="ac-hint">' + esc(d.limitHint) + "</p>"
+    + '<div class="ac-row3">' + field(d.fTarget, "acTarget", a.target_pct, d.noLimit, "number")
+    +   field(d.fDdTotal, "acDdTotal", a.dd_total_pct, d.noLimit, "number")
+    +   field(d.fDdDaily, "acDdDaily", a.dd_daily_pct, d.noLimit, "number") + "</div>"
     + '<div class="ac-row2">' + dateField(d.fOpened, "acOpened", a.opened_at)
     +   '<div class="ac-f"><span>' + esc(d.fStatus) + "</span>"
     +   seg("acStatus", a.status || "active",
@@ -743,13 +743,11 @@ uk: {
   fNote: "Нотатка",
   fNow: "Баланс зараз", phNow: "з кабінету", pickDate: "обрати дату",
   pickFirm: "Обрати фірму", noFirm: "без фірми",
-  nowHint: "Баланс зараз — з кабінету фірми. Порожньо — журнал порахує сам за угодами.",
-  nameHint: "Назва збирається сама з фірми, типу й розміру. Впишеш своє — лишиться твоє; зітреш — знову збереться. Головне, щоб вона збігалась із полем «рахунок» в угоді: по ній угоди й знаходяться.",
+  noLimit: "немає", nName: "як в угодах",
   noStartPct: "Стартовий баланс не заданий — відсотків не порахувати.",
   byJournal: "за угодами журналу:",
   phName: "FTMO 100k", phFirm: "FTMO", phReason: "перевищив денний ліміт",
   phNote: "що завгодно про цей рахунок",
-  limitHint: "Ліміти бери з умов фірми. Порожнє поле означає «ліміту немає», а не нуль.",
   emptyLead: "Тут будуть твої рахунки: свій депозит і все, що взяв у проп-фірм.",
   emptyHint: "Заведи рахунок — і журнал перестане рахувати самими відсотками: покаже баланс у грошах, скільки лишилось до цілі й скільки до ліміту просадки.",
   unlisted: "Є в угодах, але картки немає",
@@ -782,13 +780,11 @@ ru: {
   fNote: "Заметка",
   fNow: "Баланс сейчас", phNow: "из кабинета", pickDate: "выбрать дату",
   pickFirm: "Выбрать фирму", noFirm: "без фирмы",
-  nowHint: "Баланс сейчас — из кабинета фирмы. Пусто — журнал посчитает сам по сделкам.",
-  nameHint: "Название собирается само из фирмы, типа и размера. Впишешь своё — останется твоё; сотрёшь — соберётся снова. Главное, чтобы оно совпадало с полем «счёт» в сделке: по нему сделки и находятся.",
+  noLimit: "нет", nName: "как в сделках",
   noStartPct: "Стартовый баланс не задан — процентов не посчитать.",
   byJournal: "по сделкам журнала:",
   phName: "FTMO 100k", phFirm: "FTMO", phReason: "превысил дневной лимит",
   phNote: "что угодно про этот счёт",
-  limitHint: "Лимиты бери из условий фирмы. Пустое поле значит «лимита нет», а не ноль.",
   emptyLead: "Здесь будут твои счета: свой депозит и всё, что взял у проп-фирм.",
   emptyHint: "Заведи счёт — и журнал перестанет считать одними процентами: покажет баланс в деньгах, сколько осталось до цели и сколько до лимита просадки.",
   unlisted: "Есть в сделках, но карточки нет",
@@ -821,13 +817,11 @@ en: {
   fNote: "Note",
   fNow: "Balance now", phNow: "from the dashboard", pickDate: "pick a date",
   pickFirm: "Pick a firm", noFirm: "no firm",
-  nowHint: "Balance now comes from the firm dashboard. Leave it empty and the journal counts from your trades.",
-  nameHint: "The name is assembled from firm, type and size. Type your own and it stays; clear it and it comes back. It must match the trade's account field — that is how trades are found.",
+  noLimit: "none", nName: "as in trades",
   noStartPct: "No starting balance — percentages cannot be counted.",
   byJournal: "by journal trades:",
   phName: "FTMO 100k", phFirm: "FTMO", phReason: "went past the daily limit",
   phNote: "anything about this account",
-  limitHint: "Take the limits from the firm's terms. An empty field means no limit, not zero.",
   emptyLead: "Your accounts live here: your own deposit and everything you took from prop firms.",
   emptyHint: "Add an account and the journal stops counting in percent alone: it shows the balance in money, how far the target is and how much drawdown is left.",
   unlisted: "In your trades, but no card yet",
