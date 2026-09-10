@@ -17,6 +17,7 @@ const S = {
   filters: {},
   mFlt: false, mDim: false,     // на телефоні фільтри й розрізи згорнуті під кнопку
   formShots: [],
+  formPreset: "",             // день, з якого відкрили форму — для «почати заново»
   all: [], mRep:null, ovPeriod:"month",
   pages:{},                     // номер страницы для каждого списка сделок                // сделка, открытая во второй панели журнала
 };
@@ -1358,12 +1359,64 @@ function markTheme(){
 
 $("#modal") && null;
 
-function openLightbox(src){ $("#lightboxImg").src=src; $("#lightbox").hidden=false; }
-function closeLightbox(){ $("#lightbox").hidden=true; $("#lightboxImg").src=""; }
+/* ---------- перегляд скрінів ----------
+   Скріни таймфреймів дивляться підряд: 4H, потім 15m, потім 1m — і назад,
+   поки не складеться картина входу. Досі кожен доводилось відкривати й
+   закривати окремо мишкою. Тепер відкритий скрін гортається стрілками
+   (і кнопками з боків), як у Notion: гурт — це сусідні картинки того
+   блоку, звідки взяли першу. */
+const LB = {list:[], i:0};
+
+function openLightbox(from){
+  const img = (from && from.tagName === "IMG") ? from : null;
+  const src = img ? img.src : from;
+  LB.list = img ? shotGroup(img) : [{src:src, cap:""}];
+  LB.i = Math.max(0, LB.list.findIndex(s => s.src === src));
+  showShot();
+  $("#lightbox").hidden = false;
+}
+/* сусідні скріни того самого блоку: картка угоди, слоти форми, «Моя ТС» */
+function shotGroup(img){
+  const box = img.closest(".charts, .tfgrid, .ts-shots");
+  const imgs = box ? [...box.querySelectorAll("img")] : [img];
+  return imgs.map(x => ({src:x.src, cap:shotCap(x)}));
+}
+/* підпис таймфрейму лежить поруч із картинкою — у картці й у слоті по-різному */
+function shotCap(img){
+  const cell = img.closest(".chart-item, .tfslot, .ts-shot");
+  const lab = cell && cell.querySelector(".l, .tfl span");
+  return lab ? (lab.textContent || "").trim() : "";
+}
+function showShot(){
+  const cur = LB.list[LB.i] || {src:"", cap:""};
+  $("#lightboxImg").src = cur.src;
+  const many = LB.list.length > 1;
+  const cap = $("#lightboxCap");
+  if(cap) cap.textContent = many
+    ? (cur.cap ? cur.cap + "  ·  " : "") + (LB.i + 1) + "/" + LB.list.length
+    : cur.cap;
+  const prev = $("#lbPrev"), next = $("#lbNext");
+  if(prev){ prev.hidden = !many; prev.setAttribute("aria-label", T.lbPrev); }
+  if(next){ next.hidden = !many; next.setAttribute("aria-label", T.lbNext); }
+}
+/* крок ліворуч-праворуч по колу: після останнього знову перший */
+function lightStep(step, e){
+  if(e) e.stopPropagation();
+  if(LB.list.length < 2) return;
+  LB.i = (LB.i + step + LB.list.length) % LB.list.length;
+  showShot();
+}
+function closeLightbox(){ $("#lightbox").hidden=true; $("#lightboxImg").src=""; LB.list=[]; }
 /* Esc закрывает то, что сверху, а не панель под ним. Перехват на
    погружении — панель слушает всплытие, и так до неё не дойдёт, в каком
    бы порядке ни навесились обработчики. */
 document.addEventListener("keydown", e=>{
+  const lb=$("#lightbox");
+  if(lb && !lb.hidden && (e.key==="ArrowLeft" || e.key==="ArrowRight")){
+    e.stopPropagation(); e.preventDefault();
+    lightStep(e.key==="ArrowLeft" ? -1 : 1);
+    return;
+  }
   if(e.key!=="Escape") return;
   const box=$("#lightbox"), modal=$("#modal");
   if(box && !box.hidden){ e.stopPropagation(); closeLightbox(); return; }
@@ -1419,7 +1472,7 @@ function tradeBodyHtml(t){
   h+=section(T.tcCharts,
     shots.length ? '<div class="charts">'+shots.map(s=>
       '<div class="chart-item"><div class="l">'+esc(s.tf||"chart")+'</div><img loading="lazy" src="'+
-      shotSrc(s)+'" onclick="openLightbox(this.src)"></div>').join("")+"</div>" : "",
+      shotSrc(s)+'" onclick="openLightbox(this)"></div>').join("")+"</div>" : "",
     shots.length ? [] : [T.tcNoScreens]);
   return h;
 }
@@ -1456,8 +1509,147 @@ function openTradeRow(id){ openTrade(id); }
 async function delTrade(id){
   if(!await Ask.yes(T.confirmDeleteTrade, {ok:T.askYes, cancel:T.askNo, danger:true})) return;
   await api("DELETE","/api/trades/"+id);
+  Draft.done(id);
   await reload(); closeModal(); render();
 }
+
+/* ================= чернетка форми угоди =================
+   Форма виїжджає панеллю, і закрити її випадково легко: Escape, клік повз
+   панель, змах на телефоні. Досі після цього все написане зникало — скріни,
+   нотатки, розбір входу доводилось набирати заново. Тепер форма веде
+   чернетку: пише її на кожну зміну й підставляє назад, коли форму
+   відкриють знову.
+
+   Тримаємо чернетку у двох місцях. У пам'яті — повну, зі скрінами: вони
+   важать по півмегабайта, і саме цей випадок найчастіший — закрив і одразу
+   відкрив. У localStorage — те саме, а коли зі скрінами не влазить, самі
+   поля: пережити перезавантаження сторінки важливіше за картинки, які
+   легко вставити ще раз. */
+const Draft = (function(){
+  const PREFIX = "tj_draft:";
+  const LIFE = 3 * 24 * 3600 * 1000;   /* через три дні чернетка вже не про цю угоду */
+  const FIELDS = ["pair","date","session","account","position","bias","direction_type",
+                  "entry_model","setup","result","rr","risk","rr_plan",
+                  "entry_details","notes","mistakes","emotion"];
+  /* що форма підставляє сама: чернетка з самих лише цих полів — порожня форма */
+  const AUTO = new Set(["date","risk","account"]);
+  const mem = {};
+  let saved = false, timer = null, base = null;
+
+  const key = id => PREFIX + (id || "new");
+  const fld = f => document.getElementById("fld_" + f);
+
+  function collect(){
+    const v = {};
+    for(const f of FIELDS){ const el = fld(f); if(el) v[f] = el.value; }
+    return {v, shots:(S.formShots || []).slice(), at:Date.now()};
+  }
+  /* відбиток форми: за ним видно, чи людина взагалі щось міняла. Без нього
+     форма правки лишала чернетку навіть тоді, коли її просто відкрили й
+     закрили, — і наступного разу зустрічала рядком «чернетка відновлена» */
+  function snap(d){
+    return JSON.stringify([d.v, (d.shots || []).map(x =>
+      (x.tf || "") + ":" + (x.file || x.name || (x.data || "").slice(0, 40)))]);
+  }
+  function worth(d){
+    if(!d || !d.v) return false;
+    if(Date.now() - (d.at || 0) > LIFE) return false;
+    if((d.shots || []).length) return true;
+    return FIELDS.some(f => !AUTO.has(f) && (d.v[f] || "").trim());
+  }
+  function put(k, d){
+    try{ localStorage.setItem(k, JSON.stringify(d)); return; }catch(e){}
+    try{ localStorage.setItem(k, JSON.stringify({v:d.v, shots:[], at:d.at})); }catch(e){}
+  }
+  function write(id){
+    if(!fld("pair")) return;                 /* форми на екрані вже немає */
+    const d = collect();
+    if(!worth(d) || snap(d) === base){ clear(id); return; }
+    mem[key(id)] = d;
+    put(key(id), d);
+  }
+  function read(id){
+    const k = key(id);
+    if(mem[k]) return mem[k];
+    try{ const raw = localStorage.getItem(k); return raw ? JSON.parse(raw) : null; }
+    catch(e){ return null; }
+  }
+  function clear(id){
+    delete mem[key(id)];
+    try{ localStorage.removeItem(key(id)); }catch(e){}
+  }
+
+  /* повертаємо значення у поля: перемикачі, кнопки-підказки й своє значення */
+  function apply(d){
+    for(const f of FIELDS){
+      const el = fld(f);
+      if(!el || d.v[f] == null) continue;
+      el.value = d.v[f];
+      const seg = document.getElementById("seg_" + f);
+      if(seg){
+        seg.querySelectorAll("button").forEach(b => {
+          const on = !!d.v[f] && b.dataset.v === d.v[f];
+          b.classList.toggle("on", on);
+          if(b.dataset.cls) b.classList.toggle(b.dataset.cls, on);
+        });
+      } else if(el.classList.contains("qinput") && (d.v[f] || "").trim()){
+        /* значення не з кнопок — показуємо поле, інакше воно лишиться схованим */
+        const btns = [...document.querySelectorAll('.quick button[data-f="' + f + '"]')]
+          .map(b => b.dataset.v);
+        const parts = isMulti(f) ? splitVals(d.v[f]) : [d.v[f].trim()];
+        if(!parts.every(x => btns.includes(x))) el.hidden = false;
+      }
+    }
+    S.formShots = (d.shots || []).slice();
+    S.dirTouched = !!(d.v.direction_type || "").trim();
+    const tag = $("#dirTag");
+    if(tag && S.dirTouched) tag.textContent = T.fmAutoManual;
+    renderShots(); markQuick(); calcOutcome();
+  }
+
+  /* рядок над формою: видно, що це не свіжий бланк, і одразу є чим його стерти */
+  function note(id){
+    const body = document.querySelector(".pnl .m-body.form");
+    if(!body || document.getElementById("draftNote")) return;
+    body.insertAdjacentHTML("afterbegin",
+      '<div class="draft-note" id="draftNote"><span>' + T.dfKept + "</span>" +
+      '<button type="button" onclick="Draft.fresh(\'' + (id || "") + '\')">' +
+      T.dfFresh + "</button></div>");
+  }
+
+  function bump(id){ clearTimeout(timer); timer = setTimeout(() => write(id), 400); }
+
+  /* форма щойно відкрилась: вішаємо запис і повертаємо збережене */
+  function start(id){
+    saved = false;
+    const box = window.Panel && Panel.box();
+    if(box){
+      box.addEventListener("input", () => bump(id), true);
+      box.addEventListener("click", () => bump(id), true);
+    }
+    base = snap(collect());          /* якою форма приїхала — з даними угоди чи порожня */
+    const d = read(id);
+    if(worth(d) && snap(d) !== base){ apply(d); note(id); return true; }
+    clear(id);
+    return false;
+  }
+  /* форму закрили: записали угоду — чернетка не потрібна, ні — лишаємо */
+  function stop(id){
+    clearTimeout(timer);
+    if(saved){ saved = false; clear(id); return; }
+    write(id);
+  }
+  function done(id){ saved = true; clearTimeout(timer); clear(id); }
+  /* «почати заново»: стираємо чернетку й відкриваємо чистий бланк */
+  function fresh(id){
+    done(id);
+    const day = S.formPreset;
+    closeModal();
+    setTimeout(() => openForm(id || "", day), 0);
+  }
+  return {start, stop, done, fresh, clear};
+})();
+window.Draft = Draft;
 
 /* ---------- форма сделки ---------- */
 function dl(id,vals){ return '<datalist id="'+id+'">'+vals.map(v=>'<option value="'+esc(v)+'">').join("")+"</datalist>"; }
@@ -1593,11 +1785,14 @@ function openForm(id, presetDay){
     '<span class="sp"></span><button class="btn" onclick="closeModal()">'+T.fmCancel+'</button>'+
     '<button class="btn primary" onclick="saveTrade(\''+(t?t.id:"")+'\')">'+T.fmSave+'</button></div>';
 
-  Sheet.open(h,{cls:"form-pnl"});
+  S.formPreset = presetDay || "";
+  Sheet.open(h,{cls:"form-pnl", onClose:()=>Draft.stop(id||"")});
   renderShots();
   markQuick(); autoDirType(); calcOutcome();
   $("#shotFile").addEventListener("change", onShotFiles);
   document.addEventListener("paste", onPasteShot);
+  /* незаписане з минулого разу — назад у поля */
+  Draft.start(id||"");
   if(!t) setTimeout(()=>{ const el=$("#fld_pair"); if(el) el.focus(); },60);
 }
 
@@ -1729,7 +1924,7 @@ function renderShots(){
     const src=shotSrc(s);
     return '<div class="tfslot filled"><div class="tfl"><span>'+esc(label)+'</span>'+
       '<button type="button" class="rm" title="'+T.shotRemoveTip+'" onclick="removeShot('+i+')">×</button></div>'+
-      '<img src="'+src+'" onclick="openLightbox(this.src)"></div>';
+      '<img src="'+src+'" onclick="openLightbox(this)"></div>';
   };
   let h="";
   for(const tf of Prefs.tfs()){
@@ -1880,6 +2075,7 @@ async function saveTrade(id){
     let saved=null;
     if(id) await api("PUT","/api/trades/"+id,t);
     else   saved=await api("POST","/api/trades",t);
+    Draft.done(id||"");
     await reload(); closeModal(); render();
     /* Звірка з ТС — уже після того, як форма закрилась: людина не має
        чекати ні на сервер, ні на модель. Правки чужих полів не чіпаємо:
