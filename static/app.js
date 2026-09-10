@@ -1782,7 +1782,7 @@ function openForm(id, presetDay){
 
   h+='<div class="m-foot">'+
     (t?'<button class="btn danger" onclick="delTrade(\''+t.id+'\')">'+T.tcDelete+'</button>':"")+
-    '<span class="sp"></span><button class="btn" onclick="closeModal()">'+T.fmCancel+'</button>'+
+    '<span class="sp"></span><button class="btn" onclick="cancelForm(\''+(t?t.id:"")+'\')">'+T.fmCancel+'</button>'+
     '<button class="btn primary" onclick="saveTrade(\''+(t?t.id:"")+'\')">'+T.fmSave+'</button></div>';
 
   S.formPreset = presetDay || "";
@@ -1795,6 +1795,11 @@ function openForm(id, presetDay){
   Draft.start(id||"");
   if(!t) setTimeout(()=>{ const el=$("#fld_pair"); if(el) el.focus(); },60);
 }
+
+/* «Скасувати» — явна відмова від написаного, а не випадкове закриття, тож
+   чернетку тут стираємо. Escape, клік повз панель і «×» лишають її на
+   місці: ними форму закривають і ненароком. */
+function cancelForm(id){ Draft.done(id || ""); closeModal(); }
 
 /* подстановка значения по клику на подсказку */
 function quickSet(btn){
