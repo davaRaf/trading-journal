@@ -517,6 +517,24 @@ def _prefs_init():
 REF_COOKIE = "ref"
 REF_TTL = 30 * 24 * 3600
 PARTNER_TITLES = {"blackswan": "Black Swan"}      # як партнера звуть у прев'ю
+# Коротке посилання: statsai.xyz/bs замість statsai.xyz/?ref=blackswan.
+# Довге теж лишається робочим — його вже роздали.
+PARTNER_ALIASES = {"bs": "blackswan"}
+
+
+def ref_norm(value):
+    """Мітка з адреси: коротка назва чи повна — однаково. Чуже — порожньо."""
+    v = (value or "").strip().lower()
+    v = PARTNER_ALIASES.get(v, v)
+    return v if v in config.PARTNERS else ""
+
+
+def ref_short(ref):
+    """Як писати мітку в адресі: коротко, якщо є коротка назва."""
+    for short, full in PARTNER_ALIASES.items():
+        if full == ref:
+            return short
+    return ref
 KIND_RU = {"trade": "Сделка", "day": "День", "week": "Неделя", "month": "Месяц", "year": "Год",
            "ts": "Торговая система", "review": "Анализ дня", "period": "Период (старые)",
            "other": "Другое"}
@@ -993,8 +1011,7 @@ class H(BaseHTTPRequestHandler):
     def _ref_query(self):
         """?ref=<партнер> у адресі — або нічого."""
         q = parse_qs(urlparse(self.path).query)
-        ref = (q.get("ref") or [""])[0].strip().lower()
-        return ref if ref in config.PARTNERS else ""
+        return ref_norm((q.get("ref") or [""])[0])
 
     def _ref_touch(self, owner_ref=None):
         """Сторінка з міткою (своя в адресі або мітка хазяїна сторінки).
@@ -1104,7 +1121,7 @@ class H(BaseHTTPRequestHandler):
             out = {k: v for k, v in rec.items() if k != "user_id"}
             ref = ref_of_user(rec.get("user_id"))
             if ref:
-                out["ref"] = ref            # сторінка допише ?ref= в адресу
+                out["ref"] = ref_short(ref)  # сторінка допише ?ref= в адресу
             nick = public_owner(rec.get("user_id"))
             if nick:
                 out["owner"] = {"nick": nick}
@@ -1733,6 +1750,18 @@ class H(BaseHTTPRequestHandler):
             return self._file(os.path.join(STATIC, "index.html"),
                               "text/html; charset=utf-8")
 
+        # ---- коротке партнерське посилання: /bs ----
+        m = re.match(r"^/([A-Za-z0-9_-]{2,16})/?$", p)
+        if m:
+            ref = ref_norm(m.group(1))
+            if ref:
+                self._ref_touch(ref)
+                if self._uid():
+                    return self._redirect("/")
+                # на сторінку входу ведемо з повною міткою: звідти месенджер
+                # бере прев'ю в оформленні партнера
+                return self._redirect("/login?ref=" + ref)
+
         if p in ("/", "/index.html"):
             if not self._uid():
                 # ?ref=партнер лишаємо в адресі: месенджер іде за редіректом і
@@ -2111,7 +2140,7 @@ class H(BaseHTTPRequestHandler):
             # мітка партнера — прямо в адресі: власник спільноти бачить, що
             # посилання рахується йому. Сама мітка й так береться з хазяїна.
             ref = ref_of_user(uid)
-            url = "/s/" + rec["id"] + ("?ref=" + ref if ref else "")
+            url = "/s/" + rec["id"] + ("?ref=" + ref_short(ref) if ref else "")
             return self._json({"id": rec["id"], "url": url,
                                "expires": rec["expires"]}, 201)
 
