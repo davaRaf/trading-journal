@@ -37,6 +37,7 @@ import notion_sync
 import authmail
 import oauth
 import ratelimit
+import accounts_store
 import day_store
 import tg_api
 import tidy
@@ -1290,6 +1291,17 @@ class H(BaseHTTPRequestHandler):
                             or [""])[0] == "bt" else ""
             return self._json(db.list_trades(uid, kind))
 
+        # ---- рахунки: свій депозит і проп-фірми (accounts_store.py) ----
+        #
+        # Тільки описи рахунків. Гроші й просадка рахуються в браузері з
+        # угод, які вже поїхали окремим запитом: другий раз ті самі угоди
+        # ганяти по мережі нема сенсу.
+        if p == "/api/accounts":
+            uid = self._uid()
+            if not uid:
+                return self._json({"error": "auth required"}, 401)
+            return self._json({"accounts": accounts_store.lst(uid)})
+
         # ---- аналіз дня (day_store.py) ----
         if p.startswith("/api/day/"):
             uid = self._uid()
@@ -2014,6 +2026,36 @@ class H(BaseHTTPRequestHandler):
             except ValueError as e:
                 return self._json({"error": str(e)}, 400)
             return self._json({"file": name})
+
+        # ---- рахунки ----
+        if p == "/api/accounts":
+            acc = (body or {}).get("account") or {}
+            name = str(acc.get("name") or "").strip()
+            if not name:
+                return self._json({"error": "no name"}, 400)
+            acc_id = acc.get("id")
+            try:
+                acc_id = int(acc_id) if acc_id not in (None, "") else None
+            except (TypeError, ValueError):
+                return self._json({"error": "bad id"}, 400)
+            # Назва — це і є звʼязок з угодами, тому двох однакових бути
+            # не може: угоди однієї назви розділити було б нічим.
+            if accounts_store.name_taken(uid, name, acc_id):
+                return self._json({"error": "name taken"}, 409)
+            if acc_id is None:
+                return self._json({"account": accounts_store.add(uid, acc)})
+            saved = accounts_store.put(uid, acc_id, acc)
+            if not saved:
+                return self._json({"error": "not found"}, 404)
+            return self._json({"account": saved})
+
+        if p == "/api/accounts/drop":
+            try:
+                acc_id = int((body or {}).get("id"))
+            except (TypeError, ValueError):
+                return self._json({"error": "bad id"}, 400)
+            accounts_store.drop(uid, acc_id)
+            return self._json({"ok": True})
 
         if p == "/api/day/shot":
             try:

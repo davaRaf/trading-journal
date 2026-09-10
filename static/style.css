@@ -1168,6 +1168,7 @@ body:has(.ovw){font-size:14px;line-height:1.6;font-weight:300}
 /* Без .nav навмисне: на телефоні нижні вкладки — копії цих посилань,
    і сховати треба заразом і їх. */
 :root[data-mode="bt"] a[data-v="day"],
+:root[data-mode="bt"] a[data-v="accounts"],
 :root[data-mode="bt"] #toolsGrp,
 :root[data-mode="bt"] #conn{display:none}
 

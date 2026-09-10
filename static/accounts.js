@@ -1,0 +1,617 @@
+/* ============================================================
+   «Мої рахунки»: свій депозит і рахунки проп-фірм.
+
+   Журнал рахує все у відсотках від депозиту — розміру депозиту він не
+   знав ніколи. Тут людина каже, скільки грошей було на старті, і ті самі
+   відсотки нарешті перетворюються на гроші: баланс, скільки лишилось до
+   цілі, скільки лишилось до ліміту просадки.
+
+   Звʼязок з угодами — по імені рахунку (поле «рахунок» в угоді). Тому
+   картку можна завести пізніше за угоди: вони підтягнуться самі.
+
+   Тут нічого не зберігається, крім опису рахунку. Гроші рахуються з угод,
+   які вже лежать у S.trades — другий раз тягнути їх з сервера нема сенсу.
+   ============================================================ */
+(function(){
+
+let ACCS = undefined;     /* undefined — ще не питали, [] — порожньо */
+let openId = null;        /* у якої картки розгорнутий розбір */
+
+function D(){ return DICT[window.LANG] || DICT.uk; }
+
+/* ---------------- гроші ---------------- */
+
+const SIGNS = {USD: "$", EUR: "€", GBP: "£", UAH: "₴", PLN: "zł"};
+
+/* Гроші пишемо цілими: копійки на рахунку в 100 тисяч — шум, а колонки
+   від них стрибають. Пробіл між тисячами нерозривний. */
+function money(v, cur){
+  if (v == null || isNaN(v)) return "—";
+  const sign = v < 0 ? "−" : "";
+  const abs = Math.round(Math.abs(v)).toString().replace(/\B(?=(\d{3})+(?!\d))/g, "\u202F");
+  const s = SIGNS[cur] || "";
+  return s ? sign + s + abs : sign + abs + "\u202F" + (cur || "");
+}
+function moneySigned(v, cur){
+  if (v == null || isNaN(v)) return "—";
+  return (v > 0 ? "+" : "") + money(v, cur);
+}
+function clamp(v, a, b){ return Math.max(a, Math.min(b, v)); }
+
+/* ---------------- угоди рахунку ---------------- */
+
+function key(s){ return String(s == null ? "" : s).trim().toLowerCase(); }
+
+function tradesOf(acc){
+  const nm = key(acc.name);
+  if (!nm) return [];
+  return sortAsc(S.trades.filter(t => key(t.account) === nm));
+}
+
+/* Скільки людина вже назбирала на цьому рахунку — і як воно йшло.
+   Все у відсотках від депозиту, як і решта журналу; гроші зверху. */
+function stat(acc){
+  const all = tradesOf(acc);
+  const list = realTrades(all);
+  const c = calc(all);
+  let acc_ = 0, peak = 0, dd = 0;
+  const curve = [];
+  const byDay = new Map();
+  for (const t of list){
+    const r = netR(t);
+    acc_ += r;
+    peak = Math.max(peak, acc_);
+    dd = Math.min(dd, acc_ - peak);
+    curve.push(acc_);
+    const d = (t.date || "").slice(0, 10);
+    if (d) byDay.set(d, (byDay.get(d) || 0) + r);
+  }
+  let worstDay = null, worstDayVal = 0;
+  byDay.forEach((v, d) => { if (v < worstDayVal){ worstDayVal = v; worstDay = d; } });
+  const start = acc.start_balance;
+  const has = start != null && !isNaN(start) && start > 0;
+  return {
+    n: c.n, skips: c.skips, wr: c.wr, avgRR: c.avgRR,
+    net: c.net,                       /* підсумок у % від депозиту */
+    maxDD: -dd,                       /* просадка від піку, у % (додатне) */
+    worstDay, worstDayVal,
+    curve, list, all,
+    hasMoney: has,
+    start: has ? start : null,
+    profit: has ? start * c.net / 100 : null,
+    balance: has ? start * (1 + c.net / 100) : null,
+    /* Скільки з дозволеної просадки вже витрачено. Рахуємо від старту, а
+       не від піку: фірми рахують саме так, і людина порівнює з їхньою
+       цифрою в кабінеті. */
+    lost: Math.max(0, -c.net),
+  };
+}
+
+/* ---------------- дрібні шматки розмітки ---------------- */
+
+function cls(v){ return v > 0 ? "up" : (v < 0 ? "down" : ""); }
+
+/* Смужка «скільки з чого». Число завжди підписане текстом поруч:
+   на саму лише довжину смужки покладатись не можна. */
+function bullet(label, val, limit, tone){
+  const on = limit != null && limit > 0;
+  const part = on ? clamp(val / limit * 100, 0, 100) : 0;
+  const hot = on && part >= 70;
+  return '<div class="ac-bul' + (hot ? " hot" : "") + '">'
+    + '<div class="ac-bul-h"><span>' + esc(label) + "</span>"
+    +   "<b>" + (on ? fmtR1(val) + " / " + fmtR1(limit) : fmtR1(val)) + "</b></div>"
+    + '<div class="ac-bul-t"><i class="' + esc(tone || "") + '" style="width:'
+    +   (on ? part.toFixed(1) : 0) + '%"></i></div>'
+    + "</div>";
+}
+/* Відсотки рахунку пишемо без знака «плюс»: це не результат угоди, а
+   межа або витрачена частка. */
+function fmtR1(v){ return v == null || isNaN(v) ? "—" : (Math.round(v * 100) / 100) + "%"; }
+
+/* Крива капіталу маленьким розчерком. Менше чотирьох точок не малюємо:
+   по двох-трьох угодах «тренду» немає, це просто дві риски. */
+function spark(curve){
+  if (!curve || curve.length < 4) return "";
+  const w = 260, h = 40, pad = 2;
+  const lo = Math.min(0, ...curve), hi = Math.max(0, ...curve);
+  const span = (hi - lo) || 1;
+  const x = i => pad + i * (w - pad * 2) / (curve.length - 1);
+  const y = v => h - pad - (v - lo) / span * (h - pad * 2);
+  const pts = curve.map((v, i) => x(i).toFixed(1) + "," + y(v).toFixed(1)).join(" ");
+  const zero = y(0).toFixed(1);
+  const last = curve[curve.length - 1];
+  return '<svg class="ac-spark" viewBox="0 0 ' + w + " " + h + '" preserveAspectRatio="none"'
+    + ' aria-hidden="true">'
+    + '<line x1="0" y1="' + zero + '" x2="' + w + '" y2="' + zero + '" class="z"/>'
+    + '<polyline points="' + pts + '" class="' + cls(last) + '"/></svg>';
+}
+
+const STATUS_CLS = {active: "act", passed: "pass", failed: "fail", closed: "shut"};
+
+/* ---------------- картка рахунку ---------------- */
+
+function card(a){
+  const d = D(), s = stat(a);
+  const st = STATUS_CLS[a.status] || "act";
+  const kind = d.kinds[a.kind] || "";
+  const sub = [a.firm, a.opened_at ? d.since + " " + human(a.opened_at) : ""]
+    .filter(Boolean).join(" · ");
+
+  /* Шапка балансу. Без стартового балансу гроші рахувати нема з чого —
+     показуємо відсотки й прямо кажемо, чого бракує. */
+  let head;
+  if (s.hasMoney){
+    head = '<div class="ac-bal"><div class="big ' + cls(s.net) + '">'
+      +   esc(money(s.balance, a.currency)) + "</div>"
+      + '<div class="ac-delta ' + cls(s.net) + '">' + esc(fmtR(s.net))
+      +   '<i>·</i>' + esc(moneySigned(s.profit, a.currency)) + "</div>"
+      + '<div class="ac-from">' + esc(d.fromStart + " " + money(s.start, a.currency)) + "</div></div>";
+  } else {
+    head = '<div class="ac-bal"><div class="big ' + cls(s.net) + '">' + esc(fmtR(s.net)) + "</div>"
+      + '<div class="ac-nomoney">' + esc(d.noStart)
+      +   ' <button class="ac-link" onclick="__acc.edit(' + a.id + ')">' + esc(d.setStart) + "</button></div></div>";
+  }
+
+  const bars = (a.target_pct || a.dd_total_pct || a.dd_daily_pct)
+    ? '<div class="ac-bars">'
+      + (a.target_pct ? bullet(d.toTarget, Math.max(0, s.net), a.target_pct, "up") : "")
+      + (a.dd_total_pct ? bullet(d.ddTotal, s.lost, a.dd_total_pct, "down") : "")
+      + (a.dd_daily_pct ? bullet(d.ddDaily, Math.abs(s.worstDayVal), a.dd_daily_pct, "down") : "")
+      + "</div>"
+    : "";
+
+  const cells = [
+    [d.nTrades, s.n + (s.skips ? " +" + s.skips + d.skipTag : "")],
+    [d.wr, s.wr == null ? "—" : Math.round(s.wr) + "%"],
+    [d.avgRR, s.avgRR == null ? "—" : (Math.round(s.avgRR * 100) / 100)],
+    [d.maxDD, s.n ? fmtR1(s.maxDD) : "—"],
+  ];
+  const stats = '<div class="ac-cells">' + cells.map(c =>
+    '<div class="ac-cell"><div class="l">' + esc(c[0]) + '</div><div class="v">'
+    + esc(String(c[1])) + "</div></div>").join("") + "</div>";
+
+  const dead = a.status === "failed";
+  const foot = '<div class="ac-foot">'
+    + (dead ? '<button class="ac-link" onclick="__acc.why(' + a.id + ')">'
+        + esc(openId === a.id ? d.hideWhy : d.showWhy) + "</button>" : "")
+    + '<span class="sp"></span>'
+    + '<button class="ac-link" onclick="__acc.edit(' + a.id + ')">' + esc(d.edit) + "</button></div>";
+
+  return '<div class="shell"><div class="core ac-card ' + st + '">'
+    + '<div class="ac-top"><div class="ac-name"><b>' + esc(a.name) + "</b>"
+    +   (kind ? '<i class="ac-kind">' + esc(kind) + "</i>" : "")
+    +   (sub ? '<div class="ac-sub">' + esc(sub) + "</div>" : "") + "</div>"
+    + '<span class="ac-st ' + st + '">' + esc(d.status[a.status] || "") + "</span></div>"
+    + head + spark(s.curve) + bars + stats
+    + (dead && openId === a.id ? why(a, s) : "")
+    + foot + "</div></div>";
+}
+
+/* ---------------- чому рахунок злили ---------------- */
+/*
+   Найкорисніше в розділі. Людина памʼятає останню угоду, а не всі; тут
+   видно, що саме зʼїло рахунок: три найгірші угоди, день, коли пробило
+   ліміт, і чого в збиткових угодах було найбільше.
+*/
+function dayOfBreak(a, s){
+  if (!a.dd_total_pct) return null;
+  let acc_ = 0;
+  for (const t of s.list){
+    acc_ += netR(t);
+    if (acc_ <= -a.dd_total_pct) return {date: (t.date || "").slice(0, 10), at: acc_};
+  }
+  return null;
+}
+function topField(list, field){
+  const m = groupByField(list, field);
+  let best = null, bestN = 0;
+  m.forEach((arr, v) => { if (arr.length > bestN){ bestN = arr.length; best = v; } });
+  return best ? {name: best, n: bestN} : null;
+}
+
+function why(a, s){
+  const d = D();
+  const losers = s.list.filter(t => netR(t) < 0)
+    .sort((x, y) => netR(x) - netR(y)).slice(0, 3);
+  const brk = dayOfBreak(a, s);
+  const mist = topField(s.list.filter(t => netR(t) < 0), "mistakes");
+  const emo = topField(s.list.filter(t => netR(t) < 0), "emotion");
+
+  let rows = "";
+  if (brk) rows += line(d.brokeAt, human(brk.date) + " · " + fmtR(brk.at));
+  if (s.worstDay) rows += line(d.worstDay, human(s.worstDay) + " · " + fmtR(s.worstDayVal));
+  if (mist) rows += line(d.topMistake, mist.name + " · " + mist.n + d.timesTag);
+  if (emo) rows += line(d.topEmotion, emo.name + " · " + emo.n + d.timesTag);
+  if (a.reason) rows += line(d.reason, a.reason);
+
+  const worst = losers.length
+    ? '<div class="ac-worst"><div class="l">' + esc(d.worstTrades) + "</div>"
+      + losers.map(t => '<div class="ac-wrow"><span>' + esc(t.pair || "—") + "</span>"
+        + '<i>' + esc(human((t.date || "").slice(0, 10))) + "</i>"
+        + '<b class="down">' + esc(fmtR(netR(t))) + "</b></div>").join("") + "</div>"
+    : "";
+
+  return '<div class="ac-why">' + (rows ? '<div class="ac-wlist">' + rows + "</div>" : "")
+    + worst + "</div>";
+}
+function line(l, v){
+  return '<div class="ac-wline"><span>' + esc(l) + "</span><b>" + esc(String(v)) + "</b></div>";
+}
+
+function human(iso){
+  if (!iso) return "";
+  const p = String(iso).split("-");
+  return p.length === 3 ? p[2] + "." + p[1] + "." + p[0] : iso;
+}
+
+/* ---------------- форма рахунку ---------------- */
+
+function field(label, id, val, ph, type){
+  return '<label class="ac-f"><span>' + esc(label) + "</span>"
+    + '<input class="ac-in" id="' + id + '" type="' + (type || "text") + '"'
+    + (type === "number" ? ' step="any" inputmode="decimal"' : "")
+    + ' value="' + esc(val == null ? "" : val) + '"'
+    + (ph ? ' placeholder="' + esc(ph) + '"' : "") + "></label>";
+}
+
+/* Перемикачі й підказки рахунків слухаються одним обробником нижче:
+   inline-onclick з рядком усередині вимагає трьох рівнів лапок і
+   ламається на першому ж імені з апострофом. */
+function seg(id, val, opts){
+  return '<div class="ac-seg" id="' + id + '" data-seg="' + esc(id) + '">' + opts.map(o =>
+    '<button type="button" data-v="' + esc(o[0]) + '"' + (o[0] === val ? ' class="on"' : "")
+    + ">" + esc(o[1]) + "</button>").join("") + "</div>";
+}
+
+function form(a){
+  const d = D();
+  const dead = a.status && a.status !== "active";
+  return '<div class="m-body ac-form">'
+    + '<div class="ac-row2">' + field(d.fName, "acName", a.name, d.phName)
+    +   field(d.fFirm, "acFirm", a.firm, d.phFirm) + "</div>"
+    + '<div class="ac-f"><span>' + esc(d.fKind) + "</span>"
+    +   seg("acKind", a.kind || "own",
+          [["own", d.kinds.own], ["challenge", d.kinds.challenge], ["funded", d.kinds.funded]])
+    + "</div>"
+    + '<div class="ac-row2">' + field(d.fStart, "acStart", a.start_balance, "100000", "number")
+    +   field(d.fCur, "acCur", a.currency || "USD", "USD") + "</div>"
+    + '<p class="ac-hint">' + esc(d.startHint) + "</p>"
+    + '<div class="ac-row3">' + field(d.fTarget, "acTarget", a.target_pct, "10", "number")
+    +   field(d.fDdTotal, "acDdTotal", a.dd_total_pct, "10", "number")
+    +   field(d.fDdDaily, "acDdDaily", a.dd_daily_pct, "5", "number") + "</div>"
+    + '<p class="ac-hint">' + esc(d.limitHint) + "</p>"
+    + '<div class="ac-row2">' + field(d.fOpened, "acOpened", a.opened_at, "", "date")
+    +   '<div class="ac-f"><span>' + esc(d.fStatus) + "</span>"
+    +   seg("acStatus", a.status || "active",
+          [["active", d.status.active], ["passed", d.status.passed],
+           ["failed", d.status.failed], ["closed", d.status.closed]]) + "</div></div>"
+    /* Дата закриття й причина зʼявляються тільки тоді, коли рахунку вже
+       нема: живому рахунку їх заповнювати нема чого. */
+    + '<div class="ac-dead" id="acDead"' + (dead ? "" : " hidden") + ">"
+    +   '<div class="ac-row2">' + field(d.fClosed, "acClosed", a.closed_at, "", "date")
+    +     field(d.fReason, "acReason", a.reason, d.phReason) + "</div></div>"
+    + field(d.fNote, "acNote", a.note, d.phNote)
+    + '<p class="ac-err" id="acErr" hidden></p>'
+    + "</div>";
+}
+
+function openForm(a){
+  const d = D();
+  const isNew = !a.id;
+  openModal('<div class="m-head"><h2>' + esc(isNew ? d.newTitle : d.editTitle) + "</h2>"
+    + '<button class="x" onclick="closeModal()" aria-label="' + esc(d.close) + '">×</button></div>'
+    + form(a)
+    + '<div class="m-foot">'
+    + (isNew ? "" : '<button class="btn danger" onclick="__acc.drop(' + a.id + ')">'
+        + esc(d.del) + "</button>")
+    + '<span class="sp"></span>'
+    + '<button class="btn" onclick="closeModal()">' + esc(d.cancel) + "</button>"
+    + '<button class="btn primary" onclick="__acc.save(' + (a.id || 0) + ')">'
+    +   esc(d.save) + "</button></div>");
+  const nm = document.getElementById("acName");
+  if (nm && isNew) nm.focus();
+}
+
+function segVal(id){
+  const on = document.querySelector("#" + id + " button.on");
+  return on ? on.dataset.v : "";
+}
+function val(id){
+  const el = document.getElementById(id);
+  return el ? el.value.trim() : "";
+}
+function num(id){
+  const v = val(id).replace(",", ".");
+  if (!v) return null;
+  const f = parseFloat(v);
+  return isNaN(f) ? null : f;
+}
+function show(el, text){
+  if (!el) return;
+  el.textContent = text;
+  el.hidden = false;
+}
+
+async function save(id){
+  const d = D();
+  const err = document.getElementById("acErr");
+  const acc = {
+    id: id || null, name: val("acName"), firm: val("acFirm"), kind: segVal("acKind"),
+    currency: val("acCur") || "USD", start_balance: num("acStart"),
+    target_pct: num("acTarget"), dd_total_pct: num("acDdTotal"), dd_daily_pct: num("acDdDaily"),
+    opened_at: val("acOpened"), status: segVal("acStatus"),
+    closed_at: val("acClosed"), reason: val("acReason"), note: val("acNote"),
+  };
+  if (!acc.name){ show(err, d.errName); return; }
+  try{
+    await api("POST", "/api/accounts", {account: acc});
+  }catch(e){
+    /* 409 — таку назву вже носить інший рахунок. Помилка не про мережу,
+       і людині треба сказати саме це. */
+    show(err, /409/.test(String((e && e.message) || "")) ? d.errTaken : d.errSave);
+    return;
+  }
+  closeModal();
+  ACCS = undefined;
+  await load();
+}
+
+async function drop(id){
+  const d = D();
+  if (!await Ask.yes(d.delAsk, {ok: d.delYes, cancel: d.cancel, danger: true})) return;
+  try{ await api("POST", "/api/accounts/drop", {id: id}); }catch(e){ return; }
+  closeModal();
+  ACCS = undefined;
+  await load();
+}
+
+/* ---------------- сам розділ ---------------- */
+
+async function load(){
+  try{
+    ACCS = (await api("GET", "/api/accounts")).accounts || [];
+  }catch(e){ ACCS = []; }
+  if (S.view === "accounts") render();
+}
+
+/* Рахунки, які людина вже вписувала в угоди, але картки не завела.
+   Не показати їх було б дивно: у журналі вони є, а в розділі про
+   рахунки — немає. */
+function unlisted(){
+  const known = new Set((ACCS || []).map(a => key(a.name)));
+  const seen = new Map();
+  for (const t of S.trades){
+    const k = key(t.account);
+    if (!k || known.has(k)) continue;
+    if (!seen.has(k)) seen.set(k, {name: (t.account || "").trim(), n: 0});
+    seen.get(k).n++;
+  }
+  return [...seen.values()].sort((a, b) => b.n - a.n);
+}
+
+function total(){
+  const d = D();
+  const live = (ACCS || []).filter(a => a.status === "active");
+  if (!live.length) return "";
+  /* Складати гроші можна лише в одній валюті: перерахунку курсів у
+     журналі немає, і вигадувати його тут не будемо. */
+  const curs = new Set(live.map(a => a.currency || "USD"));
+  const withMoney = live.filter(a => a.start_balance > 0);
+  let sum = null;
+  if (curs.size === 1 && withMoney.length){
+    sum = withMoney.reduce((s, a) => s + stat(a).balance, 0);
+  }
+  return '<div class="ac-total"><span>' + esc(d.liveN.replace("%n", live.length)) + "</span>"
+    + (sum != null ? "<b>" + esc(money(sum, [...curs][0])) + "</b>" : "") + "</div>";
+}
+
+function hints(){
+  const d = D();
+  const rest = unlisted();
+  if (!rest.length) return "";
+  return '<div class="shell"><div class="core ac-rest"><div class="l">' + esc(d.unlisted) + "</div>"
+    + '<div class="ac-chips">' + rest.map(r =>
+        '<button class="ac-chip" data-name="' + esc(r.name) + '">'
+        + esc(r.name) + "<i>" + r.n + "</i></button>").join("") + "</div>"
+    + '<p class="ac-hint">' + esc(d.unlistedHint) + "</p></div></div>";
+}
+
+function vAccounts(){
+  const d = D();
+  if (ACCS === undefined){
+    load();
+    return '<div class="empty">' + esc(d.loading) + "</div>";
+  }
+  const head = '<div class="ohead ac-head"><h1>' + esc(d.title) + "</h1>" + total()
+    + '<button class="btn primary ac-new" id="acAdd">' + esc(d.add) + "</button></div>";
+
+  if (!ACCS.length){
+    return '<div class="acw">' + head
+      + '<div class="shell"><div class="core ac-empty">'
+      + "<p>" + esc(d.emptyLead) + '</p><p class="ac-hint">' + esc(d.emptyHint) + "</p>"
+      + '<button class="btn primary" id="acAdd2">' + esc(d.add) + "</button>"
+      + "</div></div>" + hints() + "</div>";
+  }
+  return '<div class="acw">' + head
+    + '<div class="ac-grid">' + ACCS.map(card).join("") + "</div>" + hints() + "</div>";
+}
+
+function blank(){ return {name: "", firm: "", kind: "own", currency: "USD", status: "active"}; }
+
+/* Один обробник на весь розділ і на вікно форми: розмітка
+   перемальовується цілком, і вішати слухачів на кожну кнопку заново
+   довелось би після кожного кроку. */
+document.addEventListener("click", e => {
+  const seg = e.target.closest(".ac-seg button");
+  if (seg){
+    const box = seg.closest(".ac-seg");
+    box.querySelectorAll("button").forEach(b => b.classList.toggle("on", b === seg));
+    if (box.dataset.seg === "acStatus"){
+      const dead = document.getElementById("acDead");
+      if (dead) dead.hidden = seg.dataset.v === "active";
+    }
+    return;
+  }
+  if (S.view !== "accounts") return;
+  const add = e.target.closest("#acAdd, #acAdd2");
+  if (add){ __acc.add(); return; }
+  const chip = e.target.closest(".ac-chip");
+  if (chip){ __acc.addNamed(chip.dataset.name || ""); return; }
+});
+
+window.__acc = {
+  add(){
+    if (window.Guest && Guest.block(D().title)) return;
+    openForm(blank());
+  },
+  addNamed(name){
+    if (window.Guest && Guest.block(D().title)) return;
+    const a = blank();
+    a.name = name;
+    openForm(a);
+  },
+  edit(id){
+    const a = (ACCS || []).find(x => x.id === id);
+    if (a) openForm(Object.assign({}, a));
+  },
+  why(id){ openId = openId === id ? null : id; render(); },
+  save: save,
+  drop: drop,
+  reload(){ ACCS = undefined; },
+};
+
+VIEWS.accounts = vAccounts;
+/* У бектесті рахунків немає: у прогоні на історії нема ні грошей, ні
+   ліміту просадки — там нема чого зливати. */
+if (typeof BT_HIDDEN !== "undefined") BT_HIDDEN.accounts = 1;
+/* Перевірка на typeof навмисна: BT_HIDDEN оголошений через const у app.js,
+   тож на window його немає, і звичайне звернення до нього до виїзду
+   бектесту впало б з ReferenceError — разом з усім розділом. */
+
+/* ---------------- підпис у бічній панелі ---------------- */
+function paintNav(){
+  const a = document.querySelector('.nav a[data-v="accounts"]');
+  if (!a) return;
+  const sp = a.querySelector("span");
+  if (sp) sp.textContent = D().navTitle;
+  a.setAttribute("data-tip", D().navTip);
+}
+const realApply = window.applyLang;
+if (typeof realApply === "function"){
+  window.applyLang = function(){
+    const r = realApply.apply(this, arguments);
+    paintNav();
+    return r;
+  };
+}
+
+/* ============================================================
+   Словник розділу. Лежить тут, а не в i18n.js: розділ ще ворушиться,
+   і так його правки не чіпають спільний файл.
+   ============================================================ */
+const DICT = {
+uk: {
+  title: "Мої рахунки", navTitle: "Рахунки", navTip: "Свій депозит і рахунки проп-фірм: баланс, ціль, ліміти",
+  loading: "Хвилинку…", add: "Новий рахунок", close: "Закрити", cancel: "Скасувати",
+  save: "Зберегти", edit: "Правити", del: "Видалити",
+  delAsk: "Прибрати картку рахунку? Угоди лишаться в журналі.",
+  delYes: "Прибрати",
+  liveN: "живих рахунків: %n",
+  since: "з", fromStart: "старт", noStart: "Стартовий баланс не заданий — гроші рахувати нема з чого.",
+  setStart: "задати",
+  toTarget: "До цілі", ddTotal: "Загальна просадка", ddDaily: "Найгірший день",
+  nTrades: "Угод", wr: "Вінрейт", avgRR: "Середній RR", maxDD: "Просадка від піку",
+  skipTag: " скіп",
+  showWhy: "Чому злили", hideWhy: "Згорнути",
+  brokeAt: "Ліміт пробито", worstDay: "Найгірший день", topMistake: "Найчастіша помилка",
+  topEmotion: "Найчастіша емоція", reason: "Причина", worstTrades: "Найгірші угоди",
+  timesTag: " раз",
+  status: {active: "Активний", passed: "Пройдений", failed: "Злитий", closed: "Закритий"},
+  kinds: {own: "свій депозит", challenge: "челендж", funded: "фандед"},
+  newTitle: "Новий рахунок", editTitle: "Рахунок",
+  fName: "Назва", fFirm: "Фірма", fKind: "Тип", fStart: "Стартовий баланс", fCur: "Валюта",
+  fTarget: "Ціль, %", fDdTotal: "Ліміт просадки, %", fDdDaily: "Денний ліміт, %",
+  fOpened: "Відкритий", fStatus: "Стан", fClosed: "Закритий", fReason: "Причина",
+  fNote: "Нотатка",
+  phName: "FTMO 100k", phFirm: "FTMO", phReason: "перевищив денний ліміт",
+  phNote: "що завгодно про цей рахунок",
+  startHint: "Назва має збігатися з тим, що ти пишеш у полі «рахунок» в угоді — по ній угоди й знаходяться.",
+  limitHint: "Ліміти бери з умов фірми. Порожнє поле означає «ліміту немає», а не нуль.",
+  emptyLead: "Тут будуть твої рахунки: свій депозит і все, що взяв у проп-фірм.",
+  emptyHint: "Заведи рахунок — і журнал перестане рахувати самими відсотками: покаже баланс у грошах, скільки лишилось до цілі й скільки до ліміту просадки.",
+  unlisted: "Є в угодах, але картки немає",
+  unlistedHint: "Ці назви вже стоять у твоїх угодах. Натисни — і заведемо картку з цією назвою.",
+  errName: "Без назви рахунок не знайде своїх угод.", errTaken: "Рахунок з такою назвою вже є.",
+  errSave: "Не вдалось зберегти. Спробуй ще раз.",
+},
+ru: {
+  title: "Мои счета", navTitle: "Счета", navTip: "Свой депозит и счета проп-фирм: баланс, цель, лимиты",
+  loading: "Минутку…", add: "Новый счёт", close: "Закрыть", cancel: "Отмена",
+  save: "Сохранить", edit: "Править", del: "Удалить",
+  delAsk: "Убрать карточку счёта? Сделки останутся в журнале.",
+  delYes: "Убрать",
+  liveN: "живых счетов: %n",
+  since: "с", fromStart: "старт", noStart: "Стартовый баланс не задан — деньги считать не из чего.",
+  setStart: "задать",
+  toTarget: "До цели", ddTotal: "Общая просадка", ddDaily: "Худший день",
+  nTrades: "Сделок", wr: "Винрейт", avgRR: "Средний RR", maxDD: "Просадка от пика",
+  skipTag: " скип",
+  showWhy: "Почему слили", hideWhy: "Свернуть",
+  brokeAt: "Лимит пробит", worstDay: "Худший день", topMistake: "Частая ошибка",
+  topEmotion: "Частая эмоция", reason: "Причина", worstTrades: "Худшие сделки",
+  timesTag: " раз",
+  status: {active: "Активный", passed: "Пройден", failed: "Слит", closed: "Закрыт"},
+  kinds: {own: "свой депозит", challenge: "челлендж", funded: "фандед"},
+  newTitle: "Новый счёт", editTitle: "Счёт",
+  fName: "Название", fFirm: "Фирма", fKind: "Тип", fStart: "Стартовый баланс", fCur: "Валюта",
+  fTarget: "Цель, %", fDdTotal: "Лимит просадки, %", fDdDaily: "Дневной лимит, %",
+  fOpened: "Открыт", fStatus: "Состояние", fClosed: "Закрыт", fReason: "Причина",
+  fNote: "Заметка",
+  phName: "FTMO 100k", phFirm: "FTMO", phReason: "превысил дневной лимит",
+  phNote: "что угодно про этот счёт",
+  startHint: "Название должно совпадать с тем, что ты пишешь в поле «счёт» в сделке — по нему сделки и находятся.",
+  limitHint: "Лимиты бери из условий фирмы. Пустое поле значит «лимита нет», а не ноль.",
+  emptyLead: "Здесь будут твои счета: свой депозит и всё, что взял у проп-фирм.",
+  emptyHint: "Заведи счёт — и журнал перестанет считать одними процентами: покажет баланс в деньгах, сколько осталось до цели и сколько до лимита просадки.",
+  unlisted: "Есть в сделках, но карточки нет",
+  unlistedHint: "Эти названия уже стоят в твоих сделках. Нажми — и заведём карточку с этим названием.",
+  errName: "Без названия счёт не найдёт своих сделок.", errTaken: "Счёт с таким названием уже есть.",
+  errSave: "Не удалось сохранить. Попробуй ещё раз.",
+},
+en: {
+  title: "My accounts", navTitle: "Accounts", navTip: "Your own deposit and prop firm accounts: balance, target, limits",
+  loading: "One moment…", add: "New account", close: "Close", cancel: "Cancel",
+  save: "Save", edit: "Edit", del: "Delete",
+  delAsk: "Remove this account card? The trades stay in the journal.",
+  delYes: "Remove",
+  liveN: "live accounts: %n",
+  since: "since", fromStart: "start", noStart: "No starting balance yet — nothing to count money from.",
+  setStart: "set it",
+  toTarget: "To target", ddTotal: "Total drawdown", ddDaily: "Worst day",
+  nTrades: "Trades", wr: "Win rate", avgRR: "Average RR", maxDD: "Drawdown from peak",
+  skipTag: " skip",
+  showWhy: "Why it blew", hideWhy: "Collapse",
+  brokeAt: "Limit breached", worstDay: "Worst day", topMistake: "Most common mistake",
+  topEmotion: "Most common emotion", reason: "Reason", worstTrades: "Worst trades",
+  timesTag: "x",
+  status: {active: "Active", passed: "Passed", failed: "Blown", closed: "Closed"},
+  kinds: {own: "own deposit", challenge: "challenge", funded: "funded"},
+  newTitle: "New account", editTitle: "Account",
+  fName: "Name", fFirm: "Firm", fKind: "Type", fStart: "Starting balance", fCur: "Currency",
+  fTarget: "Target, %", fDdTotal: "Drawdown limit, %", fDdDaily: "Daily limit, %",
+  fOpened: "Opened", fStatus: "Status", fClosed: "Closed", fReason: "Reason",
+  fNote: "Note",
+  phName: "FTMO 100k", phFirm: "FTMO", phReason: "went past the daily limit",
+  phNote: "anything about this account",
+  startHint: "The name must match what you type in the trade's account field — that is how trades are found.",
+  limitHint: "Take the limits from the firm's terms. An empty field means no limit, not zero.",
+  emptyLead: "Your accounts live here: your own deposit and everything you took from prop firms.",
+  emptyHint: "Add an account and the journal stops counting in percent alone: it shows the balance in money, how far the target is and how much drawdown is left.",
+  unlisted: "In your trades, but no card yet",
+  unlistedHint: "These names already appear in your trades. Tap one and we will create a card with that name.",
+  errName: "Without a name the account cannot find its trades.", errTaken: "An account with this name already exists.",
+  errSave: "Could not save. Please try again.",
+},
+};
+
+})();

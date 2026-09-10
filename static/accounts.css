@@ -1,0 +1,164 @@
+/* ============================================================
+   «Мої рахунки».
+
+   Кольори беремо тільки змінними (--up / --down / --line / --card):
+   тем у журналі девʼять, і жоден колір тут не прописаний руками —
+   інакше розділ виглядав би чужим у восьми з них.
+
+   Колір несе лише результат: баланс, просадка, стан рахунку. Решта —
+   сірі відтінки, як і в решті журналу. Стан рахунку при цьому завжди
+   підписаний словом: на самий лише колір покладатись не можна.
+   ============================================================ */
+
+.acw{max-width:1180px}
+.ac-head{display:flex; align-items:center; gap:14px; flex-wrap:wrap; margin-bottom:var(--stack)}
+.ac-head h1{margin:0}
+.ac-new{margin-left:auto}
+
+/* підсумок по живих рахунках: тихий рядок біля заголовка */
+.ac-total{display:flex; align-items:baseline; gap:10px; color:var(--faint);
+  font-family:var(--mono); font-size:12px}
+.ac-total b{color:var(--text); font-size:15px; font-variant-numeric:tabular-nums}
+
+/* ---------------- сітка карток ---------------- */
+.ac-grid{display:grid; grid-template-columns:repeat(auto-fill,minmax(330px,1fr)); gap:var(--stack)}
+.ac-grid > .shell{margin-bottom:0}
+.ac-card{padding:18px 20px 14px; display:flex; flex-direction:column; gap:14px}
+
+.ac-top{display:flex; align-items:flex-start; gap:10px}
+.ac-name{min-width:0}
+.ac-name b{font-size:16px; font-weight:600; letter-spacing:-.01em}
+.ac-kind{font-style:normal; margin-left:7px; font-family:var(--mono); font-size:9.5px;
+  letter-spacing:.10em; text-transform:uppercase; color:var(--faint)}
+.ac-sub{margin-top:3px; color:var(--faint); font-size:12px}
+
+/* стан рахунку: слово плюс колір, ніколи не колір сам по собі */
+.ac-st{flex:none; margin-left:auto; border:1px solid var(--line); border-radius:20px;
+  padding:4px 11px; font-size:11.5px; color:var(--dim); white-space:nowrap}
+.ac-st.pass{color:var(--up); border-color:var(--up); background:var(--up-soft)}
+.ac-st.fail{color:var(--down); border-color:var(--down); background:var(--down-soft)}
+.ac-st.shut{color:var(--faint)}
+/* злитий рахунок притишений цілком: він уже не робочий інструмент */
+.ac-card.fail{opacity:.92}
+
+/* ---------------- баланс ---------------- */
+.ac-bal .big{font-family:var(--mono); font-size:30px; font-weight:500; letter-spacing:-.02em;
+  font-variant-numeric:tabular-nums; line-height:1.1}
+.ac-bal .big.up{color:var(--up)}
+.ac-bal .big.down{color:var(--down)}
+.ac-delta{margin-top:5px; font-family:var(--mono); font-size:13px; color:var(--dim);
+  font-variant-numeric:tabular-nums; display:flex; align-items:baseline; gap:8px}
+.ac-delta.up{color:var(--up)}
+.ac-delta.down{color:var(--down)}
+.ac-delta i{font-style:normal; opacity:.45}
+.ac-from{margin-top:4px; color:var(--faint); font-size:11.5px; font-family:var(--mono)}
+.ac-nomoney{margin-top:6px; color:var(--faint); font-size:12px; line-height:1.5}
+
+/* ---------------- крива капіталу ---------------- */
+.ac-spark{display:block; width:100%; height:40px}
+.ac-spark polyline{fill:none; stroke:var(--dim); stroke-width:1.6;
+  vector-effect:non-scaling-stroke; stroke-linejoin:round; stroke-linecap:round}
+.ac-spark polyline.up{stroke:var(--up)}
+.ac-spark polyline.down{stroke:var(--down)}
+.ac-spark .z{stroke:var(--line); stroke-width:1; vector-effect:non-scaling-stroke}
+
+/* ---------------- смужки «скільки з чого» ---------------- */
+.ac-bars{display:flex; flex-direction:column; gap:9px}
+.ac-bul-h{display:flex; align-items:baseline; gap:8px; font-size:11.5px; color:var(--faint)}
+.ac-bul-h b{margin-left:auto; font-family:var(--mono); font-size:12px; color:var(--dim);
+  font-variant-numeric:tabular-nums}
+.ac-bul-t{margin-top:4px; height:5px; border-radius:3px; background:var(--bar-track); overflow:hidden}
+.ac-bul-t i{display:block; height:100%; border-radius:3px; background:var(--bar-fill);
+  transition:width .25s var(--ease)}
+.ac-bul-t i.up{background:var(--up)}
+.ac-bul-t i.down{background:var(--down)}
+/* близько до межі — підпис теж змінює колір, не лише смужка */
+.ac-bul.hot .ac-bul-h b{color:var(--down)}
+
+/* ---------------- цифри рахунку ---------------- */
+.ac-cells{display:grid; grid-template-columns:repeat(4,minmax(0,1fr));
+  border-top:1px solid var(--line-soft); margin-top:2px}
+.ac-cell{padding:10px 8px 2px; border-right:1px solid var(--line-soft); min-width:0}
+.ac-cell:last-child{border-right:none}
+.ac-cell .l{font-family:var(--mono); font-size:8.5px; letter-spacing:.11em;
+  text-transform:uppercase; color:var(--faint); white-space:nowrap; overflow:hidden;
+  text-overflow:ellipsis}
+.ac-cell .v{margin-top:3px; font-family:var(--mono); font-size:15px; font-weight:500;
+  font-variant-numeric:tabular-nums}
+
+/* ---------------- розбір: чому рахунок злили ---------------- */
+.ac-why{border-top:1px solid var(--line-soft); padding-top:12px;
+  display:flex; flex-direction:column; gap:12px}
+.ac-wlist{display:flex; flex-direction:column; gap:6px}
+.ac-wline{display:flex; align-items:baseline; gap:10px; font-size:12.5px; color:var(--faint)}
+.ac-wline b{margin-left:auto; color:var(--text); font-weight:500; text-align:right}
+.ac-worst .l{font-family:var(--mono); font-size:8.5px; letter-spacing:.11em;
+  text-transform:uppercase; color:var(--faint); margin-bottom:6px}
+.ac-wrow{display:flex; align-items:baseline; gap:10px; padding:5px 0;
+  border-top:1px solid var(--line-soft); font-size:13px}
+.ac-wrow i{font-style:normal; color:var(--faint); font-size:11.5px; font-family:var(--mono)}
+.ac-wrow b{margin-left:auto; font-family:var(--mono); font-variant-numeric:tabular-nums}
+.ac-wrow b.down{color:var(--down)}
+
+.ac-foot{display:flex; align-items:center; gap:10px; margin-top:auto;
+  border-top:1px solid var(--line-soft); padding-top:8px}
+.ac-foot .sp{flex:1}
+
+/* Текстова кнопка. Висота разом із відступами тримається 44px — на
+   телефоні в неї треба потрапляти пальцем. */
+.ac-link{background:none; border:0; color:var(--dim); font-size:13px; cursor:pointer;
+  padding:11px 6px; border-radius:var(--r-sm); transition:.16s}
+.ac-link:hover{color:var(--text)}
+
+/* ---------------- порожній розділ ---------------- */
+.ac-empty{text-align:center; padding:34px 26px}
+.ac-empty p{margin:0 0 8px; font-size:15px}
+.ac-empty .btn{margin-top:14px}
+
+/* ---------------- назви з угод без картки ---------------- */
+.ac-rest .l{font-family:var(--mono); font-size:9px; letter-spacing:.12em;
+  text-transform:uppercase; color:var(--faint); margin-bottom:10px}
+.ac-chips{display:flex; flex-wrap:wrap; gap:8px}
+.ac-chip{display:inline-flex; align-items:center; gap:8px; min-height:38px;
+  border:1px solid var(--line); background:var(--panel-2); border-radius:20px;
+  padding:8px 14px; font-size:13px; color:var(--dim); cursor:pointer; transition:.16s}
+.ac-chip:hover{color:var(--text); border-color:var(--faint)}
+.ac-chip i{font-style:normal; font-family:var(--mono); font-size:11px; color:var(--faint)}
+
+/* ---------------- форма ---------------- */
+.modal-box:has(.ac-form){max-width:620px}
+.ac-form{display:flex; flex-direction:column; gap:12px}
+.ac-row2{display:grid; grid-template-columns:1fr 1fr; gap:12px}
+.ac-row3{display:grid; grid-template-columns:repeat(3,1fr); gap:12px}
+.ac-f{display:block; min-width:0}
+.ac-f > span{display:block; font-size:12px; color:var(--faint); margin-bottom:5px}
+.ac-in{width:100%; min-height:44px; border:1px solid var(--line); border-radius:var(--r-sm);
+  background:var(--panel-2); color:var(--text); padding:10px 12px; font:inherit; font-size:15px}
+.ac-in:focus{outline:2px solid var(--accent); outline-offset:1px; border-color:var(--accent)}
+.ac-hint{margin:-4px 0 0; color:var(--faint); font-size:12px; line-height:1.5}
+.ac-err{margin:0; color:var(--down); font-size:13px}
+
+.ac-seg{display:flex; gap:6px; flex-wrap:wrap}
+.ac-seg button{flex:1 1 auto; min-height:44px; border:1px solid var(--line);
+  background:var(--panel-2); color:var(--dim); border-radius:var(--r-sm); padding:10px 12px;
+  font-size:13.5px; cursor:pointer; transition:.16s}
+.ac-seg button:hover{color:var(--text); border-color:var(--faint)}
+.ac-seg button.on{background:var(--text); border-color:var(--text); color:var(--bg); font-weight:500}
+
+/* ---------------- телефон ---------------- */
+@media (max-width:900px){
+  .ac-grid{grid-template-columns:minmax(0,1fr)}
+  .ac-head h1{width:100%}
+  .ac-new{margin-left:0; width:100%}
+  .ac-total{width:100%}
+}
+@media (max-width:560px){
+  .ac-row2, .ac-row3{grid-template-columns:minmax(0,1fr)}
+  .ac-cells{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .ac-cell:nth-child(2n){border-right:none}
+  .ac-cell:nth-child(-n+2){border-bottom:1px solid var(--line-soft)}
+  .ac-bal .big{font-size:26px}
+}
+@media (prefers-reduced-motion:reduce){
+  .ac-bul-t i{transition:none}
+}

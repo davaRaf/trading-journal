@@ -50,7 +50,8 @@ function bar(){
 function sidebar(){
   /* Налаштування лишаємо: там мова, якою читають цю ж сторінку. Особисті
      розділи всередині нього ховає саме вікно. */
-  ["#newTradeBtn", '.nav a[data-v="day"]', '.nav a[data-v="ts"]', "#conn",
+  ["#newTradeBtn", '.nav a[data-v="day"]', '.nav a[data-v="ts"]',
+   '.nav a[data-v="accounts"]', "#conn",
    "#logoutBtn"].forEach(sel => {
     const el = document.querySelector(sel);
     if (el) el.remove();
