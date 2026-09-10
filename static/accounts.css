@@ -138,6 +138,17 @@
 .ac-hint{margin:-4px 0 0; color:var(--faint); font-size:12px; line-height:1.5}
 .ac-err{margin:0; color:var(--down); font-size:13px}
 
+/* Підказки під полем: назви рахунків з угод і ходові проп-фірми.
+   Дрібніші за перемикачі — це не вибір із закритого списку, а швидкий
+   спосіб не набирати руками. Саме поле лишається звичайним текстовим. */
+.ac-picks{display:flex; flex-wrap:wrap; gap:5px; margin-top:6px}
+.ac-pick{border:1px solid var(--line); background:var(--panel-2); color:var(--dim);
+  border-radius:20px; padding:6px 11px; font-size:12px; line-height:1.2;
+  cursor:pointer; transition:.16s; white-space:nowrap}
+.ac-pick:hover{color:var(--text); border-color:var(--faint)}
+.ac-pick.on{background:var(--accent); border-color:var(--accent);
+  color:var(--accent-ink,#fff); font-weight:500}
+
 .ac-seg{display:flex; gap:6px; flex-wrap:wrap}
 .ac-seg button{flex:1 1 auto; min-height:44px; border:1px solid var(--line);
   background:var(--panel-2); color:var(--dim); border-radius:var(--r-sm); padding:10px 12px;

@@ -246,6 +246,24 @@ function human(iso){
 
 /* ---------------- форма рахунку ---------------- */
 
+/* Проп-фірми, які зустрічаються найчастіше. Це підказка, а не довідник:
+   поле лишається звичайним текстовим, і своє можна вписати завжди. Список
+   не сортуємо за «популярністю» — просто ходові назви, щоб не набирати
+   руками й не плодити «ФТМО», «ftmo» і «FTMO» в одному журналі. */
+const FIRMS = ["FTMO", "FundingPips", "FundedNext", "The5ers", "Topstep",
+  "Apex Trader Funding", "MyFundedFX", "E8 Markets", "Alpha Capital Group",
+  "Take Profit Trader", "Goat Funded Trader", "Funded Trading Plus"];
+
+/* Ряд підказок під полем. Значення підставляється в поле, а не замінює
+   його: людина може взяти підказку й дописати до неї своє — «FTMO 100k». */
+function picks(target, vals, cur){
+  if (!vals || !vals.length) return "";
+  const now = String(cur == null ? "" : cur).trim().toLowerCase();
+  return '<div class="ac-picks" role="group">' + vals.map(v =>
+    '<button type="button" class="ac-pick' + (v.toLowerCase() === now ? " on" : "")
+    + '" data-fill="' + esc(v) + '" data-target="' + esc(target) + '">'
+    + esc(v) + "</button>").join("") + "</div>";
+}
 function field(label, id, val, ph, type){
   return '<label class="ac-f"><span>' + esc(label) + "</span>"
     + '<input class="ac-in" id="' + id + '" type="' + (type || "text") + '"'
@@ -267,8 +285,14 @@ function form(a){
   const d = D();
   const dead = a.status && a.status !== "active";
   return '<div class="m-body ac-form">'
-    + '<div class="ac-row2">' + field(d.fName, "acName", a.name, d.phName)
-    +   field(d.fFirm, "acFirm", a.firm, d.phFirm) + "</div>"
+    /* Назву підказуємо тим, що вже стоїть у самих угодах: саме по ній
+       рахунок і знайде свої угоди, тож збіг тут важливіший за красу. */
+    + '<div class="ac-row2">'
+    +   '<div>' + field(d.fName, "acName", a.name, d.phName)
+    +     picks("acName", unlisted().slice(0, 6).map(r => r.name), a.name) + '</div>'
+    +   '<div>' + field(d.fFirm, "acFirm", a.firm, d.phFirm)
+    +     picks("acFirm", FIRMS, a.firm) + '</div>'
+    + "</div>"
     + '<div class="ac-f"><span>' + esc(d.fKind) + "</span>"
     +   seg("acKind", a.kind || "own",
           [["own", d.kinds.own], ["challenge", d.kinds.challenge], ["funded", d.kinds.funded]])
@@ -452,11 +476,39 @@ document.addEventListener("click", e => {
     }
     return;
   }
+  /* Підказка під полем: підставляємо значення й підсвічуємо саме її.
+     Стоїть до перевірки на розділ — форма живе у вікні, а не на сторінці. */
+  const p = e.target.closest(".ac-pick");
+  if (p){
+    const inp = document.getElementById(p.dataset.target);
+    if (inp){
+      inp.value = p.dataset.fill;
+      inp.focus();
+      p.parentNode.querySelectorAll(".ac-pick")
+        .forEach(b => b.classList.toggle("on", b === p));
+    }
+    return;
+  }
+
   if (S.view !== "accounts") return;
   const add = e.target.closest("#acAdd, #acAdd2");
   if (add){ __acc.add(); return; }
   const chip = e.target.closest(".ac-chip");
   if (chip){ __acc.addNamed(chip.dataset.name || ""); return; }
+});
+
+/* Набрав руками — підсвітка підказки має відповідати тому, що в полі,
+   інакше вибраною лишається кнопка, якої в полі вже немає. */
+document.addEventListener("input", e => {
+  const inp = e.target;
+  if (!inp.classList || !inp.classList.contains("ac-in")) return;
+  /* Шукаємо підказки саме цього поля за data-target, а не по сусідах:
+     інакше правка «Нотатки» перемальовувала б підказки «Назви» —
+     вони лежать в одному вікні. */
+  const mine = document.querySelectorAll('.ac-pick[data-target="' + inp.id + '"]');
+  if (!mine.length) return;
+  const now = inp.value.trim().toLowerCase();
+  mine.forEach(b => b.classList.toggle("on", b.dataset.fill.toLowerCase() === now));
 });
 
 window.__acc = {
