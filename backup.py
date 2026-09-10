@@ -84,9 +84,14 @@ def snapshot(uid):
                         .replace(microsecond=0).isoformat(),
         "user": {"id": uid, "email": user.get("email"),
                  "nickname": user.get("nickname")},
-        "trades": db.list_trades(uid),
+        # kind="all" — вместе с бэктестом: часы работы над прогоном стоит
+        # спасать наравне с реальными сделками, различить их можно по полю.
+        "trades": db.list_trades(uid, "all"),
         "days": day_store.notes_since(uid, "0001-01-01"),
         "strategy": ts_store.get(uid),
+        # ТС бектесту — окремий документ, і в зліпку теж окремо. seed=False:
+        # зліпок тільки дивиться, копію заводить сама людина, коли заходить
+        "strategy_bt": ts_store.get(uid, "bt", seed=False),
         "notion": _notion(uid),
     })
 

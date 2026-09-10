@@ -1152,6 +1152,30 @@ body:has(.ovw){font-size:14px;line-height:1.6;font-weight:300}
 .side .grp{display:flex;flex-direction:column;gap:6px}
 .side .lab{font-family:var(--mono);font-size:9px;letter-spacing:.14em;text-transform:uppercase;
   color:var(--faint);padding:0 5px}
+
+/* Режим журналу: реальна торгівля чи бектест. Той самий сегмент, що й
+   режими журналу в шапці, тільки на всю ширину панелі. */
+.mode-sw{display:flex;flex-direction:column;gap:6px}
+.mode-sw .seg-tabs{margin-left:0;width:100%;border-radius:12px}
+.mode-sw .seg-tabs button{flex:1;padding:7px 8px;font-size:12px}
+:root[data-mode="bt"] .mode-sw .seg-tabs{border-color:var(--accent)}
+:root[data-mode="bt"] .mode-sw .seg-tabs button.on{color:var(--accent)}
+
+/* У бектесті панель коротшає: лишається те, що стосується прогону.
+   «Аналіз дня» — про план на ранок; калькулятор рахує ризик на реальному
+   рахунку; новини про майбутній тиждень; підключення переносять і питають
+   про справжні угоди. У прогоні на історії їм нема чого робити. */
+/* Без .nav навмисне: на телефоні нижні вкладки — копії цих посилань,
+   і сховати треба заразом і їх. */
+:root[data-mode="bt"] a[data-v="day"],
+:root[data-mode="bt"] #toolsGrp,
+:root[data-mode="bt"] #conn{display:none}
+
+/* Смужка «зараз бектест». Тонка й зверху: помітно краєм ока, але не
+   з'їдає місця й не лізе під руку. */
+.bt-flag{position:fixed;top:0;left:0;right:0;z-index:60;pointer-events:none;
+  padding:3px 10px;text-align:center;background:var(--accent);color:var(--accent-ink,#fff);
+  font-family:var(--mono);font-size:9px;letter-spacing:.16em;text-transform:uppercase}
 .mini{display:flex;align-items:center;gap:9px;padding:7px 10px;border-radius:10px;border:1px solid var(--line-soft);
   background:var(--panel-2);color:var(--dim);font-size:12.5px;cursor:pointer;transition:.18s;text-align:left}
 .mini:hover{color:var(--text);background:var(--panel-2);border-color:var(--line)}

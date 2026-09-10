@@ -27,6 +27,40 @@ CREATE TABLE IF NOT EXISTS strategies (
   data       JSONB NOT NULL DEFAULT '{}'::jsonb,
   updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
+
+-- Стратегій у людини дві: для реальної торгівлі і для бектесту. Другу
+-- кладемо сусідньою колонкою, а не окремим рядком.
+--
+-- Спершу спробували рядок на кожен вид: user_id перестав бути унікальним,
+-- первинний ключ довелось зняти — і код, який ще не виклали, зламався на
+-- ON CONFLICT (user_id). Колонка так не робить: старий код бачить таблицю
+-- рівно такою, як була, і працює далі.
+--
+-- NULL у data_bt — копію ще не знімали; '{}' — людина прибрала стратегію
+-- бектесту сама, і копіювати вдруге не треба.
+ALTER TABLE strategies ADD COLUMN IF NOT EXISTS data_bt JSONB;
+
+DO $$
+BEGIN
+  -- прибираємо ту саму спробу з окремими рядками, якщо вона встигла лягти
+  IF EXISTS (SELECT 1 FROM information_schema.columns
+             WHERE table_name = 'strategies' AND column_name = 'kind') THEN
+    INSERT INTO strategies (user_id, data, data_bt)
+      SELECT b.user_id, '{}'::jsonb, b.data FROM strategies b
+       WHERE b.kind = 'bt' AND NOT EXISTS (
+             SELECT 1 FROM strategies s WHERE s.user_id = b.user_id AND s.kind = '');
+    UPDATE strategies s SET data_bt = b.data FROM strategies b
+     WHERE b.user_id = s.user_id AND b.kind = 'bt' AND s.kind = ''
+       AND s.data_bt IS NULL;
+    DELETE FROM strategies WHERE kind = 'bt';
+    DROP INDEX IF EXISTS strategies_user_kind;
+    ALTER TABLE strategies DROP COLUMN kind;
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM pg_constraint
+                  WHERE conrelid = 'strategies'::regclass AND contype = 'p') THEN
+    ALTER TABLE strategies ADD CONSTRAINT strategies_pkey PRIMARY KEY (user_id);
+  END IF;
+END $$;
 """
 
 _ready = False
@@ -43,27 +77,73 @@ def init():
     _ready = True
 
 
-def get(user_id):
-    init()
-    with db.connect() as conn:
-        row = conn.execute("SELECT data FROM strategies WHERE user_id=%s",
-                           (user_id,)).fetchone()
-    return (row or {}).get("data") or None
+def _kind(kind):
+    return "bt" if kind == "bt" else ""
 
 
-def put(user_id, data):
+def _row(conn, user_id):
+    return conn.execute("SELECT data, data_bt FROM strategies WHERE user_id=%s",
+                        (user_id,)).fetchone()
+
+
+def get(user_id, kind="", seed=True):
+    """Стратегія того журналу, в якому людина зараз.
+
+    Перший захід у бектест знімає копію з реальної ТС: людина не описує
+    свою систему двічі. Далі це вже два окремі документи — правки в
+    бектесті не течуть у справжню торгівлю, і навпаки.
+
+    Прибрана стратегія бектесту лишається прибраною: у колонці стоїть
+    порожній документ, і копію вдруге ми вже не знімаємо.
+
+    `seed=False` — тільки прочитати, копію не робити. Так дивиться щоденний
+    зліпок для бекапу: він ходить по всіх людях підряд, і заводити їм копію
+    бектесту, якого вони не відкривали, ні до чого.
+    """
     init()
     with db.connect() as conn:
+        row = _row(conn, user_id)
+        if row is None:
+            return None
+        if _kind(kind) != "bt":
+            return row["data"] or None
+        if row["data_bt"] is not None or not seed:
+            return row["data_bt"] or None
+        src = row["data"] or None
+        if not src:
+            return None                     # копіювати нема чого
+        conn.execute("UPDATE strategies SET data_bt=%s WHERE user_id=%s "
+                     "AND data_bt IS NULL", (Jsonb(src), user_id))
+        return src
+
+
+def put(user_id, data, kind=""):
+    init()
+    col = "data_bt" if _kind(kind) == "bt" else "data"
+    with db.connect() as conn:
+        # у рядка обидві колонки: у сусідньої лишається те, що в ній було
         conn.execute(
-            "INSERT INTO strategies (user_id, data) VALUES (%s, %s) "
-            "ON CONFLICT (user_id) DO UPDATE SET data=EXCLUDED.data, updated_at=now()",
+            "INSERT INTO strategies (user_id, %s) VALUES (%%s, %%s) "
+            "ON CONFLICT (user_id) DO UPDATE SET %s=EXCLUDED.%s, updated_at=now()"
+            % (col, col, col),
             (user_id, Jsonb(data or {})))
 
 
-def clear(user_id):
+def clear(user_id, kind=""):
+    """Прибирає стратегію одного журналу. Сусідню не чіпає."""
     init()
     with db.connect() as conn:
-        conn.execute("DELETE FROM strategies WHERE user_id=%s", (user_id,))
+        if _kind(kind) == "bt":
+            # порожній документ, а не NULL: прибрана стратегія має лишитись
+            # прибраною, інакше наступний захід знову притяг би копію
+            conn.execute("UPDATE strategies SET data_bt=%s, updated_at=now() "
+                         "WHERE user_id=%s", (Jsonb({}), user_id))
+            return
+        # рядок тримає й бектест — тоді просто спорожняємо реальну частину
+        conn.execute("UPDATE strategies SET data=%s, updated_at=now() "
+                     "WHERE user_id=%s AND data_bt IS NOT NULL", (Jsonb({}), user_id))
+        conn.execute("DELETE FROM strategies WHERE user_id=%s AND data_bt IS NULL",
+                     (user_id,))
 
 
 # ----------------------------------------------------------- скріни ----
@@ -132,13 +212,26 @@ def used_files(data):
     return out
 
 
-def sweep(user_id, data, shots_dir):
+def sweep(user_id, data, shots_dir, kind=""):
     """Прибирає файли, на які стратегія більше не посилається.
 
     Людина може перекласти скрін тричі — старі копії інакше лишаться
     лежати назавжди.
+
+    Стратегій у людини дві, а тека скрінів спільна, і копія для бектесту
+    посилається на ті самі файли. Тому лишаємо й те, чим користується
+    сусідній журнал: інакше прибирання в одному забрало б картинки з іншого.
     """
-    keep = used_files(data)
+    init()
+    kind = _kind(kind)
+    try:
+        with db.connect() as conn:
+            row = _row(conn, user_id) or {}
+        other = (row.get("data") if kind == "bt" else row.get("data_bt")) or None
+    except Exception:
+        # не змогли спитати базу — краще нічого не чіпати, ніж стерти чуже
+        return
+    keep = used_files(data) | used_files(other)
     pref = "ts%d_" % int(user_id)
     try:
         names = os.listdir(shots_dir)

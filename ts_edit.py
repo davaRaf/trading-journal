@@ -236,7 +236,7 @@ def about_ts(text):
     return bool(_TS_WORD.search(text or ""))
 
 
-def plan(user_id, question, history=None, lang=None):
+def plan(user_id, question, history=None, lang=None, kind=""):
     """None — це не прохання змінити ТС; інакше {"answer": …, "ts": …}.
 
     ts=True — записали, розділ на сторінці треба перечитати; ts=False —
@@ -244,7 +244,7 @@ def plan(user_id, question, history=None, lang=None):
     """
     ts = None
     try:
-        ts = ts_store.get(user_id)
+        ts = ts_store.get(user_id, kind)
     except Exception:
         ts = None
     data = _ask_model(question, ts, history)
@@ -253,7 +253,7 @@ def plan(user_id, question, history=None, lang=None):
     new_ts, done = apply(ts, data["ops"])
     if not done:
         return {"answer": _FAIL.get(lang) or _FAIL["ru"], "ts": False}
-    ts_store.put(user_id, new_ts)
+    ts_store.put(user_id, new_ts, kind)
     say = _s(data.get("say")) or ("Готово: " + "; ".join(done))
     return {"answer": say, "ts": True, "changes": done}
 

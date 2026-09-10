@@ -646,6 +646,10 @@ window.addEventListener("load", () => {
     let seen = "1";
     try{ seen = localStorage.getItem(SEEN_KEY) || ""; }catch(e){}
     if (seen === "1") return;
+    /* Порожній бектест — теж порожній журнал, але переносити в нього нема
+       чого: старі прогони нізвідки не тягнемо. Мітку не ставимо — коли
+       людина повернеться в реальний режим, пропозиція ще знадобиться. */
+    if (typeof btOn === "function" && btOn()) return;
     if (typeof S !== "undefined" && S.trades && S.trades.length){
       try{ localStorage.setItem(SEEN_KEY, "1"); }catch(e){}
       return;
