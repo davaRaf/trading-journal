@@ -393,6 +393,36 @@ function openFirms(inp){
   });
 }
 
+/* Не кожен стан має сенс для кожного типу. Фандед-рахунок нема де
+   «пройти»: челендж лишився позаду, тепер його або торгують, або зливають.
+   Тому в нього лише два стани, і зайві варіанти не показуємо зовсім —
+   вимкнена кнопка все одно змушує гадати, чому вона вимкнена. */
+function statusesFor(kind){
+  return kind === "funded" ? ["active", "failed"]
+                           : ["active", "passed", "failed", "closed"];
+}
+function statusSeg(kind, cur){
+  const d = D();
+  const allowed = statusesFor(kind);
+  const on = allowed.indexOf(cur) >= 0 ? cur : "active";
+  return seg("acStatus", on, allowed.map(v => [v, d.status[v]]));
+}
+/* Перемкнули тип — перебираємо стани заново. Якщо вибраного стану більше
+   немає (був «Пройден», стало «фандед»), рахунок повертається в активні,
+   а блок причини ховається слідом. */
+function paintStatus(){
+  const box = document.getElementById("acStatus");
+  if (!box) return;
+  const kind = segVal("acKind") || "own";
+  const cur = segVal("acStatus") || "active";
+  const fresh = statusSeg(kind, cur);
+  const wrap = document.createElement("div");
+  wrap.innerHTML = fresh;
+  box.innerHTML = wrap.firstChild.innerHTML;
+  const dead = document.getElementById("acDead");
+  if (dead) dead.hidden = (segVal("acStatus") || "active") === "active";
+}
+
 function form(a){
   const d = D();
   const dead = a.status && a.status !== "active";
@@ -418,9 +448,7 @@ function form(a){
     +   field(d.fDdDaily, "acDdDaily", a.dd_daily_pct, d.noLimit, "number") + "</div>"
     + '<div class="ac-row2">' + dateField(d.fOpened, "acOpened", a.opened_at)
     +   '<div class="ac-f"><span>' + esc(d.fStatus) + "</span>"
-    +   seg("acStatus", a.status || "active",
-          [["active", d.status.active], ["passed", d.status.passed],
-           ["failed", d.status.failed], ["closed", d.status.closed]]) + "</div></div>"
+    +   statusSeg(a.kind || "own", a.status || "active") + "</div></div>"
     /* Дата закриття й причина зʼявляються тільки тоді, коли рахунку вже
        нема: живому рахунку їх заповнювати нема чого. */
     + '<div class="ac-dead" id="acDead"' + (dead ? "" : " hidden") + ">"
@@ -587,7 +615,7 @@ document.addEventListener("click", e => {
       const dead = document.getElementById("acDead");
       if (dead) dead.hidden = seg.dataset.v === "active";
     }
-    if (box.dataset.seg === "acKind") syncName();
+    if (box.dataset.seg === "acKind"){ syncName(); paintStatus(); }
     return;
   }
   /* Підказка під полем: підставляємо значення й підсвічуємо саме її.
@@ -665,7 +693,7 @@ document.addEventListener("input", e => {
 });
 
 /* Гачок для перевірок: збірку назви інакше не викликати ззовні. */
-window.__accTest = {sync: syncName, made: madeName, firms: openFirms};
+window.__accTest = {sync: syncName, made: madeName, firms: openFirms, status: paintStatus};
 
 window.__acc = {
   add(){
