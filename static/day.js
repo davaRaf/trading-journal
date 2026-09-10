@@ -237,6 +237,12 @@ function shotCell(path, cap, readOnly){
   const f = s.file;
   const slot = path + ".file";
   const on = armed === slot;
+  /* Підпис під скріном — чому на цьому таймфреймі видно те, що видно.
+     З'являється разом з картинкою: під порожнім слотом писати нема про що. */
+  const note = !f ? ""
+    : readOnly
+      ? (s.note ? '<div class="dv-snote ro">' + esc(s.note).replace(/\n/g, "<br>") + "</div>" : "")
+      : '<div class="dv-snote">' + ed(path + ".note", d.shotNote, true) + "</div>";
   return '<div class="dv-tf"><div class="cap">' + chip + "</div>"
     + '<div class="dv-shot' + (f ? " has" : "") + (readOnly ? " ro" : "") + (on ? " armed" : "")
     + '" data-shot="' + slot + '">'
@@ -244,7 +250,7 @@ function shotCell(path, cap, readOnly){
            + (readOnly ? "" : '<button class="rm" type="button">×</button>')
          : '<div class="ph"><b>+</b>' + esc(cap) + "<em>"
            + esc(on ? d.shotArmed : hintText(d)) + "</em></div>")
-    + "</div></div>";
+    + "</div>" + note + "</div>";
 }
 /* Порожня комірка «ще один таймфрейм»: вставиш скрін — з'явиться запис. */
 function shotAdd(listPath, cap){
@@ -1042,6 +1048,7 @@ uk: {
   noTsAssets: "у ТС інструменти ще не записані", noJournalAssets: "у журналі ще нічого",
   noAssetsHint: "Додайте актив, який розбираєте зранку — можна кілька.",
   tfPick: "таймфрейм", addTf: "таймфрейм", noShots: "скрінів не було",
+  shotNote: "чому дивишся саме так",
   otherTrades: "Інші угоди дня", otherTradesNote: "Угоди по інструментах, яких зранку не розбирали",
 
   morningCharts: "Графіки зранку",
@@ -1114,6 +1121,7 @@ ru: {
   noTsAssets: "в ТС инструменты ещё не записаны", noJournalAssets: "в журнале ещё ничего",
   noAssetsHint: "Добавьте актив, который разбираете утром — можно несколько.",
   tfPick: "таймфрейм", addTf: "таймфрейм", noShots: "скринов не было",
+  shotNote: "почему смотришь именно так",
   otherTrades: "Другие сделки дня", otherTradesNote: "Сделки по инструментам, которые утром не разбирали",
 
   morningCharts: "Графики утром",
@@ -1186,6 +1194,7 @@ en: {
   noTsAssets: "no instruments in your system yet", noJournalAssets: "nothing in the journal yet",
   noAssetsHint: "Add the instrument you are reviewing this morning — several are fine.",
   tfPick: "timeframe", addTf: "timeframe", noShots: "no screenshots",
+  shotNote: "why you read it this way",
   otherTrades: "Other trades of the day", otherTradesNote: "Trades on instruments you did not review in the morning",
 
   morningCharts: "Charts in the morning",

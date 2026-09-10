@@ -1370,7 +1370,7 @@ const LB = {list:[], i:0};
 function openLightbox(from){
   const img = (from && from.tagName === "IMG") ? from : null;
   const src = img ? img.src : from;
-  LB.list = img ? shotGroup(img) : [{src:src, cap:""}];
+  LB.list = img ? shotGroup(img) : [{src:src, cap:"", note:""}];
   LB.i = Math.max(0, LB.list.findIndex(s => s.src === src));
   showShot();
   $("#lightbox").hidden = false;
@@ -1379,7 +1379,7 @@ function openLightbox(from){
 function shotGroup(img){
   const box = img.closest(".charts, .tfgrid, .ts-shots");
   const imgs = box ? [...box.querySelectorAll("img")] : [img];
-  return imgs.map(x => ({src:x.src, cap:shotCap(x)}));
+  return imgs.map(x => ({src:x.src, cap:shotCap(x), note:shotNoteOf(x)}));
 }
 /* підпис таймфрейму лежить поруч із картинкою — у картці й у слоті по-різному */
 function shotCap(img){
@@ -1387,9 +1387,21 @@ function shotCap(img){
   const lab = cell && cell.querySelector(".l, .tfl span");
   return lab ? (lab.textContent || "").trim() : "";
 }
+/* підпис беремо звідти, де він зараз: у картці це готовий рядок, у формі —
+   поле, яке людина щойно набрала й ще не зберегла */
+function shotNoteOf(img){
+  const cell = img.closest(".chart-item, .tfslot");
+  if(!cell) return "";
+  const ready = cell.querySelector(".cnote");
+  if(ready) return (ready.textContent || "").trim();
+  const field = cell.querySelector(".tfnote");
+  return field ? (field.value || "").trim() : "";
+}
 function showShot(){
-  const cur = LB.list[LB.i] || {src:"", cap:""};
+  const cur = LB.list[LB.i] || {src:"", cap:"", note:""};
   $("#lightboxImg").src = cur.src;
+  const note = $("#lightboxNote");
+  if(note) note.textContent = cur.note || "";
   const many = LB.list.length > 1;
   const cap = $("#lightboxCap");
   if(cap) cap.textContent = many
@@ -1472,7 +1484,9 @@ function tradeBodyHtml(t){
   h+=section(T.tcCharts,
     shots.length ? '<div class="charts">'+shots.map(s=>
       '<div class="chart-item"><div class="l">'+esc(s.tf||"chart")+'</div><img loading="lazy" src="'+
-      shotSrc(s)+'" onclick="openLightbox(this)"></div>').join("")+"</div>" : "",
+      shotSrc(s)+'" onclick="openLightbox(this)">'+
+      ((s.note||"").trim() ? '<div class="cnote">'+esc(s.note.trim())+"</div>" : "")+
+      "</div>").join("")+"</div>" : "",
     shots.length ? [] : [T.tcNoScreens]);
   return h;
 }
@@ -1549,7 +1563,8 @@ const Draft = (function(){
      закрили, — і наступного разу зустрічала рядком «чернетка відновлена» */
   function snap(d){
     return JSON.stringify([d.v, (d.shots || []).map(x =>
-      (x.tf || "") + ":" + (x.file || x.name || (x.data || "").slice(0, 40)))]);
+      (x.tf || "") + ":" + (x.file || x.name || (x.data || "").slice(0, 40)) +
+      ":" + (x.note || ""))]);
   }
   function worth(d){
     if(!d || !d.v) return false;
@@ -1929,7 +1944,9 @@ function renderShots(){
     const src=shotSrc(s);
     return '<div class="tfslot filled"><div class="tfl"><span>'+esc(label)+'</span>'+
       '<button type="button" class="rm" title="'+T.shotRemoveTip+'" onclick="removeShot('+i+')">×</button></div>'+
-      '<img src="'+src+'" onclick="openLightbox(this)"></div>';
+      '<img src="'+src+'" onclick="openLightbox(this)">'+
+      '<textarea class="tfnote" rows="1" placeholder="'+esc(T.snPh)+'" '+
+      'oninput="shotNote('+i+',this)">'+esc(s.note||"")+"</textarea></div>";
   };
   let h="";
   for(const tf of Prefs.tfs()){
@@ -1958,6 +1975,8 @@ function renderShots(){
     T.shotDragHint+'</div>';
   h+='<div class="tfhint">'+shotsHintHtml()+'</div>';
   box.innerHTML=h;
+  /* підписи вже написані — поля мають бути заввишки з текст, а не в рядок */
+  box.querySelectorAll(".tfnote").forEach(growNote);
   /* перетаскивание: в конкретный таймфрейм или в общую зону */
   if(window.Attach) Attach.mount(box, acceptFiles);
 }
@@ -1972,6 +1991,22 @@ function acceptFiles(files, tf){
   });
 }
 function removeShot(i){ S.formShots.splice(i,1); renderShots(); }
+
+/* Підпис під скріном — те, чого не скажеш полем «Як заходив»: чому саме на
+   цьому таймфреймі видно лонг і що ти тут розглядаєш. Лежить поруч із
+   таймфреймом, у тому самому записі, тож їде зі скріном усюди — у картку
+   угоди, у перегляд і у відкритий журнал. */
+function shotNote(i, el){
+  if(!S.formShots[i]) return;
+  S.formShots[i].note = el.value;
+  growNote(el);
+}
+/* поле росте під текст: думка буває на абзац, а смуга прокрутки в маленькому
+   полі ховає початок написаного */
+function growNote(el){
+  el.style.height = "auto";
+  el.style.height = el.scrollHeight + "px";
+}
 
 /* клик по слоту только выделяет его: диалог файла забирал фокус и Ctrl+V уходил мимо.
    На телефоне Ctrl+V нет: тап читает буфер сам, два тапа — файлы (ShotTap в ui.js). */
