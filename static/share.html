@@ -229,6 +229,8 @@ html{interpolate-size:allow-keywords}
 .shots img{width:100%; display:block; aspect-ratio:16/9; object-fit:contain;
   background:var(--panel-2); opacity:0; transition:opacity .2s}
 .shots img.rdy{opacity:1}
+.shots .snote{padding:0 9px 9px; font-size:12px; line-height:1.55; color:var(--dim);
+  white-space:pre-wrap}
 .shots figcaption{font-family:var(--mono); font-size:10px; letter-spacing:.08em;
   text-transform:uppercase; color:var(--faint); padding:6px 8px}
 .big{position:fixed; inset:0; z-index:50; background:rgba(0,0,0,.86); display:flex;
@@ -469,7 +471,8 @@ function tradesHtml(list){
       + ' onload="this.classList.add(&quot;rdy&quot;)"'
       + ' onerror="this.classList.add(&quot;rdy&quot;)" src="'
       + esc(shotUrl(sh.file)) + '">'
-      + (sh.tf ? '<figcaption>'+esc(sh.tf)+'</figcaption>' : '') + '</figure>').join("");
+      + (sh.tf ? '<figcaption>'+esc(sh.tf)+'</figcaption>' : '')
+      + (sh.note ? '<div class="snote">'+esc(sh.note)+'</div>' : '') + '</figure>').join("");
     return '<details class="tr"' + (alone ? " open" : "") + '><summary>'
       + '<span class="tm">'+esc(t.time || "")+'</span>'
       + '<span class="nm">'+esc(t.pair || "")+'</span>'
@@ -495,7 +498,8 @@ function tsHtml(ts){
       '<figure data-src="' + esc(shotUrl(sh.file)) + '"><img loading="lazy" alt=""'
       + ' onload="this.classList.add(&quot;rdy&quot;)"'
       + ' onerror="this.classList.add(&quot;rdy&quot;)" src="' + esc(shotUrl(sh.file)) + '">'
-      + (sh.tf ? "<figcaption>" + esc(sh.tf) + "</figcaption>" : "") + "</figure>").join("")
+      + (sh.tf ? "<figcaption>" + esc(sh.tf) + "</figcaption>" : "")
+      + (sh.note ? '<div class="snote">' + esc(sh.note) + "</div>" : "") + "</figure>").join("")
     + "</div>";
 
   const sec = (title, body) => !body ? "" :
@@ -588,7 +592,8 @@ function reviewHtml(rv){
       '<figure data-src="' + esc(shotUrl(sh.file)) + '"><img loading="lazy" alt=""'
       + ' onload="this.classList.add(&quot;rdy&quot;)"'
       + ' onerror="this.classList.add(&quot;rdy&quot;)" src="' + esc(shotUrl(sh.file)) + '">'
-      + (sh.tf ? "<figcaption>" + esc(sh.tf) + "</figcaption>" : "") + "</figure>").join("")
+      + (sh.tf ? "<figcaption>" + esc(sh.tf) + "</figcaption>" : "")
+      + (sh.note ? '<div class="snote">' + esc(sh.note) + "</div>" : "") + "</figure>").join("")
     + "</div>";
 
   const part = (n, title, eve) => '<div class="rv-p' + (eve ? " eve" : "") + '"><b>' + n

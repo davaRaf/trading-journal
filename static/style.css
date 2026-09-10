@@ -603,7 +603,9 @@ table.simple tr.click:hover td{background:var(--panel-2)}
 .lightbox .lb-fig{display:flex;flex-direction:column;align-items:center;gap:10px;
   max-width:96vw;cursor:zoom-out}
 .lightbox .lb-fig img{max-height:86vh}
-.lightbox .lb-cap:empty{display:none}
+.lightbox .lb-cap:empty,.lightbox .lb-note:empty{display:none}
+.lightbox .lb-note{max-width:min(760px,92vw);max-height:22vh;overflow:auto;color:#fff;
+  opacity:.92;font-size:13px;line-height:1.6;white-space:pre-wrap;text-align:center}
 .lightbox .lb-cap{font-family:var(--mono);font-size:11.5px;letter-spacing:.1em;
   text-transform:uppercase;color:#fff;opacity:.8}
 .lightbox .lb-nav{position:absolute;top:50%;transform:translateY(-50%);width:44px;height:44px;
@@ -890,6 +892,15 @@ table.simple.mini td:last-child{white-space:nowrap;font-weight:600}
 .tfslot.addtf{border-style:dashed;cursor:pointer;opacity:.8}
 .tfslot.addtf:hover{opacity:1;border-color:var(--accent)}
 .tfslot.addtf .drop{font-size:18px;min-height:52px}
+/* підпис під скріном: у формі поле, у картці рядок, у перегляді текст */
+.tfslot .tfnote{width:100%;margin-top:7px;border:1px solid var(--line);border-radius:var(--r-sm);
+  background:var(--panel);color:var(--text);font:inherit;font-size:12px;line-height:1.5;
+  padding:7px 9px;resize:none;overflow:hidden;min-height:34px}
+.tfslot .tfnote:focus{outline:none;border-color:var(--accent)}
+.tfslot .tfnote::placeholder{color:var(--faint)}
+.chart-item .cnote{margin-top:7px;font-size:12.5px;line-height:1.6;color:var(--dim);
+  white-space:pre-wrap}
+
 .qinput{margin-top:7px}
 .qinput[hidden]{display:none !important}
 

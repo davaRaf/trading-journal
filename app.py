@@ -70,6 +70,14 @@ def new_id():
 DATAURL_RE = re.compile(r"^data:image/(png|jpeg|jpg|webp|gif);base64,(.+)$", re.S)
 
 
+NOTE_MAX = 2000            # підпис під скріном: думка, а не пара слів
+
+
+def shot_note(s):
+    """Підпис під скріном — чому на цьому таймфреймі видно те, що видно."""
+    return str(s.get("note") or "").strip()[:NOTE_MAX]
+
+
 def save_screenshots(trade):
     """Скриншоты с base64-данными сохраняем в файлы; уже сохранённые оставляем."""
     out = []
@@ -87,9 +95,9 @@ def save_screenshots(trade):
                 continue
             name = "%s_%d_%s.%s" % (trade["id"], int(time.time() * 1000) % 100000000 + i, tf, ext)
             keep_file(name, raw)
-            out.append({"tf": s.get("tf") or "", "file": name})
+            out.append({"tf": s.get("tf") or "", "file": name, "note": shot_note(s)})
         elif s.get("file"):
-            out.append({"tf": s.get("tf") or "", "file": s["file"]})
+            out.append({"tf": s.get("tf") or "", "file": s["file"], "note": shot_note(s)})
     trade["screenshots"] = out
 
 
@@ -836,7 +844,10 @@ PUBLIC_FIELDS = ["id", "pair", "date", "session", "position", "bias", "setup",
 
 def public_trade(t):
     out = {f: t.get(f) for f in PUBLIC_FIELDS}
-    out["screenshots"] = [{"tf": s.get("tf") or "", "file": s.get("file") or ""}
+    # підпис під скріном показуємо разом з ним: він пояснює сам графік,
+    # а не є окремою нотаткою трейдера, які тут і далі лишаються прихованими
+    out["screenshots"] = [{"tf": s.get("tf") or "", "file": s.get("file") or "",
+                           "note": shot_note(s)}
                           for s in (t.get("screenshots") or []) if s.get("file")]
     return out
 
