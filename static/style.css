@@ -599,6 +599,26 @@ table.simple tr.click:hover td{background:var(--panel-2)}
    удалить?» — тот перекрывает всё. */
 .lightbox{position:fixed;inset:0;background:var(--overlay-strong);z-index:210;display:flex;align-items:center;justify-content:center;cursor:zoom-out;padding:20px}
 .lightbox img{max-width:96vw;max-height:92vh;border-radius:6px}
+/* гортання скрінів: підпис таймфрейму знизу, кнопки з боків, стрілки на клавіатурі */
+.lightbox .lb-fig{display:flex;flex-direction:column;align-items:center;gap:10px;
+  max-width:96vw;cursor:zoom-out}
+.lightbox .lb-fig img{max-height:86vh}
+.lightbox .lb-cap:empty{display:none}
+.lightbox .lb-cap{font-family:var(--mono);font-size:11.5px;letter-spacing:.1em;
+  text-transform:uppercase;color:#fff;opacity:.8}
+.lightbox .lb-nav{position:absolute;top:50%;transform:translateY(-50%);width:44px;height:44px;
+  display:flex;align-items:center;justify-content:center;cursor:pointer;color:#fff;
+  border:1px solid rgba(255,255,255,.22);border-radius:50%;background:rgba(0,0,0,.35);
+  backdrop-filter:blur(4px);padding:0}
+.lightbox .lb-nav svg{width:22px;height:22px}
+.lightbox .lb-nav:hover{background:rgba(0,0,0,.6);border-color:rgba(255,255,255,.45)}
+.lightbox .lb-nav.prev{left:16px}
+.lightbox .lb-nav.next{right:16px}
+@media(max-width:560px){
+  .lightbox .lb-nav{width:38px;height:38px}
+  .lightbox .lb-nav.prev{left:6px}
+  .lightbox .lb-nav.next{right:6px}
+}
 
 /* импорт */
 .map-grid{display:grid;grid-template-columns:150px 1fr;gap:8px 14px;align-items:center;margin:14px 0}
@@ -876,6 +896,14 @@ table.simple.mini td:last-child{white-space:nowrap;font-weight:600}
 /* тип входа: цвета выбранного варианта */
 .seg.big button.on.cont{background:var(--up);border-color:var(--up);color:#fff}
 .seg.big button.on.rev{background:var(--be);border-color:var(--be);color:#1c1608}
+/* рядок про відновлену чернетку — над формою угоди */
+.draft-note{display:flex;align-items:center;gap:10px;margin:0 0 14px;padding:8px 12px;
+  border:1px solid var(--line);border-radius:var(--r-sm);background:var(--panel-2);
+  font-size:12px;color:var(--dim)}
+.draft-note button{margin-left:auto;background:none;border:0;padding:0;cursor:pointer;
+  font:inherit;color:var(--accent);text-decoration:underline;text-underline-offset:2px}
+.draft-note button:hover{opacity:.75}
+
 /* пометка над переключателем */
 .form .f label .autotag{margin-left:6px;font-family:var(--mono);font-size:9px;letter-spacing:.1em;
   text-transform:uppercase;color:var(--faint);font-weight:500}
