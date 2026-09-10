@@ -1539,8 +1539,12 @@ class H(BaseHTTPRequestHandler):
             return self._json({"backups": have, "keep": backup.KEEP})
 
         if p == "/api/calendar":
+            # Розділу «Новини» віддаємо рівно один робочий тиждень: усередині
+            # ми знаємо більше (фід плюс дні вперед з TradingView), і без
+            # цього зрізу стрічка днів угорі розділу тягнулась на два тижні.
             events, warn = calendar_events()
-            return self._json({"events": events, "warning": warn})
+            return self._json({"events": calendar_feed.week_only(events),
+                               "warning": warn})
 
         # Історія однієї події: попередні випуски з архіву календаря.
         # Відкрито всім, як і сам календар: це чужі публічні дані,

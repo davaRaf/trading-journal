@@ -13,8 +13,11 @@ import os
 import threading
 import time
 import urllib.request
+from zoneinfo import ZoneInfo
 
 from config import ROOT
+
+KYIV = ZoneInfo("Europe/Kyiv")          # тиждень рахуємо за київським часом
 
 CAL_URL = "https://nfs.faireconomy.media/ff_calendar_thisweek.json"
 
@@ -292,6 +295,44 @@ def event_time(event):
         return datetime.datetime.fromisoformat(event["date"])
     except Exception:
         return None
+
+
+def week_window(now=None):
+    """Понеділок і п'ятниця того тижня, який зараз цікавий.
+
+    У розділі «Новини» людині потрібен один робочий тиждень, а не все, що
+    ми знаємо. Знаємо ж ми більше: фід віддає поточний тиждень, а дні
+    вперед доїжджають з TradingView — разом виходило днів на десять, і
+    стрічка днів угорі розділу розповзалась на два тижні.
+
+    На вихідних показуємо вже наступний тиждень: у суботу минулий
+    четвер нікому не потрібен, а от що буде в понеділок — потрібно.
+    """
+    now = now or datetime.datetime.now(KYIV)
+    day = now.date()
+    if day.weekday() >= 5:              # субота, неділя
+        mon = day + datetime.timedelta(days=7 - day.weekday())
+    else:
+        mon = day - datetime.timedelta(days=day.weekday())
+    return mon, mon + datetime.timedelta(days=4)
+
+
+def week_only(events, now=None):
+    """Події одного робочого тижня, з понеділка по п'ятницю.
+
+    Тільки для розділу «Новини». Помічник і телеграм беруть повний
+    список: їм майбутні дні саме й потрібні, щоб у суботу відповісти,
+    що виходить у понеділок.
+    """
+    mon, fri = week_window(now)
+    out = []
+    for e in events:
+        dt = event_time(e)
+        if not dt:
+            continue
+        if mon <= dt.astimezone(KYIV).date() <= fri:
+            out.append(e)
+    return out
 
 
 def is_high(event):
