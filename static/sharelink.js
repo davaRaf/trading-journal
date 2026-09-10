@@ -486,14 +486,20 @@ function open(kind, arg){
          превʼю — воно читає data.skin, інакше виходило темним. */
       const skin = shareSkin();
       if (skin) data.skin = skin; else delete data.skin;
+      /* Аналіз дня: у превʼю йде сам скрін наймолодшого таймфрейму — без
+         підписів і без оформлення. Малювати нічого не треба, файл уже в
+         знімку: досить назвати його, і сервер віддасть як og:image. */
+      if (kind === "review"){
+        const sh = (window.OgCal && OgCal.reviewShot) ? OgCal.reviewShot(data) : null;
+        if (sh && sh.file && !/^data:/.test(sh.file)) data.og = sh.file;
+        else delete data.og;
+      }
       /* Для тижня й місяця малюємо календар — він піде в превью посилання.
          Не вийшло намалювати чи покласти — не біда: посилання створиться
          й без картинки, просто в месенджері буде без неї. */
-      if (window.OgCal
-          && (data.calendar || data.ts || kind === "day" || kind === "review")){
+      else if (window.OgCal && (data.calendar || data.ts || kind === "day")){
         try{
           const png = data.ts ? OgCal.system(data)
-                    : kind === "review" ? await OgCal.review(data)
                     : kind === "day" ? OgCal.day(data)
                     : OgCal.period(data);
           if (!png) throw new Error("no image");
