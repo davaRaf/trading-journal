@@ -352,6 +352,44 @@ function syncName(){
   inp.value = madeName();
 }
 
+/* Поле з готовим списком. Дванадцять фірм рядком підказок займали пів
+   форми, тож тепер вони ховаються у список, який виїжджає знизу по
+   натисканню. Список — той самий Pick, що й у фільтрах журналу: своє
+   оформлення, анімація, стрілки й Escape уже в ньому.
+
+   Поле лишається текстовим: список тільки підставляє значення, своє
+   можна вписати завжди — фірм на світі більше, ніж у будь-якому списку. */
+function comboField(label, id, val, ph){
+  return '<div class="ac-f ac-combo">'
+    + '<span>' + esc(label) + '</span>'
+    /* Стан «список відкритий» тримає обгортка, бо саме вона — якір
+       списку: інакше клік по стрілці рахувався б кліком повз поле, і
+       список закривався б, щоб тут-таки відкритись знову. */
+    + '<span class="ac-combo-in" role="combobox" aria-expanded="false">'
+    +   '<input class="ac-in" id="' + id + '" type="text" autocomplete="off"'
+    +     ' value="' + esc(val == null ? "" : val) + '"'
+    +     ' placeholder="' + esc(ph || "") + '"'
+    +     ' data-combo="1">'
+    +   '<button type="button" class="ac-combo-x" data-combo-open="' + id + '"'
+    +     ' aria-label="' + esc(D().pickFirm) + '">'
+    +     '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" aria-hidden="true">'
+    +     '<path d="M6 9l6 6 6-6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></button>'
+    + '</span></div>';
+}
+
+function openFirms(inp){
+  const d = D();
+  /* Порожній рядок першим: свій депозит фірми не має, і прибрати її має
+     бути так само просто, як вибрати. */
+  const list = [{v: "", label: d.noFirm}].concat(FIRMS.map(v => ({v: v, label: v})));
+  const box = inp.closest(".ac-combo-in") || inp;
+  Pick.open(box, list, inp.value.trim(), v => {
+    inp.value = v;
+    syncName();
+    inp.focus();
+  });
+}
+
 function form(a){
   const d = D();
   const dead = a.status && a.status !== "active";
@@ -361,8 +399,7 @@ function form(a){
        назва. Саме поле назви стоїть нижче: воно тут підсумок, а не перше
        питання. */
     + '<div class="ac-row2">'
-    +   '<div>' + field(d.fFirm, "acFirm", a.firm, d.phFirm)
-    +     picks("acFirm", FIRMS, a.firm) + '</div>'
+    +   comboField(d.fFirm, "acFirm", a.firm, d.phFirm)
     +   '<div class="ac-f"><span>' + esc(d.fKind) + "</span>"
     +     seg("acKind", a.kind || "own",
             [["own", d.kinds.own], ["challenge", d.kinds.challenge], ["funded", d.kinds.funded]])
@@ -555,6 +592,16 @@ document.addEventListener("click", e => {
   }
   /* Підказка під полем: підставляємо значення й підсвічуємо саме її.
      Стоїть до перевірки на розділ — форма живе у вікні, а не на сторінці. */
+  /* Поле фірми: список виїжджає знизу. Ловимо і саме поле, і стрілку
+     праворуч — обидва відкривають те саме. */
+  const cb = e.target.closest("[data-combo], [data-combo-open]");
+  if (cb){
+    const inp = cb.dataset.comboOpen
+      ? document.getElementById(cb.dataset.comboOpen) : cb;
+    if (inp) openFirms(inp);
+    return;
+  }
+
   /* Кнопка дати: свій календар журналу. Він малюється в body, тож вікно
      форми його не обрізає. */
   const db = e.target.closest(".ac-date");
@@ -610,12 +657,15 @@ document.addEventListener("input", e => {
    означає «збери сам» — так її можна повернути, стерши. */
 document.addEventListener("input", e => {
   const id = e.target && e.target.id;
+  /* Почав друкувати — значить пише своє: список тут уже заважає, бо
+     затуляє поле й показує не те, що набирають. */
+  if (window.Pick && Pick.isOpen && Pick.isOpen()) Pick.close();
   if (id === "acName") nameTouched = !!e.target.value.trim();
   else if (id === "acFirm" || id === "acStart") syncName();
 });
 
 /* Гачок для перевірок: збірку назви інакше не викликати ззовні. */
-window.__accTest = {sync: syncName, made: madeName};
+window.__accTest = {sync: syncName, made: madeName, firms: openFirms};
 
 window.__acc = {
   add(){
@@ -692,6 +742,7 @@ uk: {
   fOpened: "Відкритий", fStatus: "Стан", fClosed: "Закритий", fReason: "Причина",
   fNote: "Нотатка",
   fNow: "Баланс зараз", phNow: "з кабінету", pickDate: "обрати дату",
+  pickFirm: "Обрати фірму", noFirm: "без фірми",
   nowHint: "Баланс зараз — з кабінету фірми. Порожньо — журнал порахує сам за угодами.",
   nameHint: "Назва збирається сама з фірми, типу й розміру. Впишеш своє — лишиться твоє; зітреш — знову збереться. Головне, щоб вона збігалась із полем «рахунок» в угоді: по ній угоди й знаходяться.",
   noStartPct: "Стартовий баланс не заданий — відсотків не порахувати.",
@@ -730,6 +781,7 @@ ru: {
   fOpened: "Открыт", fStatus: "Состояние", fClosed: "Закрыт", fReason: "Причина",
   fNote: "Заметка",
   fNow: "Баланс сейчас", phNow: "из кабинета", pickDate: "выбрать дату",
+  pickFirm: "Выбрать фирму", noFirm: "без фирмы",
   nowHint: "Баланс сейчас — из кабинета фирмы. Пусто — журнал посчитает сам по сделкам.",
   nameHint: "Название собирается само из фирмы, типа и размера. Впишешь своё — останется твоё; сотрёшь — соберётся снова. Главное, чтобы оно совпадало с полем «счёт» в сделке: по нему сделки и находятся.",
   noStartPct: "Стартовый баланс не задан — процентов не посчитать.",
@@ -768,6 +820,7 @@ en: {
   fOpened: "Opened", fStatus: "Status", fClosed: "Closed", fReason: "Reason",
   fNote: "Note",
   fNow: "Balance now", phNow: "from the dashboard", pickDate: "pick a date",
+  pickFirm: "Pick a firm", noFirm: "no firm",
   nowHint: "Balance now comes from the firm dashboard. Leave it empty and the journal counts from your trades.",
   nameHint: "The name is assembled from firm, type and size. Type your own and it stays; clear it and it comes back. It must match the trade's account field — that is how trades are found.",
   noStartPct: "No starting balance — percentages cannot be counted.",

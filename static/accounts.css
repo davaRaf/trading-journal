@@ -145,6 +145,20 @@
 .ac-hint{margin:-4px 0 0; color:var(--faint); font-size:12px; line-height:1.5}
 .ac-err{margin:0; color:var(--down); font-size:13px}
 
+/* Поле фірми зі списком. Стрілка праворуч каже, що є з чого вибрати, і
+   при цьому не заважає вписати своє: поле лишається звичайним текстовим.
+   Сам список — .spop зі style.css, спільний з фільтрами журналу. */
+.ac-combo-in{position:relative; display:block}
+.ac-combo-in .ac-in{padding-right:38px}
+.ac-combo-x{position:absolute; right:4px; top:50%; transform:translateY(-50%);
+  width:34px; height:34px; display:grid; place-items:center; border:0;
+  background:none; color:var(--faint); cursor:pointer; border-radius:8px;
+  transition:color .16s, transform .18s var(--ease)}
+.ac-combo-x:hover{color:var(--text)}
+/* стрілка перевертається, поки список відкритий */
+.ac-combo-in[aria-expanded="true"] .ac-combo-x{color:var(--text);
+  transform:translateY(-50%) rotate(180deg)}
+
 /* Кнопка дати виглядає як поле вводу, бо нею й є: рідний календар
    браузера не піддається оформленню, тож дату обирає свій DatePicker.
    Порожня дата підписана словами, а не сірим «дд.мм.гггг». */
