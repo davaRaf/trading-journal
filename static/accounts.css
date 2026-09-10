@@ -34,6 +34,10 @@
 .ac-grid{display:grid; grid-template-columns:repeat(auto-fit,minmax(330px,1fr));
   gap:var(--stack)}
 .ac-grid > .shell{margin-bottom:0; max-width:430px}
+/* Назви з угод без картки — виноска до сітки, а не ще одна картка в ній.
+   На звичайному відступі вони й читались як продовження ряду, тому тут
+   він подвійний: така сама відбивка, як між розділами. */
+.ac-grid + .shell{margin-top:calc(var(--stack) * 2)}
 .ac-card{padding:18px 20px 14px; display:flex; flex-direction:column; gap:14px}
 
 .ac-top{display:flex; align-items:flex-start; gap:10px}
