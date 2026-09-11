@@ -73,8 +73,9 @@ function tradeDetail(t){
     net: netR(t),
     info: info,
     texts: texts,
+    /* підпис під скріном пояснює сам графік, тож іде разом з ним */
     shots: (t.screenshots || []).filter(s => s.file)
-      .map(s => ({tf: s.tf || "", file: s.file})),
+      .map(s => ({tf: s.tf || "", file: s.file, note: (s.note || "").trim()})),
   };
 }
 
@@ -233,14 +234,15 @@ function reviewSnapshot(dk, pick){
       nm: a.nm || "",
       side: a.side || "",
       why: a.why || "",
-      shots: (a.shots || []).filter(x => x.file).map(x => ({tf: x.tf || "", file: x.file})),
+      shots: (a.shots || []).filter(x => x.file)
+        .map(x => ({tf: x.tf || "", file: x.file, note: (x.note || "").trim()})),
       levels: (a.levels || []).filter(l => l.p || l.t || l.n || l.did)
         .map(l => ({p: l.p || "", t: l.t || "", n: l.n || "", did: l.did || "", cls: l.dcls || ""})),
       plans: (a.plans || []).map((pl, i) => ({k: i ? "Б" : "A", tx: (pl || {}).tx || ""}))
         .filter(pl => pl.tx),
       eve: {text: ((a.eve || {}).text) || "",
             shots: (((a.eve || {}).shots) || []).filter(x => x.file)
-              .map(x => ({tf: x.tf || "", file: x.file}))},
+              .map(x => ({tf: x.tf || "", file: x.file, note: (x.note || "").trim()}))},
       marks: {match: (a.marks || {}).match || "", hold: (a.marks || {}).hold || ""},
       net: st ? st.net : null,
       trades: mine.map(tradeDetail),

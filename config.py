@@ -48,6 +48,10 @@ ADMIN_EMAILS  = [x.strip().lower() for x in os.environ.get("ADMIN_EMAILS", "agen
 # Партнери-спільноти: мітка в адресі (?ref=blackswan) → рахунок партнера.
 # Мітка стає полем users.ref_source. Новий партнер — ще одне слово тут.
 PARTNERS      = [x.strip().lower() for x in os.environ.get("PARTNERS", "blackswan").split(",") if x.strip()]
+# Свої канали. Мітка рахується так само, але це не партнери: відсотка немає,
+# і через чужі посилання вона не передається — інакше «прийшли з інстаграма»
+# перестало б означати саме інстаграм.
+CHANNELS      = [x.strip().lower() for x in os.environ.get("CHANNELS", "social").split(",") if x.strip()]
 # Разовый ключ для переноса скриншотов на новый сервер (tools/upload_shots.py).
 # Пока пустой — точка загрузки просто не существует. После переезда убрать.
 ADMIN_TOKEN   = os.environ.get("ADMIN_TOKEN", "")
