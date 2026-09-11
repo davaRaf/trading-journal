@@ -527,14 +527,21 @@ REF_TTL = 30 * 24 * 3600
 PARTNER_TITLES = {"blackswan": "Black Swan"}      # як партнера звуть у прев'ю
 # Коротке посилання: statsai.xyz/bs замість statsai.xyz/?ref=blackswan.
 # Довге теж лишається робочим — його вже роздали.
-PARTNER_ALIASES = {"bs": "blackswan"}
+PARTNER_ALIASES = {"bs": "blackswan", "ig": "instagram", "tt": "tiktok"}
+# Як мітку звуть у звіті
+REF_TITLES = {"blackswan": "Black Swan", "instagram": "Instagram", "tiktok": "TikTok"}
+
+
+def ref_all():
+    """Усі мітки, які приймаємо: партнери й свої канали."""
+    return tuple(config.PARTNERS) + tuple(config.CHANNELS)
 
 
 def ref_norm(value):
     """Мітка з адреси: коротка назва чи повна — однаково. Чуже — порожньо."""
     v = (value or "").strip().lower()
     v = PARTNER_ALIASES.get(v, v)
-    return v if v in config.PARTNERS else ""
+    return v if v in ref_all() else ""
 
 
 def ref_short(ref):
@@ -650,7 +657,7 @@ def ref_claim(uid, ref):
     """Поставити мітку на акаунт, якщо її ще нема. True — поставили.
     Власники журналу (ADMIN_NICKS) мітки не носять: їхні посилання — свої."""
     ref = (ref or "").strip().lower()
-    if not uid or ref not in config.PARTNERS or _is_admin(uid):
+    if not uid or ref not in ref_all() or _is_admin(uid):
         return False
     with db.connect() as conn:
         cur = conn.execute("UPDATE users SET ref_source=%s, ref_at=now() "
@@ -668,7 +675,10 @@ def ref_of_user(uid):
         u = db.get_user(uid)
     except Exception:
         return None
-    return (u and u["ref_source"]) or None
+    ref = (u and u["ref_source"]) or None
+    # свої канали далі не передаємо: людина прийшла з чужого посилання,
+    # а не з інстаграма — інакше цифра каналу перестає щось означати
+    return ref if ref in config.PARTNERS else None
 
 
 def prefs_get(uid):
@@ -1029,13 +1039,13 @@ class H(BaseHTTPRequestHandler):
         Увійшов — мітка на акаунт, якщо порожньо. Гість — кука на 30 днів;
         наявну не перебиваємо: перша мітка головніша."""
         ref = self._ref_query() or (owner_ref or "")
-        if ref not in config.PARTNERS:
+        if ref not in ref_all():
             return
         uid = self._uid()
         if uid:
             ref_claim(uid, ref)
             return
-        if self._cookie(REF_COOKIE) in config.PARTNERS:
+        if self._cookie(REF_COOKIE) in ref_all():
             return
         parts = ["%s=%s" % (REF_COOKIE, ref), "Path=/", "SameSite=Lax", "Max-Age=%d" % REF_TTL]
         if auth.is_https(self):
@@ -1282,7 +1292,8 @@ class H(BaseHTTPRequestHandler):
                     + row("Людей хотя бы с одной сделкой", t["users"])
                     + row("Писали сделки за 7 дней", t["act7"]) + row("Писали сделки за 30 дней", t["act30"]) + "</table>"
                     "<h2>Откуда пришли (метки)</h2><table>"
-                    + "".join(row((r["ref"] or "без метки") + (" · за 30 дн. +%d" % r["d30"] if r["d30"] else ""), r["n"]) for r in refs) + "</table>"
+                    + "".join(row((REF_TITLES.get(r["ref"], r["ref"]) or "без метки")
+                                  + (" · за 30 дн. +%d" % r["d30"] if r["d30"] else ""), r["n"]) for r in refs) + "</table>"
                     "<h2>Ссылки (поделились)</h2><table>"
                     + row("Всего ссылок", sh["n"]) + row("За 7 дней", sh["d7"]) + row("За 30 дней", sh["d30"])
                     + row("Людей делились", sh["people"]) + row("Переходов по ссылкам (без превью)", sh["views"]) + "</table>"
