@@ -70,16 +70,11 @@ try{document.documentElement.setAttribute("data-nav",localStorage.getItem("tj_na
     <span class="nm">Stats<i>AI</i><small id="brandTagline">помічник трейдера</small></span>
   </div>
 
-  <!-- Реальна торгівля чи бектест. Не розділ у меню, а режим усього журналу:
-       ті самі екрани, інший набір угод. Стоїть над «Новою угодою» навмисне —
-       саме він вирішує, куди потрапить запис. -->
-  <div class="mode-sw" id="modeSwitch">
-    <div class="lab" id="modeLab">Режим</div>
-    <div class="seg-tabs" id="modeTabs">
-      <button type="button" class="on" data-mode="live" data-tip="Справжні угоди" onclick="setMode('live')">Реальні</button>
-      <button type="button" data-mode="bt" data-tip="Прогони на історії — окремо від реальної статистики" onclick="setMode('bt')">Бектест</button>
-    </div>
-  </div>
+  <!-- Тут стоїть перемикач «Реальні / Бектест». Режим бектесту в продукт ще
+       не випущений, тому входу в нього на сторінці немає: розмітку знято
+       разом із прапорцем BT_READY в app.js. Сам режим цілий — і сервер, і
+       журнал уміють прогони на історії. Повернути = поставити прапорець і
+       відновити цей блок із git. -->
 
   <button class="newtrade" id="newTradeBtn" data-tip="Записати угоду · відкриється панель знизу" onclick="openForm()"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" class="ic"><path d="M12 5v14M5 12h14" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"/></svg> <span>Нова угода</span></button>
 
@@ -132,10 +127,6 @@ try{document.documentElement.setAttribute("data-nav",localStorage.getItem("tj_na
   </div>
 </aside>
 
-<!-- Смужка зверху, поки відкритий бектест: щоб прогін на історії не сплутати
-     з реальним журналом і не записати угоду не туди. -->
-<div class="bt-flag" id="btFlag" hidden>Режим бектесту</div>
-
 <main id="main" class="main"><div class="page-loader" aria-hidden="true"><svg class="pl-logo"><use href="#logomark"/></svg></div></main>
 
 <button class="as-fab" id="asFabBtn" type="button" onclick="openAssistant()">
@@ -175,7 +166,7 @@ try{document.documentElement.setAttribute("data-nav",localStorage.getItem("tj_na
 <script src="/static/demo.js?v=3"></script>
 <script src="/static/guest.js?v=3"></script>
 <script src="/static/pub.js?v=4"></script>
-<script src="/static/app.js?v=47"></script>
+<script src="/static/app.js?v=48"></script>
 <script src="/static/profile.js?v=1"></script>
 <script src="/static/backup.js?v=1"></script>
 <script src="/static/mailcheck.js?v=1"></script>
