@@ -1,0 +1,272 @@
+/* ============================================================
+   «Мої рахунки».
+
+   Кольори беремо тільки змінними (--up / --down / --line / --card):
+   тем у журналі девʼять, і жоден колір тут не прописаний руками —
+   інакше розділ виглядав би чужим у восьми з них.
+
+   Колір несе лише результат: баланс, просадка, стан рахунку. Решта —
+   сірі відтінки, як і в решті журналу. Стан рахунку при цьому завжди
+   підписаний словом: на самий лише колір покладатись не можна.
+   ============================================================ */
+
+.acw{max-width:1180px}
+/* Розкладку задає спільна .ohead — щоб заголовок і перемикач стояли
+   там само, де в «Огляді». Тут лишається тільки те, чого там немає. */
+.ac-new{margin-left:auto}
+
+/* підсумок по живих рахунках: тихий рядок біля заголовка */
+.ac-total{display:flex; align-items:baseline; gap:10px; color:var(--faint);
+  font-family:var(--mono); font-size:12px}
+.ac-total b{color:var(--text); font-size:15px; font-variant-numeric:tabular-nums}
+/* Скільки рахунків у суму не ввійшло. Дрібним і без нахилу: це виноска
+   до цифри поруч, а не окрема думка. */
+.ac-total .ac-muted{font-style:normal; font-size:11.5px; color:var(--faint)}
+
+/* ---------------- сітка карток ---------------- */
+/* Скільки колонок — вирішує 330: стільки треба картці, щоб підписи цифр
+   не обрізались. Стеля картки окремим правилом, а не другим числом у
+   minmax: з definite-максимумом браузер рахує колонки саме по ньому, і
+   на ноутбуці замість трьох колонок виходило дві.
+
+   auto-fit, а не auto-fill: у кого рахунків два, порожня колонка
+   сплющується, і картки не тиснуться до лівого краю з дірою праворуч. */
+.ac-grid{display:grid; grid-template-columns:repeat(auto-fit,minmax(330px,1fr));
+  gap:var(--stack)}
+.ac-grid > .shell{margin-bottom:0; max-width:430px}
+.ac-card{padding:18px 20px 14px; display:flex; flex-direction:column; gap:14px}
+
+.ac-top{display:flex; align-items:flex-start; gap:10px}
+.ac-name{min-width:0}
+.ac-name b{font-size:16px; font-weight:600; letter-spacing:-.01em}
+.ac-kind{font-style:normal; font-family:var(--mono); font-size:9.5px;
+  letter-spacing:.10em; text-transform:uppercase; color:var(--faint)}
+.ac-sub{margin-top:3px; color:var(--faint); font-size:12px}
+
+/* стан рахунку: слово плюс колір, ніколи не колір сам по собі */
+.ac-st{flex:none; margin-left:auto; border:1px solid var(--line); border-radius:20px;
+  padding:4px 11px; font-size:11.5px; color:var(--dim); white-space:nowrap}
+.ac-st.pass{color:var(--up); border-color:var(--up); background:var(--up-soft)}
+.ac-st.fail{color:var(--down); border-color:var(--down); background:var(--down-soft)}
+.ac-st.shut{color:var(--faint)}
+/* злитий рахунок притишений цілком: він уже не робочий інструмент */
+.ac-card.fail{opacity:.92}
+
+/* ---------------- баланс ---------------- */
+.ac-bal .big{font-family:var(--mono); font-size:30px; font-weight:500; letter-spacing:-.02em;
+  font-variant-numeric:tabular-nums; line-height:1.1}
+.ac-bal .big.up{color:var(--up)}
+.ac-bal .big.down{color:var(--down)}
+.ac-delta{margin-top:5px; font-family:var(--mono); font-size:13px; color:var(--dim);
+  font-variant-numeric:tabular-nums; display:flex; align-items:baseline; gap:8px}
+.ac-delta.up{color:var(--up)}
+.ac-delta.down{color:var(--down)}
+.ac-delta i{font-style:normal; opacity:.45}
+.ac-from{margin-top:4px; color:var(--faint); font-size:11.5px; font-family:var(--mono)}
+.ac-nomoney{margin-top:6px; color:var(--faint); font-size:12px; line-height:1.5}
+
+/* ---------------- крива капіталу ---------------- */
+.ac-spark{display:block; width:100%; height:40px}
+.ac-spark polyline{fill:none; stroke:var(--dim); stroke-width:1.6;
+  vector-effect:non-scaling-stroke; stroke-linejoin:round; stroke-linecap:round}
+.ac-spark polyline.up{stroke:var(--up)}
+.ac-spark polyline.down{stroke:var(--down)}
+.ac-spark .z{stroke:var(--line); stroke-width:1; vector-effect:non-scaling-stroke}
+
+/* ---------------- смужки «скільки з чого» ---------------- */
+.ac-bars{display:flex; flex-direction:column; gap:9px}
+.ac-bul-h{display:flex; align-items:baseline; gap:8px; font-size:11.5px; color:var(--faint)}
+.ac-bul-h b{margin-left:auto; font-family:var(--mono); font-size:12px; color:var(--dim);
+  font-variant-numeric:tabular-nums}
+.ac-bul-t{margin-top:4px; height:5px; border-radius:3px; background:var(--bar-track); overflow:hidden}
+.ac-bul-t i{display:block; height:100%; border-radius:3px; background:var(--bar-fill);
+  transition:width .25s var(--ease)}
+.ac-bul-t i.up{background:var(--up)}
+.ac-bul-t i.down{background:var(--down)}
+/* близько до межі — підпис теж змінює колір, не лише смужка */
+.ac-bul.hot .ac-bul-h b{color:var(--down)}
+
+/* ---------------- цифри рахунку ---------------- */
+/* Двома рядами по дві, а не чотирма в ряд: у чотирьох колонках картки
+   підписи «середній RR» і «просадка від піку» обрізались трьома крапками
+   на будь-якому екрані, де картка вужча за 490 пікселів — тобто майже
+   завжди. Краще зайвий ряд, ніж підпис, який доводиться вгадувати. */
+.ac-cells{display:grid; grid-template-columns:repeat(2,minmax(0,1fr));
+  border-top:1px solid var(--line-soft); margin-top:2px}
+.ac-cell{padding:10px 10px 4px; border-right:1px solid var(--line-soft); min-width:0}
+.ac-cell:nth-child(2n){border-right:none}
+.ac-cell:nth-child(-n+2){border-bottom:1px solid var(--line-soft)}
+.ac-cell .l{font-family:var(--mono); font-size:8.5px; letter-spacing:.11em;
+  text-transform:uppercase; color:var(--faint); white-space:nowrap; overflow:hidden;
+  text-overflow:ellipsis}
+.ac-cell .v{margin-top:3px; font-family:var(--mono); font-size:15px; font-weight:500;
+  font-variant-numeric:tabular-nums}
+
+/* ---------------- розбір: чому рахунок злили ---------------- */
+.ac-why{border-top:1px solid var(--line-soft); padding-top:12px;
+  display:flex; flex-direction:column; gap:12px}
+.ac-wlist{display:flex; flex-direction:column; gap:6px}
+.ac-wline{display:flex; align-items:baseline; gap:10px; font-size:12.5px; color:var(--faint)}
+.ac-wline b{margin-left:auto; color:var(--text); font-weight:500; text-align:right}
+.ac-worst .l{font-family:var(--mono); font-size:8.5px; letter-spacing:.11em;
+  text-transform:uppercase; color:var(--faint); margin-bottom:6px}
+.ac-wrow{display:flex; align-items:baseline; gap:10px; padding:5px 0;
+  border-top:1px solid var(--line-soft); font-size:13px}
+.ac-wrow i{font-style:normal; color:var(--faint); font-size:11.5px; font-family:var(--mono)}
+.ac-wrow b{margin-left:auto; font-family:var(--mono); font-variant-numeric:tabular-nums}
+.ac-wrow b.down{color:var(--down)}
+
+.ac-foot{display:flex; align-items:center; gap:10px; margin-top:auto;
+  border-top:1px solid var(--line-soft); padding-top:8px}
+.ac-foot .sp{flex:1}
+
+/* Текстова кнопка. Висота разом із відступами тримається 44px — на
+   телефоні в неї треба потрапляти пальцем. */
+.ac-link{background:none; border:0; color:var(--dim); font-size:13px; cursor:pointer;
+  padding:11px 6px; border-radius:var(--r-sm); transition:.16s}
+.ac-link:hover{color:var(--text)}
+
+/* ---------------- порожній розділ ---------------- */
+.ac-empty{text-align:center; padding:34px 26px}
+.ac-empty p{margin:0 0 8px; font-size:15px}
+.ac-empty .btn{margin-top:14px}
+
+/* ---------------- форма ---------------- */
+/* Форма висока: фірма, тип, три числа, назва, три ліміти, дати й нотатка.
+   На ноутбуці вона не вміщується у вікно, тому гортається всередині, а
+   шапка з кнопками лишаються на місці — так само, як у формі угоди. */
+.modal-box:has(.ac-form){max-width:620px; max-height:88vh;
+  display:flex; flex-direction:column}
+.modal-box:has(.ac-form) .m-head, .modal-box:has(.ac-form) .m-foot{flex:none}
+.modal-box:has(.ac-form) .ac-form{flex:1; overflow-y:auto; min-height:0}
+.modal-box:has(.ac-form) .ac-form > *{flex:none}
+.ac-form{display:flex; flex-direction:column; gap:12px}
+.ac-row2{display:grid; grid-template-columns:1fr 1fr; gap:12px}
+.ac-row3{display:grid; grid-template-columns:repeat(3,1fr); gap:12px}
+/* Дата й стан: даті вистачає вузької колонки, а станам потрібна ширша —
+   інакше «Закритий» зривається на власний рядок під рештою. */
+.ac-row-st{grid-template-columns:minmax(0,220px) minmax(0,1fr)}
+.ac-f{display:block; min-width:0}
+/* Підпис поля. Приписка збоку — тихіша за сам підпис: вона уточнює, а не
+   називає. Раніше на її місці був абзац під полем; два слова поруч із
+   назвою читаються з одного погляду, а абзац доводилось саме читати. */
+.ac-f > span{display:flex; align-items:baseline; gap:7px; font-size:12px;
+  color:var(--faint); margin-bottom:5px}
+.ac-f > span i{font-style:normal; font-size:11px; color:var(--faint); opacity:.62}
+
+/* Валюта — три літери, повна третина рядка їй ні до чого. */
+.ac-money{grid-template-columns:1fr 1fr 92px}
+.ac-in{width:100%; min-height:44px; border:1px solid var(--line); border-radius:var(--r-sm);
+  background:var(--panel-2); color:var(--text); padding:10px 12px; font:inherit; font-size:15px}
+.ac-in:focus{outline:2px solid var(--accent); outline-offset:1px; border-color:var(--accent)}
+.ac-hint{margin:-4px 0 0; color:var(--faint); font-size:12px; line-height:1.5}
+.ac-err{margin:0; color:var(--down); font-size:13px}
+/* Не помилка, а попередження: рахунок збережеться, просто під іншою
+   назвою. Тому колір не червоний — це стан справ, а не перешкода. */
+.ac-warn{margin:6px 0 0; color:var(--faint); font-size:12px; line-height:1.5}
+
+/* Поле фірми зі списком. Стрілка праворуч каже, що є з чого вибрати, і
+   при цьому не заважає вписати своє: поле лишається звичайним текстовим.
+   Сам список — .spop зі style.css, спільний з фільтрами журналу. */
+.ac-combo-in{position:relative; display:block}
+.ac-combo-in .ac-in{padding-right:38px}
+.ac-combo-x{position:absolute; right:4px; top:50%; transform:translateY(-50%);
+  width:34px; height:34px; display:grid; place-items:center; border:0;
+  background:none; color:var(--faint); cursor:pointer; border-radius:8px;
+  transition:color .16s, transform .18s var(--ease)}
+.ac-combo-x:hover{color:var(--text)}
+/* стрілка перевертається, поки список відкритий */
+.ac-combo-in[aria-expanded="true"] .ac-combo-x{color:var(--text);
+  transform:translateY(-50%) rotate(180deg)}
+
+/* Кнопка дати виглядає як поле вводу, бо нею й є: рідний календар
+   браузера не піддається оформленню, тож дату обирає свій DatePicker.
+   Порожня дата підписана словами, а не сірим «дд.мм.гггг». */
+.ac-date{display:flex; align-items:center; gap:10px; text-align:left; cursor:pointer}
+.ac-date > span{flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis;
+  white-space:nowrap}
+.ac-date svg{flex:none; color:var(--faint)}
+.ac-date:hover{border-color:var(--faint)}
+.ac-date:hover svg{color:var(--dim)}
+/* дата ще не обрана — підпис тихіший за справжнє значення */
+.ac-date:not([data-set]) > span{color:var(--faint)}
+
+/* розбіжність із кабінетом фірми */
+.ac-drift{margin-top:4px; color:var(--faint); font-size:11.5px; font-family:var(--mono)}
+/* Тиха приписка внизу картки: чого в підрахунку немає і чому. */
+.ac-note{margin:10px 0 0; color:var(--faint); font-size:11.5px; line-height:1.45}
+
+/* Підказки під полем: назви рахунків з угод і ходові проп-фірми.
+   Дрібніші за перемикачі — це не вибір із закритого списку, а швидкий
+   спосіб не набирати руками. Саме поле лишається звичайним текстовим. */
+.ac-picks{display:flex; flex-wrap:wrap; gap:5px; margin-top:6px}
+.ac-pick{border:1px solid var(--line); background:var(--panel-2); color:var(--dim);
+  border-radius:20px; padding:6px 11px; font-size:12px; line-height:1.2;
+  cursor:pointer; transition:.16s; white-space:nowrap}
+.ac-pick:hover{color:var(--text); border-color:var(--faint)}
+.ac-pick.on{background:var(--accent); border-color:var(--accent);
+  color:var(--accent-ink,#fff); font-weight:500}
+
+.ac-seg{display:flex; gap:6px; flex-wrap:wrap}
+.ac-seg button{flex:1 1 auto; min-height:44px; border:1px solid var(--line);
+  background:var(--panel-2); color:var(--dim); border-radius:var(--r-sm); padding:10px 12px;
+  font-size:13.5px; cursor:pointer; transition:.16s}
+.ac-seg button:hover{color:var(--text); border-color:var(--faint)}
+.ac-seg button.on{background:var(--text); border-color:var(--text); color:var(--bg); font-weight:500}
+
+/* ---------------- телефон ---------------- */
+/* Журнал дивляться з телефона частіше, ніж із ноутбука. Тут не «щоб
+   влізло»: у все, що натискають, треба потрапити пальцем, а поля мусять
+   бути такі, щоб Safari не наближав сторінку сам. */
+@media (max-width:900px){
+  .ac-grid{grid-template-columns:minmax(0,1fr)}
+  /* Ширину заголовка на телефоні задає спільна .ohead у mobile.css. */
+  .ac-new{margin-left:0; width:100%; min-height:46px}
+  .ac-total{width:100%}
+}
+@media (max-width:560px){
+  /* ---- картка ---- */
+  .ac-card{padding:16px 15px 8px; gap:12px}
+  .ac-bal .big{font-size:26px}
+
+  /* ---- розбір злитого рахунку ---- */
+  /* Підпис і значення в один рядок тут не вміщуються: «найчастіша
+     помилка» плюс саму помилку в 330 пікселів не вкласти. Значення
+     переїжджає під підпис. */
+  .ac-wline{flex-direction:column; align-items:flex-start; gap:2px}
+  .ac-wline b{margin-left:0; text-align:left}
+
+  /* ---- форма нижнім листом ---- */
+  /* Вікно посеред екрана на телефоні незручне: до кнопок унизу треба
+     тягтись через півекрана. Лист приїжджає знизу, кнопки лишаються під
+     великим пальцем, а вміст гортається всередині. */
+  .modal:has(.ac-form){align-items:flex-end; padding:0}
+  .modal-box:has(.ac-form){max-width:none; max-height:94vh; margin-bottom:0;
+    border-radius:16px 16px 0 0; border-bottom:0}
+  .modal-box:has(.ac-form) .m-foot{padding-bottom:calc(15px + env(safe-area-inset-bottom))}
+  /* 16px — межа, нижче якої Safari сам наближає сторінку на фокусі, і
+     потім людина вручну відсуває її назад. */
+  .ac-in{font-size:16px}
+  .ac-row2{grid-template-columns:minmax(0,1fr)}
+  /* Три відсотки — по двоє в ряд: числа короткі, а рядків у формі
+     й без того чотирнадцять. */
+  .ac-row3{grid-template-columns:repeat(2,minmax(0,1fr))}
+  /* Валюта поруч зі стартовим балансом, «баланс зараз» — рядком нижче:
+     три поля в ряд на телефоні перетворюються на три вузькі колонки. */
+  .ac-money{grid-template-columns:minmax(0,1fr) 86px}
+  .ac-money > :nth-child(1){grid-column:1; grid-row:1}
+  .ac-money > :nth-child(3){grid-column:2; grid-row:1}
+  .ac-money > :nth-child(2){grid-column:1 / -1; grid-row:2}
+  /* Підказки під полем — теж кнопки, і тикають у них пальцем. */
+  .ac-pick{min-height:44px; padding:9px 13px; font-size:12.5px; display:inline-flex;
+    align-items:center}
+  /* Хрестик вікна на телефоні мусить бути кнопкою, а не значком у 24 пікселі. */
+  .modal-box:has(.ac-form) .m-head .x{padding:10px 13px; font-size:22px}
+  /* Стрілка списку фірм: поле відкриває той самий список, але в саму
+     стрілку теж мають потрапляти. */
+  .ac-combo-x{width:40px; height:40px}
+  .ac-combo-in .ac-in{padding-right:44px}
+}
+@media (prefers-reduced-motion:reduce){
+  .ac-bul-t i{transition:none}
+}

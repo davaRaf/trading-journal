@@ -301,7 +301,22 @@ async function buildTradeImage(t){
 
   y += 46;
   ctx.font = "22px " + MONO; ctx.fillStyle = C.faint;
-  ctx.fillText((t.date || "").replace("T", " ").slice(0, 16), PAD, y + 18);
+  const when = (t.date || "").replace("T", " ").slice(0, 16);
+  ctx.fillText(when, PAD, y + 18);
+
+  /* Бектест підписуємо прямо на картинці. Її пересилають окремо від
+     посилання — там позначка вже є, а тут поза журналом відрізнити прогін
+     від справжнього входу більше нема по чому. */
+  if (t.kind === "bt"){
+    const run = (t.bt_run || "").trim();
+    const mark = T.tiBtMark + (run ? " · " + (run.length > 26 ? run.slice(0, 25) + "…" : run) : "");
+    const x0 = PAD + ctx.measureText(when).width + 24;
+    ctx.font = "20px " + MONO;
+    const mw = ctx.measureText(mark).width + 28;
+    ctx.fillStyle = C.panel2; roundRect(ctx, x0, y - 5, mw, 33, 16); ctx.fill();
+    ctx.strokeStyle = C.line; ctx.lineWidth = 1; ctx.stroke();
+    ctx.fillStyle = C.dim; ctx.fillText(mark, x0 + 14, y + 17);
+  }
 
   y += 62;
   ctx.strokeStyle = C.lineSoft; ctx.beginPath();

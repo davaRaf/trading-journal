@@ -313,8 +313,11 @@ function monthSnapshot(mk){
   const [y, m] = mk.split("-");
   const last = new Date(+y, +m, 0).getDate();
   const from = mk + "-01", to = mk + "-" + String(last).padStart(2, "0");
+  const bt = typeof btOn === "function" && btOn();
   return {
-    kind: T.slKindMonth, kindFull: T.slOgMonth,
+    kind: bt ? T.slKindBtMonth : T.slKindMonth,
+    kindFull: bt ? T.slOgBtMonth : T.slOgMonth,
+    bt: bt || undefined,
     title: T.months[+m - 1] + " " + y,
     total: calc(list).net,
     kpis: statsOf(list),
@@ -332,8 +335,11 @@ function yearSnapshot(y){
   const months = groupBy(list, monKey);
   const byMonth = [...months.keys()].sort()
     .map(mk => ({ name: T.months[+mk.slice(5,7) - 1], value: calc(months.get(mk)).net }));
+  const bt = typeof btOn === "function" && btOn();
   return {
-    kind: T.slKindYear, kindFull: T.slOgYear,
+    kind: bt ? T.slKindBtYear : T.slKindYear,
+    kindFull: bt ? T.slOgBtYear : T.slOgYear,
+    bt: bt || undefined,
     title: String(y),
     total: calc(list).net,
     kpis: statsOf(list),
@@ -349,8 +355,15 @@ function tradeSnapshot(id){
   const t = S.all.find(x => x.id === id);
   if (!t) return null;
   const net = netR(t);
+  /* Угода з бектесту так і підписана — і в шапці знімка, і в заголовку
+     посилання для месенджерів (app.py: share_og бере kind/kindFull).
+     Підпис прогону додаємо, якщо він є: по ньому видно, що саме ганяли. */
+  const bt = t.kind === "bt";
   return {
-    kind: T.slKindTrade, kindFull: T.slOgTrade,
+    kind: bt ? T.slKindBtTrade : T.slKindTrade,
+    kindFull: bt ? T.slOgBtTrade : T.slOgTrade,
+    bt: bt || undefined,
+    btRun: (bt && t.bt_run) ? t.bt_run : undefined,
     title: t.pair + " · " + resLabel(t.result),
     total: net,
     kpis: [
@@ -591,13 +604,17 @@ function mountBar(){
   const root = document.getElementById("main");
   if (!root || root.querySelector(".sh-bar")) return;
   if (S.view !== "dashboard" && S.view !== "journal") return;
+  /* У бектесті ділимось місяцем і роком — це підсумок прогону, і знімок
+     сам себе так називає. Дня й тижня немає: прогін ганяють пачкою за
+     один присід, і «мій вівторок» у ньому нічого не означає. */
+  const bt = typeof btOn === "function" && btOn();
 
   const d = curDay(), mk = curMonth();
   const year = mk ? mk.slice(0,4) : String(new Date().getFullYear());
 
   const btns = [];
-  if (hasDay(d))     btns.push(mkBtn(T.slDay,    "day",   d));
-  if (hasWeek(d))    btns.push(mkBtn(T.slWeek, "week",  d));
+  if (!bt && hasDay(d))  btns.push(mkBtn(T.slDay,    "day",   d));
+  if (!bt && hasWeek(d)) btns.push(mkBtn(T.slWeek, "week",  d));
   if (hasMonth(mk))  btns.push(mkBtn(T.ovPeriodMonth,  "month", mk));
   if (hasYear(year)) btns.push(mkBtn(T.ovPeriodYear,     "year",  year));
   if (!btns.length) return;
@@ -633,6 +650,7 @@ function mountBar(){
 function mountDayPanel(){
   const panel = document.querySelector(".daypanel");
   if (!panel || panel.querySelector(".sh-day")) return;
+  if (typeof btOn === "function" && btOn()) return;
   const d = curDay();
   if (!hasDay(d)) return;
   const b = mkBtn(T.slShareDay, "day", d, "sh-day");
@@ -660,6 +678,10 @@ function tradeIdIn(box){
 }
 
 function mountTradeCard(){
+  /* Окремою угодою з бектесту ділитись можна: показати вхід із прогону —
+     нормальна річ. Щоб її не прийняли за реальні гроші, знімок сам себе
+     називає бектестом (tradeSnapshot). Підсумками дня й періоду не
+     ділимось: там цифри виглядають як результат торгівлі. */
   /* картка: кнопка в шапці, перед хрестиком */
   document.querySelectorAll(".m-head.thead").forEach(head => {
     if (head.querySelector(".sh-trade")) return;

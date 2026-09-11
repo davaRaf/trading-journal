@@ -232,13 +232,16 @@ def _day(t):
     return when.strftime("%d.%m.%Y") if when else ""
 
 
-def plan(user_id, question, history=None):
+def plan(user_id, question, history=None, kind=""):
     """Розбір прохання. None — це не прохання видалити, хай відповідає далі.
 
     Словник для картки: скільки знайшлося, за чим шукали і кілька угод
     поіменно, щоб людина побачила, що саме зникне.
+
+    `kind` — з якого журналу вибирати: людина просить прибрати те, що бачить
+    перед собою. Без нього прохання з бектесту забрало б справжні угоди.
     """
-    trades = db.list_trades(user_id)
+    trades = db.list_trades(user_id, kind)
     if not trades:
         return None
     f = _clean(_ask_model(question, trades, history))

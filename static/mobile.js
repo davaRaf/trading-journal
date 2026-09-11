@@ -49,7 +49,10 @@ function paintTabs(){
   syncTabs();
 }
 function syncTabs(){
-  const cur = (location.hash || "#dashboard").slice(1);
+  let cur = (location.hash || "#dashboard").slice(1);
+  /* Рахунки — вкладка всередині «Огляду», своєї кнопки внизу не мають:
+     підсвічуємо «Огляд», інакше жодна вкладка не світилась би. */
+  if (cur === "accounts") cur = "dashboard";
   tabs.querySelectorAll("a").forEach(a => a.classList.toggle("on", a.dataset.v === cur));
   const nt = document.getElementById("newTradeBtn");
   const lbl = top.querySelector(".mnew span");
@@ -67,7 +70,9 @@ const menu = wrap.querySelector(".mmenu");
 /* Блоки переносимо в шторку, коли вона відкривається, і повертаємо назад,
    коли закривається: так на десктопі вони завжди на своєму місці, а
    обробники в них не губляться, бо це ті самі вузли. */
-const MOVABLE = [".grp", ".conn", ".side-foot"];
+/* Перемикач режиму шукаємо по id, а не по класу: селектори тут беруть
+   перший збіг, і другий блок з класом .grp просто не поїхав би у шторку. */
+const MOVABLE = ["#modeSwitch", ".grp", ".conn", ".side-foot"];
 const homes = new Map();
 function openMenu(){
   MOVABLE.forEach(sel => {

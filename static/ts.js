@@ -73,7 +73,7 @@ async function load(){
     return;
   }
   try{
-    const r = await api("GET", "/api/ts");
+    const r = await api("GET", "/api/ts" + (btOn() ? "?kind=bt" : ""));
     TS = (r && r.ts && Object.keys(r.ts).length) ? normalize(r.ts) : null;
   }catch(e){ TS = null; }
   if (S.view === "ts") render();
@@ -88,7 +88,7 @@ function save(){
   }
   clearTimeout(saveTimer);
   saveTimer = setTimeout(() => {
-    api("POST", "/api/ts", {ts: TS}).catch(() => {});
+    api("POST", "/api/ts", {ts: TS, kind: btOn()?"bt":""}).catch(() => {});
   }, 400);
 }
 
@@ -541,7 +541,11 @@ function vFull(){
   h += card(d.secNo, secNo());
   h += card(d.secExtra, secExtra());
   h += card(d.secCheck, secCheck());
-  h += card(d.secReal + " · " + (S.trades || []).length + " " + d.wTrades, against());
+  /* У бектесті звірка теж має сенс — «скільки разів прогін порушив правила».
+     Але з заголовка має бути видно, по чому саме рахували. */
+  const bt = typeof btOn === "function" && btOn();
+  h += card(d.secReal + " · " + (S.trades || []).length + " " + d.wTrades
+            + (bt ? " · " + T.btTsNote : ""), against());
   h += secRaw();
   return h;
 }
@@ -1167,7 +1171,7 @@ window.__ts = {
   async wipe(){
     if (!await Ask.yes(D().confirmDelete, {ok:T.askYes, cancel:T.askNo, danger:true})) return;
     if (demo()){ try{ localStorage.removeItem(DEMO_KEY); }catch(e){} }
-    else { try{ await api("POST", "/api/ts/clear"); }catch(e){} }
+    else { try{ await api("POST", "/api/ts/clear", {kind: btOn()?"bt":""}); }catch(e){} }
     TS = null;
     render();
   },

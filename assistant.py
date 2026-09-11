@@ -553,13 +553,13 @@ def calendar_block(code="uk"):
     return l["cal_head"] + "\n".join(lines) + l["cal_tail"]
 
 
-def ts_block(user_id, code="uk"):
+def ts_block(user_id, kind="", code="uk"):
     """Своя торгова система трейдера, як він її описав у розділі «Моя ТС».
 
     Питання «чи по системі я зайшов» без цього блоку відповіді не мали.
     """
     try:
-        ts = ts_store.get(user_id)
+        ts = ts_store.get(user_id, kind)
     except Exception:
         ts = None
     l = lab(code)
@@ -626,6 +626,16 @@ BRIEF = (
     "заглянути в розділ — назви його однією згадкою, без пояснень, навіщо "
     "він потрібен.")
 
+BACKTEST = (
+    "У ЖУРНАЛІ ЗАРАЗ БЕКТЕСТ: це прогони на історії, а не справжні входи. "
+    "Грошей людина не втрачала й не заробляла, емоцій під час угоди не було, "
+    "рахунку теж. Тому не читай нотацій про дисципліну, страх і жадібність і "
+    "не кажи «ти втратив». Говори про саму систему: де вона дає перевагу, де "
+    "просідає, чого в вибірці замало для висновку. Про реальні угоди людини "
+    "тут даних немає — не згадуй їх і не порівнюй з ними. У цьому режимі "
+    "сховані «Аналіз дня», «Новини», калькулятор і «Підключення» — не "
+    "відправляй туди й не радь перенести щось із Notion.")
+
 HISTORY_LIMIT = 8          # скільки попередніх реплік пам'ятаємо
 HISTORY_CHARS = 700
 
@@ -676,11 +686,11 @@ def _lang_from(history):
     return None
 
 
-def ask(user_id, question, history=None, lang=None, brief=False):
+def ask(user_id, question, history=None, lang=None, brief=False, kind=""):
     # мову визначаємо до виписки: нею ж підписані й дані, інакше з російської
     # відповіді стирчали українські «нотатка» та «помилка»
     code = detect_lang(question) or _lang_from(history) or lang or "uk"
-    trades = db.list_trades(user_id)
+    trades = db.list_trades(user_id, kind)
     l = lab(code)
     book = digest(trades, code)
     if trades:
@@ -690,11 +700,13 @@ def ask(user_id, question, history=None, lang=None, brief=False):
     # її іноді «забуває» серед даних, а системну частину слухає твердіше
     order = lang_order(question, _lang_from(history) or lang)
     prompt = "%s\n<<<ЖУРНАЛ>>>\n%s%s%s%s\n<<<//ЖУРНАЛ>>>\n\nПИТАННЯ ТРЕЙДЕРА: %s\n\n%s" % (
-        day_line(code), book, calendar_block(code), ts_block(user_id, code),
+        day_line(code), book, calendar_block(code), ts_block(user_id, kind, code),
         _history_block(history), question, order)
     # три спроби, бо друга й третя йдуть уже іншими моделями: одна модель
     # може годину відповідати «503, високий попит», а сусідня в цей час жива
     rules = RULES + chr(10) + SITE_MAP + chr(10) + order
+    if kind == "bt":
+        rules += chr(10) + BACKTEST
     if brief:
         rules += chr(10) + BRIEF
     # менше дозволених токенів — не тільки економія: модель складає
@@ -719,19 +731,19 @@ def _lang_hint(history):
     return lang_order("", default="uk")   # мовчазний чат — пишемо українською
 
 
-def nudge(user_id, lang="uk"):
+def nudge(user_id, lang="uk", kind=""):
     """Привід заговорити першим — рівно один і не щоразу.
 
     Повертає {code, text, ask, view}: code сторінка вміє сказати сама
     (трьома мовами), text — те саме, але вже словами моделі. Немає ключа
     до моделі — лишається code, і помічник усе одно не мовчить.
     """
-    trades = [t for t in db.list_trades(user_id) if not t.get("hidden")]
+    trades = [t for t in db.list_trades(user_id, kind) if not t.get("hidden")]
     if len(trades) < 3:
         return {}                       # у порожньому журналі підказки й так на видноті
 
     try:
-        has_ts = bool(ts_store.get(user_id))
+        has_ts = bool(ts_store.get(user_id, kind))
     except Exception:
         has_ts = True                   # не змогли спитати — краще змовчати про це
 
@@ -765,21 +777,26 @@ def nudge(user_id, lang="uk"):
             "ask": "Розкажи докладніше: %s" % fact}
 
 
-def review(user_id, history=None, lang=None):
+def review(user_id, history=None, lang=None, kind=""):
     """Зауваження: правила шукають, модель переказує по-людськи.
 
     Факти йдуть під відповіддю списком, як є, тому мова потрібна вже тут:
     у російському журналі український факт виглядав чужим рядком.
+
+    `kind` тримає помічника у своєму журналі: у бектесті він розбирає
+    прогони на історії, а не реальну торгівлю.
     """
-    trades = db.list_trades(user_id)
+    trades = db.list_trades(user_id, kind)
     facts = observations(trades, _lang_from(history) or lang or "uk")
     if not facts:
         return {"facts": [], "text": ""}
     text = llm.ask(
         "<<<ФАКТИ>>>\n%s\n<<<//ФАКТИ>>>\n\n"
         "До 4 речень: скажи головне, що варто виправити, і одну "
-        "конкретну дію. Без вступів, без списків, без співчуття.\n\n%s"
-        % ("\n".join("- " + f for f in facts), _lang_hint(history)),
+        "конкретну дію. Без вступів, без списків, без співчуття.%s\n\n%s"
+        % ("\n".join("- " + f for f in facts),
+           "\n\n" + BACKTEST if kind == "bt" else "",
+           _lang_hint(history)),
         max_tokens=700,
         system="Ти — спокійний тренер з трейдингу. Текст між тегами <<<ФАКТИ>>> і "
                "<<<//ФАКТИ>>> — це вже пораховані факти з журналу трейдера: спирайся "

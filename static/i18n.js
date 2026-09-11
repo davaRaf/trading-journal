@@ -352,7 +352,9 @@ uk: {
   calHandTip: "Тейк, закритий руками",
   slKindReview: "аналіз дня", slOgReview: "Аналіз дня",
   shRvMoreLab: "Аналіз дня", shRvMore: "Зайди, щоб подивитись подробиці: що я дивився і які зони відмітив.",
-  slKindDay: "день", slKindWeek: "тиждень", slKindMonth: "місяць", slKindYear: "рік", slKindTrade: "угода",
+  slKindDay: "день", slKindWeek: "тиждень", slKindMonth: "місяць", slKindYear: "рік",
+  slKindBtMonth: "бектест · місяць", slKindBtYear: "бектест · рік", slKindTrade: "угода", slKindBtTrade: "бектест · угода", tiBtMark: "БЕКТЕСТ",
+  shBtNote: "Бектест — прогін на історії, не реальні гроші",
   slShareTrade: "Поділитись угодою", slTradesTitle: "Угоди", slByDays: "По днях", slByMonths: "По місяцях",
   slDetails: "Деталі", slEntryBlock: "Вхід",
   slShareTitle: "Поділитися",
@@ -408,6 +410,15 @@ uk: {
   sdNavAnalyticsTip: "Розрізи: сетапи, сесії, моделі",
   sdNavNews: "Новини", sdNavNewsTip: "Економічний календар на тиждень",
   sdYourJournal: "Твій журнал", sdTools: "Інструменти",
+  /* Режим журналу: реальна торгівля чи бектест */
+  modeLab: "Режим", modeLive: "Реальні", modeBt: "Бектест",
+  modeLiveTip: "Справжні угоди",
+  modeBtTip: "Прогони на історії — окремо від реальної статистики",
+  modeBtFlag: "Режим бектесту",
+  modeFail: "Не вдалось перемкнути режим. Спробуй ще раз.",
+  fBtRun: "Прогін", fmBtRunPh: "EURUSD H1, sweep+fvg, 2023",
+  btTsNote: "рахуємо по бектесту",
+  btEmpty: "Тут порожньо. Запиши перший прогін — і побачиш його статистику окремо від реальної торгівлі.",
   sdCalcTip: "Порахувати розмір позиції під свій ризик",
   sdNotionTip: "Перенести свої угоди з Notion — записи, нотатки й скріншоти",
   sdNotionConnectedTip: "Notion уже підключено — можна перенести нові угоди ще раз",
@@ -427,7 +438,8 @@ uk: {
   shCtaText: "Зайдіть подивитись зсередини — реєстрація для цього не потрібна. Записувати вже у свій.",
   shCtaLook: "Подивитись журнал", shCtaMake: "Створити свій",
   slOgDay: "Зведення за день", slOgWeek: "Зведення за тиждень",
-  slOgMonth: "Зведення за місяць", slOgYear: "Зведення за рік", slOgTrade: "Угода",
+  slOgMonth: "Зведення за місяць", slOgYear: "Зведення за рік",
+  slOgBtMonth: "Бектест за місяць", slOgBtYear: "Бектест за рік", slOgTrade: "Угода", slOgBtTrade: "Бектест · угода",
   shRvTitle: "Як я дивився на ринок", shRvCharts: "Графіки зранку",
   shRvWhere: "Куди дивився", shRvLevels: "Рівні", shRvPlans: "Що планував",
   shRvEvening: "Що вийшло", shRvMatch: "За планом", shRvHold: "Тримався",
@@ -874,7 +886,9 @@ ru: {
   calHandTip: "Тейк, закрытый руками",
   slKindReview: "анализ дня", slOgReview: "Анализ дня",
   shRvMoreLab: "Анализ дня", shRvMore: "Зайди, чтобы посмотреть подробности: что я смотрел и какие зоны отметил.",
-  slKindDay: "день", slKindWeek: "неделя", slKindMonth: "месяц", slKindYear: "год", slKindTrade: "сделка",
+  slKindDay: "день", slKindWeek: "неделя", slKindMonth: "месяц", slKindYear: "год",
+  slKindBtMonth: "бэктест · месяц", slKindBtYear: "бэктест · год", slKindTrade: "сделка", slKindBtTrade: "бэктест · сделка", tiBtMark: "БЭКТЕСТ",
+  shBtNote: "Бэктест — прогон по истории, не реальные деньги",
   slShareTrade: "Поделиться сделкой", slTradesTitle: "Сделки", slByDays: "По дням", slByMonths: "По месяцам",
   slDetails: "Детали", slEntryBlock: "Вход",
   slShareTitle: "Поделиться",
@@ -926,6 +940,15 @@ ru: {
   sdNavAnalyticsTip: "Разрезы: сетапы, сессии, модели",
   sdNavNews: "Новости", sdNavNewsTip: "Экономический календарь на неделю",
   sdYourJournal: "Твой журнал", sdTools: "Инструменты",
+  /* Режим журнала: реальная торговля или бэктест */
+  modeLab: "Режим", modeLive: "Реальные", modeBt: "Бэктест",
+  modeLiveTip: "Настоящие сделки",
+  modeBtTip: "Прогоны по истории — отдельно от реальной статистики",
+  modeBtFlag: "Режим бэктеста",
+  modeFail: "Не получилось переключить режим. Попробуй ещё раз.",
+  fBtRun: "Прогон", fmBtRunPh: "EURUSD H1, sweep+fvg, 2023",
+  btTsNote: "считаем по бэктесту",
+  btEmpty: "Здесь пусто. Запиши первый прогон — и увидишь его статистику отдельно от реальной торговли.",
   sdCalcTip: "Посчитать размер позиции под свой риск",
   sdNotionTip: "Перенести свои сделки из Notion — записи, заметки и скриншоты",
   sdNotionConnectedTip: "Notion уже подключён — можно перенести новые сделки ещё раз",
@@ -944,7 +967,8 @@ ru: {
   shCtaText: "Зайдите посмотреть изнутри — регистрация для этого не нужна. Записывать уже в свой.",
   shCtaLook: "Посмотреть журнал", shCtaMake: "Создать свой",
   slOgDay: "Сводка за день", slOgWeek: "Сводка за неделю",
-  slOgMonth: "Сводка за месяц", slOgYear: "Сводка за год", slOgTrade: "Сделка",
+  slOgMonth: "Сводка за месяц", slOgYear: "Сводка за год",
+  slOgBtMonth: "Бэктест за месяц", slOgBtYear: "Бэктест за год", slOgTrade: "Сделка", slOgBtTrade: "Бэктест · сделка",
   shRvTitle: "Как я смотрел на рынок", shRvCharts: "Графики утром",
   shRvWhere: "Куда смотрел", shRvLevels: "Уровни", shRvPlans: "Что планировал",
   shRvEvening: "Что вышло", shRvMatch: "По плану", shRvHold: "Держался",
@@ -1390,7 +1414,9 @@ en: {
   calHandTip: "Target closed by hand",
   slKindReview: "day review", slOgReview: "Day review",
   shRvMoreLab: "Day review", shRvMore: "Open it to see the details: what I looked at and which zones I marked.",
-  slKindDay: "day", slKindWeek: "week", slKindMonth: "month", slKindYear: "year", slKindTrade: "trade",
+  slKindDay: "day", slKindWeek: "week", slKindMonth: "month", slKindYear: "year",
+  slKindBtMonth: "backtest · month", slKindBtYear: "backtest · year", slKindTrade: "trade", slKindBtTrade: "backtest · trade", tiBtMark: "BACKTEST",
+  shBtNote: "Backtest — a run over history, not real money",
   slShareTrade: "Share trade", slTradesTitle: "Trades", slByDays: "By day", slByMonths: "By month",
   slDetails: "Details", slEntryBlock: "Entry",
   slShareTitle: "Share",
@@ -1442,6 +1468,15 @@ en: {
   sdNavAnalyticsTip: "Breakdowns: setups, sessions, models",
   sdNavNews: "News", sdNavNewsTip: "Economic calendar for the week",
   sdYourJournal: "Your journal", sdTools: "Tools",
+  /* Journal mode: real trading or backtest */
+  modeLab: "Mode", modeLive: "Live", modeBt: "Backtest",
+  modeLiveTip: "Real trades",
+  modeBtTip: "Runs on history — kept out of your real stats",
+  modeBtFlag: "Backtest mode",
+  modeFail: "Could not switch mode. Try again.",
+  fBtRun: "Run", fmBtRunPh: "EURUSD H1, sweep+fvg, 2023",
+  btTsNote: "counted on the backtest",
+  btEmpty: "Nothing here yet. Log your first run and see its stats kept apart from real trading.",
   sdCalcTip: "Work out position size for your risk",
   sdNotionTip: "Import your trades from Notion — entries, notes and screenshots",
   sdNotionConnectedTip: "Notion is already connected — you can import new trades again",
@@ -1460,7 +1495,8 @@ en: {
   shCtaText: "Have a look inside — no account needed for that. Logging trades needs your own.",
   shCtaLook: "Look inside", shCtaMake: "Create yours",
   slOgDay: "Day summary", slOgWeek: "Week summary",
-  slOgMonth: "Month summary", slOgYear: "Year summary", slOgTrade: "Trade",
+  slOgMonth: "Month summary", slOgYear: "Year summary",
+  slOgBtMonth: "Backtest, month", slOgBtYear: "Backtest, year", slOgTrade: "Trade", slOgBtTrade: "Backtest · trade",
   shRvTitle: "How I read the market", shRvCharts: "Charts in the morning",
   shRvWhere: "Where I looked", shRvLevels: "Levels", shRvPlans: "What I planned",
   shRvEvening: "How it went", shRvMatch: "As planned", shRvHold: "Held to it",
@@ -1625,6 +1661,16 @@ function applyLang(code){
   });
 
   setText("journalLab", T.sdTools);
+
+  /* Режим журналу: підпис, дві кнопки сегмента й смужка бектесту */
+  setText("modeLab", T.modeLab);
+  setText("btFlag", T.modeBtFlag);
+  document.querySelectorAll("#modeTabs button").forEach(b => {
+    const bt = b.dataset.mode === "bt";
+    b.textContent = bt ? T.modeBt : T.modeLive;
+    setTip(b, bt ? T.modeBtTip : T.modeLiveTip);
+  });
+
   if (window.Pub && Pub.on) Pub.relang();
 
   const su = document.getElementById("supportBtn");

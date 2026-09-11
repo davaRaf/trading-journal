@@ -136,6 +136,12 @@ h1{margin:0; font-size:clamp(22px,4vw,30px); font-weight:600; letter-spacing:-.0
   letter-spacing:-.02em; font-variant-numeric:tabular-nums; line-height:1}
 .total.pos{color:var(--up)} .total.neg{color:var(--down)} .total.zero{color:var(--dim)}
 
+/* Позначка бектесту: помітна, але не кричить — читається як підпис, а не
+   як помилка. Стоїть одразу під заголовком, до перших цифр. */
+.btmark{margin-top:14px; padding:8px 12px; border-radius:10px;
+  border:1px dashed var(--line); background:var(--card); color:var(--dim);
+  font-family:var(--mono); font-size:11px; letter-spacing:.06em}
+
 .card{background:var(--card); border:1px solid var(--line); border-radius:var(--r); padding:20px 22px}
 .kpis{display:grid; grid-template-columns:repeat(auto-fit,minmax(132px,1fr)); gap:1px;
   background:var(--line-soft); border:1px solid var(--line-soft); border-radius:var(--r);
@@ -865,6 +871,10 @@ function render(rec){
       + '<h1>'+esc(d.title||"")+'</h1></div>'
       + (d.total != null ? '<div class="total '+sign(d.total)+'">'+pct(d.total)+'</div>' : "")
     + '</div>'
+    /* Прогін на історії — не реальні гроші. Кажемо це прямо під заголовком,
+       щоб не читалось як справжній вхід. */
+    + (d.bt ? '<div class="btmark">' + esc(T.shBtNote)
+              + (d.btRun ? ' · ' + esc(d.btRun) : "") + '</div>' : "")
     + (d.kpis && d.kpis.length
         ? '<div class="kpis">' + d.kpis.map(k => kpi(k.k, k.v, k.cls)).join("") + '</div>' : "")
     + tradesHtml(d.trades)

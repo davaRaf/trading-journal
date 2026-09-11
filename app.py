@@ -37,6 +37,7 @@ import notion_sync
 import authmail
 import oauth
 import ratelimit
+import accounts_store
 import day_store
 import tg_api
 import tidy
@@ -152,6 +153,9 @@ def clean_trade(body, tid):
             t[k] = None
     t["screenshots"] = body.get("screenshots") or []
     if body.get("hidden"): t["hidden"] = True
+    # Реальная сделка или бэктест. Всё, кроме "bt", считаем торговлей: тип
+    # приходит из браузера, и это единственное место, где он входит внутрь.
+    t["kind"] = "bt" if str(body.get("kind") or "").strip() == "bt" else ""
     # откуда сделка приехала — нужно, чтобы повторный импорт не задвоил её
     if body.get("notion_id"): t["notion_id"] = str(body["notion_id"])[:64]
     # какое перенесение её принесло — нужно, чтобы его можно было отменить
@@ -1492,7 +1496,22 @@ class H(BaseHTTPRequestHandler):
             uid = self._uid()
             if not uid:
                 return self._json({"error": "auth required"}, 401)
-            return self._json(db.list_trades(uid))
+            # Журнал переключается между реальной торговлей и бэктестом целиком.
+            # Без параметра — торговля, как было до появления бэктеста.
+            kind = "bt" if (parse_qs(urlparse(self.path).query).get("kind")
+                            or [""])[0] == "bt" else ""
+            return self._json(db.list_trades(uid, kind))
+
+        # ---- рахунки: свій депозит і проп-фірми (accounts_store.py) ----
+        #
+        # Тільки описи рахунків. Гроші й просадка рахуються в браузері з
+        # угод, які вже поїхали окремим запитом: другий раз ті самі угоди
+        # ганяти по мережі нема сенсу.
+        if p == "/api/accounts":
+            uid = self._uid()
+            if not uid:
+                return self._json({"error": "auth required"}, 401)
+            return self._json({"accounts": accounts_store.lst(uid)})
 
         # ---- аналіз дня (day_store.py) ----
         if p.startswith("/api/day/"):
@@ -1527,7 +1546,11 @@ class H(BaseHTTPRequestHandler):
             uid = self._uid()
             if not uid:
                 return self._json({"error": "auth required"}, 401)
-            return self._json({"ts": ts_store.get(uid)})
+            # у бектесті своя копія ТС: перший захід знімає її з реальної,
+            # далі це два окремі документи
+            kind = "bt" if (parse_qs(urlparse(self.path).query).get("kind")
+                            or [""])[0] == "bt" else ""
+            return self._json({"ts": ts_store.get(uid, kind)})
 
         if p.startswith("/tsshot/"):
             uid = self._uid()
@@ -2103,32 +2126,37 @@ class H(BaseHTTPRequestHandler):
             history = [m for m in raw if isinstance(m, dict)][-16:] if isinstance(raw, list) else []
             lang = str((body or {}).get("lang") or "")
             lang = lang if lang in ("uk", "ru", "en") else None
+            # у якому журналі людина зараз: помічник має відповідати про те,
+            # що вона перед собою бачить, і прибирати теж саме те
+            kind = "bt" if (body or {}).get("kind") == "bt" else ""
             # прохання змінити «Мою ТС» — окрема гілка: модель лише каже, ЩО
             # змінити, а перевіряє шляхи й пише в базу код (ts_edit.py).
             # Йде першою, коли прохання явно про ТС: «прибери модель BOS з ТС»
             # інакше перехопить видалення угод — там теж своє «прибери».
             if ts_edit.looks_like(question) and ts_edit.about_ts(question):
-                r = ts_edit.plan(uid, question, history, lang)
+                r = ts_edit.plan(uid, question, history, lang, kind)
                 if r:
                     return self._json(r)
             # прохання видалити угоди — окрема гілка: модель лише каже, ЩО
             # видаляти, угоди добирає код, а зникають вони тільки після
             # натиснутої кнопки в підтвердженні (delete_ai.py)
             if delete_ai.looks_like(question):
-                card = delete_ai.plan(uid, question, history)
+                card = delete_ai.plan(uid, question, history, kind)
                 if card:
                     return self._json(card)
             # решта прохань про ТС — без явного слова «ТС» («додай золото в активи»)
             if ts_edit.looks_like(question):
-                r = ts_edit.plan(uid, question, history, lang)
+                r = ts_edit.plan(uid, question, history, lang, kind)
                 if r:
                     return self._json(r)
-            return self._json({"answer": assistant.ask(uid, question, history, lang)})
+            return self._json({"answer": assistant.ask(uid, question, history, lang,
+                                                       kind=kind)})
 
         if p == "/api/assistant/nudge":
             lang = str((body or {}).get("lang") or "ru")
             return self._json(assistant.nudge(
-                uid, lang if lang in ("uk", "ru", "en") else "ru"))
+                uid, lang if lang in ("uk", "ru", "en") else "ru",
+                "bt" if (body or {}).get("kind") == "bt" else ""))
 
         if p == "/api/assistant/review":
             if not llm.enabled():
@@ -2139,7 +2167,9 @@ class H(BaseHTTPRequestHandler):
             # російському журналі український рядок виглядав чужим
             rlang = str((body or {}).get("lang") or "")
             return self._json(assistant.review(
-                uid, history, rlang if rlang in ("uk", "ru", "en") else None))
+                uid, history,
+                lang=rlang if rlang in ("uk", "ru", "en") else None,
+                kind="bt" if (body or {}).get("kind") == "bt" else ""))
 
         # друга половина видалення на прохання: ключ одноразовий, список id
         # у ньому вже зафіксований — тут нічого не добирається заново
@@ -2252,6 +2282,37 @@ class H(BaseHTTPRequestHandler):
                 return self._json({"error": str(e)}, 400)
             return self._json({"file": name})
 
+        # ---- рахунки ----
+        if p == "/api/accounts":
+            acc = (body or {}).get("account") or {}
+            name = str(acc.get("name") or "").strip()
+            if not name:
+                return self._json({"error": "no name"}, 400)
+            acc_id = acc.get("id")
+            try:
+                acc_id = int(acc_id) if acc_id not in (None, "") else None
+            except (TypeError, ValueError):
+                return self._json({"error": "bad id"}, 400)
+            # Двох рахунків з однією назвою бути не може: угоди звʼязані
+            # саме по імені, і розрізнити їх було б нічим. Але відмовляти
+            # через це — погана відповідь: два челенджі однієї фірми
+            # одного розміру людина заводить постійно. Тому сервер сам
+            # дописує номер («FTMO 100k 2») і повертає підсумкову назву.
+            if acc_id is None:
+                return self._json({"account": accounts_store.add(uid, acc)})
+            saved = accounts_store.put(uid, acc_id, acc)
+            if not saved:
+                return self._json({"error": "not found"}, 404)
+            return self._json({"account": saved})
+
+        if p == "/api/accounts/drop":
+            try:
+                acc_id = int((body or {}).get("id"))
+            except (TypeError, ValueError):
+                return self._json({"error": "bad id"}, 400)
+            accounts_store.drop(uid, acc_id)
+            return self._json({"ok": True})
+
         if p == "/api/day/shot":
             try:
                 name = day_store.save_shot(uid, (body or {}).get("data") or "", SHOTS)
@@ -2273,8 +2334,10 @@ class H(BaseHTTPRequestHandler):
         # ---- торгова стратегія ----
         if p == "/api/ts":
             data = dict((body or {}).get("ts") or {})
-            ts_store.put(uid, data)
-            ts_store.sweep(uid, data, SHOTS)      # старі скріни за собою прибираємо
+            # правки лягають у ту стратегію, яку людина зараз бачить
+            kind = "bt" if (body or {}).get("kind") == "bt" else ""
+            ts_store.put(uid, data, kind)
+            ts_store.sweep(uid, data, SHOTS, kind)  # старі скріни за собою прибираємо
             return self._json({"ok": True})
 
         # Звірка щойно записаної угоди з ТС. Окремим запитом, а не всередині
@@ -2284,6 +2347,10 @@ class H(BaseHTTPRequestHandler):
             trade = db.get_trade(tid, uid) if tid else None
             ts = ts_store.get(uid)
             if not trade or not ts:
+                return self._json({"items": [], "text": ""})
+            # Бэктест с торговой системой не сверяем: список дня собирается
+            # из реальных сделок, и самой сделки в нём нет.
+            if trade.get("kind") == "bt":
                 return self._json({"items": [], "text": ""})
             day = ts_check.same_day(db.list_trades(uid), trade)
             items = ts_check.check(ts, trade, day)
@@ -2295,8 +2362,9 @@ class H(BaseHTTPRequestHandler):
                                "hint": "" if items else ts_check.gaps(ts, trade)})
 
         if p == "/api/ts/clear":
-            ts_store.sweep(uid, {}, SHOTS)
-            ts_store.clear(uid)
+            kind = "bt" if (body or {}).get("kind") == "bt" else ""
+            ts_store.sweep(uid, {}, SHOTS, kind)
+            ts_store.clear(uid, kind)
             return self._json({"ok": True})
 
         if p == "/api/ts/shot":
@@ -2325,7 +2393,10 @@ class H(BaseHTTPRequestHandler):
             t = clean_trade(body, new_id())
             save_screenshots(t)
             user = db.get_user(uid)
-            ask = not str(t.get("emotion") or "").strip() and user["telegram_id"] is not None
+            # У бэктеста эмоции нет: входа не было, спрашивать не о чем.
+            ask = (t.get("kind") != "bt"
+                   and not str(t.get("emotion") or "").strip()
+                   and user["telegram_id"] is not None)
             db.insert_trade(uid, t, "pending" if ask else "na")
             if ask:
                 ask_emotion_later(user, t)
@@ -2377,6 +2448,9 @@ class H(BaseHTTPRequestHandler):
         if not old:
             return self._json({"error": "not found"}, 404)
         t = clean_trade(body, tid)
+        # Тип ставится при записи и правкой не меняется: иначе сделка
+        # переехала бы между реальным журналом и бэктестом.
+        t["kind"] = old.get("kind") or ""
         save_screenshots(t)
         old_files = {s["file"] for s in old.get("screenshots") or [] if s.get("file")}
         new_files = {s["file"] for s in t["screenshots"] if s.get("file")}

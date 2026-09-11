@@ -17,7 +17,7 @@ from config import DATABASE_URL, DB_POOL_MAX
 # Текстовые поля сделки. Порядок важен: по нему строятся INSERT/UPDATE.
 TEXT_FIELDS = ["pair", "date", "session", "position", "entry_model", "bias", "setup",
                "direction_type", "result", "account", "entry_details", "notes", "mistakes",
-               "comments", "emotion", "notion_id", "import_id"]
+               "comments", "emotion", "bt_run", "notion_id", "import_id"]
 # rr_plan — скільки дав би тейк, якби досидів. Із різниці з rr виходить,
 # скільки людина лишила на столі, вийшовши рукою.
 NUM_FIELDS = ["rr", "risk", "rr_plan"]
@@ -214,6 +214,17 @@ CREATE TABLE IF NOT EXISTS trade_drafts (
   updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
+-- Реальная сделка или бэктест. Пусто — реальная: всё, что записано до
+-- появления бэктеста, остаётся торговлей, задним числом ничего не метим.
+-- Список значений держим в Python (_trade_values, clean_trade), а не в
+-- CHECK: добавить ограничение «если ещё нет» одной строкой Postgres не даёт.
+ALTER TABLE trades ADD COLUMN IF NOT EXISTS "kind" TEXT NOT NULL DEFAULT '';
+CREATE INDEX IF NOT EXISTS trades_user_kind ON trades (user_id, "kind");
+
+-- Подпись прогона: «EURUSD H1, sweep+fvg, 2023». Одной строкой вместо пары
+-- дат — человек сам пишет, что именно гонял. У реальных сделок пусто.
+ALTER TABLE trades ADD COLUMN IF NOT EXISTS "bt_run" TEXT NOT NULL DEFAULT '';
+
 -- Угоди з Notion, які людина прибрала з журналу руками. Тримаємо не саму
 -- угоду, а позначки, за якими перенесення її впізнає: id запису в Notion,
 -- відбиток (день, інструмент, напрямок, результат) і те, яким перенесенням
@@ -360,13 +371,27 @@ def _row_to_trade(row):
     t["screenshots"] = row["screenshots"] or []
     if row["hidden"]:
         t["hidden"] = True
+    t["kind"] = row["kind"] or ""
     return t
 
 
-def list_trades(user_id):
+def list_trades(user_id, kind=""):
+    """Сделки человека. По умолчанию — только реальная торговля.
+
+    `kind`: "" — реальные, "bt" — бэктест, "all" — и то, и другое. Умолчание
+    выбрано так, чтобы бэктест никуда не просочился сам: бот, помощник,
+    чужой журнал по ссылке и перенос из Notion зовут эту функцию без
+    аргумента и продолжают видеть только настоящие сделки. "all" нужен
+    одному месту — снимку для бэкапа, он спасает всё подряд.
+    """
+    sql = "SELECT * FROM trades WHERE user_id=%s"
+    args = [user_id]
+    if kind != "all":
+        sql += ' AND "kind"=%s'
+        args.append("bt" if kind == "bt" else "")
+    sql += " ORDER BY created_at"
     with connect() as conn:
-        rows = conn.execute("SELECT * FROM trades WHERE user_id=%s ORDER BY created_at",
-                            (user_id,)).fetchall()
+        rows = conn.execute(sql, args).fetchall()
     return [_row_to_trade(r) for r in rows]
 
 
@@ -443,21 +468,37 @@ def count_import(user_id, batch):
     return row["n"]
 
 
-def rename_value(user_id, field, values, to):
+def rename_value(user_id, field, values, to, kind="", conn=None):
     """Сводит несколько написаний одного имени в одно.
 
     Имя колонки подставляется в SQL, поэтому берём его только из своего
-    списка — снаружи сюда приходит поле из запроса."""
+    списка — снаружи сюда приходит поле из запроса.
+
+    `kind` — в каком журнале переименовываем: "" реальный, "bt" бэктест,
+    "all" оба. Умолчание то же, что у `list_trades`: списки написаний
+    человек видит по реальным сделкам, и правка не должна молча трогать
+    прогоны на истории, которых в том списке не было.
+
+    `conn` — готовое соединение, когда переименование должно уехать в базу
+    одной транзакцией с чем-то ещё (так это делает карточка счёта: имя
+    карточки и имя в сделках обязаны меняться вместе или никак).
+    """
     if field not in TIDY_FIELDS:
         raise ValueError("нельзя менять поле %r" % (field,))
     values = [v for v in (values or []) if v != to]
     if not values:
         return 0
-    with connect() as conn:
-        cur = conn.execute('UPDATE trades SET "%s"=%%s WHERE user_id=%%s '
-                           'AND "%s" = ANY(%%s)' % (field, field),
-                           (to, user_id, values))
-        conn.commit()
+    sql = ('UPDATE trades SET "%s"=%%s WHERE user_id=%%s '
+           'AND "%s" = ANY(%%s)' % (field, field))
+    args = [to, user_id, values]
+    if kind != "all":
+        sql += " AND kind=%s"
+        args.append("bt" if kind == "bt" else "")
+    if conn is not None:
+        return conn.execute(sql, tuple(args)).rowcount
+    with connect() as c:
+        cur = c.execute(sql, tuple(args))
+        c.commit()
     return cur.rowcount
 
 
@@ -571,12 +612,15 @@ def _trade_values(t):
     vals = [t.get(f) or "" for f in TEXT_FIELDS]
     vals += [t.get(f) for f in NUM_FIELDS]
     vals += [Jsonb(t.get("screenshots") or []), bool(t.get("hidden"))]
+    # Тип сделки — из белого списка. Значение приходит из браузера, и другого
+    # места, где его можно подменить, у него нет.
+    vals += ["bt" if t.get("kind") == "bt" else ""]
     return vals
 
 
-_COLS = ", ".join('"%s"' % f for f in FIELDS) + ", screenshots, hidden"
-_PLACEHOLDERS = ", ".join(["%s"] * (len(FIELDS) + 2))
-_SETS = ", ".join('"%s"=%%s' % f for f in FIELDS) + ", screenshots=%s, hidden=%s"
+_COLS = ", ".join('"%s"' % f for f in FIELDS) + ', screenshots, hidden, "kind"'
+_PLACEHOLDERS = ", ".join(["%s"] * (len(FIELDS) + 3))
+_SETS = ", ".join('"%s"=%%s' % f for f in FIELDS) + ', screenshots=%s, hidden=%s, "kind"=%s'
 
 
 # ---------------------------------------------------------------------------

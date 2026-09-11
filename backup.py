@@ -24,6 +24,7 @@ import threading
 import time
 
 import db
+import accounts_store
 import day_store
 import ts_store
 
@@ -84,16 +85,26 @@ def snapshot(uid):
                         .replace(microsecond=0).isoformat(),
         "user": {"id": uid, "email": user.get("email"),
                  "nickname": user.get("nickname")},
-        "trades": db.list_trades(uid),
+        # kind="all" — вместе с бэктестом: часы работы над прогоном стоит
+        # спасать наравне с реальными сделками, различить их можно по полю.
+        "trades": db.list_trades(uid, "all"),
         "days": day_store.notes_since(uid, "0001-01-01"),
         "strategy": ts_store.get(uid),
+        # ТС бектесту — окремий документ, і в зліпку теж окремо. seed=False:
+        # зліпок тільки дивиться, копію заводить сама людина, коли заходить
+        "strategy_bt": ts_store.get(uid, "bt", seed=False),
+        # Рахунки: опис того, на чому людина торгувала. Самі гроші тут не
+        # лежать — вони рахуються з угод, але без стартового балансу й
+        # лімітів порахувати їх удруге не вийде.
+        "accounts": accounts_store.lst(uid),
         "notion": _notion(uid),
     })
 
 
 def _worth(snap):
     """Порожній журнал зберігати нема сенсу — лише сміття в таблиці."""
-    return bool(snap.get("trades") or snap.get("days") or snap.get("strategy"))
+    return bool(snap.get("trades") or snap.get("days")
+                or snap.get("strategy") or snap.get("accounts"))
 
 
 def save(uid, snap=None):

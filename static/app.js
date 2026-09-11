@@ -10,6 +10,12 @@ const S = {
   jMonth: isoMonth(now),        // месяц календаря Journal
   jMode: (function(){ try{ return localStorage.getItem("tj_jmode")||"cal"; }catch(e){ return "cal"; } })(),
                                 // cal | table | list
+  /* live — реальна торгівля, bt — бектест. Не розділ, а режим усього
+     журналу: ті самі екрани, інший набір угод.
+     Вибір навмисне не переживає перезавантаження: журнал завжди
+     відкривається на реальній торгівлі. Інакше людина, яка вчора пішла з
+     бектесту, сьогодні записала б справжню угоду в прогони. */
+  mode: "live",
   mMonth: isoMonth(now),        // Monthly
   qYear: now.getFullYear(),     // Quarterly
   yYear: now.getFullYear(),     // Yearly
@@ -207,10 +213,69 @@ async function api(method,url,body){
   if(!res.ok) throw new Error("API "+res.status);
   return res.json();
 }
+/* Бектест беремо тільки у своєму журналі. У чужому (Pub) адреса угод
+   підмінюється цілим рядком і параметра не знає, а демо живе в браузері
+   й типів угод не розрізняє — там завжди реальні. */
+function btOn(){ return S.mode==="bt" && !DEMO && !(window.Pub && Pub.on); }
+
 async function reload(){
-  S.all = await api("GET","/api/trades");
+  S.all = await api("GET","/api/trades" + (btOn()?"?kind=bt":""));
   S.trades = S.all;          // в статистике участвуют все сделки
   await Prefs.load();        // після угод: тепер відомо, демо це чи ні
+  /* Рахунки читаємо про запас і не чекаємо на них: вони потрібні формі
+     угоди для підказок, а форму відкривають не одразу. Помилку розділ
+     переживе — він читає свій список сам. */
+  if(window.__acc && __acc.preload) __acc.preload();
+}
+
+/* Перемикання режиму журналу. Угоди перечитуємо повністю: у двох режимах
+   це різні набори, і все, що прилипло до попереднього (обраний день,
+   місяць календаря, сторінки списків), скидаємо разом з ними. */
+let modeBusy=false;
+async function setMode(m){
+  m = m==="bt" ? "bt" : "live";
+  if(m===S.mode) return;
+  /* Поки угоди їдуть, другий клік ігноруємо: два запити наввипередки
+     могли б повернутись у зворотному порядку — і на екрані опинився б
+     чужий набір угод під написом іншого режиму. */
+  if(modeBusy) return;
+  modeBusy = true;
+  const was = S.mode;
+  S.mode = m;
+  markMode();
+  dataReady=false;                       // поки не перечитали — не малюємо
+  try{
+    await reload();
+  }catch(e){
+    /* Не доїхало — вертаємо як було. Інакше на екрані лишились би угоди
+       одного режиму під написом іншого, і наступна угода пішла б не туди. */
+    S.mode = was;
+    markMode();
+    dataReady=true; modeBusy=false;
+    alert(T.modeFail);
+    return;
+  }
+  dataReady=true;
+  /* ТС у кожного журналу своя — перечитуємо разом з угодами. Інакше в
+     бектесті лишились би правила з реальної торгівлі, і форма брала б
+     підказки не звідти. */
+  if(window.__ts && __ts.reload) __ts.reload();
+  S.selDay=isoDay(now); S.jMonth=isoMonth(now); S.pages={}; S.filters={};
+  /* Розділ, якого в цьому режимі немає, міняємо разом з адресою: інакше в
+     рядку лишиться #day, а на екрані буде огляд. */
+  if(!viewAllowed(S.view)){ S.view="dashboard"; location.hash="dashboard"; }
+  render();
+  modeBusy = false;
+}
+
+/* Позначка режиму: атрибут на <html> для стилів і підсвічений сегмент.
+   Викликається й на старті, щоб бейдж не блимав після першого малюнку. */
+function markMode(){
+  document.documentElement.setAttribute("data-mode", S.mode);
+  document.querySelectorAll("#modeTabs button").forEach(b=>
+    b.classList.toggle("on", b.dataset.mode===S.mode));
+  const flag=$("#btFlag");
+  if(flag) flag.hidden = S.mode!=="bt";
 }
 
 
@@ -282,7 +347,10 @@ function tradeRow(t){
 function tradesCard(list,title,key){
   key=key||title;
   const pg=Pagi.slice(list,key);
-  const rows=pg.items.length?pg.items.map(tradeRow).join(""):'<div class="empty">'+T.tlEmpty+'</div>';
+  /* Порожній бектест — не те саме, що порожній журнал: підказуємо, що тут
+     взагалі має з'явитись, і що з реальною статистикою це не змішається. */
+  const none = (btOn() && !S.all.length) ? T.btEmpty : T.tlEmpty;
+  const rows=pg.items.length?pg.items.map(tradeRow).join(""):'<div class="empty">'+none+'</div>';
   return '<div class="card" data-pagi="'+esc(key)+'"><h3>'+esc(title)+'</h3><div class="tlist">'+rows+"</div>"+
     Pagi.html(key,pg.page,pg.pages)+"</div>";
 }
@@ -336,8 +404,47 @@ function topVals(field,n){
 /* Чаще всего человек торгует один счёт подряд, а не прыгает между ними
    каждую сделку, — поэтому подставляем тот, на котором записывал прошлый раз. */
 /* Назви проп-фірм не перекладаються, а «свій депозит» — так, як в
-   інтерфейсі. Це підказки: перше ж введене ім'я витісняє їх. */
+   інтерфейсі. Це підказки для порожнього журналу: щойно людина завела
+   рахунок у «Моїх рахунках» чи хоч раз вписала свою назву в угоду,
+   цей список зникає — див. збірку підказок у формі угоди. */
 function accHints(){ return [T.accOwn,"FTMO","FundingPips"]; }
+/* Названия счетов для формы сделки. Первыми — заведённые карточки из
+   «Моих счетов»: связь сделки со счётом идёт по названию, и пока их тут
+   не было, название приходилось набирать заново. Одна опечатка — и
+   карточка счёта оставалась без сделок, хотя человек записывал их именно
+   туда. Дальше — то, что он уже вводил сам.
+
+   Заведённые карточки главнее истории: если они есть, только они и
+   стоят в ряду. Иначе убранный счёт не исчезал из подсказок — его имя
+   остаётся на сделках, и история подставляла его снова. Имена, которые
+   есть в сделках, но карточки не имеют, видно в самом разделе счетов
+   отдельным рядом — там им и место.
+
+   История идёт в дело, пока карточек нет вовсе. Зашитые «FTMO» и
+   «FundingPips» — только пустому журналу: рядом со своими счетами это
+   чужие названия, их легко нажать по ошибке, и в журнале заводится счёт,
+   которого у человека нет. Поле остаётся текстовым — счёт можно и не
+   выбирать, и вписать любой. */
+function accountVals(){
+  const cards=(window.__acc&&__acc.names)?__acc.names():[];
+  if(cards.length) return cards.slice(0,6);
+  const seen=topVals("account",4);
+  return (seen.length?seen:accHints()).slice(0,6);
+}
+/* Карточки счетов едут отдельным запросом и могут не успеть к открытию
+   формы. Приехали — перерисовываем ряд подсказок, чтобы человек не видел
+   чужие названия там, где уже есть свои. */
+function repaintAccounts(){
+  if(!(window.__acc&&__acc.preload)) return;
+  __acc.preload().then(()=>{
+    const q=document.querySelector('.quick[data-f="account"]');
+    if(!q) return;
+    const fresh=accountVals();
+    if(String(fresh)===String(QUICK_BASE.account||[])) return;
+    QUICK_BASE.account=fresh;
+    repaintQuick(q);
+  }).catch(()=>{});
+}
 function lastAccount(){
   try{ const v=localStorage.getItem("tj_account"); if(v) return v; }catch(e){}
   const last=sortDesc(S.trades).find(t=>(t.account||"").trim());
@@ -847,6 +954,26 @@ function ovRailHtml(){
     "</div></div></aside>";
 }
 
+/* Заголовок «Огляду» — це і є перемикач: «Огляд» і «Рахунки» поруч,
+   відкритий чорним, сусідній сірим. Рахунки були шостим пунктом бічного
+   меню, і воно від цього перевантажилось; окремою маленькою смужкою
+   вкладок їх було б не знайти — поруч у шапці стоїть така сама смужка
+   періодів, і одна ставала схожа на другу.
+
+   Заголовком їх видно здалеку, і місце в рядку в обох вкладках однакове,
+   тож перемикач не стрибає під курсором.
+
+   Підпис береться з accounts.js: словник розділу живе там. Немає розділу
+   (бектест, чужий журнал) — лишається звичайний заголовок. */
+function ovTabsHtml(cur){
+  const nm=viewAllowed("accounts")&&window.__acc&&__acc.navLabel?__acc.navLabel():"";
+  if(!nm) return "<h1>"+esc(T.ovTitle)+"</h1>";
+  const tab=(v,l)=>'<a href="#'+v+'" class="'+(cur===v?"on":"")+'"'
+    +(cur===v?' aria-current="page"':"")+">"+esc(l)+"</a>";
+  return '<h1 class="ovh">'+tab("dashboard",T.ovTitle)+tab("accounts",nm)+"</h1>";
+}
+window.ovTabsHtml=ovTabsHtml;
+
 function vDashboard(){
   if(!S.trades.length){
     /* Порожній журнал — це перший екран нової людини. Замість однієї
@@ -855,13 +982,17 @@ function vDashboard(){
     const way=(cls,fn,tag,title,text)=>
       '<button class="way'+cls+'" onclick="'+fn+'">'+
       '<em>'+T[tag]+'</em><b>'+T[title]+'</b><span>'+T[text]+'</span></button>';
-    return '<div class="vhead"><h1>'+T.ovTitle+'</h1></div>'+
+    /* У бектесті переносити нема чого: старі прогони нізвідки не тягнемо,
+       та й Notion тут не при справах. Лишаються два шляхи — записати
+       прогін або спершу описати свою ТС. */
+    const bt=btOn();
+    return '<div class="vhead">'+ovTabsHtml("dashboard")+'</div>'+
       '<div class="card"><div class="in" style="padding:26px 24px">'+
       '<div style="font-size:20px;font-weight:600;letter-spacing:-.01em">'+T.bgTitle+'</div>'+
-      '<div class="hint" style="margin-top:8px;max-width:62ch;line-height:1.6">'+T.bgLead+'</div>'+
+      '<div class="hint" style="margin-top:8px;max-width:62ch;line-height:1.6">'+(bt?T.btEmpty:T.bgLead)+'</div>'+
       '<div class="begin">'+
-        way(" main","__notion.open()","bgNotionTag","bgNotionTitle","bgNotionText")+
-        way("","openForm()","bgTradeTag","bgTradeTitle","bgTradeText")+
+        (bt?"":way(" main","__notion.open()","bgNotionTag","bgNotionTitle","bgNotionText"))+
+        way(bt?" main":"","openForm()","bgTradeTag","bgTradeTitle","bgTradeText")+
         way("","location.hash='ts'","bgTsTag","bgTsTitle","bgTsText")+
       '</div></div></div>';
   }
@@ -880,7 +1011,8 @@ function vDashboard(){
   }
 
   return '<div class="ovw">'+
-    '<div class="ohead"><h1>'+T.ovTitle+'</h1><div class="per">'+btns+"</div></div>"+
+    '<div class="ohead">'+ovTabsHtml("dashboard")+
+      '<div class="per">'+btns+"</div></div>"+
     '<div class="flow">'+
       ovWeekHtml()+
       '<div class="shell rise"><div class="core">'+
@@ -1701,9 +1833,7 @@ function openForm(id, presetDay){
       (cur&&!known?"":" hidden")+' oninput="markQuick();calcOutcome()">';
   };
 
-  /* Названия счетов — то, что человек уже вводил. Пока пусто, подсказываем
-     самые ходовые; справочника нет, пишет он сам. */
-  const accounts=[...new Set([...topVals("account",4), ...accHints()])].slice(0,4);
+  const accounts=accountVals();
   /* підказки з «Моєї ТС» — першими: що людина записала як свою систему,
      те й має бути під рукою в формі. Далі — що вже є в журналі. */
   const tsH=(window.__ts&&__ts.hints)?__ts.hints():{assets:[],models:[]};
@@ -1733,8 +1863,13 @@ function openForm(id, presetDay){
     '<div class="frow">'+
       '<div class="f"><label>'+T.fSession+'</label>'+
         pick("session",SESSIONS,t?t.session:"",T.fmOwnSessionPh)+"</div>"+
-      '<div class="f"><label>'+T.fAccount+'</label>'+
-        pick("account",accounts,t?t.account:lastAccount(),T.fmOwnAccountPh)+"</div>"+
+      /* У бектесті рахунку немає — на його місці підпис прогону: що саме
+         ганяв. Одне поле замість другого, форма не росте. */
+      (btOn()
+        ? '<div class="f"><label>'+T.fBtRun+'</label>'+
+            pick("bt_run",topVals("bt_run",4),t?t.bt_run:"",T.fmBtRunPh)+"</div>"
+        : '<div class="f"><label>'+T.fAccount+'</label>'+
+            pick("account",accounts,t?t.account:lastAccount(),T.fmOwnAccountPh)+"</div>")+
       '<div class="f"><label>'+T.fmDirectionLabel+'</label>'+
         seg("position",[{v:"Long",t:"Long",cls:"lng"},{v:"Short",t:"Short",cls:"shr"}],t?t.position:"","big")+"</div>"+
     "</div>"+
@@ -1791,8 +1926,10 @@ function openForm(id, presetDay){
     /* помилки й емоції — як решта полів: кнопки, «+» і своє значення */
     '<div class="f"><label>'+T.fmMistakeLabel+'</label>'+
       pick("mistakes",mistakes,t?t.mistakes:"",T.fmMistakeEmptyPh)+"</div>"+
-    '<div class="f"><label>'+T.fmEmotionLabel+' <span class="autotag">'+T.fmEmotionAutotag+'</span></label>'+
-      pick("emotion",T.emotions,t?t.emotion:"",T.fmEmotionPh)+"</div>"+
+    /* Емоції в бектесті немає: входу не було, і питати нема про що */
+    (btOn() ? "" :
+      '<div class="f"><label>'+T.fmEmotionLabel+' <span class="autotag">'+T.fmEmotionAutotag+'</span></label>'+
+        pick("emotion",T.emotions,t?t.emotion:"",T.fmEmotionPh)+"</div>")+
   "</div></section>"+
 
   "</div>";
@@ -1808,6 +1945,7 @@ function openForm(id, presetDay){
   markQuick(); autoDirType(); calcOutcome();
   $("#shotFile").addEventListener("change", onShotFiles);
   document.addEventListener("paste", onPasteShot);
+  repaintAccounts();
   /* незаписане з минулого разу — назад у поля */
   Draft.start(id||"");
   if(!t) setTimeout(()=>{ const el=$("#fld_pair"); if(el) el.focus(); },60);
@@ -2087,6 +2225,9 @@ async function saveTrade(id){
     entry_details:g("entry_details"), notes:g("notes"), mistakes:g("mistakes"),
     emotion:g("emotion"), comments:"",
     screenshots:S.formShots,
+    /* Куди записуємо: у реальний журнал чи в бектест. Сервер бере тільки
+       "bt", решту вважає торгівлею. */
+    bt_run:g("bt_run"), kind: btOn()?"bt":"",
   };
   if(!t.pair){ alert(T.alertNeedPair); return; }
   /* «1 Месяц» колись приїхало сюди з чужої колонки Notion. Не забороняємо —
@@ -2099,10 +2240,11 @@ async function saveTrade(id){
      в средние. Инструмент оставляем — по нему видно, что именно пропустил. */
   if(t.result==="Skip"){ t.rr=""; t.risk=""; t.rr_plan=""; }
   if(t.result!=="WinM") t.rr_plan="";
-  try{ localStorage.setItem("tj_account", t.account||""); }catch(e){}
+  /* У бектесті поля рахунку немає — не затираємо ним запам'ятований рахунок */
+  if(!btOn()){ try{ localStorage.setItem("tj_account", t.account||""); }catch(e){} }
   /* Своє значення, вписане через «+», наступного разу стоїть кнопкою:
      інакше його доводилось би вписувати щоразу, поки не набереться історія. */
-  for(const k of ["pair","session","account","entry_model","setup","risk","mistakes","emotion"]){
+  for(const k of ["pair","session","account","bt_run","entry_model","setup","risk","mistakes","emotion"]){
     const inp=$("#fld_"+k);
     if(t[k] && inp && inp.classList.contains("qinput") && !inp.hidden)
       for(const part of (isMulti(k)?splitVals(t[k]):[t[k]])){
@@ -2124,7 +2266,9 @@ async function saveTrade(id){
        мова про щойно зроблений вхід, а не про виправлену давню угоду. */
     /* Скіп із торговою системою не звіряємо: вона про те, як заходити,
        а входу не було. */
-    if(saved && saved.id && t.result!=="Skip" && window.Watch) Watch.afterTrade(saved.id);
+    /* Бектест із ТС не звіряємо: сервер на такий запит однаково відповідає
+       порожнім, бо день збирається з реальних угод. */
+    if(saved && saved.id && !btOn() && t.result!=="Skip" && window.Watch) Watch.afterTrade(saved.id);
   }catch(err){ alert(T.alertSaveFail+err.message); if(btn){btn.disabled=false;btn.textContent=T.fmSave;} }
 }
 
@@ -2263,7 +2407,8 @@ function parseCSV(text){
   return rows;
 }
 async function exportData(){
-  const data=await api("GET","/api/trades");
+  /* вивантажуємо той журнал, у якому людина зараз */
+  const data=await api("GET","/api/trades" + (btOn()?"?kind=bt":""));
   const blob=new Blob([JSON.stringify(data,null,1)],{type:"application/json"});
   const a=document.createElement("a");
   a.href=URL.createObjectURL(blob);
@@ -2282,8 +2427,13 @@ let dataReady=false;                 /* поки reload() не завершив�
 /* У чужому журналі своїх розділів немає: «Аналіз дня» і «Моя ТС» читають
    особисте, тому на них не пускаємо навіть за адресою з решіткою. */
 const PUB_VIEWS={dashboard:1,journal:1,monthly:1,quarterly:1,yearly:1,analytics:1,news:1};
+/* Чого в бектесті немає: розбір дня — про план на ранок, новини — про
+   майбутній тиждень. У панелі їх сховано, тож і за адресою з решіткою
+   туди не пускаємо: інакше розділ відкривався б без кнопки назад. */
+const BT_HIDDEN={day:1,news:1};
 function viewAllowed(v){
   if(!VIEWS[v]) return false;
+  if(BT_HIDDEN[v] && btOn()) return false;
   return window.Pub&&Pub.on ? !!PUB_VIEWS[v] : true;
 }
 function render(){
@@ -2291,7 +2441,10 @@ function render(){
   const v=viewAllowed(S.view)?S.view:"dashboard";
   /* «Новини» переїхали з меню в групу інструментів — підсвічування шукаємо
      і там, інакше відкритий розділ ніде не позначався */
-  document.querySelectorAll(".nav a, .side a[data-v]").forEach(a=>a.classList.toggle("on",a.dataset.v===v));
+  /* «Рахунки» — вкладка всередині «Огляду», окремого пункту в меню немає:
+     підсвічуємо «Огляд», інакше при #accounts не світилось би нічого. */
+  const navV=v==="accounts"?"dashboard":v;
+  document.querySelectorAll(".nav a, .side a[data-v]").forEach(a=>a.classList.toggle("on",a.dataset.v===navV));
   if(window.PL) PL.reset();
   /* кнопка-якорь сейчас исчезнет вместе с разделом — список без неё не нужен */
   if(window.Pick) Pick.close();
@@ -2400,7 +2553,7 @@ function markDemo(){
 }
 
 (async function init(){
-  markTheme(); markLayout();
+  markTheme(); markLayout(); markMode();
   /* /u/<нік> — чужий журнал: режим вмикається до першого запиту, бо він
      міняє й адресу, за якою беруться угоди. */
   if(window.Pub && Pub.detect()) Pub.start();
@@ -2425,11 +2578,21 @@ function markDemo(){
     }
   }
   dataReady=true;
+  /* Чужий журнал і демо бектесту не мають: перемикач там нічого не змінить,
+     тому й не показуємо його. Сам режим при цьому лишається реальним. */
+  if(DEMO || (window.Pub && Pub.on)){
+    const sw=$("#modeSwitch"); if(sw) sw.hidden=true;
+    S.mode="live"; markMode();
+  }
   S.view=location.hash.slice(1)||"dashboard";
   if(S.view==="monthly"){ S.view="journal"; location.hash="journal"; }
+  /* Відкрили журнал за старою адресою розділу, якого в цьому режимі немає */
+  if(!viewAllowed(S.view)){ S.view="dashboard"; location.hash="dashboard"; }
   render();
   if(window.Sparks) Sparks.start();
   if(!DEMO && !(window.Pub && Pub.on)) refreshTelegramStatus();
   /* ТС потрібна формі угоди як джерело підказок — читаємо одразу */
   if(window.__ts && __ts.ensure) __ts.ensure();
+  /* Рахунки — теж джерело підказок для форми, і теж потрібні одразу. */
+  if(window.__acc && __acc.preload) __acc.preload();
 })();
