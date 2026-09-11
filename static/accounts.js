@@ -86,6 +86,19 @@ function tradesOf(acc){
    де йдеться про якість торгівлі. Але тут ідеться про гроші на рахунку, і
    людина звіряє їх із кабінетом фірми, де баланс рахують саме множенням.
    На довгій дистанції проста сума розходиться з кабінетом на відсотки. */
+/* Складний відсоток по угодах рахунку — те саме число, що рахує stat().
+   Потрібне двом місцям: самій картці й позначці «балансу зараз», яку
+   ставимо в мить збереження. Тому й винесене окремо: дві копії того
+   самого підрахунку неминуче розійшлись би. */
+function factorOf(name, openedAt){
+  const named = tradesOf({name: name});
+  const from = openedAt || "";
+  const all = from ? named.filter(t => (t.date || "").slice(0, 10) >= from) : named;
+  let f = 1;
+  for (const t of realTrades(all)) f = Math.max(0, f * (1 + netR(t) / 100));
+  return f;
+}
+
 function stat(acc){
   const named = tradesOf(acc);
   /* Угоди, записані до дати відкриття рахунку, до нього не належать:
@@ -123,14 +136,24 @@ function stat(acc){
      баланс, записала ще десять угод — і картка показувала б те саме число.
      Тому від вписаного балансу далі йдемо угодами, записаними після нього.
 
-     Межа — не дата, а `balance_n`: скільки угод цього рахунку вже лежало
-     в журналі, коли баланс вписали. Дата тут занадто груба міра — угоди
-     того самого дня випадали з підрахунку зовсім, і людина, яка завела
-     рахунок і тут-таки записала дві угоди, бачила колишнє число. */
+     Позначка — не дата й не число угод, а множник: на чому стояв журнал
+     тієї миті (`balance_f`). Далі баланс = вписане × (множник зараз /
+     множник тоді), і кожна угода рухає його рівно на свій результат —
+     хоч би коли її записали й скільки разів потім правили.
+
+     До цього позначкою було число угод («пропустити перші N»). Досить
+     було прив'язати до рахунку не найсвіжішу угоду — і в підрахунок
+     потрапляла зовсім інша: угода на +10% піднімала баланс на +3%.
+     Картки, заведені до цієї зміни, множника ще не мають — їх рахуємо
+     як раніше, поки людина не перепише баланс. */
   const cur = acc.current_balance;
   const manual = cur != null && !isNaN(cur);
+  const f0 = acc.balance_f;
+  const stamped = manual && f0 != null && !isNaN(f0) && f0 > 0;
   let since = 1;
-  if (manual){
+  if (stamped){
+    since = f / f0;
+  } else if (manual){
     for (const t of named.slice(Math.max(0, acc.balance_n || 0))){
       since *= 1 + netR(t) / 100;
     }
@@ -620,6 +643,9 @@ async function save(id){
     id: id || null, name: val("acName"), firm: val("acFirm"), kind: segVal("acKind"),
     currency: val("acCur") || "USD", start_balance: num("acStart"),
     current_balance: num("acNow"), balance_n: tradesNow(id || null, val("acName")),
+    /* Множник журналу на цю мить. Сервер лишить його при собі, якщо саме
+       число балансу не змінилось, — правка нотатки позначку не зсуває. */
+    balance_f: num("acNow") == null ? null : factorOf(val("acName"), val("acOpened")),
     target_pct: num("acTarget"), dd_total_pct: num("acDdTotal"), dd_daily_pct: num("acDdDaily"),
     opened_at: val("acOpened"), status: segVal("acStatus"),
     closed_at: val("acClosed"), reason: val("acReason"), note: val("acNote"),
@@ -846,7 +872,7 @@ document.addEventListener("input", e => {
 });
 
 /* Гачок для перевірок: збірку назви інакше не викликати ззовні. */
-window.__accTest = {sync: syncName, made: madeName, firms: openFirms, status: paintStatus,
+window.__accTest = {factor: factorOf, sync: syncName, made: madeName, firms: openFirms, status: paintStatus,
   stat: stat, total: total, free: freeName, norm: normName, spark: spark,
   accs(list){ ACCS = list; }};
 

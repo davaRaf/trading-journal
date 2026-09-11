@@ -67,6 +67,9 @@ ALTER TABLE accounts ADD COLUMN IF NOT EXISTS balance_at TEXT NOT NULL DEFAULT '
 -- випадали з підрахунку зовсім — людина заводила рахунок і тут-таки
 -- записувала дві угоди, а картка показувала колишнє число.
 ALTER TABLE accounts ADD COLUMN IF NOT EXISTS balance_n INTEGER NOT NULL DEFAULT 0;
+-- Множник журналу на мить, коли баланс вписали. NULL — позначки ще
+-- немає: така картка рахується по-старому, до першого перезапису.
+ALTER TABLE accounts ADD COLUMN IF NOT EXISTS balance_f DOUBLE PRECISION;
 
 -- Разова чистка імен, які лягли в базу до нормалізації: пробіл на кінці
 -- робив «FTMO » і «FTMO» різними рахунками, а в браузері вони склеювались
@@ -109,7 +112,7 @@ DATE_RE = re.compile(r"^\d{4}-\d{2}-\d{2}$")
 SPACE_RE = re.compile(r"[\s\u00a0\u202f\u2007]+")
 
 NUM_FIELDS = ("start_balance", "current_balance", "target_pct",
-               "dd_daily_pct", "dd_total_pct")
+               "dd_daily_pct", "dd_total_pct", "balance_f")
 TEXT_FIELDS = ("name", "firm", "kind", "currency", "opened_at", "closed_at",
                "status", "reason", "note", "balance_at")
 # Лічильник угод — окремо: це ціле число, і зберігати його дробовим було б
@@ -207,6 +210,7 @@ def clean(body):
     if a["current_balance"] is None:
         a["balance_at"] = ""
         a["balance_n"] = 0
+        a["balance_f"] = None
     # Не кожен стан має сенс для кожного типу. «Пройдений» буває тільки в
     # челенджа — це його єдина мета; свій депозит і фандед проходити нема
     # куди. Фандед ще й не «закривають»: його торгують або зливають.
@@ -257,7 +261,13 @@ def _stamp_balance(a, old=None):
     картки (правка нотатки, ліміту) зсувало б мітку вперед і викидало з
     підрахунку всі угоди, записані після неї.
 
-    Разом із датою тримаємо `balance_n` — скільки угод цього рахунку вже
+    Разом із датою тримаємо `balance_f` — множник журналу на ту мить.
+    Баланс потім рахується як вписане × (множник зараз / множник тоді),
+    тож кожна угода рухає його рівно на свій результат. `balance_n` —
+    попередня, гірша мірка (число угод); лишається заради карток,
+    записаних до цієї зміни.
+
+    Раніше тут було: `balance_n` — скільки угод цього рахунку вже
     було в журналі, коли баланс вписали. Саме він і рахує: угоди після
     цієї позначки додаються до балансу, попередні вважаються врахованими
     в цифрі з кабінету. Лічильник приходить із браузера, бо тільки він
@@ -266,11 +276,13 @@ def _stamp_balance(a, old=None):
     if a["current_balance"] is None:
         a["balance_at"] = ""
         a["balance_n"] = 0
+        a["balance_f"] = None
         return a
     same = old is not None and old.get("current_balance") == a["current_balance"]
     if same and old.get("balance_at"):
         a["balance_at"] = old["balance_at"]
         a["balance_n"] = old.get("balance_n") or 0
+        a["balance_f"] = old.get("balance_f")
     elif not a["balance_at"] or not same:
         a["balance_at"] = datetime.date.today().isoformat()
     return a
