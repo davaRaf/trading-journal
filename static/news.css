@@ -65,7 +65,14 @@
 @media (prefers-reduced-motion:reduce){ .nw-tz .car{transition:none} }
 .nw-tzpanel{position:absolute; right:0; top:calc(100% + 8px); z-index:30; width:290px;
   max-width:calc(100vw - 32px); padding:12px; border-radius:var(--r);
-  background:var(--card); border:1px solid var(--line); box-shadow:var(--shadow-pop)}
+  background:var(--card); border:1px solid var(--line); box-shadow:var(--shadow-pop);
+  transform-origin:top right;
+  animation:nw-pop .24s cubic-bezier(.22,.9,.24,1) both}
+.nw-tzpanel.shut{animation:nw-unpop .15s ease-in both}
+@keyframes nw-pop{from{opacity:0; transform:translateY(-7px) scale(.97)}
+                  to{opacity:1; transform:none}}
+@keyframes nw-unpop{from{opacity:1; transform:none}
+                    to{opacity:0; transform:translateY(-5px) scale(.98)}}
 .nw-tzpanel .h{margin:0 0 9px; font-size:12px; font-weight:600; color:var(--text)}
 .nw-tzpanel .rows{display:flex; flex-direction:column; gap:1px;
   max-height:min(58vh, 380px); overflow-y:auto}
@@ -404,5 +411,5 @@
 }
 
 @media (prefers-reduced-motion:reduce){
-  .nw-det .slide,.nw-det .slide .in{animation:none}
+  .nw-det .slide,.nw-det .slide .in,.nw-tzpanel{animation:none}
 }

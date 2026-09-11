@@ -524,9 +524,17 @@ function openTz(){
 }
 function closeTz(){
   tzOpen = false;
-  paintTz();
   document.removeEventListener("keydown", onTzEsc);
   document.removeEventListener("pointerdown", onTzOutside);
+  /* Даємо списку згорнутись і лише потім прибираємо його з розмітки —
+     інакше він зникав ривком, а розкривався плавно. */
+  const box = document.getElementById("nwTzBox");
+  const panel = box && box.querySelector(".nw-tzpanel");
+  const btn = document.getElementById("nwTzBtn");
+  if (btn) btn.setAttribute("aria-expanded", "false");
+  if (!panel || calm()){ paintTz(); return; }
+  panel.classList.add("shut");
+  setTimeout(() => { if (!tzOpen && box) box.innerHTML = ""; }, 150);
 }
 function onTzEsc(ev){ if (ev.key === "Escape") closeTz(); }
 function onTzOutside(ev){
