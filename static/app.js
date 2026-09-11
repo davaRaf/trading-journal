@@ -991,7 +991,10 @@ function vDashboard(){
        та й Notion тут не при справах. Лишаються два шляхи — записати
        прогін або спершу описати свою ТС. */
     const bt=btOn();
-    return '<div class="vhead">'+ovTabsHtml("dashboard")+'</div>'+
+    /* Шапка тут та сама, що й на «Рахунках»: заголовок-перемикач мусить
+       виглядати однаково, у порожньому журналі й у повному. У .vhead свій
+       заголовок — дрібніший і жирніший, і на переході це було видно. */
+    return '<div class="ohead">'+ovTabsHtml("dashboard")+'</div>'+
       '<div class="card"><div class="in" style="padding:26px 24px">'+
       '<div style="font-size:20px;font-weight:600;letter-spacing:-.01em">'+T.bgTitle+'</div>'+
       '<div class="hint" style="margin-top:8px;max-width:62ch;line-height:1.6">'+(bt?T.btEmpty:T.bgLead)+'</div>'+
