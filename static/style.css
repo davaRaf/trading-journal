@@ -478,8 +478,11 @@ table.simple tr.click:hover td{background:var(--panel-2)}
 /* Базовий шар у діалога і в бічної панелі один: хто відкрився
    останнім, той і зверху (шар проставляє ui.js при відкритті). Обидва
    порядки живі — діалог відкривають з панелі, панель із діалога. */
+/* overscroll-behavior — щоб жест, доведений до краю вікна, не переходив
+   на сторінку під ним: на телефоні через це сторінка їздила під вікном. */
 .modal{position:fixed;inset:0;background:var(--overlay);z-index:75;display:flex;
-  align-items:flex-start;justify-content:center;overflow:auto;padding:4vh 14px;backdrop-filter:blur(3px)}
+  align-items:flex-start;justify-content:center;overflow:auto;padding:4vh 14px;backdrop-filter:blur(3px);
+  overscroll-behavior:contain}
 .modal-box{background:var(--panel);border:1px solid var(--line);border-radius:12px;width:100%;max-width:860px;margin-bottom:6vh;box-shadow:var(--shadow-pop)}
 .m-head{display:flex;align-items:center;gap:12px;padding:15px 20px;border-bottom:1px solid var(--line-soft)}
 .m-head h2{margin:0;font-size:18px;font-weight:650}
@@ -965,14 +968,17 @@ table.simple.mini td:last-child{white-space:nowrap;font-weight:600}
    Всё внутри .ovw, чтобы не пересекаться с календарём и карточками.
    ================================================================== */
 /* обзор занимает всю ширину рабочей области, как в макете */
-/* типографика макета: обзор набран мельче и легче остального приложения */
-body:has(.ovw){font-size:14px;line-height:1.6;font-weight:300}
 /* обзор занимает всю высоту рабочей области — блоки распределяются, как в макете */
 .main:has(.ovw){padding:34px 42px 22px;display:flex;flex-direction:column}
 .page:has(.ovw){max-width:none;width:100%;margin:0;flex:1;display:flex;flex-direction:column}
 .page:has(.ovw) .ovw{flex:1}
+/* Типографіка макета: огляд набраний дрібніше й легше за решту журналу.
+   Стоїть на самому блоці, а не на <body>: «Огляд» і «Рахунки» — дві
+   вкладки одного розділу, і поки це правило висіло на сторінці, розмір
+   шрифта всього застосунку (бічне меню, вікна, панель угоди) мінявся
+   при кожному переході між ними. */
 .ovw{--ease:cubic-bezier(.16,1,.3,1);display:grid;grid-template-columns:minmax(0,1fr) 320px;
-  column-gap:44px;align-items:start}
+  column-gap:44px;align-items:start;font-size:14px;line-height:1.6;font-weight:300}
 /* wrap — чтобы кнопки «поділитися» справа от периода не выдавливали заголовок */
 /* Шапка розділу. Живе і в «Огляді», і в «Рахунках» — це одна вкладка
    всередині одної, тож розмір заголовка й місце в рядку мусять збігатись:
@@ -1400,7 +1406,11 @@ button[data-tip],a[data-tip],.mk[data-tip]{cursor:pointer}
 /* ---------- свой список для фильтров (shadcn/ui · Select) ----------
    Появляется тем же жестом, что и календарь выше: 150 мс, лёгкий подъём.
    Живёт в body, потому что внутри панели его резал бы overflow. */
+/* Список довший за свою висоту гортають пальцем — тому вибір стоїть на
+   click, а не на pointerdown (див. Pick в ui.js), а сам жест не переходить
+   на сторінку під списком. */
 .spop{position:fixed;z-index:205;max-height:min(320px,60vh);overflow-y:auto;padding:5px;
+  overscroll-behavior:contain;touch-action:pan-y;
   border-radius:11px;border:1px solid var(--line);background:var(--card);box-shadow:var(--shadow-pop);
   opacity:0;transform:translateY(-4px) scale(.985);
   transition:opacity .15s ease,transform .15s cubic-bezier(.16,1,.3,1)}
