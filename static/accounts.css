@@ -138,7 +138,8 @@
 .modal-box:has(.ac-form){max-width:620px; max-height:88vh;
   display:flex; flex-direction:column}
 .modal-box:has(.ac-form) .m-head, .modal-box:has(.ac-form) .m-foot{flex:none}
-.modal-box:has(.ac-form) .ac-form{flex:1; overflow-y:auto; min-height:0}
+.modal-box:has(.ac-form) .ac-form{flex:1; overflow-y:auto; min-height:0;
+  overscroll-behavior:contain}
 .modal-box:has(.ac-form) .ac-form > *{flex:none}
 .ac-form{display:flex; flex-direction:column; gap:12px}
 .ac-row2{display:grid; grid-template-columns:1fr 1fr; gap:12px}
@@ -241,8 +242,15 @@
      тягтись через півекрана. Лист приїжджає знизу, кнопки лишаються під
      великим пальцем, а вміст гортається всередині. */
   .modal:has(.ac-form){align-items:flex-end; padding:0}
+  /* Висота — від видимої частини екрана (dvh), а не від vh. vh рахується
+     без адресного рядка браузера: поки він на місці, лист виходив вищим
+     за видиму область, притиснутий низом — і його верх із заголовком
+     ішов за край екрана. Прогорнути туди було нічим: сторінка під
+     вікном не рухається, а всередині листа прокрутка починається нижче.
+     Перший рядок лишаємо для старих браузерів, які dvh не знають. */
   .modal-box:has(.ac-form){max-width:none; max-height:94vh; margin-bottom:0;
     border-radius:16px 16px 0 0; border-bottom:0}
+  .modal-box:has(.ac-form){max-height:94dvh}
   .modal-box:has(.ac-form) .m-foot{padding-bottom:calc(15px + env(safe-area-inset-bottom))}
   /* 16px — межа, нижче якої Safari сам наближає сторінку на фокусі, і
      потім людина вручну відсуває її назад. */

@@ -765,11 +765,17 @@ const Pick = (function(){
     paint();
     el.setAttribute("aria-expanded", "true");
     requestAnimationFrame(() => pop && pop.classList.add("in"));
-    pop.addEventListener("pointerdown", e => {
+    /* Вибір на click, а не на pointerdown: список буває довшим за свою
+       висоту, і його гортають пальцем. На pointerdown перший же дотик
+       ставав вибором — прогорнути список на телефоні було нічим. */
+    pop.addEventListener("click", e => {
       const o = e.target.closest(".sopt[data-i]");
       if(o) choose(+o.dataset.i);
     });
+    /* Підсвітка під курсором — мишача річ. Пальцем вона тільки заважала б:
+       поки гортаєш, пункти підсвічувались би один за одним. */
     pop.addEventListener("pointermove", e => {
+      if(e.pointerType && e.pointerType !== "mouse") return;
       const o = e.target.closest(".sopt[data-i]");
       if(o && +o.dataset.i !== cur){ cur = +o.dataset.i; paint(); }
     });
