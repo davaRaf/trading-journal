@@ -88,6 +88,19 @@ BOT_STYLE = (
 )
 
 
+def user_tz(user):
+    """Часовий пояс людини з профілю; не впізнали назву — Київ.
+
+    Пояс людина ставить на сайті, у розділі «Новини». Розсилки мають іти
+    ним же: інакше «зведення о 8:00» означало б восьму ранку в Києві
+    навіть тому, хто дивиться журнал із Лондона.
+    """
+    try:
+        return ZoneInfo(user["tz"] or "Europe/Kyiv")
+    except Exception:
+        return KYIV
+
+
 def user_lang(tg_id, text=None):
     """Мова людини — за її ж останнім повідомленням.
 
@@ -420,7 +433,7 @@ def on_text(chat_id, tg_id, text):
         # прикро». Раніше тут стояла заготовка «не зрозумів, що за угода», і
         # бот повторював її на кожну таку фразу. Тепер просто йдемо далі, до
         # звичайної розмови.
-    news = news_answer(text)
+    news = news_answer(text, user_tz(user))
     if news:
         tg_api.send_message(chat_id, news, parse_mode="HTML")
         return
@@ -568,7 +581,7 @@ def handle_update(u):
 # «сьогодні календар спокійний» — жодного разу в календар не заглянувши.
 # Тепер такі питання йдуть тим самим зведенням, що й ранкове, тільки за
 # потрібний день.
-def news_answer(text):
+def news_answer(text, tz=None):
     """Зведення новин на потрібний день або None, якщо питали не про це.
 
     День беремо з питання: «завтра», «післязавтра», «у понеділок», «на
@@ -580,11 +593,12 @@ def news_answer(text):
         return None
     lang = assistant.detect_lang(text) or "uk"
     events, _ = calendar_feed.calendar_events()
-    today = now_kyiv().date()
+    tz = tz or KYIV
+    today = datetime.datetime.now(tz).date()
     when = news_msg.asks_day(text, today)
     if when == "week":
-        return news_msg.week_digest(events, KYIV, today, lang)
-    return news_msg.digest(events, KYIV, when or today, lang, today=today)
+        return news_msg.week_digest(events, tz, today, lang)
+    return news_msg.digest(events, tz, when or today, lang, today=today)
 
 
 def time_has_come(local, hour, minute):
@@ -603,14 +617,15 @@ def time_has_come(local, hour, minute):
     return 0 <= (local.hour * 60 + local.minute) - (hour * 60 + minute) < JOB_WINDOW
 
 
-def high_of_day(events, day):
-    """«Червоні» новини одного дня за київським часом."""
+def high_of_day(events, day, tz=None):
+    """«Червоні» новини одного дня — у поясі того, кому пишемо."""
+    tz = tz or KYIV
     out = []
     for e in events:
         if not calendar_feed.is_high(e):
             continue
         dt = calendar_feed.event_time(e)
-        if dt and dt.astimezone(KYIV).date() == day:
+        if dt and dt.astimezone(tz).date() == day:
             out.append(e)
     return out
 
@@ -645,7 +660,8 @@ def job_alerts(events, users):
             fresh = [k for k in keys if db.record_notified(user["id"], k, "alert30")]
             if not fresh:
                 continue          # уже предупреждали
-            text = news_msg.alert(group, left, KYIV, user_lang(user["telegram_id"]))
+            text = news_msg.alert(group, left, user_tz(user),
+                                  user_lang(user["telegram_id"]))
             if not text:
                 continue
             try:
@@ -655,20 +671,25 @@ def job_alerts(events, users):
 
 
 def job_digest(events, users):
-    """Утренняя сводка по красным новостям на сегодня."""
-    local = now_kyiv()
-    today = local.date()
-    todays = high_of_day(events, today)
+    """Ранкове зведення по «червоних» новинах на сьогодні.
+
+    Час — місцевий для кожного: «о 8:00» має означати восьму там, де
+    людина живе, а не в Києві. Тому і година, і сам день рахуються в
+    поясі з профілю.
+    """
     for user in users:
         if not user["digest_enabled"]:
             continue
+        tz = user_tz(user)
+        local = datetime.datetime.now(tz)
         if not time_has_come(local, user["digest_hour"], user["digest_minute"]):
             continue
+        today = local.date()
         if not db.record_notified(user["id"], "digest:%s" % today, "digest"):
             continue
         try:
             tg_api.send_message(user["telegram_id"],
-                                news_msg.digest(todays, KYIV, today,
+                                news_msg.digest(high_of_day(events, today, tz), tz, today,
                                                 user_lang(user["telegram_id"])),
                                 parse_mode="HTML")
         except tg_api.TelegramError as ex:
@@ -682,23 +703,24 @@ def job_remind(events, users):
     міняється. Тому вдень повторюємо той самий список — але тільки ту його
     частину, яка ще не вийшла. Нема чого нагадувати — мовчимо.
     """
-    local = now_kyiv()
-    if not time_has_come(local, REMIND_HOUR, REMIND_MINUTE):
-        return
-    today = local.date()
     now = datetime.datetime.now(datetime.timezone.utc)
-    left = [e for e in high_of_day(events, today)
-            if calendar_feed.event_time(e) > now]
-    if not left:
-        return
     for user in users:
         if not user["digest_enabled"]:
+            continue
+        tz = user_tz(user)
+        local = datetime.datetime.now(tz)
+        if not time_has_come(local, REMIND_HOUR, REMIND_MINUTE):
+            continue
+        today = local.date()
+        left = [e for e in high_of_day(events, today, tz)
+                if calendar_feed.event_time(e) > now]
+        if not left:
             continue
         if not db.record_notified(user["id"], "remind:%s" % today, "remind"):
             continue
         try:
             tg_api.send_message(user["telegram_id"],
-                                news_msg.remind(left, KYIV, today,
+                                news_msg.remind(left, tz, today,
                                                 user_lang(user["telegram_id"])),
                                 parse_mode="HTML")
         except tg_api.TelegramError as ex:

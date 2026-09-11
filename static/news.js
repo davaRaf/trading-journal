@@ -124,14 +124,59 @@ function keep(){
   }catch(e){}
 }
 
-const dkey = d => d.getFullYear() + "-" + String(d.getMonth()+1).padStart(2,"0")
-                + "-" + String(d.getDate()).padStart(2,"0");
-const hhmm = d => String(d.getHours()).padStart(2,"0") + ":"
-                + String(d.getMinutes()).padStart(2,"0");
+/* ---------- часовий пояс ----------
+
+   Календар живе в поясі, який людина обрала сама: у Варшаві о 15:30
+   виходить не те, що в Києві, і читати чужий час — це читати не той
+   календар. Порожньо — пояс пристрою.
+
+   Той самий пояс лежить у профілі на сервері, тож бот шле зведення й
+   попередження ним же: «о 8:00» означає восьму там, де людина живе. */
+const TZKEY = "tj_news_tz";
+let tz = "";
+try{ tz = localStorage.getItem(TZKEY) || ""; }catch(e){ tz = ""; }
+
+/* Пояси, які реально комусь потрібні. Назви лишаємо латиницею — так
+   само, як назви подій у самому календарі, і так їх не треба тримати
+   в трьох мовах. */
+const ZONES = ["Europe/Kyiv","Europe/London","Europe/Warsaw","Europe/Berlin",
+  "Europe/Paris","Europe/Madrid","Europe/Lisbon","Europe/Istanbul","Europe/Moscow",
+  "Asia/Tbilisi","Asia/Dubai","Asia/Almaty","Asia/Bangkok","Asia/Hong_Kong",
+  "Asia/Singapore","Asia/Tokyo","Australia/Sydney","America/New_York",
+  "America/Chicago","America/Denver","America/Los_Angeles","America/Sao_Paulo","UTC"];
+
+function here(){
+  try{ return Intl.DateTimeFormat().resolvedOptions().timeZone || "Europe/Kyiv"; }
+  catch(e){ return "Europe/Kyiv"; }
+}
+function zoneName(z){ return (z || here()).split("/").pop().replace(/_/g, " "); }
+
+/* Розкладач дати на частини в потрібному поясі. Створювати Intl на кожен
+   рядок дорого — таблиця подій це двісті звернень, тому тримаємо готовий. */
+let _fmt = null, _fmtFor = null;
+function fmt(){
+  if (_fmt && _fmtFor === tz) return _fmt;
+  const opt = {year:"numeric", month:"2-digit", day:"2-digit",
+               hour:"2-digit", minute:"2-digit", hour12:false};
+  if (tz) opt.timeZone = tz;
+  try{ _fmt = new Intl.DateTimeFormat("en-GB", opt); }
+  catch(e){ delete opt.timeZone; _fmt = new Intl.DateTimeFormat("en-GB", opt); }
+  _fmtFor = tz;
+  return _fmt;
+}
+function at(d){
+  const p = {};
+  for (const x of fmt().formatToParts(d)) p[x.type] = x.value;
+  const hour = p.hour === "24" ? "00" : p.hour;      /* en-GB інколи каже «24:00» */
+  return {k: p.year + "-" + p.month + "-" + p.day, hm: hour + ":" + p.minute};
+}
+
+const dkey = d => at(d).k;
+const hhmm = d => at(d).hm;
 
 async function load(){
   try{
-    const res = await fetch("/api/calendar");
+    const res = await fetch("/api/calendar?tz=" + encodeURIComponent(tz || here()));
     if(!res.ok) throw new Error("HTTP " + res.status);
     const data = await res.json();
     warning = data.warning || null;
@@ -144,7 +189,28 @@ async function load(){
     warning = T.nwFetchError + err.message;
     events = [];
   }
+  await syncTz();
   if (S.view === "news") render();
+}
+
+/* Пояс із профілю переважає збережений у браузері: людина ставила його
+   свідомо, і на новому пристрої має побачити свій час, а не тутешній.
+
+   Питаємо рівно один раз за сеанс. Інакше виходили перегони: щойно
+   обраний пояс перезавантажує стрічку, а та знову йде в профіль — де
+   ще лежить старе значення, бо запис туди тільки-но пішов. */
+let tzSynced = false;
+async function syncTz(){
+  if (tzSynced || DEMO || (window.Pub && Pub.on)) return;
+  tzSynced = true;
+  try{
+    const got = await api("GET", "/api/auth/me");
+    const want = got && got.user && got.user.tz;
+    if (want && want !== tz){
+      tz = want;
+      try{ localStorage.setItem(TZKEY, want); }catch(e){}
+    }
+  }catch(err){ /* гість або мережа мовчить — лишаємо збережене */ }
 }
 
 /* ---- обробники живуть тут, а не в розмітці ---- */
@@ -155,6 +221,8 @@ window.__news = {
   /* перемальовуємо лише тіло таблиці — інакше поле втрачає фокус на кожній літері */
   q(v){ q = v; open = null; redraw(); },
   filter(){ draft ? closeFilter() : openFilter(); },
+  tz(){ tzOpen ? closeTz() : openTz(); },
+  setTz(v){ pickTz(v); },
   chk(kind, val, on){ flip(kind, val, on); },
   pick(kind, on){ pickAll(kind, on); },
   apply(){ applyFilter(); },
@@ -218,14 +286,25 @@ function items(){
                           && (!needle || String(e.title||"").toLowerCase().includes(needle)));
 }
 
-/* Пояс, у якому людина дивиться календар: усі часи тут місцеві, і про це
-   краще сказати прямо — інакше «15:30» у двох країнах читається по-різному. */
-function zone(){
-  const off = -new Date().getTimezoneOffset() / 60;
+/* Зміщення пояса від UTC просто зараз — «UTC+3». Рахуємо через ту саму
+   Intl: своє зміщення браузер знає, а чуже — ні. */
+function offset(z){
+  const now = new Date();
+  const opt = {timeZone: z || here(), year:"numeric", month:"2-digit", day:"2-digit",
+               hour:"2-digit", minute:"2-digit", hour12:false};
+  let p;
+  try{ p = new Intl.DateTimeFormat("en-GB", opt).formatToParts(now); }
+  catch(e){ return "UTC"; }
+  const v = {};
+  for (const x of p) v[x.type] = x.value;
+  const asUTC = Date.UTC(+v.year, +v.month - 1, +v.day,
+                         v.hour === "24" ? 0 : +v.hour, +v.minute);
+  const off = Math.round((asUTC - now.setSeconds(0, 0)) / 60000);
   const sign = off < 0 ? "−" : "+";
-  const h = Math.floor(Math.abs(off)), m = Math.round((Math.abs(off) - h) * 60);
+  const h = Math.floor(Math.abs(off) / 60), m = Math.abs(off) % 60;
   return "UTC" + sign + h + (m ? ":" + String(m).padStart(2,"0") : "");
 }
+function zone(){ return offset(tz); }
 
 function vNews(){
   if (events === null){
@@ -290,7 +369,15 @@ function bar(list, today){
         + esc(T.nwViewWeek)+'</button>'
     + '</div>'
     + '<span class="nw-sp"></span>'
-    + '<span class="nw-tz">'+zone()+'</span>'
+    + '<div class="nw-tzwrap">'
+      + '<button class="nw-tz" onclick="__news.tz()" aria-expanded="false" id="nwTzBtn">'
+        + '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" aria-hidden="true">'
+        + '<circle cx="12" cy="12" r="9" stroke="currentColor" stroke-width="1.7"/>'
+        + '<path d="M12 7v5.2l3.4 2" stroke="currentColor" stroke-width="1.7"'
+        + ' stroke-linecap="round" stroke-linejoin="round"/></svg>'
+        + esc(zoneName(tz)) + ' · ' + zone() + '</button>'
+      + '<div id="nwTzBox"></div>'
+    + '</div>'
     + '<label class="nw-search">'
       + '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" aria-hidden="true">'
       + '<circle cx="11" cy="11" r="7" stroke="currentColor" stroke-width="1.8"/>'
@@ -414,6 +501,74 @@ function panel(){
       + '<button class="nw-btn" onclick="__news.cancel()">'+esc(T.nwCancel)+'</button>'
       + '<button class="nw-btn nw-apply" onclick="__news.apply()">'+esc(T.nwApply)+'</button>'
     + '</div></div>';
+}
+
+/* ---------- вибір часового пояса ----------
+
+   Список короткий і закритий: двісті зон із Intl людині ні до чого, а
+   ці двадцять покривають тих, хто дивиться календар. Вибір лягає і в
+   браузер, і в профіль на сервері — звідти його бере бот. */
+
+let tzOpen = false;
+
+function openTz(){
+  tzOpen = true;
+  paintTz();
+  document.addEventListener("keydown", onTzEsc);
+  setTimeout(() => document.addEventListener("pointerdown", onTzOutside), 0);
+}
+function closeTz(){
+  tzOpen = false;
+  paintTz();
+  document.removeEventListener("keydown", onTzEsc);
+  document.removeEventListener("pointerdown", onTzOutside);
+}
+function onTzEsc(ev){ if (ev.key === "Escape") closeTz(); }
+function onTzOutside(ev){
+  const wrap = document.querySelector(".nw-tzwrap");
+  if (wrap && !wrap.contains(ev.target)) closeTz();
+}
+
+function paintTz(){
+  const box = document.getElementById("nwTzBox");
+  const btn = document.getElementById("nwTzBtn");
+  if (box) box.innerHTML = tzOpen ? tzPanel() : "";
+  if (btn) btn.setAttribute("aria-expanded", String(tzOpen));
+}
+
+function tzRow(v, label){
+  return '<button class="row'+(tz === v ? " on" : "")+'"'
+    + ' onclick="__news.setTz(&quot;'+v+'&quot;)" aria-pressed="'+(tz === v)+'">'
+    + '<span class="nm">'+esc(label)+'</span>'
+    + '<span class="of">'+offset(v || here())+'</span></button>';
+}
+
+function tzPanel(){
+  return '<div class="nw-tzpanel" role="dialog" aria-label="'+esc(T.nwTimezone)+'">'
+    + '<p class="h">'+esc(T.nwTimezone)+'</p>'
+    + '<div class="rows">'
+      + tzRow("", T.nwTzAuto + " · " + zoneName(here()))
+      + ZONES.map(z => tzRow(z, zoneName(z))).join("")
+    + '</div></div>';
+}
+
+/* Пояс запам'ятовуємо у браузері й у профілі. «Як на пристрої» на сервер
+   їде вже розгорнутим у справжню назву: бот шле розсилки без браузера
+   і сам вгадати пояс не може. */
+async function pickTz(v){
+  tz = v;
+  tzSynced = true;              /* вибір людини головніший за профіль */
+  try{ localStorage.setItem(TZKEY, v); }catch(e){}
+  closeTz();
+  open = null;
+  stick = false;
+  /* Межі робочого тижня в іншому поясі інші, і ріже їх сервер — тому
+     стрічку беремо заново, а не просто перемальовуємо. */
+  events = null;
+  render();
+  if (DEMO || (window.Pub && Pub.on)) return;
+  try{ await api("POST", "/api/me/tz", {tz: v || here()}); }
+  catch(err){ /* не увійшли або мережа мовчить — вибір усе одно лишається */ }
 }
 
 /* ---------- смужка «далі»: найближча подія з числами ---------- */

@@ -201,6 +201,12 @@ CREATE INDEX IF NOT EXISTS auth_links_user ON auth_links (user_id, kind);
 -- машині — на сервер не потрапила, тому просто прибираємо.
 DROP TABLE IF EXISTS pw_resets;
 
+-- Часовий пояс людини. Календар новин і розсилки бота живуть у ньому:
+-- раніше й там, і там був зашитий Київ, і той, хто дивиться журнал із
+-- Варшави чи Дубая, читав чужий час. 'Europe/Kyiv' лишається за
+-- замовчуванням — саме так усе працювало до появи цієї колонки.
+ALTER TABLE users ADD COLUMN IF NOT EXISTS tz TEXT NOT NULL DEFAULT 'Europe/Kyiv';
+
 -- Чи підтвердив людина свою пошту, перейшовши за посиланням із листа.
 -- NULL — ще ні. Тим, хто вже був у журналі до появи підтвердження,
 -- ставимо позначку одноразово в init(): просити їх зайвий раз нема за що.
@@ -344,6 +350,13 @@ def set_public(user_id, on):
     with connect() as conn:
         conn.execute("UPDATE users SET public_journal=%s WHERE id=%s",
                      (bool(on), user_id))
+        conn.commit()
+
+
+def set_tz(user_id, tz):
+    """Часовий пояс людини (назва IANA, як «Europe/Kyiv»)."""
+    with connect() as conn:
+        conn.execute("UPDATE users SET tz=%s WHERE id=%s", (tz, user_id))
         conn.commit()
 
 

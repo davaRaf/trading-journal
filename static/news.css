@@ -43,8 +43,33 @@
 .nw-seg button[aria-pressed="true"]{background:var(--panel-2); color:var(--text);
   box-shadow:inset 0 0 0 1px var(--line)}
 .nw-sp{flex:1 1 auto}
-.nw-tz{font-family:var(--mono); font-size:10px; letter-spacing:.1em; text-transform:uppercase;
+/* ---------- пояс: кнопка й список ---------- */
+.nw-tzwrap{position:relative}
+.nw-tz{display:inline-flex; align-items:center; gap:6px; font-family:var(--mono);
+  font-size:10.5px; letter-spacing:.08em; text-transform:uppercase; color:var(--dim);
+  background:transparent; border:1px solid transparent; border-radius:99px;
+  padding:7px 11px; cursor:pointer; white-space:nowrap;
+  transition:color .16s, background .16s, border-color .16s}
+.nw-tz:hover{color:var(--text); background:var(--panel-2); border-color:var(--line)}
+.nw-tz[aria-expanded="true"]{color:var(--text); background:var(--panel-2);
+  border-color:var(--line)}
+.nw-tzpanel{position:absolute; right:0; top:calc(100% + 8px); z-index:30; width:290px;
+  max-width:calc(100vw - 32px); padding:12px; border-radius:var(--r);
+  background:var(--card); border:1px solid var(--line); box-shadow:var(--shadow-pop)}
+.nw-tzpanel .h{margin:0 0 9px; font-size:12px; font-weight:600; color:var(--text)}
+.nw-tzpanel .rows{display:flex; flex-direction:column; gap:1px;
+  max-height:min(58vh, 380px); overflow-y:auto}
+.nw-tzpanel .row{display:flex; align-items:center; gap:10px; width:100%;
+  font:inherit; font-size:13px; text-align:left; color:var(--text);
+  background:transparent; border:0; border-radius:var(--r-sm); padding:8px 10px;
+  cursor:pointer; transition:background .14s}
+.nw-tzpanel .row:hover{background:var(--panel-2)}
+.nw-tzpanel .row.on{background:var(--accent-soft); color:var(--accent)}
+.nw-tzpanel .row .nm{flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis;
+  white-space:nowrap}
+.nw-tzpanel .row .of{font-family:var(--mono); font-size:10.5px; letter-spacing:.06em;
   color:var(--faint)}
+.nw-tzpanel .row.on .of{color:var(--accent)}
 .nw-search{position:relative; display:flex; align-items:center; color:var(--faint)}
 .nw-search svg{position:absolute; left:12px; pointer-events:none}
 .nw-search input{width:190px; max-width:100%; box-sizing:border-box; font:inherit; font-size:13px;
@@ -264,6 +289,7 @@
   .nw-det .in{grid-template-columns:1fr}
 }
 @media (max-width:680px){
+  .nw-tzpanel{position:fixed; left:12px; right:12px; width:auto; max-width:none}
   /* Панель фільтра на телефоні не тулиться до кнопки, а лягає на всю
      ширину: інакше вона вилазить за край екрана. */
   .nw-fwrap{flex:1 1 100%}

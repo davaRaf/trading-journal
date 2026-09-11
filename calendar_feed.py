@@ -321,8 +321,8 @@ def event_time(event):
         return None
 
 
-def week_window(now=None):
-    """Понеділок і п'ятниця того тижня, який зараз цікавий.
+def week_window(now=None, tz=KYIV):
+    """Понеділок і п'ятниця того тижня, який зараз цікавий, у поясі tz.
 
     У розділі «Новини» людині потрібен один робочий тиждень, а не все, що
     ми знаємо. Знаємо ж ми більше: фід віддає поточний тиждень, а дні
@@ -332,8 +332,8 @@ def week_window(now=None):
     На вихідних показуємо вже наступний тиждень: у суботу минулий
     четвер нікому не потрібен, а от що буде в понеділок — потрібно.
     """
-    now = now or datetime.datetime.now(KYIV)
-    day = now.date()
+    now = now or datetime.datetime.now(tz)
+    day = now.astimezone(tz).date()
     if day.weekday() >= 5:              # субота, неділя
         mon = day + datetime.timedelta(days=7 - day.weekday())
     else:
@@ -347,21 +347,21 @@ def week_window(now=None):
 WEEKS_AHEAD = 2
 
 
-def week_only(events, now=None, weeks=WEEKS_AHEAD):
+def week_only(events, now=None, weeks=WEEKS_AHEAD, tz=KYIV):
     """Події поточного робочого тижня й ще двох наступних, без вихідних.
 
     Тільки для розділу «Новини». Помічник і телеграм беруть повний
     список: їм майбутні дні саме й потрібні, щоб у суботу відповісти,
     що виходить у понеділок.
     """
-    mon, fri = week_window(now)
+    mon, fri = week_window(now, tz)
     fri = fri + datetime.timedelta(days=7 * weeks)
     out = []
     for e in events:
         dt = event_time(e)
         if not dt:
             continue
-        day = dt.astimezone(KYIV).date()
+        day = dt.astimezone(tz).date()
         # Тільки робочі дні: у суботу з неділею биржі стоять, а поодинокі
         # виступи в календарі лишали в стрічці майже порожній день, крізь
         # який доводилось гортати.
