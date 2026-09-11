@@ -282,7 +282,12 @@ def _stamp_balance(a, old=None):
     if same and old.get("balance_at"):
         a["balance_at"] = old["balance_at"]
         a["balance_n"] = old.get("balance_n") or 0
-        a["balance_f"] = old.get("balance_f")
+        # Множника може не бути зовсім: картки, заведені до його появи,
+        # живуть із самим лічильником. Тоді беремо свіжий, що приїхав із
+        # браузера, — інакше така картка лишилась би на старому, гіршому
+        # підрахунку назавжди, бо саме число балансу людина не міняє.
+        if old.get("balance_f"):
+            a["balance_f"] = old["balance_f"]
     elif not a["balance_at"] or not same:
         a["balance_at"] = datetime.date.today().isoformat()
     return a

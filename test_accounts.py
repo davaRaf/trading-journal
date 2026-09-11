@@ -211,6 +211,15 @@ def main():
         {"current_balance": 103000, "balance_at": "2026-09-01", "balance_f": 1.5})
     ok &= case("новий баланс — новий множник", movedf["balance_f"], 2.0)
     ok &= case("множник є серед полів", "balance_f" in accounts_store.FIELDS, True)
+    # Картка, заведена до появи множника: саме число балансу людина не
+    # міняє, тож множник треба взяти свіжий — інакше вона лишиться на
+    # старому підрахунку назавжди.
+    старая = stamp(accounts_store.clean(
+        {"current_balance": 103000, "balance_f": 1.25}),
+        {"current_balance": 103000, "balance_at": "2026-09-01", "balance_f": None})
+    ok &= case("картка без множника візьме свіжий", старая["balance_f"], 1.25)
+    ok &= case("дата при цьому лишається старою",
+               старая["balance_at"], "2026-09-01")
 
     # --- дрібниці ---
     ok &= case("валюта за замовчуванням", accounts_store.clean({})["currency"], "USD")
