@@ -216,7 +216,11 @@ async function api(method,url,body){
 /* Бектест беремо тільки у своєму журналі. У чужому (Pub) адреса угод
    підмінюється цілим рядком і параметра не знає, а демо живе в браузері
    й типів угод не розрізняє — там завжди реальні. */
-function btOn(){ return S.mode==="bt" && !DEMO && !(window.Pub && Pub.on); }
+/* Режим бектесту ще не випущений: перемикача на сторінці немає, і цей
+   прапорець тримає режим вимкненим навіть якщо setMode покликати з консолі.
+   Один рядок — і режим повертається цілком. */
+const BT_READY = false;
+function btOn(){ return BT_READY && S.mode==="bt" && !DEMO && !(window.Pub && Pub.on); }
 
 async function reload(){
   S.all = await api("GET","/api/trades" + (btOn()?"?kind=bt":""));
@@ -233,6 +237,7 @@ async function reload(){
    місяць календаря, сторінки списків), скидаємо разом з ними. */
 let modeBusy=false;
 async function setMode(m){
+  if(!BT_READY) return;                  // режим ще не випущений
   m = m==="bt" ? "bt" : "live";
   if(m===S.mode) return;
   /* Поки угоди їдуть, другий клік ігноруємо: два запити наввипередки
