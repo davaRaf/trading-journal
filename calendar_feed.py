@@ -348,7 +348,7 @@ WEEKS_AHEAD = 2
 
 
 def week_only(events, now=None, weeks=WEEKS_AHEAD):
-    """Події поточного робочого тижня й ще двох наступних.
+    """Події поточного робочого тижня й ще двох наступних, без вихідних.
 
     Тільки для розділу «Новини». Помічник і телеграм беруть повний
     список: їм майбутні дні саме й потрібні, щоб у суботу відповісти,
@@ -361,7 +361,11 @@ def week_only(events, now=None, weeks=WEEKS_AHEAD):
         dt = event_time(e)
         if not dt:
             continue
-        if mon <= dt.astimezone(KYIV).date() <= fri:
+        day = dt.astimezone(KYIV).date()
+        # Тільки робочі дні: у суботу з неділею биржі стоять, а поодинокі
+        # виступи в календарі лишали в стрічці майже порожній день, крізь
+        # який доводилось гортати.
+        if mon <= day <= fri and day.weekday() < 5:
             out.append(e)
     return out
 
