@@ -697,6 +697,7 @@ async function load(){
   try{
     ACCS = (await api("GET", "/api/accounts")).accounts || [];
   }catch(e){ ACCS = []; }
+  stampOld();
   if (S.view === "accounts") render();
 }
 
@@ -713,6 +714,40 @@ async function preload(){
     const got = (await api("GET", "/api/accounts")).accounts || [];
     if (ACCS === undefined) ACCS = got;
   }catch(e){}
+  stampOld();
+}
+
+/* Разова міграція: картки, заведені до появи множника, мають лише старий
+   лічильник угод — і тому лишаються на колишньому, гіршому підрахунку.
+   Просити людину «відкрий картку й натисни зберегти» — погана угода: вона
+   не зобов'язана знати, що в нас усередині змінилось. Тому ставимо множник
+   самі, першим же читанням списку.
+
+   Це рівно те, що зробило б збереження картки: множник береться з того,
+   на чому журнал стоїть зараз, тож вписаний баланс лишається вписаним
+   балансом, а далі кожна угода рухає його на свій результат.
+
+   Робиться один раз за завантаження сторінки: у демо й у чужому журналі
+   запис не пройде, і повторювати спроби нема сенсу. */
+let stamped = false;
+function stampOld(){
+  if (stamped || !Array.isArray(ACCS) || !Array.isArray(S.trades)) return;
+  const old = ACCS.filter(a =>
+    a && a.current_balance != null && !isNaN(a.current_balance)
+      && (a.balance_f == null || !(a.balance_f > 0)));
+  if (!old.length) return;
+  stamped = true;
+  old.forEach(a => {
+    const f = factorOf(a.name, a.opened_at);
+    if (!(f > 0)) return;
+    const body = Object.assign({}, a, {balance_f: f});
+    api("POST", "/api/accounts", {account: body}).then(res => {
+      const got = res && res.account;
+      if (!got) return;
+      a.balance_f = got.balance_f != null ? got.balance_f : f;
+      if (S.view === "accounts") render();
+    }).catch(() => {});
+  });
 }
 
 /* Рахунки, які людина вже вписувала в угоди, але картки не завела.
@@ -872,7 +907,7 @@ document.addEventListener("input", e => {
 });
 
 /* Гачок для перевірок: збірку назви інакше не викликати ззовні. */
-window.__accTest = {factor: factorOf, sync: syncName, made: madeName, firms: openFirms, status: paintStatus,
+window.__accTest = {factor: factorOf, stamp: stampOld, sync: syncName, made: madeName, firms: openFirms, status: paintStatus,
   stat: stat, total: total, free: freeName, norm: normName, spark: spark,
   accs(list){ ACCS = list; }};
 
