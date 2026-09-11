@@ -27,7 +27,7 @@ CAL_URL = "https://nfs.faireconomy.media/ff_calendar_thisweek.json"
 # існує (усі інші адреси віддають 404), тож майбутні дні беремо з календаря
 # TradingView — він уже є в проєкті заради історії показників.
 TV_COUNTRIES = "US,EU,GB,JP,CH,CA,AU,NZ,CN"
-TV_AHEAD = 9            # на скільки днів уперед питаємо TradingView
+TV_AHEAD = 22           # на скільки днів уперед питаємо TradingView
 # TradingView називає країну, а фід — валюту; помічник рахує саме валюти.
 TV_CURRENCY = {"US": "USD", "EU": "EUR", "GB": "GBP", "JP": "JPY", "CH": "CHF",
                "CA": "CAD", "AU": "AUD", "NZ": "NZD", "CN": "CNY"}
@@ -341,14 +341,21 @@ def week_window(now=None):
     return mon, mon + datetime.timedelta(days=4)
 
 
-def week_only(events, now=None):
-    """Події одного робочого тижня, з понеділка по п'ятницю.
+# Скільки тижнів уперед показує розділ «Новини». Один тиждень — це рівно
+# те, що віддає фід, і на ньому стрілка днів упиралась у п'ятницю. Люди ж
+# планують наперед: «що там наступного тижня» — звичайне питання.
+WEEKS_AHEAD = 2
+
+
+def week_only(events, now=None, weeks=WEEKS_AHEAD):
+    """Події поточного робочого тижня й ще двох наступних.
 
     Тільки для розділу «Новини». Помічник і телеграм беруть повний
     список: їм майбутні дні саме й потрібні, щоб у суботу відповісти,
     що виходить у понеділок.
     """
     mon, fri = week_window(now)
+    fri = fri + datetime.timedelta(days=7 * weeks)
     out = []
     for e in events:
         dt = event_time(e)

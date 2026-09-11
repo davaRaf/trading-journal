@@ -165,13 +165,36 @@ window.__news = {
 
 function days(){ return [...new Set(events.map(e => e._k))].sort(); }
 
+/* Понеділок тижня, до якого належить день. Календар тепер показує
+   поточний тиждень і два наступні, тож «тиждень» — це вже не весь
+   список, а лише той тиждень, у якому стоїть вибраний день. */
+function monday(k){
+  const d = new Date(k + "T00:00");
+  d.setDate(d.getDate() - ((d.getDay() + 6) % 7));
+  return dkey(d);
+}
+function weeks(){ return [...new Set(days().map(monday))].sort(); }
+
 function step(n){
   const list = days();
-  const i = list.indexOf(day);
-  view = "day"; stick = true; draft = null;
-  day = list[Math.min(list.length - 1, Math.max(0, (i < 0 ? 0 : i) + n))];
-  open = null;
+  if (view === "week"){
+    const all = weeks(), i = all.indexOf(monday(day));
+    const want = all[Math.min(all.length - 1, Math.max(0, (i < 0 ? 0 : i) + n))];
+    day = list.find(d => monday(d) === want) || day;
+  } else {
+    const i = list.indexOf(day);
+    day = list[Math.min(list.length - 1, Math.max(0, (i < 0 ? 0 : i) + n))];
+  }
+  stick = true; draft = null; open = null;
   render();
+}
+
+/* Чи впирається стрілка в край: у днях — у перший і останній день,
+   у тижнях — у перший і останній тиждень. */
+function edge(){
+  const list = view === "week" ? weeks() : days();
+  const i = view === "week" ? list.indexOf(monday(day)) : list.indexOf(day);
+  return {first: i <= 0, last: i >= list.length - 1};
 }
 
 function moneys(){
@@ -184,7 +207,11 @@ function narrowed(){
       || (curs && moneys().some(c => !curs.has(c)));
 }
 
-function scope(){ return view === "week" ? events : events.filter(e => e._k === day); }
+function scope(){
+  return view === "week"
+    ? events.filter(e => monday(e._k) === monday(day))
+    : events.filter(e => e._k === day);
+}
 function items(){
   const needle = q.trim().toLowerCase();
   return scope().filter(e => imp.has(e._i) && types.has(e._t) && curOn(e.country)
@@ -228,12 +255,15 @@ function vNews(){
 
 /* ---------- панель: стрілки днів, день/тиждень, фільтр, пошук ---------- */
 function bar(list, today){
-  const i = list.indexOf(day);
+  const end = edge();
   let label, sub;
   if (view === "week"){
-    const a = new Date(list[0] + "T00:00"), b = new Date(list[list.length-1] + "T00:00");
+    const inWeek = list.filter(d => monday(d) === monday(day));
+    const a = new Date(inWeek[0] + "T00:00");
+    const b = new Date(inWeek[inWeek.length - 1] + "T00:00");
     sub = T.nwViewWeek.toLowerCase();
-    label = a.getDate() + " – " + b.getDate() + " " + T.monthsGen[b.getMonth()];
+    label = a.getDate() + (a.getMonth() === b.getMonth() ? "" : " " + T.monShort[a.getMonth()])
+          + " – " + b.getDate() + " " + T.monShort[b.getMonth()];
   } else {
     const d = new Date(day + "T00:00");
     sub = day === today ? T.nwToday : T.wdSun[d.getDay()];
@@ -242,13 +272,13 @@ function bar(list, today){
   return '<div class="nw-bar">'
     + '<div class="nw-nav">'
       + '<button class="nw-ico" onclick="__news.shift(-1)" aria-label="'+esc(T.nwPrevDay)+'"'
-        + (i <= 0 && view === "day" ? " disabled" : "") + '>'
+        + (end.first ? " disabled" : "") + '>'
         + '<svg width="17" height="17" viewBox="0 0 24 24" fill="none" aria-hidden="true">'
         + '<path d="M14.5 5.5 8 12l6.5 6.5" stroke="currentColor" stroke-width="1.9"'
         + ' stroke-linecap="round" stroke-linejoin="round"/></svg></button>'
       + '<div class="nw-when"><span>'+esc(sub)+'</span>'+esc(label)+'</div>'
       + '<button class="nw-ico" onclick="__news.shift(1)" aria-label="'+esc(T.nwNextDay)+'"'
-        + (i >= list.length - 1 && view === "day" ? " disabled" : "") + '>'
+        + (end.last ? " disabled" : "") + '>'
         + '<svg width="17" height="17" viewBox="0 0 24 24" fill="none" aria-hidden="true">'
         + '<path d="M9.5 5.5 16 12l-6.5 6.5" stroke="currentColor" stroke-width="1.9"'
         + ' stroke-linecap="round" stroke-linejoin="round"/></svg></button>'
