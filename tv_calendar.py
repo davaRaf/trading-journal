@@ -183,16 +183,22 @@ def _cache_path(countries, frm, to):
     return os.path.join(TV_DIR, key + ".json")
 
 
-def _fetch(countries, frm, to):
-    """Події за проміжок. Спершу з кешу, потім із мережі."""
+def _fetch(countries, frm, to, ttl=None):
+    """Події за проміжок. Спершу з кешу, потім із мережі.
+
+    ttl — скільки секунд відповідь ще вважаємо свіжою. Історії вистачає
+    півдня, а от факт сьогоднішнього виходу за півдня встигає застаріти
+    двічі, тому там просять коротший строк.
+    """
+    ttl = TV_TTL if ttl is None else ttl
     path = _cache_path(countries, frm, to)
     with _lock:
         got = _mem.get(path)
-    if got and time.time() - got[0] < TV_TTL:
+    if got and time.time() - got[0] < ttl:
         return got[1]
     if os.path.exists(path):
         try:
-            if time.time() - os.path.getmtime(path) < TV_TTL:
+            if time.time() - os.path.getmtime(path) < ttl:
                 with open(path, "r", encoding="utf-8") as f:
                     rows = json.load(f)
                 with _lock:
@@ -267,10 +273,18 @@ def _shown(text):
 
 
 def _fmt(value, tail, digits):
+    """Число так, як його пише фід: із тією ж кількістю знаків і хвостиком.
+
+    Знаки беремо з «попереднього» — якщо фід пише «768B», то й факт має
+    бути «770B», а не «770.07B»: у календарі поруч стоять два числа, і
+    різна точність читається як різні показники.
+    """
     if value is None:
         return ""
     r = round(value, max(digits, 2))
-    txt = ("%.*f" % (digits, r)) if digits else ("%g" % r)
+    txt = ("%.*f" % (digits, r)) if digits else ("%g" % round(r))
+    if re.match(r"^-0(\.0+)?$", txt):
+        txt = txt[1:]              # «-0.0» — це нуль, мінус тут тільки плутає
     return txt + tail
 
 
@@ -454,3 +468,88 @@ def history(event, limit=WANT_ROWS):
         if maybe:
             return maybe[0]
     return []
+
+
+# ------------------------------------------------------- факт тижня ----
+
+# Фід Forex Factory віддає лише прогноз і «попереднє»: фактичного значення
+# в ньому немає навіть у події, що вийшла годину тому. Тому факт беремо
+# звідти ж, звідки й історію, — з календаря TradingView. Свіжість тут
+# потрібна зовсім інша: історії вистачає півдня, а сьогоднішній факт за
+# півдня застаріє двічі.
+FACT_TTL = 600
+
+
+def _fact_for(event, rows):
+    """Факт цієї події з рядків TradingView — або "", якщо не впевнені.
+
+    Звірка та сама, що й в історії: «попереднє» з фіда має збігтися з
+    «попереднім» рядка TradingView. Не збіглось — краще порожня клітинка,
+    ніж чуже число в тому місці, де людина чекає своє.
+    """
+    shown = _shown(event.get("previous"))
+    if not shown:
+        return ""
+    want, tail, digits = shown
+    tol = max(abs(want) * 0.005, 0.5 * (10 ** -digits))
+    seen = set()
+    for hours, tries in ((2, MAX_TRIES), (8, 2 * MAX_TRIES)):
+        for row in _candidates(event, rows, hours, tries):
+            key = (row.get("country"), row.get("title"), row.get("date"))
+            if key in seen:
+                continue
+            seen.add(key)
+            if row.get("actual") is None or row.get("previous") is None:
+                continue
+            for k in (1, 1e3, 1e-3, 1e6, 1e-6):
+                if abs(row["previous"] * k - want) <= tol:
+                    return _fmt(row["actual"] * k, tail, digits)
+    return ""
+
+
+def week_actuals(events, now=None):
+    """Факти подій, що вже вийшли: {(валюта, назва, дата): «0.4%»}.
+
+    Один запит на валюту, усі паралельно: послідовно дев'ять валют
+    тягнулися довше, ніж людина готова дивитись на порожню таблицю.
+    """
+    now = now or datetime.datetime.now(datetime.timezone.utc)
+    by_cur = {}
+    for e in events:
+        cur = (e.get("country") or "").strip()
+        if cur not in COUNTRIES or not _shown(e.get("previous")):
+            continue
+        d = _when({"date": e.get("date")})
+        if not d or d > now:
+            continue                      # ще не вийшло — факту нема ні в кого
+        by_cur.setdefault(cur, []).append(e)
+    if not by_cur:
+        return {}
+
+    frm, to = _week_edges(now.date())
+    rows_by = {}
+
+    def grab(cur):
+        try:
+            rows_by[cur] = _fetch(COUNTRIES[cur], frm.isoformat(), to.isoformat(),
+                                  ttl=FACT_TTL)
+        except Exception as ex:
+            print("tv_calendar facts:", ex)
+            rows_by[cur] = []
+
+    threads = [threading.Thread(target=grab, args=(c,), daemon=True) for c in by_cur]
+    for t in threads:
+        t.start()
+    for t in threads:
+        t.join(timeout=25)
+
+    out = {}
+    for cur, items in by_cur.items():
+        rows = rows_by.get(cur) or []
+        if not rows:
+            continue
+        for e in items:
+            fact = _fact_for(e, rows)
+            if fact:
+                out[(cur, (e.get("title") or "").strip(), e.get("date") or "")] = fact
+    return out

@@ -178,8 +178,32 @@ def calendar_events():
             nxt = []
         if nxt:
             data = _merge(data, nxt)
+        _add_facts(data)
         _cal["data"] = data
         return data, err
+
+
+def _add_facts(events):
+    """Проставляє полю «actual» число тим подіям, що вже вийшли.
+
+    Фід віддає лише прогноз і «попереднє» — фактичного значення в ньому
+    немає навіть через годину після виходу. Беремо його звідти ж, звідки
+    й історію: з календаря TradingView, зі звіркою рядів. Не зійшлось —
+    клітинка лишається порожньою, чужих чисел не ставимо.
+
+    Робимо це після архіву навмисно: в архів має лягти рівно те, що
+    прислав фід, інакше наступного тижня незрозуміло, чиє там число.
+    """
+    import tv_calendar          # тут, а не зверху: модуль важкий
+    try:
+        facts = tv_calendar.week_actuals(events)
+    except Exception as ex:
+        print("календар факти:", ex)
+        facts = {}
+    for e in events:
+        key = ((e.get("country") or "").strip(), (e.get("title") or "").strip(),
+               e.get("date") or "")
+        e["actual"] = facts.get(key, "")
 
 
 _warming = threading.Event()
