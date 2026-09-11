@@ -527,9 +527,11 @@ REF_TTL = 30 * 24 * 3600
 PARTNER_TITLES = {"blackswan": "Black Swan"}      # як партнера звуть у прев'ю
 # Коротке посилання: statsai.xyz/bs замість statsai.xyz/?ref=blackswan.
 # Довге теж лишається робочим — його вже роздали.
-PARTNER_ALIASES = {"bs": "blackswan", "ig": "instagram", "tt": "tiktok"}
+# ig і tt лишаємо як синоніми соцмереж: якщо коротке посилання вже кудись
+# вставили, воно рахується туди ж, а не пропадає
+PARTNER_ALIASES = {"bs": "blackswan", "soc": "social", "ig": "social", "tt": "social"}
 # Як мітку звуть у звіті
-REF_TITLES = {"blackswan": "Black Swan", "instagram": "Instagram", "tiktok": "TikTok"}
+REF_TITLES = {"blackswan": "Black Swan", "social": "Соцсети"}
 
 
 def ref_all():

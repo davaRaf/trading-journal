@@ -51,7 +51,7 @@ PARTNERS      = [x.strip().lower() for x in os.environ.get("PARTNERS", "blackswa
 # Свої канали. Мітка рахується так само, але це не партнери: відсотка немає,
 # і через чужі посилання вона не передається — інакше «прийшли з інстаграма»
 # перестало б означати саме інстаграм.
-CHANNELS      = [x.strip().lower() for x in os.environ.get("CHANNELS", "instagram,tiktok").split(",") if x.strip()]
+CHANNELS      = [x.strip().lower() for x in os.environ.get("CHANNELS", "social").split(",") if x.strip()]
 # Разовый ключ для переноса скриншотов на новый сервер (tools/upload_shots.py).
 # Пока пустой — точка загрузки просто не существует. После переезда убрать.
 ADMIN_TOKEN   = os.environ.get("ADMIN_TOKEN", "")
