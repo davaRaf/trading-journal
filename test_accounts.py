@@ -193,6 +193,25 @@ def main():
                accounts_store.clean({"current_balance": 1, "balance_n": -5})["balance_n"], 0)
     ok &= case("лічильник є серед полів", "balance_n" in accounts_store.FIELDS, True)
 
+    # --- множник журналу на мить, коли баланс вписали ---
+    # Саме він і рахує гроші: баланс = вписане × (множник зараз / тоді).
+    # Лічильник угод лишився тільки заради карток, заведених раніше.
+    ok &= case("множник приїхав із браузера", fresh["balance_f"], None)
+    withf = stamp(accounts_store.clean(
+        {"current_balance": 103000, "balance_f": 1.0925}))
+    ok &= case("множник зберігся як є", withf["balance_f"], 1.0925)
+    ok &= case("без балансу множника немає",
+               stamp(accounts_store.clean({"balance_f": 1.5}))["balance_f"], None)
+    keepf = stamp(accounts_store.clean(
+        {"current_balance": 103000, "balance_f": 2.0}),
+        {"current_balance": 103000, "balance_at": "2026-09-01", "balance_f": 1.5})
+    ok &= case("незмінний баланс не зсуває множник", keepf["balance_f"], 1.5)
+    movedf = stamp(accounts_store.clean(
+        {"current_balance": 104000, "balance_f": 2.0}),
+        {"current_balance": 103000, "balance_at": "2026-09-01", "balance_f": 1.5})
+    ok &= case("новий баланс — новий множник", movedf["balance_f"], 2.0)
+    ok &= case("множник є серед полів", "balance_f" in accounts_store.FIELDS, True)
+
     # --- дрібниці ---
     ok &= case("валюта за замовчуванням", accounts_store.clean({})["currency"], "USD")
 
