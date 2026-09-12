@@ -347,6 +347,36 @@ const Pagi = (function(){
 })();
 window.Pagi = Pagi;
 
+/* ================= замок прокрутки =================
+   Поки зверху щось відкрито, сторінка під ним має стояти.
+
+   Раніше кожне вікно робило це саме: ставило body.style.overflow і
+   знімало його на закритті. Виходили дві біди. Перша — вікна не знали
+   одне про одного: вікно, відкрите з мобільного меню, ставило замок, а
+   меню за мить закривалось і знімало його — під відкритим вікном
+   сторінка знову їхала. Друга — самого body мало: на телефоні
+   прокручується <html>, тож замок на одному body телефон просто не
+   помічав (це вже ловили в mobile.js, але тільки для меню).
+
+   Тому замок один на всіх і з лічильником: знімається лише тоді, коли
+   закрився останній шар. */
+const ScrollLock = (function(){
+  let depth = 0;
+  function on(){
+    if (++depth > 1) return;
+    document.documentElement.style.overflow = "hidden";
+    document.body.style.overflow = "hidden";
+  }
+  function off(){
+    if (depth === 0) return;
+    if (--depth > 0) return;
+    document.documentElement.style.overflow = "";
+    document.body.style.overflow = "";
+  }
+  return { on, off, depth: () => depth };
+})();
+window.ScrollLock = ScrollLock;
+
 /* ================= shadcn/ui · Sheet и Drawer =================
    Sheet выезжает справа (детали сделки), Drawer — снизу (форма угоди).
    Общий движок: затемнение, Esc, клик мимо, у Drawer — потяг вниз, как в vaul. */
@@ -411,7 +441,7 @@ const Panel = (function(){
     build(opts.side || "right", opts.cls);
     wrap.style.zIndex = z;
     box.insertAdjacentHTML("beforeend", html);
-    document.body.style.overflow = "hidden";
+    ScrollLock.on();
     requestAnimationFrame(()=>wrap && wrap.classList.add("in"));
     const f = box.querySelector("[autofocus]"); if(f) f.focus();
     return box;
@@ -419,8 +449,10 @@ const Panel = (function(){
   function destroy(){
     document.removeEventListener("keydown", esc);
     if(wrap && wrap.parentNode) wrap.parentNode.removeChild(wrap);
+    /* замок знімаємо лише за живу панель: destroy() кличуть і з таймера
+       закриття, коли прибирати вже нічого */
+    if(wrap) ScrollLock.off();
     wrap = null; box = null;
-    document.body.style.overflow = "";
   }
   function close(){
     if(!wrap || closing) return;
@@ -503,6 +535,7 @@ const Ask = (function(){
     b.classList.remove("in");
     setTimeout(() => { if (b.parentNode) b.parentNode.removeChild(b); }, 180);
     document.removeEventListener("keydown", onKey, true);
+    ScrollLock.off();
     const f = done; done = null;
     if (f) f(answer);
   }
@@ -542,6 +575,7 @@ const Ask = (function(){
       box.onmousedown = e => { if (e.target === box) close(false); };
       document.body.appendChild(box);
       document.addEventListener("keydown", onKey, true);
+      ScrollLock.on();
       requestAnimationFrame(() => {
         box.classList.add("in");
         const btn = box.querySelector(o.danger ? ".askno" : ".askyes");

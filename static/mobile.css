@@ -18,6 +18,29 @@
 
 @media (max-width:900px){
   body{display:block; padding-bottom:calc(64px + env(safe-area-inset-bottom))}
+
+  /* ---- поля: не менше 16px ----
+     Телефон сам наближає сторінку, коли фокус потрапляє в поле, де шрифт
+     дрібніший за 16px. Це не налаштування сайту й не жест людини: браузер
+     вважає, що текст не прочитати, і збільшує масштаб. Після закриття
+     вікна масштаб лишається — сторінка стоїть наближеною, збоку виповзає
+     смуга прокрутки. У формі угоди поля були 15px, у калькуляторі 15,
+     у фільтрах 14 — приближало скрізь.
+
+     Ставимо 16px саме тут, а не в кожному файлі окремо: правило одне на
+     всі поля, і на широкому екрані (де наближення немає) розміри
+     лишаються як були. Вимикати масштабування через meta viewport
+     (maximum-scale=1) не стали: тоді сторінку не зможе збільшити й той,
+     хто справді цього хоче.
+
+     !important тут по ділу: розміри полів задані в кожному файлі своїми
+     селекторами (`.form .f input`, `.ts-own-inp`, поля калькулятора), і
+     без нього правило перебивали б саме вони — половина полів лишалась
+     15px і далі приближала. Це не оформлення, а межа, нижче якої полю
+     не можна опускатись на телефоні; прапорці й перемикачі не чіпаємо —
+     вони фокус клавіатурою не відкривають і масштаб не рухають. */
+  input:not([type="checkbox"]):not([type="radio"]),
+  select, textarea{font-size:16px !important}
   .side{display:none}
   .main{padding:14px 14px 24px}
 
@@ -72,11 +95,17 @@
   .ck-pairs{border-radius:14px; gap:2px; padding:4px}
   .ck-pair{font-size:12px; padding:7px 10px}
 
+  /* ---- палець по затемненню не гортає сторінку під ним ----
+     Те саме правило, що вже стояло на шторці меню, тепер на всіх
+     затемненнях: замок прокрутки (ScrollLock в ui.js) тримає сторінку,
+     а це не дає жесту по темному полю взагалі дійти до неї. Самі вікна
+     не чіпаємо — всередині них є що гортати. */
+  .pnl-ov, .mmenu-wrap .ov{touch-action:none}
+  .pnl-wrap, .modal, .lightbox, .askwrap{overscroll-behavior:contain}
+
   /* ---- шторка меню ---- */
   .mmenu-wrap{display:block; position:fixed; inset:0; z-index:60; visibility:hidden;
     overscroll-behavior:contain}
-  /* палець по затемненню не має гортати сторінку під ним */
-  .mmenu-wrap .ov{touch-action:none}
   .mmenu{overscroll-behavior:contain}
   .mmenu-wrap.in{visibility:visible}
   .mmenu-wrap .ov{position:absolute; inset:0; background:rgba(0,0,0,.55); opacity:0; transition:opacity .2s}

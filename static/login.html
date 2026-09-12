@@ -363,6 +363,11 @@ body{
 @media (max-width:760px){
   :root[data-card="split"] .pitch{display:none}
   :root[data-card="split"] .shell{max-width:400px}
+  /* Дрібніше за 16px — і телефон сам наближає сторінку, щойно фокус
+     потрапляє в поле. Вхід від цього з'їжджає ще до того, як людина
+     встигла набрати пошту. Те саме правило стоїть у mobile.css для
+     самого журналу; тут своє, бо сторінка входу живе окремо. */
+  .field input, .pwwrap input{font-size:16px}
 }
 .pitch .big{font-size:23px; font-weight:600; line-height:1.28; letter-spacing:-.02em}
 .pitch .facts{display:flex; flex-direction:column; gap:13px}
