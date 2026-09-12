@@ -101,7 +101,19 @@
      а це не дає жесту по темному полю взагалі дійти до неї. Самі вікна
      не чіпаємо — всередині них є що гортати. */
   .pnl-ov, .mmenu-wrap .ov{touch-action:none}
-  .pnl-wrap, .modal, .lightbox, .askwrap{overscroll-behavior:contain}
+
+  /* ---- прокрутка всередині вікна лишається всередині ----
+     Догортаний до краю блок передає рух далі — сторінці під вікном
+     (scroll chaining). Спершу contain стояв на самих вікнах, і цього
+     вистачало, поки прокручувалось їхнє тіло (.m-body). Але в чаті
+     агента гортається стрічка .as-log глибше в середині, і сторінка під
+     чатом їхала знов. Таких місць з десяток: стрічка чату, поле
+     введення, списки Notion, тіло форми угоди, опитування «Моя ТС»,
+     нотатка під скріном. Тому ставимо правило на все, що лежить у
+     вікні, — на блоки без прокрутки властивість не впливає взагалі. */
+  .modal, .pnl-wrap, .ts-ask, .mmenu-wrap, .askwrap, .lightbox,
+  .modal *, .pnl-wrap *, .ts-ask *, .mmenu-wrap *, .askwrap *, .lightbox *{
+    overscroll-behavior:contain}
 
   /* ---- шторка меню ---- */
   .mmenu-wrap{display:block; position:fixed; inset:0; z-index:60; visibility:hidden;
