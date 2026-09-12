@@ -115,6 +115,19 @@
   .modal *, .pnl-wrap *, .ts-ask *, .mmenu-wrap *, .askwrap *, .lightbox *{
     overscroll-behavior:contain}
 
+  /* ---- вікно стоїть рівно по видимій частині екрана ----
+     Вікна розтягнуті на весь екран (`inset:0`), а це вся його висота —
+     разом зі шматком, який сховала клавіатура. Телефон возить видиму
+     частину всередині цієї висоти сам, тому низ вікна тягнувся вниз, і
+     під ним відкривалась порожнеча. Поки стоїть замок, ScrollLock в
+     ui.js міряє видиму частину через visualViewport і кладе числа в
+     --vvh (висота) та --vvt (наскільки з'їхала). Ознака vv на <html>
+     з'являється тільки разом із замком, тож у звичайному стані сторінка
+     нічого про це не знає. */
+  :root.vv .modal, :root.vv .pnl-wrap, :root.vv .ts-ask,
+  :root.vv .mmenu-wrap, :root.vv .askwrap, :root.vv .lightbox{
+    top:var(--vvt, 0px); bottom:auto; height:var(--vvh, 100%)}
+
   /* ---- шторка меню ---- */
   .mmenu-wrap{display:block; position:fixed; inset:0; z-index:60; visibility:hidden;
     overscroll-behavior:contain}
