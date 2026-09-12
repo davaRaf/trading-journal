@@ -376,49 +376,10 @@ window.Pagi = Pagi;
    без потреби.
 
    Спосіб запам'ятовуємо на час замка: якщо екран перевернуть з
-   відкритим вікном, знімати треба тим самим способом, яким ставили.
-
-   Прибитої сторінки теж виявилось мало. Вікно fixed розтягнуте на весь
-   layout viewport — а це вся висота екрана, разом із тим шматком, що
-   сховала клавіатура. Видиму частину телефон возить всередині цієї
-   висоти сам, тож низ вікна тягнувся вниз, і під ним відкривалась
-   порожнеча — уже не сторінка, а те, що за прибитим body.
-
-   Тому, поки замок стоїть, тримаємо вікна рівно по видимій частині:
-   visualViewport каже, яка вона зараз і наскільки з'їхала, а ми
-   переливаємо це в --vvh / --vvt і вішаємо на <html> ознаку vv. Розміри
-   бере CSS (mobile.css) — тут лише числа. Немає visualViewport (старий
-   браузер) — нічого не робимо, лишається як було. */
+   відкритим вікном, знімати треба тим самим способом, яким ставили. */
 const ScrollLock = (function(){
   let depth = 0, mode = "", y = 0;
   const narrow = () => window.matchMedia("(max-width:900px)").matches;
-  const vv = window.visualViewport || null;
-
-  function measure(){
-    if (!vv) return;
-    const root = document.documentElement;
-    root.style.setProperty("--vvh", Math.round(vv.height) + "px");
-    /* offsetTop — наскільки видима частина з'їхала вниз усередині
-       сторінки; без нього вікно лишалось би вгорі, поки екран унизу */
-    root.style.setProperty("--vvt", Math.round(vv.offsetTop) + "px");
-  }
-  function watch(go){
-    if (!vv) return;
-    const root = document.documentElement;
-    if (go){
-      measure();
-      root.classList.add("vv");
-      vv.addEventListener("resize", measure);
-      vv.addEventListener("scroll", measure);
-    } else {
-      root.classList.remove("vv");
-      vv.removeEventListener("resize", measure);
-      vv.removeEventListener("scroll", measure);
-      root.style.removeProperty("--vvh");
-      root.style.removeProperty("--vvt");
-    }
-  }
-
   function on(){
     if (++depth > 1) return;
     mode = narrow() ? "fixed" : "overflow";
@@ -426,7 +387,6 @@ const ScrollLock = (function(){
       y = window.scrollY || document.documentElement.scrollTop || 0;
       const b = document.body.style;
       b.position = "fixed"; b.top = -y + "px"; b.left = "0"; b.right = "0"; b.width = "100%";
-      watch(true);
     }
     document.documentElement.style.overflow = "hidden";
     document.body.style.overflow = "hidden";
@@ -437,7 +397,6 @@ const ScrollLock = (function(){
     document.documentElement.style.overflow = "";
     document.body.style.overflow = "";
     if (mode === "fixed"){
-      watch(false);
       const b = document.body.style;
       b.position = ""; b.top = ""; b.left = ""; b.right = ""; b.width = "";
       /* миттєво: у motion.css стоїть scroll-behavior:smooth, і повернення
