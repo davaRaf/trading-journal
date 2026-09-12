@@ -82,26 +82,31 @@ function openMenu(){
     menu.appendChild(el);
   });
   wrap.classList.add("in");
-  /* Тримаємо сторінку на місці, поки шторка відкрита. Самого body мало:
-     на телефоні прокручується <html>, тому сторінка під шторкою все одно
-     їздила — і смуга тла збоку разом із нею. */
-  document.documentElement.style.overflow = "hidden";
-  document.body.style.overflow = "hidden";
+  /* Тримаємо сторінку на місці, поки шторка відкрита. Замок спільний із
+     вікнами (ui.js): раніше шторка знімала його сама й забирала заразом
+     той, що поставило вікно, відкрите з неї. */
+  ScrollLock.on();
 }
 function closeMenu(){
+  if (!wrap.classList.contains("in")) return;
   wrap.classList.remove("in");
-  document.documentElement.style.overflow = "";
-  document.body.style.overflow = "";
+  ScrollLock.off();
   homes.forEach((h, el) => h.parent.insertBefore(el, h.next));
   homes.clear();
 }
 top.querySelector(".mburger").onclick = openMenu;
 wrap.querySelector(".ov").onclick = closeMenu;
 wrap.querySelector(".x").onclick = closeMenu;
-/* клік по будь-якій кнопці в шторці — закриваємо, дія вже пішла */
+/* Клік по кнопці в шторці — закриваємо шторку ДО того, як спрацює сама
+   кнопка. Раніше вона закривалась через 60 мс після дії: вікно встигало
+   початись, шторка їхала вже поверх нього, і вікно виглядало так, ніби
+   з'являється у два прийоми — спершу половина, потім решта. Слухаємо на
+   перехопленні (capture), тому цей обробник іде перед onclick кнопки;
+   вузол, який шторка повертає в бічну панель, події не губить — вона
+   вже в дорозі до нього. */
 menu.addEventListener("click", e => {
-  if (e.target.closest("button, a")) setTimeout(closeMenu, 60);
-});
+  if (e.target.closest("button, a")) closeMenu();
+}, true);
 window.addEventListener("resize", () => { if (innerWidth > 900 && wrap.classList.contains("in")) closeMenu(); });
 
 paintTabs();

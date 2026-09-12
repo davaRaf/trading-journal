@@ -1451,9 +1451,12 @@ function openModal(html){
      його не прибирали. */
   if(S.lockModal) return false;
   const m=$("#modal");
+  const wasOpen = !m.hidden;
   m.style.zIndex = window.nextTop ? nextTop() : "";
   $("#modalBox").innerHTML=html; m.hidden=false;
-  document.body.style.overflow="hidden";
+  /* Відкрите вікно іноді перемальовують зсередини (налаштування після
+     зміни мови) — тоді це той самий шар, і другий замок не потрібен. */
+  if(!wasOpen) ScrollLock.on();
   return true;
 }
 /* Закриваємо те, що зверху. Діалог, відкритий з панелі, лишає панель на
@@ -1464,8 +1467,8 @@ function closeModal(){
   const m=$("#modal"), panel = window.Panel && Panel.isOpen();
   if(m && !m.hidden){
     m.hidden=true;
-    /* під діалогом лишилась панель — сторінка все ще не прокручується */
-    if(!panel) document.body.style.overflow="";
+    /* під діалогом могла лишитись панель — свій замок вона тримає сама */
+    ScrollLock.off();
   }else if(panel){
     Panel.close();
   }
@@ -1513,7 +1516,10 @@ function openLightbox(from){
   LB.list = img ? shotGroup(img) : [{src:src, cap:"", note:""}];
   LB.i = Math.max(0, LB.list.findIndex(s => s.src === src));
   showShot();
-  $("#lightbox").hidden = false;
+  const box = $("#lightbox");
+  const wasOpen = !box.hidden;
+  box.hidden = false;
+  if(!wasOpen) ScrollLock.on();
 }
 /* сусідні скріни того самого блоку: картка угоди, слоти форми, «Моя ТС» */
 function shotGroup(img){
@@ -1558,7 +1564,12 @@ function lightStep(step, e){
   LB.i = (LB.i + step + LB.list.length) % LB.list.length;
   showShot();
 }
-function closeLightbox(){ $("#lightbox").hidden=true; $("#lightboxImg").src=""; LB.list=[]; }
+function closeLightbox(){
+  const box=$("#lightbox");
+  const wasOpen = !box.hidden;
+  box.hidden=true; $("#lightboxImg").src=""; LB.list=[];
+  if(wasOpen) ScrollLock.off();
+}
 /* Esc закрывает то, что сверху, а не панель под ним. Перехват на
    погружении — панель слушает всплытие, и так до неё не дойдёт, в каком
    бы порядке ни навесились обработчики. */

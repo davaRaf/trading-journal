@@ -817,7 +817,7 @@ function askOpen(){
   askBox = document.createElement("div");
   askBox.className = "ts-ask";
   document.body.appendChild(askBox);
-  document.body.style.overflow = "hidden";
+  ScrollLock.on();
   drawAsk();
 }
 /* Чи є що втрачати: опитування нічого не зберігає до самого кінця, тож
@@ -832,9 +832,10 @@ function askDirty(){
 
 async function askClose(force){
   if (!force && askDirty() && !await Ask.yes(D().confirmQuitAsk, {ok:T.askYes, cancel:T.askNo, danger:true})) return;
+  const wasOpen = !!askBox;
   if (askBox && askBox.parentNode) askBox.parentNode.removeChild(askBox);
   askBox = null;
-  document.body.style.overflow = "";
+  if (wasOpen) ScrollLock.off();
 }
 function askPrev(){ if (step > 0){ step--; drawAsk(); } else askClose(); }
 function askNext(){ step++; drawAsk(); }
