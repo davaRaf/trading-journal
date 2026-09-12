@@ -359,11 +359,35 @@ window.Pagi = Pagi;
    помічав (це вже ловили в mobile.js, але тільки для меню).
 
    Тому замок один на всіх і з лічильником: знімається лише тоді, коли
-   закрився останній шар. */
+   закрився останній шар.
+
+   На телефоні самого overflow виявилось мало. Найкраще це видно в чаті
+   агента: коли стає клавіатура, вікно лишається на місці (воно fixed і
+   міряється від layout viewport, а клавіатура міняє тільки видиму
+   частину), і знизу між вікном і клавіатурою видно смужку сторінки.
+   Жест по ній гортав сторінку далі — overflow:hidden тут телефон просто
+   не слухає.
+
+   Тому на вузькому екрані сторінку прибиваємо намертво: body стає
+   fixed і зсувається вгору рівно на стільки, на скільки вона була
+   прогорнута, — візуально нічого не змінюється, але гортати вже нічого.
+   На закритті повертаємо все й прокручуємо назад. На широкому екрані
+   лишається overflow: там клавіатури немає, а fixed забрав би висоту
+   без потреби.
+
+   Спосіб запам'ятовуємо на час замка: якщо екран перевернуть з
+   відкритим вікном, знімати треба тим самим способом, яким ставили. */
 const ScrollLock = (function(){
-  let depth = 0;
+  let depth = 0, mode = "", y = 0;
+  const narrow = () => window.matchMedia("(max-width:900px)").matches;
   function on(){
     if (++depth > 1) return;
+    mode = narrow() ? "fixed" : "overflow";
+    if (mode === "fixed"){
+      y = window.scrollY || document.documentElement.scrollTop || 0;
+      const b = document.body.style;
+      b.position = "fixed"; b.top = -y + "px"; b.left = "0"; b.right = "0"; b.width = "100%";
+    }
     document.documentElement.style.overflow = "hidden";
     document.body.style.overflow = "hidden";
   }
@@ -372,6 +396,15 @@ const ScrollLock = (function(){
     if (--depth > 0) return;
     document.documentElement.style.overflow = "";
     document.body.style.overflow = "";
+    if (mode === "fixed"){
+      const b = document.body.style;
+      b.position = ""; b.top = ""; b.left = ""; b.right = ""; b.width = "";
+      /* миттєво: у motion.css стоїть scroll-behavior:smooth, і повернення
+         на місце інакше їхало б плавно — сторінка сама собою «поповзла» б
+         після закриття вікна */
+      window.scrollTo({top: y, left: 0, behavior: "instant"});
+    }
+    mode = "";
   }
   return { on, off, depth: () => depth };
 })();
