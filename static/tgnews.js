@@ -3,14 +3,25 @@
 
    #main застосунок перемальовує цілком, тому смужка стоїть не в ньому,
    а над ним: #main загортається в колонку, і смужка — перший її рядок.
-   Закрив хрестиком — більше не показується (localStorage).
+   Перейшов за посиланням у канал — смужка більше не показується ніколи.
+   Закрив хрестиком, не перейшовши, — ховається до кінця дня, наступного
+   дня з'являється знову. Обидва стани живуть у localStorage цього браузера.
    ============================================================ */
 (function(){
 
 const URL = "https://t.me/+gJ1ze8dCC6UzNDMy";
-const KEY = "tj_tgnews_closed";
+const KEY = "tj_tgnews_closed";     // дата закриття хрестиком, за місцевим часом
+const KEY_GO = "tj_tgnews_opened";  // перейшов у канал
 
-try{ if (localStorage.getItem(KEY)) return; }catch(e){}
+function today(){
+  const d = new Date();
+  return d.getFullYear() + "-" + String(d.getMonth()+1).padStart(2,"0") + "-" + String(d.getDate()).padStart(2,"0");
+}
+
+try{
+  if (localStorage.getItem(KEY_GO)) return;
+  if (localStorage.getItem(KEY) === today()) return;
+}catch(e){}
 
 const main = document.getElementById("main");
 if (!main) return;
@@ -44,9 +55,19 @@ function paint(){
 paint();
 
 bar.querySelector(".tgn-x").addEventListener("click", function(){
-  try{ localStorage.setItem(KEY, "1"); }catch(e){}
+  try{ localStorage.setItem(KEY, today()); }catch(e){}
   bar.remove();
 });
+
+/* перехід у канал: і звичайний клік, і середня кнопка миші (нова вкладка) */
+function opened(e){
+  if (e.type === "auxclick" && e.button !== 1) return;
+  try{ localStorage.setItem(KEY_GO, "1"); }catch(err){}
+  bar.remove();
+}
+const cta = bar.querySelector(".tgn-cta");
+cta.addEventListener("click", opened);
+cta.addEventListener("auxclick", opened);
 
 const realApply = window.applyLang;
 if (typeof realApply === "function"){
