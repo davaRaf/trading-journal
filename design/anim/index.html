@@ -1,0 +1,337 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>StatsAI · появление разделов</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Geist:wght@300;400;500;600;700&family=Archivo:wght@400;500;600&display=swap">
+<style>
+/* ============================================================
+   Пробник: как разделы появляются при открытии.
+
+   Три варианта в одном месте, чтобы сравнивать не по памяти, а рядом.
+   Цифры и данные выдуманные — здесь важен только характер движения.
+   Ничего из приложения не тянем: пробник должен открываться и когда
+   на сайте всё сломано.
+   ============================================================ */
+:root{
+  --bg:#050505; --panel:#0d0d0e; --card:#111112; --line:#26262a; --soft:#1a1a1c;
+  --text:#f0f0f1; --dim:#94949a; --faint:#63636b;
+  --up:#40e094; --down:#ff6e60; --be:#efc258;
+  --sans:"Geist","Segoe UI",system-ui,sans-serif;
+  --mono:"Archivo","Geist",system-ui,sans-serif;
+  /* ---- ручки варианта: их и переключаем ---- */
+  --step:60ms;        /* пауза между соседними элементами */
+  --dist:10px;        /* на сколько всплывает */
+  --dur:420ms;        /* длительность одного элемента */
+  --ease:cubic-bezier(.16,1,.3,1);
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--text);font-family:var(--sans);
+  -webkit-font-smoothing:antialiased}
+.wrap{max-width:1080px;margin:0 auto;padding:22px 18px 80px}
+
+/* ---------- шапка пробника ---------- */
+.top{position:sticky;top:0;z-index:5;background:linear-gradient(var(--bg) 72%,transparent);
+  padding:14px 0 16px;margin-bottom:6px}
+h1{margin:0 0 4px;font-size:19px;letter-spacing:-.02em}
+.lead{margin:0 0 14px;color:var(--dim);font-size:13.5px;max-width:620px;line-height:1.55}
+.bar{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.vbtn{font:inherit;font-size:13px;padding:9px 14px;border-radius:11px;cursor:pointer;
+  border:1px solid var(--line);background:var(--panel);color:var(--dim)}
+.vbtn.on{border-color:color-mix(in srgb,var(--up) 55%,transparent);color:var(--text);
+  background:color-mix(in srgb,var(--up) 10%,transparent)}
+.vbtn.go{background:var(--up);color:#05100a;border-color:transparent;font-weight:600}
+.hint{color:var(--faint);font-size:12.5px;margin:10px 0 0;line-height:1.5}
+
+/* ---------- общие блоки ---------- */
+h2.sec{font-family:var(--mono);font-size:10.5px;letter-spacing:.18em;text-transform:uppercase;
+  color:var(--faint);margin:30px 0 10px}
+.shell{border:1px solid var(--line);border-radius:16px;background:var(--panel);padding:14px}
+.kpis{display:grid;grid-template-columns:repeat(4,1fr);gap:1px;background:var(--line);
+  border:1px solid var(--line);border-radius:13px;overflow:hidden}
+.kpi{background:var(--card);padding:13px 14px}
+.kpi .k{font-family:var(--mono);font-size:9.5px;letter-spacing:.14em;text-transform:uppercase;color:var(--faint)}
+.kpi .v{font-family:var(--mono);font-size:25px;font-weight:600;margin-top:5px;font-variant-numeric:tabular-nums}
+.pos{color:var(--up)} .neg{color:var(--down)} .bee{color:var(--be)}
+
+.week{display:grid;grid-template-columns:repeat(7,1fr);gap:7px;margin-top:12px}
+.day{background:var(--card);border:1px solid var(--soft);border-radius:11px;padding:10px 9px;min-height:74px}
+.day .wd{font-family:var(--mono);font-size:9px;letter-spacing:.12em;text-transform:uppercase;color:var(--faint)}
+.day .n{font-family:var(--mono);font-size:16px;margin-top:3px;color:var(--dim)}
+.day .p{font-family:var(--mono);font-size:14px;font-weight:600;margin-top:7px;font-variant-numeric:tabular-nums}
+.day.empty .p{color:var(--faint)}
+
+.chart{margin-top:12px;background:var(--card);border:1px solid var(--soft);border-radius:13px;padding:12px}
+.chart svg{display:block;width:100%;height:150px;overflow:visible}
+.chart path.ln{fill:none;stroke:var(--up);stroke-width:2;stroke-linecap:round;stroke-linejoin:round;
+  filter:drop-shadow(0 0 8px color-mix(in srgb,var(--up) 35%,transparent))}
+.chart path.fill{fill:url(#g);stroke:none;opacity:0}
+.chart .dot{fill:var(--up);opacity:0}
+
+/* ---------- журнал ---------- */
+.rows{display:flex;flex-direction:column;gap:6px;margin-top:12px}
+.row{display:grid;grid-template-columns:54px 74px 1fr auto auto;gap:12px;align-items:center;
+  background:var(--card);border:1px solid var(--soft);border-radius:12px;padding:11px 13px}
+.row .tm{font-family:var(--mono);font-size:12px;color:var(--faint)}
+.row .pr{font-weight:600;font-size:14px}
+.row .sp{color:var(--dim);font-size:13px}
+.row .rs{font-family:var(--mono);font-size:11px;padding:4px 9px;border-radius:8px;border:1px solid var(--soft)}
+.row .nt{font-family:var(--mono);font-size:15px;font-weight:600;font-variant-numeric:tabular-nums;text-align:right;min-width:74px}
+
+/* ---------- помощник ---------- */
+.chat{display:flex;flex-direction:column;gap:9px;margin-top:12px}
+.msg{max-width:74%;padding:11px 14px;border-radius:15px;font-size:14px;line-height:1.5}
+.msg.me{align-self:flex-end;background:color-mix(in srgb,var(--up) 14%,var(--card));
+  border:1px solid color-mix(in srgb,var(--up) 26%,transparent)}
+.msg.ai{align-self:flex-start;background:var(--card);border:1px solid var(--soft)}
+.wait{align-self:flex-start;display:flex;gap:5px;padding:13px 15px;background:var(--card);
+  border:1px solid var(--soft);border-radius:15px}
+.wait i{width:6px;height:6px;border-radius:50%;background:var(--faint);animation:blink 1s infinite}
+.wait i:nth-child(2){animation-delay:.15s} .wait i:nth-child(3){animation-delay:.3s}
+@keyframes blink{0%,60%,100%{opacity:.25}30%{opacity:1}}
+
+/* ============================================================
+   Само появление. Элементу ставим --i (его номер в очереди), а
+   родителю класс .go — и всё едет по очереди. Пока .go нет,
+   элементы невидимы: иначе они успевают мигнуть до старта.
+   ============================================================ */
+.anim{opacity:0}
+.go .anim{animation:rise var(--dur) var(--ease) both;
+  animation-delay:calc(var(--i,0) * var(--step))}
+@keyframes rise{from{opacity:0;transform:translateY(var(--dist))}to{opacity:1;transform:none}}
+
+/* вариант «Б» добавляет лёгкий масштаб — движение заметнее */
+body.vB .go .anim{animation-name:riseB}
+@keyframes riseB{from{opacity:0;transform:translateY(var(--dist)) scale(.975)}to{opacity:1;transform:none}}
+
+/* линия эквити рисуется слева направо */
+.chart path.ln{stroke-dasharray:1;stroke-dashoffset:1;opacity:0}
+.go .chart path.ln{opacity:1;animation:draw var(--draw,900ms) var(--ease) both;
+  animation-delay:calc(var(--i,0) * var(--step))}
+@keyframes draw{from{stroke-dashoffset:1}to{stroke-dashoffset:0}}
+.go .chart path.fill{animation:soft 600ms ease both;animation-delay:calc(var(--draw,900ms) * .6)}
+.go .chart .dot{animation:soft 400ms ease both;animation-delay:var(--draw,900ms)}
+@keyframes soft{to{opacity:1}}
+
+@media (prefers-reduced-motion:reduce){
+  .anim,.go .anim,.chart path.ln,.go .chart path.ln{animation:none!important;opacity:1!important;
+    stroke-dashoffset:0!important;transform:none!important}
+}
+@media (max-width:780px){
+  .kpis{grid-template-columns:repeat(2,1fr)}
+  .week{grid-template-columns:repeat(4,1fr)}
+  .row{grid-template-columns:48px 1fr auto;gap:9px}
+  .row .sp,.row .rs{display:none}
+}
+</style>
+</head>
+<body class="vA">
+<div class="wrap">
+
+  <div class="top">
+    <h1>Как разделы появляются при открытии</h1>
+    <p class="lead">Три характера движения. Внутри каждого — обзор, журнал и помощник,
+      то есть ровно те три места, где это будет видно. Нажми вариант, чтобы посмотреть заново.</p>
+    <div class="bar">
+      <button class="vbtn on" data-v="A">А · Спокойный</button>
+      <button class="vbtn" data-v="B">Б · Заметный</button>
+      <button class="vbtn" data-v="C">В · Только цифры</button>
+      <span style="flex:1"></span>
+      <button class="vbtn go" id="replay">Повторить ↻</button>
+    </div>
+    <p class="hint" id="about"></p>
+  </div>
+
+  <h2 class="sec">Обзор</h2>
+  <div class="shell" id="ovw"></div>
+
+  <h2 class="sec">Журнал</h2>
+  <div class="shell" id="jrn"></div>
+
+  <h2 class="sec">Помощник</h2>
+  <div class="shell" id="ast"></div>
+
+</div>
+
+<script>
+/* ---------------- данные, выдуманные ---------------- */
+const KPIS = [
+  {k:"Сделок",   v:19,   f:n => String(Math.round(n))},
+  {k:"Win rate", v:46.2, f:n => n.toFixed(1) + "%"},
+  {k:"Итог",     v:6.8,  f:n => (n >= 0 ? "+" : "") + n.toFixed(2) + "%", cls:"pos"},
+  {k:"Средний RR", v:2.06, f:n => n.toFixed(2)},
+];
+const WEEK = [
+  {wd:"пн", n:7,  p:-1.5},  {wd:"вт", n:8,  p:2.4}, {wd:"ср", n:9,  p:0},
+  {wd:"чт", n:10, p:3.6},   {wd:"пт", n:11, p:-0.9}, {wd:"сб", n:12, p:null},
+  {wd:"нд", n:13, p:null},
+];
+const TRADES = [
+  {tm:"09:18", pr:"GER40",  sp:"London · Reversal",     rs:"TP",        nt:1.96},
+  {tm:"10:42", pr:"US100",  sp:"London · Continuation", rs:"SL",        nt:-0.70},
+  {tm:"12:05", pr:"XAUUSD", sp:"NY · Reversal",         rs:"TP руками", nt:1.34},
+  {tm:"13:30", pr:"US100",  sp:"NY · Continuation",     rs:"BE−",       nt:0},
+  {tm:"14:12", pr:"GER40",  sp:"NY · Reversal",         rs:"TP",        nt:2.20},
+  {tm:"15:47", pr:"ES500",  sp:"NY · Continuation",     rs:"SL",        nt:-1.00},
+  {tm:"16:20", pr:"US100",  sp:"NY · Reversal",         rs:"Скип",      nt:null},
+  {tm:"17:05", pr:"XAUUSD", sp:"NY · Continuation",     rs:"TP",        nt:0.88},
+];
+const CHAT = [
+  {who:"me", t:"Где я теряю больше всего?"},
+  {who:"ai", t:"На US100 в нью-йоркскую сессию: 11 сделок, win rate 27%, итог −3.4%. В лондон по нему же +2.1% на 8 сделках."},
+  {who:"me", t:"А по сетапам?"},
+  {who:"ai", t:"Хуже всего «поглощение» — 6 сделок, −2.8%. Лучше всего cisd — 9 сделок, +4.6%."},
+];
+const EQ = [0,4,2,7,5,11,9,16,13,19,17,24,21,28,26,33];
+
+/* ---------------- варианты ---------------- */
+const V = {
+  A: {step:"55ms",  dist:"10px", dur:"430ms", draw:"900ms",  count:700,  about:
+      "Спокойный: всё всплывает на 10 пикселей, соседние элементы с паузой 55 мс, цифры набираются 0.7 с. Заметно, но не отвлекает."},
+  B: {step:"85ms",  dist:"18px", dur:"560ms", draw:"1300ms", count:1100, about:
+      "Заметный: шаг больше, добавлен лёгкий масштаб, линия рисуется 1.3 с, цифры набираются дольше. Красиво в первый раз, может надоесть на десятый."},
+  C: {step:"0ms",   dist:"0px",  dur:"1ms",   draw:"800ms",  count:800,  about:
+      "Только цифры: карточки и строки появляются сразу, двигаются лишь линия эквити и числа. Самый быстрый на глаз."},
+};
+let cur = "A";
+
+/* ---------------- разметка ---------------- */
+const esc = s => String(s == null ? "" : s)
+  .replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");
+const tone = n => n > 0 ? "pos" : n < 0 ? "neg" : "bee";
+const pct  = n => (n > 0 ? "+" : "") + n.toFixed(2) + "%";
+
+/* Число не пишем сразу: ставим конечное значение в data-num, а на экран
+   выводим ноль. Досчитает его runCount(), когда придёт очередь. */
+function num(val, fmt, i, cls){
+  return '<span class="v anim ' + (cls || "") + '" style="--i:' + i + '"'
+       + ' data-num="' + val + '">' + fmt(0) + "</span>";
+}
+
+function ovwHtml(){
+  let h = '<div class="kpis">';
+  KPIS.forEach((k, i) => {
+    h += '<div class="kpi anim" style="--i:' + i + '"><div class="k">' + esc(k.k) + "</div>"
+       + num(k.v, k.f, i, k.cls || "") + "</div>";
+  });
+  h += "</div>";
+
+  /* линия идёт следом за показателями, дни — уже под неё */
+  const base = KPIS.length;
+  const w = 640, hgt = 150, max = Math.max(...EQ), min = Math.min(...EQ);
+  const x = i => i * (w / (EQ.length - 1));
+  const y = v => hgt - 12 - (v - min) / (max - min || 1) * (hgt - 30);
+  const line = EQ.map((v, i) => (i ? "L" : "M") + x(i).toFixed(1) + "," + y(v).toFixed(1)).join(" ");
+  h += '<div class="chart"><svg viewBox="0 0 ' + w + " " + hgt + '" preserveAspectRatio="none">'
+     + '<defs><linearGradient id="g" x1="0" y1="0" x2="0" y2="1">'
+     + '<stop offset="0" stop-color="#40e094" stop-opacity=".22"/>'
+     + '<stop offset="1" stop-color="#40e094" stop-opacity="0"/></linearGradient></defs>'
+     + '<path class="fill" d="' + line + " L" + w + "," + hgt + " L0," + hgt + ' Z"/>'
+     + '<path class="ln" pathLength="1" d="' + line + '" style="--i:' + base + '"/>'
+     + '<circle class="dot" r="4" cx="' + w + '" cy="' + y(EQ[EQ.length - 1]).toFixed(1) + '"/>'
+     + "</svg></div>";
+
+  h += '<div class="week">';
+  WEEK.forEach((d, i) => {
+    const has = d.p != null;
+    h += '<div class="day anim' + (has ? "" : " empty") + '" style="--i:' + (base + 1 + i) + '">'
+       + '<div class="wd">' + d.wd + "</div><div class='n'>" + d.n + "</div>"
+       + '<div class="p ' + (has ? tone(d.p) : "") + '"'
+       + (has ? ' data-num="' + d.p + '" data-fmt="pct"' : "") + ">"
+       + (has ? "0.00%" : "—") + "</div></div>";
+  });
+  h += "</div>";
+  return h;
+}
+
+function jrnHtml(){
+  let h = '<div class="rows">';
+  TRADES.forEach((t, i) => {
+    const skip = t.nt == null;
+    h += '<div class="row anim" style="--i:' + i + '">'
+       + '<span class="tm">' + t.tm + "</span>"
+       + '<span class="pr">' + esc(t.pr) + "</span>"
+       + '<span class="sp">' + esc(t.sp) + "</span>"
+       + '<span class="rs ' + (skip ? "" : tone(t.nt)) + '">' + esc(t.rs) + "</span>"
+       + '<span class="nt ' + (skip ? "" : tone(t.nt)) + '"'
+       + (skip ? "" : ' data-num="' + t.nt + '" data-fmt="pct"') + ">"
+       + (skip ? "—" : "0.00%") + "</span></div>";
+  });
+  return h + "</div>";
+}
+
+function astHtml(){
+  let h = '<div class="chat">';
+  CHAT.forEach((m, i) => {
+    h += '<div class="msg ' + m.who + ' anim" style="--i:' + i + '">' + esc(m.t) + "</div>";
+    /* перед ответом помощника — три точки, как будто он набирает */
+    if (m.who === "me" && CHAT[i + 1] && CHAT[i + 1].who === "ai"){
+      h += '<div class="wait anim" style="--i:' + (i + 0.5) + '"><i></i><i></i><i></i></div>';
+    }
+  });
+  return h + "</div>";
+}
+
+/* ---------------- счёт чисел ----------------
+   Идём по тем же номерам очереди, что и появление: цифра начинает
+   считаться ровно тогда, когда её карточка доехала. */
+function runCount(root, ms, step){
+  const ease = t => 1 - Math.pow(1 - t, 3);
+  root.querySelectorAll("[data-num]").forEach(el => {
+    const to = parseFloat(el.dataset.num);
+    const isPct = el.dataset.fmt === "pct";
+    const kpi = KPIS.find(k => el.classList.contains("v") && el.dataset.num == k.v);
+    const fmt = isPct ? (n => (n > 0 ? "+" : "") + n.toFixed(2) + "%")
+                      : (kpi ? kpi.f : (n => n.toFixed(2)));
+    const wait = (parseFloat(getComputedStyle(el).getPropertyValue("--i")) || 0) * step;
+    const t0 = performance.now() + wait;
+    (function tick(now){
+      const p = Math.max(0, Math.min(1, (now - t0) / ms));
+      el.textContent = fmt(to * ease(p));
+      if (p < 1) requestAnimationFrame(tick);
+      else el.textContent = fmt(to);
+    })(performance.now());
+  });
+}
+
+/* ---------------- запуск ---------------- */
+const boxes = [
+  {el: document.getElementById("ovw"), html: ovwHtml},
+  {el: document.getElementById("jrn"), html: jrnHtml},
+  {el: document.getElementById("ast"), html: astHtml},
+];
+
+function play(){
+  const v = V[cur];
+  document.body.className = "v" + cur;
+  const r = document.documentElement.style;
+  r.setProperty("--step", v.step);
+  r.setProperty("--dist", v.dist);
+  r.setProperty("--dur", v.dur);
+  r.setProperty("--draw", v.draw);
+  document.getElementById("about").textContent = v.about;
+
+  boxes.forEach(b => {
+    b.el.classList.remove("go");
+    b.el.innerHTML = b.html();
+    /* даём браузеру увидеть новую разметку без класса — иначе анимация
+       не перезапустится, и «Повторить» ничего не покажет */
+    void b.el.offsetWidth;
+    b.el.classList.add("go");
+    runCount(b.el, v.count, parseFloat(v.step));
+  });
+}
+
+document.querySelectorAll(".vbtn[data-v]").forEach(b => b.onclick = () => {
+  document.querySelectorAll(".vbtn[data-v]").forEach(x => x.classList.toggle("on", x === b));
+  cur = b.dataset.v;
+  play();
+});
+document.getElementById("replay").onclick = play;
+play();
+</script>
+</body>
+</html>
