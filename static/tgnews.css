@@ -1,0 +1,29 @@
+/* Смужка «Новини журналу — у Telegram» над робочою областю (tgnews.js).
+   Кольори з тем застосунку, тож смужка однаково читається в усіх темах. */
+
+/* колонка, у яку загорнуто #main: смужка зверху, робоча область під нею */
+.tgn-col{flex:1;min-width:0;display:flex;flex-direction:column;position:relative;z-index:1}
+
+.tgn{display:flex;align-items:center;gap:10px;min-height:42px;padding:6px 12px 6px clamp(16px,3vw,36px);
+  background:color-mix(in srgb, var(--accent) 9%, var(--bg));
+  border-bottom:1px solid color-mix(in srgb, var(--accent) 18%, transparent);
+  font-size:13.5px;line-height:1.4}
+.tgn-ic{flex:none;width:20px;height:20px;border-radius:50%;background:#229ED9;color:#fff;
+  display:grid;place-items:center}
+.tgn-txt{margin:0;flex:1;min-width:0;color:var(--text)}
+.tgn-txt b{font-weight:600}
+.tgn-txt span{color:var(--dim)}
+.tgn-cta{flex:none;color:var(--accent);font-weight:600;white-space:nowrap}
+.tgn-cta:hover{text-decoration:underline}
+.tgn-x{flex:none;width:30px;height:30px;border-radius:8px;display:grid;place-items:center;color:var(--faint)}
+.tgn-x:hover{color:var(--text);background:color-mix(in srgb, var(--text) 7%, transparent)}
+
+/* у гостьовому режимі зверху вже стоїть своя полоса (guest.css) — дві підряд не треба */
+html[data-guest] .tgn{display:none}
+
+/* телефон: тіло сторінки без flex, друге речення ховаємо — лишається коротко */
+@media (max-width:900px){
+  .tgn-col{display:block}
+  .tgn{padding-left:14px;font-size:13px}
+  .tgn-txt span{display:none}
+}
