@@ -139,8 +139,9 @@ new MutationObserver(muts => {
   muts.forEach(m => m.addedNodes.forEach(n => {
     if (n.nodeType !== 1 || !n.classList.contains("pnl-wrap")) return;
     const box = n.querySelector(".pnl");
-    /* даємо панелі дописати свій вміст (insertAdjacentHTML іде після build) */
-    requestAnimationFrame(() => run(box));
+    /* даємо панелі дописати свій вміст (insertAdjacentHTML іде після build).
+       setTimeout, не rAF: у прихованій вкладці rAF не приходить узагалі */
+    setTimeout(() => run(box), 0);
   }));
 }).observe(document.body, {childList: true});
 
