@@ -566,6 +566,12 @@ uk: {
   socHere: "Ми тут",
   socIgTip: "Instagram — розбори й новини журналу",
   socTtTip: "TikTok — короткі відео про торгівлю",
+
+  // ---- смужка про Telegram-канал над робочою областю ----
+  tgNewsLead: "Новини журналу — у Telegram.",
+  tgNewsText: "Анонсуємо оновлення й нові функції першими.",
+  tgNewsCta: "Підписатися",
+  tgNewsClose: "Закрити",
 },
 
 ru: {
@@ -1094,6 +1100,12 @@ ru: {
   socHere: "Мы тут",
   socIgTip: "Instagram — разборы и новости журнала",
   socTtTip: "TikTok — короткие видео о торговле",
+
+  // ---- полоска про Telegram-канал над рабочей областью ----
+  tgNewsLead: "Новости журнала — в Telegram.",
+  tgNewsText: "Анонсируем обновления и новые функции первыми.",
+  tgNewsCta: "Подписаться",
+  tgNewsClose: "Закрыть",
 },
 
 en: {
@@ -1622,6 +1634,12 @@ en: {
   socHere: "Follow",
   socIgTip: "Instagram — journal breakdowns and news",
   socTtTip: "TikTok — short videos about trading",
+
+  // ---- Telegram channel strip above the workspace ----
+  tgNewsLead: "Journal news is on Telegram.",
+  tgNewsText: "Updates and new features are announced there first.",
+  tgNewsCta: "Subscribe",
+  tgNewsClose: "Close",
 },
 
 };
