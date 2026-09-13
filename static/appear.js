@@ -117,6 +117,17 @@ function run(root){
     const base = (b && delayOf.has(b)) ? delayOf.get(b) + 150 : 150;
     set(p, "ap-fade", base + 700);
   });
+
+  /* Страховка: у прихованого елемента (смужка, згорнута на телефоні)
+     анімація не грає й animationend не приходить — клас лишався б
+     назавжди, а з ним і opacity:0. Після найдовшої можливої черги
+     знімаємо все, що не зняли самі. */
+  setTimeout(() => {
+    root.querySelectorAll(".ap, .ap-pop, .ap-draw, .ap-fade, .ap-bar").forEach(el => {
+      el.classList.remove("ap", "ap-pop", "ap-draw", "ap-fade", "ap-bar");
+      el.style.animationDelay = "";
+    });
+  }, CAP * STEP + ICAP * ISTEP + 2600);
 }
 
 /* ---- розділи: граємо лише при зміні розділу і на першому показі ---- */
