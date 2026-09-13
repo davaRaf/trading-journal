@@ -42,6 +42,13 @@
    чергу веде appear.js. Лишаємо елементи видимими, щоб не подвоювати рух. */
 .page .rise{opacity:1;transform:none;transition:none}
 
+/* Стара поява сторінки (.page.enter > * — pageIn на 0.3 с для всіх дітей
+   разом) била нашу чергу: селектор сильніший за .ap, тож верхні блоки
+   грали pageIn без затримки, а коли він закінчувався — смикались. Одна
+   анімація на елемент. */
+.page.enter > *{animation:none}
+.page.enter > .ap{animation:apRise var(--ap-dur) var(--ap-ease) both}
+
 /* на телефоні шлях коротший — сітка там щільніша */
 @media (max-width:900px){
   :root{--ap-dist:12px}
