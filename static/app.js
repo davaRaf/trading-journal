@@ -979,6 +979,20 @@ function ovTabsHtml(cur){
 }
 window.ovTabsHtml=ovTabsHtml;
 
+/* Той самий перемикач видно і в бічному меню: пункт «Огляд» дописує
+   «Рахунки» через ту саму волосинку, що і в h1.ovh, щоб про другий
+   розділ було видно одразу, а не тільки відкривши перший. Викликається
+   і з render() (стан уже відомий), і з i18n.js після зміни мови (там
+   своєї перевірки на «Рахунки» немає). */
+function updateNavDash(){
+  const a=document.querySelector('.nav a[data-v="dashboard"], .side a[data-v="dashboard"]');
+  const sp=a&&a.querySelector("span");
+  if(!sp) return;
+  const nm=viewAllowed("accounts")&&window.__acc&&__acc.navLabel?__acc.navLabel():"";
+  sp.innerHTML=nm?esc(T.ovTitle)+' <b class="navsub">'+esc(nm)+"</b>":esc(T.ovTitle);
+}
+window.updateNavDash=updateNavDash;
+
 function vDashboard(){
   if(!S.trades.length){
     /* Порожній журнал — це перший екран нової людини. Замість однієї
@@ -2464,6 +2478,7 @@ function render(){
      підсвічуємо «Огляд», інакше при #accounts не світилось би нічого. */
   const navV=v==="accounts"?"dashboard":v;
   document.querySelectorAll(".nav a, .side a[data-v]").forEach(a=>a.classList.toggle("on",a.dataset.v===navV));
+  updateNavDash();
   if(window.PL) PL.reset();
   /* кнопка-якорь сейчас исчезнет вместе с разделом — список без неё не нужен */
   if(window.Pick) Pick.close();

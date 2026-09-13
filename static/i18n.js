@@ -1675,7 +1675,12 @@ function applyLang(code){
   Object.keys(navMap).forEach(k => {
     /* «Новини» живуть у групі інструментів, решта — у верхньому меню */
     const a = document.querySelector('.nav a[data-v="'+k+'"], .side a[data-v="'+k+'"]');
-    if(a){ setTip(a, navMap[k][1]); const sp = a.querySelector("span"); if(sp) sp.textContent = navMap[k][0]; }
+    if(!a) return;
+    setTip(a, navMap[k][1]);
+    /* «Огляд» у меню сам дописує «Рахунки» (updateNavDash в app.js) —
+       тут його текст не чіпаємо, інакше приписка злетить. */
+    if(k === "dashboard"){ if(window.updateNavDash) updateNavDash(); return; }
+    const sp = a.querySelector("span"); if(sp) sp.textContent = navMap[k][0];
   });
 
   setText("journalLab", T.sdTools);
