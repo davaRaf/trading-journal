@@ -83,7 +83,11 @@ function run(root){
     const key = b || root;
     const k = perBlock.get(key) || 0;
     perBlock.set(key, k + 1);
-    const d = base + Math.min(k, ICAP) * ISTEP;
+    /* Довгий список (журнал на сотню рядків) не анімуємо цілком: за
+       межею черги рядки просто з'являються разом зі своїм блоком. Інакше
+       сотня одночасних анімацій — і швидке перемикання розділів лагає. */
+    if (k >= ICAP) return;
+    const d = base + k * ISTEP;
     el.__apDelay = d;
     set(el, "ap", d);
   });
@@ -94,14 +98,15 @@ function run(root){
     const cell = mk.closest(".day");
     const k = perCell.get(cell) || 0;
     perCell.set(cell, k + 1);
-    const base = (cell && cell.__apDelay) || 0;
-    set(mk, "ap-pop", base + 120 + k * 70);
+    if (!cell || cell.__apDelay == null) return;      /* клітинка поза чергою — плашки теж */
+    set(mk, "ap-pop", cell.__apDelay + 120 + k * 70);
   });
 
   /* смужки виростають після свого рядка */
   root.querySelectorAll(BARS).forEach(bar => {
     const row = bar.closest(ITEMS) || bar.closest(BLOCKS);
-    const base = (row && row.__apDelay) || (row && delayOf.get(row)) || 0;
+    const base = row ? (row.__apDelay != null ? row.__apDelay : delayOf.get(row)) : null;
+    if (base == null) return;                          /* рядок поза чергою — смужка теж */
     set(bar, "ap-bar", base + 220);
   });
 

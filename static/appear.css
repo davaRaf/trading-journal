@@ -49,6 +49,12 @@
 .page.enter > *{animation:none}
 .page.enter > .ap{animation:apRise var(--ap-dur) var(--ap-ease) both}
 
+/* Картка «Результати» в аналітиці має свою анімацію підміни (.m-swap у
+   motion.css) — вона потрібна, коли міняєш розріз без зміни розділу. Але
+   при відкритті розділу грали обидві, і в кінці картку смикало. Поки
+   йде черга — лише наша. */
+.ap.m-swap{animation:apRise var(--ap-dur) var(--ap-ease) both}
+
 /* на телефоні шлях коротший — сітка там щільніша */
 @media (max-width:900px){
   :root{--ap-dist:12px}
