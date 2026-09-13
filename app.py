@@ -1389,8 +1389,28 @@ class H(BaseHTTPRequestHandler):
                     + row("Зарегистрирован", dt(u["created_at"]))
                     + row("Telegram", ("@" + u["telegram_username"]) if u["telegram_username"] else ("да" if u["telegram_id"] else "нет"))
                     + row("Открытый журнал", "да · /u/%s" % e(u["nickname"]) if u["public_journal"] else "нет")
-                    + row("Метка партнёра", (u["ref_source"] + " · с " + dt(u["ref_at"])) if u["ref_source"] else "нет")
+                    + row("Метка партнёра",
+                          (REF_TITLES.get(u["ref_source"], u["ref_source"]) + " · с " + dt(u["ref_at"]))
+                          if u["ref_source"] else "нет")
                     + "</table>"
+                    # мітку іноді треба поправити руками: людина перейшла не
+                    # за тим посиланням, а далі її посилання рахуються чужому
+                    + "<p><small>Сменить метку:</small> "
+                    + " ".join(
+                        "<button class=refb data-r='%s' style=\"padding:6px 11px;margin-right:6px;"
+                        "border-radius:8px;border:1px solid #333;background:#161618;color:#eee;"
+                        "cursor:pointer\">%s</button>" % (k, e(v))
+                        for k, v in [("", "без метки")] + [(r, REF_TITLES.get(r, r)) for r in ref_all()])
+                    + " <span id=refmsg></span></p>"
+                    + "<script>document.querySelectorAll('.refb').forEach(b=>b.onclick=async()=>{"
+                      "refmsg.textContent='…';"
+                      "const r=await fetch('/api/admin/set-ref',{method:'POST',"
+                      "headers:{'Content-Type':'application/json'},"
+                      "body:JSON.stringify({nick:%s,ref:b.dataset.r})});"
+                      "const d=await r.json().catch(()=>({}));"
+                      "refmsg.textContent=r.ok?'готово':(d.error||('ошибка '+r.status));"
+                      "if(r.ok)setTimeout(()=>location.reload(),600);});</script>"
+                      % json.dumps(u["nickname"], ensure_ascii=False)
                     + "<h2>Сделки</h2><table>"
                     + row("Всего", t["n"]) + row("Из них скипов", t["skips"]) + row("Торговых дней", t["days"])
                     + row("Первая · последняя", "%s · %s" % (str(t["first"] or "—")[:10], str(t["last"] or "—")[:10]))
@@ -1848,6 +1868,34 @@ class H(BaseHTTPRequestHandler):
         body = self._body()
 
         # ---- вход и регистрация ----
+        # ---- поправити мітку руками: лише власникам ----
+        if p == "/api/admin/set-ref":
+            who = self._uid()
+            if not who:
+                return self._json({"error": "auth required"}, 401)
+            if not _is_admin(who):
+                return self._json({"error": "forbidden"}, 403)
+            if not isinstance(body, dict):
+                return self._json({"error": "bad json"}, 400)
+            nick = str(body.get("nick") or "").strip()
+            try:
+                u = db.get_user_by_nick(nick) or db.get_user_by_email(nick)
+            except Exception:
+                u = None
+            if not u:
+                return self._json({"error": "такого пользователя нет"}, 404)
+            raw = str(body.get("ref") or "").strip().lower()
+            ref = ref_norm(raw) if raw else ""
+            if raw and not ref:
+                return self._json({"error": "неизвестная метка"}, 400)
+            with db.connect() as conn:
+                conn.execute("UPDATE users SET ref_source=%s, ref_at=%s WHERE id=%s",
+                             (ref or None, "now()" and (datetime.datetime.now() if ref else None), u["id"]))
+                conn.commit()
+            print("admin: %s ставить мітку %r акаунту %s (id %s)" % (
+                who, ref, u["nickname"], u["id"]), flush=True)
+            return self._json({"ok": True, "ref": ref})
+
         # ---- видалення акаунта на прохання людини: лише власникам ----
         if p == "/api/admin/delete-user":
             who = self._uid()
