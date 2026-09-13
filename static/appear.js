@@ -55,8 +55,9 @@ function set(el, cls, delay){
       || el.classList.contains("ap-draw") || el.classList.contains("ap-fade")) return;
   el.style.animationDelay = Math.round(delay) + "ms";
   el.classList.add(cls);
-  el.addEventListener("animationend", function done(){
-    el.classList.remove(cls);
+  el.addEventListener("animationend", function done(e){
+    if (e.target !== el) return;            /* animationend спливає від рядків усередині */
+    el.classList.remove(cls, "m-swap");
     el.style.animationDelay = "";
     el.removeEventListener("animationend", done);
   });
@@ -129,7 +130,7 @@ function run(root){
      знімаємо все, що не зняли самі. */
   setTimeout(() => {
     root.querySelectorAll(".ap, .ap-pop, .ap-draw, .ap-fade, .ap-bar").forEach(el => {
-      el.classList.remove("ap", "ap-pop", "ap-draw", "ap-fade", "ap-bar");
+      el.classList.remove("ap", "ap-pop", "ap-draw", "ap-fade", "ap-bar", "m-swap");
       el.style.animationDelay = "";
     });
   }, CAP * STEP + ICAP * ISTEP + 2600);
