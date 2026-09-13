@@ -34,9 +34,11 @@ const BLOCKS = [
   ".as-msg", ".as-empty",
 ].join(",");
 
-/* Елементи всередині блоку, що йдуть своєю чергою після нього */
+/* Елементи всередині блоку, що йдуть своєю чергою після нього.
+   Порожні клітинки календаря (.day.off) сховані через opacity:0 — наша
+   анімація вела б їх до 1, і квадратик проступав би на секунду. */
 const ITEMS = [
-  ".stats .st", ".week .day", ".cal .day", ".dtrade", ".tlist tr", "table tbody tr",
+  ".stats .st", ".week .day", ".cal .day:not(.off)", ".dtrade", ".tlist tr", "table tbody tr",
   ".nw-ev", ".th-card", ".kpi", ".bw .cell", ".hb-opt", ".chip", ".dv-lv .r", ".dv-sc .s",
   ".arow", ".dims .pill", ".lk-col", ".lk-row",
 ].join(",");
