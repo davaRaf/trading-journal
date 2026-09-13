@@ -25,6 +25,7 @@ const ICAP  = 24;
 
 /* Блоки — те, що спливає цілком. Порядок черги — порядок у документі. */
 const BLOCKS = [
+  ".vhead", ".filters", ".dimsel",
   ".ovw .shell", ".ovw .rail", ".card", ".dv-card", ".dv-head",
   ".nw-warn", ".nw-days", ".nw-filters", ".nw-search", ".nw-list",
   ".st-sec", ".fcard", ".hb", ".th-grp > .nt-sub", ".th-grid", ".th-collab", ".th-custom",
@@ -36,7 +37,12 @@ const BLOCKS = [
 const ITEMS = [
   ".stats .st", ".week .day", ".cal .day", ".dtrade", ".tlist tr", "table tbody tr",
   ".nw-ev", ".th-card", ".kpi", ".bw .cell", ".hb-opt", ".chip", ".dv-lv .r", ".dv-sc .s",
+  ".arow", ".dims .pill", ".lk-col", ".lk-row",
 ].join(",");
+
+/* Смужки (win rate в аналітиці, розрізи в обзорі) виростають від нуля
+   після свого рядка */
+const BARS = ".arow .wrbar .track i, .ovw .rail .bar .ln i";
 
 /* Плашки результату в клітинках календаря — після своєї клітинки */
 const MARKS = ".cal .day .mk, .week .day .mk";
@@ -90,6 +96,13 @@ function run(root){
     perCell.set(cell, k + 1);
     const base = (cell && cell.__apDelay) || 0;
     set(mk, "ap-pop", base + 120 + k * 70);
+  });
+
+  /* смужки виростають після свого рядка */
+  root.querySelectorAll(BARS).forEach(bar => {
+    const row = bar.closest(ITEMS) || bar.closest(BLOCKS);
+    const base = (row && row.__apDelay) || (row && delayOf.get(row)) || 0;
+    set(bar, "ap-bar", base + 220);
   });
 
   /* лінія еквіті малюється, заливка під нею проявляється слідом */
