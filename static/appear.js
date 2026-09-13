@@ -21,7 +21,8 @@
 const STEP  = 85;    /* між сусідніми блоками */
 const ISTEP = 60;    /* між рядками/клітинками всередині блоку */
 const CAP   = 14;    /* далі цієї черги не чекаємо: довгий список їде разом */
-const ICAP  = 24;
+const ICAP  = 24;    /* бюджет часу всередині блоку: ICAP*ISTEP, довший список стискаємо */
+const IMAX  = 48;    /* більше цього в блоці не анімуємо (журнал на сотню рядків лагав) */
 
 /* Блоки — те, що спливає цілком. Порядок черги — порядок у документі. */
 const BLOCKS = [
@@ -76,19 +77,25 @@ function run(root){
     set(b, "ap", d);
   });
 
-  /* рядки й клітинки: черга всередині свого блоку */
+  /* рядки й клітинки: черга всередині свого блоку. Час на блок обмежений
+     (ICAP*ISTEP): у місяці 35–42 клітинки, і всі мають з'явитись — тож крок
+     стискаємо, а не обрізаємо чергу. Зовсім довгий список (журнал на сотню
+     рядків) далі IMAX не анімуємо: сотня одночасних анімацій лагала. */
+  const items = [...root.querySelectorAll(ITEMS)];
+  const count = new Map();
+  items.forEach(el => { const key = el.closest(BLOCKS) || root; count.set(key, (count.get(key) || 0) + 1); });
   const perBlock = new Map();
-  root.querySelectorAll(ITEMS).forEach(el => {
+  items.forEach(el => {
     const b = el.closest(BLOCKS);
     const base = (b && delayOf.has(b)) ? delayOf.get(b) + 90 : 0;
     const key = b || root;
     const k = perBlock.get(key) || 0;
     perBlock.set(key, k + 1);
-    /* Довгий список (журнал на сотню рядків) не анімуємо цілком: за
-       межею черги рядки просто з'являються разом зі своїм блоком. Інакше
-       сотня одночасних анімацій — і швидке перемикання розділів лагає. */
-    if (k >= ICAP) return;
-    const d = base + k * ISTEP;
+    el.__apDelay = null;
+    if (k >= IMAX) return;
+    const n = Math.min(count.get(key), IMAX);
+    const step = n > ICAP ? ICAP * ISTEP / n : ISTEP;
+    const d = base + k * step;
     el.__apDelay = d;
     set(el, "ap", d);
   });
