@@ -317,12 +317,20 @@
      шапкою й смугою вкладок, стоїть над ними і гортається всередині. */
   .nw-panel{position:fixed; left:12px; right:12px; width:auto; max-width:none; z-index:55;
     top:auto; bottom:calc(76px + env(safe-area-inset-bottom));
-    max-height:calc(100vh - 150px - env(safe-area-inset-bottom));
-    max-height:calc(100dvh - 150px - env(safe-area-inset-bottom)); overflow-y:auto; overscroll-behavior:contain; -webkit-overflow-scrolling:touch}
+    max-height:calc(100vh - 176px - env(safe-area-inset-bottom));
+    max-height:calc(100dvh - 176px - env(safe-area-inset-bottom) - env(safe-area-inset-top));
+    overflow-y:auto; overflow-x:hidden; overscroll-behavior:contain; touch-action:pan-y;
+    -webkit-overflow-scrolling:touch}
+  /* Колонки 1fr мають мінімум «по вмісту»: довгий підпис («Опитування
+     споживачів») розсовував сітку ширше за панель, і її тягало вбік. */
+  .nw-panel .cols,.nw-panel .left,.nw-panel .grp{min-width:0}
+  /* над шапкою ще смуга гостя/демо — панель мусить бути нижчою на її висоту */
+  body.has-gbar .nw-panel,body.has-pbar .nw-panel{
+    max-height:calc(100dvh - 228px - env(safe-area-inset-bottom) - env(safe-area-inset-top))}
   .nw-filter-open .as-fab,.nw-filter-open .demo-badge{visibility:hidden; pointer-events:none}
   .nw-panel .foot{position:sticky; bottom:-14px; margin:0 -14px -14px; padding:12px 14px;
     background:var(--card); border-top:1px solid var(--line-soft)}
-  .nw-panel .rows.two,.nw-panel .rows.imps,.nw-panel .rows{grid-template-columns:1fr 1fr}
+  .nw-panel .rows.two,.nw-panel .rows.imps,.nw-panel .rows{grid-template-columns:minmax(0,1fr) minmax(0,1fr)}
 
   /* На телефоні таблиця перестає бути таблицею: дата стає заголовком дня,
      подія — двома рядками. Горизонтальної прокрутки немає. */
@@ -342,7 +350,10 @@
   .nw-tab td.num::before{content:attr(data-l) " "; font-size:9px; letter-spacing:.1em;
     text-transform:uppercase; color:var(--faint)}
   .nw-tab td.gr{display:none}
-  .nw-line td{padding:0 12px}
+  /* height:0 з широкого екрана тут не годиться: клітинка стає блоком, і
+     смуга «зараз» лягала поверх заголовка дня й наступної події */
+  .nw-line td{height:auto; padding:4px 12px 2px}
+  .nw-line .ln{padding:3px 0}
   .nw-det .in{padding:14px 12px}
   .nw-det .r3{grid-template-columns:1fr 1fr}
 }
