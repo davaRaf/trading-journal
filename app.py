@@ -48,6 +48,7 @@ import ts_store
 import calendar_feed
 import tv_calendar
 from calendar_feed import calendar_events, event_history
+from zoneinfo import ZoneInfo
 
 ROOT   = config.ROOT
 STATIC = os.path.join(ROOT, "static")
@@ -832,6 +833,22 @@ def in_background(fn, *args):
     threading.Thread(target=run, daemon=True).start()
 
 
+def request_tz(raw, user=None):
+    """Пояс запиту: спершу той, що прислав браузер, потім із профілю.
+
+    Браузер шле свій, бо гість профілю не має, а вибір пояса має діяти
+    й до входу. Не впізнали назву — Київ, як було завжди.
+    """
+    for want in (raw, (user or {}).get("tz") if user else None):
+        if not want:
+            continue
+        try:
+            return ZoneInfo(str(want))
+        except Exception:
+            continue
+    return calendar_feed.KYIV
+
+
 def user_public(user):
     return {"id": user["id"], "email": user["email"], "nickname": user["nickname"],
             "telegram": user["telegram_username"] or (str(user["telegram_id"])
@@ -840,6 +857,7 @@ def user_public(user):
             "digest_hour": user["digest_hour"], "digest_minute": user["digest_minute"],
             "digest_enabled": user["digest_enabled"],
             "public_journal": bool(user["public_journal"]),
+            "tz": user["tz"] or "Europe/Kyiv",
             "email_confirmed": user["email_confirmed_at"] is not None}
 
 
@@ -1025,6 +1043,19 @@ class H(BaseHTTPRequestHandler):
 
     def _uid(self):
         return auth.current_user_id(self)
+
+    def _tz(self):
+        """Часовий пояс того, хто прислав запит: ?tz=… або профіль."""
+        raw = urllib.parse.parse_qs(urlparse(self.path).query).get("tz", [""])[0]
+        user = None
+        if not raw:
+            uid = self._uid()
+            if uid:
+                try:
+                    user = db.get_user(uid)
+                except Exception:
+                    user = None
+        return request_tz(raw, user)
 
     def _cookie(self, name):
         try:
@@ -1626,8 +1657,11 @@ class H(BaseHTTPRequestHandler):
             # Розділу «Новини» віддаємо рівно один робочий тиждень: усередині
             # ми знаємо більше (фід плюс дні вперед з TradingView), і без
             # цього зрізу стрічка днів угорі розділу тягнулась на два тижні.
+            # Вікно ріжемо в поясі того, хто дивиться: у Нью-Йорку київський
+            # ранок понеділка — це ще вечір неділі, і без цього в стрічку
+            # лізли вихідні, яких ми там не хочемо.
             events, warn = calendar_events()
-            return self._json({"events": calendar_feed.week_only(events),
+            return self._json({"events": calendar_feed.week_only(events, tz=self._tz()),
                                "warning": warn})
 
         # Історія однієї події: попередні випуски з архіву календаря.
@@ -2106,6 +2140,19 @@ class H(BaseHTTPRequestHandler):
             on = bool((body or {}).get("on"))
             db.set_public(uid, on)
             return self._json({"public_journal": on})
+
+        # ---- часовий пояс ----
+        # Його ставлять у розділі «Новини», а живе він у профілі: бот
+        # шле зведення тим самим поясом, інакше «о 8:00» означало б різне
+        # на сайті й у Телеграмі.
+        if p == "/api/me/tz":
+            want = str((body or {}).get("tz") or "").strip()
+            try:
+                ZoneInfo(want)
+            except Exception:
+                return self._json({"error": "невідомий часовий пояс"}, 400)
+            db.set_tz(uid, want)
+            return self._json({"tz": want})
 
         # ---- зміна власного пароля ----
         # Старий пароль питаємо навіть у того, хто вже увійшов: сесія живе

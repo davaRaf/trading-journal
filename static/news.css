@@ -1,5 +1,9 @@
 /* Розділ «Новини». Окремий файл, щоб не заважати правкам у style.css.
-   Кольори беруться з тем застосунку. */
+   Кольори беруться з тем застосунку.
+
+   Календар зібраний таблицею, як у Forex Factory: дата злиплена на весь
+   день, час пишеться один раз на групу, факт стоїть поруч із прогнозом.
+   Люди приходять сюди з Forex Factory — що менше їм перевчатись, то краще. */
 
 :root{
   /* важливість: червоний · помаранчевий · жовтий */
@@ -8,14 +12,6 @@
 :root[data-theme="dark"]{
   --n-h:#f2645f; --n-m:#f0964a; --n-l:#efc258; --n-x:#9aa2ad;
 }
-/* Підкладка плашок замішується з кольором картки, а не кладеться напівпрозорою:
-   за списком живе фонова анімація, і крізь прозорий фон просвічували її лінії. */
-:root{
-  --n-h-bg:color-mix(in srgb, var(--n-h) 10%, var(--card));
-  --n-m-bg:color-mix(in srgb, var(--n-m) 11%, var(--card));
-  --n-l-bg:color-mix(in srgb, var(--n-l) 11%, var(--card));
-  --n-x-bg:color-mix(in srgb, var(--n-x) 11%, var(--card));
-}
 
 /* ---------- попередження ---------- */
 .nw-warn{padding:12px 14px; border-radius:var(--r); margin-bottom:14px;
@@ -23,189 +19,323 @@
   font-size:13.5px; color:var(--text); line-height:1.5}
 .nw-warn b{color:var(--be)}
 
-/* ---------- дні тижня ---------- */
-.nw-days{display:flex; gap:6px; overflow-x:auto; padding-bottom:2px; margin-bottom:12px;
-  scrollbar-width:none}
-.nw-days::-webkit-scrollbar{display:none}
-.nw-day,.nw-week{
-  border:1px solid var(--line); border-radius:var(--r); background:var(--card);
-  color:var(--text);                       /* без цього кнопка бере чорний колір браузера */
-  padding:10px 8px; cursor:pointer; text-align:center;
-  display:flex; flex-direction:column; gap:3px; align-items:center; justify-content:center;
-  transition:border-color .2s, background .2s;
-}
-.nw-day{flex:1 1 0; min-width:76px}
-.nw-week{flex:0 0 auto; min-width:98px; padding:10px 14px}
-.nw-day:hover,.nw-week:hover{border-color:color-mix(in srgb, var(--text) 22%, transparent)}
-.nw-day.on,.nw-week.on{background:var(--panel-2);
-  border-color:color-mix(in srgb, var(--text) 30%, transparent)}
-.nw-day .wd,.nw-week .wd{font-family:var(--mono); font-size:10px; letter-spacing:.12em;
-  text-transform:uppercase; color:var(--faint)}
-.nw-day .dt{font-family:var(--mono); font-size:17px; font-weight:500;
-  font-variant-numeric:tabular-nums; color:inherit}
-.nw-week .dt{font-family:var(--mono); font-size:14px; font-weight:500; color:inherit}
-.nw-day.today .dt{color:var(--up)}
-.nw-day .dots{display:flex; gap:3px; justify-content:center; min-height:6px; margin-top:1px}
-.nw-day .dots i{width:5px; height:5px; border-radius:50%}
-.nw-day .dots i.h{background:var(--n-h)}
-.nw-day .dots i.m{background:var(--n-m)}
-.nw-day .dots i.l{background:var(--n-l)}
-/* банківський вихідний — сірим: не важливість, а відсутність торгів */
-.nw-day .dots i.x{background:var(--n-x)}
-
-/* ---------- фільтри сегментами ---------- */
-.nw-filters{display:flex; flex-direction:column; align-items:flex-start; gap:10px;
-  margin-bottom:14px}
-.nw-grp{display:flex; align-items:center; flex-wrap:nowrap; overflow-x:auto; max-width:100%;
-  gap:0; padding:3px; border-radius:99px;
-  background:var(--panel); border:1px solid var(--line); scrollbar-width:none}
-.nw-grp::-webkit-scrollbar{display:none}
-.nw-grp .lab{padding:0 12px 0 11px; flex:0 0 auto;
-  font-family:var(--mono); font-size:10px; letter-spacing:.13em;
-  text-transform:uppercase; color:var(--faint)}
-.nw-chip{border:0; background:transparent; color:var(--dim); font:inherit; font-size:12.5px;
-  padding:7px 14px; border-radius:99px; cursor:pointer; flex:0 0 auto;
-  display:flex; align-items:center; gap:7px; white-space:nowrap;
-  transition:color .18s, background .18s}
-.nw-chip:hover{color:var(--text)}
-.nw-chip.on{background:var(--panel-2); color:var(--text); box-shadow:inset 0 0 0 1px var(--line)}
-.nw-chip.off{opacity:.42}
-.nw-chip i{width:8px; height:8px; border-radius:50%; flex:none}
-.nw-chip i.h{background:var(--n-h)}
-.nw-chip i.m{background:var(--n-m)}
-.nw-chip i.l{background:var(--n-l)}
-.nw-chip i.x{background:var(--n-x)}
-.nw-chip .n{font-family:var(--mono); font-size:10.5px; color:var(--faint)}
-.nw-chip.on .n{color:var(--dim)}
-
-/* ---------- пошук по назві ---------- */
-.nw-search{position:relative; display:block; margin:-4px 0 12px; color:var(--faint)}
-.nw-search svg{position:absolute; left:13px; top:50%; transform:translateY(-50%); pointer-events:none}
-.nw-search input{width:100%; box-sizing:border-box; font:inherit; font-size:13px;
-  padding:9px 14px 9px 36px; border-radius:99px; -webkit-appearance:none; appearance:none;
+/* ---------- панель: стрілки днів, день/тиждень, пошук ---------- */
+.nw-bar{display:flex; align-items:center; gap:8px; flex-wrap:wrap; margin-bottom:12px;
+  padding:8px; border-radius:var(--r); background:var(--card); border:1px solid var(--line)}
+.nw-nav{display:flex; align-items:center; gap:2px}
+.nw-ico{display:inline-flex; align-items:center; justify-content:center; width:36px; height:36px;
+  border:1px solid transparent; background:transparent; color:var(--dim);
+  border-radius:var(--r-sm); cursor:pointer;
+  transition:background .16s, color .16s, border-color .16s}
+.nw-ico:hover{background:var(--panel-2); color:var(--text); border-color:var(--line)}
+.nw-ico[disabled]{opacity:.35; cursor:default}
+.nw-ico[disabled]:hover{background:transparent; color:var(--dim); border-color:transparent}
+.nw-when{min-width:154px; text-align:center; padding:0 6px;
+  font-size:14.5px; font-weight:600; letter-spacing:-.01em; color:var(--text)}
+.nw-when span{display:block; font-family:var(--mono); font-size:10px; font-weight:400;
+  letter-spacing:.13em; text-transform:uppercase; color:var(--faint)}
+.nw-seg{display:flex; padding:3px; border-radius:99px;
+  background:var(--panel); border:1px solid var(--line)}
+.nw-seg button{border:0; background:transparent; font:inherit; font-size:12.5px;
+  color:var(--dim); padding:6px 14px; border-radius:99px; cursor:pointer;
+  transition:background .16s, color .16s}
+.nw-seg button:hover{color:var(--text)}
+.nw-seg button[aria-pressed="true"]{background:var(--panel-2); color:var(--text);
+  box-shadow:inset 0 0 0 1px var(--line)}
+.nw-sp{flex:1 1 auto}
+/* ---------- пояс: кнопка й список ---------- */
+.nw-tzwrap{position:relative}
+/* Кнопка пояса виглядає кнопкою з першого погляду: рамка, фон і галочка
+   вниз. Поки вона була просто написом «UTC+3», ніхто й не здогадувався,
+   що на неї можна натиснути. */
+.nw-tz{display:inline-flex; align-items:center; gap:7px; font:inherit; font-size:12.5px;
+  color:var(--dim); background:var(--panel); border:1px solid var(--line);
+  border-radius:99px; padding:7px 12px; cursor:pointer; white-space:nowrap;
+  transition:color .16s, background .16s, border-color .16s}
+.nw-tz .nm{color:var(--text)}
+.nw-tz .of{font-family:var(--mono); font-size:10.5px; letter-spacing:.06em;
+  color:var(--faint)}
+.nw-tz .car{color:var(--faint); transition:transform .18s}
+.nw-tz:hover{border-color:color-mix(in srgb, var(--text) 24%, transparent)}
+.nw-tz:hover .car{color:var(--dim)}
+.nw-tz[aria-expanded="true"]{background:var(--panel-2);
+  border-color:color-mix(in srgb, var(--accent) 45%, transparent)}
+.nw-tz[aria-expanded="true"] .car{transform:rotate(180deg); color:var(--accent)}
+.nw-tz:focus-visible{outline:2px solid var(--accent); outline-offset:-2px}
+@media (prefers-reduced-motion:reduce){ .nw-tz .car{transition:none} }
+.nw-tzpanel{position:absolute; right:0; top:calc(100% + 8px); z-index:30; width:290px;
+  max-width:calc(100vw - 32px); padding:12px; border-radius:var(--r);
+  background:var(--card); border:1px solid var(--line); box-shadow:var(--shadow-pop);
+  transform-origin:top right;
+  animation:nw-pop .24s cubic-bezier(.22,.9,.24,1) both}
+.nw-tzpanel.shut{animation:nw-unpop .15s ease-in both}
+@keyframes nw-pop{from{opacity:0; transform:translateY(-7px) scale(.97)}
+                  to{opacity:1; transform:none}}
+@keyframes nw-unpop{from{opacity:1; transform:none}
+                    to{opacity:0; transform:translateY(-5px) scale(.98)}}
+.nw-tzpanel .h{margin:0 0 9px; font-size:12px; font-weight:600; color:var(--text)}
+.nw-tzpanel .rows{display:flex; flex-direction:column; gap:1px;
+  max-height:min(58vh, 380px); overflow-y:auto}
+.nw-tzpanel .row{display:flex; align-items:center; gap:10px; width:100%;
+  font:inherit; font-size:13px; text-align:left; color:var(--text);
+  background:transparent; border:0; border-radius:var(--r-sm); padding:8px 10px;
+  cursor:pointer; transition:background .14s}
+.nw-tzpanel .row:hover{background:var(--panel-2)}
+.nw-tzpanel .row.on{background:var(--accent-soft); color:var(--accent)}
+.nw-tzpanel .row .nm{flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis;
+  white-space:nowrap}
+.nw-tzpanel .row .of{font-family:var(--mono); font-size:10.5px; letter-spacing:.06em;
+  color:var(--faint)}
+.nw-tzpanel .row.on .of{color:var(--accent)}
+.nw-search{position:relative; display:flex; align-items:center; color:var(--faint)}
+.nw-search svg{position:absolute; left:12px; pointer-events:none}
+.nw-search input{width:190px; max-width:100%; box-sizing:border-box; font:inherit; font-size:13px;
+  padding:8px 13px 8px 34px; border-radius:99px; -webkit-appearance:none; appearance:none;
   background:var(--panel); border:1px solid var(--line); color:var(--text)}
 .nw-search input::placeholder{color:var(--faint)}
 .nw-search input:focus{outline:none; border-color:var(--accent)}
 .nw-search input::-webkit-search-cancel-button{-webkit-appearance:none; appearance:none}
 
-/* ---------- список подій ---------- */
-.nw-list{display:flex; flex-direction:column; gap:6px}
-.nw-ev{display:grid; grid-template-columns:64px 52px 1fr auto; gap:0 14px; align-items:center;
-  background:var(--card); border:1px solid var(--line-soft); border-radius:var(--r);
-  padding:12px 16px; border-left:3px solid transparent}
-.nw-ev.h{border-left-color:var(--n-h); background:var(--n-h-bg)}
-.nw-ev.m{border-left-color:var(--n-m); background:var(--n-m-bg)}
-.nw-ev.l{border-left-color:var(--n-l); background:var(--n-l-bg)}
-.nw-ev.x{border-left-color:var(--n-x); background:var(--n-x-bg)}
-/* що вже минуло — гасимо кольором, не прозорістю: інакше крізь плашку
-   знову видно фонову анімацію */
-.nw-ev.past{filter:saturate(.45)}
-.nw-ev.past .tm,.nw-ev.past .ttl{color:var(--dim)}
-.nw-ev.past .cur,.nw-ev.past .num,.nw-ev.past .ttl small{color:var(--faint)}
-.nw-ev .tm{font-family:var(--mono); font-size:13.5px; font-variant-numeric:tabular-nums;
-  color:var(--text)}
-.nw-ev .cur{font-family:var(--mono); font-size:11px; letter-spacing:.06em; color:var(--dim);
-  border:1px solid var(--line); border-radius:6px; padding:3px 0; text-align:center}
-.nw-ev .ttl{font-size:14px; line-height:1.35; min-width:0}
-.nw-ev .ttl small{display:block; font-family:var(--mono); font-size:10.5px; color:var(--faint);
-  margin-top:3px; letter-spacing:.04em}
-.nw-ev .num{display:flex; gap:16px; font-family:var(--mono); font-size:12px;
-  font-variant-numeric:tabular-nums; color:var(--dim); text-align:right}
-.nw-ev .num > div:not(.badge){display:flex; flex-direction:column; gap:2px; min-width:52px}
-.nw-ev .num span{font-size:9.5px; letter-spacing:.1em; text-transform:uppercase; color:var(--faint)}
-.nw-ev .badge{display:inline-flex; align-items:center; justify-content:center; align-self:center;
-  font-family:var(--mono); font-size:9.5px; letter-spacing:.1em; text-transform:uppercase;
-  line-height:1; height:22px; padding:0 10px; white-space:nowrap;
-  color:var(--up); border:1px solid color-mix(in srgb, var(--up) 45%, transparent);
-  background:var(--up-soft); border-radius:99px}
+/* ---------- кнопка «Фільтр» і панель під нею ----------
 
-/* ---------- заголовок дня в режимі тижня ---------- */
-.nw-dayhead{display:flex; align-items:center; gap:10px; margin:14px 0 2px}
-.nw-dayhead:first-child{margin-top:0}
-.nw-dayhead b{font-size:13.5px; font-weight:600; letter-spacing:-.01em}
-.nw-dayhead span{font-family:var(--mono); font-size:10.5px; letter-spacing:.1em;
-  text-transform:uppercase; color:var(--faint)}
-.nw-dayhead .rule{flex:1; height:1px; background:var(--line-soft)}
+   Як у Forex Factory: одна кнопка праворуч, а в ній три групи галочок.
+   Чіпи рядком тут не годяться — валют дев'ять, типів десять, і рядок
+   із двадцяти фішок з'їдав більше місця, ніж сама таблиця. */
+.nw-fwrap{position:relative}
+.nw-fbtn{display:inline-flex; align-items:center; gap:7px; font:inherit; font-size:12.5px;
+  color:var(--dim); background:var(--panel); border:1px solid var(--line);
+  border-radius:99px; padding:8px 14px; cursor:pointer;
+  transition:color .16s, background .16s, border-color .16s}
+.nw-fbtn:hover{color:var(--text)}
+.nw-fbtn.on{color:var(--accent); border-color:color-mix(in srgb, var(--accent) 45%, transparent);
+  background:var(--accent-soft)}
+.nw-fbtn .dot{width:6px; height:6px; border-radius:50%; background:var(--accent)}
+.nw-fbtn[aria-expanded="true"]{background:var(--panel-2); color:var(--text)}
 
-.nw-empty{padding:40px 20px; text-align:center; color:var(--faint); font-size:14px;
-  border:1px dashed var(--line); border-radius:var(--r)}
+.nw-panel{position:absolute; right:0; top:calc(100% + 8px); z-index:30; width:600px;
+  max-width:min(600px, calc(100vw - 32px));
+  display:flex; flex-direction:column; gap:12px; padding:14px;
+  background:var(--card); border:1px solid var(--line); border-radius:var(--r);
+  box-shadow:var(--shadow-pop)}
+.nw-panel .cols{display:grid; grid-template-columns:1.35fr .65fr; gap:12px; align-items:start}
+.nw-panel .left{display:flex; flex-direction:column; gap:12px}
+.nw-panel .grp{padding:11px 13px 12px; border:1px solid var(--line-soft);
+  border-radius:var(--r-sm); background:var(--panel-2)}
+.nw-panel .h{margin:0 0 9px; font-size:12px; font-weight:600; color:var(--text);
+  display:flex; align-items:center; gap:6px; flex-wrap:wrap}
+.nw-panel .h .sep{color:var(--faint)}
+.nw-panel .rows{display:flex; flex-direction:column; gap:7px}
+.nw-panel .rows.two{display:grid; grid-template-columns:1fr 1fr; gap:7px 12px}
+.nw-panel .rows.imps{display:grid; grid-template-columns:1fr 1fr; gap:7px 12px}
+.nw-panel .chk{display:flex; align-items:center; gap:8px; font-size:13px; color:var(--text);
+  cursor:pointer; min-height:22px}
+.nw-panel .chk input{width:15px; height:15px; margin:0; flex:none; cursor:pointer;
+  accent-color:var(--accent)}
+.nw-panel .chk span{min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap}
+.nw-panel .foot{display:flex; align-items:center; gap:8px; flex-wrap:wrap}
+.nw-panel .nw-btn{font:inherit; font-size:12.5px; padding:8px 15px; border-radius:var(--r-sm);
+  cursor:pointer; border:1px solid var(--line); background:var(--panel); color:var(--text)}
+.nw-panel .nw-btn:hover{background:var(--panel-2)}
+.nw-panel .nw-btn.nw-apply{background:var(--accent); border-color:var(--accent); color:var(--accent-ink);
+  font-weight:500}
+.nw-panel .nw-btn.nw-apply:hover{filter:brightness(1.06)}
+.nw-lnk,.nw-panel .lnk{border:0; background:none; padding:0; font:inherit; font-size:12px;
+  color:var(--accent); cursor:pointer; text-decoration:underline;
+  text-underline-offset:2px}
+.nw-panel .lnk:hover{text-decoration:none}
+.nw-panel .lnk.warn{color:var(--down); font-size:12.5px}
 
-@media (max-width:760px){
-  .nw-ev{grid-template-columns:56px 46px 1fr; gap:0 10px}
-  .nw-ev .num{grid-column:1/-1; justify-content:flex-start; margin-top:8px; text-align:left}
-  .nw-ev .num > div:not(.badge){min-width:0}
-}
+/* Важливість — висотою стовпчиків, а не самим кольором: на жовту й
+   помаранчеву крапку однаково дивляться ті, хто кольори розрізняє гірше.
+   Сам значок — SVG (див. sig() у news.js): висоти в ньому задані
+   координатами, і жодне чуже правило їх не зсуне. */
+.nw-sig{display:inline-block; flex:none; vertical-align:-2px}
+.nw-sig rect{fill:var(--line)}
+.nw-sig.h rect{fill:var(--n-h)}
+.nw-sig.m rect.a,.nw-sig.m rect.b{fill:var(--n-m)}
+.nw-sig.l rect.a{fill:var(--n-l)}
+.nw-sig.x circle{stroke:var(--n-x)}
 
-/* ---------- картка події клікається ---------- */
-.nw-ev{cursor:pointer; transition:border-color .18s, box-shadow .18s, transform .18s}
-.nw-ev:hover{border-color:color-mix(in srgb, var(--text) 20%, transparent);
-  box-shadow:0 2px 10px color-mix(in srgb, var(--text) 7%, transparent)}
-.nw-ev:active{transform:scale(.995)}
-.nw-ev:focus-visible{outline:2px solid var(--accent); outline-offset:2px}
-@media (prefers-reduced-motion: reduce){
-  .nw-ev{transition:none}
-  .nw-ev:active{transform:none}
-}
-
-/* ---------- вікно події ---------- */
-.modal-box:has(.nv){max-width:560px}
-.nv{display:flex; flex-direction:column; gap:16px}
-
-.nv-top{display:flex; align-items:center; flex-wrap:wrap; gap:8px}
-.nv-cur{font-family:var(--mono); font-size:11px; letter-spacing:.06em; color:var(--dim);
-  border:1px solid var(--line); border-radius:6px; padding:4px 9px}
-/* Важливість — крапкою кольору й словом звичайного кольору тексту.
-   Білим по жовтому виходило близько 3:1 при розмірі 10px — нечитабельно. */
-.nv-imp{display:inline-flex; align-items:center; gap:6px;
-  font-family:var(--mono); font-size:10px; letter-spacing:.1em; text-transform:uppercase;
-  border:1px solid var(--line); border-radius:99px; padding:4px 10px; color:var(--dim)}
-.nv-imp i{width:7px; height:7px; border-radius:50%; flex:none}
-.nv-imp.h i{background:var(--n-h)}
-.nv-imp.m i{background:var(--n-m)}
-.nv-imp.l i{background:var(--n-l)}
-.nv-imp.x i{background:var(--n-x)}
-.nv-when{font-size:13px; color:var(--text)}
-.nv-left{margin-left:auto; font-family:var(--mono); font-size:11px; letter-spacing:.04em;
-  color:var(--up); border:1px solid color-mix(in srgb, var(--up) 40%, transparent);
-  background:var(--up-soft); border-radius:99px; padding:4px 10px; white-space:nowrap}
-.nv-left.off{color:var(--faint); background:var(--panel-2); border-color:var(--line)}
-
-/* три числа поруч: прогноз · було · різниця */
-.nv-nums{display:grid; grid-template-columns:repeat(auto-fit, minmax(120px, 1fr)); gap:10px}
-.nv-nums > div{background:var(--panel-2); border:1px solid var(--line-soft);
-  border-radius:var(--r); padding:12px 14px; display:flex; flex-direction:column; gap:5px}
-.nv-nums span{font-family:var(--mono); font-size:9.5px; letter-spacing:.12em;
-  text-transform:uppercase; color:var(--faint)}
-.nv-nums b{font-family:var(--mono); font-size:19px; font-weight:500;
-  font-variant-numeric:tabular-nums; color:var(--text)}
-.nv-nums b.up{color:var(--up)}
-.nv-nums b.down{color:var(--down)}
-
-.nv-h{margin:2px 0 -6px; font-size:13px; font-weight:600; letter-spacing:-.01em}
-
-/* ---------- таблиця попередніх випусків ---------- */
-.nv-tab{width:100%; border-collapse:collapse; font-family:var(--mono); font-size:13px;
+/* ---------- смужка «далі» ---------- */
+.nw-next{display:flex; align-items:center; gap:12px; flex-wrap:wrap; margin-bottom:12px;
+  padding:11px 14px; border-radius:var(--r); background:var(--card);
+  border:1px solid var(--line); border-left:3px solid var(--accent)}
+.nw-next .tag{font-family:var(--mono); font-size:10px; letter-spacing:.13em;
+  text-transform:uppercase; color:var(--accent); background:var(--accent-soft);
+  border-radius:99px; padding:4px 10px}
+.nw-next b{font-weight:600; font-size:14px}
+.nw-next .tm{font-family:var(--mono); font-size:12.5px; color:var(--dim);
   font-variant-numeric:tabular-nums}
-.nv-tab th{font-size:9.5px; letter-spacing:.12em; text-transform:uppercase; color:var(--faint);
-  font-weight:400; text-align:right; padding:0 0 8px}
-.nv-tab th:first-child{text-align:left}
-.nv-tab td{padding:9px 0; text-align:right; color:var(--dim);
-  border-top:1px solid var(--line-soft)}
-.nv-tab td.dt{text-align:left; color:var(--text); white-space:nowrap}
+
+/* ---------- таблиця ---------- */
+.nw-tablewrap{background:var(--card); border:1px solid var(--line); border-radius:var(--r);
+  overflow-x:auto}
+.nw-tab{width:100%; border-collapse:collapse; font-size:13.5px}
+.nw-tab thead th{position:sticky; top:0; z-index:2; background:var(--panel-2);
+  font-family:var(--mono); font-size:9.5px; font-weight:400; letter-spacing:.13em;
+  text-transform:uppercase; color:var(--faint); text-align:left; white-space:nowrap;
+  padding:9px 10px; border-bottom:1px solid var(--line)}
+.nw-tab thead th.r{text-align:right}
+.nw-tab thead th.c{text-align:center}
+.nw-tab td{padding:0 10px; height:38px; vertical-align:middle;
+  border-bottom:1px solid var(--line-soft)}
+
+/* ліва колонка дня злипла на всю групу — як у Forex Factory */
+.nw-tab td.dt{width:104px; background:var(--panel-2); border-right:1px solid var(--line);
+  vertical-align:top; padding:10px; line-height:1.25; white-space:nowrap}
+.nw-tab td.dt .wd{display:block; font-family:var(--mono); font-size:9.5px;
+  letter-spacing:.14em; text-transform:uppercase; color:var(--faint)}
+.nw-tab td.dt b{display:block; margin-top:2px; font-size:14px; font-weight:600;
+  letter-spacing:-.01em; color:var(--text)}
+.nw-tab td.dt .tag{display:inline-block; margin-top:5px; font-family:var(--mono);
+  font-size:9px; letter-spacing:.12em; text-transform:uppercase; color:var(--accent);
+  background:var(--accent-soft); border-radius:99px; padding:2px 7px}
+.nw-tab td.dt.now{background:var(--accent-soft);
+  border-right-color:color-mix(in srgb, var(--accent) 30%, transparent)}
+.nw-tab td.dt.now b{color:var(--accent)}
+.nw-tab td.dt.now .tag{background:color-mix(in srgb, var(--accent) 18%, transparent)}
+
+.nw-tab td.tm{width:62px; font-family:var(--mono); font-size:13px; white-space:nowrap;
+  font-variant-numeric:tabular-nums; color:var(--text)}
+.nw-tab td.tm .rep{color:var(--faint)}
+.nw-tab td.cur{width:56px}
+.nw-tab td.cur i{display:inline-block; font-style:normal; font-family:var(--mono);
+  font-size:10.5px; letter-spacing:.06em; color:var(--dim);
+  border:1px solid var(--line); border-radius:5px; padding:2px 6px}
+.nw-tab td.imp{width:46px}
+.nw-tab td.nm{min-width:230px; color:var(--text)}
+.nw-tab td.num{width:82px; text-align:right; font-family:var(--mono); font-size:13px;
+  font-variant-numeric:tabular-nums; color:var(--dim); white-space:nowrap}
+.nw-tab td.num.fact{color:var(--text); font-weight:500}
+.nw-tab td.num.fact.up{color:var(--up)}
+.nw-tab td.num.fact.down{color:var(--down)}
+.nw-tab td.num.fact .ar{font-size:9px; margin-right:3px; vertical-align:1px}
+.nw-tab td.gr{width:46px; text-align:center; color:var(--faint)}
+
+.nw-ev{cursor:pointer; transition:background .14s}
+.nw-ev:hover td:not(.dt){background:var(--panel-2)}
+.nw-ev:focus-visible{outline:2px solid var(--accent); outline-offset:-2px}
+/* що вже минуло — гасимо кольором, не прозорістю: інакше крізь рядок
+   знову видно фонову анімацію */
+.nw-ev.past td.nm,.nw-ev.past td.tm{color:var(--dim)}
+.nw-ev.past td.num:not(.fact){color:var(--faint)}
+.nw-ev.hi td.nm{font-weight:600}
+.nw-ev.on td:not(.dt){background:var(--panel-2)}
+.nw-ev.on td.nm{font-weight:600}
+
+.nw-tab .ttl{display:flex; align-items:center; gap:8px; min-width:0}
+.nw-tab .ttl .t{overflow:hidden; text-overflow:ellipsis; white-space:nowrap}
+.nw-tab .nw-pill{flex:none; font-family:var(--mono); font-size:9px; letter-spacing:.1em;
+  text-transform:uppercase; padding:3px 7px; border-radius:99px; white-space:nowrap;
+  color:var(--n-x); background:color-mix(in srgb, var(--n-x) 14%, transparent)}
+
+/* смуга «зараз»: між тим, що вже вийшло, і тим, що попереду */
+.nw-line td{height:0; padding:0; border-bottom:0}
+.nw-line .ln{display:flex; align-items:center; gap:8px; padding:3px 10px 3px 0}
+.nw-line .ln i{flex:1; height:1px; background:color-mix(in srgb, var(--down) 45%, transparent)}
+.nw-line .ln span{font-family:var(--mono); font-size:9.5px; letter-spacing:.12em;
+  text-transform:uppercase; color:var(--down)}
+
+/* ---------- розкрита подія ----------
+
+   Подробиці виїжджають шторкою: зовнішня сітка росте з 0fr до 1fr, а
+   внутрішній шар обрізає вміст, поки вона росте. Відступи живуть на
+   найглибшому шарі — інакше згорнута шторка лишалась би заввишки в
+   свої ж поля й стрибала на старті. */
+.nw-det td{background:var(--panel-2); border-bottom:1px solid var(--line);
+  padding:0; height:auto}
+.nw-det .slide{display:grid; grid-template-rows:1fr}
+.nw-det .slide.grow{animation:nw-open .46s cubic-bezier(.22,.9,.24,1) both}
+.nw-det .slide.shut{animation:nw-shut .3s cubic-bezier(.4,0,.25,1) both}
+.nw-det .clip{overflow:hidden; min-height:0}
+/* Висота й вміст їдуть окремо: смуга росте довше, а текст проступає
+   трохи згодом і коротше — так рух читається м'яко, без ривка на старті. */
+.nw-det .slide.grow .in{animation:nw-fade .38s ease-out .07s both}
+.nw-det .slide.shut .in{animation:nw-dim .22s ease-in both}
+@keyframes nw-open{from{grid-template-rows:0fr} to{grid-template-rows:1fr}}
+@keyframes nw-shut{from{grid-template-rows:1fr} to{grid-template-rows:0fr}}
+@keyframes nw-fade{from{opacity:0; transform:translateY(-7px)} to{opacity:1; transform:none}}
+@keyframes nw-dim{from{opacity:1} to{opacity:0}}
+.nw-det .in{display:grid; grid-template-columns:minmax(240px,1fr) minmax(260px,1fr);
+  gap:18px 26px; padding:16px 18px 18px}
+.nw-det .nums{display:flex; flex-direction:column; gap:10px}
+.nw-det .r3{display:grid; grid-template-columns:repeat(3,1fr); gap:8px}
+.nw-det .r2{display:grid; grid-template-columns:1fr 1fr; gap:8px}
+.nw-det .r3 > div,.nw-det .r2 > div{background:var(--card); border:1px solid var(--line-soft);
+  border-radius:var(--r-sm); padding:9px 11px; display:flex; flex-direction:column; gap:3px}
+.nw-det span{font-family:var(--mono); font-size:9px; letter-spacing:.12em;
+  text-transform:uppercase; color:var(--faint)}
+.nw-det b{font-family:var(--mono); font-size:17px; font-weight:500;
+  font-variant-numeric:tabular-nums; color:var(--text)}
+.nw-det b.sm{font-size:14px}
+.nw-det b.up{color:var(--up)}
+.nw-det b.down{color:var(--down)}
+.nw-det .meta{margin:0; font-size:12.5px; line-height:1.6; color:var(--dim)}
+.nw-det .meta em{font-style:normal; color:var(--text)}
+.nw-det .hist .h{margin:0 0 8px; font-family:var(--mono); font-size:9.5px;
+  letter-spacing:.13em; text-transform:uppercase; color:var(--faint)}
+.nw-det .tally{margin:8px 0 0; font-size:12.5px; color:var(--dim)}
+
+/* ---------- таблиця попередніх виходів ---------- */
+.nw-htab{width:100%; border-collapse:collapse; font-family:var(--mono); font-size:12.5px;
+  font-variant-numeric:tabular-nums}
+.nw-htab th{position:static; background:none; font-size:9px; letter-spacing:.12em;
+  text-transform:uppercase; color:var(--faint); font-weight:400; text-align:right;
+  padding:0 0 6px; border-bottom:0}
+.nw-htab th:first-child{text-align:left}
+.nw-htab td{height:auto; padding:6px 0; text-align:right; color:var(--dim);
+  border-bottom:0; border-top:1px solid var(--line-soft)}
+.nw-htab td.d{text-align:left; color:var(--text); white-space:nowrap}
 /* період поруч із датою: за який місяць цифра, а не коли її оголосили */
-.nv-tab td.dt i{font-style:normal; color:var(--faint); font-size:11px; margin-left:6px}
-.nv-tab td.fact{color:var(--text)}
-.nv-tab td.fact.up{color:var(--up)}
-.nv-tab td.fact.down{color:var(--down)}
+.nw-htab td.d i{font-style:normal; color:var(--faint); font-size:11px; margin-left:6px}
+.nw-htab td.fact{color:var(--text)}
+.nw-htab td.fact.up{color:var(--up)}
+.nw-htab td.fact.down{color:var(--down)}
 
 .nv-none{padding:22px 16px; text-align:center; color:var(--faint); font-size:13px;
   border:1px dashed var(--line); border-radius:var(--r)}
-.nv-tally{margin:-4px 0 0; font-size:12.5px; color:var(--dim)}
-.nv-note{margin:0; font-size:12px; line-height:1.55; color:var(--faint)}
+.nw-empty{padding:40px 20px; text-align:center; color:var(--faint); font-size:14px}
 
-@media (max-width:520px){
-  .nv-left{margin-left:0}
-  .nv-nums{grid-template-columns:1fr 1fr}
+@media (max-width:900px){
+  .nw-when{min-width:0}
+  .nw-search input{width:150px}
+  .nw-panel{width:520px}
+  .nw-panel .cols{grid-template-columns:1fr}
+  .nw-panel .rows{display:grid; grid-template-columns:1fr 1fr; gap:7px 12px}
+  .nw-tab td.nm{min-width:150px}
+  .nw-det .in{grid-template-columns:1fr}
+}
+@media (max-width:680px){
+  .nw-tzpanel{position:fixed; left:12px; right:12px; width:auto; max-width:none}
+  /* Панель фільтра на телефоні не тулиться до кнопки, а лягає на всю
+     ширину: інакше вона вилазить за край екрана. */
+  .nw-fwrap{flex:1 1 100%}
+  .nw-fbtn{width:100%; justify-content:center}
+  .nw-panel{position:fixed; left:12px; right:12px; top:auto; width:auto; max-width:none;
+    max-height:72vh; overflow-y:auto}
+  .nw-panel .rows.two,.nw-panel .rows.imps,.nw-panel .rows{grid-template-columns:1fr 1fr}
+
+  /* На телефоні таблиця перестає бути таблицею: дата стає заголовком дня,
+     подія — двома рядками. Горизонтальної прокрутки немає. */
+  .nw-tab thead{display:none}
+  .nw-tab,.nw-tab tbody,.nw-tab tr,.nw-tab td{display:block; width:auto}
+  .nw-tab td.dt{width:auto; border-right:0; border-bottom:1px solid var(--line);
+    padding:9px 12px; display:flex; align-items:baseline; gap:8px}
+  .nw-tab td.dt b{display:inline; margin-top:0; order:-1}
+  .nw-tab td.dt .tag{margin-top:0}
+  .nw-ev{display:grid; grid-template-columns:auto auto auto 1fr; gap:3px 9px;
+    align-items:center; padding:10px 12px; border-bottom:1px solid var(--line-soft)}
+  .nw-ev td{height:auto; padding:0; border-bottom:0}
+  .nw-ev:hover td:not(.dt){background:transparent}
+  .nw-tab td.tm,.nw-tab td.cur,.nw-tab td.imp,.nw-tab td.num{width:auto}
+  .nw-tab td.nm{grid-column:1/-1; min-width:0}
+  .nw-tab td.num{grid-row:3; text-align:left; font-size:12px}
+  .nw-tab td.num::before{content:attr(data-l) " "; font-size:9px; letter-spacing:.1em;
+    text-transform:uppercase; color:var(--faint)}
+  .nw-tab td.gr{display:none}
+  .nw-line td{padding:0 12px}
+  .nw-det .in{padding:14px 12px}
+  .nw-det .r3{grid-template-columns:1fr 1fr}
 }
 
 /* ---------- поділитися посиланням ---------- */
@@ -292,4 +422,8 @@
   .thead .sh-top{margin-left:auto; padding:9px 11px; font-size:12px}
   .thead .sh-top span{display:none}
   .thead .sh-top svg{width:15px; height:15px}
+}
+
+@media (prefers-reduced-motion:reduce){
+  .nw-det .slide,.nw-det .slide .in,.nw-tzpanel{animation:none}
 }
