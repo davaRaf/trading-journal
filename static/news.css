@@ -231,7 +231,7 @@
 
 /* смуга «зараз»: між тим, що вже вийшло, і тим, що попереду */
 .nw-line td{height:0; padding:0; border-bottom:0}
-.nw-line .ln{display:flex; align-items:center; gap:8px; padding:3px 10px 3px 0}
+.nw-line .ln{display:flex; align-items:center; gap:8px; padding:3px 10px}
 .nw-line .ln i{flex:1; height:1px; background:color-mix(in srgb, var(--down) 45%, transparent)}
 .nw-line .ln span{font-family:var(--mono); font-size:9.5px; letter-spacing:.12em;
   text-transform:uppercase; color:var(--down)}
@@ -311,8 +311,17 @@
      ширину: інакше вона вилазить за край екрана. */
   .nw-fwrap{flex:1 1 100%}
   .nw-fbtn{width:100%; justify-content:center}
-  .nw-panel{position:fixed; left:12px; right:12px; top:auto; width:auto; max-width:none;
-    max-height:72vh; overflow-y:auto}
+  /* Внизу екрана стоїть смуга вкладок (.mtabs, z-index 40) — раніше вона
+     накривала низ панелі разом із кнопкою «Застосувати», а сама панель
+     не мала нижньої межі й гортатись не хотіла. Тепер панель затиснута між
+     шапкою й смугою вкладок, стоїть над ними і гортається всередині. */
+  .nw-panel{position:fixed; left:12px; right:12px; width:auto; max-width:none; z-index:55;
+    top:auto; bottom:calc(76px + env(safe-area-inset-bottom));
+    max-height:calc(100vh - 150px - env(safe-area-inset-bottom));
+    max-height:calc(100dvh - 150px - env(safe-area-inset-bottom)); overflow-y:auto; overscroll-behavior:contain; -webkit-overflow-scrolling:touch}
+  .nw-filter-open .as-fab,.nw-filter-open .demo-badge{visibility:hidden; pointer-events:none}
+  .nw-panel .foot{position:sticky; bottom:-14px; margin:0 -14px -14px; padding:12px 14px;
+    background:var(--card); border-top:1px solid var(--line-soft)}
   .nw-panel .rows.two,.nw-panel .rows.imps,.nw-panel .rows{grid-template-columns:1fr 1fr}
 
   /* На телефоні таблиця перестає бути таблицею: дата стає заголовком дня,

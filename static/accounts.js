@@ -507,6 +507,7 @@ function openFirms(inp){
   Pick.open(box, list, inp.value.trim(), v => {
     inp.value = v;
     syncName();
+    keepDraft();
     inp.focus();
   });
 }
@@ -598,12 +599,44 @@ function openForm(a){
     + (isNew ? "" : '<button class="btn danger" onclick="__acc.drop(' + a.id + ')">'
         + esc(d.del) + "</button>")
     + '<span class="sp"></span>'
-    + '<button class="btn" onclick="closeModal()">' + esc(d.cancel) + "</button>"
+    + '<button class="btn" onclick="' + (isNew ? "__acc.cancel()" : "closeModal()") + '">'
+    +   esc(d.cancel) + "</button>"
     + '<button class="btn primary" onclick="__acc.save(' + (a.id || 0) + ')">'
     +   esc(d.save) + "</button></div>");
   const nm = document.getElementById("acName");
   if (nm && isNew) nm.focus();
   paintTaken();
+}
+
+/* ---- чернетка нового рахунку ----
+   Форму заповнюють довго: розмір, ліміти, дати. Вікно закривається кліком
+   повз нього, хрестиком чи Esc — і все набране пропадало. Тепер набране
+   в новому рахунку лежить у браузері, поки його не збережуть або не
+   натиснуть «Скасувати» (це вже свідомий відказ). Правку наявного рахунку
+   не чіпаємо: там дані й так лежать на сервері. */
+const DRAFT_KEY = "acc_draft";
+function readDraft(){
+  try{ return JSON.parse(localStorage.getItem(DRAFT_KEY) || "null"); }catch(e){ return null; }
+}
+function dropDraft(){
+  try{ localStorage.removeItem(DRAFT_KEY); }catch(e){}
+}
+function keepDraft(){
+  if (editId || !document.querySelector(".ac-form")) return;
+  const dr = {
+    name: val("acName"), firm: val("acFirm"), kind: segVal("acKind") || "own",
+    currency: val("acCur") || "USD", start_balance: val("acStart"), current_balance: val("acNow"),
+    target_pct: val("acTarget"), dd_total_pct: val("acDdTotal"), dd_daily_pct: val("acDdDaily"),
+    opened_at: val("acOpened"), status: segVal("acStatus") || "active",
+    closed_at: val("acClosed"), reason: val("acReason"), note: val("acNote"),
+    touched: nameTouched,
+  };
+  const b = blank();
+  const empty = Object.keys(dr).every(k => k === "touched" || !dr[k] || dr[k] === b[k]);
+  try{
+    if (empty) localStorage.removeItem(DRAFT_KEY);
+    else localStorage.setItem(DRAFT_KEY, JSON.stringify(dr));
+  }catch(e){}
 }
 
 function segVal(id){
@@ -664,6 +697,7 @@ async function save(id){
      якщо рахунок із таким іменем колись прибирали: інакше заведений
      наново рахунок мовчки не показувався б у ряду підказок. */
   if (window.Prefs && saved && saved.name) Prefs.add("account", saved.name);
+  if (!id) dropDraft();
   closeModal();
   ACCS = undefined;
   await load();
@@ -832,6 +866,7 @@ document.addEventListener("click", e => {
       if (dead) dead.hidden = seg.dataset.v === "active";
     }
     if (box.dataset.seg === "acKind"){ syncName(); paintStatus(); }
+    keepDraft();
     return;
   }
   /* Підказка під полем: підставляємо значення й підсвічуємо саме її.
@@ -858,6 +893,7 @@ document.addEventListener("click", e => {
         if (lab) lab.textContent = key ? human(key) : D().pickDate;
         if (key) db.setAttribute("data-set", "1");
         else db.removeAttribute("data-set");
+        keepDraft();
       }});
     return;
   }
@@ -872,6 +908,7 @@ document.addEventListener("click", e => {
         .forEach(b => b.classList.toggle("on", b === p));
       if (p.dataset.target === "acName"){ nameTouched = true; paintTaken(); }
       else syncName();
+      keepDraft();
     }
     return;
   }
@@ -904,6 +941,7 @@ document.addEventListener("input", e => {
   if (window.Pick && Pick.isOpen && Pick.isOpen()) Pick.close();
   if (id === "acName"){ nameTouched = !!e.target.value.trim(); paintTaken(); }
   else if (id === "acFirm" || id === "acStart") syncName();
+  if (e.target.closest && e.target.closest(".ac-form")) keepDraft();
 });
 
 /* Гачок для перевірок: збірку назви інакше не викликати ззовні. */
@@ -914,8 +952,17 @@ window.__accTest = {factor: factorOf, stamp: stampOld, sync: syncName, made: mad
 window.__acc = {
   add(){
     if (window.Guest && Guest.block(D().title)) return;
-    openForm(blank());
+    const dr = readDraft();
+    if (!dr){ openForm(blank()); return; }
+    const touched = !!dr.touched;
+    delete dr.touched;
+    openForm(Object.assign(blank(), dr));
+    /* form() вважає назву «своєю», щойно вона не порожня, — а в чернетці
+       вона могла бути ще зібраною автоматично */
+    nameTouched = touched;
   },
+  /* «Скасувати» в новому рахунку — свідомий відказ: чернетку прибираємо */
+  cancel(){ dropDraft(); closeModal(); },
   edit(id){
     const a = (ACCS || []).find(x => x.id === id);
     if (a) openForm(Object.assign({}, a));

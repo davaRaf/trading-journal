@@ -987,9 +987,12 @@ window.ovTabsHtml=ovTabsHtml;
 function updateNavDash(){
   const a=document.querySelector('.nav a[data-v="dashboard"], .side a[data-v="dashboard"]');
   const sp=a&&a.querySelector("span");
-  if(!sp) return;
+  if(sp) sp.textContent=T.ovTitle;
+  const sub=document.querySelector('.nav a.navsub[data-v="accounts"], .side a.navsub[data-v="accounts"]');
+  if(!sub) return;
   const nm=viewAllowed("accounts")&&window.__acc&&__acc.navLabel?__acc.navLabel():"";
-  sp.innerHTML=nm?esc(T.ovTitle)+' <b class="navsub">'+esc(nm)+"</b>":esc(T.ovTitle);
+  if(nm){ sub.textContent=nm; sub.hidden=false; }
+  else{ sub.hidden=true; }
 }
 window.updateNavDash=updateNavDash;
 
@@ -2474,10 +2477,9 @@ function render(){
   const v=viewAllowed(S.view)?S.view:"dashboard";
   /* «Новини» переїхали з меню в групу інструментів — підсвічування шукаємо
      і там, інакше відкритий розділ ніде не позначався */
-  /* «Рахунки» — вкладка всередині «Огляду», окремого пункту в меню немає:
-     підсвічуємо «Огляд», інакше при #accounts не світилось би нічого. */
-  const navV=v==="accounts"?"dashboard":v;
-  document.querySelectorAll(".nav a, .side a[data-v]").forEach(a=>a.classList.toggle("on",a.dataset.v===navV));
+  /* «Рахунки» тепер своє посилання (a.navsub поруч з «Огляд») — світиться
+     саме воно на #accounts, а «Огляд» лишається сірим. */
+  document.querySelectorAll(".nav a, .side a[data-v]").forEach(a=>a.classList.toggle("on",a.dataset.v===v));
   updateNavDash();
   if(window.PL) PL.reset();
   /* кнопка-якорь сейчас исчезнет вместе с разделом — список без неё не нужен */

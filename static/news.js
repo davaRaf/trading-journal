@@ -307,6 +307,8 @@ function offset(z){
 function zone(){ return offset(tz); }
 
 function vNews(){
+  /* розділ малюється заново з порожнім місцем під панель — знімаємо замок */
+  lockPage(false);
   if (events === null){
     load();
     return '<div class="nw-empty">'+T.nwLoading+'</div>';
@@ -470,7 +472,23 @@ function paint(){
   if (!box) return;
   box.innerHTML = draft ? panel() : "";
   if (btn) btn.setAttribute("aria-expanded", String(!!draft));
+  lockPage(!!draft);
 }
+
+/* На телефоні панель фільтра — окреме вікно поверх сторінки: поки воно
+   відкрите, сторінка під ним не гортається, інакше палець, дійшовши до
+   краю списку, починав тягнути фон. ScrollLock лічить входи, тож тримаємо
+   власний прапорець і не вмикаємо його двічі. */
+let pageLocked = false;
+function lockPage(on){
+  on = on && window.matchMedia("(max-width:680px)").matches;
+  if (on === pageLocked || !window.ScrollLock) return;
+  pageLocked = on;
+  on ? ScrollLock.on() : ScrollLock.off();
+  /* круглу кнопку помічника ховаємо: на телефоні вона лягала на «Застосувати» */
+  document.documentElement.classList.toggle("nw-filter-open", on);
+}
+window.addEventListener("hashchange", () => lockPage(false));
 
 function group(kind, lab, rows){
   return '<div class="grp"><p class="h">'+esc(lab)
