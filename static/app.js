@@ -1555,6 +1555,8 @@ function shotCap(img){
 function shotNoteOf(img){
   const cell = img.closest(".chart-item, .tfslot, .dv-tf");
   if(!cell) return "";
+  /* у розборі дня порожній підпис показує підказку (.blank) — це не текст */
+  if(cell.querySelector(".dv-snote .dv-f.blank")) return "";
   const ready = cell.querySelector(".cnote, .dv-snote");
   if(ready) return (ready.textContent || "").trim();
   const field = cell.querySelector(".tfnote");
