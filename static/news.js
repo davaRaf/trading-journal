@@ -472,8 +472,10 @@ function paint(){
   if (!box) return;
   box.innerHTML = draft ? panel() : "";
   if (btn) btn.setAttribute("aria-expanded", String(!!draft));
-  lockPage(!!draft);
+  syncLock();
 }
+
+function syncLock(){ lockPage(!!draft || tzOpen); }
 
 /* На телефоні панель фільтра — окреме вікно поверх сторінки: поки воно
    відкрите, сторінка під ним не гортається, інакше палець, дійшовши до
@@ -550,6 +552,7 @@ function closeTz(){
   const panel = box && box.querySelector(".nw-tzpanel");
   const btn = document.getElementById("nwTzBtn");
   if (btn) btn.setAttribute("aria-expanded", "false");
+  syncLock();
   if (!panel || calm()){ paintTz(); return; }
   panel.classList.add("shut");
   setTimeout(() => { if (!tzOpen && box) box.innerHTML = ""; }, 150);
@@ -565,6 +568,7 @@ function paintTz(){
   const btn = document.getElementById("nwTzBtn");
   if (box) box.innerHTML = tzOpen ? tzPanel() : "";
   if (btn) btn.setAttribute("aria-expanded", String(tzOpen));
+  syncLock();
 }
 
 function tzRow(v, label){

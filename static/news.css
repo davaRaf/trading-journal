@@ -306,7 +306,30 @@
   .nw-det .in{grid-template-columns:1fr}
 }
 @media (max-width:680px){
-  .nw-tzpanel{position:fixed; left:12px; right:12px; width:auto; max-width:none}
+  /* Список поясів на телефоні — таке саме вікно, як фільтр: над смугою
+     вкладок і гортається всередині. Раніше в нього був position:fixed, а
+     top лишався з широкого екрана (100% + 8px) — для fixed це вся висота
+     екрана, і список відкривався за його нижнім краєм. */
+  .nw-tzpanel{position:fixed; left:12px; right:12px; width:auto; max-width:none; z-index:55;
+    top:auto; bottom:calc(76px + env(safe-area-inset-bottom));
+    display:flex; flex-direction:column; max-height:calc(100vh - 176px - env(safe-area-inset-bottom));
+    max-height:calc(100dvh - 176px - env(safe-area-inset-bottom) - env(safe-area-inset-top));
+    transform-origin:bottom center}
+  body.has-gbar .nw-tzpanel,body.has-pbar .nw-tzpanel{
+    max-height:calc(100dvh - 228px - env(safe-area-inset-bottom) - env(safe-area-inset-top))}
+  .nw-tzpanel .rows{max-height:none; min-height:0; flex:1 1 auto; overflow-x:hidden;
+    overscroll-behavior:contain; touch-action:pan-y}
+  .nw-tzpanel .row{padding:11px 10px}
+
+  /* Панель над таблицею: дата зі стрілками й день/тиждень — рядком,
+     пояс і пошук — порівну в другому рядку, фільтр — на всю ширину. */
+  .nw-sp{display:none}
+  .nw-nav{flex:1 1 auto; justify-content:space-between}
+  .nw-tzwrap,.nw-search{flex:1 1 calc(50% - 4px); min-width:0}
+  .nw-tz{width:100%; height:40px; justify-content:center; padding:0 12px}
+  .nw-tz .nm,.nw-tz .of{line-height:1}
+  .nw-tz .nm{min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap}
+  .nw-search input{width:100%; height:40px}
   /* Панель фільтра на телефоні не тулиться до кнопки, а лягає на всю
      ширину: інакше вона вилазить за край екрана. */
   .nw-fwrap{flex:1 1 100%}
