@@ -27,7 +27,7 @@ CAL_URL = "https://nfs.faireconomy.media/ff_calendar_thisweek.json"
 # існує (усі інші адреси віддають 404), тож майбутні дні беремо з календаря
 # TradingView — він уже є в проєкті заради історії показників.
 TV_COUNTRIES = "US,EU,GB,JP,CH,CA,AU,NZ,CN"
-TV_AHEAD = 9            # на скільки днів уперед питаємо TradingView
+TV_AHEAD = 22           # на скільки днів уперед питаємо TradingView
 # TradingView називає країну, а фід — валюту; помічник рахує саме валюти.
 TV_CURRENCY = {"US": "USD", "EU": "EUR", "GB": "GBP", "JP": "JPY", "CH": "CHF",
                "CA": "CAD", "AU": "AUD", "NZ": "NZD", "CN": "CNY"}
@@ -178,8 +178,32 @@ def calendar_events():
             nxt = []
         if nxt:
             data = _merge(data, nxt)
+        _add_facts(data)
         _cal["data"] = data
         return data, err
+
+
+def _add_facts(events):
+    """Проставляє полю «actual» число тим подіям, що вже вийшли.
+
+    Фід віддає лише прогноз і «попереднє» — фактичного значення в ньому
+    немає навіть через годину після виходу. Беремо його звідти ж, звідки
+    й історію: з календаря TradingView, зі звіркою рядів. Не зійшлось —
+    клітинка лишається порожньою, чужих чисел не ставимо.
+
+    Робимо це після архіву навмисно: в архів має лягти рівно те, що
+    прислав фід, інакше наступного тижня незрозуміло, чиє там число.
+    """
+    import tv_calendar          # тут, а не зверху: модуль важкий
+    try:
+        facts = tv_calendar.week_actuals(events)
+    except Exception as ex:
+        print("календар факти:", ex)
+        facts = {}
+    for e in events:
+        key = ((e.get("country") or "").strip(), (e.get("title") or "").strip(),
+               e.get("date") or "")
+        e["actual"] = facts.get(key, "")
 
 
 _warming = threading.Event()
@@ -297,8 +321,8 @@ def event_time(event):
         return None
 
 
-def week_window(now=None):
-    """Понеділок і п'ятниця того тижня, який зараз цікавий.
+def week_window(now=None, tz=KYIV):
+    """Понеділок і п'ятниця того тижня, який зараз цікавий, у поясі tz.
 
     У розділі «Новини» людині потрібен один робочий тиждень, а не все, що
     ми знаємо. Знаємо ж ми більше: фід віддає поточний тиждень, а дні
@@ -308,8 +332,8 @@ def week_window(now=None):
     На вихідних показуємо вже наступний тиждень: у суботу минулий
     четвер нікому не потрібен, а от що буде в понеділок — потрібно.
     """
-    now = now or datetime.datetime.now(KYIV)
-    day = now.date()
+    now = now or datetime.datetime.now(tz)
+    day = now.astimezone(tz).date()
     if day.weekday() >= 5:              # субота, неділя
         mon = day + datetime.timedelta(days=7 - day.weekday())
     else:
@@ -317,20 +341,31 @@ def week_window(now=None):
     return mon, mon + datetime.timedelta(days=4)
 
 
-def week_only(events, now=None):
-    """Події одного робочого тижня, з понеділка по п'ятницю.
+# Скільки тижнів уперед показує розділ «Новини». Один тиждень — це рівно
+# те, що віддає фід, і на ньому стрілка днів упиралась у п'ятницю. Люди ж
+# планують наперед: «що там наступного тижня» — звичайне питання.
+WEEKS_AHEAD = 2
+
+
+def week_only(events, now=None, weeks=WEEKS_AHEAD, tz=KYIV):
+    """Події поточного робочого тижня й ще двох наступних, без вихідних.
 
     Тільки для розділу «Новини». Помічник і телеграм беруть повний
     список: їм майбутні дні саме й потрібні, щоб у суботу відповісти,
     що виходить у понеділок.
     """
-    mon, fri = week_window(now)
+    mon, fri = week_window(now, tz)
+    fri = fri + datetime.timedelta(days=7 * weeks)
     out = []
     for e in events:
         dt = event_time(e)
         if not dt:
             continue
-        if mon <= dt.astimezone(KYIV).date() <= fri:
+        day = dt.astimezone(tz).date()
+        # Тільки робочі дні: у суботу з неділею биржі стоять, а поодинокі
+        # виступи в календарі лишали в стрічці майже порожній день, крізь
+        # який доводилось гортати.
+        if mon <= day <= fri and day.weekday() < 5:
             out.append(e)
     return out
 
