@@ -854,7 +854,6 @@ function pick(k, v, el){
   } else {
     answers[k] = v;
     drawAsk();
-    setTimeout(askNext, 170);
   }
 }
 
@@ -946,14 +945,13 @@ function drawAsk(){
     }
   }
 
-  const needBtn = q.multi || q.text;
   askBox.innerHTML = top + '<div class="ts-ask-body"><div class="ts-ask-in">'
     + '<div class="ts-ask-n">' + esc(d.question) + " " + (step + 1) + " " + esc(d.of) + " " + list.length + "</div>"
     + '<h2 class="ts-ask-q">' + esc(q.t) + "</h2>"
     + (q.h ? '<p class="ts-ask-h">' + esc(q.h) + "</p>" : "")
     + body
     + '<div class="ts-ask-foot">'
-    +   (needBtn ? '<button class="ts-next" onclick="__ts.next()">' + esc(d.next) + "</button>" : "")
+    +   '<button class="ts-next" onclick="__ts.next()">' + esc(d.next) + "</button>"
     +   '<button class="ts-skip" onclick="__ts.next()">' + esc(d.skipQ) + "</button>"
     + "</div></div></div>";
 }
