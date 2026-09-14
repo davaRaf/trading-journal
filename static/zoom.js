@@ -38,6 +38,11 @@ window.Zoom = (function(){
       st.y = Math.max(-ly, Math.min(ly, st.y));
     };
     const apply = () => {
+      /* Анімація появи (motion.css: .lightbox.m-in img — mZoom, fill both)
+         тримає свій transform:none поверх нашого, і лупа не рухала б
+         картинку. Вона вже дограла — знімаємо клас без видимих змін. */
+      const anim = img.closest(".m-in");
+      if (anim) anim.classList.remove("m-in");
       clampT();
       img.style.transform = st.s === 1 ? "" : "translate(" + st.x + "px," + st.y + "px) scale(" + st.s + ")";
       img.style.cursor = st.s === 1 ? "zoom-in" : (st.drag ? "grabbing" : "grab");
