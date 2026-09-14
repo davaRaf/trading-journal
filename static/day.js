@@ -40,6 +40,11 @@ let armed = null;                       /* слот, куди піде Ctrl+V (�
 
 /* На телефоні Ctrl+V немає: тап читає буфер сам, два тапи — файли (ShotTap
    в ui.js). На комп'ютері один клік лише націлює слот. */
+/* значок «замінити» на заповненому слоті — той самий, що в «Моїй ТС» */
+const RP_IC = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" '
+  + 'stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">'
+  + '<path d="M20 11a8 8 0 1 0-2.3 5.7"/><path d="M20 4v7h-7"/></svg>';
+
 function touchOnly(){
   return window.matchMedia && matchMedia("(hover: none)").matches;
 }
@@ -247,7 +252,9 @@ function shotCell(path, cap, readOnly){
     + '<div class="dv-shot' + (f ? " has" : "") + (readOnly ? " ro" : "") + (on ? " armed" : "")
     + '" data-shot="' + slot + '">'
     + (f ? '<img alt="" src="' + esc(/^data:/.test(f) ? f : "/dnshot/" + f) + '">'
-           + (readOnly ? "" : '<button class="rm" type="button">×</button>')
+           + '<div class="over"><span>' + esc(d.shotOpen) + '</span></div>'
+           + (readOnly ? "" : '<button class="rp" type="button" title="' + esc(d.shotReplace) + '">'
+               + RP_IC + '</button><button class="rm" type="button">×</button>')
          : '<div class="ph"><b>+</b>' + esc(cap) + "<em>"
            + esc(on ? d.shotArmed : hintText(d)) + "</em></div>")
     + "</div>" + note + "</div>";
@@ -799,13 +806,31 @@ document.addEventListener("click", e => {
 
   const sl = e.target.closest && e.target.closest(".dv-shot[data-shot]");
   if (sl){
-    if (sl.classList.contains("ro")) return;
-    if (e.target.closest(".rm")){
-      e.stopPropagation();
-      removeShot(sl.dataset.shot);
-      save(); render();
-      return;
+    if (sl.classList.contains("has")){
+      if (e.target.closest(".rm")){
+        e.stopPropagation();
+        removeShot(sl.dataset.shot);
+        save(); render();
+        return;
+      }
+      /* «замінити» — файли з комп'ютера чи телефона */
+      if (e.target.closest(".rp")){
+        e.stopPropagation();
+        armed = null;
+        filePick._to = sl;
+        filePick.click();
+        return;
+      }
+      /* Заповнений слот клік відкриває на весь екран — і свій, і чужий
+         (відкритий журнал). Раніше клік лише націлював слот під Ctrl+V,
+         і роздивитись скрін не виходило взагалі. Передаємо саму картинку:
+         сусідні таймфрейми гортаються стрілками, не закриваючись. */
+      if (typeof openLightbox === "function"){
+        openLightbox(sl.querySelector("img"));
+        return;
+      }
     }
+    if (sl.classList.contains("ro")) return;
     /* На комп'ютері один клік не відкриває файли, а лише націлює слот:
        далі Ctrl+V. Раніше клік одразу піднімав вікно вибору файлу, і
        вставити скрін із буфера було нікуди. Файли — подвійним кліком.
@@ -881,7 +906,7 @@ function paintArmed(){
 document.addEventListener("dblclick", e => {
   if (S.view !== "day" || !N) return;
   if (touchOnly()) return;             /* на телефоні два тапи ловить ShotTap */
-  const sl = e.target.closest && e.target.closest(".dv-shot[data-shot]:not(.ro)");
+  const sl = e.target.closest && e.target.closest(".dv-shot[data-shot]:not(.ro):not(.has)");
   if (!sl) return;
   e.preventDefault();
   armed = null;
@@ -1075,7 +1100,7 @@ uk: {
   addLevel: "ще рівень", hitTip: "дійшло / наполовину / ні",
   shotPlan: "вставити скрін розмітки", shotFact: "вставити скрін кінця дня",
   shotHint: "клік → далі Ctrl+V · подвійний клік → файл",
-  shotArmed: "тепер Ctrl+V", tfOwn: "свій",
+  shotArmed: "тепер Ctrl+V", tfOwn: "свій", shotOpen: "відкрити", shotReplace: "замінити скрін",
   shotHintTouch: "тап → вставити з буфера · два тапи → файл",
   shotTouchEmpty: "У буфері нема картинки. Два тапи — обрати файл.",
 
@@ -1148,7 +1173,7 @@ ru: {
   addLevel: "ещё уровень", hitTip: "дошло / наполовину / нет",
   shotPlan: "вставить скрин разметки", shotFact: "вставить скрин конца дня",
   shotHint: "клик → дальше Ctrl+V · двойной клик → файл",
-  shotArmed: "теперь Ctrl+V", tfOwn: "свой",
+  shotArmed: "теперь Ctrl+V", tfOwn: "свой", shotOpen: "открыть", shotReplace: "заменить скрин",
   shotHintTouch: "тап → вставить из буфера · два тапа → файл",
   shotTouchEmpty: "В буфере нет картинки. Два тапа — выбрать файл.",
 
@@ -1221,7 +1246,7 @@ en: {
   addLevel: "one more level", hitTip: "reached / halfway / no",
   shotPlan: "add the markup screenshot", shotFact: "add the end-of-day screenshot",
   shotHint: "click → then Ctrl+V · double click → file",
-  shotArmed: "now press Ctrl+V", tfOwn: "custom",
+  shotArmed: "now press Ctrl+V", tfOwn: "custom", shotOpen: "open", shotReplace: "replace screenshot",
   shotHintTouch: "tap → paste from clipboard · double tap → file",
   shotTouchEmpty: "No image in the clipboard. Double tap to pick a file.",
 

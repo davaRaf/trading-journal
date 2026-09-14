@@ -1540,22 +1540,22 @@ function openLightbox(from){
 }
 /* сусідні скріни того самого блоку: картка угоди, слоти форми, «Моя ТС» */
 function shotGroup(img){
-  const box = img.closest(".charts, .tfgrid, .ts-shots");
+  const box = img.closest(".charts, .tfgrid, .ts-shots, .dv-tfs");
   const imgs = box ? [...box.querySelectorAll("img")] : [img];
   return imgs.map(x => ({src:x.src, cap:shotCap(x), note:shotNoteOf(x)}));
 }
 /* підпис таймфрейму лежить поруч із картинкою — у картці й у слоті по-різному */
 function shotCap(img){
-  const cell = img.closest(".chart-item, .tfslot, .ts-shot");
-  const lab = cell && cell.querySelector(".l, .tfl span");
+  const cell = img.closest(".chart-item, .tfslot, .ts-shot, .dv-tf");
+  const lab = cell && cell.querySelector(".l, .tfl span, .dv-tfc");
   return lab ? (lab.textContent || "").trim() : "";
 }
 /* підпис беремо звідти, де він зараз: у картці це готовий рядок, у формі —
    поле, яке людина щойно набрала й ще не зберегла */
 function shotNoteOf(img){
-  const cell = img.closest(".chart-item, .tfslot");
+  const cell = img.closest(".chart-item, .tfslot, .dv-tf");
   if(!cell) return "";
-  const ready = cell.querySelector(".cnote");
+  const ready = cell.querySelector(".cnote, .dv-snote");
   if(ready) return (ready.textContent || "").trim();
   const field = cell.querySelector(".tfnote");
   return field ? (field.value || "").trim() : "";
