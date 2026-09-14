@@ -39,7 +39,10 @@ tabs.className = "mtabs";
 document.body.appendChild(tabs);
 
 function paintTabs(){
-  const links = side.querySelectorAll(".nav a");
+  /* .navsub («Рахунки») — своя посилання в сайдбарі, поруч з «Огляд».
+     Знизу для нього місця нема (шість підписів у ряд уже не влазять),
+     тож копіюємо лише основні пункти, без нього. */
+  const links = side.querySelectorAll(".nav a:not(.navsub)");
   tabs.innerHTML = "";
   links.forEach(a => {
     const c = a.cloneNode(true);

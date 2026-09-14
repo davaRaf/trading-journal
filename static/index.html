@@ -10,9 +10,9 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Geist:wght@300;400;500;600;700&family=Archivo:wght@400;500;600&display=swap">
-<link rel="stylesheet" href="/static/style.css?v=37">
+<link rel="stylesheet" href="/static/style.css?v=39">
 <link rel="stylesheet" href="/static/accounts.css?v=17">
-<link rel="stylesheet" href="/static/news.css?v=30">
+<link rel="stylesheet" href="/static/news.css?v=33">
 <link rel="stylesheet" href="/static/import.css?v=5">
 <link rel="stylesheet" href="/static/themes.css?v=7">
 <link rel="stylesheet" href="/static/calc.css?v=1">
@@ -81,7 +81,10 @@ try{document.documentElement.setAttribute("data-nav",localStorage.getItem("tj_na
   <button class="newtrade" id="newTradeBtn" data-tip="Записати угоду · відкриється панель знизу" onclick="openForm()"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" class="ic"><path d="M12 5v14M5 12h14" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"/></svg> <span>Нова угода</span></button>
 
   <nav class="nav">
-    <a href="#dashboard" data-v="dashboard" data-tip="Підсумки тижня, місяця й року"><svg class="ic" width="16" height="16" viewBox="0 0 24 24" fill="none"><rect x="3" y="3" width="7.5" height="9" rx="2" stroke="currentColor" stroke-width="1.6"/><rect x="13.5" y="3" width="7.5" height="5.5" rx="2" stroke="currentColor" stroke-width="1.6"/><rect x="13.5" y="12" width="7.5" height="9" rx="2" stroke="currentColor" stroke-width="1.6"/><rect x="3" y="15.5" width="7.5" height="5.5" rx="2" stroke="currentColor" stroke-width="1.6"/></svg> <span>Огляд</span></a>
+    <div class="nav-row">
+      <a href="#dashboard" data-v="dashboard" data-tip="Підсумки тижня, місяця й року"><svg class="ic" width="16" height="16" viewBox="0 0 24 24" fill="none"><rect x="3" y="3" width="7.5" height="9" rx="2" stroke="currentColor" stroke-width="1.6"/><rect x="13.5" y="3" width="7.5" height="5.5" rx="2" stroke="currentColor" stroke-width="1.6"/><rect x="13.5" y="12" width="7.5" height="9" rx="2" stroke="currentColor" stroke-width="1.6"/><rect x="3" y="15.5" width="7.5" height="5.5" rx="2" stroke="currentColor" stroke-width="1.6"/></svg> <span>Огляд</span></a>
+      <a href="#accounts" data-v="accounts" class="navsub" data-tip="Свій депозит та рахунки проп-фірм" hidden></a>
+    </div>
     <a href="#journal"   data-v="journal" data-tip="Календар місяця й усі угоди"><svg class="ic" width="16" height="16" viewBox="0 0 24 24" fill="none"><rect x="3" y="4" width="18" height="17" rx="3" stroke="currentColor" stroke-width="1.6"/><path d="M3 9h18M8 3v3M16 3v3" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg> <span>Журнал</span></a>
     <a href="#day"       data-v="day" data-tip="Що планував зранку — і як воно відпрацювало"><svg class="ic" width="16" height="16" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="4.2" stroke="currentColor" stroke-width="1.6"/><path d="M12 2.6v2.4M12 19v2.4M21.4 12H19M5 12H2.6M18.7 5.3l-1.7 1.7M7 17l-1.7 1.7M18.7 18.7L17 17M7 7L5.3 5.3" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg> <span>Аналіз дня</span></a>
     <a href="#analytics" data-v="analytics" data-tip="Розрізи: сетапи, сесії, моделі"><svg class="ic" width="16" height="16" viewBox="0 0 24 24" fill="none"><path d="M4 16l5-5 3 3 7-8" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/><path d="M15 6h5v5" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg> <span>Аналітика</span></a>
@@ -168,7 +171,7 @@ try{document.documentElement.setAttribute("data-nav",localStorage.getItem("tj_na
 <script src="/static/demo.js?v=3"></script>
 <script src="/static/guest.js?v=3"></script>
 <script src="/static/pub.js?v=4"></script>
-<script src="/static/app.js?v=51"></script>
+<script src="/static/app.js?v=52"></script>
 <script src="/static/profile.js?v=1"></script>
 <script src="/static/backup.js?v=1"></script>
 <script src="/static/mailcheck.js?v=1"></script>
@@ -177,7 +180,7 @@ try{document.documentElement.setAttribute("data-nav",localStorage.getItem("tj_na
 <script src="/static/support.js?v=9"></script>
 <script src="/static/assistant.js?v=8"></script>
 <script src="/static/watch.js?v=2"></script>
-<script src="/static/news.js?v=19"></script>
+<script src="/static/news.js?v=21"></script>
 <script src="/static/newsay.js?v=1"></script>
 <script src="/static/ogcal.js?v=16"></script>
 <script src="/static/sharelink.js?v=29"></script>
@@ -187,9 +190,9 @@ try{document.documentElement.setAttribute("data-nav",localStorage.getItem("tj_na
 <script src="/static/links.js?v=1"></script>
 <script src="/static/ts.js?v=26"></script>
 <script src="/static/day.js?v=14"></script>
-<script src="/static/mobile.js?v=7"></script>
+<script src="/static/mobile.js?v=8"></script>
 <script src="/static/tgnews.js?v=2"></script>
-<script src="/static/accounts.js?v=17"></script>
+<script src="/static/accounts.js?v=18"></script>
 <script src="/static/tradeimg.js?v=11"></script>
 <script src="/static/themes.js?v=4"></script>
 <!-- останнім: підміняє openModal/closeModal, тож має бачити всі попередні -->
