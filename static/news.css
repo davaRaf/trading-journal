@@ -242,12 +242,26 @@
 .sh-url{flex:1 1 260px; min-width:0; background:var(--panel-2); color:var(--text);
   border:1px solid var(--line); border-radius:var(--r-sm); padding:9px 12px;
   font-family:var(--mono); font-size:12.5px}
-.sh-bar{align-items:center}
+.sh-bar{align-items:center; position:relative}
 /* та сама смуга, але всередині шапки журналу: без відступів окремого рядка */
 .sh-bar.sh-inline{margin:0; gap:7px}
 .sh-bar.sh-inline .sh-btn{padding:8px 14px; border-radius:11px}
-.sh-cap{font-family:var(--mono); font-size:10px; letter-spacing:.13em;
-  text-transform:uppercase; color:var(--faint); margin-right:2px}
+.sh-caret{margin-left:1px}
+
+/* Кнопка «Поділитися» тепер одна: клік розгортає список періодів під нею
+   замість того, щоб тримати окрему кнопку на кожен. Менше елементів у
+   рядку — і шапка розділу не розпухає, коли доступні всі чотири періоди. */
+.sh-pop{position:absolute; left:0; top:calc(100% + 6px); z-index:30; min-width:150px;
+  display:flex; flex-direction:column; gap:2px; padding:6px;
+  background:var(--panel); border:1px solid var(--line); border-radius:var(--r);
+  box-shadow:var(--shadow-pop)}
+.sh-pop[hidden]{display:none}
+.sh-pop button{font:inherit; font-size:13px; text-align:left; padding:8px 11px;
+  border-radius:8px; border:0; background:none; color:var(--text); cursor:pointer}
+.sh-pop button:hover{background:var(--panel-2); color:var(--accent)}
+/* на огляді кнопка стоїть крайньою праворуч — список під нею теж рівняємо
+   праворуч, інакше він вилазив би за край шапки */
+.ovw .ohead .sh-bar .sh-pop{left:auto; right:0}
 /* у панелі дня кнопка стоїть просто над «+ Угода на цей день» — тож бере
    її геометрію один в один: ті самі поля з боків, та сама ширина й висота.
    Інакше дві кнопки поспіль стоять різними краями і виглядають випадковими. */

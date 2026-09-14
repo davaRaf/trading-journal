@@ -563,6 +563,12 @@ function icon(){
     + ' stroke-width="1.8" stroke-linecap="round"/></svg>';
 }
 
+function caret(){
+  return '<svg class="sh-caret" width="9" height="9" viewBox="0 0 24 24" fill="none">'
+    + '<path d="M6 9l6 6 6-6" stroke="currentColor" stroke-width="2"'
+    + ' stroke-linecap="round" stroke-linejoin="round"/></svg>';
+}
+
 function mkBtn(label, kind, arg, extra){
   const b = document.createElement("button");
   b.className = "btn sh-btn" + (extra ? " " + extra : "");
@@ -571,6 +577,12 @@ function mkBtn(label, kind, arg, extra){
   b.innerHTML = icon() + " <span>" + label + "</span>";
   b.onclick = e => { e.stopPropagation(); open(kind, arg); };
   return b;
+}
+
+/* закриває будь-яке відкрите меню періодів — і перед відкриттям нового,
+   і при кліку повз, і по Escape */
+function closeSharePop(){
+  document.querySelectorAll(".sh-pop").forEach(p => { p.hidden = true; });
 }
 
 /* поточний день і місяць беремо зі стану застосунку */
@@ -599,7 +611,10 @@ function hasWeek(dk){
 function hasMonth(mk){ return !!mk && S.all.some(t => monKey(t) === mk); }
 function hasYear(y){   return !!y  && S.all.some(t => monKey(t).slice(0,4) === y); }
 
-/* ---- смуга кнопок над розділом ---- */
+/* ---- смуга над розділом: одна кнопка «Поділитися» ----
+   Раніше тут стояло по кнопці на кожен період — і поруч із підписом
+   «Поділитися» виходило до пʼяти елементів у рядок. Тепер кнопка одна:
+   клік розгортає список тих періодів, якими є що поділитись. */
 function mountBar(){
   const root = document.getElementById("main");
   if (!root || root.querySelector(".sh-bar")) return;
@@ -612,19 +627,46 @@ function mountBar(){
   const d = curDay(), mk = curMonth();
   const year = mk ? mk.slice(0,4) : String(new Date().getFullYear());
 
-  const btns = [];
-  if (!bt && hasDay(d))  btns.push(mkBtn(T.slDay,    "day",   d));
-  if (!bt && hasWeek(d)) btns.push(mkBtn(T.slWeek, "week",  d));
-  if (hasMonth(mk))  btns.push(mkBtn(T.ovPeriodMonth,  "month", mk));
-  if (hasYear(year)) btns.push(mkBtn(T.ovPeriodYear,     "year",  year));
-  if (!btns.length) return;
+  const choices = [];
+  if (!bt && hasDay(d))  choices.push({ label:T.slDay,         kind:"day",   arg:d });
+  if (!bt && hasWeek(d)) choices.push({ label:T.slWeek,        kind:"week",  arg:d });
+  if (hasMonth(mk))      choices.push({ label:T.ovPeriodMonth, kind:"month", arg:mk });
+  if (hasYear(year))     choices.push({ label:T.ovPeriodYear,  kind:"year",  arg:year });
+  if (!choices.length) return;
 
   const bar = document.createElement("div");
   bar.className = "sh-bar";
-  bar.innerHTML = '<span class="sh-cap">' + T.slShareCap + '</span>';
-  btns.forEach(b => bar.appendChild(b));
 
-  /* у журналі кнопки живуть у шапці розділу — поруч із «Картинка для каналу»,
+  const btn = document.createElement("button");
+  btn.type = "button";
+  btn.className = "btn sh-btn sh-toggle";
+  btn.innerHTML = icon() + " <span>" + T.slShareCap + "</span>" + (choices.length > 1 ? caret() : "");
+  bar.appendChild(btn);
+
+  if (choices.length === 1){
+    /* вибирати нема з чого — кнопка одразу відкриває той єдиний період */
+    btn.onclick = e => { e.stopPropagation(); open(choices[0].kind, choices[0].arg); };
+  } else {
+    const pop = document.createElement("div");
+    pop.className = "sh-pop";
+    pop.hidden = true;
+    choices.forEach(c => {
+      const item = document.createElement("button");
+      item.type = "button";
+      item.textContent = c.label;
+      item.onclick = e => { e.stopPropagation(); pop.hidden = true; open(c.kind, c.arg); };
+      pop.appendChild(item);
+    });
+    bar.appendChild(pop);
+    btn.onclick = e => {
+      e.stopPropagation();
+      const willOpen = pop.hidden;
+      closeSharePop();
+      pop.hidden = !willOpen;
+    };
+  }
+
+  /* у журналі кнопка живе в шапці розділу — поруч із «Картинка для каналу»,
      бо це та сама дія: віддати місяць чи рік назовні */
   const tools = root.querySelector(".jhead .tools");
   if (tools){
@@ -718,6 +760,13 @@ window.Share = { open, mount };
 function schedule(){ mount(); }
 const main = document.getElementById("main");
 if (main) new MutationObserver(schedule).observe(main, { childList:true });
+
+/* меню періодів закриваємо кліком повз нього й по Escape — як звичний
+   випадний список */
+document.addEventListener("click", e => {
+  if (!e.target.closest(".sh-bar")) closeSharePop();
+});
+document.addEventListener("keydown", e => { if (e.key === "Escape") closeSharePop(); });
 
 ["Sheet", "Panel", "Drawer"].forEach(name => {
   const api = window[name];

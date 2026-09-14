@@ -976,9 +976,12 @@ table.simple.mini td:last-child{white-space:nowrap;font-weight:600}
    ================================================================== */
 /* обзор занимает всю ширину рабочей области, как в макете */
 /* обзор занимает всю высоту рабочей области — блоки распределяются, как в макете */
-.main:has(.ovw){padding:34px 42px 22px;display:flex;flex-direction:column}
-.page:has(.ovw){max-width:none;width:100%;margin:0;flex:1;display:flex;flex-direction:column}
-.page:has(.ovw) .ovw{flex:1}
+/* «Рахунки» — друга вкладка того самого розділу (заголовок-перемикач у них
+   спільний, h1.ovh) — тож беруть ту саму розкладку .main і .page, інакше
+   перемикач і бокові поля смикались убік при кожному переході між вкладками. */
+.main:has(.ovw, .acw){padding:34px 42px 22px;display:flex;flex-direction:column}
+.page:has(.ovw, .acw){max-width:none;width:100%;margin:0;flex:1;display:flex;flex-direction:column}
+.page:has(.ovw) .ovw, .page:has(.acw) .acw{flex:1}
 /* Типографіка макета: огляд набраний дрібніше й легше за решту журналу.
    Стоїть на самому блоці, а не на <body>: «Огляд» і «Рахунки» — дві
    вкладки одного розділу, і поки це правило висіло на сторінці, розмір
@@ -1161,7 +1164,7 @@ h1.ovh a.on::after{content:"";position:absolute;left:0;right:0;bottom:0;height:2
 
 /* экраны пониже: ужимаем, чтобы обзор оставался на одном экране */
 @media (max-height:960px){
-  .main:has(.ovw){padding:26px 36px 18px}
+  .main:has(.ovw, .acw){padding:26px 36px 18px}
   .ohead{margin-bottom:18px}
   .ohead h1{font-size:28px}
   .ovw .per button{padding:6px 13px}
@@ -1181,7 +1184,7 @@ h1.ovh a.on::after{content:"";position:absolute;left:0;right:0;bottom:0;height:2
   .ovw .cut section + section{margin-top:14px;padding-top:14px}
 }
 @media (max-height:800px){
-  .main:has(.ovw){padding:20px 30px 14px}
+  .main:has(.ovw, .acw){padding:20px 30px 14px}
   .ohead{margin-bottom:14px}
   .ohead h1{font-size:25px}
   .ovw .per{padding:3px}
@@ -1556,7 +1559,7 @@ body::after{
 :root[data-layout="top"] .side-foot{margin-top:0;flex-direction:row}
 :root[data-layout="top"] .newtrade{order:9;padding:8px 15px;white-space:nowrap}
 :root[data-layout="top"] .laybox{order:8}
-:root[data-layout="top"] .main:has(.ovw){padding:26px 32px 20px}
+:root[data-layout="top"] .main:has(.ovw, .acw){padding:26px 32px 20px}
 :root[data-layout="top"] .ovw{column-gap:32px}
 @media(max-width:900px){
   :root[data-layout="top"] .side{flex-wrap:wrap;padding:9px 14px}
