@@ -1564,7 +1564,10 @@ function shotNoteOf(img){
 }
 function showShot(){
   const cur = LB.list[LB.i] || {src:"", cap:"", note:""};
-  $("#lightboxImg").src = cur.src;
+  const im = $("#lightboxImg");
+  /* лупа: інший скрін — з нуля, без наближення попереднього */
+  if(window.Zoom){ Zoom.attach(im); Zoom.reset(im); }
+  im.src = cur.src;
   const note = $("#lightboxNote");
   if(note) note.textContent = cur.note || "";
   const many = LB.list.length > 1;
@@ -1587,6 +1590,7 @@ function closeLightbox(){
   const box=$("#lightbox");
   const wasOpen = !box.hidden;
   box.hidden=true; $("#lightboxImg").src=""; LB.list=[];
+  if(window.Zoom) Zoom.reset($("#lightboxImg"));
   if(wasOpen) ScrollLock.off();
 }
 /* Esc закрывает то, что сверху, а не панель под ним. Перехват на

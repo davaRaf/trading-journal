@@ -616,8 +616,15 @@ table.simple tr.click:hover td{background:var(--panel-2)}
    Выше всего, что открывается поверх страницы: скрин раскрывают из
    карточки сделки, а её могли открыть из диалога. Ниже вопроса «точно
    удалить?» — тот перекрывает всё. */
-.lightbox{position:fixed;inset:0;background:var(--overlay-strong);z-index:210;display:flex;align-items:center;justify-content:center;cursor:zoom-out;padding:20px}
+.lightbox{position:fixed;inset:0;background:var(--overlay-strong);z-index:210;display:flex;align-items:center;justify-content:center;cursor:zoom-out;padding:20px;overflow:hidden}
 .lightbox img{max-width:96vw;max-height:92vh;border-radius:6px}
+/* лупа (zoom.js): клік по картинці наближає, тому закриває хрестик або клік повз */
+.lightbox img{cursor:zoom-in;transform-origin:center center;will-change:transform}
+.lightbox img.zoomed{border-radius:0;position:relative;z-index:2}
+.lightbox img.zoomed ~ .lb-cap,.lightbox img.zoomed ~ .lb-note{opacity:0;pointer-events:none}
+.lightbox .lb-x{position:absolute;top:14px;right:16px;width:40px;height:40px;border:1px solid rgba(255,255,255,.25);
+  border-radius:50%;background:rgba(0,0,0,.45);color:#fff;font:inherit;font-size:22px;line-height:1;cursor:pointer;z-index:3}
+.lightbox .lb-x:hover{background:rgba(0,0,0,.65);border-color:rgba(255,255,255,.45)}
 /* гортання скрінів: підпис таймфрейму знизу, кнопки з боків, стрілки на клавіатурі */
 .lightbox .lb-fig{display:flex;flex-direction:column;align-items:center;gap:10px;
   max-width:96vw;cursor:zoom-out}

@@ -10,7 +10,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Geist:wght@300;400;500;600;700&family=Archivo:wght@400;500;600&display=swap">
-<link rel="stylesheet" href="/static/style.css?v=39">
+<link rel="stylesheet" href="/static/style.css?v=40">
 <link rel="stylesheet" href="/static/accounts.css?v=17">
 <link rel="stylesheet" href="/static/news.css?v=38">
 <link rel="stylesheet" href="/static/import.css?v=5">
@@ -158,6 +158,7 @@ try{document.documentElement.setAttribute("data-nav",localStorage.getItem("tj_na
 
 <div id="modal" class="modal" hidden><div class="modal-box" id="modalBox"></div></div>
 <div id="lightbox" class="lightbox" hidden onclick="closeLightbox()">
+  <button type="button" class="lb-x" onclick="closeLightbox()" aria-label="×">×</button>
   <button type="button" class="lb-nav prev" id="lbPrev" hidden onclick="lightStep(-1,event)">
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 5l-7 7 7 7"/></svg></button>
   <div class="lb-fig"><img id="lightboxImg" alt=""><div class="lb-cap" id="lightboxCap"></div>
@@ -171,7 +172,7 @@ try{document.documentElement.setAttribute("data-nav",localStorage.getItem("tj_na
 <script src="/static/demo.js?v=3"></script>
 <script src="/static/guest.js?v=3"></script>
 <script src="/static/pub.js?v=4"></script>
-<script src="/static/app.js?v=54"></script>
+<script src="/static/app.js?v=55"></script>
 <script src="/static/profile.js?v=1"></script>
 <script src="/static/backup.js?v=1"></script>
 <script src="/static/mailcheck.js?v=1"></script>
@@ -197,6 +198,7 @@ try{document.documentElement.setAttribute("data-nav",localStorage.getItem("tj_na
 <script src="/static/themes.js?v=4"></script>
 <!-- останнім: підміняє openModal/closeModal, тож має бачити всі попередні -->
 <script src="/static/motion.js?v=3"></script>
+<script src="/static/zoom.js?v=1"></script>
 <script src="/static/appear.js?v=8"></script>
 </body>
 </html>
