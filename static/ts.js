@@ -853,7 +853,10 @@ function pick(k, v, el){
     else drawAsk();
   } else {
     answers[k] = v;
-    drawAsk();
+    if (el){
+      el.closest(".ts-opts").querySelectorAll(".ts-opt.on").forEach(b => b.classList.remove("on"));
+      el.classList.add("on");
+    } else drawAsk();
   }
 }
 
