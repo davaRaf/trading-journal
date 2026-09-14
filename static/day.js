@@ -682,7 +682,6 @@ function vOpen(){
   const d = D();
   const ok = ready();
   return head()
-    + '<p class="dv-hint">' + esc(d.hintOpen) + "</p>"
     + '<div class="dv-stack">'
     +   (N.assets.length ? N.assets.map(cardOpen).join("")
         : '<div class="dv-empty">' + esc(d.noAssetsHint) + "</div>")
@@ -1061,8 +1060,6 @@ uk: {
   weekdays: ["пн", "вт", "ср", "чт", "пт", "сб", "нд"],
   lgOk: "за планом", lgPart: "частково", lgNo: "не за планом", lgOpen: "без вечора",
 
-  hintOpen: "Кожен актив — своя картка: скріни по таймфреймах, напрям, рівні, сценарії. "
-          + "Активи підказує твоя ТС. Увечері натиснеш «Записати підсумок дня» — і поруч із планом зʼявиться факт.",
   hintClosed: "Ліворуч — план, як його записали зранку, праворуч — що вийшло. Угоди з журналу самі лягли до свого активу. "
             + "Оцінки «за планом» і «тримався» — по кожному активу окремо, з них збирається статистика.",
   morning: "Ранок", evening: "Вечір", planTag: "план", factTag: "факт",
@@ -1134,8 +1131,6 @@ ru: {
   weekdays: ["пн", "вт", "ср", "чт", "пт", "сб", "вс"],
   lgOk: "по плану", lgPart: "частично", lgNo: "не по плану", lgOpen: "без вечера",
 
-  hintOpen: "Каждый актив — своя карточка: скрины по таймфреймам, направление, уровни, сценарии. "
-          + "Активы подсказывает твоя ТС. Вечером нажмёшь «Записать итог дня» — и рядом с планом появится факт.",
   hintClosed: "Слева — план, как его записали утром, справа — что вышло. Сделки из журнала сами легли к своему активу. "
             + "Оценки «по плану» и «держался» — по каждому активу отдельно, из них собирается статистика.",
   morning: "Утро", evening: "Вечер", planTag: "план", factTag: "факт",
@@ -1207,8 +1202,6 @@ en: {
   weekdays: ["mo", "tu", "we", "th", "fr", "sa", "su"],
   lgOk: "as planned", lgPart: "partly", lgNo: "off plan", lgOpen: "no evening yet",
 
-  hintOpen: "Each instrument gets its own card: screenshots by timeframe, direction, levels, scenarios. "
-          + "Instruments are suggested from your system. In the evening press “Write the day up” and the facts appear next to the plan.",
   hintClosed: "Left is the plan as written in the morning, right is what came of it. Trades from the journal landed under their instrument on their own. "
             + "“As planned” and “held to it” are marked per instrument — the stats are built from them.",
   morning: "Morning", evening: "Evening", planTag: "plan", factTag: "fact",

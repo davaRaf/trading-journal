@@ -1226,7 +1226,6 @@ function beReportHtml(list){
       '<div class="becell"><div class="l">'+T.beShareLabel+'</div>'+
         '<div class="v beclr">'+share+'%</div><div class="s">'+be.length+' '+T.beOf+' '+list.length+' '+T.wordTradeMany+'</div></div>'+
     "</div>"+bar(saved,lost)+
-    '<div class="behint">'+T.beHint+'</div>'+
     "</div></div>";
 }
 
