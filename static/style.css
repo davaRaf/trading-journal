@@ -766,7 +766,6 @@ tr.click:hover .go{opacity:1;color:var(--accent)}
 .becell .s{font-size:12.5px;color:var(--dim);line-height:1.45}
 .bebar{height:8px;border-radius:4px;background:var(--line-soft);overflow:hidden;margin-bottom:6px}
 .bebar .t{display:block;height:100%;border-radius:4px}
-.behint{margin-top:10px;font-size:12.5px;color:var(--faint);line-height:1.5}
 
 /* ---------- разбор месяца: ничего не обрезаем ---------- */
 .rep-card table.simple.mini{width:100%}
