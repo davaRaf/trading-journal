@@ -30,9 +30,15 @@
 /* .rail.in теж анімує ширину смужки переходом — під час нашої анімації він зайвий */
 .ovw .rail .bar .ln i.ap-bar{transition:none}
 
-/* лінія еквіті малюється зліва направо; pathLength=1 ставить скрипт */
-.ap-draw{stroke-dasharray:1;stroke-dashoffset:1;animation:apDraw 1300ms var(--ap-ease) both}
-@keyframes apDraw{from{stroke-dashoffset:1}to{stroke-dashoffset:0}}
+/* Лінія еквіті й заливка під нею відкриваються зліва направо.
+   Не штрихом (stroke-dasharray + pathLength): графік розтягнутий по ширині
+   (preserveAspectRatio=none) і штрих має non-scaling-stroke, тож довжина
+   штриха рахувалась у пікселях екрана — лінія виходила рваною й не
+   домальовувалась до кінця. Маска clip-path по власному прямокутнику
+   елемента від цього не залежить; мінус по краях — щоб не зрізати
+   товщину лінії й крапку. */
+.ap-draw{animation:apDraw 1300ms var(--ap-ease) both}
+@keyframes apDraw{from{clip-path:inset(-8px 100% -8px -8px)}to{clip-path:inset(-8px -8px -8px -8px)}}
 
 /* заливка під лінією, крапка й підпис — проявляються, коли лінія дійшла */
 .ap-fade{animation:apFade 600ms ease both}
@@ -64,5 +70,5 @@
 
 @media (prefers-reduced-motion:reduce){
   .ap,.ap-pop,.ap-draw,.ap-fade,.ap-bar{animation:none!important;opacity:1!important;
-    transform:none!important;stroke-dashoffset:0!important}
+    transform:none!important;clip-path:none!important}
 }
