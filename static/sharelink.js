@@ -544,7 +544,10 @@ function open(kind, arg){
         catch(e){ document.getElementById("shUrl").select(); document.execCommand("copy"); }
         document.getElementById("shCopy").textContent = T.slCopiedCheck;
       };
+      /* «Готово» — це вже вихід: посилання створене, кнопка закриває вікно */
       this.textContent = T.slDoneBtn;
+      this.disabled = false;
+      this.onclick = () => closeModal();
     }catch(err){
       this.disabled = false; this.textContent = T.slCreateBtn;
       alert(T.slCreateError + err.message);

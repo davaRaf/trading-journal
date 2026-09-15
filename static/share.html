@@ -227,7 +227,10 @@ html{interpolate-size:allow-keywords}
 .shots{display:grid; grid-template-columns:repeat(auto-fill,minmax(150px,1fr)); gap:10px;
   margin-top:14px}
 .shots figure{margin:0; border:1px solid var(--line-soft); border-radius:10px; overflow:hidden;
-  background:var(--panel-2); cursor:zoom-in}
+  background:var(--panel-2); cursor:zoom-in;
+  /* кожна картка своєї висоти: без підпису під скріном порожнього місця нема,
+     а не тягнеться до сусідки з довгим текстом */
+  align-self:start}
 /* Розміру картинки ми заздалегідь не знаємо, а поки вона не завантажилась,
    висота нульова. Через це сторінка при відкритті угоди двічі-тричі
    перекладалась і смикалась. Тримаємо місце під графік наперед: пропорція
