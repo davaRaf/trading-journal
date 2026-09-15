@@ -135,8 +135,13 @@ html:has(.pnl-wrap){overflow-y:hidden}
      низу сторінки панель підстрибувала. Fixed від прокрутки не залежить.
      Місце під неї в потоці тримає margin-left у сусіда (нижче). */
   position:fixed;top:0;left:0;bottom:0;z-index:10}
-/* сусід панелі: сама робоча область або колонка зі смужкою новин (tgnews.js) */
-body > .main, body > .tgn-col{margin-left:216px}
+/* Сусід панелі: сама робоча область або колонка зі смужкою новин (tgnews.js).
+   Ширина — змінною: кожен варіант меню задає її тим самим селектором, що й
+   ширину .side, тож відступ завжди збігається з панеллю. Де панель не fixed
+   (смуга зверху, вузький екран) — відступ знімаємо з !important, бо правила
+   варіантів меню сильніші за медіазапит. */
+:root{--side-w:216px}
+body > .main, body > .tgn-col{margin-left:var(--side-w)}
 /* смуга прокрутки в лівому меню не потрібна: воно коротке, а на низькому
    екрані докручується колесом. Разом зі смугою прибрано й місце під неї
    (scrollbar-gutter) — інакше праворуч лишалась порожня колонка. */
@@ -666,7 +671,7 @@ table.simple tr.click:hover td{background:var(--panel-2)}
   body{flex-direction:column}
   .side{width:100%;height:auto;position:static;flex-direction:row;flex-wrap:wrap;align-items:center;gap:10px;
     border-right:none;border-bottom:1px solid var(--line);padding:12px 14px}
-  body > .main, body > .tgn-col{margin-left:0}
+  body > .main, body > .tgn-col{margin-left:0!important}
   .nav{flex-direction:row;flex-wrap:wrap;order:3;width:100%}
   .nav a{padding:6px 10px;font-size:13px}
   .nav a.on{box-shadow:inset 0 -2px 0 var(--accent)}
@@ -1572,7 +1577,7 @@ body::after{
   width:100%;height:auto;flex-direction:row;align-items:center;gap:12px;
   padding:9px 20px;border-right:none;border-bottom:1px solid var(--side-line);
   position:sticky;top:0;left:auto;bottom:auto;z-index:20;overflow:visible;background:var(--panel)}
-:root[data-layout="top"] body > .main, :root[data-layout="top"] body > .tgn-col{margin-left:0}
+:root[data-layout="top"] body > .main, :root[data-layout="top"] body > .tgn-col{margin-left:0!important}
 :root[data-layout="top"] .brand{padding:0;gap:9px}
 :root[data-layout="top"] .brand .nm small{display:none}
 :root[data-layout="top"] .side .nav{flex-direction:row;gap:4px;margin-left:14px}
@@ -1643,7 +1648,7 @@ body::after{
    з першого погляду і не доводиться різати «Калькулятор ризику». */
 :root[data-nav="flat"] .side{width:212px;padding:22px 12px;gap:16px;background:var(--bg);
   border-right:1px solid var(--line-soft)}
-:root[data-nav="flat"] body > .main, :root[data-nav="flat"] body > .tgn-col{margin-left:212px}
+:root[data-nav="flat"]{--side-w:212px}
 :root[data-nav="flat"] .brand{padding:0 10px}
 :root[data-nav="flat"] .newtrade{background:none;border:1px solid var(--line);color:var(--text);
   font-weight:500;border-radius:8px;padding:10px 12px}
@@ -1685,7 +1690,7 @@ body::after{
 /* ---- Icons: полоса 68 пикселей, подписи всплывают подсказкой ---- */
 :root[data-nav="icons"] .side{width:68px;padding:18px 10px;gap:18px;align-items:center;
   border-right:1px solid var(--line-soft)}
-:root[data-nav="icons"] body > .main, :root[data-nav="icons"] body > .tgn-col{margin-left:68px}
+:root[data-nav="icons"]{--side-w:68px}
 :root[data-nav="icons"] .brand{padding:0;justify-content:center}
 :root[data-nav="icons"] .brand .nm{display:none}
 :root[data-nav="icons"] .brand .mark{width:36px;height:36px}
