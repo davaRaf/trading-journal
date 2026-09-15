@@ -2125,9 +2125,7 @@ function renderShots(){
     const src=shotSrc(s);
     return '<div class="tfslot filled"><div class="tfl"><span>'+esc(label)+'</span>'+
       '<button type="button" class="rm" title="'+T.shotRemoveTip+'" onclick="removeShot('+i+')">×</button></div>'+
-      '<img src="'+src+'" onclick="openLightbox(this)">'+
-      '<textarea class="tfnote" rows="1" placeholder="'+esc(T.snPh)+'" '+
-      'oninput="shotNote('+i+',this)">'+esc(s.note||"")+"</textarea></div>";
+      '<img src="'+src+'" onclick="openLightbox(this)"></div>';
   };
   let h="";
   for(const tf of Prefs.tfs()){
@@ -2156,8 +2154,6 @@ function renderShots(){
     T.shotDragHint+'</div>';
   h+='<div class="tfhint">'+shotsHintHtml()+'</div>';
   box.innerHTML=h;
-  /* підписи вже написані — поля мають бути заввишки з текст, а не в рядок */
-  box.querySelectorAll(".tfnote").forEach(growNote);
   /* перетаскивание: в конкретный таймфрейм или в общую зону */
   if(window.Attach) Attach.mount(box, acceptFiles);
 }
@@ -2173,22 +2169,8 @@ function acceptFiles(files, tf){
 }
 function removeShot(i){ S.formShots.splice(i,1); renderShots(); }
 
-/* Підпис під скріном — те, чого не скажеш полем «Як заходив»: чому саме на
-   цьому таймфреймі видно лонг і що ти тут розглядаєш. Лежить поруч із
-   таймфреймом, у тому самому записі, тож їде зі скріном усюди — у картку
-   угоди, у перегляд і у відкритий журнал. */
-function shotNote(i, el){
-  if(!S.formShots[i]) return;
-  S.formShots[i].note = el.value;
-  growNote(el);
-}
-/* поле росте під текст: думка буває на абзац, а смуга прокрутки в маленькому
-   полі ховає початок написаного */
-function growNote(el){
-  el.style.height = "auto";
-  el.style.height = el.scrollHeight + "px";
-}
-
+/* Підпису під скріном у формі угоди нема: поле «Як заходив» і розбір дня
+   кажуть те саме. Старі підписи в записах лишаються й показуються в картці. */
 /* клик по слоту только выделяет его: диалог файла забирал фокус и Ctrl+V уходил мимо.
    На телефоне Ctrl+V нет: тап читает буфер сам, два тапа — файлы (ShotTap в ui.js). */
 function armSlot(tf){
