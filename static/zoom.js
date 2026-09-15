@@ -93,9 +93,21 @@ window.Zoom = (function(){
         if (Math.abs(dx) + Math.abs(dy) > 3) st.moved = true;
         st.x = st.drag.x + dx; st.y = st.drag.y + dy;
         apply();
+      } else if (st.drag){
+        /* без наближення тягнути нічого — але помітний рух це вже не клік */
+        if (Math.abs(e.clientX - st.drag.px) + Math.abs(e.clientY - st.drag.py) > 8) st.moved = true;
       }
     });
     const up = e => {
+      /* Свайп без наближення — «наступний/попередній скрін»: кажемо про це
+         подією, а що з нею робити, вирішує перегляд (гортає список). */
+      if (st.drag && st.s === 1 && st.ptrs.size === 1 && !st.pinch){
+        const dx = e.clientX - st.drag.px, dy = e.clientY - st.drag.py;
+        if (Math.abs(dx) > 40 && Math.abs(dx) > Math.abs(dy) * 1.5){
+          st.moved = true;
+          img.dispatchEvent(new CustomEvent("swipe", {detail: {dir: dx < 0 ? 1 : -1}}));
+        }
+      }
       st.ptrs.delete(e.pointerId);
       if (st.ptrs.size < 2) st.pinch = null;
       if (st.ptrs.size === 0) st.drag = null;

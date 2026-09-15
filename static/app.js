@@ -1565,7 +1565,10 @@ function showShot(){
   const cur = LB.list[LB.i] || {src:"", cap:"", note:""};
   const im = $("#lightboxImg");
   /* лупа: інший скрін — з нуля, без наближення попереднього */
-  if(window.Zoom){ Zoom.attach(im); Zoom.reset(im); }
+  if(window.Zoom){
+    Zoom.attach(im); Zoom.reset(im);
+    if(!im.__swipe){ im.__swipe = true; im.addEventListener("swipe", e => lightStep(e.detail.dir)); }
+  }
   im.src = cur.src;
   const note = $("#lightboxNote");
   if(note) note.textContent = cur.note || "";
