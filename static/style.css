@@ -128,7 +128,12 @@ html:has(.pnl-wrap){overflow-y:hidden}
 /* ================= sidebar ================= */
 .side{width:216px;flex:none;border-right:1px solid var(--side-line);padding:18px 14px;
   display:flex;flex-direction:column;gap:20px;position:sticky;top:0;height:100vh;background:var(--side-bg);
-  font-weight:400;line-height:1.5;overflow-y:auto;scrollbar-width:none}
+  font-weight:400;line-height:1.5;overflow-y:auto;scrollbar-width:none;
+  /* Окремий шар: sticky-панель рухається разом зі сторінкою, і коли прокрутка
+     доходить до дробового краю внизу, іконки соцмереж (стоять на півпікселі
+     через margin-top:auto) перемальовувались то на піксель вище, то нижче —
+     смикались. У власному шарі вміст растеризується один раз. */
+  will-change:transform;backface-visibility:hidden}
 /* смуга прокрутки в лівому меню не потрібна: воно коротке, а на низькому
    екрані докручується колесом. Разом зі смугою прибрано й місце під неї
    (scrollbar-gutter) — інакше праворуч лишалась порожня колонка. */
