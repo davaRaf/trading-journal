@@ -203,7 +203,8 @@ textarea.dv-in{resize:none; overflow:hidden}
 .dv-shot:hover .ph em{opacity:1}
 .dv-shot .rm{position:absolute; top:8px; right:8px; width:22px; height:22px; border:0;
   border-radius:50%; background:rgba(0,0,0,.55); color:#fff; font:inherit; font-size:15px;
-  line-height:1; cursor:pointer; opacity:0; transition:opacity .18s}
+  line-height:1; cursor:pointer; opacity:0; transition:opacity .18s;
+  display:grid; place-items:center; padding:0}
 .dv-shot:hover .rm{opacity:1}
 /* Заповнений слот: клік відкриває скрін на весь екран, замінити й
    прибрати — кнопки в кутку (як у «Моїй ТС»). */

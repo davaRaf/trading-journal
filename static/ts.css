@@ -68,7 +68,8 @@
   text-overflow:ellipsis; white-space:nowrap}
 .ts-src a:hover{text-decoration:underline}
 .ts-src .rm{flex:none; width:20px; height:20px; border:0; border-radius:50%;
-  background:none; color:var(--dim); font-size:15px; line-height:1; cursor:pointer}
+  background:none; color:var(--dim); font-size:15px; line-height:1; cursor:pointer;
+  display:grid; place-items:center; padding:0}
 .ts-src .rm:hover{background:var(--line); color:var(--text)}
 
 .ts-load{display:flex; align-items:center; gap:9px; font-size:13.5px; color:var(--dim);
@@ -319,7 +320,8 @@ textarea.ts-in{resize:none; overflow:auto; display:block; max-height:50vh;
 .ts-shot:hover .over{opacity:1}
 .ts-shot .rm{position:absolute; top:6px; right:6px; width:22px; height:22px; border:0;
   border-radius:50%; background:rgba(0,0,0,.55); color:#fff; font:inherit; font-size:15px;
-  line-height:1; cursor:pointer; opacity:0; transition:opacity .18s}
+  line-height:1; cursor:pointer; opacity:0; transition:opacity .18s;
+  display:grid; place-items:center; padding:0}
 .ts-shot:hover .rm{opacity:1}
 .ts-shot.busy{opacity:.55; pointer-events:none}
 
