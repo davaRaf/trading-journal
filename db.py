@@ -388,12 +388,20 @@ def set_avatar(user_id, name):
     return old["avatar"] if old else None
 
 
-def profile_stats(user_id, today, weeks=12):
+def profile_stats(user_id, today, weeks=12, tz=None):
     """Цифри для профілю — про звичку вести журнал, а не про прибуток.
 
     today — дата людини в її поясі (datetime.date): «серія» й карта
     активності рахуються в її днях, а не в годиннику сервера.
-    Вихідні серію не рвуть і в карту не входять — ринок у ці дні закритий.
+
+    День у карті світиться, якщо людина того дня хоч щось записала:
+    угода (пропуск теж рахується — це теж запис), розбір дня або
+    посилання, яким вона поділилась. Рішення власника 16.09.2026:
+    раніше світились тільки дні з угодами, вихідних у карті не було
+    зовсім, і цифри поруч не сходились між собою.
+
+    Вихідні тепер у карті є (крипта торгується і в суботу), але порожній
+    вихідний серію не рве — ринок здебільшого зачинений.
     """
     import datetime as _dt
     with connect() as conn:
@@ -418,56 +426,99 @@ def profile_stats(user_id, today, weeks=12):
             reviews = conn.execute(
                 "SELECT count(*) AS n FROM day_notes WHERE user_id=%s AND data <> '{}'::jsonb",
                 (user_id,)).fetchone()["n"]
+            review_rows = conn.execute(
+                "SELECT \"date\" AS d FROM day_notes WHERE user_id=%s AND data <> '{}'::jsonb",
+                (user_id,)).fetchall()
         except psycopg.errors.UndefinedTable:
             conn.rollback()
-            reviews = 0
+            reviews, review_rows = 0, []
+        try:
+            share_rows = conn.execute(
+                "SELECT created FROM shares WHERE user_id=%s", (user_id,)).fetchall()
+        except psycopg.errors.UndefinedTable:
+            conn.rollback()
+            share_rows = []
 
-    counts = {}
+    trades_day = {}
     for r in per_day:
         try:
-            counts[_dt.date.fromisoformat(r["d"])] = r["n"]
+            trades_day[_dt.date.fromisoformat(r["d"])] = r["n"]
         except ValueError:
             pass
 
-    def weekday_back(d):
-        d -= _dt.timedelta(days=1)
-        while d.weekday() >= 5:
-            d -= _dt.timedelta(days=1)
+    review_day = set()
+    for r in review_rows:
+        try:
+            review_day.add(_dt.date.fromisoformat(str(r["d"])[:10]))
+        except ValueError:
+            pass
+
+    # посилання прив'язані до миті створення, тож дату беремо в поясі людини
+    shares_day = {}
+    for r in share_rows:
+        try:
+            day = _dt.datetime.fromtimestamp(int(r["created"]), tz).date()
+        except (ValueError, OSError, TypeError):
+            continue
+        shares_day[day] = shares_day.get(day, 0) + 1
+
+    # скільки записів того дня — з цього й насиченість клітинки
+    active = {}
+    for src in (trades_day, shares_day):
+        for day, n in src.items():
+            active[day] = active.get(day, 0) + n
+    for day in review_day:
+        active[day] = active.get(day, 0) + 1
+
+    day1 = _dt.timedelta(days=1)
+
+    def step_back(d):
+        """Крок назад по днях: порожні вихідні перестрибуємо — вони не рвуть
+        серію. Вихідний із записом — звичайний день серії."""
+        d -= day1
+        while d.weekday() >= 5 and d not in active:
+            d -= day1
         return d
 
-    # серія: робочі дні підряд із записами. Сьогодні ще без записів — не
-    # обрив, рахуємо від останнього робочого дня.
+    # серія: дні підряд із записами. Сьогодні ще без записів — не обрив,
+    # рахуємо від попереднього дня.
     streak, d = 0, today
-    while d.weekday() >= 5:
-        d -= _dt.timedelta(days=1)
-    if d not in counts:
-        d = weekday_back(d)
-    while d in counts:
+    while d.weekday() >= 5 and d not in active:
+        d -= day1
+    if d not in active:
+        d = step_back(d)
+    while d in active:
         streak += 1
-        d = weekday_back(d)
+        d = step_back(d)
 
     best, run, prev = 0, 0, None
-    for day in sorted(k for k in counts if k.weekday() < 5):
-        run = run + 1 if prev is not None and weekday_back(day) == prev else 1
+    for day in sorted(active):
+        run = run + 1 if prev is not None and step_back(day) == prev else 1
         best = max(best, run)
         prev = day
 
-    # карта: останні `weeks` тижнів, пн–пт, по стовпчику на тиждень
-    monday = today - _dt.timedelta(days=today.weekday())
-    start = monday - _dt.timedelta(weeks=weeks - 1)
-    heat = []
-    for w in range(weeks):
-        for wd in range(5):
-            day = start + _dt.timedelta(weeks=w, days=wd)
-            n = counts.get(day, 0)
-            heat.append(-1 if day > today else (0 if n == 0 else 1 if n == 1 else 2 if n <= 3 else 3))
+    # Календар активності (рішення власника 16.09.2026: сітка квадратиків
+    # була незрозуміла, тепер це звичайний календар місяця). Віддаємо самі
+    # дні із записами за останній рік — з них браузер малює будь-який місяць.
+    since = today - _dt.timedelta(days=370)
+    log = {}
+    for day, n in active.items():
+        if day < since or day > today:
+            continue
+        log[day.isoformat()] = {"t": trades_day.get(day, 0),
+                                "r": 1 if day in review_day else 0,
+                                "s": shares_day.get(day, 0), "n": n}
+
+    # найраніший місяць, куди має сенс гортати
+    oldest = min(active) if active else today
+    log_from = max(oldest, since).isoformat()
 
     return {
         "trades": t["trades"] or 0, "days": t["days"] or 0, "reviews": reviews or 0,
         "streak": streak, "best_streak": max(best, streak),
         "first": t["first"] or None, "hundredth": hundredth["d"] if hundredth else None,
         "pairs": [[r["pair"], r["n"]] for r in pairs],
-        "heat": heat, "active_days": sum(1 for v in heat if v > 0),
+        "log": log, "log_from": log_from, "today": today.isoformat(),
     }
 
 
