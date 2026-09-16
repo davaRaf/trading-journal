@@ -1,0 +1,81 @@
+/* ============================================================
+   Привітання при вході (static/hello.js).
+
+   На весь екран: тло теми, м'яке зелене сяйво, крива росту рахунку, що
+   промальовується знизу, а по центру «Ласкаво просимо нік» і
+   «Рада тебе бачити». Потім екран тане, і під ним уже журнал.
+
+   Показується, лише коли в <html> стоїть клас hello-on — його ставить
+   скрипт у <head> ще до першого малювання, тож журнал не блимає перед
+   привітанням. Кольори — з токенів теми, тому світлі теми теж працюють.
+   ============================================================ */
+#hello{display:none}
+html.hello-on #hello{display:grid}
+html.hello-on body{overflow:hidden}
+
+#hello{position:fixed; inset:0; z-index:10000; place-items:center; overflow:hidden;
+  background:var(--bg); color:var(--text); cursor:default; user-select:none;
+  transition:opacity .55s cubic-bezier(.4,0,.2,1)}
+#hello.out{opacity:0; pointer-events:none}
+
+/* ---- тло: два сяйва й крива ---- */
+.hello-glow{position:absolute; width:78vmax; height:78vmax; border-radius:50%; opacity:0; pointer-events:none}
+.hello-glow.a{left:-26vmax; top:-34vmax;
+  background:radial-gradient(closest-side, color-mix(in srgb, var(--logo-green) 30%, transparent), transparent 72%)}
+.hello-glow.b{right:-30vmax; bottom:-40vmax;
+  background:radial-gradient(closest-side, color-mix(in srgb, var(--logo-green) 18%, transparent), transparent 72%)}
+/* крива лежить у нижній третині й м'яко зникає догори — не заходить під текст */
+.hello-curve{position:absolute; left:0; right:0; bottom:0; width:100%; height:30vh; pointer-events:none;
+  -webkit-mask-image:linear-gradient(to top, #000 72%, transparent);
+          mask-image:linear-gradient(to top, #000 72%, transparent)}
+.hello-curve .line{fill:none; stroke:url(#helloStroke); stroke-width:2.2; stroke-linecap:round; stroke-linejoin:round;
+  vector-effect:non-scaling-stroke}
+/* крива «малюється» зліва направо: росте маска, а не штрих — штрихи з
+   non-scaling-stroke Chrome рахує криво, і шматок кривої видно одразу */
+.hello-curve .reveal{transform-box:fill-box; transform-origin:left center; transform:scaleX(0)}
+.hello-curve .area{fill:url(#helloFill); opacity:0}
+.hello-curve .dot{fill:var(--logo-green); opacity:0}
+
+/* ---- центр ---- */
+.hello-in{position:relative; display:flex; flex-direction:column; align-items:center; text-align:center;
+  gap:10px; padding-inline:24px; max-width:100%;
+  transition:transform .55s cubic-bezier(.4,0,.2,1)}
+#hello.out .hello-in{transform:translateY(-14px) scale(.985)}
+/* «Ласкаво просимо» завжди окремим рядком угорі, під ним нік — яким би
+   коротким чи довгим він не був. Обидва одного розміру, нік лише жирніший. */
+.hello-line{margin:0; max-width:92vw; font-size:clamp(30px, 5.2vw, 64px); line-height:1.14; letter-spacing:-.03em;
+  text-wrap:balance}
+.hello-hi, .hello-nick{display:block; max-width:100%}
+.hello-hi{font-weight:500}
+.hello-nick{font-weight:750; overflow-wrap:anywhere}
+.hello-glad{margin-top:6px; font-size:clamp(16px, 2vw, 20px); color:var(--dim)}
+.hello-glad i{font-style:normal; color:var(--logo-green)}
+.hello-rise{opacity:0; transform:translateY(18px)}
+
+/* ---- хореографія: 0.25 «Ласкаво просимо» → 0.4 нік → 0.65 «Рада» ---- */
+#hello.play .hello-glow.a{animation:helloFade 1.2s ease-out forwards, helloDriftA 10s ease-in-out infinite alternate}
+#hello.play .hello-glow.b{animation:helloFade 1.4s ease-out .2s forwards, helloDriftB 12s ease-in-out infinite alternate}
+#hello.play .hello-curve .reveal{animation:helloDraw 1.9s cubic-bezier(.22,1,.36,1) .15s forwards}
+#hello.play .hello-curve .area{animation:helloFade .9s ease-out 1s forwards}
+#hello.play .hello-curve .dot{animation:helloPop .45s cubic-bezier(.34,1.56,.64,1) 1.85s forwards}
+#hello.play .hello-rise{animation:helloRise .75s cubic-bezier(.22,1,.36,1) forwards}
+#hello.play .hello-hi{animation-delay:.25s}
+#hello.play .hello-nick{animation-delay:.4s}
+#hello.play .hello-glad{animation-delay:.65s}
+
+@keyframes helloFade{to{opacity:1}}
+@keyframes helloDraw{to{transform:scaleX(1)}}
+@keyframes helloPop{from{opacity:0; transform:scale(.2)} to{opacity:1; transform:none}}
+@keyframes helloRise{to{opacity:1; transform:none}}
+@keyframes helloDriftA{to{transform:translate(6vmax, 4vmax)}}
+@keyframes helloDriftB{to{transform:translate(-5vmax, -3vmax)}}
+.hello-curve .dot{transform-box:fill-box; transform-origin:center}
+
+/* менше руху: без зсувів, малювання й дрейфу — усе одразу на місці,
+   екран лише плавно з'являється і тане */
+@media (prefers-reduced-motion: reduce){
+  #hello .hello-rise, #hello .hello-glow,
+  #hello .hello-curve .area, #hello .hello-curve .dot{opacity:1; transform:none; animation:none !important}
+  #hello .hello-curve .reveal{transform:none; animation:none !important}
+  #hello.out .hello-in{transform:none}
+}

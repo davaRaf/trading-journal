@@ -227,9 +227,11 @@ body{
   opacity:0; transform:translateY(6px);
 }
 
-/* ---------- лёгкий наклон за курсором ---------- */
-.stage{perspective:1100px}
-.shell{transform-style:preserve-3d; will-change:transform}
+/* ---------- параллакс ----------
+   Карточка стоит на месте. Раньше она ещё наклонялась за курсором
+   (preserve-3d + will-change), и после тряски от ошибки браузер
+   переводил её в отдельный 3D-слой: текст мутнел, а карточка «плыла» за
+   мышью. Двигаются только фон и цитата — глубину дают они. */
 /* параллакс: чем дальше слой, тем меньше он смещается */
 #bg{will-change:transform}
 .headline{will-change:transform}
@@ -271,6 +273,10 @@ body{
 @keyframes riseIn{ from{opacity:0; transform:translateY(14px)} to{opacity:.92; transform:none} }
 @keyframes cardIn{ from{opacity:0; transform:translateY(20px) scale(.985)} to{opacity:1; transform:none} }
 .shell{animation:cardIn .75s var(--ease) both .08s}
+/* Появу граємо один раз. Після неї на карточці лише «тряска» від помилки,
+   і коли її клас знімається, анімація не повертається до cardIn — інакше
+   браузер програвав появу знову: форма зникала й виринала заново. */
+.shell.ready:not(.shake){animation:none}
 
 /* ---------- вход через сервисы ---------- */
 .social{display:flex; flex-direction:column; gap:8px; margin-bottom:18px}
@@ -504,6 +510,18 @@ body{
         <label for="pw2" id="pw2Label">Ще раз пароль</label>
         <input id="pw2" type="password" placeholder="••••••••" autocomplete="new-password">
       </div>
+      <!-- другий крок входу: код із застосунку або запасний код -->
+      <div class="field" id="tfField" hidden>
+        <label for="tf" id="tfLabel">Код</label>
+        <input id="tf" type="text" inputmode="numeric" autocomplete="one-time-code"
+               maxlength="11" spellcheck="false" autocapitalize="off" placeholder="123456">
+      </div>
+      <!-- підтвердження пошти: шість цифр із листа -->
+      <div class="field" id="mcField" hidden>
+        <label for="mc" id="mcLabel">Код из письма</label>
+        <input id="mc" type="text" inputmode="numeric" autocomplete="one-time-code"
+               maxlength="6" spellcheck="false" autocapitalize="off" placeholder="123456">
+      </div>
 
       <div class="minor">
         <span class="keep" id="keepNote">Вход сохраняется на 30 дней</span>
@@ -517,8 +535,8 @@ body{
         <span class="spin" aria-hidden="true"></span>
         <svg class="tick" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 12.5l5.2 5.2L20 7"/></svg>
       </button>
-      <p class="err" id="errMsg" hidden></p>
-      <p class="ok" id="okMsg" hidden></p>
+      <p class="err" id="errMsg" role="alert" hidden></p>
+      <p class="ok" id="okMsg" role="status" aria-live="polite" hidden></p>
     </form>
 
     <div class="alt" id="altLine">Нет аккаунта? <a href="#" data-goto="up">Создать</a></div>
@@ -858,7 +876,11 @@ try{
     RESET_TOKEN = q.get("t");
     MODE = "reset";
   }
+  /* після входу через Google/Discord з увімкненою 2FA сервер веде сюди */
+  if (q.get("twofa") === "1") MODE = "twofa";
 }catch(e){}
+/* куди пішов лист із кодом — показуємо в підказці над полем */
+let MAIL_TO = "";
 
 /* Чи є взагалі кнопки сервісів: коли ключів немає, сервер каже про це, і
    ми ховаємо і кнопки, і роздільник — назавжди, а не до першого перемикання. */
@@ -871,8 +893,9 @@ function setTab(t){
   if (c){ c.classList.add("swap"); setTimeout(() => c.classList.remove("swap"), 180); }
   document.querySelectorAll(".tabs button").forEach(b => b.classList.toggle("on", b.dataset.tab === t));
 
-  const reg = t === "up", forgot = t === "forgot", reset = t === "reset";
-  const usual = !forgot && !reset;          // звичайні вхід і реєстрація
+  const reg = t === "up", forgot = t === "forgot", reset = t === "reset", twofa = t === "twofa";
+  const mail = t === "mail";
+  const usual = !forgot && !reset && !twofa && !mail;  // звичайні вхід і реєстрація
 
   showErr(""); showOk("");
   /* підказку про незнайому пошту щойно стерли разом з рештою — щоб на новій
@@ -889,9 +912,13 @@ function setTab(t){
   const div = document.querySelector(".or");
   if (div) div.hidden = !usual || !SOC;
 
-  document.getElementById("emField").hidden = reset;
-  document.getElementById("pwField").hidden = forgot;
+  document.getElementById("emField").hidden = reset || twofa || mail;
+  document.getElementById("pwField").hidden = forgot || twofa || mail;
   document.getElementById("pw2Field").hidden = !reset;
+  document.getElementById("tfField").hidden = !twofa;
+  document.getElementById("tfLabel").textContent = T.lTf;
+  document.getElementById("mcField").hidden = !mail;
+  document.getElementById("mcLabel").textContent = T.lMc;
 
   document.getElementById("emLabel").textContent = T.lEmail;
   em.placeholder = T.phEmail;
@@ -899,15 +926,16 @@ function setTab(t){
   document.getElementById("pw2Label").textContent = T.lPwRepeat;
 
   const hint = document.getElementById("hint");
-  hint.textContent = forgot ? T.fgHint : (reset ? T.rsHint : "");
+  hint.textContent = forgot ? T.fgHint : reset ? T.rsHint : twofa ? T.tfHint
+                   : mail ? T.mcHint.replace("%s", MAIL_TO || "") : "";
   hint.hidden = usual;
 
   document.querySelector("#goBtn .lbl").textContent =
-    forgot ? T.btnForgot : reset ? T.btnReset : reg ? T.btnUp : T.btnIn;
+    forgot ? T.btnForgot : reset ? T.btnReset : twofa ? T.btnTf : mail ? T.btnMc : reg ? T.btnUp : T.btnIn;
   document.getElementById("pw").setAttribute("autocomplete",
     (reg || reset) ? "new-password" : "current-password");
   document.getElementById("altLine").innerHTML =
-    (forgot || reset) ? T.altBack : reg ? T.altUp : T.altIn;
+    twofa ? T.altTf : mail ? T.altMc : (forgot || reset) ? T.altBack : reg ? T.altUp : T.altIn;
   document.getElementById("demoLine").innerHTML = '<a href="/demo">' + T.demoLink + "</a>";
 
   // при регистрации и при новом пароле показываем надёжность
@@ -924,11 +952,15 @@ function setTab(t){
     b.childNodes[b.childNodes.length - 1].textContent =
       (reg ? T.regWith : T.contWith) + b.dataset.svc;
   });
+  if (twofa){ tf.value = ""; setTimeout(() => tf.focus(), 60); }
+  if (mail){ mc.value = ""; setTimeout(() => mc.focus(), 60); }
 }
 document.querySelectorAll(".tabs button").forEach(b => b.onclick = () => setTab(b.dataset.tab));
 document.addEventListener("click", e => {
   const a = e.target.closest("[data-goto]");
   if (a){ e.preventDefault(); setTab(a.dataset.goto); }
+  const r = e.target.closest("[data-resend]");
+  if (r){ e.preventDefault(); resendMail(); }
 });
 
 /* ============================================================
@@ -1017,6 +1049,19 @@ const I18N = {
     fgBad: "Це не схоже на адресу пошти.",
     fgFail: "Листа надіслати не вдалось. Спробуй ще раз трохи згодом.",
     rsHint: "Придумай новий пароль — і одразу зайдемо в журнал.",
+    lTf: "Код", btnTf: "Підтвердити",
+    tfHint: "Увімкнено двоетапний вхід. Введи 6 цифр із застосунку-автентифікатора.",
+    altTf: 'Немає телефона під рукою? Введи запасний код у це ж поле. <a href="#" data-goto="in">Увійти заново</a>',
+    tfBad: "Код не підходить. Перевір, чи точний час на телефоні, або введи запасний код.",
+    tfExpired: "Час на введення коду вийшов — увійди ще раз.",
+    tfBackupLeft: "Увійшли запасним кодом. Лишилось: %d — нові можна зробити в налаштуваннях.",
+    lMc: "Код із листа", btnMc: "Підтвердити пошту",
+    mcHint: "Надіслали код на %s. Введи 6 цифр із листа — і одразу зайдемо в журнал.",
+    altMc: 'Лист не прийшов? Перевір «Спам» або <a href="#" data-resend>надішли ще раз</a>. <a href="#" data-goto="in">Увійти заново</a>',
+    mcBad: "Код не підходить. Перевір цифри або попроси новий лист.",
+    mcExpired: "Час вийшов — увійди ще раз, і ми надішлемо новий код.",
+    mcResent: "Новий код надіслано на %s. Попередній більше не діє.",
+    mcWait: "Новий лист можна попросити за %d с.",
     lvl: ["Слабкий", "Слабкий", "Середній", "Добрий", "Надійний"],
     pitchBig: "Журнал, який<br>пояснює результат",
     pitchFacts: ["входи за своїм біасом", "входи проти біасу", "угод у розборі"],
@@ -1061,6 +1106,19 @@ const I18N = {
     fgBad: "Это не похоже на адрес почты.",
     fgFail: "Письмо отправить не удалось. Попробуй ещё раз чуть позже.",
     rsHint: "Придумай новый пароль — и сразу зайдём в журнал.",
+    lTf: "Код", btnTf: "Подтвердить",
+    tfHint: "Включён двухэтапный вход. Введи 6 цифр из приложения-аутентификатора.",
+    altTf: 'Нет телефона под рукой? Введи запасной код в это же поле. <a href="#" data-goto="in">Войти заново</a>',
+    tfBad: "Код не подходит. Проверь, точное ли время на телефоне, или введи запасной код.",
+    tfExpired: "Время на ввод кода вышло — войди ещё раз.",
+    tfBackupLeft: "Вошли запасным кодом. Осталось: %d — новые можно сделать в настройках.",
+    lMc: "Код из письма", btnMc: "Подтвердить почту",
+    mcHint: "Отправили код на %s. Введи 6 цифр из письма — и сразу зайдём в журнал.",
+    altMc: 'Письмо не пришло? Проверь «Спам» или <a href="#" data-resend>отправь ещё раз</a>. <a href="#" data-goto="in">Войти заново</a>',
+    mcBad: "Код не подходит. Проверь цифры или попроси новое письмо.",
+    mcExpired: "Время вышло — войди ещё раз, и мы отправим новый код.",
+    mcResent: "Новый код отправлен на %s. Прежний больше не действует.",
+    mcWait: "Новое письмо можно попросить через %d с.",
     lvl: ["Слабый", "Слабый", "Средний", "Хороший", "Надёжный"],
     pitchBig: "Журнал, который<br>объясняет результат",
     pitchFacts: ["входы по своему биасу", "входы против биаса", "сделок в разборе"],
@@ -1105,6 +1163,19 @@ const I18N = {
     fgBad: "That does not look like an email address.",
     fgFail: "The letter could not be sent. Please try again a bit later.",
     rsHint: "Pick a new password — and we will take you straight to the journal.",
+    lTf: "Code", btnTf: "Confirm",
+    tfHint: "Two-step sign-in is on. Enter the 6 digits from your authenticator app.",
+    altTf: 'No phone at hand? Enter a backup code in the same field. <a href="#" data-goto="in">Sign in again</a>',
+    tfBad: "Wrong code. Check that your phone's clock is accurate, or enter a backup code.",
+    tfExpired: "Time to enter the code ran out — please sign in again.",
+    tfBackupLeft: "Signed in with a backup code. %d left — make new ones in settings.",
+    lMc: "Code from the email", btnMc: "Confirm email",
+    mcHint: "We sent a code to %s. Enter the 6 digits from the email and we will take you straight to the journal.",
+    altMc: 'No email? Check spam or <a href="#" data-resend>send it again</a>. <a href="#" data-goto="in">Sign in again</a>',
+    mcBad: "Wrong code. Check the digits or ask for a new email.",
+    mcExpired: "Time ran out — sign in again and we will send a new code.",
+    mcResent: "A new code was sent to %s. The previous one no longer works.",
+    mcWait: "You can ask for a new email in %d s.",
     lvl: ["Weak", "Weak", "Fair", "Good", "Strong"],
     pitchBig: "The journal that<br>explains your results",
     pitchFacts: ["entries with your bias", "entries against it", "trades reviewed"],
@@ -1140,7 +1211,7 @@ function applyLang(code){
      людина натиснула «створити журнал», отже їй потрібна реєстрація */
   /* Стани без вкладок («забув пароль», «новий пароль») перемиканням мови
      не збиваються: показуємо те саме, тільки іншими словами. */
-  const want = (MODE === "forgot" || MODE === "reset") ? MODE
+  const want = (MODE === "forgot" || MODE === "reset" || MODE === "twofa" || MODE === "mail") ? MODE
              : location.hash === "#signup" ? "up"
              : (document.querySelector('.tabs button.on')?.dataset.tab || "in");
   setTab(want);
@@ -1160,6 +1231,9 @@ Object.keys(I18N).forEach(code => {
    журнал на "/" сам отправит обратно сюда, если её нет.
    Кнопки соцсетей — пока заглушки, входа через них ещё нет.
    ============================================================ */
+/* Хто на сторінці входу — той ще не в журналі: наступний вхід (паролем,
+   кодом чи через Google/Discord) знову покаже привітання (static/hello.js). */
+try{ sessionStorage.removeItem("statsai_hello"); }catch(e){}
 function enter(){ location.href = "/"; }
 
 const errMsg = document.getElementById("errMsg");
@@ -1220,6 +1294,8 @@ function errText(d){
     short: T.errShort, bad_token: T.errToken,
     no_user: T.fgNone, bad_email: T.fgBad, send_failed: T.fgFail,
     too_many: T.errMany.replace("%d", d.wait != null ? d.wait : "…"),
+    twofa_bad: T.tfBad, twofa_expired: T.tfExpired,
+    mail_bad: T.mcBad, mail_expired: T.mcExpired,
   };
   return map[d.code] || d.error || T.errGeneric;
 }
@@ -1229,6 +1305,15 @@ const shell = document.querySelector(".shell");
 const card  = document.querySelector(".card");
 const goBtn = document.getElementById("goBtn");
 const em    = document.getElementById("em");
+const tf    = document.getElementById("tf");
+const mc    = document.getElementById("mc");
+mc.addEventListener("input", () => {
+  mc.value = mc.value.replace(/\D/g, "").slice(0, 6);
+  if (mc.value.length === 6 && !goBtn.classList.contains("busy")) sendMail();
+});
+tf.addEventListener("input", () => {
+  if (/^\d{6}$/.test(tf.value.trim()) && !goBtn.classList.contains("busy")) sendTwofa();
+});
 
 /* ---- незнайома пошта: кажемо там, де її вводять ----
    Раніше це з'ясовувалось аж після кнопки «надіслати посилання»: людина
@@ -1285,6 +1370,12 @@ function shake(){
   shell.classList.remove("shake"); void shell.offsetWidth;
   shell.classList.add("shake");
 }
+/* тряска закінчилась — знімаємо клас, щоб анімація не лишалась висіти на карточці */
+shell.addEventListener("animationend", e => {
+  if (e.target !== shell) return;
+  if (e.animationName === "cardIn") shell.classList.add("ready");
+  if (e.animationName === "shake"){ shell.classList.add("ready"); shell.classList.remove("shake"); }
+});
 
 /* пустые поля — карточка вздрагивает и подсвечивает, что не заполнено */
 goBtn.addEventListener("click", async () => {
@@ -1293,6 +1384,8 @@ goBtn.addEventListener("click", async () => {
 
   if (MODE === "forgot") return sendForgot();
   if (MODE === "reset")  return sendReset();
+  if (MODE === "twofa")  return sendTwofa();
+  if (MODE === "mail")   return sendMail();
 
   const reg = MODE === "up";
   const empty = [em, pw].filter(i => !i.value.trim());
@@ -1305,8 +1398,8 @@ goBtn.addEventListener("click", async () => {
 
   goBtn.classList.add("busy");
   const body = reg
-    ? { email: em.value.trim(), password: pw.value }
-    : { login: em.value.trim(), password: pw.value };
+    ? { email: em.value.trim(), password: pw.value, lang: LANG }
+    : { login: em.value.trim(), password: pw.value, lang: LANG };
   let res, data = {};
   try {
     res = await fetch("/api/auth/" + (reg ? "register" : "login"), {
@@ -1329,9 +1422,65 @@ goBtn.addEventListener("click", async () => {
     shake();
     return;
   }
+  /* пошту ще не підтверджено (нова реєстрація чи старий акаунт) — код із листа */
+  if (data.confirm){ MAIL_TO = data.email || em.value.trim(); return setTab("mail"); }
+  /* пароль правильний, але увімкнено двоетапний вхід — просимо код */
+  if (data.twofa) return setTab("twofa");
   goBtn.classList.add("done");
   setTimeout(enter, 700);            // показали галочку — и в журнал
 });
+
+/* ---- код із листа ----
+   Пропуск на цей крок — HttpOnly-кука, як і в 2FA: сторінка шле лише
+   шість цифр. Після коду сервер або впускає, або просить ще й код 2FA. */
+async function sendMail(){
+  const code = mc.value.trim();
+  if (code.length !== 6){ markBad(mc); shake(); mc.focus(); return; }
+  goBtn.classList.add("busy");
+  let res, data = {};
+  try{
+    res = await fetch("/api/auth/mail-code", {
+      method: "POST", credentials: "same-origin",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ code: code })
+    });
+    data = await res.json().catch(() => ({}));
+  }catch(e){
+    goBtn.classList.remove("busy");
+    showErr(T.errServer); shake(); return;
+  }
+  goBtn.classList.remove("busy");
+  if (!res.ok){
+    showErr(errText(data));
+    markBad(mc); shake();
+    mc.select();
+    if (data.code === "mail_expired") setTimeout(() => setTab("in"), 1600);
+    return;
+  }
+  if (data.twofa) return setTab("twofa");
+  goBtn.classList.add("done");
+  setTimeout(enter, 700);
+}
+
+async function resendMail(){
+  showErr(""); showOk("");
+  let res, data = {};
+  try{
+    res = await fetch("/api/auth/mail-code/resend", {
+      method: "POST", credentials: "same-origin",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ lang: LANG })
+    });
+    data = await res.json().catch(() => ({}));
+  }catch(e){ showErr(T.errServer); return; }
+  if (!res.ok){
+    showErr(data.code === "too_many" ? T.mcWait.replace("%d", data.wait || 60) : errText(data));
+    if (data.code === "mail_expired") setTimeout(() => setTab("in"), 1600);
+    return;
+  }
+  showOk(T.mcResent.replace("%s", MAIL_TO || ""));
+  mc.focus();
+}
 
 /* ---- забув пароль: просимо посилання ----
    Відповідь сервера однакова і для знайомої пошти, і для незнайомої —
@@ -1406,21 +1555,58 @@ async function sendReset(){
       document.getElementById("altLine").innerHTML = T.altAgain;
     shake(); return;
   }
+  /* пароль уже новий, але з 2FA доступ до пошти ще не вхід — потрібен код */
+  if (data.twofa){ RESET_TOKEN = ""; return setTab("twofa"); }
   goBtn.classList.add("done");
   setTimeout(enter, 700);
 }
 
+/* ---- другий крок: код із застосунку або запасний ----
+   Пропуск на цей крок сервер тримає в HttpOnly-куці: сторінці його не
+   видно, і передавати треба лише сам код. */
+async function sendTwofa(){
+  const code = tf.value.trim();
+  if (!code){ markBad(tf); shake(); tf.focus(); return; }
+  goBtn.classList.add("busy");
+  let res, data = {};
+  try{
+    res = await fetch("/api/auth/2fa/verify", {
+      method: "POST", credentials: "same-origin",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ code: code })
+    });
+    data = await res.json().catch(() => ({}));
+  }catch(e){
+    goBtn.classList.remove("busy");
+    showErr(T.errServer); shake(); return;
+  }
+  goBtn.classList.remove("busy");
+  if (!res.ok){
+    showErr(errText(data));
+    markBad(tf); shake();
+    tf.select();
+    /* пропуск прострочився — назад до пароля, код тут уже не допоможе */
+    if (data.code === "twofa_expired") setTimeout(() => setTab("in"), 1600);
+    return;
+  }
+  goBtn.classList.add("done");
+  /* зайшли запасним — кажемо, скільки лишилось, і даємо це прочитати */
+  if (data.backup_left != null){
+    showOk(T.tfBackupLeft.replace("%d", data.backup_left));
+    setTimeout(enter, 2600);
+  } else {
+    setTimeout(enter, 700);
+  }
+}
+
 /* ============================================================
    Параллакс. Слои двигаются за курсором с разной силой:
-   свечи позади — сильнее всех, цитата — слабее, карточка почти
-   стоит на месте и лишь наклоняется. Разная скорость и создаёт
-   ощущение глубины.
+   свечи позади — сильнее, цитата — слабее. Карточка с формой стоит
+   на месте: по ней кликают и в ней читают ошибки.
    ============================================================ */
 if (matchMedia("(hover: hover) and (pointer: fine)").matches){
-  const TILT = 4;          // наклон карточки, градусов
   const SHIFT_BG = 26;     // насколько уводим фон со свечами, пикселей
   const SHIFT_TXT = 10;    // насколько уводим цитату
-  const SHIFT_CARD = 5;    // и саму карточку
 
   const headline = document.getElementById("headline");
   let raf = 0, tx = 0, ty = 0, cx = 0, cy = 0;
@@ -1443,9 +1629,6 @@ if (matchMedia("(hover: hover) and (pointer: fine)").matches){
       `translate3d(${(-cx * SHIFT_BG).toFixed(1)}px, ${(-cy * SHIFT_BG * .6).toFixed(1)}px, 0)`;
     if (headline) headline.style.transform =
       `translate3d(${(-cx * SHIFT_TXT).toFixed(1)}px, ${(-cy * SHIFT_TXT * .6).toFixed(1)}px, 0)`;
-    shell.style.transform =
-      `translate3d(${(-cx * SHIFT_CARD).toFixed(1)}px, ${(-cy * SHIFT_CARD * .6).toFixed(1)}px, 0)`
-      + ` rotateY(${(cx * TILT).toFixed(2)}deg) rotateX(${(-cy * TILT).toFixed(2)}deg)`;
 
     // пока не пришли в цель — продолжаем догонять
     if (Math.abs(tx - cx) > .001 || Math.abs(ty - cy) > .001)

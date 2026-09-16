@@ -682,6 +682,7 @@ function vOpen(){
   const d = D();
   const ok = ready();
   return head()
+    + '<div class="dv-need" id="dvNeed" role="status" aria-live="polite" hidden></div>'
     + '<div class="dv-stack">'
     +   (N.assets.length ? N.assets.map(cardOpen).join("")
         : '<div class="dv-empty">' + esc(d.noAssetsHint) + "</div>")
@@ -1026,9 +1027,27 @@ window.__dv = {
   },
   addLevel(i){ (N.assets[i].levels = N.assets[i].levels || []).push({}); save(); render(); },
   delLevel(i, j){ N.assets[i].levels.splice(j, 1); save(); render(); },
-  close(){ if (N.closed || !ready()) return; N.closed = true; save(); render(); },
+  close(){
+    if (N.closed) return;
+    if (!ready()) return needMorning();
+    N.closed = true; save(); render();
+  },
   reopen(){ if (!N.closed) return; N.closed = false; save(); render(); },
 };
+
+/* «Вечір» без ранкового плану не відкривається — і мовчки нічого не
+   робити не можна: людина не розуміє, чому кнопка не працює. Під шапкою
+   на кілька секунд з'являється пояснення, що зробити спершу. */
+let needTimer = 0;
+function needMorning(){
+  const el = document.getElementById("dvNeed");
+  if (!el) return;
+  el.textContent = D().needMorning;
+  el.hidden = false;
+  el.classList.remove("in"); void el.offsetWidth; el.classList.add("in");
+  clearTimeout(needTimer);
+  needTimer = setTimeout(() => { el.hidden = true; el.classList.remove("in"); }, 4500);
+}
 
 /* ---------------- підпис у бічній панелі ---------------- */
 function paintNav(){
@@ -1114,6 +1133,7 @@ uk: {
   colHold: "тримався", colRes: "результат", lessonTitle: "що з цього винести",
 
   closeDay: "Записати підсумок дня", writePlanFirst: "Спершу запиши план",
+  needMorning: "Спершу заповни ранковий аналіз: додай актив і запиши план — напрям, рівень чи скрін. Тоді можна перейти до вечора.",
   closeNote: "Коли день скінчився — натисни: ліворуч лишиться план, праворуч зʼявиться місце під факт по кожному активу.",
   closeNoteOff: "Кнопка ввімкнеться, коли в якомусь активі зʼявиться план: напрям, рівень чи скрін.",
   reopen: "← повернутись до плану",
@@ -1185,6 +1205,7 @@ ru: {
   colHold: "держался", colRes: "результат", lessonTitle: "что из этого вынести",
 
   closeDay: "Записать итог дня", writePlanFirst: "Сначала запиши план",
+  needMorning: "Сначала заполни утренний анализ: добавь актив и запиши план — направление, уровень или скрин. Потом можно перейти к вечеру.",
   closeNote: "Когда день закончился — нажми: слева останется план, справа появится место под факт по каждому активу.",
   closeNoteOff: "Кнопка включится, когда в каком-то активе появится план: направление, уровень или скрин.",
   reopen: "← вернуться к плану",
@@ -1256,6 +1277,7 @@ en: {
   colHold: "held to it", colRes: "result", lessonTitle: "what to take from it",
 
   closeDay: "Write the day up", writePlanFirst: "Write the plan first",
+  needMorning: "Fill in the morning analysis first: add an instrument and write a plan — a direction, a level or a screenshot. Then you can move on to the evening.",
   closeNote: "When the day is over, press it: the plan stays on the left and room for the facts opens on the right, per instrument.",
   closeNoteOff: "The button turns on once any instrument has a plan: a direction, a level or a screenshot.",
   reopen: "← back to the plan",

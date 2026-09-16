@@ -144,6 +144,13 @@
   /* режим «тільки значки» ховає підписи в бічній панелі — у шторці вони потрібні */
   .mmenu-wrap .mmenu .mini, .mmenu-wrap .mmenu #themeBtn{font-size:13.5px; justify-content:flex-start; padding:10px 12px}
   .mmenu-wrap .mmenu .lab{display:block}
+  /* свій профіль угорі шторки: підпис видно й у режимі «тільки значки» */
+  .mmenu-wrap .mmenu .side-me{width:auto; padding:0 0 14px; border-bottom:1px solid var(--line-soft)}
+  .mmenu-wrap .mmenu .side-me-who{flex:1; justify-content:flex-start; min-height:52px; padding:6px 8px}
+  .mmenu-wrap .mmenu .side-me-t{display:flex}
+  .mmenu-wrap .mmenu .side-me-t b{font-size:15px}
+  .mmenu-wrap .mmenu .side-me-av{width:38px; height:38px}
+  .mmenu-wrap .mmenu .side-me-av .me-av{--s:38px !important; width:38px; height:38px}
 
   /* Соцмережі у шторці. Блоки бічної панелі сюди переїжджають цілком, а їхні
      правила написані через «.side ...» — тож тут вони не діють: підпис лишався

@@ -129,6 +129,57 @@ function brand(ctx, x, y, size, col, swan){
   return y + size;
 }
 
+/* ---------- підпис автора ----------
+   Хто зробив картинку: аватарка й нік у правому нижньому куті — там, де
+   в усіх знімках вільно, тож решту верстки чіпати не довелось. Фото
+   вантажимо заздалегідь (prepAuthor), бо малювання синхронне. */
+let avImg = null, avSrc = "";
+
+function prepAuthor(author){
+  const src = author && author.av;
+  if (!src){ avImg = null; avSrc = ""; return Promise.resolve(null); }
+  if (src === avSrc && avImg) return Promise.resolve(avImg);
+  return new Promise(done => {
+    const img = new Image();
+    img.onload = () => { avImg = img; avSrc = src; done(img); };
+    img.onerror = () => { avImg = null; avSrc = ""; done(null); };
+    img.src = src;
+  });
+}
+
+/* x, y — правий нижній кут підпису */
+function author(ctx, a, x, y, col){
+  if (!a || !a.nick) return;
+  const keep = C;
+  C = col || C;
+  const size = 34, gap = 10;
+  ctx.save();
+  ctx.textBaseline = "alphabetic";
+  ctx.textAlign = "right";
+  ctx.font = "500 22px " + MONO;
+  ctx.fillStyle = C.dim || C.faint;
+  const nick = "@" + String(a.nick);
+  ctx.fillText(nick, x, y);
+  const w = ctx.measureText(nick).width;
+  const cx = x - w - gap - size / 2, cy = y - 11;
+  ctx.beginPath(); ctx.arc(cx, cy, size / 2, 0, Math.PI * 2); ctx.closePath();
+  if (avImg){
+    ctx.save(); ctx.clip();
+    ctx.drawImage(avImg, cx - size / 2, cy - size / 2, size, size);
+    ctx.restore();
+  }else{
+    ctx.fillStyle = C.panel; ctx.fill();
+    ctx.fillStyle = C.mark;
+    ctx.textAlign = "center"; ctx.textBaseline = "middle";
+    ctx.font = "600 18px " + SANS;
+    ctx.fillText(String(a.nick).charAt(0).toUpperCase(), cx, cy + 1);
+  }
+  ctx.strokeStyle = C.soft || C.line; ctx.lineWidth = 1;
+  ctx.beginPath(); ctx.arc(cx, cy, size / 2, 0, Math.PI * 2); ctx.stroke();
+  ctx.restore();
+  C = keep;
+}
+
 /* Знаки спільноти на тлі картинки: великі, напівпрозорі, і їх мало —
    це фактура, а не малюнок. Малюємо одразу після заливки тла, тому
    картки й текст лягають зверху й лишаються читними.
@@ -391,6 +442,7 @@ function system(data){
 
   ctx.beginPath(); ctx.moveTo(64, H - 90); ctx.lineTo(W - 64, H - 90); ctx.stroke();
   kpiRow(ctx, data.kpis, H - 58);
+  author(ctx, data.author, W - 64, H - 34);
 
   return cv.toDataURL("image/png");
 }
@@ -530,6 +582,7 @@ function day(data){
   ctx.strokeStyle = C.line; ctx.lineWidth = 1;
   ctx.beginPath(); ctx.moveTo(64, H - 90); ctx.lineTo(W - 64, H - 90); ctx.stroke();
   kpiRow(ctx, data.kpis, H - 58);
+  author(ctx, data.author, W - 64, H - 34);
 
   return cv.toDataURL("image/png");
 }
@@ -578,10 +631,11 @@ function period(data){
 
   ctx.beginPath(); ctx.moveTo(64, H - 90); ctx.lineTo(W - 64, H - 90); ctx.stroke();
   kpiRow(ctx, data.kpis, H - 58);
+  author(ctx, data.author, W - 64, H - 34);
 
   return cv.toDataURL("image/png");
 }
 
-window.OgCal = {period, system, day, reviewShot, brand, watermark};
+window.OgCal = {period, system, day, reviewShot, brand, watermark, author, prepAuthor};
 
 })();

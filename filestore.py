@@ -33,6 +33,27 @@ MIME = {"png": "image/png", "jpg": "image/jpeg", "jpeg": "image/jpeg",
         "webp": "image/webp", "gif": "image/gif"}
 
 
+class ShotError(ValueError):
+    """Картинку не прийняли. code — для сторінки (свій текст на кожній
+    мові), status — яким кодом відповідати. Від ValueError, щоб старі
+    `except ValueError` ловили й це."""
+
+    def __init__(self, msg, code, status=400):
+        ValueError.__init__(self, msg)
+        self.code = code
+        self.status = status
+
+
+def is_image(raw):
+    """Чи це справді картинка — за першими байтами, а не за словом у
+    data-URL: те слово пише клієнт, і під «image/png» могло їхати що
+    завгодно."""
+    return (raw.startswith(b"\x89PNG\r\n\x1a\n")
+            or raw.startswith(b"\xff\xd8\xff")                     # jpeg
+            or raw[:6] in (b"GIF87a", b"GIF89a")
+            or (raw[:4] == b"RIFF" and raw[8:12] == b"WEBP"))
+
+
 def init():
     global _ready
     if _ready:

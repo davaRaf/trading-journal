@@ -7,18 +7,196 @@
    Кольори — тільки змінні теми, тому світла й темна виходять самі.
    ============================================================ */
 
-.modal-box:has(.st){max-width:520px}
-
 /* Поява й зникання вікна — спільні для всього сайту, див.
-   static/motion.css. Раніше вони жили тут окремо, і виходило, що
-   налаштування згортаються плавно, а решта вікон — ривком. */
+   static/motion.css. */
 
-.m-body.st{display:flex; flex-direction:column; gap:26px}
+/* ============ рамка: меню розділів зліва, розділ справа ============
+   Висота вікна одна на всі розділи — при перемиканні воно не стрибає.
+   Смуг прокрутки не показуємо (гортається колесом і пальцем як завжди):
+   власник попросив прибрати їх і на комп'ютері, і на телефоні. */
+.modal-box:has(.stx){max-width:960px; margin-bottom:0; overflow:hidden; position:relative}
+.modal:has(.stx){align-items:center; overflow:hidden}
+.stx{display:flex; flex-direction:column; height:min(870px, calc(100vh - 8vh)); height:min(870px, calc(100dvh - 8vh))}
+.stx-head{display:flex; align-items:center; gap:10px; padding:14px 18px; border-bottom:1px solid var(--line-soft); flex:none}
+.stx-head h2{margin:0; font-size:17px; font-weight:650; flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap}
+.stx-x, .stx-back{width:40px; height:40px; flex:none; border:0; border-radius:10px; background:transparent;
+  color:var(--dim); display:grid; place-items:center; cursor:pointer}
+.stx-x:hover, .stx-back:hover{background:var(--panel-2); color:var(--text)}
+.stx-ic{width:18px; height:18px; flex:none; fill:none; stroke:currentColor; stroke-width:1.7; stroke-linecap:round; stroke-linejoin:round}
+.stx-body{display:grid; grid-template-columns:230px minmax(0,1fr); flex:1; min-height:0}
+.stx-nav{border-right:1px solid var(--line-soft); padding:12px 10px; display:flex; flex-direction:column; gap:2px; overflow-y:auto}
+.stx-nav-i{display:flex; align-items:center; gap:10px; min-height:42px; padding:0 10px; border:0; border-radius:10px;
+  background:transparent; color:var(--dim); font-size:13.5px; font-weight:500; cursor:pointer; text-align:left; width:100%}
+.stx-nav-i:hover{background:var(--panel-2); color:var(--text)}
+.stx-nav-i[aria-selected="true"]{background:var(--accent-soft, var(--panel-2)); color:var(--text); font-weight:600}
+.stx-nav-i[aria-selected="true"] .stx-ic{color:var(--accent)}
+.stx-nav-i.me{min-height:54px}
+.stx-me{display:flex; flex-direction:column; line-height:1.25; min-width:0}
+.stx-me b{font-weight:600; color:var(--text); overflow:hidden; text-overflow:ellipsis; white-space:nowrap}
+.stx-me small{font-size:11.5px; color:var(--faint); font-weight:400}
+.stx-dot{margin-left:auto; width:7px; height:7px; border-radius:50%; background:var(--be); flex:none}
+.stx-sep{height:1px; background:var(--line-soft); margin:8px 6px}
+.stx-pane{overflow-y:auto; padding:22px 26px 28px; display:flex; flex-direction:column; gap:22px; min-height:0}
+.stx-pane > *{flex:none}
+.stx-pane-h h3{margin:0; font-size:19px; font-weight:650; letter-spacing:-.01em; display:flex; align-items:center; gap:10px; flex-wrap:wrap}
+.stx-free{font-size:12px; font-weight:500; letter-spacing:0; color:var(--dim); padding:3px 10px; border-radius:99px; background:var(--panel-2)}
+.stx-nav, .stx-pane{scrollbar-width:none}
+.stx-nav::-webkit-scrollbar, .stx-pane::-webkit-scrollbar{display:none}
+
+/* телефон: список розділів → розділ на весь екран */
+.stx-list{display:flex; flex-direction:column; border:1px solid var(--line); border-radius:14px; overflow:hidden}
+.stx-row{display:flex; align-items:center; gap:12px; min-height:60px; padding:10px 14px; border:0; background:transparent;
+  color:var(--text); text-align:left; cursor:pointer; width:100%}
+.stx-row + .stx-row{border-top:1px solid var(--line-soft)}
+.stx-row:active, .stx-row:hover{background:var(--panel-2)}
+.stx-row-ic{width:36px; height:36px; border-radius:10px; display:grid; place-items:center; background:var(--panel-2); color:var(--dim); flex:none}
+.stx-row-t{flex:1; min-width:0; display:flex; flex-direction:column}
+.stx-row-t b{font-weight:550; font-size:15px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap}
+.stx-row-t small{font-size:12.5px; color:var(--dim)}
+.stx-todo{display:inline-flex; align-items:center; gap:6px; font-size:12px; color:var(--be); white-space:nowrap}
+.stx-todo::before{content:""; width:7px; height:7px; border-radius:50%; background:var(--be)}
+.stx-row .chev{color:var(--faint)}
+.stx-gap{height:0; border-top:6px solid var(--panel-2)}
+
+@media (max-width:560px){
+  .modal:has(.stx){padding:0; align-items:stretch}
+  .modal-box:has(.stx){max-width:none; border-radius:0; border:0; height:100%}
+  .stx{height:100vh; height:100dvh}
+  .stx-pane{padding:16px 16px calc(24px + env(safe-area-inset-bottom))}
+}
 
 .st-sec{display:block}
 .st-h{
   margin:0 0 10px; font-size:12px; font-weight:600; letter-spacing:.06em;
-  text-transform:uppercase; color:var(--faint);
+  text-transform:uppercase; color:var(--dim);
+}
+
+/* ============ профіль (static/me.js) ============ */
+.me-ic{width:16px; height:16px; flex:none; fill:none; stroke:currentColor; stroke-width:1.8; stroke-linecap:round; stroke-linejoin:round}
+.me-av{--s:40px; width:var(--s); height:var(--s); border-radius:50%; flex:none; display:grid; place-items:center; object-fit:cover;
+  background:var(--accent-soft, var(--panel-2)); color:var(--accent); font-weight:650; font-size:calc(var(--s) * .42); line-height:1;
+  box-shadow:inset 0 0 0 1px var(--line)}
+.me-head{display:flex; align-items:center; gap:16px}
+.me-av-wrap{position:relative; flex:none}
+.me-cam{position:absolute; right:-2px; bottom:-2px; width:30px; height:30px; border-radius:50%; border:2px solid var(--panel);
+  background:var(--panel-2); color:var(--text); display:grid; place-items:center; cursor:pointer; padding:0}
+.me-who{display:flex; flex-direction:column; gap:6px; min-width:0}
+.me-nick{display:inline-flex; align-items:center; gap:8px; max-width:100%; min-height:40px; margin-left:-8px; padding:0 8px;
+  border:0; border-radius:9px; background:transparent; color:var(--text); cursor:pointer; text-align:left;
+  font-size:20px; font-weight:650; letter-spacing:-.015em}
+.me-nick span{overflow:hidden; text-overflow:ellipsis; white-space:nowrap}
+.me-nick:hover{background:var(--panel-2)}
+.me-nick .me-ic{color:var(--faint)}
+.me-nick:hover .me-ic{color:var(--text)}
+.me-nick-edit{display:flex; align-items:center; gap:6px}
+.me-nick-f{flex:0 1 240px; min-width:0; display:flex; min-height:44px; border-radius:10px; border:1px solid var(--line);
+  background:var(--panel-2); transition:border-color .15s}
+.me-nick-f:focus-within{border-color:var(--accent)}
+.me-nick-f.ok{border-color:var(--up)} .me-nick-f.bad{border-color:var(--down)}
+.me-nick-f input{flex:1; min-width:0; border:0; background:transparent; color:var(--text); font-size:17px; font-weight:600; padding:8px 12px; outline:none}
+.me-ib{width:44px; height:44px; flex:none; border-radius:10px; border:1px solid var(--line); background:var(--panel-2); color:var(--dim);
+  display:grid; place-items:center; cursor:pointer; padding:0}
+.me-ib:hover{color:var(--text)}
+.me-ib.ok{background:var(--accent); border-color:var(--accent); color:var(--accent-ink, #fff)}
+.me-ib:disabled{opacity:.4; cursor:not-allowed}
+.me-nick-msg{font-size:12.5px; color:var(--dim)}
+.me-nick-msg.ok{color:var(--up)} .me-nick-msg.bad{color:var(--down)}
+.me-acts{display:flex; gap:8px; flex-wrap:wrap; align-items:center}
+.me-acts .btn{min-height:40px}
+.me-photo-msg{font-size:12.5px; color:var(--down)}
+.me-photo-msg:empty{display:none}
+
+/* готові аватарки під фото: п'ять одразу, решта — за кнопкою */
+.me-pick{display:flex; flex-direction:column; gap:10px}
+.me-pick-h{display:flex; align-items:center; justify-content:space-between; gap:12px; flex-wrap:wrap;
+  font-size:13px; color:var(--dim)}
+.me-pick-more{min-height:36px; padding:0 12px; border-radius:9px; border:1px solid var(--line); background:transparent;
+  color:var(--text); font:inherit; font-size:13px; cursor:pointer; white-space:nowrap}
+.me-pick-more:hover{background:var(--panel-2)}
+.me-pick-grid{display:flex; flex-wrap:wrap; gap:10px}
+.me-pre{position:relative; width:52px; height:52px; padding:0; border:0; border-radius:50%; background:none; cursor:pointer; flex:none;
+  transition:transform .15s}
+.me-pre img{display:block; width:100%; height:100%; border-radius:50%}
+.me-pre:hover{transform:scale(1.06)}
+.me-pre[aria-pressed="true"]::after{content:""; position:absolute; inset:-4px; border-radius:50%; box-shadow:0 0 0 2px var(--accent)}
+.me-pre:focus-visible{outline:2px solid var(--accent); outline-offset:3px}
+@media (prefers-reduced-motion: reduce){ .me-pre{transition:none} .me-pre:hover{transform:none} }
+
+.me-h{margin:0 0 9px; font-size:11px; font-weight:600; letter-spacing:.12em; text-transform:uppercase; color:var(--text); opacity:.82}
+.me-tiles{display:grid; grid-template-columns:repeat(auto-fit, minmax(112px, 1fr)); gap:8px}
+.me-tile{border:1px solid var(--line); border-radius:12px; padding:12px; display:flex; flex-direction:column; gap:2px; min-width:0}
+.me-tile b{font-size:22px; font-weight:650; letter-spacing:-.02em; font-variant-numeric:tabular-nums; line-height:1.15;
+  white-space:nowrap; overflow:hidden; text-overflow:ellipsis}
+.me-tile span{font-size:12px; color:var(--dim); line-height:1.35}
+.me-tile.hot b{color:var(--be)}
+.me-two{display:grid; grid-template-columns:auto minmax(0,1fr); gap:10px}
+.me-card{border:1px solid var(--line); border-radius:12px; padding:12px 14px; min-width:0}
+.me-heat{display:flex; gap:6px}
+.me-heat-days{display:grid; grid-template-rows:repeat(5, 13px); gap:3px; font-size:9.5px; color:var(--faint); line-height:13px}
+.me-heat-grid{display:grid; grid-template-rows:repeat(5, 13px); grid-auto-flow:column; grid-auto-columns:13px; gap:3px}
+.me-heat i, .me-heat-leg i{display:block; width:13px; height:13px; border-radius:3px; background:var(--panel-2); box-shadow:inset 0 0 0 1px var(--line-soft)}
+.me-heat i.fut{background:transparent; box-shadow:none}
+.me-heat .h1, .me-heat-leg .h1{background:color-mix(in srgb, var(--up) 30%, var(--panel-2))}
+.me-heat .h2, .me-heat-leg .h2{background:color-mix(in srgb, var(--up) 60%, var(--panel-2))}
+.me-heat .h3, .me-heat-leg .h3{background:var(--up)}
+.me-heat-leg{display:flex; align-items:center; gap:3px; margin-top:8px; font-size:10.5px; color:var(--faint)}
+.me-heat-leg span{margin:0 3px}
+.me-pairs{list-style:none; margin:0; padding:0; display:flex; flex-direction:column; gap:10px}
+.me-pairs li{display:grid; grid-template-columns:minmax(56px, auto) minmax(0,1fr) 34px; gap:8px; align-items:center; font-size:12.5px}
+.me-pairs span{font-family:var(--mono); font-size:12px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap}
+.me-pairs i{display:block; height:6px; border-radius:3px; background:var(--panel-2); position:relative; overflow:hidden}
+.me-pairs i::after{content:""; position:absolute; inset:0 auto 0 0; width:var(--w); border-radius:3px; background:var(--accent)}
+.me-pairs em{font-style:normal; color:var(--dim); text-align:right; font-variant-numeric:tabular-nums}
+.me-empty{margin:0; font-size:13px; color:var(--dim)}
+.me-badges{list-style:none; margin:0; padding:0; display:grid; grid-template-columns:repeat(auto-fit, minmax(132px, 1fr)); gap:8px}
+.me-bd{display:flex; flex-direction:column; align-items:center; text-align:center; gap:8px; padding:14px 10px; border-radius:12px; border:1px solid var(--line)}
+.me-bd > span:last-child{min-width:0}
+.me-bd-i{width:36px; height:36px; border-radius:50%; display:grid; place-items:center;
+  background:color-mix(in srgb, var(--be) 18%, transparent); color:var(--be); flex:none}
+.me-bd-i .me-ic{width:18px; height:18px}
+.me-bd b{display:block; font-size:13px; font-weight:600; overflow-wrap:break-word}
+.me-bd small{display:block; font-size:11.5px; color:var(--dim); overflow-wrap:break-word}
+.me-bd.off{border-style:dashed}
+.me-bd.off .me-bd-i{background:var(--panel-2); color:var(--faint)}
+.me-bd.off b{color:var(--dim)}
+
+/* ---- редактор фото: шар поверх вікна налаштувань ---- */
+.me-crop{position:absolute; inset:0; z-index:6; display:grid; place-items:center; padding:20px;
+  background:color-mix(in srgb, var(--panel) 94%, transparent); backdrop-filter:blur(4px);
+  animation:meCropIn .18s ease-out}
+@keyframes meCropIn{from{opacity:0} to{opacity:1}}
+.me-crop-in{width:min(360px, 100%); display:flex; flex-direction:column; align-items:stretch; gap:14px}
+.me-crop h3{margin:0; font-size:18px; font-weight:650; text-align:center}
+.me-crop-hint{margin:-6px 0 0; font-size:13px; color:var(--dim); text-align:center}
+/* рамка квадратна, коло — «вікно» в темній вуалі поверх фото */
+.me-crop-view{position:relative; width:min(280px, 100%); aspect-ratio:1; max-width:100%; margin:0 auto; overflow:hidden;
+  border-radius:16px; background:var(--panel-2); cursor:grab; touch-action:none; user-select:none}
+.me-crop-view:active{cursor:grabbing}
+.me-crop-view:focus-visible{outline:2px solid var(--accent); outline-offset:3px}
+.me-crop-view img{position:absolute; left:0; top:0; max-width:none; transform-origin:0 0; pointer-events:none; will-change:transform}
+.me-crop-ring{position:absolute; inset:0; border-radius:50%; pointer-events:none;
+  box-shadow:0 0 0 999px rgba(0,0,0,.55), inset 0 0 0 2px rgba(255,255,255,.85)}
+.me-crop-zoom{display:flex; align-items:center; gap:10px}
+.me-crop-zoom input{flex:1; min-width:0; accent-color:var(--accent); height:44px}
+.me-crop-err{margin:0; font-size:12.5px; color:var(--down); text-align:center}
+.me-crop-err:empty{display:none}
+.me-crop-acts{display:flex; gap:8px; align-items:center; flex-wrap:wrap}
+.me-crop-acts .sp{flex:1}
+.me-crop-acts .btn{min-height:44px}
+
+@media (max-width:560px){
+  .me-crop-acts .sp{display:none}
+  .me-crop-acts .btn{flex:1 1 auto}
+  .me-two{grid-template-columns:minmax(0,1fr)}
+  .me-badges{grid-template-columns:repeat(2, minmax(0,1fr))}
+  /* п'ять плиток: три в першому ряду, дві ширші в другому — без сироти */
+  .me-tiles{grid-template-columns:repeat(6, minmax(0,1fr))}
+  .me-tile{grid-column:span 2}
+  .me-tile:nth-child(n+4){grid-column:span 3}
+  /* на телефоні готові аватарки — рівна сітка на всю ширину, кнопка «Усі» під назвою */
+  .me-pick-grid{display:grid; grid-template-columns:repeat(5, minmax(0,1fr)); gap:8px}
+  .me-pre{width:100%; height:auto; aspect-ratio:1; max-width:60px; justify-self:center}
+  .stx-head h2 .stx-free{vertical-align:middle; margin-left:6px}
 }
 
 /* ---- мова ---- */
@@ -87,6 +265,59 @@
   .pw-grid{grid-template-columns:minmax(0, 1fr)}
   .pw-row .btn{width:100%}
   .pw-msg{width:100%}
+}
+
+/* ---------- двоетапний вхід і пристрої (static/twofa.js) ---------- */
+/* Кольори й поля — ті самі, що в розділі пароля: вікно лишається одним
+   цілим. Своє тут лише ключ, кроки й сітка запасних кодів. */
+.st-sec.tf .tf-state{display:flex; align-items:center; gap:9px; font-size:13.5px}
+.st-sec.tf .tf-state .ec-mark{width:9px; height:9px; border-radius:50%; flex:none; background:var(--faint)}
+.st-sec.tf .tf-state .ec-mark.ok{background:var(--up)}
+.st-sec.tf .tf-state b{font-weight:600}
+.st-sec.tf .tf-lead{margin:9px 0 0; font-size:13px; line-height:1.6; color:var(--dim)}
+.st-sec.tf > .tf-lead:first-child{margin-top:0}
+.st-sec.tf .tf-ok{display:block; margin:0 0 10px}
+
+.tf-steps{margin:0; padding-left:20px; display:flex; flex-direction:column; gap:16px;
+  font-size:13.5px; line-height:1.6; color:var(--text)}
+.tf-steps li::marker{color:var(--faint); font-family:var(--mono)}
+/* QR зліва, ключ вручну справа. QR завжди чорний на білому — навіть у
+   темній темі: інверсний код читають не всі камери. */
+.tf-pair{display:grid; grid-template-columns:164px minmax(0, 1fr); gap:18px;
+  align-items:start; margin-top:10px}
+.tf-pair.no-qr{grid-template-columns:minmax(0, 1fr)}
+.tf-qr{width:164px; aspect-ratio:1; max-width:100%; border-radius:var(--r-sm);
+  overflow:hidden; border:1px solid var(--line); background:#fff}
+.tf-qr svg{display:block; width:100%; height:100%}
+.tf-manual{min-width:0}
+.tf-manual > .tf-lead{margin:0; font-size:12.5px; line-height:1.5; color:var(--dim)}
+.tf-manual .tf-key code{font-size:14px}
+.tf-key{display:flex; align-items:center; gap:10px; flex-wrap:wrap; margin-top:8px}
+/* Ключ читають очима й передруковують у телефон: моноширинний, групами
+   по чотири, крупніше за звичайний текст і з виділенням одним дотиком. */
+.tf-key code{flex:1 1 220px; min-width:0; padding:10px 12px; border-radius:var(--r-sm);
+  background:var(--panel-2); border:1px solid var(--line); font-family:var(--mono);
+  font-size:15px; letter-spacing:.08em; overflow-wrap:anywhere; user-select:all; color:var(--text)}
+.tf-key .btn, .tf-app{min-height:44px}
+.tf-app{display:inline-flex; align-items:center; justify-content:center; margin-top:10px;
+  text-decoration:none}
+/* otpauth:// відкриває застосунок лише на телефоні; на комп'ютері з мишею
+   кнопка нічого б не робила — ховаємо, лишається ключ і «Скопіювати». */
+@media (hover:hover) and (pointer:fine){ .tf-app{display:none} }
+.tf-f{margin-top:8px; max-width:220px}
+.tf-f input{font-family:var(--mono); font-size:18px; letter-spacing:.2em}
+
+.tf-codes{list-style:none; margin:14px 0 0; padding:0; display:grid;
+  grid-template-columns:repeat(2, minmax(0, 1fr)); gap:8px}
+.tf-codes code{display:block; padding:9px 10px; text-align:center; border-radius:var(--r-sm);
+  background:var(--panel-2); border:1px solid var(--line-soft); font-family:var(--mono);
+  font-size:14px; letter-spacing:.06em; color:var(--text); user-select:all}
+
+@media (max-width:560px){
+  .tf-pair{grid-template-columns:minmax(0, 1fr); gap:14px}
+  .tf-qr{width:184px; justify-self:center}
+  .tf-key .btn, .tf-app{width:100%}
+  .tf-f{max-width:none}
 }
 
 /* ---------- розділ «Пошта» ---------- */

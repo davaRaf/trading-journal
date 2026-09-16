@@ -655,6 +655,8 @@ async function checkState(){
 
 window.addEventListener("load", () => {
   setTimeout(async () => {
+    /* спершу даємо дограти привітанню при вході (static/hello.js) */
+    if (window.__hello && window.__hello.done) await window.__hello.done;
     await checkState();
 
     let seen = "1";

@@ -172,7 +172,9 @@ body > .main, body > .tgn-col{margin-left:var(--side-w)}
   width:1px;transform:translateY(-50%);background:var(--line)}
 .nav .navsub:hover{opacity:.9;color:var(--text)}
 .nav .navsub.on{opacity:1;color:var(--text);font-weight:600;background:var(--panel-2);box-shadow:none}
-.side-foot{margin-top:auto;display:flex;flex-direction:column;gap:10px}
+/* Підвал панелі: стоїть під логотипом, тому вниз його притискає вже
+   сам знак (.side .brand{margin-top:auto}), а не цей блок. */
+.side-foot{margin-top:8px;display:flex;flex-direction:column;gap:10px}
 .ghost{border:1px solid var(--line);border-radius:var(--r-sm);padding:7px 10px;color:var(--dim);font-size:13px;text-align:center}
 .ghost:hover{color:var(--text);border-color:var(--faint)}
 #themeBtn{display:flex;align-items:center;justify-content:center;gap:7px}
@@ -677,6 +679,7 @@ table.simple tr.click:hover td{background:var(--panel-2)}
   .nav a.on{box-shadow:inset 0 -2px 0 var(--accent)}
   .nav .navsub{display:none}
   .side-foot{margin-top:0;flex-direction:row;margin-left:auto;align-items:center}
+  .side .brand{margin-top:0}
   #themeBtn span{display:none}
   .newtrade{padding:8px 12px}
   .trow{grid-template-columns:80px 1fr auto auto;gap:8px;padding:10px 12px}
@@ -1588,6 +1591,7 @@ body::after{
 :root[data-layout="top"] .side .mini{padding:7px 11px}
 :root[data-layout="top"] .side .mini span{display:none}
 :root[data-layout="top"] .side-foot{margin-top:0;flex-direction:row}
+:root[data-layout="top"] .side .brand{margin-top:0}
 :root[data-layout="top"] .newtrade{order:9;padding:8px 15px;white-space:nowrap}
 :root[data-layout="top"] .laybox{order:8}
 :root[data-layout="top"] .main:has(.ovw, .acw){padding:26px 32px 20px}
@@ -1676,7 +1680,9 @@ body::after{
   position:relative}
 :root[data-nav="flat"] a.mini.on::before{content:"";position:absolute;left:-12px;top:6px;bottom:6px;
   width:2px;border-radius:0 2px 2px 0;background:var(--accent)}
-:root[data-nav="flat"] .side-foot{padding-top:16px;border-top:1px solid var(--line-soft)}
+/* Волосинка тепер над знаком: підвал стоїть під ним, і дві риски поспіль
+   різали б низ панелі навпіл. */
+:root[data-nav="flat"] .side .brand{padding-top:16px;border-top:1px solid var(--line-soft)}
 :root[data-nav="flat"] #themeBtn{justify-content:flex-start}
 /* «Рахунки» у flat: правило пункту меню вище за специфічністю перебиває
    .nav .navsub, тож повторюємо розмір і відступи тут. Акцентну смугу
@@ -1705,7 +1711,8 @@ body::after{
 :root[data-nav="icons"] .side .lab{display:none}
 :root[data-nav="icons"] .mini{font-size:0;justify-content:center;padding:11px 0;border-radius:12px}
 :root[data-nav="icons"] .mini .ic{width:17px;height:17px}
-:root[data-nav="icons"] .side-foot{width:100%;padding-top:16px;border-top:1px solid var(--line-soft)}
+:root[data-nav="icons"] .side-foot{width:100%}
+:root[data-nav="icons"] .side .brand{width:100%;padding-top:16px;border-top:1px solid var(--line-soft)}
 :root[data-nav="icons"] #themeBtn{font-size:0;justify-content:center;padding:11px 0}
 :root[data-nav="icons"] #themeBtn span{display:none}
 /* доводка вариантов меню */
@@ -1725,6 +1732,31 @@ body::after{
   :root[data-nav="flat"] .nav a.on{box-shadow:inset 0 -2px 0 var(--accent)}
   :root[data-nav="flat"] .side{padding:12px 14px}
 }
+
+/* ---- свій профіль угорі панелі (#sideMe, static/sideme.js) ----
+   Аватар і нік — одна кнопка в профіль на всю ширину. Налаштування й
+   вихід — усередині вікна. Логотип тепер унизу панелі, під підвалом. */
+.side-me{display:flex;align-items:center;padding-bottom:14px;border-bottom:1px solid var(--line-soft)}
+.side-me-who{flex:1;min-width:0;display:flex;align-items:center;gap:10px;min-height:44px;padding:5px 6px;
+  border:0;border-radius:10px;background:none;color:var(--text);text-align:left;cursor:pointer;
+  transition:background .15s}
+.side-me-who:hover{background:var(--panel-2)}
+.side-me-av{flex:none;display:grid;width:32px;height:32px}
+.side-me-t{min-width:0;display:flex;flex-direction:column;line-height:1.25}
+.side-me-t b{font-size:13.5px;font-weight:600;overflow-wrap:anywhere;line-height:1.3}
+.side-me-t small{font-size:11.5px;color:var(--faint);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.side-me-who:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
+.side .brand{flex:none;margin-top:auto}
+.side-foot [hidden]{display:none !important}
+:root[data-nav="flat"] .side-me{margin:0 -2px}
+/* вузька смуга значків: лише аватар */
+:root[data-nav="icons"] .side-me{width:100%}
+:root[data-nav="icons"] .side-me-who{flex:none;justify-content:center;padding:4px}
+:root[data-nav="icons"] .side-me-t{display:none}
+/* меню рядком угорі: логотип першим, профіль в кінці, без підписів */
+:root[data-layout="top"] .brand{order:-2}
+:root[data-layout="top"] .side-me{order:10;padding:0;border:0}
+:root[data-layout="top"] .side-me-t{display:none}
 
 /* ---- карточки без обводки: границу держит собственный фон ---- */
 .card,.qcard{border-color:transparent}
