@@ -49,6 +49,7 @@ async function load(){
   try{ data = await api("GET", "/api/me/profile"); }
   catch(e){ data = null; }
   editing = false;
+  calShift = 0;              // відкрили профіль — календар на поточному місяці
   return data;
 }
 
@@ -98,12 +99,82 @@ function tiles(s){
     + "</div>";
 }
 
-function heat(s){
-  const days = T.meWeekdays || ["", "", "", "", ""];
-  return '<div class="me-heat" role="img" aria-label="' + esc(T.meHeatAria.replace("%d", s.active_days)) + '">'
-    + '<div class="me-heat-days" aria-hidden="true">' + days.map(d => "<span>" + esc(d) + "</span>").join("") + "</div>"
-    + '<div class="me-heat-grid">' + s.heat.map(v => '<i class="' + (v < 0 ? "fut" : "h" + v) + '"></i>').join("") + "</div></div>"
-    + '<div class="me-heat-leg" aria-hidden="true"><span>' + esc(T.meLess) + '</span><i class="h0"></i><i class="h1"></i><i class="h2"></i><i class="h3"></i><span>' + esc(T.meMore) + "</span></div>";
+/* Що саме було того дня — рядком для підказки: «15 вересня · угоди 3 ·
+   розбір дня». Порожній день так і каже, що записів не було. */
+function cellTip(iso, rec){
+  const when = dayMonth(iso);
+  const parts = [];
+  if (rec && rec.t) parts.push(T.meHeatTrades + " " + rec.t);
+  if (rec && rec.r) parts.push(T.meHeatReview);
+  if (rec && rec.s) parts.push(T.meHeatShares + " " + rec.s);
+  return when + " · " + (parts.length ? parts.join(" · ") : T.meHeatNone);
+}
+
+/* ---- календар активності ----
+   Власник обрав звичайний календар місяця замість сітки квадратиків
+   (16.09.2026): такий календар людина вже бачила в журналі, і пояснювати
+   нічого не треба. Місяці гортаються стрілками — до першого запису. */
+
+let calShift = 0;             // 0 — поточний місяць, -1 — попередній
+
+const iso = d => d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0")
+  + "-" + String(d.getDate()).padStart(2, "0");
+
+function calMonth(s){
+  const t = new Date((s.today || "") + "T12:00:00");
+  const base = isNaN(t) ? new Date() : t;
+  return new Date(base.getFullYear(), base.getMonth() + calShift, 1);
+}
+
+function cal(s){
+  const log = s.log || {};
+  const today = s.today || iso(new Date());
+  const first = new Date((s.log_from || today) + "T12:00:00");
+  const m = calMonth(s);
+  const year = m.getFullYear(), mon = m.getMonth();
+  const wd = T.meCalWd || ["", "", "", "", "", "", ""];
+
+  /* далі поточного місяця вперед і раніше першого запису назад — нікуди */
+  const cur = new Date((s.today || "") + "T12:00:00");
+  const canNext = calShift < 0;
+  const canPrev = new Date(year, mon, 1) > new Date(first.getFullYear(), first.getMonth(), 1);
+
+  const start = new Date(year, mon, 1);
+  const lead = (start.getDay() + 6) % 7;        // тиждень із понеділка
+  const cells = [];
+  let done = 0, total = 0;
+  for (let i = 0; i < 42; i++){
+    const day = new Date(year, mon, 1 - lead + i);
+    const key = iso(day);
+    const own = day.getMonth() === mon;
+    const rec = log[key];
+    const ahead = key > today;
+    if (own && !ahead) total++;
+    if (own && rec) done++;
+    const cls = ["c"];
+    if (!own) cls.push("me-out");
+    if (ahead) cls.push("me-fut");
+    if (rec) cls.push(rec.n >= 3 ? "on hi" : "on");
+    if (key === today) cls.push("me-now");
+    cells.push('<span class="' + cls.join(" ") + '" title="' + esc(cellTip(key, rec)) + '">'
+      + day.getDate() + "</span>");
+    if (i >= 34 && (i + 1) % 7 === 0 && new Date(year, mon, 1 - lead + i + 1).getMonth() !== mon) break;
+  }
+  const name = (T.months || [])[mon] || "";
+  const btn = (dir, on, label) => '<button type="button" class="me-cal-nav" data-cal="' + dir + '"'
+    + (on ? "" : " disabled") + ' aria-label="' + esc(label) + '">'
+    + '<svg class="me-ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="'
+    + (dir < 0 ? "M15 6l-6 6 6 6" : "M9 6l6 6-6 6") + '"/></svg></button>';
+
+  return '<div class="me-cal">'
+    + '<div class="me-cal-h"><b>' + esc(name + " " + year) + "</b>"
+    +   '<span class="me-cal-navs">' + btn(-1, canPrev, T.meCalPrev) + btn(1, canNext, T.meCalNext) + "</span></div>"
+    + '<div class="me-cal-grid">'
+    +   wd.map(d => '<span class="wd">' + esc(d) + "</span>").join("")
+    +   cells.join("")
+    + "</div>"
+    + '<p class="me-cal-sum">' + esc(String(T.meCalSum || "").replace("%1", done).replace("%2", total)) + "</p>"
+    + "</div>";
 }
 
 function pairs(s){
@@ -142,7 +213,7 @@ function pane(){
     + presetsBlock()
     + '<div class="me-block"><h4 class="me-h">' + esc(T.meStats) + "</h4>" + tiles(s) + "</div>"
     + '<div class="me-two">'
-    +   '<div class="me-card"><h4 class="me-h">' + esc(T.meHeat) + "</h4>" + heat(s) + "</div>"
+    +   '<div class="me-card"><h4 class="me-h">' + esc(T.meHeat) + "</h4>" + cal(s) + "</div>"
     +   '<div class="me-card"><h4 class="me-h">' + esc(T.mePairs) + "</h4>" + pairs(s) + "</div>"
     + "</div>"
     + '<div class="me-block"><h4 class="me-h">' + esc(T.meBadges) + "</h4>" + badges(s) + "</div>";
@@ -457,6 +528,22 @@ function wire(){
   const more = $id("mePresetMore");
   if (more) more.onclick = () => { allPresets = !allPresets; redraw(); };
   document.querySelectorAll(".me-pre[data-preset]").forEach(b => { b.onclick = () => setPreset(b.dataset.preset); });
+  wireCal();
+}
+
+/* Гортання місяців перемальовує сам календар, а не все вікно: інакше
+   від кожної стрілки блимали б і фото, і плитки. */
+function wireCal(){
+  document.querySelectorAll(".me-cal-nav[data-cal]").forEach(b => {
+    b.onclick = () => {
+      if (b.disabled || !data || !data.stats) return;
+      calShift += Number(b.dataset.cal);
+      const box = document.querySelector(".me-cal");
+      if (!box) return;
+      box.outerHTML = cal(data.stats);
+      wireCal();
+    };
+  });
 }
 
 window.__me = {load: load, pane: pane, wire: wire, avatar: avatar, user: user};

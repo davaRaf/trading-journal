@@ -1823,8 +1823,9 @@ class H(BaseHTTPRequestHandler):
             me = db.get_user(uid) if uid else None
             if not me:
                 return self._json({"error": "auth required"}, 401)
-            today = datetime.datetime.now(request_tz(None, me)).date()
-            stats = db.profile_stats(uid, today)
+            tz = request_tz(None, me)
+            today = datetime.datetime.now(tz).date()
+            stats = db.profile_stats(uid, today, tz=tz)
             joined = me["created_at"].astimezone(request_tz(None, me)).date() if me["created_at"] else today
             stats["with_us"] = (today - joined).days + 1
             return self._json({"user": user_public(me), "stats": stats})
