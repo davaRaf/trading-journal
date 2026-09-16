@@ -144,21 +144,25 @@ function cal(s){
   const cells = [];
   let done = 0, total = 0;
   for (let i = 0; i < 42; i++){
+    /* шостий рядок малюємо тільки якщо він ще належить місяцю */
+    if (i % 7 === 0 && i >= 35 && new Date(year, mon, 1 - lead + i).getMonth() !== mon) break;
     const day = new Date(year, mon, 1 - lead + i);
     const key = iso(day);
     const own = day.getMonth() === mon;
+    /* чужі дні (хвости сусідніх місяців) не показуємо зовсім — власник
+       просив бачити тільки той місяць, що в заголовку. Порожня комірка
+       лишається, щоб тижні не роз’їхались по колонках. */
+    if (!own){ cells.push('<span class="c me-pad"></span>'); continue; }
     const rec = log[key];
     const ahead = key > today;
-    if (own && !ahead) total++;
-    if (own && rec) done++;
+    if (!ahead) total++;
+    if (rec) done++;
     const cls = ["c"];
-    if (!own) cls.push("me-out");
     if (ahead) cls.push("me-fut");
     if (rec) cls.push(rec.n >= 3 ? "on hi" : "on");
     if (key === today) cls.push("me-now");
     cells.push('<span class="' + cls.join(" ") + '" title="' + esc(cellTip(key, rec)) + '">'
       + day.getDate() + "</span>");
-    if (i >= 34 && (i + 1) % 7 === 0 && new Date(year, mon, 1 - lead + i + 1).getMonth() !== mon) break;
   }
   const name = (T.months || [])[mon] || "";
   const btn = (dir, on, label) => '<button type="button" class="me-cal-nav" data-cal="' + dir + '"'

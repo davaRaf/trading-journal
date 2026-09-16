@@ -160,7 +160,8 @@
 /* свої імена класів: .ahead і .pale уже зайняті в style.css (шапка
    таблиці рахунків), і клітинка успадковувала чужу сітку з відступами —
    через це цифри від’їжджали вбік від своїх комірок. */
-.me-cal-grid .c.me-out{color:var(--faint)}
+/* хвости сусідніх місяців — порожнє місце, без тла й без цифри */
+.me-cal-grid .c.me-pad{background:none; box-shadow:none; pointer-events:none}
 .me-cal-grid .c.me-fut{color:var(--faint)}
 .me-cal-grid .c.on{color:var(--text); font-weight:600;
   background:color-mix(in srgb, var(--up) 26%, var(--panel-2));
