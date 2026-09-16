@@ -251,7 +251,12 @@ html{interpolate-size:allow-keywords}
   text-transform:uppercase; color:var(--faint); padding:6px 8px}
 .big{position:fixed; inset:0; z-index:50; background:rgba(0,0,0,.86); display:flex;
   align-items:center; justify-content:center; padding:20px; cursor:zoom-out; overflow:hidden}
-.big img{max-width:100%; max-height:100%; border-radius:8px; cursor:zoom-in;
+/* Картинка й підписи одним стовпчиком — як у журналі (.lb-fig): підпис,
+   який людина написала під скріном, має читатись і на весь екран, а не
+   лишатись тільки в картці. */
+.big .big-fig{margin:0; display:flex; flex-direction:column; align-items:center; gap:10px;
+  max-width:96vw; cursor:zoom-out}
+.big img{max-width:100%; max-height:86vh; border-radius:8px; cursor:zoom-in;
   transform-origin:center center; will-change:transform}
 .big img.zoomed{border-radius:0}
 .big .big-x{position:absolute; top:14px; right:16px; width:40px; height:40px; border:1px solid rgba(255,255,255,.25);
@@ -265,10 +270,13 @@ html{interpolate-size:allow-keywords}
 .big .big-nav:hover{background:rgba(0,0,0,.65); border-color:rgba(255,255,255,.45)}
 .big .big-nav.prev{left:16px}
 .big .big-nav.next{right:16px}
-.big .big-cap{position:absolute; left:0; right:0; bottom:16px; text-align:center; pointer-events:none;
+.big .big-cap{text-align:center; pointer-events:none;
   font-family:var(--mono); font-size:11.5px; letter-spacing:.1em; text-transform:uppercase; color:rgba(255,255,255,.75)}
-.big .big-cap:empty{display:none}
-.big img.zoomed ~ .big-cap{opacity:0}
+.big .big-note{max-width:min(760px,92vw); max-height:22vh; overflow:auto; text-align:center;
+  color:#fff; opacity:.92; font-size:13px; line-height:1.6; white-space:pre-wrap}
+.big .big-cap:empty, .big .big-note:empty{display:none}
+.big img.zoomed ~ .big-cap,
+.big img.zoomed ~ .big-note{opacity:0; pointer-events:none}
 @media (max-width:560px){
   .big .big-nav{width:38px; height:38px}
   .big .big-nav.prev{left:6px}
@@ -875,10 +883,10 @@ function openBig(fig){
   const many = BIG.list.length > 1;
   const d = document.createElement("div");
   d.className = "big";
-  d.innerHTML = '<img alt="">'
+  d.innerHTML = '<figure class="big-fig"><img alt="">'
+    + '<div class="big-cap"></div><div class="big-note"></div></figure>'
     + (many ? '<button type="button" class="big-nav prev" data-step="-1" aria-label="' + esc(T.lbPrev) + '">' + ARR(-1) + '</button>'
             + '<button type="button" class="big-nav next" data-step="1" aria-label="' + esc(T.lbNext) + '">' + ARR(1) + '</button>' : "")
-    + '<div class="big-cap"></div>'
     + '<button type="button" class="big-x" aria-label="×">×</button>';
   document.body.appendChild(d);
   const im = d.querySelector("img");
@@ -899,6 +907,9 @@ function showBig(){
   const tf = cap ? cap.textContent.trim() : "";
   d.querySelector(".big-cap").textContent = BIG.list.length > 1
     ? (tf ? tf + "  ·  " : "") + (BIG.i + 1) + "/" + BIG.list.length : tf;
+  /* підпис, який людина написала під скріном — під таймфреймом */
+  const note = fig.querySelector(".snote");
+  d.querySelector(".big-note").textContent = note ? (note.textContent || "").trim() : "";
 }
 function bigStep(step){
   if (BIG.list.length < 2) return;
