@@ -120,14 +120,14 @@ function run(root){
     set(bar, "ap-bar", base + 220);
   });
 
-  /* лінія еквіті малюється, заливка під нею проявляється слідом */
-  root.querySelectorAll(".eqline, .plline path[stroke]").forEach(p => {
+  /* лінія еквіті й заливка під нею відкриваються зліва направо разом;
+     крапка й підпис проявляються, коли лінія дійшла */
+  root.querySelectorAll(".eqline, .eqarea, .plline path[stroke], .plline path[fill^='url']").forEach(p => {
     const b = p.closest(BLOCKS);
     const base = (b && delayOf.has(b)) ? delayOf.get(b) + 150 : 150;
-    p.setAttribute("pathLength", "1");
     set(p, "ap-draw", base);
   });
-  root.querySelectorAll(".eqarea, .plline path[fill^='url'], .eqwrap .dot, .eqwrap .eqval").forEach(p => {
+  root.querySelectorAll(".eqwrap .dot, .eqwrap .eqval").forEach(p => {
     const b = p.closest(BLOCKS);
     const base = (b && delayOf.has(b)) ? delayOf.get(b) + 150 : 150;
     set(p, "ap-fade", base + 700);

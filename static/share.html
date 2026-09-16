@@ -234,7 +234,10 @@ html{interpolate-size:allow-keywords}
 .shots{display:grid; grid-template-columns:repeat(auto-fill,minmax(150px,1fr)); gap:10px;
   margin-top:14px}
 .shots figure{margin:0; border:1px solid var(--line-soft); border-radius:10px; overflow:hidden;
-  background:var(--panel-2); cursor:zoom-in}
+  background:var(--panel-2); cursor:zoom-in;
+  /* кожна картка своєї висоти: без підпису під скріном порожнього місця нема,
+     а не тягнеться до сусідки з довгим текстом */
+  align-self:start}
 /* Розміру картинки ми заздалегідь не знаємо, а поки вона не завантажилась,
    висота нульова. Через це сторінка при відкритті угоди двічі-тричі
    перекладалась і смикалась. Тримаємо місце під графік наперед: пропорція
@@ -252,8 +255,25 @@ html{interpolate-size:allow-keywords}
   transform-origin:center center; will-change:transform}
 .big img.zoomed{border-radius:0}
 .big .big-x{position:absolute; top:14px; right:16px; width:40px; height:40px; border:1px solid rgba(255,255,255,.25);
-  border-radius:50%; background:rgba(0,0,0,.45); color:#fff; font:inherit; font-size:22px; line-height:1; cursor:pointer}
+  border-radius:50%; background:rgba(0,0,0,.45); color:#fff; font:inherit; font-size:22px; line-height:1; cursor:pointer;
+  display:grid; place-items:center; padding:0}
 .big .big-x:hover{background:rgba(0,0,0,.65)}
+/* гортання між скрінами: стрілки з боків, підпис знизу, свайп на телефоні (zoom.js) */
+.big .big-nav{position:absolute; top:50%; transform:translateY(-50%); width:44px; height:44px; border:1px solid rgba(255,255,255,.25);
+  border-radius:50%; background:rgba(0,0,0,.45); color:#fff; cursor:pointer; display:grid; place-items:center; padding:0}
+.big .big-nav svg{width:22px; height:22px}
+.big .big-nav:hover{background:rgba(0,0,0,.65); border-color:rgba(255,255,255,.45)}
+.big .big-nav.prev{left:16px}
+.big .big-nav.next{right:16px}
+.big .big-cap{position:absolute; left:0; right:0; bottom:16px; text-align:center; pointer-events:none;
+  font-family:var(--mono); font-size:11.5px; letter-spacing:.1em; text-transform:uppercase; color:rgba(255,255,255,.75)}
+.big .big-cap:empty{display:none}
+.big img.zoomed ~ .big-cap{opacity:0}
+@media (max-width:560px){
+  .big .big-nav{width:38px; height:38px}
+  .big .big-nav.prev{left:6px}
+  .big .big-nav.next{right:6px}
+}
 .hintline{font-size:12.5px; color:var(--faint); margin:-6px 0 0}
 
 /* ---------- торгова стратегія ----------
@@ -460,7 +480,7 @@ html{interpolate-size:allow-keywords}
 </div>
 
 <script src="/static/i18n.js"></script>
-<script src="/static/zoom.js?v=2"></script>
+<script src="/static/zoom.js?v=3"></script>
 <script>
 const MARK = "<svg viewBox=\"573 366 902 1315\" aria-hidden=\"true\"><path transform=\"translate(0,0)\" fill=\"var(--mark)\" d=\"M 1007.73 417.867 C 1012.96 407.472 1022.43 403.074 1033.28 408.302 C 1044.26 413.587 1041.3 436.645 1041.28 447.276 L 1041.16 500.837 C 1041.03 559.942 1042.37 622.699 1040.98 681.397 C 1041.86 686.293 1067.84 728.571 1072.19 736.023 L 1174.17 909.911 L 1090.84 909.91 C 1043.39 909.921 1001.55 904.752 964.567 941.347 C 943.67 962.177 931.992 990.513 932.146 1020.02 C 932.11 1049.34 943.509 1078.75 964.485 1099.42 C 980.427 1114.93 1000.76 1125.16 1022.72 1128.71 C 1042.29 1131.77 1078.91 1127.86 1092.5 1131.48 C 1105.78 1135.12 1114.96 1147.22 1114.88 1160.99 C 1114.77 1199.93 1067.21 1191.64 1040.77 1191.58 L 946.808 1191.77 C 921.351 1165.65 896.502 1138.93 872.279 1111.66 C 860.111 1130.48 848.698 1150.33 837.098 1169.56 C 816.464 1203.51 796.056 1237.59 775.874 1271.81 L 993.674 1271.93 L 1055.86 1271.88 C 1100.21 1271.8 1134.64 1273.2 1168.73 1238.91 C 1189.33 1217.81 1200.69 1189.37 1200.29 1159.89 C 1200.15 1130.6 1190.28 1103.4 1169.26 1082.6 C 1152.78 1066.48 1131.7 1055.89 1108.92 1052.3 C 1086.87 1048.86 1057.05 1054.56 1036.53 1048.43 C 1010.67 1040.71 1012.03 992.508 1043.02 990.261 C 1063.65 988.886 1084.63 989.833 1105.32 989.979 L 1220.58 989.922 L 1434.91 1357.49 L 1158.98 1357.8 L 1079.96 1357.75 C 1071.4 1357.73 1049.21 1357.11 1041.3 1358 L 1041.14 1538.09 L 1041.3 1594.17 C 1041.34 1604.03 1041.86 1615.95 1041.16 1625.6 C 1039.85 1643.54 1015.04 1647.32 1007.77 1629.23 C 1006.7 1623.59 1007.04 1606.7 1007.06 1600.06 L 1007.17 1551.24 L 1007.07 1357.74 L 612.894 1357.86 C 654.064 1291.27 693.944 1219.52 733.687 1151.66 L 1007.18 683.395 C 1006.3 626.487 1007.22 567.336 1007.12 510.216 L 1007.01 452.565 C 1006.99 442.982 1006.55 426.917 1007.73 417.867 z\"/> <path transform=\"translate(0,0)\" fill=\"currentColor\" d=\"M 1007.77 1358.05 L 1041.3 1358 L 1041.14 1538.09 L 1041.3 1594.17 C 1041.34 1604.03 1041.86 1615.95 1041.16 1625.6 C 1039.85 1643.54 1015.04 1647.32 1007.77 1629.23 C 1009.05 1603.41 1007.95 1565.83 1007.96 1539.15 L 1007.77 1358.05 z\"/> <path transform=\"translate(0,0)\" fill=\"currentColor\" d=\"M 1007.73 417.867 C 1012.96 407.472 1022.43 403.074 1033.28 408.302 C 1044.26 413.587 1041.3 436.645 1041.28 447.276 L 1041.16 500.837 C 1041.03 559.942 1042.37 622.699 1040.98 681.397 C 1035.71 674.277 1029.82 662.763 1024.31 654.534 C 1018.61 663.506 1013.14 672.625 1007.92 681.882 C 1007.27 653.296 1008.22 624.592 1008 596 C 1007.55 536.664 1008.45 477.184 1007.73 417.867 z\"/></svg>";
 
@@ -810,6 +830,9 @@ document.getElementById("stage").addEventListener("click", e => {
 });
 document.addEventListener("keydown", e => {
   const big = document.querySelector(".big");
+  if (big && (e.key === "ArrowLeft" || e.key === "ArrowRight")){
+    e.preventDefault(); bigStep(e.key === "ArrowLeft" ? -1 : 1); return;
+  }
   if (e.key === "Escape"){ big ? big.remove() : toJournal(); }
 });
 
@@ -840,19 +863,56 @@ function shotUrl(file){
   return "/api/share/" + encodeURIComponent(id) + "/shot/" + encodeURIComponent(file);
 }
 
-/* скрін на весь екран — по кліку */
+/* Скрін на весь екран — по кліку. Сусідні скріни того ж блоку гортаються:
+   стрілками з боків, стрілками на клавіатурі, свайпом на телефоні. */
+const BIG = {list: [], i: 0};
+const ARR = d => '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="'
+  + (d < 0 ? "M15 5l-7 7 7 7" : "M9 5l7 7-7 7") + '"/></svg>';
+function openBig(fig){
+  const box = fig.closest(".shots");
+  BIG.list = box ? [...box.querySelectorAll("figure")] : [fig];
+  BIG.i = Math.max(0, BIG.list.indexOf(fig));
+  const many = BIG.list.length > 1;
+  const d = document.createElement("div");
+  d.className = "big";
+  d.innerHTML = '<img alt="">'
+    + (many ? '<button type="button" class="big-nav prev" data-step="-1" aria-label="' + esc(T.lbPrev) + '">' + ARR(-1) + '</button>'
+            + '<button type="button" class="big-nav next" data-step="1" aria-label="' + esc(T.lbNext) + '">' + ARR(1) + '</button>' : "")
+    + '<div class="big-cap"></div>'
+    + '<button type="button" class="big-x" aria-label="×">×</button>';
+  document.body.appendChild(d);
+  const im = d.querySelector("img");
+  if (window.Zoom){
+    Zoom.attach(im);
+    im.addEventListener("swipe", e => bigStep(e.detail.dir));
+  }
+  showBig();
+}
+function showBig(){
+  const d = document.querySelector(".big");
+  const fig = BIG.list[BIG.i];
+  if (!d || !fig) return;
+  const im = d.querySelector("img");
+  if (window.Zoom) Zoom.reset(im);
+  im.src = fig.dataset.src;
+  const cap = fig.querySelector("figcaption");
+  const tf = cap ? cap.textContent.trim() : "";
+  d.querySelector(".big-cap").textContent = BIG.list.length > 1
+    ? (tf ? tf + "  ·  " : "") + (BIG.i + 1) + "/" + BIG.list.length : tf;
+}
+function bigStep(step){
+  if (BIG.list.length < 2) return;
+  BIG.i = (BIG.i + step + BIG.list.length) % BIG.list.length;
+  showBig();
+}
 document.addEventListener("click", e => {
+  const nav = e.target.closest(".big-nav");
+  if (nav){ e.stopPropagation(); bigStep(Number(nav.dataset.step)); return; }
   const big = e.target.closest(".big");
   /* клік по самій картинці — лупа (zoom.js), він сюди не долітає */
   if (big){ big.remove(); return; }
   const fig = e.target.closest(".shots figure");
-  if (!fig) return;
-  const d = document.createElement("div");
-  d.className = "big";
-  d.innerHTML = '<img alt="" src="' + fig.dataset.src + '">'
-    + '<button type="button" class="big-x" aria-label="×">×</button>';
-  document.body.appendChild(d);
-  if (window.Zoom) Zoom.attach(d.querySelector("img"));
+  if (fig) openBig(fig);
 });
 
 function render(rec){

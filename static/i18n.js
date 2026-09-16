@@ -101,7 +101,6 @@ uk: {
   bePlusLabel: "BE+ · забрали тейк",
   bePlusDesc: "угод — ціна дійшла б до цілі без тебе",
   beNetLabel: "Чистий ефект", beShareLabel: "Частка беззбитків", beOf: "з",
-  beHint: "BE− — тапнуло в беззбиток, далі пішло проти: беззбиток спрацював на твою користь. BE+ — тапнуло в беззбиток, а далі ціна дійшла до цілі: угода була б прибутковою.",
 
   bwTitle: "Найкраще / найгірше",
   dtBestTag: "найкращий", dtWorstTag: "найгірший", dtColCount: "Уг.",
@@ -720,7 +719,6 @@ ru: {
   bePlusLabel: "BE+ · отняли тейк",
   bePlusDesc: "сделок — цена дошла бы до цели без тебя",
   beNetLabel: "Чистый эффект", beShareLabel: "Доля безубытков", beOf: "из",
-  beHint: "BE− — тронуло безубыток, дальше пошло против: безубыток сыграл в твою пользу. BE+ — тронуло безубыток, а дальше цена дошла до цели: сделка была бы прибыльной.",
 
   bwTitle: "Лучшее / худшее",
   dtBestTag: "лучший", dtWorstTag: "худший", dtColCount: "Сд.",
@@ -1323,7 +1321,6 @@ en: {
   bePlusLabel: "BE+ · cost you the take",
   bePlusDesc: "trades — price would have reached target without you",
   beNetLabel: "Net effect", beShareLabel: "Share of breakevens", beOf: "of",
-  beHint: "BE− — touched breakeven, then went against: breakeven worked in your favor. BE+ — touched breakeven, then price reached target: the trade would have been profitable.",
 
   bwTitle: "Best / worst",
   dtBestTag: "best", dtWorstTag: "worst", dtColCount: "Trd.",
