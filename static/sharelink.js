@@ -504,6 +504,13 @@ function open(kind, arg){
       /* Аналіз дня: у превʼю йде сам скрін наймолодшого таймфрейму — без
          підписів і без оформлення. Малювати нічого не треба, файл уже в
          знімку: досить назвати його, і сервер віддасть як og:image. */
+      /* Автор — для картинки превью: сторінка знімка бере автора з сервера
+         (підробити не можна), а тут він потрібен, щоб підписати малюнок. */
+      const me = window.__sideMe && __sideMe.user && __sideMe.user();
+      if (me && me.nickname){
+        data.author = {nick: me.nickname, av: me.avatar || ""};
+        if (window.OgCal && OgCal.prepAuthor) await OgCal.prepAuthor(data.author);
+      }
       if (kind === "review"){
         const sh = (window.OgCal && OgCal.reviewShot) ? OgCal.reviewShot(data) : null;
         if (sh && sh.file && !/^data:/.test(sh.file)) data.og = sh.file;

@@ -39,8 +39,10 @@ def _sweep(now):
             _hits.pop(k, None)
 
 
-def check(keys):
-    """Скільки секунд чекати цьому гостю. 0 — можна пробувати."""
+def check(keys, limit=LIMIT):
+    """Скільки секунд чекати цьому гостю. 0 — можна пробувати.
+
+    limit — своя межа для ключів, де 5 замало (питання до помічника)."""
     now = time.time()
     wait = 0
     with _lock:
@@ -50,14 +52,14 @@ def check(keys):
                 _hits[k] = times
             else:
                 _hits.pop(k, None)
-            if len(times) >= LIMIT:
-                # чекаємо, поки найстаріша з останніх LIMIT спроб випаде з вікна
-                wait = max(wait, int(WINDOW - (now - times[-LIMIT])) + 1)
+            if len(times) >= limit:
+                # чекаємо, поки найстаріша з останніх limit спроб випаде з вікна
+                wait = max(wait, int(WINDOW - (now - times[-limit])) + 1)
     return wait
 
 
-def miss(keys):
-    """Не вгадав пароль."""
+def miss(keys, limit=LIMIT):
+    """Не вгадав пароль (або просто ще одна спроба, якщо рахуємо кожну)."""
     now = time.time()
     with _lock:
         if len(_hits) > MAX_KEYS:
@@ -65,7 +67,7 @@ def miss(keys):
         for k in keys:
             times = _fresh(now, _hits.get(k) or [])
             times.append(now)
-            _hits[k] = times[-LIMIT:]
+            _hits[k] = times[-limit:]
 
 
 def forget(keys):

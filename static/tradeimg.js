@@ -50,6 +50,19 @@ function drawBrand(ctx, C, x, y){
    Кладемо одразу після заливки тла, під увесь вміст: так знак не лізе
    на графіки угод, а сам залишається тлом. Щоб його було видно крізь
    картки, у цій темі вони йдуть без заливки — див. нижче. */
+/* Хто зробив картинку: аватарка й нік у правому нижньому куті, навпроти
+   «зроблено в StatsAI». Малює той самий код, що й у знімках (ogcal.js). */
+function authorInfo(){
+  const u = window.__sideMe && __sideMe.user && __sideMe.user();
+  return u && u.nickname ? {nick: u.nickname, av: u.avatar || ""} : null;
+}
+function prepAuthor(){
+  return (window.OgCal && OgCal.prepAuthor) ? OgCal.prepAuthor(authorInfo()) : Promise.resolve(null);
+}
+function drawAuthor(ctx, C, x, y){
+  if (window.OgCal && typeof OgCal.author === "function") OgCal.author(ctx, authorInfo(), x, y, C);
+}
+
 function drawWatermark(ctx, C, w, h){
   if (window.OgCal && typeof OgCal.watermark === "function")
     OgCal.watermark(ctx, w, h, C);
@@ -375,6 +388,8 @@ async function buildTradeImage(t){
 
   ctx.font = "20px " + MONO; ctx.fillStyle = C.faint;
   ctx.fillText(T.tiMadeIn, PAD, H - PAD + 6);
+  await prepAuthor();
+  drawAuthor(ctx, C, W - PAD, H - PAD + 6);
   return cv;
 }
 
@@ -496,6 +511,8 @@ async function buildDayImage(dk){
 
   ctx.font = "20px " + MONO; ctx.fillStyle = C.faint;
   ctx.fillText(T.tiMadeIn, PAD, H - PAD + 6);
+  await prepAuthor();
+  drawAuthor(ctx, C, W - PAD, H - PAD + 6);
   return cv;
 }
 
@@ -712,6 +729,8 @@ async function buildReviewImage(data){
 
   ctx.font = "20px " + MONO; ctx.fillStyle = C.faint;
   ctx.fillText(T.tiMadeIn, PAD, H - PAD + 6);
+  await prepAuthor();
+  drawAuthor(ctx, C, W - PAD, H - PAD + 6);
   return cv;
 }
 

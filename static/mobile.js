@@ -75,7 +75,10 @@ const menu = wrap.querySelector(".mmenu");
    обробники в них не губляться, бо це ті самі вузли. */
 /* Перемикач режиму шукаємо по id, а не по класу: селектори тут беруть
    перший збіг, і другий блок з класом .grp просто не поїхав би у шторку. */
-const MOVABLE = ["#modeSwitch", ".grp", ".conn", ".side-foot"];
+/* #sideMe (свій профіль) — першим: у шторці він теж угорі. Соцмережі
+   в панелі стоять під логотипом, окремо від підвалу, — у шторці вони
+   так само останні. */
+const MOVABLE = ["#sideMe", "#modeSwitch", ".grp", ".conn", ".side-foot", ".side > .socs"];
 const homes = new Map();
 function openMenu(){
   MOVABLE.forEach(sel => {

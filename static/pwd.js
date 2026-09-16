@@ -44,7 +44,7 @@ function section(){
 
 /* Вікно зміни пароля. Малюється в тому ж #modal, що й налаштування, тому
    «Назад» і «×» просто відкривають налаштування знову. */
-function back(){ if (window.__settings) __settings.open(); else closeModal(); }
+function back(){ if (window.__settings) __settings.open("account"); else closeModal(); }
 
 function dialog(){
   openModal(

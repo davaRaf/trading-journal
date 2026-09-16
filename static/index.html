@@ -10,7 +10,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Geist:wght@300;400;500;600;700&family=Archivo:wght@400;500;600&display=swap">
-<link rel="stylesheet" href="/static/style.css?v=40">
+<link rel="stylesheet" href="/static/style.css?v=44">
 <link rel="stylesheet" href="/static/accounts.css?v=17">
 <link rel="stylesheet" href="/static/news.css?v=38">
 <link rel="stylesheet" href="/static/import.css?v=5">
@@ -18,16 +18,17 @@
 <link rel="stylesheet" href="/static/calc.css?v=1">
 <link rel="stylesheet" href="/static/links.css?v=2">
 <link rel="stylesheet" href="/static/ts.css?v=12">
-<link rel="stylesheet" href="/static/day.css?v=10">
-<link rel="stylesheet" href="/static/mobile.css?v=27">
+<link rel="stylesheet" href="/static/day.css?v=11">
+<link rel="stylesheet" href="/static/mobile.css?v=29">
 <link rel="stylesheet" href="/static/tgnews.css?v=1">
 <link rel="stylesheet" href="/static/guest.css?v=3">
 <link rel="stylesheet" href="/static/pub.css?v=1">
 <link rel="stylesheet" href="/static/motion.css?v=2">
 <link rel="stylesheet" href="/static/appear.css?v=5">
-<link rel="stylesheet" href="/static/settings.css?v=5">
+<link rel="stylesheet" href="/static/settings.css?v=13">
 <link rel="stylesheet" href="/static/support.css?v=3">
 <link rel="stylesheet" href="/static/assistant.css?v=6">
+<link rel="stylesheet" href="/static/hello.css?v=8">
 <script>
 /* тема применяется до отрисовки, чтобы не мигало */
 /* оформление ставим до первой отрисовки, иначе мигнёт прежней темой */
@@ -48,9 +49,27 @@ try{
 if(!document.documentElement.getAttribute("data-theme"))document.documentElement.setAttribute("data-theme","dark");
 document.documentElement.setAttribute("data-layout","classic");
 try{document.documentElement.setAttribute("data-nav",localStorage.getItem("tj_nav")||"flat");}catch(e){document.documentElement.setAttribute("data-nav","flat");}
+/* привітання при вході (hello.js): лише на «/», раз за сесію; клас ставимо до першого малювання, щоб журнал не блимнув */
+try{if((location.pathname==="/"||location.pathname==="/index.html")&&!sessionStorage.getItem("statsai_hello"))document.documentElement.classList.add("hello-on");}catch(e){}
 </script>
 </head>
 <body>
+<div id="hello" role="status" aria-live="polite">
+  <div class="hello-glow a" aria-hidden="true"></div>
+  <div class="hello-glow b" aria-hidden="true"></div>
+  <svg class="hello-curve" viewBox="0 0 1000 400" preserveAspectRatio="none" aria-hidden="true">
+    <defs>
+      <linearGradient id="helloStroke" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="var(--logo-green)" stop-opacity=".15"/><stop offset="1" stop-color="var(--logo-green)"/></linearGradient>
+      <linearGradient id="helloFill" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="var(--logo-green)" stop-opacity=".16"/><stop offset="1" stop-color="var(--logo-green)" stop-opacity="0"/></linearGradient>
+      <clipPath id="helloReveal"><rect class="reveal" width="1000" height="400"/></clipPath>
+    </defs>
+    <path class="area"/><g clip-path="url(#helloReveal)"><path class="line"/></g><circle class="dot" r="5"/>
+  </svg>
+  <div class="hello-in">
+    <p class="hello-line"><span class="hello-hi hello-rise"></span> <span class="hello-nick hello-rise"></span></p>
+    <span class="hello-glad hello-rise"></span>
+  </div>
+</div>
 
 
 <aside class="side">
@@ -63,13 +82,10 @@ try{document.documentElement.setAttribute("data-nav",localStorage.getItem("tj_na
 
   </defs></svg>
 
-  <div class="brand">
-    <span class="marks" id="collabMark" data-tip="Колаборація зі спільнотою Black Swan">
-      <span class="mark"><svg class="logo" aria-hidden="true"><use href="#logomark"/></svg></span>
-      <i class="tie" aria-hidden="true">×</i>
-      <span class="mark swan"><img class="swan" src="/static/swan.png?v=1" alt="" aria-hidden="true"></span>
-    </span>
-    <span class="nm">Stats<i>AI</i><small id="brandTagline">помічник трейдера</small></span>
+  <!-- Свій профіль — першим у панелі: аватар і нік ведуть у Налаштування →
+       Профіль (там же й вихід з акаунта). Заповнює static/sideme.js. -->
+  <div class="side-me" id="sideMe">
+    <button class="side-me-who" id="sideMeBtn" type="button" onclick="__settings.open('profile')"><span class="side-me-av" id="sideMeAv" aria-hidden="true"></span><span class="side-me-t"><b id="sideMeNick"></b><small id="sideMeSub">Профіль</small></span></button>
   </div>
 
   <!-- Тут стоїть перемикач «Реальні / Бектест». Режим бектесту в продукт ще
@@ -113,22 +129,31 @@ try{document.documentElement.setAttribute("data-nav",localStorage.getItem("tj_na
     </div>
   </div>
 
+  <div class="brand">
+    <span class="marks" id="collabMark" data-tip="Колаборація зі спільнотою Black Swan">
+      <span class="mark"><svg class="logo" aria-hidden="true"><use href="#logomark"/></svg></span>
+      <i class="tie" aria-hidden="true">×</i>
+      <span class="mark swan"><img class="swan" src="/static/swan.png?v=1" alt="" aria-hidden="true"></span>
+    </span>
+    <span class="nm">Stats<i>AI</i><small id="brandTagline">помічник трейдера</small></span>
+  </div>
+  <!-- Підвал панелі стоїть під логотипом (16.09.2026, прохання власника):
+       зверху робота — журнал, інструменти, підключення; знизу знак, під
+       ним «Підтримка», і в самому низу соцмережі. Оформлення переїхало
+       в «Налаштування» окремим розділом, кнопки тут більше немає. -->
   <div class="side-foot">
     <button class="mini" id="supportBtn" data-tip="Пошта й Телеграм — напиши, якщо щось не працює" onclick="__support.open()"><svg class="ic" width="14" height="14" viewBox="0 0 24 24" fill="none"><path d="M4 12a8 8 0 0116 0v5.5a2.5 2.5 0 01-2.5 2.5H13" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/><rect x="2.6" y="11" width="4.4" height="6.4" rx="2.2" stroke="currentColor" stroke-width="1.7"/><rect x="17" y="11" width="4.4" height="6.4" rx="2.2" stroke="currentColor" stroke-width="1.7"/></svg> <span>Підтримка</span></button>
-    <button class="mini" id="settingsBtn" data-tip="Мова інтерфейсу й відкритий журнал" onclick="__settings.open()"><svg class="ic" width="14" height="14" viewBox="0 0 24 24" fill="none"><path d="M20 7h-7M7 7H4M20 17h-3M11 17H4" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/><circle cx="10" cy="7" r="2.5" stroke="currentColor" stroke-width="1.7"/><circle cx="14" cy="17" r="2.5" stroke="currentColor" stroke-width="1.7"/></svg> <span>Налаштування</span></button>
-    <button class="mini" id="skinBtn" data-tip="Теми оформлення: світлі, темні й своя" onclick="__skin.open()"><svg class="ic" width="14" height="14" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="8.6" stroke="currentColor" stroke-width="1.7"/><path d="M12 3.4a8.6 8.6 0 000 17.2z" fill="currentColor" opacity=".55"/></svg> <span>Оформлення</span></button>
-    <button class="mini" id="logoutBtn" data-tip="Вийти з акаунта" onclick="logout()"><svg class="ic" width="14" height="14" viewBox="0 0 24 24" fill="none"><path d="M15 17l5-5-5-5M20 12H9" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/><path d="M12 20H6a2 2 0 01-2-2V6a2 2 0 012-2h6" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></svg> <span>Вийти</span></button>
-
-    <!-- Соцмережі: тихий ряд під кнопками. Іконки сірі, фірмовий колір
-         з'являється лише під курсором — щоб не сперечатись із зеленим
-         акцентом самого журналу. -->
-    <div class="socs">
-      <span class="lab" id="socLab">Ми тут</span>
-      <a class="soc ig" id="socIg" href="https://www.instagram.com/statsai_trading_journal"
-         target="_blank" rel="noopener" aria-label="Instagram"><svg class="ic" width="15" height="15" viewBox="0 0 24 24" fill="none" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="5" stroke="currentColor" stroke-width="1.7"/><circle cx="12" cy="12" r="4" stroke="currentColor" stroke-width="1.7"/><circle cx="17.2" cy="6.8" r="1.1" fill="currentColor"/></svg></a>
-      <a class="soc tt" id="socTt" href="https://www.tiktok.com/@statsai_trading_journal"
-         target="_blank" rel="noopener" aria-label="TikTok"><svg class="ic" width="15" height="15" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M14 3v11.2a3.3 3.3 0 11-2.6-3.22" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/><path d="M14 3.4c.5 2.4 2.3 4 4.7 4.2" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg></a>
-    </div>
+    <button class="mini" id="settingsBtn" hidden data-tip="Мова інтерфейсу й відкритий журнал" onclick="__settings.open()"><svg class="ic" width="14" height="14" viewBox="0 0 24 24" fill="none"><path d="M20 7h-7M7 7H4M20 17h-3M11 17H4" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/><circle cx="10" cy="7" r="2.5" stroke="currentColor" stroke-width="1.7"/><circle cx="14" cy="17" r="2.5" stroke="currentColor" stroke-width="1.7"/></svg> <span>Налаштування</span></button>
+  </div>
+  <!-- Соцмережі: тихий ряд у самому низу панелі, під логотипом. Іконки сірі, фірмовий колір
+       з'являється лише під курсором — щоб не сперечатись із зеленим
+       акцентом самого журналу. -->
+  <div class="socs">
+    <span class="lab" id="socLab">Ми тут</span>
+    <a class="soc ig" id="socIg" href="https://www.instagram.com/statsai_trading_journal"
+       target="_blank" rel="noopener" aria-label="Instagram"><svg class="ic" width="15" height="15" viewBox="0 0 24 24" fill="none" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="5" stroke="currentColor" stroke-width="1.7"/><circle cx="12" cy="12" r="4" stroke="currentColor" stroke-width="1.7"/><circle cx="17.2" cy="6.8" r="1.1" fill="currentColor"/></svg></a>
+    <a class="soc tt" id="socTt" href="https://www.tiktok.com/@statsai_trading_journal"
+       target="_blank" rel="noopener" aria-label="TikTok"><svg class="ic" width="15" height="15" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M14 3v11.2a3.3 3.3 0 11-2.6-3.22" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/><path d="M14 3.4c.5 2.4 2.3 4 4.7 4.2" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg></a>
   </div>
 </aside>
 
@@ -167,35 +192,39 @@ try{document.documentElement.setAttribute("data-nav",localStorage.getItem("tj_na
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 5l7 7-7 7"/></svg></button>
 </div>
 
-<script src="/static/i18n.js?v=51"></script>
+<script src="/static/i18n.js?v=65"></script>
+<script src="/static/hello.js?v=3"></script>
 <script src="/static/ui.js?v=18"></script>
 <script src="/static/demo.js?v=3"></script>
 <script src="/static/guest.js?v=3"></script>
 <script src="/static/pub.js?v=4"></script>
-<script src="/static/app.js?v=55"></script>
+<script src="/static/app.js?v=57"></script>
 <script src="/static/profile.js?v=1"></script>
 <script src="/static/backup.js?v=1"></script>
 <script src="/static/mailcheck.js?v=1"></script>
-<script src="/static/pwd.js?v=2"></script>
-<script src="/static/settings.js?v=5"></script>
+<script src="/static/pwd.js?v=3"></script>
+<script src="/static/twofa.js?v=4"></script>
+<script src="/static/me.js?v=7"></script>
+<script src="/static/settings.js?v=11"></script>
+<script src="/static/sideme.js?v=4"></script>
 <script src="/static/support.js?v=9"></script>
 <script src="/static/assistant.js?v=8"></script>
 <script src="/static/watch.js?v=2"></script>
 <script src="/static/news.js?v=22"></script>
 <script src="/static/newsay.js?v=1"></script>
-<script src="/static/ogcal.js?v=16"></script>
-<script src="/static/sharelink.js?v=29"></script>
+<script src="/static/ogcal.js?v=17"></script>
+<script src="/static/sharelink.js?v=30"></script>
 <script src="/static/tidy.js?v=1"></script>
-<script src="/static/notion.js?v=11"></script>
+<script src="/static/notion.js?v=12"></script>
 <script src="/static/calc.js?v=1"></script>
 <script src="/static/links.js?v=1"></script>
 <script src="/static/ts.js?v=28"></script>
-<script src="/static/day.js?v=15"></script>
-<script src="/static/mobile.js?v=8"></script>
+<script src="/static/day.js?v=17"></script>
+<script src="/static/mobile.js?v=10"></script>
 <script src="/static/tgnews.js?v=2"></script>
 <script src="/static/accounts.js?v=18"></script>
-<script src="/static/tradeimg.js?v=11"></script>
-<script src="/static/themes.js?v=4"></script>
+<script src="/static/tradeimg.js?v=12"></script>
+<script src="/static/themes.js?v=5"></script>
 <!-- останнім: підміняє openModal/closeModal, тож має бачити всі попередні -->
 <script src="/static/motion.js?v=3"></script>
 <script src="/static/zoom.js?v=2"></script>

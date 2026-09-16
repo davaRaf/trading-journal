@@ -210,7 +210,14 @@ async function api(method,url,body){
   /* до першого успішного завантаження 401 означає «сесії немає» — з цього
      init зробить режим гостя. Пізніше це вже протухла сесія, там вхід */
   if(res.status===401){ if(dataReady) location.href="/login"; throw new Error("API 401"); }
-  if(!res.ok) throw new Error("API "+res.status);
+  if(!res.ok){
+    /* завеликий файл чи не картинка — людині своїми словами, а не «API 413» */
+    let code="";
+    try{ code=(await res.json()).code||""; }catch(e){}
+    if(code==="too_big") throw new Error(T.errTooBig);
+    if(code==="bad_image") throw new Error(T.errBadImage);
+    throw new Error("API "+res.status);
+  }
   return res.json();
 }
 /* Бектест беремо тільки у своєму журналі. У чужому (Pub) адреса угод
@@ -1604,6 +1611,8 @@ document.addEventListener("keydown", e=>{
     return;
   }
   if(e.key!=="Escape") return;
+  /* поле, яке саме скасовує свою правку по Esc (нік у профілі), — вікно не чіпаємо */
+  if(e.target && e.target.closest && e.target.closest("[data-own-esc]")) return;
   const box=$("#lightbox"), modal=$("#modal");
   if(box && !box.hidden){ e.stopPropagation(); closeLightbox(); return; }
   if(modal && !modal.hidden){ e.stopPropagation(); if(!S.lockModal) closeModal(); }

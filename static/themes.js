@@ -5,6 +5,10 @@
    Тема — це data-skin на <html>; самі кольори живуть у themes.css.
    Разом зі шкіркою ставимо data-theme: від нього залежать правила,
    написані до появи тем.
+
+   Своєї кнопки в бічній панелі більше немає (16.09.2026): оформлення —
+   окремий розділ вікна «Налаштування», як мова чи безпека. Звідси
+   назовні йде тільки section() — розмітка розділу без рамки вікна.
    ============================================================ */
 (function(){
 
@@ -94,7 +98,7 @@ function customCard(on){
     + '<div class="nm">'+T.thCustom+'' + (on ? "<i>"+T.thSelected+"</i>" : "") + "</div></button>";
 }
 
-function draw(){
+function section(){
   const now = current();
   const s = seed();
   const group = (title, list) =>
@@ -106,9 +110,7 @@ function draw(){
   const own    = THEMES().filter(t => !t.collab);
   const collab = THEMES().filter(t => t.collab);
 
-  const h = '<div class="m-head"><h2>'+T.thModalTitle+'</h2>'
-    + '<button class="x" onclick="closeModal()">×</button></div>'
-    + '<div class="m-body"><div class="nt th-grp">'
+  return '<div class="nt th-grp">'
     + group(T.thDarkGroup,  own.filter(t => t.base === "dark"))
     + group(T.thLightGroup, own.filter(t => t.base === "light"))
     + (collab.length
@@ -132,16 +134,20 @@ function draw(){
     +   '<div class="th-pick"><span>'+T.thAccent+'</span>'
     +     '<input type="color" value="' + s.accent + '" oninput="__skin.seed(\'accent\', this.value)"></div>'
     +   '<p class="nt-note" style="flex:1 1 180px">'+T.thNoteHint+"</p>"
-    + "</div></div></div>"
-    + '<div class="m-foot"><span class="sp"></span>'
-    + '<button class="btn primary" onclick="closeModal()">'+T.ckDone+'</button></div>';
-  openModal(h);
+    + "</div></div>";
+}
+
+/* Перемальовуємо розділ у відкритому вікні налаштувань. Якщо вікно
+   закрите (тему поставили з коду) — перемальовувати нічого. */
+function redraw(){
+  if (window.__settings && document.querySelector(".stx")) __settings.redraw();
 }
 
 /* ---------- ручки ---------- */
 window.__skin = {
-  open: draw,
-  set(id){ apply(id); draw(); },
+  section: section,
+  open(){ if (window.__settings) __settings.open("skin"); },
+  set(id){ apply(id); redraw(); },
   seed(field, value){
     const s = seed();
     s[field] = value;
@@ -149,7 +155,7 @@ window.__skin = {
     apply("custom");
     /* перемальовуємо тільки при зміні основи: інакше повзунок кольору
        зникає з-під пальця, поки його тягнеш */
-    if (field === "base") draw();
+    if (field === "base") redraw();
     else {
       const box = document.getElementById("modalBox");
       const mark = box && box.querySelectorAll(".th-card");

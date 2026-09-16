@@ -212,6 +212,27 @@ ALTER TABLE users ADD COLUMN IF NOT EXISTS tz TEXT NOT NULL DEFAULT 'Europe/Kyiv
 -- ставимо позначку одноразово в init(): просити їх зайвий раз нема за що.
 ALTER TABLE users ADD COLUMN IF NOT EXISTS email_confirmed_at TIMESTAMPTZ;
 
+-- «Покоління» входів людини. Номер лежить і тут, і в кукі; кука зі старим
+-- номером більше не пускає. Зміна пароля, 2FA чи кнопка «вийти на всіх
+-- пристроях» додає одиницю — і всі інші пристрої вилітають.
+ALTER TABLE users ADD COLUMN IF NOT EXISTS session_gen INTEGER NOT NULL DEFAULT 0;
+
+-- Двофакторний вхід кодом із застосунку (Google Authenticator, Authy).
+-- twofa_secret — ключ застосунку (base32). Не відбиток, як у пароля: з
+-- нього щоразу рахується код, тож сервер мусить мати його самого.
+-- twofa_backup — відбитки запасних кодів (sha256), кожен одноразовий.
+-- twofa_last_step — крок часу останнього прийнятого коду: той самий код
+-- удруге не пройде, навіть поки він ще живий.
+ALTER TABLE users ADD COLUMN IF NOT EXISTS twofa_secret TEXT;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS twofa_enabled_at TIMESTAMPTZ;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS twofa_backup JSONB NOT NULL DEFAULT '[]'::jsonb;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS twofa_last_step BIGINT;
+
+-- Профіль: фото (ім'я файла в таблиці files, NULL — буква ніка на кольоровому
+-- тлі) і коли востаннє міняли нік.
+ALTER TABLE users ADD COLUMN IF NOT EXISTS avatar TEXT;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS nick_changed_at TIMESTAMPTZ;
+
 CREATE TABLE IF NOT EXISTS trade_drafts (
   user_id    BIGINT PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
   chat_id    BIGINT NOT NULL,
@@ -344,6 +365,110 @@ def get_user_by_nick(nick):
     with connect() as conn:
         return conn.execute(
             "SELECT * FROM users WHERE lower(nickname)=%s LIMIT 1", (key,)).fetchone()
+
+
+def set_nickname(user_id, nick):
+    """Новий нік. False — зайнятий (унікальний індекс на lower(nickname))."""
+    try:
+        with connect() as conn:
+            conn.execute("UPDATE users SET nickname=%s, nick_changed_at=now() WHERE id=%s",
+                         (nick, user_id))
+            conn.commit()
+        return True
+    except psycopg.errors.UniqueViolation:
+        return False
+
+
+def set_avatar(user_id, name):
+    """Нове фото (або None — прибрати). Повертає ім'я попереднього файла."""
+    with connect() as conn:
+        old = conn.execute("SELECT avatar FROM users WHERE id=%s", (user_id,)).fetchone()
+        conn.execute("UPDATE users SET avatar=%s WHERE id=%s", (name, user_id))
+        conn.commit()
+    return old["avatar"] if old else None
+
+
+def profile_stats(user_id, today, weeks=12):
+    """Цифри для профілю — про звичку вести журнал, а не про прибуток.
+
+    today — дата людини в її поясі (datetime.date): «серія» й карта
+    активності рахуються в її днях, а не в годиннику сервера.
+    Вихідні серію не рвуть і в карту не входять — ринок у ці дні закритий.
+    """
+    import datetime as _dt
+    with connect() as conn:
+        t = conn.execute(
+            """SELECT count(*) FILTER (WHERE result<>'Skip') AS trades,
+                      count(DISTINCT left("date", 10)) AS days,
+                      min(left("date", 10)) FILTER (WHERE "date"<>'') AS first
+               FROM trades WHERE user_id=%s""", (user_id,)).fetchone()
+        per_day = conn.execute(
+            """SELECT left("date", 10) AS d, count(*) AS n FROM trades
+               WHERE user_id=%s AND "date" ~ '^\\d{4}-\\d{2}-\\d{2}'
+               GROUP BY 1 ORDER BY 1""", (user_id,)).fetchall()
+        hundredth = conn.execute(
+            """SELECT left("date", 10) AS d FROM trades
+               WHERE user_id=%s AND result<>'Skip' AND "date" ~ '^\\d{4}-\\d{2}-\\d{2}'
+               ORDER BY "date", created_at OFFSET 99 LIMIT 1""", (user_id,)).fetchone()
+        pairs = conn.execute(
+            """SELECT "pair", count(*) AS n FROM trades
+               WHERE user_id=%s AND "pair"<>'' AND result<>'Skip'
+               GROUP BY 1 ORDER BY n DESC, 1 LIMIT 3""", (user_id,)).fetchall()
+        try:
+            reviews = conn.execute(
+                "SELECT count(*) AS n FROM day_notes WHERE user_id=%s AND data <> '{}'::jsonb",
+                (user_id,)).fetchone()["n"]
+        except psycopg.errors.UndefinedTable:
+            conn.rollback()
+            reviews = 0
+
+    counts = {}
+    for r in per_day:
+        try:
+            counts[_dt.date.fromisoformat(r["d"])] = r["n"]
+        except ValueError:
+            pass
+
+    def weekday_back(d):
+        d -= _dt.timedelta(days=1)
+        while d.weekday() >= 5:
+            d -= _dt.timedelta(days=1)
+        return d
+
+    # серія: робочі дні підряд із записами. Сьогодні ще без записів — не
+    # обрив, рахуємо від останнього робочого дня.
+    streak, d = 0, today
+    while d.weekday() >= 5:
+        d -= _dt.timedelta(days=1)
+    if d not in counts:
+        d = weekday_back(d)
+    while d in counts:
+        streak += 1
+        d = weekday_back(d)
+
+    best, run, prev = 0, 0, None
+    for day in sorted(k for k in counts if k.weekday() < 5):
+        run = run + 1 if prev is not None and weekday_back(day) == prev else 1
+        best = max(best, run)
+        prev = day
+
+    # карта: останні `weeks` тижнів, пн–пт, по стовпчику на тиждень
+    monday = today - _dt.timedelta(days=today.weekday())
+    start = monday - _dt.timedelta(weeks=weeks - 1)
+    heat = []
+    for w in range(weeks):
+        for wd in range(5):
+            day = start + _dt.timedelta(weeks=w, days=wd)
+            n = counts.get(day, 0)
+            heat.append(-1 if day > today else (0 if n == 0 else 1 if n == 1 else 2 if n <= 3 else 3))
+
+    return {
+        "trades": t["trades"] or 0, "days": t["days"] or 0, "reviews": reviews or 0,
+        "streak": streak, "best_streak": max(best, streak),
+        "first": t["first"] or None, "hundredth": hundredth["d"] if hundredth else None,
+        "pairs": [[r["pair"], r["n"]] for r in pairs],
+        "heat": heat, "active_days": sum(1 for v in heat if v > 0),
+    }
 
 
 def set_public(user_id, on):
@@ -550,12 +675,92 @@ def drop_import(user_id, batch):
     return len(gone), sorted(files - used)
 
 
+def files_in_use(names):
+    """Які з цих файлів ще згадані хоч в одній угоді — будь-чиїй.
+
+    Перед видаленням файлу: один скрін буває в двох угодах (імпорт власного
+    вивантаження), і стерти його разом з однією — дірка в другій."""
+    names = [n for n in names if n]
+    if not names:
+        return set()
+    with connect() as conn:
+        rows = conn.execute(
+            "SELECT DISTINCT s->>'file' AS f FROM trades, jsonb_array_elements("
+            "CASE WHEN jsonb_typeof(screenshots)='array' THEN screenshots "
+            "ELSE '[]'::jsonb END) s WHERE s->>'file' = ANY(%s)", (names,)).fetchall()
+    return {r["f"] for r in rows}
+
+
 def owns_screenshot(user_id, filename):
     with connect() as conn:
         row = conn.execute(
             "SELECT 1 FROM trades WHERE user_id=%s AND screenshots @> %s LIMIT 1",
             (user_id, Jsonb([{"file": filename}]))).fetchone()
     return row is not None
+
+
+def session_gen(user_id):
+    """Поточне покоління входів. None — такої людини вже немає."""
+    with connect() as conn:
+        row = conn.execute("SELECT session_gen FROM users WHERE id=%s",
+                           (user_id,)).fetchone()
+    return row["session_gen"] if row else None
+
+
+def bump_session_gen(user_id):
+    """+1 до покоління: усі видані раніше куки перестають пускати."""
+    with connect() as conn:
+        row = conn.execute("UPDATE users SET session_gen=session_gen+1 WHERE id=%s "
+                           "RETURNING session_gen", (user_id,)).fetchone()
+        conn.commit()
+    return row["session_gen"] if row else None
+
+
+def twofa_enable(user_id, secret, backup_hashes, step):
+    with connect() as conn:
+        conn.execute("UPDATE users SET twofa_secret=%s, twofa_enabled_at=now(), "
+                     "twofa_backup=%s, twofa_last_step=%s WHERE id=%s",
+                     (secret, Jsonb(list(backup_hashes)), step, user_id))
+        conn.commit()
+
+
+def twofa_disable(user_id):
+    with connect() as conn:
+        conn.execute("UPDATE users SET twofa_secret=NULL, twofa_enabled_at=NULL, "
+                     "twofa_backup='[]'::jsonb, twofa_last_step=NULL WHERE id=%s",
+                     (user_id,))
+        conn.commit()
+
+
+def twofa_set_backup(user_id, backup_hashes):
+    with connect() as conn:
+        conn.execute("UPDATE users SET twofa_backup=%s WHERE id=%s",
+                     (Jsonb(list(backup_hashes)), user_id))
+        conn.commit()
+
+
+def twofa_take_step(user_id, step):
+    """Прийняти код кроку step. Атомарно: два однакові запити одночасно —
+    пройде лише один, а старший крок після молодшого не пройде зовсім."""
+    with connect() as conn:
+        row = conn.execute(
+            "UPDATE users SET twofa_last_step=%s WHERE id=%s AND twofa_secret IS NOT NULL "
+            "AND (twofa_last_step IS NULL OR twofa_last_step < %s) RETURNING id",
+            (step, user_id, step)).fetchone()
+        conn.commit()
+    return row is not None
+
+
+def twofa_take_backup(user_id, code_hash):
+    """Витратити запасний код. Атомарно: один код — один вхід."""
+    with connect() as conn:
+        row = conn.execute(
+            "UPDATE users SET twofa_backup=twofa_backup - %s::text WHERE id=%s "
+            "AND twofa_secret IS NOT NULL AND twofa_backup ? %s::text "
+            "RETURNING jsonb_array_length(twofa_backup) AS left",
+            (code_hash, user_id, code_hash)).fetchone()
+        conn.commit()
+    return None if row is None else row["left"]
 
 
 def set_password(user_id, pw_hash, pw_salt, pw_iters):

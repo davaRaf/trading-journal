@@ -7,6 +7,7 @@ Trading Journal — сервер журнала.
 import base64
 import datetime
 import gzip
+import hmac
 import json
 import os
 import re
@@ -41,6 +42,7 @@ import accounts_store
 import day_store
 import tg_api
 import tidy
+import twofa
 import ts_check
 import ts_edit
 import ts_notion
@@ -70,9 +72,14 @@ def new_id():
 
 
 DATAURL_RE = re.compile(r"^data:image/(png|jpeg|jpg|webp|gif);base64,(.+)$", re.S)
+# Один скрін — не більше 8 МБ, як і в разовій заливці. Браузер і так
+# пережимає картинку до ~1 МБ, але сервер цього не бачить: прямий запит
+# в обхід сторінки міг покласти в базу що завгодно.
+SHOT_MAX = 8 * 1024 * 1024
 
 
 NOTE_MAX = 2000            # підпис під скріном: думка, а не пара слів
+ASK_LIMIT = 20             # питань до помічника за хвилину на людину
 
 
 def shot_note(s):
@@ -80,9 +87,21 @@ def shot_note(s):
     return str(s.get("note") or "").strip()[:NOTE_MAX]
 
 
-def save_screenshots(trade):
-    """Скриншоты с base64-данными сохраняем в файлы; уже сохранённые оставляем."""
-    out = []
+def save_screenshots(trade, uid, old=None):
+    """Скриншоты с base64-данными сохраняем в файлы; уже сохранённые оставляем.
+
+    Уже сохранённый ({"file": ім'я}) приймаємо, лише якщо він і так цієї
+    людини: був у цій угоді (old) або в іншій її угоді. Інакше, знаючи ім'я
+    чужого файлу (його видно у відкритому журналі й у посиланнях), можна
+    було вписати його собі — і дивитись чужий скрін, а видаливши угоду,
+    стерти його з бази. Чужі імена просто відкидаємо, мовчки.
+
+    Спершу перевіряємо всі, потім пишемо: якщо третій скрін завеликий,
+    перші два не мають лишитись у базі сиротами від незбереженої угоди.
+    Не пройшло — filestore.ShotError, і угода не зберігається зовсім:
+    мовчки загубити скрін гірше, ніж сказати про це."""
+    ready = []
+    mine = {s.get("file") for s in (old or {}).get("screenshots") or [] if s.get("file")}
     shots = trade.get("screenshots") or []
     for i, s in enumerate(shots):
         tf = re.sub(r"[^0-9A-Za-zА-Яа-я]", "", str(s.get("tf") or "img"))[:8] or "img"
@@ -95,11 +114,21 @@ def save_screenshots(trade):
                 raw = base64.b64decode(m.group(2))
             except Exception:
                 continue
+            if len(raw) > SHOT_MAX:
+                raise filestore.ShotError("завеликий скріншот", "too_big", 413)
+            if not filestore.is_image(raw):
+                raise filestore.ShotError("файл не схожий на картинку", "bad_image")
             name = "%s_%d_%s.%s" % (trade["id"], int(time.time() * 1000) % 100000000 + i, tf, ext)
-            keep_file(name, raw)
-            out.append({"tf": s.get("tf") or "", "file": name, "note": shot_note(s)})
+            ready.append((s, name, raw))
         elif s.get("file"):
-            out.append({"tf": s.get("tf") or "", "file": s["file"], "note": shot_note(s)})
+            name = str(s["file"])
+            if name in mine or db.owns_screenshot(uid, name):
+                ready.append((s, name, None))
+    out = []
+    for s, name, raw in ready:
+        if raw is not None:
+            keep_file(name, raw)
+        out.append({"tf": s.get("tf") or "", "file": name, "note": shot_note(s)})
     trade["screenshots"] = out
 
 
@@ -129,8 +158,16 @@ def shot_path(name):
 
 
 def delete_files(names):
+    names = [os.path.basename(n) for n in names if n]
+    # Файл, який ще згадує інша угода, не чіпаємо. Не вдалось спитати базу —
+    # теж не чіпаємо: краще зайвий файл, ніж стерта чужа картинка.
     try:
-        filestore.delete([os.path.basename(n) for n in names if n])
+        busy = db.files_in_use(names)
+    except Exception:
+        return
+    names = [n for n in names if n not in busy]
+    try:
+        filestore.delete(names)
     except Exception:
         pass
     for n in names:
@@ -817,6 +854,29 @@ def nick_from_email(email):
     return base or "trader"
 
 
+NICK_RE = re.compile(r"^[A-Za-z0-9_.-]{3,24}$")
+# Ніки, які читаються як частина сайту або як його голос.
+NICK_RESERVED = {"admin", "api", "static", "login", "logout", "reset", "confirm", "demo",
+                 "u", "auth", "support", "help", "statsai", "system", "root", "moderator"}
+AVATAR_MAX = 2 * 1024 * 1024
+
+
+def nick_problem(want, uid):
+    """Чим новий нік не годиться: "" — годиться, "same" — той самий,
+    "bad" — не той формат, "taken" — зайнятий чи зарезервований."""
+    if not NICK_RE.match(want or ""):
+        return "bad"
+    me = db.get_user(uid)
+    if me and (me["nickname"] or "") == want:
+        return "same"
+    if want.lower() in NICK_RESERVED:
+        return "taken"
+    other = db.get_user_by_nick(want)
+    if other and other["id"] != uid:
+        return "taken"
+    return ""
+
+
 def in_background(fn, *args):
     """Зробити повільне діло після відповіді.
 
@@ -849,6 +909,28 @@ def request_tz(raw, user=None):
     return calendar_feed.KYIV
 
 
+# Готові аватарки — помічник StatsAI у 15 варіаціях. Картинки лежать у static/avatars/<назва>.svg, у базі —
+# "preset:<назва>". Список закритий: чужу назву сервер не прийме.
+AVATAR_PRESETS = ("wink", "shades", "surprised", "focused", "laugh",
+                  "sleepy", "love", "stars", "sly", "bull",
+                  "bear", "headphones", "cap", "tongue", "robot")
+AVATAR_PRESET_V = 1
+
+
+def avatar_url(value):
+    if not value:
+        return None
+    if value.startswith("preset:"):
+        name = value[len("preset:"):]
+        return ("/static/avatars/%s.svg?v=%d" % (name, AVATAR_PRESET_V)) if name in AVATAR_PRESETS else None
+    return "/api/me/avatar/" + value
+
+
+def own_avatar_file(value):
+    """Чи це завантажене фото (його файл треба прибрати), а не готова аватарка."""
+    return bool(value) and not value.startswith("preset:")
+
+
 def user_public(user):
     return {"id": user["id"], "email": user["email"], "nickname": user["nickname"],
             "telegram": user["telegram_username"] or (str(user["telegram_id"])
@@ -858,7 +940,10 @@ def user_public(user):
             "digest_enabled": user["digest_enabled"],
             "public_journal": bool(user["public_journal"]),
             "tz": user["tz"] or "Europe/Kyiv",
-            "email_confirmed": user["email_confirmed_at"] is not None}
+            "email_confirmed": user["email_confirmed_at"] is not None,
+            "avatar": avatar_url(user.get("avatar")),
+            "twofa": twofa.enabled(user),
+            "twofa_backup_left": len(user.get("twofa_backup") or [])}
 
 
 # ---------------------------------------------------------------------------
@@ -883,6 +968,29 @@ def public_trade(t):
     out["screenshots"] = [{"tf": s.get("tf") or "", "file": s.get("file") or "",
                            "note": shot_note(s)}
                           for s in (t.get("screenshots") or []) if s.get("file")]
+    return out
+
+
+def share_author(user_id):
+    """Хто зробив знімок: нік і чи є в нього аватарка.
+
+    Показуємо всім, кому дали посилання, — людина має бачити, чий це
+    розбір дня чи угода. На відміну від public_owner, відкритість
+    журналу тут ні до чого: це підпис автора, а не запрошення в журнал."""
+    if not user_id:
+        return None
+    try:
+        user = db.get_user(user_id)
+    except Exception:
+        return None
+    if not user or not user["nickname"]:
+        return None
+    av = user.get("avatar")
+    out = {"nick": user["nickname"]}
+    if av:
+        # готова аватарка лежить у static і відкрита всім; завантажене фото
+        # віддаємо тільки через адресу самого знімка (нижче в GET)
+        out["av"] = avatar_url(av) if av.startswith("preset:") else True
     return out
 
 
@@ -1031,15 +1139,91 @@ class H(BaseHTTPRequestHandler):
         self.send_header("Location", where)
         self.end_headers()
 
+    # Найбільше тіло запиту. Угода з кількома скрінами в base64 — кілька
+    # мегабайт; без межі будь-хто міг змусити сервер читати в пам'ять
+    # скільки завгодно.
+    MAX_BODY = 50 * 1024 * 1024
+
     def _body(self):
-        n = int(self.headers.get("Content-Length") or 0)
+        self._too_big = False
+        try:
+            n = int(self.headers.get("Content-Length") or 0)
+        except ValueError:
+            return None
         if n <= 0:
+            return None
+        if n > self.MAX_BODY:
+            # не читаємо зовсім — з'єднання закриється після відповіді
+            self.close_connection = True
+            self._too_big = True
             return None
         raw = self.rfile.read(n)
         try:
             return json.loads(raw.decode("utf-8"))
         except Exception:
             return None
+
+    def _too_big_reply(self):
+        """Тіло більше за MAX_BODY — кажемо прямо, а не «bad json»."""
+        return self._json({"error": "запит завеликий", "code": "too_big"}, 413)
+
+    def _shot_reply(self, e):
+        return self._json({"error": str(e), "code": e.code}, e.status)
+
+    # ---------- вхід ----------
+    def _add_cookie(self, c):
+        self._pending = getattr(self, "_pending", []) + [c]
+
+    def _session_cookie(self, user):
+        return auth.cookie_header(auth.make_session(user["id"], gen=user["session_gen"]),
+                                  secure=auth.is_https(self))
+
+    def _enter(self, user, code=200):
+        """Перший крок пройдено (пароль, посилання з листа, реєстрація).
+
+        Без 2FA — одразу кука входу. З 2FA — лише пропуск на другий крок
+        (HttpOnly-кука на 10 хвилин), а сторінка просить код."""
+        if twofa.enabled(user):
+            self._add_cookie(auth.pending_cookie(
+                auth.make_pending(user["id"], user["session_gen"]), auth.is_https(self)))
+            return self._json({"twofa": True}, code)
+        return self._json({"user": user_public(user)}, code, cookie=self._session_cookie(user))
+
+    def _needs_mail_code(self, user):
+        """Пошта справжня, але ще не підтверджена — у журнал поки не пускаємо."""
+        return authmail.has_email(user) and user["email_confirmed_at"] is None
+
+    def _ask_mail_code(self, user, lang, code=200):
+        """Шлемо код на пошту й просимо його ввести. Сесії ще немає — лише
+        пропуск на цей крок у HttpOnly-куці.
+
+        Лист — не частіше разу на хвилину на людину: інакше повторні входи
+        засипали б скриньку листами й щоразу міняли код під пальцями."""
+        keys = ["mailcode-send:%d" % user["id"]]
+        if not ratelimit.check(keys, limit=1):
+            ratelimit.miss(keys, limit=1)
+            in_background(authmail.start_code, user, self._base(), lang)
+        self._add_cookie(auth.mailcode_cookie(auth.make_mailcode(user["id"]), auth.is_https(self)))
+        return self._json({"confirm": True, "email": user["email"]}, code)
+
+    def _fresh_login(self, uid, extra=None):
+        """Нове покоління входів: усі інші пристрої вилітають, цей лишається
+        з новою кукою. Після зміни пароля, 2FA, «вийти на всіх пристроях»."""
+        auth.bump_gen(uid)
+        me = db.get_user(uid)
+        out = {"user": user_public(me)}
+        out.update(extra or {})
+        return self._json(out, cookie=self._session_cookie(me))
+
+    def _twofa_limit(self, uid):
+        """Ліміт на коди: шість цифр перебирати по 5 на хвилину — роки."""
+        keys = ["2fa:%d" % uid]
+        wait = ratelimit.check(keys)
+        if wait:
+            self._json({"error": "забагато спроб — спробуй за %d с" % wait,
+                        "code": "too_many", "wait": wait}, 429)
+            return None
+        return keys
 
     def _uid(self):
         return auth.current_user_id(self)
@@ -1095,6 +1279,16 @@ class H(BaseHTTPRequestHandler):
         for c in getattr(self, "_pending", []):
             self.send_header("Set-Cookie", c)
         self._pending = []
+        # Захисні заголовки — тут, бо сюди проходить кожна відповідь.
+        # nosniff: браузер не вгадує тип файлу (скрін не стане скриптом);
+        # SAMEORIGIN: журнал не вбудувати в чужу сторінку під видом кнопок,
+        # а свою можна — share.html кладе /demo фоном в iframe;
+        # HSTS — лише на https, інакше локальний http зламався б.
+        self.send_header("X-Content-Type-Options", "nosniff")
+        self.send_header("X-Frame-Options", "SAMEORIGIN")
+        self.send_header("Referrer-Policy", "strict-origin-when-cross-origin")
+        if auth.is_https(self):
+            self.send_header("Strict-Transport-Security", "max-age=31536000")
         BaseHTTPRequestHandler.end_headers(self)
 
     def _guest(self):
@@ -1102,8 +1296,12 @@ class H(BaseHTTPRequestHandler):
         а client_address — це вже сам проксі, один на всіх.
 
         Заголовок можна підробити, тому на ньому одному не тримаємось:
-        поруч рахуємо спроби ще й за логіном, і його підробкою не обійти."""
-        fwd = (self.headers.get("X-Forwarded-For") or "").split(",")[0].strip()
+        поруч рахуємо спроби ще й за логіном, і його підробкою не обійти.
+
+        Беремо ОСТАННЄ значення, а не перше: перше пише сам клієнт (будь-яке,
+        щоразу нове — і лічильник спроб не спрацьовував), а останнє дописує
+        наш проксі, і його клієнт не підробить."""
+        fwd = (self.headers.get("X-Forwarded-For") or "").split(",")[-1].strip()
         return fwd or (self.client_address[0] if self.client_address else "?")
 
     def _base(self):
@@ -1170,6 +1368,37 @@ class H(BaseHTTPRequestHandler):
                      "webp": "image/webp", "gif": "image/gif"}.get(ext, "application/octet-stream")
             return self._file(path, ctype, self.PRIVATE)
 
+        # аватарка автора знімка: /api/share/<id>/avatar
+        m = re.match(r"^/api/share/([A-Za-z0-9_-]{6,32})/avatar$", p)
+        if m:
+            rec = share_read(m.group(1))
+            uid_a = rec and rec.get("user_id")
+            user = db.get_user(uid_a) if uid_a else None
+            av = user and user.get("avatar")
+            if not av:
+                self.send_response(404); self.end_headers(); return
+            if av.startswith("preset:"):
+                name = av[len("preset:"):]
+                if name not in AVATAR_PRESETS:
+                    self.send_response(404); self.end_headers(); return
+                # кеш короткий: поміняв аватарку — гості побачать нову
+                return self._file(os.path.join(STATIC, "avatars", name + ".svg"),
+                                  "image/svg+xml", "private, max-age=300")
+            got = filestore.get(os.path.basename(av))
+            if not got:
+                self.send_response(404); self.end_headers(); return
+            mime, blob = got
+            ext = av.rsplit(".", 1)[-1].lower()
+            ctype = mime or {"png": "image/png", "jpg": "image/jpeg", "jpeg": "image/jpeg",
+                             "webp": "image/webp", "gif": "image/gif"}.get(ext, "application/octet-stream")
+            self.send_response(200)
+            self.send_header("Content-Type", ctype)
+            self.send_header("Content-Length", str(len(blob)))
+            self.send_header("Cache-Control", "private, max-age=300")
+            self.end_headers()
+            self.wfile.write(blob)
+            return
+
         if p.startswith("/api/share/"):
             rec = share_read(p[len("/api/share/"):])
             if rec is None:
@@ -1183,6 +1412,9 @@ class H(BaseHTTPRequestHandler):
             nick = public_owner(rec.get("user_id"))
             if nick:
                 out["owner"] = {"nick": nick}
+            author = share_author(rec.get("user_id"))
+            if author:
+                out["author"] = author
             return self._json(out)
         if p.startswith("/s/"):
             sid = p[len("/s/"):].strip("/")
@@ -1256,9 +1488,15 @@ class H(BaseHTTPRequestHandler):
                 self.end_headers()
                 return
             self.send_response(302)
-            self.send_header("Location", "/")
-            self.send_header("Set-Cookie", auth.cookie_header(auth.make_session(user["id"]),
-                                                              secure=auth.is_https(self)))
+            if twofa.enabled(user):
+                # Сервіс підтвердив, хто це, але 2FA — властивість акаунта,
+                # а не способу входу: код просимо і тут.
+                self.send_header("Location", "/login?twofa=1")
+                self.send_header("Set-Cookie", auth.pending_cookie(
+                    auth.make_pending(user["id"], user["session_gen"]), auth.is_https(self)))
+            else:
+                self.send_header("Location", "/")
+                self.send_header("Set-Cookie", self._session_cookie(user))
             self.send_header("Set-Cookie", oauth.clear_state_cookie(auth.is_https(self)))
             self.end_headers()
             return
@@ -1579,6 +1817,43 @@ class H(BaseHTTPRequestHandler):
                 return self._json({"error": "bad date"}, 400)
             return self._json({"day": day_store.get(uid, rest)})
 
+        # ---- профіль: цифри, перевірка ніка, фото ----
+        if p == "/api/me/profile":
+            uid = self._uid()
+            me = db.get_user(uid) if uid else None
+            if not me:
+                return self._json({"error": "auth required"}, 401)
+            today = datetime.datetime.now(request_tz(None, me)).date()
+            stats = db.profile_stats(uid, today)
+            joined = me["created_at"].astimezone(request_tz(None, me)).date() if me["created_at"] else today
+            stats["with_us"] = (today - joined).days + 1
+            return self._json({"user": user_public(me), "stats": stats})
+
+        if p == "/api/me/nick-check":
+            uid = self._uid()
+            if not uid:
+                return self._json({"error": "auth required"}, 401)
+            want = parse_qs(urlparse(self.path).query).get("n", [""])[0].strip()
+            return self._json({"code": nick_problem(want, uid)})
+
+        if p.startswith("/api/me/avatar/"):
+            uid = self._uid()
+            me = db.get_user(uid) if uid else None
+            name = os.path.basename(p[len("/api/me/avatar/"):])
+            if not me or not name or name != me["avatar"]:
+                self.send_response(404); self.end_headers(); return
+            got = filestore.get(name)
+            if not got:
+                self.send_response(404); self.end_headers(); return
+            self.send_response(200)
+            self.send_header("Content-Type", got[0])
+            self.send_header("Content-Length", str(len(got[1])))
+            # ім'я файла міняється з кожним новим фото — кешувати можна довго
+            self.send_header("Cache-Control", self.PRIVATE)
+            self.end_headers()
+            self.wfile.write(got[1])
+            return
+
         if p.startswith("/dnshot/"):
             uid = self._uid()
             name = os.path.basename(p[len("/dnshot/"):])
@@ -1884,6 +2159,11 @@ class H(BaseHTTPRequestHandler):
             name = os.path.normpath(p[len("/static/"):]).replace("\\", "/")
             if name.startswith(".."):
                 self.send_response(403); self.end_headers(); return
+            # Чернетки й службове (_test.html, .rej, .txt) назовні не віддаємо
+            base = name.rsplit("/", 1)[-1]
+            if base.startswith("_") or base.startswith(".") or \
+                    base.rsplit(".", 1)[-1].lower() in ("rej", "txt", "md", "py"):
+                self.send_response(404); self.end_headers(); return
             ext = name.rsplit(".", 1)[-1].lower()
             ctype = {"css":"text/css; charset=utf-8","js":"application/javascript; charset=utf-8",
                      "html":"text/html; charset=utf-8","png":"image/png","svg":"image/svg+xml"}.get(ext,"application/octet-stream")
@@ -1900,6 +2180,8 @@ class H(BaseHTTPRequestHandler):
         if self._old_host(): return
         p = urlparse(self.path).path
         body = self._body()
+        if self._too_big:
+            return self._too_big_reply()
 
         # ---- вход и регистрация ----
         # ---- поправити мітку руками: лише власникам ----
@@ -1962,6 +2244,14 @@ class H(BaseHTTPRequestHandler):
                 return self._json({"error": "bad json"}, 400)
             email = str(body.get("email") or "").strip()
             password = str(body.get("password") or "")
+            # Акаунти не штампуємо скриптом: 5 спроб реєстрації за хвилину з
+            # однієї адреси. Рахуємо кожну — вдала реєстрація теж спроба.
+            keys = ["register:" + self._guest()]
+            wait = ratelimit.check(keys)
+            if wait:
+                return self._json({"error": "забагато спроб — спробуй за %d с" % wait,
+                                   "code": "too_many", "wait": wait}, 429)
+            ratelimit.miss(keys)
             if not EMAIL_RE.match(email) or len(password) < 6:
                 return self._json({"error": "потрібні пошта і пароль від 6 символів",
                                    "code": "need_fields"}, 400)
@@ -1986,14 +2276,10 @@ class H(BaseHTTPRequestHandler):
             if not user:
                 return self._json({"error": "така пошта вже зайнята", "code": "taken"}, 409)
             ref_claim(user["id"], self._cookie(REF_COOKIE))
-            # Впускаємо одразу, а підтвердження просимо листом: тримати
-            # людину на порозі, поки вона ходить у скриньку, — найшвидший
-            # спосіб втратити її ще до першої угоди.
-            in_background(authmail.start_confirm, user, self._base(),
-                          str(body.get("lang") or "ru"))
-            return self._json({"user": user_public(user)}, 201,
-                              cookie=auth.cookie_header(auth.make_session(user["id"]),
-                                                        secure=auth.is_https(self)))
+            # У журнал — лише після коду з листа (рішення владельця
+            # 15.09.2026): раніше пускали одразу, а підтвердження просили
+            # посиланням, яке можна було й не відкривати.
+            return self._ask_mail_code(user, str(body.get("lang") or "ru"), 201)
 
         if p == "/api/auth/login":
             if not isinstance(body, dict):
@@ -2014,9 +2300,73 @@ class H(BaseHTTPRequestHandler):
                 ratelimit.miss(keys)
                 return self._json({"error": "невірна пошта або пароль", "code": "bad_login"}, 401)
             ratelimit.forget(keys)
-            return self._json({"user": user_public(user)},
-                              cookie=auth.cookie_header(auth.make_session(user["id"]),
-                                                        secure=auth.is_https(self)))
+            # Пароль правильний, але пошту так і не підтвердили — спершу код.
+            if self._needs_mail_code(user):
+                return self._ask_mail_code(user, str(body.get("lang") or "ru"))
+            return self._enter(user)
+
+        # ---- код підтвердження пошти ----
+        # Пропуск — HttpOnly-кука після реєстрації чи входу з непідтвердженою
+        # поштою. Код вірний — пошту підтверджено, далі звичайний вхід (з 2FA,
+        # якщо вона є).
+        if p in ("/api/auth/mail-code", "/api/auth/mail-code/resend"):
+            sec = auth.is_https(self)
+            uid = auth.read_mailcode(auth.read_cookie(self, auth.MAILCODE_COOKIE))
+            user = db.get_user(uid) if uid else None
+            if not user:
+                return self._json({"error": "час вийшов — увійди ще раз", "code": "mail_expired"},
+                                  401, cookie=auth.mailcode_cookie("", sec))
+            if user["email_confirmed_at"] is not None:
+                self._add_cookie(auth.mailcode_cookie("", sec))
+                return self._enter(user)
+            body = body if isinstance(body, dict) else {}
+            if p.endswith("/resend"):
+                # Новий лист — не частіше разу на хвилину.
+                keys = ["mailcode-send:%d" % uid]
+                wait = ratelimit.check(keys, limit=1)
+                if wait:
+                    return self._json({"error": "зачекай %d с" % wait, "code": "too_many",
+                                       "wait": wait}, 429)
+                ratelimit.miss(keys, limit=1)
+                in_background(authmail.start_code, user, self._base(), str(body.get("lang") or "ru"))
+                return self._json({"ok": True})
+            keys = ["mailcode:%d" % uid]
+            wait = ratelimit.check(keys)
+            if wait:
+                return self._json({"error": "забагато спроб — спробуй за %d с" % wait,
+                                   "code": "too_many", "wait": wait}, 429)
+            if not authmail.take_code(uid, body.get("code")):
+                ratelimit.miss(keys)
+                return self._json({"error": "код не підходить", "code": "mail_bad"}, 401)
+            ratelimit.forget(keys)
+            db.confirm_email(uid)
+            self._add_cookie(auth.mailcode_cookie("", sec))
+            return self._enter(db.get_user(uid))
+
+        # ---- другий крок входу: код із застосунку ----
+        # Пропуск лежить у HttpOnly-куці після правильного пароля (чи входу
+        # через сервіс, чи нового пароля за посиланням). Без нього — нема що
+        # перевіряти: код сам по собі нікого не впускає.
+        if p == "/api/auth/2fa/verify":
+            sec = auth.is_https(self)
+            uid = auth.read_pending(auth.read_cookie(self, auth.PENDING_COOKIE))
+            if not uid:
+                return self._json({"error": "час вийшов — увійди ще раз", "code": "twofa_expired"},
+                                  401, cookie=auth.pending_cookie("", sec))
+            keys = self._twofa_limit(uid)
+            if keys is None:
+                return
+            user = db.get_user(uid)
+            ok, left = twofa.verify(user, (body or {}).get("code"))
+            if not ok:
+                ratelimit.miss(keys)
+                return self._json({"error": "код не підходить", "code": "twofa_bad"}, 401)
+            ratelimit.forget(keys)
+            self._add_cookie(auth.pending_cookie("", sec))
+            out = {"user": user_public(user)}
+            if left is not None:
+                out["backup_left"] = left       # зайшли запасним кодом — скажемо, скільки лишилось
+            return self._json(out, cookie=self._session_cookie(user))
 
         # ---- чи знайома нам ця пошта ----
         # Питає сама форма входу, щойно адресу дописано: про незнайому пошту
@@ -2098,11 +2448,14 @@ class H(BaseHTTPRequestHandler):
             ratelimit.forget(keys)
             pw_hash, pw_salt, iters = auth.hash_password(password)
             db.set_password(user["id"], pw_hash, pw_salt, iters)
+            # Пароль скидають, коли його знає хтось чужий (чи боїться цього) —
+            # тож усі старі входи гасимо.
+            auth.bump_gen(user["id"])
+            user = db.get_user(user["id"])
             # Одразу впускаємо: людина щойно довела, що скринька її, і
-            # вводити пароль удруге тим самим рухом — зайве.
-            return self._json({"user": user_public(user)},
-                              cookie=auth.cookie_header(auth.make_session(user["id"]),
-                                                        secure=auth.is_https(self)))
+            # вводити пароль удруге тим самим рухом — зайве. Але з 2FA — ні:
+            # доступ до пошти не має відкривати акаунт повз код.
+            return self._enter(user)
 
         if p == "/api/auth/logout":
             return self._json({"ok": True}, cookie=auth.clear_cookie_header(auth.is_https(self)))
@@ -2114,7 +2467,9 @@ class H(BaseHTTPRequestHandler):
         # накопленные картинки со старой машины. После переезда переменную убрать.
         if p == "/api/admin/upload-shot":
             token = config.ADMIN_TOKEN
-            if not token or self.headers.get("X-Admin-Token") != token:
+            if not token or not hmac.compare_digest(
+                    (self.headers.get("X-Admin-Token") or "").encode("utf-8"),
+                    token.encode("utf-8")):
                 return self._json({"error": "no"}, 404)
             name = os.path.basename(str((body or {}).get("name") or ""))
             data = (body or {}).get("data") or ""
@@ -2140,6 +2495,61 @@ class H(BaseHTTPRequestHandler):
             on = bool((body or {}).get("on"))
             db.set_public(uid, on)
             return self._json({"public_journal": on})
+
+        # ---- профіль: новий нік ----
+        if p == "/api/me/nick":
+            want = str((body or {}).get("nickname") or "").strip()
+            keys = ["nick:%d" % uid]
+            wait = ratelimit.check(keys, limit=10)
+            if wait:
+                return self._json({"error": "зачекай %d с" % wait, "code": "too_many", "wait": wait}, 429)
+            ratelimit.miss(keys, limit=10)
+            problem = nick_problem(want, uid)
+            if problem == "same":
+                return self._json({"user": user_public(db.get_user(uid))})
+            if problem:
+                return self._json({"error": "нік не підходить", "code": problem}, 400 if problem == "bad" else 409)
+            if not db.set_nickname(uid, want):
+                return self._json({"error": "нік зайнятий", "code": "taken"}, 409)
+            return self._json({"user": user_public(db.get_user(uid))})
+
+        # ---- профіль: фото ----
+        # Браузер сам обрізає фото в квадрат 256×256, сюди приходить маленька
+        # картинка. Перевіряємо розмір і перші байти, як у скрінів угод.
+        if p == "/api/me/avatar":
+            m = DATAURL_RE.match(str((body or {}).get("data") or ""))
+            if not m:
+                return self._json({"error": "не картинка", "code": "bad_image"}, 400)
+            try:
+                raw = base64.b64decode(m.group(2))
+            except Exception:
+                return self._json({"error": "не картинка", "code": "bad_image"}, 400)
+            if len(raw) > AVATAR_MAX:
+                return self._json({"error": "завелике фото", "code": "too_big"}, 413)
+            if not filestore.is_image(raw):
+                return self._json({"error": "не картинка", "code": "bad_image"}, 400)
+            name = "av%d_%s.%s" % (uid, secrets.token_hex(6), m.group(1).replace("jpeg", "jpg"))
+            filestore.put(name, raw)
+            old = db.set_avatar(uid, name)
+            if own_avatar_file(old) and old != name:
+                filestore.delete([old])
+            return self._json({"user": user_public(db.get_user(uid))})
+
+        # ---- профіль: готова аватарка замість фото ----
+        if p == "/api/me/avatar/preset":
+            name = str((body or {}).get("id") or "")
+            if name not in AVATAR_PRESETS:
+                return self._json({"error": "нема такої аватарки", "code": "bad_preset"}, 400)
+            old = db.set_avatar(uid, "preset:" + name)
+            if own_avatar_file(old):
+                filestore.delete([old])
+            return self._json({"user": user_public(db.get_user(uid))})
+
+        if p == "/api/me/avatar/remove":
+            old = db.set_avatar(uid, None)
+            if own_avatar_file(old):
+                filestore.delete([old])
+            return self._json({"user": user_public(db.get_user(uid))})
 
         # ---- часовий пояс ----
         # Його ставлять у розділі «Новини», а живе він у профілі: бот
@@ -2196,7 +2606,67 @@ class H(BaseHTTPRequestHandler):
             ratelimit.forget(keys)
             pw_hash, pw_salt, iters = auth.hash_password(new)
             db.set_password(uid, pw_hash, pw_salt, iters)
-            return self._json({"ok": True})
+            # новий пароль — нове покоління: хто зайшов зі старим, вилітає
+            return self._fresh_login(uid, {"ok": True})
+
+        # ---- вийти на всіх пристроях, крім цього ----
+        if p == "/api/me/logout-all":
+            return self._fresh_login(uid, {"ok": True})
+
+        # ---- 2FA: увімкнення ----
+        # Спершу ключ (setup), і лише коли людина ввела з застосунку перший
+        # код — пишемо в базу. Інакше можна «увімкнути» захист, якого
+        # застосунок не знає, і замкнути себе поза журналом.
+        if p == "/api/me/2fa/setup":
+            me = db.get_user(uid)
+            if twofa.enabled(me):
+                return self._json({"error": "вже увімкнено", "code": "twofa_on"}, 409)
+            secret = twofa.new_secret()
+            return self._json({"secret": secret,
+                               "uri": twofa.uri(secret, me["email"] or me["nickname"]),
+                               "setup": auth.make_setup(uid, secret)})
+
+        if p == "/api/me/2fa/enable":
+            keys = self._twofa_limit(uid)
+            if keys is None:
+                return
+            me = db.get_user(uid)
+            if twofa.enabled(me):
+                return self._json({"error": "вже увімкнено", "code": "twofa_on"}, 409)
+            secret = auth.read_setup(str((body or {}).get("setup") or ""), uid)
+            if not secret:
+                return self._json({"error": "час вийшов — почни заново", "code": "twofa_expired"}, 400)
+            step = twofa.match_step(secret, (body or {}).get("code"))
+            if step is None:
+                ratelimit.miss(keys)
+                return self._json({"error": "код не підходить", "code": "twofa_bad"}, 400)
+            ratelimit.forget(keys)
+            codes = twofa.new_backup_codes()
+            db.twofa_enable(uid, secret, [twofa.backup_hash(c) for c in codes], step)
+            return self._fresh_login(uid, {"backup_codes": codes})
+
+        # ---- 2FA: вимкнути або нові запасні коди ----
+        # Лише з кодом (із застосунку чи запасним): інакше чужа незакрита
+        # вкладка тихо зняла б захист. Пароль тут не питаємо — у тих, хто
+        # заходить через Google, його просто немає.
+        if p in ("/api/me/2fa/disable", "/api/me/2fa/backup"):
+            keys = self._twofa_limit(uid)
+            if keys is None:
+                return
+            me = db.get_user(uid)
+            if not twofa.enabled(me):
+                return self._json({"error": "2FA вимкнено", "code": "twofa_off"}, 409)
+            ok, _ = twofa.verify(me, (body or {}).get("code"))
+            if not ok:
+                ratelimit.miss(keys)
+                return self._json({"error": "код не підходить", "code": "twofa_bad"}, 400)
+            ratelimit.forget(keys)
+            if p.endswith("/disable"):
+                db.twofa_disable(uid)
+                return self._fresh_login(uid, {"ok": True})
+            codes = twofa.new_backup_codes()
+            db.twofa_set_backup(uid, [twofa.backup_hash(c) for c in codes])
+            return self._fresh_login(uid, {"backup_codes": codes})
 
         if p == "/api/telegram/link-code":
             bot = bot_username()
@@ -2211,6 +2681,14 @@ class H(BaseHTTPRequestHandler):
             return self._json({"ok": True})
 
         if p == "/api/assistant/ask":
+            # Кожне питання — платний запит до моделі. 20 за хвилину на
+            # людину вистачає для живої розмови, а скрипт далі не піде.
+            keys = ["ask:%s" % uid]
+            wait = ratelimit.check(keys, limit=ASK_LIMIT)
+            if wait:
+                return self._json({"error": "забагато питань поспіль — спробуй за %d с" % wait,
+                                   "code": "too_many", "wait": wait}, 429)
+            ratelimit.miss(keys, limit=ASK_LIMIT)
             question = str((body or {}).get("question") or "").strip()
             if not question:
                 return self._json({"error": "порожнє питання"}, 400)
@@ -2254,6 +2732,13 @@ class H(BaseHTTPRequestHandler):
                 "bt" if (body or {}).get("kind") == "bt" else ""))
 
         if p == "/api/assistant/review":
+            # той самий платний запит до моделі — і лічильник той самий
+            keys = ["ask:%s" % uid]
+            wait = ratelimit.check(keys, limit=ASK_LIMIT)
+            if wait:
+                return self._json({"error": "забагато питань поспіль — спробуй за %d с" % wait,
+                                   "code": "too_many", "wait": wait}, 429)
+            ratelimit.miss(keys, limit=ASK_LIMIT)
             if not llm.enabled():
                 return self._json({"error": "помічник вимкнений — немає DEEPSEEK_API_KEY"}, 503)
             raw = (body or {}).get("history")
@@ -2374,7 +2859,8 @@ class H(BaseHTTPRequestHandler):
             try:
                 name = day_store.save_shot(uid, (body or {}).get("data") or "", SHOTS, "sg")
             except ValueError as e:
-                return self._json({"error": str(e)}, 400)
+                return self._json({"error": str(e), "code": getattr(e, "code", "")},
+                                  getattr(e, "status", 400))
             return self._json({"file": name})
 
         # ---- рахунки ----
@@ -2412,7 +2898,8 @@ class H(BaseHTTPRequestHandler):
             try:
                 name = day_store.save_shot(uid, (body or {}).get("data") or "", SHOTS)
             except ValueError as e:
-                return self._json({"error": str(e)}, 400)
+                return self._json({"error": str(e), "code": getattr(e, "code", "")},
+                                  getattr(e, "status", 400))
             return self._json({"file": name})
 
         if p.startswith("/api/day/"):
@@ -2466,7 +2953,8 @@ class H(BaseHTTPRequestHandler):
             try:
                 name = ts_store.save_shot(uid, (body or {}).get("data") or "", SHOTS)
             except ValueError as e:
-                return self._json({"error": str(e)}, 400)
+                return self._json({"error": str(e), "code": getattr(e, "code", "")},
+                                  getattr(e, "status", 400))
             return self._json({"file": name})
 
         if p == "/api/ts/notion":
@@ -2486,7 +2974,10 @@ class H(BaseHTTPRequestHandler):
             if not isinstance(body, dict) or not str(body.get("pair", "")).strip():
                 return self._json({"error": "bad json or empty pair"}, 400)
             t = clean_trade(body, new_id())
-            save_screenshots(t)
+            try:
+                save_screenshots(t, uid)
+            except filestore.ShotError as e:
+                return self._shot_reply(e)
             user = db.get_user(uid)
             # У бэктеста эмоции нет: входа не было, спрашивать не о чем.
             ask = (t.get("kind") != "bt"
@@ -2506,7 +2997,10 @@ class H(BaseHTTPRequestHandler):
                 if not isinstance(it, dict):
                     continue
                 t = clean_trade(it, new_id())
-                save_screenshots(t)
+                try:
+                    save_screenshots(t, uid)
+                except filestore.ShotError:
+                    t["screenshots"] = []   # угоду з файлу беремо, битий скрін — ні
                 batch.append(t)
             return self._json({"ok": True, "added": db.insert_trades(uid, batch)})
 
@@ -2522,6 +3016,8 @@ class H(BaseHTTPRequestHandler):
             if not uid:
                 return self._json({"error": "auth required"}, 401)
             body = self._body()
+            if self._too_big:
+                return self._too_big_reply()
             if not isinstance(body, dict):
                 return self._json({"error": "bad json"}, 400)
             if len(json.dumps(body, ensure_ascii=False)) > PREFS_MAX:
@@ -2537,6 +3033,8 @@ class H(BaseHTTPRequestHandler):
             return self._json({"error": "auth required"}, 401)
         tid = m.group(1)
         body = self._body()
+        if self._too_big:
+            return self._too_big_reply()
         if not isinstance(body, dict):
             return self._json({"error": "bad json"}, 400)
         old = db.get_trade(tid, uid)
@@ -2546,7 +3044,10 @@ class H(BaseHTTPRequestHandler):
         # Тип ставится при записи и правкой не меняется: иначе сделка
         # переехала бы между реальным журналом и бэктестом.
         t["kind"] = old.get("kind") or ""
-        save_screenshots(t)
+        try:
+            save_screenshots(t, uid, old)
+        except filestore.ShotError as e:
+            return self._shot_reply(e)
         old_files = {s["file"] for s in old.get("screenshots") or [] if s.get("file")}
         new_files = {s["file"] for s in t["screenshots"] if s.get("file")}
         db.update_trade(uid, t)

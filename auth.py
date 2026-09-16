@@ -8,6 +8,7 @@ import hashlib
 import hmac
 import http.cookies
 import os
+import threading
 import time
 
 from config import ROOT, SESSION_SECRET
@@ -83,27 +84,180 @@ def _sign(payload):
     return hmac.new(_secret(), payload.encode("utf-8"), hashlib.sha256).hexdigest()
 
 
-def make_session(user_id, ttl=SESSION_TTL):
-    payload = "%d.%d" % (user_id, int(time.time()) + ttl)
+def make_session(user_id, ttl=SESSION_TTL, gen=0):
+    """Кука входу: хто, до коли і якого покоління (див. current_gen)."""
+    payload = "%d.%d.%d" % (user_id, int(time.time()) + ttl, int(gen or 0))
     token = base64.urlsafe_b64encode(payload.encode("utf-8")).decode("ascii").rstrip("=")
     return token + "." + _sign(payload)
 
 
-def read_session(value):
+def parse_session(value):
+    """(uid, покоління) з підписаної куки або None.
+
+    Куки, видані до появи поколінь, мають лише «uid.exp» — вважаємо їх
+    поколінням 0: після викладу нікого не викине, доки людина сама не
+    змінить пароль чи не натисне «вийти на всіх пристроях»."""
     if not value or "." not in value:
         return None
     token, sig = value.rsplit(".", 1)
     try:
         payload = base64.urlsafe_b64decode(token + "=" * (-len(token) % 4)).decode("utf-8")
-        uid, exp = payload.split(".")
-        uid, exp = int(uid), int(exp)
+        parts = payload.split(".")
+        if len(parts) == 2:
+            uid, exp, gen = int(parts[0]), int(parts[1]), 0
+        elif len(parts) == 3:
+            uid, exp, gen = int(parts[0]), int(parts[1]), int(parts[2])
+        else:
+            return None
     except Exception:
         return None
     if not hmac.compare_digest(sig, _sign(payload)):
         return None
     if exp < time.time():
         return None
-    return uid
+    return uid, gen
+
+
+def read_session(value):
+    """Лише підпис і строк. Покоління звіряє current_user_id."""
+    got = parse_session(value)
+    return got[0] if got else None
+
+
+# ------------------------------------------------------ покоління входів ----
+# Номер покоління живе в базі (users.session_gen). Щоб не питати базу на
+# кожен запит, тримаємо його в пам'яті. Процес у нас один, і міняє номер
+# теж він (bump_gen) — тож пам'ять оновлюється в ту ж мить. Строк у пам'яті
+# лише про запас: якщо номер колись змінять повз цей код.
+
+GEN_TTL = 60
+_gen_lock = threading.Lock()
+_gens = {}                      # uid -> (покоління або None, коли спитали)
+
+
+def current_gen(user_id):
+    now = time.time()
+    with _gen_lock:
+        got = _gens.get(user_id)
+    if got and now - got[1] < GEN_TTL:
+        return got[0]
+    try:
+        import db
+        gen = db.session_gen(user_id)
+    except Exception:
+        # База не відповіла: беремо, що пам'ятали. Не пам'ятали нічого —
+        # пускаємо: сайт без бази однаково не працює, а викидати всіх зі
+        # входу через хвилинний збій — гірше.
+        return got[0] if got else "?"
+    with _gen_lock:
+        if len(_gens) > 20000:
+            _gens.clear()
+        _gens[user_id] = (gen, now)
+    return gen
+
+
+def bump_gen(user_id):
+    """+1 до покоління: усі інші пристрої вилітають. Повертає новий номер."""
+    import db
+    gen = db.bump_session_gen(user_id)
+    with _gen_lock:
+        _gens[user_id] = (gen, time.time())
+    return gen
+
+
+# --------------------------------------------- проміжні ключі для 2FA ----
+# Пароль правильний, але код ще не введено — повну куку не даємо. Даємо
+# «пропуск на другий крок»: живе 10 хвилин і входом не є. Підпис той самий
+# ключ, але з іншою приставкою — сесією його не підробиш і навпаки.
+
+PENDING_COOKIE = "statsai_2fa"
+PENDING_TTL = 600
+SETUP_TTL = 900
+
+
+def _pack(kind, fields):
+    payload = ".".join(str(f) for f in fields)
+    token = base64.urlsafe_b64encode(payload.encode("utf-8")).decode("ascii").rstrip("=")
+    return token + "." + _sign(kind + "|" + payload)
+
+
+def _unpack(kind, value, n):
+    if not value or "." not in value:
+        return None
+    token, sig = value.rsplit(".", 1)
+    try:
+        payload = base64.urlsafe_b64decode(token + "=" * (-len(token) % 4)).decode("utf-8")
+    except Exception:
+        return None
+    if not hmac.compare_digest(sig, _sign(kind + "|" + payload)):
+        return None
+    parts = payload.split(".")
+    if len(parts) != n:
+        return None
+    try:
+        if int(parts[1]) < time.time():
+            return None
+    except ValueError:
+        return None
+    return parts
+
+
+def make_pending(user_id, gen):
+    return _pack("2fa-login", (int(user_id), int(time.time()) + PENDING_TTL, int(gen or 0)))
+
+
+def read_pending(value):
+    """uid, якщо пропуск справжній, не протермінований і покоління те саме."""
+    parts = _unpack("2fa-login", value, 3)
+    if not parts:
+        return None
+    uid, gen = int(parts[0]), int(parts[2])
+    return uid if current_gen(uid) in (gen, "?") else None
+
+
+def pending_cookie(value, secure=False):
+    parts = ["%s=%s" % (PENDING_COOKIE, value), "Path=/", "HttpOnly", "SameSite=Lax",
+             "Max-Age=%d" % (PENDING_TTL if value else 0)]
+    if secure:
+        parts.append("Secure")
+    return "; ".join(parts)
+
+
+def make_setup(user_id, secret):
+    """Ключ нового застосунку до підтвердження: у базу — лише після коду."""
+    return _pack("2fa-setup", (int(user_id), int(time.time()) + SETUP_TTL, secret))
+
+
+def read_setup(value, user_id):
+    parts = _unpack("2fa-setup", value, 3)
+    if not parts or parts[0] != str(int(user_id)):
+        return None
+    return parts[2]
+
+
+# ---- підтвердження пошти кодом ----
+# Після реєстрації (чи входу з непідтвердженою поштою) сесії ще немає —
+# є лише пропуск на крок «введи код із листа». Живе довше за сам код:
+# людина може попросити новий лист і не починати все спочатку.
+MAILCODE_COOKIE = "statsai_mail"
+MAILCODE_TTL = 3600
+
+
+def make_mailcode(user_id):
+    return _pack("mail-code", (int(user_id), int(time.time()) + MAILCODE_TTL))
+
+
+def read_mailcode(value):
+    parts = _unpack("mail-code", value, 2)
+    return int(parts[0]) if parts else None
+
+
+def mailcode_cookie(value, secure=False):
+    parts = ["%s=%s" % (MAILCODE_COOKIE, value), "Path=/", "HttpOnly", "SameSite=Lax",
+             "Max-Age=%d" % (MAILCODE_TTL if value else 0)]
+    if secure:
+        parts.append("Secure")
+    return "; ".join(parts)
 
 
 def is_https(handler):
@@ -131,7 +285,7 @@ def clear_cookie_header(secure=False):
     return cookie_header("", ttl=0, secure=secure)
 
 
-def current_user_id(handler):
+def read_cookie(handler, name):
     raw = handler.headers.get("Cookie")
     if not raw:
         return None
@@ -140,5 +294,16 @@ def current_user_id(handler):
         jar.load(raw)
     except Exception:
         return None
-    morsel = jar.get(COOKIE)
-    return read_session(morsel.value) if morsel else None
+    morsel = jar.get(name)
+    return morsel.value if morsel else None
+
+
+def current_user_id(handler):
+    got = parse_session(read_cookie(handler, COOKIE))
+    if not got:
+        return None
+    uid, gen = got
+    now = current_gen(uid)
+    if now == "?":             # база мовчить — див. current_gen
+        return uid
+    return uid if now == gen else None

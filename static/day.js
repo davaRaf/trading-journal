@@ -682,7 +682,7 @@ function vOpen(){
   const d = D();
   const ok = ready();
   return head()
-    + '<p class="dv-hint">' + esc(d.hintOpen) + "</p>"
+    + '<div class="dv-need" id="dvNeed" role="status" aria-live="polite" hidden></div>'
     + '<div class="dv-stack">'
     +   (N.assets.length ? N.assets.map(cardOpen).join("")
         : '<div class="dv-empty">' + esc(d.noAssetsHint) + "</div>")
@@ -1027,9 +1027,27 @@ window.__dv = {
   },
   addLevel(i){ (N.assets[i].levels = N.assets[i].levels || []).push({}); save(); render(); },
   delLevel(i, j){ N.assets[i].levels.splice(j, 1); save(); render(); },
-  close(){ if (N.closed || !ready()) return; N.closed = true; save(); render(); },
+  close(){
+    if (N.closed) return;
+    if (!ready()) return needMorning();
+    N.closed = true; save(); render();
+  },
   reopen(){ if (!N.closed) return; N.closed = false; save(); render(); },
 };
+
+/* «Вечір» без ранкового плану не відкривається — і мовчки нічого не
+   робити не можна: людина не розуміє, чому кнопка не працює. Під шапкою
+   на кілька секунд з'являється пояснення, що зробити спершу. */
+let needTimer = 0;
+function needMorning(){
+  const el = document.getElementById("dvNeed");
+  if (!el) return;
+  el.textContent = D().needMorning;
+  el.hidden = false;
+  el.classList.remove("in"); void el.offsetWidth; el.classList.add("in");
+  clearTimeout(needTimer);
+  needTimer = setTimeout(() => { el.hidden = true; el.classList.remove("in"); }, 4500);
+}
 
 /* ---------------- підпис у бічній панелі ---------------- */
 function paintNav(){
@@ -1061,8 +1079,6 @@ uk: {
   weekdays: ["пн", "вт", "ср", "чт", "пт", "сб", "нд"],
   lgOk: "за планом", lgPart: "частково", lgNo: "не за планом", lgOpen: "без вечора",
 
-  hintOpen: "Кожен актив — своя картка: скріни по таймфреймах, напрям, рівні, сценарії. "
-          + "Активи підказує твоя ТС. Увечері натиснеш «Записати підсумок дня» — і поруч із планом зʼявиться факт.",
   hintClosed: "Ліворуч — план, як його записали зранку, праворуч — що вийшло. Угоди з журналу самі лягли до свого активу. "
             + "Оцінки «за планом» і «тримався» — по кожному активу окремо, з них збирається статистика.",
   morning: "Ранок", evening: "Вечір", planTag: "план", factTag: "факт",
@@ -1117,6 +1133,7 @@ uk: {
   colHold: "тримався", colRes: "результат", lessonTitle: "що з цього винести",
 
   closeDay: "Записати підсумок дня", writePlanFirst: "Спершу запиши план",
+  needMorning: "Спершу заповни ранковий аналіз: додай актив і запиши план — напрям, рівень чи скрін. Тоді можна перейти до вечора.",
   closeNote: "Коли день скінчився — натисни: ліворуч лишиться план, праворуч зʼявиться місце під факт по кожному активу.",
   closeNoteOff: "Кнопка ввімкнеться, коли в якомусь активі зʼявиться план: напрям, рівень чи скрін.",
   reopen: "← повернутись до плану",
@@ -1134,8 +1151,6 @@ ru: {
   weekdays: ["пн", "вт", "ср", "чт", "пт", "сб", "вс"],
   lgOk: "по плану", lgPart: "частично", lgNo: "не по плану", lgOpen: "без вечера",
 
-  hintOpen: "Каждый актив — своя карточка: скрины по таймфреймам, направление, уровни, сценарии. "
-          + "Активы подсказывает твоя ТС. Вечером нажмёшь «Записать итог дня» — и рядом с планом появится факт.",
   hintClosed: "Слева — план, как его записали утром, справа — что вышло. Сделки из журнала сами легли к своему активу. "
             + "Оценки «по плану» и «держался» — по каждому активу отдельно, из них собирается статистика.",
   morning: "Утро", evening: "Вечер", planTag: "план", factTag: "факт",
@@ -1190,6 +1205,7 @@ ru: {
   colHold: "держался", colRes: "результат", lessonTitle: "что из этого вынести",
 
   closeDay: "Записать итог дня", writePlanFirst: "Сначала запиши план",
+  needMorning: "Сначала заполни утренний анализ: добавь актив и запиши план — направление, уровень или скрин. Потом можно перейти к вечеру.",
   closeNote: "Когда день закончился — нажми: слева останется план, справа появится место под факт по каждому активу.",
   closeNoteOff: "Кнопка включится, когда в каком-то активе появится план: направление, уровень или скрин.",
   reopen: "← вернуться к плану",
@@ -1207,8 +1223,6 @@ en: {
   weekdays: ["mo", "tu", "we", "th", "fr", "sa", "su"],
   lgOk: "as planned", lgPart: "partly", lgNo: "off plan", lgOpen: "no evening yet",
 
-  hintOpen: "Each instrument gets its own card: screenshots by timeframe, direction, levels, scenarios. "
-          + "Instruments are suggested from your system. In the evening press “Write the day up” and the facts appear next to the plan.",
   hintClosed: "Left is the plan as written in the morning, right is what came of it. Trades from the journal landed under their instrument on their own. "
             + "“As planned” and “held to it” are marked per instrument — the stats are built from them.",
   morning: "Morning", evening: "Evening", planTag: "plan", factTag: "fact",
@@ -1263,6 +1277,7 @@ en: {
   colHold: "held to it", colRes: "result", lessonTitle: "what to take from it",
 
   closeDay: "Write the day up", writePlanFirst: "Write the plan first",
+  needMorning: "Fill in the morning analysis first: add an instrument and write a plan — a direction, a level or a screenshot. Then you can move on to the evening.",
   closeNote: "When the day is over, press it: the plan stays on the left and room for the facts opens on the right, per instrument.",
   closeNoteOff: "The button turns on once any instrument has a plan: a direction, a level or a screenshot.",
   reopen: "← back to the plan",

@@ -161,6 +161,45 @@ CONFIRM_LETTER = (
 )
 
 
+CODE_SUBJECT = ("Код підтвердження StatsAI: %s",
+                "Код подтверждения StatsAI: %s",
+                "StatsAI confirmation code: %s")
+
+CODE_LETTER = (
+    "Доброго дня!\n\n"
+    "Ваш код підтвердження пошти в журналі StatsAI:\n\n"
+    "    %(code)s\n\n"
+    "Введіть його на сторінці входу. Код дійсний %(min)d хвилин.\n\n"
+    "Якщо акаунт створювали не ви, залиште цей лист без уваги — без коду "
+    "увійти в журнал не вийде.\n\n"
+    "--\n"
+    "StatsAI — помічник трейдера\n"
+    "%(site)s\n",
+
+    "Здравствуйте!\n\n"
+    "Ваш код подтверждения почты в журнале StatsAI:\n\n"
+    "    %(code)s\n\n"
+    "Введите его на странице входа. Код действителен %(min)d минут.\n\n"
+    "Если аккаунт создавали не вы, оставьте это письмо без внимания — без "
+    "кода войти в журнал не получится.\n\n"
+    "--\n"
+    "StatsAI — помощник трейдера\n"
+    "%(site)s\n",
+
+    "Hello,\n\n"
+    "Your StatsAI email confirmation code:\n\n"
+    "    %(code)s\n\n"
+    "Enter it on the sign-in page. The code is valid for %(min)d minutes.\n\n"
+    "If you did not create the account, please ignore this message — without "
+    "the code nobody can sign in.\n\n"
+    "--\n"
+    "StatsAI — trading assistant\n"
+    "%(site)s\n",
+)
+
+CODE_MIN = 15
+
+
 def _t(row, lang):
     return row[ORDER.index(lang)] if lang in ORDER else row[0]
 
@@ -214,6 +253,41 @@ def start(user, base_url, lang="ru"):
         print("пароль: нема куди надіслати (%s) — посилання %s"
               % (user.get("email"), link), flush=True)
     return done
+
+
+def code_hash(user_id, code):
+    """Відбиток коду з листа. Шість цифр самі по собі збігаються в різних
+    людей — тому в відбиток входить і власник: чужий код не підійде."""
+    return token_hash("mail-code|%d|%s" % (int(user_id), code))
+
+
+def start_code(user, base_url, lang="ru"):
+    """Лист із шестизначним кодом підтвердження пошти. True — пішов.
+
+    Новий код гасить попередній (db.create_link). Без налаштованої скриньки
+    код іде в журнал сервера — інакше на своїй машині зареєструватись не
+    вийшло б узагалі.
+    """
+    if not has_email(user):
+        return False
+    code = "%06d" % secrets.randbelow(1000000)
+    db.create_link(user["id"], code_hash(user["id"], code), "mailcode", CODE_MIN)
+    site = (base_url or config.SITE_URL).rstrip("/")
+    if not mailer.enabled():
+        print("пошта: код для %s не пішов (скринька не налаштована) — код %s"
+              % (user.get("email"), code), flush=True)
+        return False
+    return mailer.send(user["email"], _t(CODE_SUBJECT, lang) % code,
+                       _t(CODE_LETTER, lang) % {"code": code, "min": CODE_MIN, "site": site})
+
+
+def take_code(user_id, code):
+    """Погасити код. Повертає людину або None."""
+    code = "".join(ch for ch in str(code or "") if ch.isdigit())
+    if len(code) != 6:
+        return None
+    user = db.take_link(code_hash(user_id, code), "mailcode")
+    return user if user and user["id"] == int(user_id) else None
 
 
 def start_confirm(user, base_url, lang="uk"):
