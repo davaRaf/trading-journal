@@ -24,6 +24,7 @@ import emotions
 import llm
 import news_msg
 import tg_api
+import bot_share
 import trade_ai
 import trade_flow
 from config import BOT_TOKEN, SITE_URL
@@ -265,6 +266,8 @@ def on_callback(cq):
 
     # Кнопки покрокового запису — окремим модулем, тут тільки розвилка.
     if trade_flow.on_callback(cq, user):
+        return
+    if bot_share.on_callback(cq, user):
         return
 
     if data.startswith("emofree:"):

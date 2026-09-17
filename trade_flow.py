@@ -25,6 +25,7 @@ import random
 import time
 from zoneinfo import ZoneInfo
 
+import bot_share
 import botlang
 import db
 import emotions
@@ -556,5 +557,8 @@ def _save(user, chat_id, draft):
     # «na» саме про це — «питання не стоїть».
     db.insert_trade(user["id"], t_, "na")
     db.draft_clear(user["id"])
+    # одразу пропонуємо посилання: ділитись угодою хочуть саме в цю мить
     tg_api.send_message(chat_id, t(lang, "saved") + "\n\n" + card(t_, lang)
-                        + "\n\n" + t(lang, "openIt") + SITE_URL)
+                        + "\n\n" + t(lang, "openIt") + SITE_URL
+                        + "\n\n" + t(lang, "shAsk"),
+                        keyboard=bot_share.offer_kb(lang, t_["id"]))

@@ -89,6 +89,10 @@ def init():
     _ready = True
 
 
+# що можна вибрати, у секундах; 0 — без строку
+TTL = {"1h": 3600, "24h": 86400, "7d": 604800, "30d": 2592000, "forever": 0}
+
+
 def create(payload, ttl_key, ttl_seconds, user_id=None):
     init()
     sid = secrets.token_urlsafe(9)          # 12 символів, вистачає з запасом

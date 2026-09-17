@@ -210,13 +210,7 @@ def clean_trade(body, tid):
 # ---------------------------------------------------------------------------
 SHARE_DIR = os.path.join(DATA, "shares")
 SHARE_MAX = 256 * 1024          # больше снимку не нужно
-SHARE_TTL = {                   # что можно выбрать в интерфейсе, в секундах
-    "1h":   3600,
-    "24h":  86400,
-    "7d":   604800,
-    "30d":  2592000,
-    "forever": 0,               # 0 — без срока
-}
+SHARE_TTL = share_store.TTL     # що можна вибрати в інтерфейсі; бот бере той самий список
 os.makedirs(SHARE_DIR, exist_ok=True)
 _share_lock = threading.Lock()
 
@@ -571,7 +565,7 @@ PARTNER_TITLES = {"blackswan": "Black Swan"}      # як партнера зву
 # Довге теж лишається робочим — його вже роздали.
 # ig і tt лишаємо як синоніми соцмереж: якщо коротке посилання вже кудись
 # вставили, воно рахується туди ж, а не пропадає
-PARTNER_ALIASES = {"bs": "blackswan", "soc": "social", "ig": "social", "tt": "social"}
+PARTNER_ALIASES = config.PARTNER_ALIASES
 # Як мітку звуть у звіті
 REF_TITLES = {"blackswan": "Black Swan", "social": "Соцсети"}
 

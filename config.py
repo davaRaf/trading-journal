@@ -52,6 +52,9 @@ PARTNERS      = [x.strip().lower() for x in os.environ.get("PARTNERS", "blackswa
 # і через чужі посилання вона не передається — інакше «прийшли з інстаграма»
 # перестало б означати саме інстаграм.
 CHANNELS      = [x.strip().lower() for x in os.environ.get("CHANNELS", "social").split(",") if x.strip()]
+# Короткі імена міток для адрес: statsai.xyz/bs → blackswan. Спільні для
+# сайту (app.py) і бота (bot_share.py), тому лежать тут.
+PARTNER_ALIASES = {"bs": "blackswan", "soc": "social", "ig": "social", "tt": "social"}
 # Разовый ключ для переноса скриншотов на новый сервер (tools/upload_shots.py).
 # Пока пустой — точка загрузки просто не существует. После переезда убрать.
 ADMIN_TOKEN   = os.environ.get("ADMIN_TOKEN", "")
