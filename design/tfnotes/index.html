@@ -13,7 +13,7 @@
    полем «Как заходил».
 
    Печатаешь под скрином 3M — в поле «Как заходил» появляется строка
-   «3M TF — …». Правишь эту строку в самом поле — подпись под скрином
+   «3M — …». Правишь эту строку в самом поле — подпись под скрином
    меняется вслед. Своё, вольное описание входа живёт в том же поле
    выше строк по таймфреймам и не трогается.
 
@@ -86,7 +86,7 @@ textarea.big:focus{border-color:var(--accent)}
 <div class="wrap">
   <h1>Подписи под скринами · связь с полем «Как заходил»</h1>
   <p class="lead">Печатай под любым скрином, как заходил на этом таймфрейме. В поле «Как заходил» ниже
-    эта запись появится строкой вида <b>3M TF — …</b>. Работает и обратно: поправишь строку в поле —
+    эта запись появится строкой вида <b>3M — …</b>. Работает и обратно: поправишь строку в поле —
     поменяется подпись под скрином. Свой текст про вход пиши в поле как обычно, он остаётся выше строк по таймфреймам.</p>
   <p class="hint">Картинки условные. Данные никуда не сохраняются — это только пробник поведения.</p>
 
@@ -97,7 +97,7 @@ textarea.big:focus{border-color:var(--accent)}
     <div class="f">
       <label class="l" for="entry">Как заходил</label>
       <textarea class="big" id="entry" placeholder="Что увидел, почему вошёл…"></textarea>
-      <div class="legend"><span><b>Свой текст</b> — любые строки</span><span><b>По таймфреймам</b> — строки «3M TF — …», их собирает и правит форма</span></div>
+      <div class="legend"><span><b>Свой текст</b> — любые строки</span><span><b>По таймфреймам</b> — строки «3M — …», их собирает и правит форма</span></div>
     </div>
   </div>
 
@@ -122,8 +122,8 @@ let ownText = "Ждал снятие PDL и возврат в 4H FVG.";
 
 /* Строка по таймфрейму в поле: «3M TF — текст». По ней же поле разбирается
    обратно. Регистр таймфрейма как в слоте. */
-const TF_RE = /^\s*([0-9]+[MHDWmhdw]|D|W|M)\s+TF\s+[—–-]\s*(.*)$/;
-const lineOf = s => s.tf + " TF — " + s.note.trim();
+const TF_RE = /^\s*([0-9]+[MHDWmhdw]|D|W|M)\s+(?:TF\s+)?[—–-]\s*(.*)$/;
+const lineOf = s => s.tf + " — " + s.note.trim();
 
 /* ---- условный график ---- */
 function chartSvg(seed){
@@ -189,7 +189,7 @@ function renderPreview(){
   const txt = composeEntry();
   document.getElementById("pvTxt").innerHTML = txt
     ? txt.split("\n").map(l => { const m = l.match(TF_RE); return m
-        ? '<span class="tfl">' + esc(m[1]) + ' TF</span> — ' + esc(m[2]) : esc(l); }).join("\n")
+        ? '<span class="tfl">' + esc(m[1]) + '</span> — ' + esc(m[2]) : esc(l); }).join("\n")
     : '<span style="color:var(--faint)">—</span>';
   document.getElementById("pvCharts").innerHTML = SLOTS.filter(s => s.filled).map(s =>
     '<div class="chart-item"><div class="cl">' + s.tf + '</div>' + chartSvg(s.seed)

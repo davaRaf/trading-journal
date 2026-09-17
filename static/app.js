@@ -1862,6 +1862,7 @@ function openForm(id, presetDay){
   /* підпис береться разом із таймфреймом: без нього форма правки відкривала
      скріни з порожніми полями, і написане зникало на першому ж збереженні */
   S.formShots=(t&&t.screenshots?t.screenshots.map(s=>({tf:s.tf,file:s.file,note:s.note||""})):[]);
+  S.entryTf=null;
   const v=k=>esc(t?(t[k]!=null?t[k]:""):"");
   const nowT=pad(new Date().getHours())+":"+pad(new Date().getMinutes());
   const dt=t&&t.date?t.date:(presetDay||isoDay(new Date()))+"T"+nowT;
@@ -1974,7 +1975,7 @@ function openForm(id, presetDay){
 
   /* ---- заметки ---- */
   '<section class="fcard"><h4>'+T.fNotes+'</h4><div class="fbody">'+
-    '<div class="f"><label id="labEntry">'+T.fEntryDetails+'</label><textarea id="fld_entry_details" placeholder="'+T.fmEntryDetailsPh+'">'+v("entry_details")+"</textarea></div>"+
+    '<div class="f"><label id="labEntry">'+T.fEntryDetails+'</label><textarea id="fld_entry_details" placeholder="'+T.fmEntryDetailsPh+'" oninput="entryTyped()">'+v("entry_details")+"</textarea></div>"+
     '<div class="f"><label>'+T.fmThoughtsLabel+'</label><textarea id="fld_notes" class="short">'+v("notes")+"</textarea></div>"+
     /* помилки й емоції — як решта полів: кнопки, «+» і своє значення */
     '<div class="f"><label>'+T.fmMistakeLabel+'</label>'+
@@ -2137,7 +2138,9 @@ function renderShots(){
     const src=shotSrc(s);
     return '<div class="tfslot filled"><div class="tfl"><span>'+esc(label)+'</span>'+
       '<button type="button" class="rm" title="'+T.shotRemoveTip+'" onclick="removeShot('+i+')">×</button></div>'+
-      '<img src="'+src+'" onclick="openLightbox(this)"></div>';
+      '<img src="'+src+'" onclick="openLightbox(this)">'+
+      '<textarea class="tfnote" rows="1" data-i="'+i+'" placeholder="'+esc(T.snPh)+'" '+
+      'oninput="shotNote('+i+',this)">'+esc(s.note||"")+"</textarea></div>";
   };
   let h="";
   for(const tf of Prefs.tfs()){
@@ -2166,6 +2169,8 @@ function renderShots(){
     T.shotDragHint+'</div>';
   h+='<div class="tfhint">'+shotsHintHtml()+'</div>';
   box.innerHTML=h;
+  /* підписи вже написані — поля мають бути заввишки з текст, а не в рядок */
+  box.querySelectorAll(".tfnote").forEach(growNote);
   /* перетаскивание: в конкретный таймфрейм или в общую зону */
   if(window.Attach) Attach.mount(box, acceptFiles);
 }
@@ -2179,10 +2184,75 @@ function acceptFiles(files, tf){
     });
   });
 }
-function removeShot(i){ S.formShots.splice(i,1); renderShots(); }
+function removeShot(i){ S.formShots.splice(i,1); renderShots(); syncEntry(); }
 
-/* Підпису під скріном у формі угоди нема: поле «Як заходив» і розбір дня
-   кажуть те саме. Старі підписи в записах лишаються й показуються в картці. */
+/* Підпис під скріном — чому саме на цьому таймфреймі видно вхід. Лежить у
+   записі скріна (їде з ним у картку, перегляд і посилання) і водночас
+   рядком «3M — …» у полі «Як заходив»: там вхід читається цілком.
+   Зв'язок двобічний: пишеш під скріном — рядок з'являється в полі;
+   правиш рядок у полі — міняється підпис; стер рядок — підпис порожній.
+   Свій вільний текст у полі стоїть вище рядків по таймфреймах і не
+   чіпається. Рядок упізнаємо по таймфрейму слота, що є у формі: «3M — …»
+   або старе «3M TF — …». */
+const TF_LINE=/^\s*(\S{1,6})\s+(?:TF\s+)?[—–-]\s*(.*)$/i;
+function shotNote(i, el){
+  if(!S.formShots[i]) return;
+  S.formShots[i].note = el.value.replace(/\n/g," ");
+  growNote(el);
+  syncEntry();
+}
+/* поле росте під текст: думка буває на абзац, а смуга прокрутки в маленькому
+   полі ховає початок написаного */
+function growNote(el){
+  el.style.height = "auto";
+  el.style.height = el.scrollHeight + "px";
+}
+function tfShot(tok){
+  tok=(tok||"").toUpperCase();
+  return S.formShots.find(s=>s.file && (s.tf||"").toUpperCase()===tok) || null;
+}
+/* скріни в тому ж порядку, що й слоти у формі */
+function shotsInOrder(){
+  const order=Prefs.tfs().map(x=>x.toUpperCase());
+  const at=s=>{ const k=order.indexOf((s.tf||"").toUpperCase()); return k<0?999:k; };
+  return S.formShots.slice().sort((a,b)=>at(a)-at(b));
+}
+/* що зараз у полі: свій текст і рядки по таймфреймах (скрін → текст) */
+function entryParts(){
+  const box=$("#fld_entry_details"); const own=[], notes=new Map();
+  if(box) box.value.split("\n").forEach(line=>{
+    const m=line.match(TF_LINE), s=m&&tfShot(m[1]);
+    if(s) notes.set(s,m[2]); else own.push(line);
+  });
+  return {own: own.join("\n").replace(/\n{3,}/g,"\n\n").replace(/\s+$/,""), notes};
+}
+/* підписи → поле */
+function syncEntry(){
+  const box=$("#fld_entry_details"); if(!box) return;
+  const own=entryParts().own;
+  const shots=shotsInOrder().filter(s=>s.file && (s.note||"").trim());
+  const lines=shots.map(s=>s.tf+" — "+s.note.trim());
+  box.value = own + (own && lines.length ? "\n\n" : "") + lines.join("\n");
+  S.entryTf = new Set(shots.map(s=>(s.tf||"").toUpperCase()));
+}
+/* поле → підписи. Підпис знімаємо лише з того скріна, чий рядок у полі
+   був і зник: старі записи, де підписи є, а рядків у полі ще нема, від
+   набору в полі не порожніють. */
+function entryTyped(){
+  const {notes}=entryParts();
+  if(!S.entryTf) S.entryTf = new Set([...notes.keys()].map(s=>(s.tf||"").toUpperCase()));
+  S.formShots.forEach(s=>{
+    if(!s.file) return;
+    const tf=(s.tf||"").toUpperCase();
+    if(notes.has(s)) s.note=notes.get(s);
+    else if(S.entryTf.has(tf)) s.note="";
+  });
+  S.entryTf = new Set([...notes.keys()].map(s=>(s.tf||"").toUpperCase()));
+  document.querySelectorAll("#shotsEdit .tfnote").forEach(el=>{
+    const s=S.formShots[el.dataset.i];
+    if(s && el.value!==(s.note||"") && document.activeElement!==el){ el.value=s.note||""; growNote(el); }
+  });
+}
 /* клик по слоту только выделяет его: диалог файла забирал фокус и Ctrl+V уходил мимо.
    На телефоне Ctrl+V нет: тап читает буфер сам, два тапа — файлы (ShotTap в ui.js). */
 function armSlot(tf){
