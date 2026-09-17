@@ -924,6 +924,12 @@ table.simple.mini td:last-child{white-space:nowrap;font-weight:600}
   .qc .qx:active{background:var(--down);border-color:var(--down);color:#fff}
   .tfslot .tfl .rm.trash{color:var(--faint);opacity:.8}
   .tfslot .tfl .rm.trash:active{color:var(--down);opacity:1}
+  /* Хрестик «прибрати скрін» на тачі: 14px без відступів пальцем не влучити —
+     скрін не видалявся. Ціль 36×36, рядок при цьому не росте (від'ємні поля). */
+  .tfslot .tfl .rm{width:36px;height:36px;margin:-10px -12px -10px 0;display:inline-grid;
+    place-items:center;padding:0;font-size:20px;color:var(--dim)}
+  .tfslot .tfl .rm.trash svg{width:15px;height:15px}
+  .tfslot.filled .tfl .rm:active{color:var(--down)}
 }
 /* корзина в шапці слота таймфрейму */
 .tfslot .tfl .rm.trash{color:var(--down);opacity:.7;display:inline-grid;place-items:center;padding:0 3px}
