@@ -27,6 +27,12 @@
   --mono:"Archivo","Geist",system-ui,sans-serif;
 }
 *{box-sizing:border-box}
+/* полосы прокрутки как на сайте: тонкие, без системных стрелок */
+*{scrollbar-width:thin;scrollbar-color:var(--line) transparent}
+::-webkit-scrollbar{width:10px;height:10px}
+::-webkit-scrollbar-button{display:none;width:0;height:0}
+::-webkit-scrollbar-thumb{background:var(--line);border-radius:6px;border:3px solid transparent;background-clip:content-box}
+::-webkit-scrollbar-track{background:transparent}
 body{margin:0;background:var(--bg);color:var(--text);font-family:var(--sans);-webkit-font-smoothing:antialiased}
 .wrap{max-width:980px;margin:0 auto;padding:22px 18px 80px}
 h1{margin:0 0 4px;font-size:19px;letter-spacing:-.02em}
@@ -49,7 +55,7 @@ label.l{display:block;font-family:var(--mono);font-size:10px;letter-spacing:.14e
 .tfslot .drop{flex:1;min-height:86px;display:grid;place-items:center;color:var(--faint);font-size:12px}
 /* подпись под скрином: поле растёт под текст */
 .tfnote{display:block;width:100%;margin:0;border:0;border-top:1px solid var(--soft);background:transparent;
-  color:var(--text);font:inherit;font-size:12.5px;line-height:1.5;padding:8px 10px;resize:none;min-height:38px;outline:none}
+  color:var(--text);font:inherit;font-size:12.5px;line-height:1.5;padding:8px 10px;resize:none;min-height:38px;outline:none;overflow:hidden}
 .tfnote::placeholder{color:var(--faint)}
 .tfnote:focus{background:color-mix(in srgb,var(--accent) 6%,transparent)}
 
