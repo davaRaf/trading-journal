@@ -1,0 +1,40 @@
+# Розгортання на Render (безкоштовний план).
+#
+# Один сервіс тримає і сайт, і телеграм-бота: RUN_BOT=1 запускає опитування
+# Телеграма в тому самому процесі. Другий процес на безкоштовному плані
+# тримати ніде — воркери там платні.
+#
+# База — окремо, Neon (neon.tech, безкоштовний план): рядок підключення
+# кладеться в DATABASE_URL руками, у панелі Render.
+#
+# Увага: безкоштовний сервіс Render засинає після 15 хвилин без запитів.
+# Поки він спить, бот не відповідає, а перший запит після сну йде ~30 секунд.
+services:
+  - type: web
+    name: statsai
+    runtime: python
+    plan: free
+    buildCommand: pip install -r requirements.txt
+    startCommand: python app.py
+    healthCheckPath: /login
+    envVars:
+      - key: HOST
+        value: 0.0.0.0
+      - key: RUN_BOT
+        value: "1"
+      # решта задається в панелі Render, бо це секрети:
+      #   DATABASE_URL   — рядок підключення з Neon
+      #   SESSION_SECRET — довгий випадковий рядок
+      #   BOT_TOKEN      — токен від @BotFather
+      #   BOT_USERNAME   — ім'я бота без @
+      #   GEMINI_API_KEY — ключ для помічника (без нього помічник мовчить)
+      - key: DATABASE_URL
+        sync: false
+      - key: SESSION_SECRET
+        generateValue: true
+      - key: BOT_TOKEN
+        sync: false
+      - key: BOT_USERNAME
+        sync: false
+      - key: GEMINI_API_KEY
+        sync: false
