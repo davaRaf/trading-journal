@@ -127,6 +127,10 @@ function stat(acc){
   }
   let worstDay = null, worstDayVal = 0;
   byDay.forEach((v, d) => { if (v < worstDayVal){ worstDayVal = v; worstDay = d; } });
+  /* Результат сьогодні окремо від «найгіршого дня»: той дивиться назад,
+     а живий індикатор ліміту — на те, що відбувається прямо зараз. Немає
+     угод сьогодні — 0, ліміт ще цілий. */
+  const today = byDay.has(isoDay(new Date())) ? byDay.get(isoDay(new Date())) : 0;
   const grown = (f - 1) * 100;        /* підсумок за угодами журналу, % */
   const start = acc.start_balance;
   const has = start != null && !isNaN(start) && start > 0;
@@ -169,7 +173,7 @@ function stat(acc){
        це округлення, а не привід малювати ще один рядок. */
     drift: (manual && has && Math.abs(grown - net) > 0.01),
     maxDD: -dd,                       /* просадка від піку, у % (додатне) */
-    worstDay, worstDayVal,
+    worstDay, worstDayVal, today,
     curve, list, all, before,
     hasMoney: has || manual,
     hasPct: has,
@@ -968,6 +972,15 @@ window.__acc = {
     if (a) openForm(Object.assign({}, a));
   },
   why(id){ openId = openId === id ? null : id; render(); },
+  /* ACCS ще не питали (undefined) чи вже прочитали (масив, хай і порожній) —
+     «Огляду» треба розрізняти ці два стани, щоб не кликати render() по колу */
+  ready(){ return ACCS !== undefined; },
+  /* Весь файл — одна замкнута IIFE, тому fmtR1/money/bullet назовні не
+     видно. «Огляду» вони потрібні для тієї ж плитки ліміту — віддаємо
+     готовими, а не заводимо другий підрахунок поруч. */
+  fmtR1: fmtR1,
+  money: money,
+  bullet: bullet,
   /* Підпис вкладки для шапки «Огляду»: словник розділу лежить у цьому
      файлі, тож app.js питає його звідси. */
   navLabel(){ return D().navTitle; },
@@ -982,6 +995,29 @@ window.__acc = {
   save: save,
   drop: drop,
   reload(){ ACCS = undefined; },
+  /* Живий індикатор «скільки ще можна втратити сьогодні» для «Огляду».
+     Рахунків із денним лімітом може бути кілька одразу (свій + один чи
+     два челенджі) — показуємо не перший-ліпший, а той, що ближче за всіх
+     до межі: саме він зараз важливий. Решту не ховаємо мовчки — рахунок
+     "ще N" каже, що інші теж під лімітом, і веде на «Рахунки». */
+  limitToday(){
+    const list = (ACCS || []).filter(a => a.status === "active" && a.dd_daily_pct);
+    if (!list.length) return null;
+    const rows = list.map(a => {
+      const s = stat(a);
+      const used = Math.max(0, -(s.today || 0));
+      const remaining = Math.max(0, a.dd_daily_pct - used);
+      /* $ від балансу на ранок: today — це відсоток саме від нього, тож
+         зворотним ходом дістаємо ту ж точку відліку, що рахує сам stat(). */
+      const dayStart = (s.hasMoney && s.balance != null)
+        ? s.balance / (1 + (s.today || 0) / 100) : null;
+      return {name: a.name, firm: a.firm, kind: a.kind, currency: a.currency,
+        limit: a.dd_daily_pct, used: used, remaining: remaining,
+        money: dayStart != null ? dayStart * remaining / 100 : null};
+    });
+    rows.sort((x, y) => x.remaining - y.remaining);
+    return {top: rows[0], n: rows.length};
+  },
 };
 
 VIEWS.accounts = vAccounts;

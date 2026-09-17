@@ -10,6 +10,8 @@ const S = {
   jMonth: isoMonth(now),        // месяц календаря Journal
   jMode: (function(){ try{ return localStorage.getItem("tj_jmode")||"cal"; }catch(e){ return "cal"; } })(),
                                 // cal | table | list
+  ovLayout: (function(){ try{ return localStorage.getItem("tj_ovlayout")||"classic"; }catch(e){ return "classic"; } })(),
+                                // classic | bento — розкладка «Огляду»
   /* live — реальна торгівля, bt — бектест. Не розділ, а режим усього
      журналу: ті самі екрани, інший набір угод.
      Вибір навмисне не переживає перезавантаження: журнал завжди
@@ -543,10 +545,23 @@ function restoreChips(b){ const q=b.closest(".quick"); Prefs.restore(q.dataset.f
 
 /* таймфрейми під скріни: приховати зайвий, додати свій */
 function hideTf(tf){ Prefs.tfHide(tf); renderShots(); }
-function addTf(){
-  const v=(prompt(T.tfAddPrompt)||"").trim().replace(/\s+/g,"");
-  if(!v) return;
-  Prefs.tfAdd(v.length>6?v.slice(0,6):v); renderShots();
+/* Свій таймфрейм пишемо просто в плитці. Раніше тут стояв prompt() —
+   чуже вікно браузера зверху екрана, зі своїм шрифтом і кнопками. */
+function addTf(){ S.tfAdding=true; renderShots(); }
+function tfAddCancel(){ if(!S.tfAdding) return; S.tfAdding=false; renderShots(); }
+/* Зберігаємо і по Enter, і коли клацнули повз поле. Прапорець гасимо першим
+   рядком: renderShots() прибере поле, і його blur прийде вже вхолосту. */
+function tfAddSave(el){
+  if(!S.tfAdding) return;
+  S.tfAdding=false;
+  const v=(el.value||"").trim().replace(/\s+/g,"").slice(0,6);
+  if(v) Prefs.tfAdd(v);
+  renderShots();
+}
+/* Escape зупиняємо тут: вище його ловить панель форми й закрила б усю форму */
+function tfAddKey(e,el){
+  if(e.key==="Enter"){ e.preventDefault(); tfAddSave(el); }
+  else if(e.key==="Escape"){ e.stopPropagation(); tfAddCancel(); }
 }
 
 function uniqueVals(field){
@@ -915,6 +930,37 @@ function plChart(list, opts){
     '<div class="plwrap" data-pl="'+id+'">'+svg+'<div class="pltip" hidden></div></div></div>'+xax+"</div></div>";
 }
 
+/* Індикатор «скільки ще можна втратити сьогодні» — по рахунку з денним
+   лімітом (dd_daily_pct). Рахунок міг завестись, поки «Огляд» уже
+   відкритий: тоді __acc.preload() ще не привіз дані, картки не буде аж
+   до наступного render(). Ловимо цей момент і перемальовуємось самі. */
+function ovLimitCardHtml(){
+  if(!(window.__acc && __acc.limitToday)) return "";
+  /* limitToday() повертає null і поки рахунки ще не приїхали, і коли серед
+     них просто немає жодного з лімітом — окремо ловимо саме перший
+     випадок, інакше кожен render() без лімітів сам собі кликав би render() */
+  if(__acc.ready && !__acc.ready()){
+    if(__acc.preload) __acc.preload().then(()=>{ if(S.view==="dashboard") render(); });
+    return "";
+  }
+  const lim=__acc.limitToday();
+  if(!lim) return "";
+  const tp=lim.top, more=lim.n-1;
+  const hot=tp.limit>0 && tp.used/tp.limit>=.7;
+  /* fmtR1/money/bullet живуть в accounts.js — той самий підрахунок і
+     той самий вигляд смужки, що й на картці рахунку, __acc віддає їх сам */
+  return '<div class="shell rise"><div class="core limitcard">'+
+    '<div class="sum"><div><div class="lab">'+T.ovLimitLab+" · "+esc(tp.name)+"</div>"+
+      '<div class="big '+(hot?"neg":"pos")+'">'+T.ovLimitLeft+" "+__acc.fmtR1(tp.remaining)+"</div>"+
+      (tp.money!=null?'<div class="pnote">≈ '+esc(__acc.money(tp.money,tp.currency))+"</div>":"")+
+    "</div>"+
+    (more>0?'<div class="right"><a class="lc-more" href="#accounts">'+
+      T.ovLimitMore.replace("%n",more)+"</a></div>":"")+
+    "</div>"+
+    __acc.bullet(T.ovLimitLimit,tp.used,tp.limit,"down")+
+  "</div></div>";
+}
+
 /* прибыль/убыток за выбранный период — «Огляд».
    Раньше здесь всегда стоял год: переключаешь на месяц, цифры сверху
    меняются, а график остаётся годовым — и не сходится с ними. */
@@ -935,7 +981,11 @@ function ovEquityPeriod(){
    Раньше здесь всегда стоял год: переключаешь сверху на месяц — итоги
    меняются, а сессии, инструменты и сетапы остаются годовыми и с ними
    не сходятся. Берём тот же список сделок, что и весь «Огляд». */
-function ovRailHtml(){
+/* Дані й розмітка трьох розрізів окремо від того, у що їх загортають:
+   у класичній розкладці всі три йдуть одним блоком у бічній колонці
+   (ovRailHtml), у плитковій — трьома самостійними картками (ovRailCardsHtml).
+   Підрахунок той самий, різниться лише обгортка навколо <section>. */
+function ovRailSections(){
   const yl=ovPeriod().list;
   const when = S.ovPeriod==="month" ? T.ovMonthWord
              : S.ovPeriod==="quarter" ? T.ovQuarterWord
@@ -959,11 +1009,21 @@ function ovRailHtml(){
   const setupRows=setups.length
     ? setups.map(([nm,r,n])=>bar(nm,'<b class="'+clsR(r)+'">'+ovFmt1(r)+"</b> · "+n,Math.abs(r)/smx*100,ovSign(r))).join("")
     : '<div class="empty">'+T.railNoData+'</div>';
-  return '<aside class="rail"><div class="inner"><div class="cut">'+
-    '<section><h3>'+T.railSessions+'<em>'+when+'</em></h3><div class="rows">'+share(byCount("session"))+"</div></section>"+
-    '<section><h3>'+T.railInstruments+'<em>'+when+'</em></h3><div class="rows">'+share(byCount("pair"))+"</div></section>"+
-    '<section><h3>'+T.railSetups+'<em>'+T.railNetPctWord+" · "+when+'</em></h3><div class="rows">'+setupRows+"</div></section>"+
-    "</div></div></aside>";
+  return [
+    '<section><h3>'+T.railSessions+'<em>'+when+'</em></h3><div class="rows">'+share(byCount("session"))+"</div></section>",
+    '<section><h3>'+T.railInstruments+'<em>'+when+'</em></h3><div class="rows">'+share(byCount("pair"))+"</div></section>",
+    '<section><h3>'+T.railSetups+'<em>'+T.railNetPctWord+" · "+when+'</em></h3><div class="rows">'+setupRows+"</div></section>",
+  ];
+}
+function ovRailHtml(){
+  return '<aside class="rail"><div class="inner"><div class="cut">'+ovRailSections().join("")+"</div></div></aside>";
+}
+/* Ті самі три розрізи, кожен у своїй картці — для плиткової розкладки.
+   Клас "rail" лишаємо на кожній: усе оформлення (.rail .inner, .cut,
+   .bar…) заточене саме під нього, друге дно заводити нема сенсу. */
+function ovRailCardsHtml(){
+  return ovRailSections().map(sec=>
+    '<div class="rail rise"><div class="inner"><div class="cut">'+sec+"</div></div></div>").join("");
 }
 
 /* Заголовок «Огляду» — це і є перемикач: «Огляд» і «Рахунки» поруч,
@@ -1042,23 +1102,52 @@ function vDashboard(){
       (last ? " · "+T.ovLastTradeOn+" "+last.split("-").reverse().join(".") : "")+"</div>";
   }
 
+  const monthHtml='<div class="shell rise"><div class="core">'+
+      '<div class="sum"><div><div class="lab">'+per.lab+"</div>"+
+      '<div class="big '+clsR(st.net)+'">'+ovFmt(st.net)+"</div>"+note+"</div>"+
+      '<div class="when">'+per.when+"</div>"+
+      '<div class="right"><div class="lab">'+T.ovBestWorst+'</div>'+
+      '<div class="v">'+ovFmt(best==null?0:best)+" · "+ovFmt(worst==null?0:worst)+"</div></div></div>"+
+      ovStatsHtml(st)+
+    "</div></div>";
+  const weekHtml=ovWeekHtml(), eqHtml=ovEquityHtml(), limHtml=ovLimitCardHtml();
+  const laybtn='<button type="button" class="ovlaybtn" onclick="setOvLayout(\''+
+    (S.ovLayout==="bento"?"classic":"bento")+"')\">"+(S.ovLayout==="bento"?T.ovLayoutClassic:T.ovLayoutBento)+"</button>";
+
+  if(S.ovLayout==="bento"){
+    /* Плитки: місяць і крива поруч зверху, далі рядок живих індикаторів
+       (поки в ньому лише ліміт дня — серія й знахідка тижня приїдуть,
+       коли зʼявляться дані під них), тиждень на всю ширину, три розрізи
+       рахунку окремими картками замість однієї бічної колонки. */
+    /* На відміну від класичної розкладки, тут .flow не потрібен: там він
+       був лише обгорткою для того, щоб .rise-картки йшли одна під одною
+       в звичайному потоці. У сітці кожна картка сама собі елемент ґрід.
+       Місяць і крива лежать у своєму flex-рядку (.ovrow1), а не просто
+       поруч у ґріді: у графіка всередині SVG, і саме на такій картці
+       розтягування по висоті через grid align-self в цьому браузері не
+       спрацьовує (решта карток — без SVG — розтягуються грідом нормально,
+       перевірено окремо). Flexbox тут надійніший. */
+    return '<div class="ovw bento">'+
+      '<div class="ohead">'+ovTabsHtml("dashboard")+
+        '<div class="per">'+btns+laybtn+"</div></div>"+
+      '<div class="ovrow1">'+monthHtml+eqHtml+"</div>"+limHtml+weekHtml+
+      ovRailCardsHtml()+
+    "</div>";
+  }
   return '<div class="ovw">'+
     '<div class="ohead">'+ovTabsHtml("dashboard")+
-      '<div class="per">'+btns+"</div></div>"+
-    '<div class="flow">'+
-      ovWeekHtml()+
-      '<div class="shell rise"><div class="core">'+
-        '<div class="sum"><div><div class="lab">'+per.lab+"</div>"+
-        '<div class="big '+clsR(st.net)+'">'+ovFmt(st.net)+"</div>"+note+"</div>"+
-        '<div class="when">'+per.when+"</div>"+
-        '<div class="right"><div class="lab">'+T.ovBestWorst+'</div>'+
-        '<div class="v">'+ovFmt(best==null?0:best)+" · "+ovFmt(worst==null?0:worst)+"</div></div></div>"+
-        ovStatsHtml(st)+
-      "</div></div>"+
-      ovEquityHtml()+
-    "</div>"+
+      '<div class="per">'+btns+laybtn+"</div></div>"+
+    '<div class="flow">'+weekHtml+monthHtml+eqHtml+limHtml+"</div>"+
     ovRailHtml()+
   "</div>";
+}
+/* Перемикач розкладки «Огляду»: як було / плитками. Живе в localStorage —
+   те саме, що вибір виду журналу (setJMode), тому й той самий підпис у
+   коментарі не повторюю. */
+function setOvLayout(v){
+  S.ovLayout=v;
+  try{ localStorage.setItem("tj_ovlayout",v); }catch(e){}
+  render();
 }
 
 /* ---------- Journal: живой журнал месяца ---------- */
@@ -1866,7 +1955,7 @@ function openForm(id, presetDay){
   const v=k=>esc(t?(t[k]!=null?t[k]:""):"");
   const nowT=pad(new Date().getHours())+":"+pad(new Date().getMinutes());
   const dt=t&&t.date?t.date:(presetDay||isoDay(new Date()))+"T"+nowT;
-  S.activeTf=null; S.dirTouched=!!(t&&(t.direction_type||"").trim());
+  S.activeTf=null; S.tfAdding=false; S.dirTouched=!!(t&&(t.direction_type||"").trim());
 
   /* переключатель из кнопок */
   const seg=(field,options,cur,cls)=>
@@ -2159,7 +2248,11 @@ function renderShots(){
   }
   S.formShots.forEach((s,i)=>{ if(!used.has(i)) h+=filledTile(s,i,s.tf||"?"); });
   /* свій таймфрейм і повернення прихованих — тими ж плитками, що й слоти */
-  h+='<div class="tfslot addtf" onclick="addTf()"><div class="tfl"><span>'+T.tfAddTile+'</span></div><div class="drop">+</div></div>';
+  h+= S.tfAdding
+    ? '<div class="tfslot addtf typing"><div class="tfl"><span>'+T.tfAddTile+'</span></div>'+
+      '<div class="drop"><input class="tfnew" id="tfNew" maxlength="6" autocomplete="off"'+
+      ' placeholder="'+esc(T.tfAddPh)+'" onkeydown="tfAddKey(event,this)" onblur="tfAddSave(this)"></div></div>'
+    : '<div class="tfslot addtf" onclick="addTf()"><div class="tfl"><span>'+T.tfAddTile+'</span></div><div class="drop">+</div></div>';
   if(Prefs.tfHidden().length)
     h+='<div class="tfslot addtf" onclick="Prefs.tfRestore();renderShots()"><div class="tfl"><span>'+T.tfRestoreTile+'</span></div><div class="drop">↺</div></div>';
   h+='<div class="attach" data-drop="" onclick="$(\'#shotFile\').click()">'+
@@ -2171,6 +2264,7 @@ function renderShots(){
   box.innerHTML=h;
   /* підписи вже написані — поля мають бути заввишки з текст, а не в рядок */
   box.querySelectorAll(".tfnote").forEach(growNote);
+  if(S.tfAdding){ const inp=$("#tfNew"); if(inp) inp.focus(); }
   /* перетаскивание: в конкретный таймфрейм или в общую зону */
   if(window.Attach) Attach.mount(box, acceptFiles);
 }

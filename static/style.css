@@ -941,6 +941,14 @@ table.simple.mini td:last-child{white-space:nowrap;font-weight:600}
 .tfslot.addtf{border-style:dashed;cursor:pointer;opacity:.8}
 .tfslot.addtf:hover{opacity:1;border-color:var(--accent)}
 .tfslot.addtf .drop{font-size:18px;min-height:52px}
+/* свій таймфрейм пишеться в самій плитці — замість вікна браузера */
+.tfslot.addtf.typing{opacity:1;border-style:solid;border-color:var(--accent);background:var(--accent-soft)}
+.tfslot.addtf.typing .drop{cursor:text}
+.tfslot .tfnew{width:100%;border:none;background:transparent;color:var(--text);
+  font-family:var(--mono);font-size:15px;letter-spacing:.1em;text-transform:uppercase;
+  text-align:center;padding:0 8px}
+.tfslot .tfnew:focus{outline:none}
+.tfslot .tfnew::placeholder{color:var(--faint);font-size:12px;letter-spacing:.06em;text-transform:none}
 /* підпис під скріном: у формі поле, у картці рядок, у перегляді текст */
 .tfslot .tfnote{width:100%;margin-top:7px;border:1px solid var(--line);border-radius:var(--r-sm);
   background:var(--panel);color:var(--text);font:inherit;font-size:12px;line-height:1.5;
@@ -1143,6 +1151,11 @@ h1.ovh a.on::after{content:"";position:absolute;left:0;right:0;bottom:0;height:2
 .ovw .sum .right{margin-left:auto;text-align:right}
 .ovw .sum .right .v{font-family:var(--mono);font-size:15px;color:var(--dim)}
 
+/* карточка «скільки ще можна втратити сьогодні»: та сама смужка, що й на
+   рахунках (accounts.css .ac-bul) — .ovw .sum вже дає їй відступ згори */
+.lc-more{font-family:var(--mono);font-size:12px;color:var(--faint);text-decoration:none}
+.lc-more:hover{color:var(--accent)}
+
 /* показатели: только hairline-сетка, никаких карточек внутри карточек */
 .ovw .stats{display:grid;grid-template-columns:repeat(4,1fr);border-top:1px solid var(--line-soft)}
 .ovw .stats .st{padding:14px 18px 13px;border-bottom:1px solid var(--line-soft);border-right:1px solid var(--line-soft)}
@@ -1192,6 +1205,39 @@ h1.ovh a.on::after{content:"";position:absolute;left:0;right:0;bottom:0;height:2
 .ovw .rail.in .bar .ln i{transform:scaleX(1)}
 .ovw .bar.pos .ln i{background:color-mix(in srgb,var(--up) 55%,transparent)}
 .ovw .bar.neg .ln i{background:color-mix(in srgb,var(--down) 50%,transparent)}
+
+/* ---------- «Огляд» плитками: місяць і крива поруч, розрізи рахунку —
+   окремими картками замість бічної колонки. Перемикається кнопкою в
+   шапці (setOvLayout), стан пам'ятає localStorage. Ряди проставляємо
+   явно: авто-розстановка сама рахує лише колонки, а на різній висоті
+   контенту (графік і сітка показників) без явного ряду місяць і крива
+   опинялись не на одній лінії. */
+.ovw.bento{display:grid;grid-template-columns:repeat(12,minmax(0,1fr));
+  grid-auto-rows:min-content;column-gap:18px;row-gap:18px;align-items:stretch}
+/* Без .flow: тут картки — прямі діти сітки, а не діти обгортки через
+   display:contents. */
+.ovw.bento > .ohead{grid-column:1 / -1;grid-row:1}
+/* Місяць і крива — не двоє окремих елементів ґріда, а один flex-рядок:
+   на картці з графіком (усередині SVG) розтягування по висоті через
+   grid align-self у цьому браузері не спрацьовує (решта карток без SVG
+   розтягуються грідом нормально — перевірено окремо), а flexbox
+   стабільно робить обидві однакової висоти. */
+.ovw.bento > .ovrow1{grid-column:1 / -1;grid-row:2;display:flex;gap:18px;align-items:stretch}
+.ovw.bento > .ovrow1 > .shell{flex:1;min-width:0;margin-bottom:0;display:flex;flex-direction:column}
+.ovw.bento > .ovrow1 > .shell > .core{flex:1}
+.ovw.bento .plline{display:flex;flex-direction:column;height:100%}
+.ovw.bento .plline .chart{flex:1;min-height:0}
+.ovw.bento > .shell:has(.limitcard){grid-column:1 / -1;grid-row:3;margin-bottom:0}
+.ovw.bento > .week{grid-column:1 / -1;grid-row:4;margin-bottom:0}
+.ovw.bento > .rail{grid-column:span 4;grid-row:5;margin-top:0;align-self:stretch}
+@media(max-width:1180px){
+  .ovw.bento{grid-template-columns:minmax(0,1fr)}
+  .ovw.bento > .ovrow1{flex-direction:column;grid-column:1 / -1;grid-row:auto}
+  .ovw.bento > .ohead,
+  .ovw.bento > .shell:has(.limitcard),
+  .ovw.bento > .week,
+  .ovw.bento > .rail{grid-column:1 / -1;grid-row:auto}
+}
 
 /* тихий вход блоков */
 .rise{opacity:0;transform:translateY(12px);transition:opacity .7s var(--ease),transform .7s var(--ease)}
@@ -1617,6 +1663,9 @@ body::after{
 :root[data-layout="bento"] .ovw .rail{grid-column:9 / 13;grid-row:2 / 4}
 :root[data-layout="bento"] .ovw .flow > .shell:nth-child(2){grid-column:1 / 5;grid-row:3;margin-bottom:0}
 :root[data-layout="bento"] .ovw .flow > .shell:nth-child(3){grid-column:5 / 9;grid-row:3;margin-bottom:0}
+/* новая плитка лимита дня: её нет, когда лимит никому не задан, поэтому
+   позиционируем по классу — nth-child «плавал» бы от того, показалась она или нет */
+:root[data-layout="bento"] .ovw .flow > .shell:has(.limitcard){grid-column:1 / -1;grid-row:4;margin-bottom:0}
 :root[data-layout="bento"] .ovw .flow > .shell,
 :root[data-layout="bento"] .ovw .rail{display:flex;flex-direction:column}
 :root[data-layout="bento"] .ovw .flow > .shell > .core{flex:1}
