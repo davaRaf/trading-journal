@@ -2207,9 +2207,11 @@ function growNote(el){
   el.style.height = "auto";
   el.style.height = el.scrollHeight + "px";
 }
+/* скрін у формі: вже збережений (file) або щойно вставлений (data, ще без імені) */
+const hasImg=s=>!!(s && (s.file||s.data));
 function tfShot(tok){
   tok=(tok||"").toUpperCase();
-  return S.formShots.find(s=>s.file && (s.tf||"").toUpperCase()===tok) || null;
+  return S.formShots.find(s=>hasImg(s) && (s.tf||"").toUpperCase()===tok) || null;
 }
 /* скріни в тому ж порядку, що й слоти у формі */
 function shotsInOrder(){
@@ -2230,7 +2232,7 @@ function entryParts(){
 function syncEntry(){
   const box=$("#fld_entry_details"); if(!box) return;
   const own=entryParts().own;
-  const shots=shotsInOrder().filter(s=>s.file && (s.note||"").trim());
+  const shots=shotsInOrder().filter(s=>hasImg(s) && (s.note||"").trim());
   const lines=shots.map(s=>s.tf+" — "+s.note.trim());
   box.value = own + (own && lines.length ? "\n\n" : "") + lines.join("\n");
   S.entryTf = new Set(shots.map(s=>(s.tf||"").toUpperCase()));
@@ -2242,7 +2244,7 @@ function entryTyped(){
   const {notes}=entryParts();
   if(!S.entryTf) S.entryTf = new Set([...notes.keys()].map(s=>(s.tf||"").toUpperCase()));
   S.formShots.forEach(s=>{
-    if(!s.file) return;
+    if(!hasImg(s)) return;
     const tf=(s.tf||"").toUpperCase();
     if(notes.has(s)) s.note=notes.get(s);
     else if(S.entryTf.has(tf)) s.note="";
