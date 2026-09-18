@@ -14,10 +14,6 @@
 .btj-back{display:inline-flex; align-items:center; gap:4px; color:var(--faint); font-size:13px;
   text-decoration:none; padding:2px 6px 2px 0; transition:color .16s}
 .btj-back:hover{color:var(--text)}
-.btj-title{display:flex; align-items:baseline; gap:12px; flex-wrap:wrap; min-width:0}
-.jhead .btj-title h1, .ohead .btj-title h1{margin:0; font-size:clamp(22px,3.2vw,30px); font-weight:600;
-  letter-spacing:-.02em; line-height:1.15; overflow-wrap:anywhere}
-.btj-sub{color:var(--faint); font-size:13px}
 
 /* Фільтр журналу в «Аналітиці»: маленька кнопка поруч із заголовком. */
 .btj-filter{display:inline-flex; align-items:center; gap:8px; margin-left:auto; padding:7px 12px;

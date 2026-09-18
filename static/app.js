@@ -1046,7 +1046,6 @@ function ovSub(){
   return {v:"accounts", nm:viewAllowed("accounts")&&window.__acc&&__acc.navLabel?__acc.navLabel():""};
 }
 function ovTabsHtml(cur){
-  if(btOn() && window.__btj) return __btj.head("ov");
   const sub=ovSub();
   if(!sub.nm) return "<h1>"+esc(T.ovTitle)+"</h1>";
   const tab=(v,l)=>'<a href="#'+v+'" class="'+(cur===v?"on":"")+'"'
@@ -2664,8 +2663,12 @@ const PUB_VIEWS={dashboard:1,journal:1,monthly:1,quarterly:1,yearly:1,analytics:
 /* Чого в бектесті немає: розбір дня — про план на ранок, новини — про
    майбутній тиждень. У панелі їх сховано, тож і за адресою з решіткою
    туди не пускаємо: інакше розділ відкривався б без кнопки назад. */
-const BT_HIDDEN={day:1,news:1};
-const BT_IN_JOURNAL={dashboard:1,journal:1,monthly:1};
+/* «Огляду» (з кварталом і роком) у бектесті теж немає: підсумки прогону —
+   у самому журналі й в «Аналітиці» (18.09.2026, власник: «не потрібен»). */
+const BT_HIDDEN={day:1,news:1,dashboard:1,quarterly:1,yearly:1};
+const BT_IN_JOURNAL={journal:1,monthly:1};
+/* Куди вести, коли розділу в режимі немає: у бектесті — до списку журналів. */
+function homeView(){ return btOn()?"btj":"dashboard"; }
 function viewAllowed(v){
   if(!VIEWS[v]) return false;
   if(BT_HIDDEN[v] && btOn()) return false;
@@ -2677,7 +2680,7 @@ function viewAllowed(v){
 }
 function render(){
   if(!dataReady) return;
-  const v=viewAllowed(S.view)?S.view:(btOn()?"btj":"dashboard");
+  const v=viewAllowed(S.view)?S.view:homeView();
   /* «Новини» переїхали з меню в групу інструментів — підсвічування шукаємо
      і там, інакше відкритий розділ ніде не позначався */
   /* «Рахунки» тепер своє посилання (a.navsub поруч з «Огляд») — світиться
@@ -2712,6 +2715,9 @@ window.addEventListener("hashchange",()=>{
   /* адресу змінив goView() і сторінку вже намальовано */
   if(hashSkip===v){ hashSkip=null; return; }
   hashSkip=null;
+  /* розділу в цьому режимі немає (логотип веде на #dashboard, а в бектесті
+     огляду нема) — міняємо й адресу, щоб у рядку не лишалась чужа решітка */
+  if(!viewAllowed(v)){ goView(homeView()); render(); return; }
   S.view=v; render();
 });
 document.addEventListener("keydown",e=>{
@@ -2834,7 +2840,7 @@ function markDemo(){
   S.view=location.hash.slice(1)||"dashboard";
   if(S.view==="monthly"){ S.view="journal"; location.hash="journal"; }
   /* Відкрили журнал за старою адресою розділу, якого в цьому режимі немає */
-  if(!viewAllowed(S.view)){ S.view="dashboard"; location.hash="dashboard"; }
+  if(!viewAllowed(S.view)){ S.view=homeView(); location.hash=S.view; }
   render();
   if(window.Sparks) Sparks.start();
   if(!DEMO && !(window.Pub && Pub.on)) refreshTelegramStatus();

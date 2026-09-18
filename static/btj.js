@@ -156,9 +156,6 @@ function jStyle(){
 function head(active){
   const d = D(), j = curJ();
   if (!j) return "<h1>" + esc(d.title) + "</h1>";
-  const period = j.period_from || j.period_to
-    ? [human(j.period_from), human(j.period_to)].filter(Boolean).join(" – ") : "";
-  const sub = [j.asset, period].filter(Boolean).join(" · ");
   const inJ = active === "cal" || active === "table";
   const main = (v, on, l, tip) => '<button type="button" class="' + (on ? "on" : "") + '"'
     + (on ? ' aria-current="page"' : "") + (tip ? ' data-tip="' + esc(tip) + '"' : "")
@@ -168,18 +165,13 @@ function head(active){
   return '<div class="btj-head"><a class="btj-back" href="#btj">'
     + '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M15 6l-6 6 6 6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>'
     + esc(d.navTitle) + "</a>"
-    /* У календарі й списку назва стоїть у рядку перемотки місяців
-       (paneTitle нижче), в «Усіх угодах» — у шапці картки. Великий заголовок
-       лишається тільки в «Огляді»: так шапка «Журналу» й «Усіх угод» однакова
-       й не стрибає при перемиканні. */
-    + (active !== "ov" ? ""
-        : '<div class="btj-title"><h1>' + esc(label(j)) + "</h1>"
-          + (sub ? '<span class="btj-sub">' + esc(sub) + "</span>" : "") + "</div>")
+    /* Назва журналу стоїть у рядку перемотки місяців (paneTitle нижче),
+       а в «Усіх угодах» — у шапці картки. Великого заголовка немає: так шапка
+       «Журналу» й «Усіх угод» однакова й не стрибає при перемиканні. */
     + "</div>"
     + '<div class="btj-nav"><div class="btj-main" role="tablist">'
     + main("journal", inJ, d.jTab, d.jTabTip)
-    + main("list", active === "list", T.jrAllTab, T.jrAllTabTip)
-    + main("ov", active === "ov", d.ovTab, d.ovTabTip) + "</div>"
+    + main("list", active === "list", T.jrAllTab, T.jrAllTabTip) + "</div>"
     + (inJ ? '<div class="seg-tabs btj-style">'
         + tab("cal", T.jrCalTab, T.jrCalTabTip) + tab("table", T.jrTableTab, T.jrTableTabTip) + "</div>" : "")
     + "</div>";
@@ -376,9 +368,8 @@ window.__btj = {
   filterBtn: filterBtn, pickJournal: pickJournal,
   isOpen(){ return !!curJ(); },
   /* Вкладки шапки журналу: календар, список і всі угоди — режими розділу
-     «Журнал», огляд — окремий розділ. */
+     «Журнал». «Огляду» в бектесті немає (18.09.2026, власник: «не потрібен»). */
   tab(v){
-    if (v === "ov"){ location.hash = "dashboard"; return; }
     if (v === "journal") v = jStyle();
     if (v === "cal" || v === "table"){ try{ localStorage.setItem("tj_jstyle", v); }catch(e){} }
     S.jMode = v;
@@ -435,7 +426,6 @@ uk: {
   edit: "Правити", del: "Видалити", open: "Відкрити", opened: "Відкритий",
   nameIt: "Назвати", blank: "Без журналу",
   blankHint: "Угоди, записані без журналу. Дай їм назву — і вони стануть окремим журналом.",
-  ovTab: "Огляд", ovTabTip: "Підсумки тижня, місяця й року — по цьому журналу",
   curLab: "Журнал", noneYet: "ще немає",
   jTab: "Журнал", jTabTip: "Угоди по днях — календарем або списком",
   emptyLead: "Журнал бектесту — окремий набір прогонів: свій актив, свій період, своя статистика.",
@@ -458,7 +448,6 @@ ru: {
   edit: "Править", del: "Удалить", open: "Открыть", opened: "Открыт",
   nameIt: "Назвать", blank: "Без журнала",
   blankHint: "Сделки, записанные без журнала. Дай им название — и они станут отдельным журналом.",
-  ovTab: "Обзор", ovTabTip: "Итоги недели, месяца и года — по этому журналу",
   curLab: "Журнал", noneYet: "ещё нет",
   jTab: "Журнал", jTabTip: "Сделки по дням — календарём или списком",
   emptyLead: "Журнал бэктеста — отдельный набор прогонов: свой актив, свой период, своя статистика.",
@@ -481,7 +470,6 @@ en: {
   edit: "Edit", del: "Delete", open: "Open", opened: "Open now",
   nameIt: "Name it", blank: "No journal",
   blankHint: "Trades logged without a journal. Give them a name and they become a journal of their own.",
-  ovTab: "Overview", ovTabTip: "Week, month and year results — for this journal",
   curLab: "Journal", noneYet: "none yet",
   jTab: "Journal", jTabTip: "Trades by day — as a calendar or a list",
   emptyLead: "A backtest journal is a separate set of runs: its own asset, period and stats.",
