@@ -75,6 +75,25 @@ function looksLikePair(v){
 function plainName(v){
   return (v==null?"":v).toString().replace(/[^0-9A-Za-zА-Яа-яЁёІіЇїЄєҐґ]+/g,"").toUpperCase();
 }
+/* Імена одного активу в різних брокерів — копія tidy.SAME на сервері, який
+   зводить їх при записі: «US100», «Nasdaq» і «NQ» — один інструмент. Тут
+   потрібно, щоб після запису «NQ» поруч з «US100» не з'являлась кнопка-двійник. */
+const PAIR_SAME = [
+  ["US100","NAS100","NASDAQ","NASDAQ100","USTEC","NDX","NQ"],
+  ["US30","DJI","DOW","DOWJONES","US30CASH","YM"],
+  ["US500","SPX","SP500","SPX500","ES"],
+  ["GER40","GER30","DAX","DAX40"],
+  ["XAUUSD","GOLD","ЗОЛОТО","ЗОЛОТА"],
+  ["XAGUSD","SILVER","СРІБЛО"],
+  ["UK100","FTSE","FTSE100"],
+  ["JP225","NIKKEI","NIKKEI225"],
+  ["BTCUSD","BTCUSDT","BITCOIN","XBTUSD"],
+  ["ETHUSD","ETHUSDT","ETHEREUM"],
+  ["USOIL","WTI","CRUDE","CL"],
+];
+const PAIR_SYN = {};
+PAIR_SAME.forEach(g=>{ const c=g.slice().sort()[0]; g.forEach(w=>{ PAIR_SYN[plainName(w)]=c; }); });
+function pairKey(v){ const k=plainName(v); return PAIR_SYN[k]||k; }
 function num(v){ const x=parseFloat(v); return isNaN(x)?null:x; }
 /* в интерфейсе результат называется TP / SL / BE, внутри хранится Win / Loss / BE.
    WinM — тот же тейк, но закрытый рукой: для денег это TP, метка нужна,
@@ -87,11 +106,15 @@ function isBE(t){ return BE_SET.indexOf(t.result)>=0; }
 function isWin(t){ return WIN_SET.indexOf(t.result)>=0; }
 /* Скип — не сделка. Всё, что делит на количество сделок, считает без них. */
 function isSkip(t){ return t.result==="Skip"; }
-function realTrades(list){ return list.filter(t=>!isSkip(t)); }
+/* «В роботі» — угоду відкрито, але вона ще не закрилась: вписують заздалегідь,
+   щоб не забути, а результат ставлять потім. У статистику, як і скіп, не йде,
+   поки не з'явиться TP / SL / BE. */
+function isOpen(t){ return t.result==="Open"; }
+function realTrades(list){ return list.filter(t=>!isSkip(t) && !isOpen(t)); }
 /* класс плашки результата — один на все места, где она рисуется */
 function resCls(r){
   return r==="Win"?"win":r==="WinM"?"win hand":r==="Loss"?"loss"
-       :r==="Skip"?"skip":r==="BE+"?"beplus":"be";
+       :r==="Skip"?"skip":r==="Open"?"open":r==="BE+"?"beplus":"be";
 }
 /* сколько человек оставил на столе, выйдя рукой раньше цели */
 function handLost(t){
@@ -109,6 +132,7 @@ function beValue(t){
 function resLabel(r){
   if(r==="WinM") return T.resHand;
   if(r==="Skip") return T.resSkip;
+  if(r==="Open") return T.resOpen;
   return RES_LABEL[r]||r||"";
 }
 
@@ -121,6 +145,9 @@ function netR(t){
   if(t.result==="Loss") return -risk;
   return 0;                              // безубыток и скип — ноль
 }
+/* Відсоток угоди для рядка й картки. У відкритої його ще немає — прочерк,
+   а не «0%», інакше вона виглядає як беззбиток. */
+function tradePct(t){ return isOpen(t) ? "—" : fmtR(netR(t)); }
 function dayKey(t){ return (t.date||"").slice(0,10); }
 function monKey(t){ return (t.date||"").slice(0,7); }
 
@@ -151,7 +178,7 @@ function calc(all){
      было, а если её посчитать, поедут и win rate, и средний RR, и всё
      остальное, что делится на количество. */
   const list=realTrades(all);
-  const skips=all.length-list.length;
+  const skips=all.filter(isSkip).length;
   const n=list.length;
   let wins=0,losses=0,be=0,beM=0,beP=0,beSaved=0,beLost=0,net=0,gw=0,gl=0,rrS=0,rrN=0,riskS=0,riskN=0;
   let hands=0,handOut=0;
@@ -223,10 +250,10 @@ async function api(method,url,body){
 /* Бектест беремо тільки у своєму журналі. У чужому (Pub) адреса угод
    підмінюється цілим рядком і параметра не знає, а демо живе в браузері
    й типів угод не розрізняє — там завжди реальні. */
-/* Режим бектесту ще не випущений: перемикача на сторінці немає, і цей
-   прапорець тримає режим вимкненим навіть якщо setMode покликати з консолі.
-   Один рядок — і режим повертається цілком. */
-const BT_READY = false;
+/* Прапорець випуску режиму бектесту: false вимикає режим цілком, навіть
+   якщо setMode покликати з консолі (перемикач #modeSwitch у index.html
+   тоді теж варто прибрати). */
+const BT_READY = true;
 function btOn(){ return BT_READY && S.mode==="bt" && !DEMO && !(window.Pub && Pub.on); }
 
 async function reload(){
@@ -353,7 +380,7 @@ function tradeRow(t){
   return '<div class="trow" onclick="openTradeRow(\''+t.id+'\')">'+
     '<span class="d">'+esc(d)+'</span><span class="p">'+esc(t.pair||"—")+" "+pos+"</span>"+
     '<span class="info">'+info+"</span>"+dtb+badge+
-    '<span class="r '+clsR(r)+'">'+fmtR(r)+"</span></div>";
+    '<span class="r '+clsR(r)+'">'+tradePct(t)+"</span></div>";
 }
 /* длинный список идёт страницами: сами строки те же, добавилась только навигация */
 function tradesCard(list,title,key){
@@ -388,6 +415,7 @@ function calHtml(ym, clickFn, selDay){
       const marks=sortAsc(list).map(t=>{
         const rv=dirType(t)==="Reversal";
         if(t.result==="Skip") return '<i class="mk skip" data-tip="'+T.calSkipTip+'">·</i>';
+        if(isOpen(t))         return '<i class="mk open" data-tip="'+T.calOpenTip+'">…</i>';
         if(isWin(t))          return '<i class="mk tp'+(t.result==="WinM"?" hand":"")+(rv?" rev":"")+'" data-tip="'+
           (t.result==="WinM"?T.calHandTip:T.calTpTip)+(rv?" · "+T.calRevSuffix:"")+'">TP</i>';
         if(t.result==="Loss") return '<i class="mk sl'+(rv?" rev":"")+'" data-tip="'+T.calSlTip+(rv?" · "+T.calRevSuffix:"")+'">SL</i>';
@@ -555,7 +583,7 @@ function uniqueVals(field){
   return [...set].sort();
 }
 function filterBar(){
-  const selects=[["result",T.fResult,["Win","WinM","Loss","BE-","BE+","Skip"]],["position",T.fPosition,["Long","Short"]],
+  const selects=[["result",T.fResult,["Win","WinM","Loss","BE-","BE+","Skip","Open"]],["position",T.fPosition,["Long","Short"]],
     ["account",T.fAccount,uniqueVals("account")],
     ["pair",T.fPair,uniqueVals("pair")],["session",T.fSession,uniqueVals("session")],
     ["setup",T.fSetup,uniqueVals("setup")],["entry_model",T.flModel,uniqueVals("entry_model")],
@@ -639,7 +667,7 @@ function applyFilters(list){
 
 /* ---------- Обзор: раскладка из макета (design/dash.html) ---------- */
 function OV_PERIODS(){ return [["month",T.ovPeriodMonth],["quarter",T.ovPeriodQuarter],["year",T.ovPeriodYear]]; }
-const RES_TAG = {"Win":"TP","WinM":"TP","Loss":"SL","BE-":"BE−","BE+":"BE+","Skip":"·"};
+const RES_TAG = {"Win":"TP","WinM":"TP","Loss":"SL","BE-":"BE−","BE+":"BE+","Skip":"·","Open":"…"};
 
 function ovSetPeriod(p){ S.ovPeriod=p; render(); }
 function ovOpenDay(key){
@@ -1019,7 +1047,7 @@ function vDashboard(){
        виглядати однаково, у порожньому журналі й у повному. У .vhead свій
        заголовок — дрібніший і жирніший, і на переході це було видно. */
     return '<div class="ohead">'+ovTabsHtml("dashboard")+'</div>'+
-      '<div class="card"><div class="in" style="padding:26px 24px">'+
+      '<div class="card"><div class="in ov-empty" style="padding:26px 24px">'+
       '<div style="font-size:20px;font-weight:600;letter-spacing:-.01em">'+T.bgTitle+'</div>'+
       '<div class="hint" style="margin-top:8px;max-width:62ch;line-height:1.6">'+(bt?T.btEmpty:T.bgLead)+'</div>'+
       '<div class="begin">'+
@@ -1161,7 +1189,7 @@ function monthTableHtml(list){
     const r=netR(t);
     const day=(t.date||"").slice(0,10);
     const dt=dirType(t);
-    return '<tr class="'+(day===S.selDay?"sel ":"")+(isSkip(t)?"skip":"")+'" onclick="pickDay(\''+day+'\')">'+
+    return '<tr class="'+(day===S.selDay?"sel ":"")+(isSkip(t)?"skip":isOpen(t)?"open":"")+'" onclick="pickDay(\''+day+'\')">'+
       '<td class="dt">'+esc(day.slice(8,10)+"."+day.slice(5,7))+
         '<i>'+esc((t.date||"").slice(11,16))+"</i></td>"+
       "<td>"+esc(t.pair||"—")+"</td>"+
@@ -1172,7 +1200,7 @@ function monthTableHtml(list){
       '<td><span class="badge '+resCls(t.result)+'">'+
         resLabel(t.result)+"</span></td>"+
       '<td class="num">'+(t.rr!=null&&t.rr!==""?r1(t.rr):"—")+"</td>"+
-      '<td class="num '+clsR(r)+'">'+fmtR(r)+"</td></tr>";
+      '<td class="num '+clsR(r)+'">'+tradePct(t)+"</td></tr>";
   }).join("");
   return '<div class="card jpane jpane-list"><h3>'+T.jrMonthTrades+
     '<span class="hr"><em>'+list.length+' '+T.abbrPieces+'</em>'+monthNavHtml()+"</span></h3>"+
@@ -1193,10 +1221,10 @@ function dayTradeHtml(t){
   const dt=dirType(t);
   const dtb=dt?'<span class="badge '+(dt==="Reversal"?"rev":"cont")+'">'+(dt==="Reversal"?"REV":"CONT")+"</span>":"";
   const badge='<span class="badge '+resCls(t.result)+'">'+resLabel(t.result)+"</span>";
-  return '<button class="dtrade'+(isSkip(t)?" skip":"")+'" type="button" data-id="'+esc(t.id)+'" onclick="openTrade(\''+t.id+'\')">'+
+  return '<button class="dtrade'+(isSkip(t)?" skip":isOpen(t)?" open":"")+'" type="button" data-id="'+esc(t.id)+'" onclick="openTrade(\''+t.id+'\')">'+
     '<span class="p">'+esc(t.pair||"—")+" "+pos+"</span>"+
     '<span class="d">'+esc((t.date||"").slice(11,16))+"</span>"+dtb+badge+
-    '<span class="r '+clsR(r)+'">'+fmtR(r)+"</span></button>";
+    '<span class="r '+clsR(r)+'">'+tradePct(t)+"</span></button>";
 }
 
 function shiftJMonth(d){ const [y,m]=S.jMonth.split("-").map(Number); const dt=new Date(y,m-1+d,1); S.jMonth=isoMonth(dt); S.pages={}; render(); }
@@ -1693,7 +1721,7 @@ function openTrade(id){
   const when=(t.date||"").replace("T"," ").slice(0,16);
   const h='<div class="m-head thead"><div class="ttl"><h2>'+esc(t.pair||T.tradeDefaultName)+"</h2>"+pos+
     '<span class="dt">'+esc(when)+"</span></div>"+
-    '<span class="res '+clsR(r)+'">'+fmtR(r)+"</span>"+
+    '<span class="res '+clsR(r)+'">'+tradePct(t)+"</span>"+
     '<button class="x" aria-label="'+T.mrClose+'" data-tip="'+T.closeEscTip+'" onclick="closeModal()">×</button></div>'+
     '<div class="m-body trade">'+tradeBodyHtml(t)+"</div>"+
     '<div class="m-foot"><button class="btn primary" onclick="openForm(\''+t.id+'\')">'+T.tcEdit+'</button>'+
@@ -1952,7 +1980,8 @@ function openForm(id, presetDay){
       seg("result",[{v:"Win",t:"TP",cls:"win"},{v:"WinM",t:T.resHand,cls:"win"},
                     {v:"Loss",t:"SL",cls:"loss"},
                     {v:"BE-",t:"BE\u2212",cls:"bek"},{v:"BE+",t:"BE+",cls:"bepk"},
-                    {v:"Skip",t:T.resSkip,cls:"skipk"}],t?t.result:"","big res")+"</div>"+
+                    {v:"Skip",t:T.resSkip,cls:"skipk"},
+                    {v:"Open",t:T.resOpen,cls:"openk"}],t?t.result:"","big res")+"</div>"+
     '<div class="frow" id="rowRR">'+
       '<div class="f"><label id="labRR">RR</label>'+
         '<input id="fld_rr" type="number" step="0.1" min="0" placeholder="2.5" oninput="calcOutcome()" value="'+(t&&t.rr!=null?t.rr:"")+'"></div>'+
@@ -2071,6 +2100,12 @@ function calcOutcome(){
     /* угоди не було — ні відсотка, ні жовтого: скіп у статистику не йде */
     box.className="outcome skip";
     box.innerHTML='<span class="big">—</span><span class="txt">'+T.calcSkipMsg+"</span>";
+    return;
+  }
+  else if(res==="Open"){
+    /* ще не закрилась — рахувати нема чого, результат допишуть потім */
+    box.className="outcome open";
+    box.innerHTML='<span class="big">…</span><span class="txt">'+T.calcOpenMsg+"</span>";
     return;
   }
   else { val=0; txt = res==="BE+" ? T.calcBePlusMsg : T.calcBeMinusMsg; }
@@ -2321,6 +2356,28 @@ function resizeImage(file){
     img.src=URL.createObjectURL(file);
   });
 }
+/* Незаповнене поле форми: підказка нашим оформленням просто під полем
+   замість системного вікна браузера. Поле підсвічується, форма
+   прокручується до нього, а підказка зникає, щойно поле почали міняти. */
+function formErr(k, msg){
+  document.querySelectorAll(".f.ferr").forEach(f=>{
+    f.classList.remove("ferr"); const m=f.querySelector(".ferr-msg"); if(m) m.remove();
+  });
+  const el=$("#seg_"+k)||$("#fld_"+k);
+  const f=el && el.closest(".f");
+  if(!f){ Ask.yes(msg, {ok:"OK", cancel:T.fmCancel}); return; }
+  f.classList.add("ferr");
+  const m=document.createElement("div");
+  m.className="ferr-msg"; m.setAttribute("role","alert"); m.textContent=msg;
+  f.appendChild(m);
+  const off=()=>{ f.classList.remove("ferr"); m.remove();
+    f.removeEventListener("input",off); f.removeEventListener("click",off); };
+  /* клік по самому полю не має гасити підказку в ту ж мить — тільки наступний */
+  setTimeout(()=>{ f.addEventListener("input",off); f.addEventListener("click",off); },0);
+  f.scrollIntoView({block:"center", behavior:"smooth"});
+  const inp=f.querySelector("input:not([type=hidden]):not([hidden]),textarea");
+  if(inp && el.tagName!=="DIV") try{ inp.focus({preventScroll:true}); }catch(e){}
+}
 async function saveTrade(id){
   const g=k=>{ const el=$("#fld_"+k); return el?el.value.trim():""; };
   const t={
@@ -2336,13 +2393,13 @@ async function saveTrade(id){
        "bt", решту вважає торгівлею. */
     bt_run:g("bt_run"), kind: btOn()?"bt":"",
   };
-  if(!t.pair){ alert(T.alertNeedPair); return; }
+  if(!t.pair){ formErr("pair", T.alertNeedPair); return; }
   /* «1 Месяц» колись приїхало сюди з чужої колонки Notion. Не забороняємо —
      перепитуємо: раптом інструмент і справді так зветься */
   if(!looksLikePair(t.pair) && !await Ask.yes(T.alertOddPair.replace("%s", t.pair), {ok:T.askYes, cancel:T.askNo})) return;
-  if(!t.date){ alert(T.alertNeedDate); return; }
-  if(!t.result){ alert(T.alertNeedResult); return; }
-  if(t.result==="Win" && !num(t.rr)){ alert(T.alertNeedRR); return; }
+  if(!t.date){ formErr("date", T.alertNeedDate); return; }
+  if(!t.result){ formErr("result", T.alertNeedResult); return; }
+  if(t.result==="Win" && !num(t.rr)){ formErr("rr", T.alertNeedRR); return; }
   /* У скипа сделки не было: RR и риск не сохраняем, чтобы они не попали
      в средние. Инструмент оставляем — по нему видно, что именно пропустил. */
   if(t.result==="Skip"){ t.rr=""; t.risk=""; t.rr_plan=""; }
@@ -2357,7 +2414,7 @@ async function saveTrade(id){
       for(const part of (isMulti(k)?splitVals(t[k]):[t[k]])){
         /* інструмент сервер запише вже прийнятим написанням — запам'ятовувати
            своє зайве: у списку з'явиться двійник, який нічого не додає */
-        if(k==="pair" && Prefs.vals(k, QUICK_BASE[k]||[]).some(x=>plainName(x)===plainName(part))) continue;
+        if(k==="pair" && Prefs.vals(k, QUICK_BASE[k]||[]).some(x=>pairKey(x)===pairKey(part))) continue;
         Prefs.add(k, part);
       }
   }

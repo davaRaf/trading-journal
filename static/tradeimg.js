@@ -310,7 +310,7 @@ async function buildTradeImage(t){
 
   ctx.font = "500 42px " + MONO;
   ctx.fillStyle = r > 0 ? C.up : r < 0 ? C.down : C.be;
-  ctx.textAlign = "right"; ctx.fillText(fmtR(r), W - PAD, y + 16); ctx.textAlign = "left";
+  ctx.textAlign = "right"; ctx.fillText(tradePct(t), W - PAD, y + 16); ctx.textAlign = "left";
 
   y += 46;
   ctx.font = "22px " + MONO; ctx.fillStyle = C.faint;
@@ -482,7 +482,7 @@ async function buildDayImage(dk){
     ctx.fillText(t.pair || "—", ix + 80, iy + 24);
     ctx.font = "500 26px " + MONO;
     ctx.fillStyle = r > 0 ? C.up : r < 0 ? C.down : C.be;
-    ctx.textAlign = "right"; ctx.fillText(fmtR(r), PAD + inner - 20, iy + 24);
+    ctx.textAlign = "right"; ctx.fillText(tradePct(t), PAD + inner - 20, iy + 24);
     ctx.font = "22px " + MONO; ctx.fillStyle = C.dim;
     ctx.fillText(resLabel(t.result) || "", PAD + inner - 130, iy + 24);
     ctx.textAlign = "left";

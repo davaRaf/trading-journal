@@ -60,8 +60,22 @@ def main():
                canon("UK100", had), "UK100")
     ok &= case("схожі індекси — різні інструменти",
                canon("US30", (("US100", 5),)), "US30")
-    ok &= case("інші імена того самого індексу зводить людина",
-               canon("USTEC", (("NAS100", 5),)), "USTEC")
+    ok &= case("NASDAQ — той самий індекс, що US100",
+               canon("NASDAQ", (("US100", 5),)), "US100")
+    ok &= case("NQ — теж US100",
+               canon("NQ", (("US100", 5),)), "US100")
+    ok &= case("US 100 з пробілом",
+               canon("us 100", (("NAS100", 5),)), "NAS100")
+    ok &= case("Nasdaq регістром як завгодно",
+               canon("Nasdaq", (("NQ", 2),)), "NQ")
+    ok &= case("беремо частіше написання всієї групи",
+               canon("NQ", (("NASDAQ", 2), ("US100", 7))), "US100")
+    ok &= case("золото під двома іменами",
+               canon("Gold", (("XAUUSD", 3),)), "XAUUSD")
+    ok &= case("US30 і NASDAQ не зводяться",
+               canon("US30", (("NASDAQ", 5),)), "US30")
+    ok &= case("сесія не підмішується в інструменти",
+               canon("NEW YORK", (("NY", 3),)), "NEW YORK")
     ok &= case("порожнє поле не чіпаємо", canon("", had), "")
 
     # --- як обирається еталон ---
@@ -75,6 +89,10 @@ def main():
     db._one_spelling(Conn(), "u1", batch)
     ok &= case("у пачці незнайомий інструмент задає написання решті",
                sorted({t["pair"] for t in batch}), ["ftse 100"])
+    batch = [{"pair": "US100"}, {"pair": "nasdaq"}, {"pair": "NQ"}]
+    db._one_spelling(Conn(), "u1", batch)
+    ok &= case("у пачці синоніми теж сходяться в перше написання",
+               sorted({t["pair"] for t in batch}), ["US100"])
 
     # --- правка угоди ---
     c = Conn(had)
