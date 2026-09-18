@@ -1938,6 +1938,9 @@ function openForm(id, presetDay){
   /* гостя спиняємо тут, а не на «зберегти»: нечесно давати заповнити
      всю форму й аж тоді сказати, що записати нікуди */
   if(window.Guest && Guest.block(T.gsGateTrade)) return;
+  /* У бектесті нова угода пишеться у відкритий журнал. Журналу ще немає —
+     спершу заводимо його: угода без журналу в бектесті нікуди не ляже. */
+  if(!id && btOn() && window.__btj && !__btj.curName()){ __btj.add(); return; }
   const t=id?(S.all.length?S.all:S.trades).find(x=>x.id===id):null;
   /* підпис береться разом із таймфреймом: без нього форма правки відкривала
      скріни з порожніми полями, і написане зникало на першому ж збереженні */
@@ -1999,12 +2002,14 @@ function openForm(id, presetDay){
         pick("session",SESSIONS,t?t.session:"",T.fmOwnSessionPh)+"</div>"+
       /* У бектесті рахунку немає — на його місці підпис прогону: що саме
          ганяв. Одне поле замість другого, форма не росте. */
-      /* У бектесті угода завжди в якомусь журналі (btj.js): за замовчуванням —
-         у відкритому, кнопками — решта журналів. */
+      /* У бектесті угода пишеться в той журнал, у якому людина зараз
+         (btj.js), — вибирати тут нічого: журнал показуємо, а не питаємо.
+         Правка старої угоди лишає її в її журналі. */
       (btOn()
-        ? '<div class="f"><label>'+T.fBtRun+' <i>*</i></label>'+
-            pick("bt_run",window.__btj?__btj.names():topVals("bt_run",4),
-              t?t.bt_run:(window.__btj?__btj.curName():""),T.fmBtRunPh)+"</div>"
+        ? (()=>{ const jn=t?(t.bt_run||""):(window.__btj?__btj.curName():"");
+            return '<div class="f"><label>'+T.fBtRun+'</label>'+
+              '<div class="fjournal">'+esc(jn||"—")+'</div>'+
+              '<input type="hidden" id="fld_bt_run" value="'+esc(jn)+'"></div>'; })()
         : '<div class="f"><label>'+T.fAccount+'</label>'+
             pick("account",accounts,t?t.account:lastAccount(),T.fmOwnAccountPh)+"</div>")+
       '<div class="f"><label>'+T.fmDirectionLabel+'</label>'+
