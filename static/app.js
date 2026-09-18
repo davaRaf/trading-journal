@@ -309,7 +309,8 @@ async function setMode(m){
   S.selDay=isoDay(now); S.jMonth=isoMonth(now); S.pages={}; S.filters={};
   /* Розділ, якого в цьому режимі немає, міняємо разом з адресою: інакше в
      рядку лишиться #day, а на екрані буде огляд. */
-  if(!viewAllowed(S.view)){ S.view="dashboard"; location.hash="dashboard"; }
+  if(m==="bt"){ S.view="btj"; location.hash="btj"; }
+  else if(!viewAllowed(S.view)){ S.view="dashboard"; location.hash="dashboard"; }
   render();
   modeBusy = false;
 }
@@ -1012,13 +1013,14 @@ function ovRailHtml(){
 
    Підпис береться з accounts.js: словник розділу живе там. Немає розділу
    (бектест, чужий журнал) — лишається звичайний заголовок. */
-/* Друга вкладка: у реальній торгівлі — «Рахунки», у бектесті — «Журнали»
-   (btj.js). */
+/* Друга вкладка поруч з «Оглядом» — «Рахунки». У бектесті її немає: там
+   огляд — вкладка всередині журналу (btj.js). */
 function ovSub(){
-  if(btOn()) return window.__btj ? {v:"btj", nm:__btj.navLabel()} : {v:"", nm:""};
+  if(btOn()) return {v:"", nm:""};           // у бектесті огляд живе в журналі
   return {v:"accounts", nm:viewAllowed("accounts")&&window.__acc&&__acc.navLabel?__acc.navLabel():""};
 }
 function ovTabsHtml(cur){
+  if(btOn() && window.__btj) return __btj.head("ov");
   const sub=ovSub();
   if(!sub.nm) return "<h1>"+esc(T.ovTitle)+"</h1>";
   const tab=(v,l)=>'<a href="#'+v+'" class="'+(cur===v?"on":"")+'"'
@@ -1114,7 +1116,7 @@ function vJournal(){
     '<button class="'+(S.jMode==="table"?"on":"")+'" data-tip="'+T.jrTableTabTip+'" onclick="setJMode(\'table\')">'+T.jrTableTab+'</button>'+
     '<button class="'+(S.jMode==="list"?"on":"")+'" data-tip="'+T.jrAllTabTip+'" onclick="setJMode(\'list\')">'+T.jrAllTab+'</button>'+
     "</div>";
-  let h='<div class="jhead"><h1>'+T.jrTitle+'</h1>'+modeTabs;
+  let h='<div class="jhead">'+(btOn()&&window.__btj ? __btj.head(S.jMode) : '<h1>'+T.jrTitle+'</h1>'+modeTabs);
   if(S.jMode==="list"){
     h+="</div>";
     const list=sortDesc(applyFilters(S.trades));
@@ -2617,20 +2619,25 @@ const PUB_VIEWS={dashboard:1,journal:1,monthly:1,quarterly:1,yearly:1,analytics:
    майбутній тиждень. У панелі їх сховано, тож і за адресою з решіткою
    туди не пускаємо: інакше розділ відкривався б без кнопки назад. */
 const BT_HIDDEN={day:1,news:1};
+const BT_IN_JOURNAL={dashboard:1,journal:1,monthly:1};
 function viewAllowed(v){
   if(!VIEWS[v]) return false;
   if(BT_HIDDEN[v] && btOn()) return false;
   if(v==="btj" && !btOn()) return false;     // журнали бектесту — тільки в ньому
+  /* У бектесті огляд і календар — всередині журналу: поки жоден не відкритий,
+     туди не пускаємо, людина потрапляє до списку журналів. */
+  if(btOn() && window.__btj && !__btj.isOpen() && BT_IN_JOURNAL[v]) return false;
   return window.Pub&&Pub.on ? !!PUB_VIEWS[v] : true;
 }
 function render(){
   if(!dataReady) return;
-  const v=viewAllowed(S.view)?S.view:"dashboard";
+  const v=viewAllowed(S.view)?S.view:(btOn()?"btj":"dashboard");
   /* «Новини» переїхали з меню в групу інструментів — підсвічування шукаємо
      і там, інакше відкритий розділ ніде не позначався */
   /* «Рахунки» тепер своє посилання (a.navsub поруч з «Огляд») — світиться
      саме воно на #accounts, а «Огляд» лишається сірим. */
-  document.querySelectorAll(".nav a, .side a[data-v]").forEach(a=>a.classList.toggle("on",a.dataset.v===v));
+  const navV = btOn() && BT_IN_JOURNAL[v] ? "btj" : v;
+  document.querySelectorAll(".nav a, .side a[data-v]").forEach(a=>a.classList.toggle("on",a.dataset.v===navV));
   updateNavDash();
   if(window.__btj) __btj.paint();
   if(window.PL) PL.reset();

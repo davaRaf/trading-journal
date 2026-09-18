@@ -100,21 +100,34 @@ function filter(list){
 function curJ(){ return cur === null ? null : find(cur); }
 function label(j){ return j.blank ? D().blank : j.name; }
 
-/* Назва журналу — у бічній панелі під перемикачем режиму й на смужці
-   «Режим бектесту»: на телефоні панель схована, а смужку видно завжди. */
+/* Назва відкритого журналу — на смужці «Режим бектесту», підпис пункту
+   «Журнали» в меню — зі словника цього файлу. */
 function paint(){
   const on = typeof btOn === "function" && btOn();
   const j = on ? curJ() : null;
-  const box = document.getElementById("btjCur");
-  if (box){
-    box.hidden = !on;
-    const l = box.querySelector(".btj-cur-l"), n = box.querySelector(".btj-cur-n");
-    if (l) l.textContent = D().curLab;
-    if (n) n.textContent = j ? label(j) : D().noneYet;
-    box.setAttribute("data-tip", D().curTip);
-  }
   const flag = document.getElementById("btFlag");
   if (flag && on) flag.textContent = T.modeBtFlag + (j ? " · " + label(j) : "");
+  document.querySelectorAll('a[data-v="btj"] span').forEach(s => { s.textContent = D().navTitle; });
+}
+
+/* Шапка всередині журналу: повернутись до списку, назва журналу й вкладки.
+   «Огляд» — остання вкладка: відкривається журнал календарем, як звичайний. */
+function head(active){
+  const d = D(), j = curJ();
+  if (!j) return "<h1>" + esc(d.title) + "</h1>";
+  const period = j.period_from || j.period_to
+    ? [human(j.period_from), human(j.period_to)].filter(Boolean).join(" – ") : "";
+  const sub = [j.asset, period].filter(Boolean).join(" · ");
+  const tab = (v, l, tip) => '<button class="' + (active === v ? "on" : "") + '"'
+    + (tip ? ' data-tip="' + esc(tip) + '"' : "") + ' onclick="__btj.tab(\'' + v + '\')">' + esc(l) + "</button>";
+  return '<div class="btj-head"><a class="btj-back" href="#btj">'
+    + '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M15 6l-6 6 6 6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>'
+    + esc(d.navTitle) + "</a>"
+    + '<div class="btj-title"><h1>' + esc(label(j)) + "</h1>"
+    + (sub ? '<span class="btj-sub">' + esc(sub) + "</span>" : "") + "</div></div>"
+    + '<div class="seg-tabs btj-tabs">'
+    + tab("cal", T.jrCalTab, T.jrCalTabTip) + tab("table", T.jrTableTab, T.jrTableTabTip)
+    + tab("list", T.jrAllTab, T.jrAllTabTip) + tab("ov", d.ovTab, d.ovTabTip) + "</div>";
 }
 
 /* ---------------- картка журналу ---------------- */
@@ -176,7 +189,7 @@ function vBtj(){
   const d = D();
   if (JS === undefined){ sync().then(() => { if (S.view === "btj") render(); }); return '<div class="empty">' + esc(d.loading) + "</div>"; }
   const head = '<div class="ohead ac-head">'
-    + (window.ovTabsHtml ? ovTabsHtml("btj") : "<h1>" + esc(d.title) + "</h1>")
+    + "<h1>" + esc(d.title) + "</h1>"
     + '<button class="btn primary ac-new" onclick="__btj.add()">' + esc(d.add) + "</button></div>";
   const l = list();
   if (!l.length){
@@ -274,6 +287,8 @@ async function save(){
   if (!j.id || wasOpen) select(saved.name);
   closeModal();
   await reloadAll();
+  /* Новий журнал заводять, щоб писати в нього, — одразу всередину. */
+  if (!j.id && !j.blank) location.hash = "journal";
 }
 
 async function drop(id){
@@ -295,7 +310,16 @@ async function reloadAll(){
 }
 
 window.__btj = {
-  sync: sync, filter: filter, select: select, paint: paint,
+  sync: sync, filter: filter, select: select, paint: paint, head: head,
+  isOpen(){ return !!curJ(); },
+  /* Вкладки шапки журналу: календар, список і всі угоди — режими розділу
+     «Журнал», огляд — окремий розділ. */
+  tab(v){
+    if (v === "ov"){ location.hash = "dashboard"; return; }
+    S.jMode = v;
+    try{ localStorage.setItem("tj_jmode", v); }catch(e){}
+    if (location.hash === "#journal") render(); else location.hash = "journal";
+  },
   navLabel(){ return D().navTitle; },
   /* Для форми угоди: назви журналів, відкритий — першим. */
   names(){
@@ -313,7 +337,7 @@ window.__btj = {
     const j = (JS || []).find(x => x.id === id);
     if (j) openForm(Object.assign({}, j));
   },
-  /* Відкрити журнал — і одразу на його «Огляд»: заради цього й відкривали. */
+  /* Відкрити журнал — і одразу в нього: календар, як у звичайному журналі. */
   open(id){
     const j = id === "" ? {name: ""} : (JS || []).find(x => x.id === id);
     if (!j) return;
@@ -324,7 +348,7 @@ window.__btj = {
     const last = sortAsc(S.all).pop();
     if (last){ S.selDay = dayKey(last); S.jMonth = monKey(last); }
     S.pages = {}; S.filters = {};
-    if (location.hash === "#dashboard") render(); else location.hash = "dashboard";
+    if (location.hash === "#journal") render(); else location.hash = "journal";
   },
   save: save, drop: drop,
 };
@@ -341,7 +365,7 @@ uk: {
   edit: "Правити", del: "Видалити", open: "Відкрити", opened: "Відкритий",
   nameIt: "Назвати", blank: "Без журналу",
   blankHint: "Угоди, записані без журналу. Дай їм назву — і вони стануть окремим журналом.",
-  curLab: "Журнал", curTip: "Усі журнали бектесту — тут можна відкрити інший", noneYet: "ще немає",
+  ovTab: "Огляд", ovTabTip: "Підсумки тижня, місяця й року — по цьому журналу",
   emptyLead: "Журнал бектесту — окремий набір прогонів: свій актив, свій період, своя статистика.",
   emptyHint: "Заведи по журналу на кожен актив чи ідею — і їхні цифри не змішуватимуться.",
   nTrades: "Угод", wr: "Вінрейт", avgRR: "Середній RR", maxDD: "Просадка від піку", skipTag: " скіп",
@@ -362,7 +386,7 @@ ru: {
   edit: "Править", del: "Удалить", open: "Открыть", opened: "Открыт",
   nameIt: "Назвать", blank: "Без журнала",
   blankHint: "Сделки, записанные без журнала. Дай им название — и они станут отдельным журналом.",
-  curLab: "Журнал", curTip: "Все журналы бэктеста — здесь можно открыть другой", noneYet: "ещё нет",
+  ovTab: "Обзор", ovTabTip: "Итоги недели, месяца и года — по этому журналу",
   emptyLead: "Журнал бэктеста — отдельный набор прогонов: свой актив, свой период, своя статистика.",
   emptyHint: "Заведи по журналу на каждый актив или идею — и их цифры не будут смешиваться.",
   nTrades: "Сделок", wr: "Винрейт", avgRR: "Средний RR", maxDD: "Просадка от пика", skipTag: " скип",
@@ -383,7 +407,7 @@ en: {
   edit: "Edit", del: "Delete", open: "Open", opened: "Open now",
   nameIt: "Name it", blank: "No journal",
   blankHint: "Trades logged without a journal. Give them a name and they become a journal of their own.",
-  curLab: "Journal", curTip: "All backtest journals — open another one here", noneYet: "none yet",
+  ovTab: "Overview", ovTabTip: "Week, month and year results — for this journal",
   emptyLead: "A backtest journal is a separate set of runs: its own asset, period and stats.",
   emptyHint: "Keep one journal per asset or idea so their numbers never mix.",
   nTrades: "Trades", wr: "Win rate", avgRR: "Avg RR", maxDD: "Drawdown from peak", skipTag: " skip",
