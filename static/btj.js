@@ -117,6 +117,16 @@ function paint(){
    самого журналу, тому це окремий перемикач збоку, і видно його тільки
    на вкладці «Журнал». Вигляд памʼятаємо: повернувся з огляду — журнал
    такий самий, яким його лишив. */
+/* Назва журналу в рядку «‹ місяць › Сьогодні» календаря й списку. */
+function paneTitle(){
+  const j = curJ();
+  if (!j) return "";
+  const period = j.period_from || j.period_to
+    ? [human(j.period_from), human(j.period_to)].filter(Boolean).join(" – ") : "";
+  const sub = [j.asset, period].filter(Boolean).join(" · ");
+  return '<div class="btj-pane"><b>' + esc(label(j)) + "</b>"
+    + (sub ? "<span>" + esc(sub) + "</span>" : "") + "</div>";
+}
 function jStyle(){
   try{ const v = localStorage.getItem("tj_jstyle"); return v === "table" ? "table" : "cal"; }
   catch(e){ return "cal"; }
@@ -136,8 +146,13 @@ function head(active){
   return '<div class="btj-head"><a class="btj-back" href="#btj">'
     + '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M15 6l-6 6 6 6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>'
     + esc(d.navTitle) + "</a>"
-    + '<div class="btj-title"><h1>' + esc(label(j)) + "</h1>"
-    + (sub ? '<span class="btj-sub">' + esc(sub) + "</span>" : "") + "</div></div>"
+    /* У календарі й списку назва стоїть у рядку перемотки місяців
+       (paneTitle нижче) — там вона поруч із тим, що гортають. Великий
+       заголовок лишається тільки для «Усіх угод» і «Огляду». */
+    + (["cal", "table"].indexOf(active) >= 0 ? ""
+        : '<div class="btj-title"><h1>' + esc(label(j)) + "</h1>"
+          + (sub ? '<span class="btj-sub">' + esc(sub) + "</span>" : "") + "</div>")
+    + "</div>"
     + '<div class="btj-nav"><div class="btj-main" role="tablist">'
     + main("journal", inJ, d.jTab, d.jTabTip)
     + main("list", active === "list", T.jrAllTab, T.jrAllTabTip)
@@ -332,7 +347,7 @@ async function reloadAll(){
 }
 
 window.__btj = {
-  sync: sync, filter: filter, select: select, paint: paint, head: head,
+  sync: sync, filter: filter, select: select, paint: paint, head: head, paneTitle: paneTitle,
   isOpen(){ return !!curJ(); },
   /* Вкладки шапки журналу: календар, список і всі угоди — режими розділу
      «Журнал», огляд — окремий розділ. */

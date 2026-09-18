@@ -1160,7 +1160,8 @@ function vJournal(){
 
   const leftPane = S.jMode==="table"
     ? monthTableHtml(monthTrades)
-    : '<div class="card jpane jpane-cal"><div class="panehead">'+monthNavHtml()+"</div>"+
+    : '<div class="card jpane jpane-cal"><div class="panehead">'+
+        (btOn()&&window.__btj?__btj.paneTitle():"")+monthNavHtml()+"</div>"+
       calHtml(S.jMonth,"pickDay",S.selDay)+
       "</div>";
   /* панель дня живёт в гнезде: так её высота равна левой половине, а не тянет страницу вниз */
@@ -1199,7 +1200,7 @@ function setJMode(v){
 /* месяц таблицей: те же угоди, что в календаре, но подряд и с колонками */
 function monthTableHtml(list){
   if(!list.length)
-    return '<div class="card jpane jpane-list"><h3>'+T.jrMonthTrades+
+    return '<div class="card jpane jpane-list"><h3>'+(btOn()&&window.__btj?__btj.paneTitle():T.jrMonthTrades)+
       '<span class="hr">'+monthNavHtml()+'</span></h3>'+
       '<div class="empty">'+T.jrMonthEmpty+'</div></div>';
   const rows=sortAsc(list).map(t=>{
@@ -1219,7 +1220,7 @@ function monthTableHtml(list){
       '<td class="num">'+(t.rr!=null&&t.rr!==""?r1(t.rr):"—")+"</td>"+
       '<td class="num '+clsR(r)+'">'+tradePct(t)+"</td></tr>";
   }).join("");
-  return '<div class="card jpane jpane-list"><h3>'+T.jrMonthTrades+
+  return '<div class="card jpane jpane-list"><h3>'+(btOn()&&window.__btj?__btj.paneTitle():T.jrMonthTrades)+
     '<span class="hr"><em>'+list.length+' '+T.abbrPieces+'</em>'+monthNavHtml()+"</span></h3>"+
     '<div class="mtwrap"><table class="mtable">'+
     "<thead><tr><th>"+T.fDate+"</th><th>"+T.fPair+"</th><th>"+T.fPosition+"</th><th>"+T.fSession+"</th>"+
