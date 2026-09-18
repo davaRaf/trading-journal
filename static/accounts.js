@@ -622,7 +622,7 @@ function dropDraft(){
   try{ localStorage.removeItem(DRAFT_KEY); }catch(e){}
 }
 function keepDraft(){
-  if (editId || !document.querySelector(".ac-form")) return;
+  if (editId || !document.querySelector(".ac-form:not(.btj-form)")) return;
   const dr = {
     name: val("acName"), firm: val("acFirm"), kind: segVal("acKind") || "own",
     currency: val("acCur") || "USD", start_balance: val("acStart"), current_balance: val("acNow"),
@@ -979,6 +979,7 @@ window.__acc = {
       .map(a => normName(a.name)).filter(Boolean);
   },
   preload: preload,
+  spark: spark,
   save: save,
   drop: drop,
   reload(){ ACCS = undefined; },

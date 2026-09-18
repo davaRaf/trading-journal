@@ -39,6 +39,7 @@ import authmail
 import oauth
 import ratelimit
 import accounts_store
+import bt_journals_store
 import day_store
 import tg_api
 import tidy
@@ -1796,6 +1797,13 @@ class H(BaseHTTPRequestHandler):
                 return self._json({"error": "auth required"}, 401)
             return self._json({"accounts": accounts_store.lst(uid)})
 
+        # ---- журнали бектесту (bt_journals_store.py) ----
+        if p == "/api/bt/journals":
+            uid = self._uid()
+            if not uid:
+                return self._json({"error": "auth required"}, 401)
+            return self._json({"journals": bt_journals_store.lst(uid)})
+
         # ---- аналіз дня (day_store.py) ----
         if p.startswith("/api/day/"):
             uid = self._uid()
@@ -2895,6 +2903,38 @@ class H(BaseHTTPRequestHandler):
                 return self._json({"error": "bad id"}, 400)
             accounts_store.drop(uid, acc_id)
             return self._json({"ok": True})
+
+        # ---- журнали бектесту ----
+        if p == "/api/bt/journals":
+            j = (body or {}).get("journal") or {}
+            if not str(j.get("name") or "").strip():
+                return self._json({"error": "no name"}, 400)
+            jid = j.get("id")
+            try:
+                jid = int(jid) if jid not in (None, "", 0) else None
+            except (TypeError, ValueError):
+                return self._json({"error": "bad id"}, 400)
+            if jid is None:
+                # `adopt` — під яким імʼям угоди лежать зараз (і порожнім
+                # теж): новий журнал забирає їх собі.
+                adopt = (body or {}).get("adopt")
+                adopt = str(adopt) if adopt is not None else None
+                return self._json({"journal": bt_journals_store.add(uid, j, adopt)})
+            saved = bt_journals_store.put(uid, jid, j)
+            if not saved:
+                return self._json({"error": "not found"}, 404)
+            return self._json({"journal": saved})
+
+        if p == "/api/bt/journals/drop":
+            try:
+                jid = int((body or {}).get("id"))
+            except (TypeError, ValueError):
+                return self._json({"error": "bad id"}, 400)
+            got = bt_journals_store.drop(uid, jid)
+            if got is None:
+                return self._json({"error": "not found"}, 404)
+            delete_files(got[1])
+            return self._json({"ok": True, "removed": got[0]})
 
         if p == "/api/day/shot":
             try:

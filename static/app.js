@@ -257,7 +257,14 @@ const BT_READY = true;
 function btOn(){ return BT_READY && S.mode==="bt" && !DEMO && !(window.Pub && Pub.on); }
 
 async function reload(){
-  S.all = await api("GET","/api/trades" + (btOn()?"?kind=bt":""));
+  const got = await api("GET","/api/trades" + (btOn()?"?kind=bt":""));
+  /* У бектесті статистика завжди по одному журналу (btj.js): усі прогони
+     лежать у S.btAll, а на екрани йдуть угоди відкритого. */
+  if(btOn() && window.__btj){
+    S.btAll = got;
+    await __btj.sync();
+    S.all = __btj.filter(got);
+  } else { S.btAll = null; S.all = got; }
   S.trades = S.all;          // в статистике участвуют все сделки
   await Prefs.load();        // після угод: тепер відомо, демо це чи ні
   /* Рахунки читаємо про запас і не чекаємо на них: вони потрібні формі
@@ -1005,12 +1012,18 @@ function ovRailHtml(){
 
    Підпис береться з accounts.js: словник розділу живе там. Немає розділу
    (бектест, чужий журнал) — лишається звичайний заголовок. */
+/* Друга вкладка: у реальній торгівлі — «Рахунки», у бектесті — «Журнали»
+   (btj.js). */
+function ovSub(){
+  if(btOn()) return window.__btj ? {v:"btj", nm:__btj.navLabel()} : {v:"", nm:""};
+  return {v:"accounts", nm:viewAllowed("accounts")&&window.__acc&&__acc.navLabel?__acc.navLabel():""};
+}
 function ovTabsHtml(cur){
-  const nm=viewAllowed("accounts")&&window.__acc&&__acc.navLabel?__acc.navLabel():"";
-  if(!nm) return "<h1>"+esc(T.ovTitle)+"</h1>";
+  const sub=ovSub();
+  if(!sub.nm) return "<h1>"+esc(T.ovTitle)+"</h1>";
   const tab=(v,l)=>'<a href="#'+v+'" class="'+(cur===v?"on":"")+'"'
     +(cur===v?' aria-current="page"':"")+">"+esc(l)+"</a>";
-  return '<h1 class="ovh">'+tab("dashboard",T.ovTitle)+tab("accounts",nm)+"</h1>";
+  return '<h1 class="ovh">'+tab("dashboard",T.ovTitle)+tab(sub.v,sub.nm)+"</h1>";
 }
 window.ovTabsHtml=ovTabsHtml;
 
@@ -1023,10 +1036,10 @@ function updateNavDash(){
   const a=document.querySelector('.nav a[data-v="dashboard"], .side a[data-v="dashboard"]');
   const sp=a&&a.querySelector("span");
   if(sp) sp.textContent=T.ovTitle;
-  const sub=document.querySelector('.nav a.navsub[data-v="accounts"], .side a.navsub[data-v="accounts"]');
+  const sub=document.querySelector('.nav a.navsub, .side a.navsub');
   if(!sub) return;
-  const nm=viewAllowed("accounts")&&window.__acc&&__acc.navLabel?__acc.navLabel():"";
-  if(nm){ sub.textContent=nm; sub.hidden=false; }
+  const o=ovSub();
+  if(o.nm){ sub.textContent=o.nm; sub.hidden=false; sub.dataset.v=o.v; sub.setAttribute("href","#"+o.v); }
   else{ sub.hidden=true; }
 }
 window.updateNavDash=updateNavDash;
@@ -1049,10 +1062,12 @@ function vDashboard(){
     return '<div class="ohead">'+ovTabsHtml("dashboard")+'</div>'+
       '<div class="card"><div class="in ov-empty" style="padding:26px 24px">'+
       '<div style="font-size:20px;font-weight:600;letter-spacing:-.01em">'+T.bgTitle+'</div>'+
-      '<div class="hint" style="margin-top:8px;max-width:62ch;line-height:1.6">'+(bt?T.btEmpty:T.bgLead)+'</div>'+
+      '<div class="hint" style="margin-top:8px;max-width:62ch;line-height:1.6">'+(bt?(window.__btj&&__btj.none()?T.btNoJ:T.btEmpty):T.bgLead)+'</div>'+
       '<div class="begin">'+
         (bt?"":way(" main","__notion.open()","bgNotionTag","bgNotionTitle","bgNotionText"))+
-        way(bt?" main":"","openForm()","bgTradeTag","bgTradeTitle","bgTradeText")+
+        (bt&&window.__btj&&__btj.none()
+          ? way(" main","__btj.add()","bgBtjTag","bgBtjTitle","bgBtjText")
+          : way(bt?" main":"","openForm()","bgTradeTag","bgTradeTitle","bgTradeText"))+
         way("","location.hash='ts'","bgTsTag","bgTsTitle","bgTsText")+
       '</div></div></div>';
   }
@@ -1938,7 +1953,7 @@ function openForm(id, presetDay){
   '<section class="fcard"><h4>'+T.tradeDefaultName+'</h4><div class="fbody">'+
     '<div class="frow">'+
       '<div class="f"><label>'+T.fPair+' <i>*</i></label>'+
-        pick("pair",pairs,t?t.pair:"",T.fmOwnPairPh)+"</div>"+
+        pick("pair",pairs,t?t.pair:(btOn()&&window.__btj?__btj.asset():""),T.fmOwnPairPh)+"</div>"+
       '<div class="f"><label>'+T.fmDateTime+' <i>*</i></label>'+
         '<input id="fld_date" type="datetime-local" value="'+esc(dt)+'"></div>'+
     "</div>"+
@@ -1947,9 +1962,12 @@ function openForm(id, presetDay){
         pick("session",SESSIONS,t?t.session:"",T.fmOwnSessionPh)+"</div>"+
       /* У бектесті рахунку немає — на його місці підпис прогону: що саме
          ганяв. Одне поле замість другого, форма не росте. */
+      /* У бектесті угода завжди в якомусь журналі (btj.js): за замовчуванням —
+         у відкритому, кнопками — решта журналів. */
       (btOn()
-        ? '<div class="f"><label>'+T.fBtRun+'</label>'+
-            pick("bt_run",topVals("bt_run",4),t?t.bt_run:"",T.fmBtRunPh)+"</div>"
+        ? '<div class="f"><label>'+T.fBtRun+' <i>*</i></label>'+
+            pick("bt_run",window.__btj?__btj.names():topVals("bt_run",4),
+              t?t.bt_run:(window.__btj?__btj.curName():""),T.fmBtRunPh)+"</div>"
         : '<div class="f"><label>'+T.fAccount+'</label>'+
             pick("account",accounts,t?t.account:lastAccount(),T.fmOwnAccountPh)+"</div>")+
       '<div class="f"><label>'+T.fmDirectionLabel+'</label>'+
@@ -2398,6 +2416,7 @@ async function saveTrade(id){
      перепитуємо: раптом інструмент і справді так зветься */
   if(!looksLikePair(t.pair) && !await Ask.yes(T.alertOddPair.replace("%s", t.pair), {ok:T.askYes, cancel:T.askNo})) return;
   if(!t.date){ formErr("date", T.alertNeedDate); return; }
+  if(btOn() && !t.bt_run.trim()){ formErr("bt_run", T.alertNeedJournal); return; }
   if(!t.result){ formErr("result", T.alertNeedResult); return; }
   if(t.result==="Win" && !num(t.rr)){ formErr("rr", T.alertNeedRR); return; }
   /* У скипа сделки не было: RR и риск не сохраняем, чтобы они не попали
@@ -2424,6 +2443,9 @@ async function saveTrade(id){
     if(id) await api("PUT","/api/trades/"+id,t);
     else   saved=await api("POST","/api/trades",t);
     Draft.done(id||"");
+    /* Записав в інший журнал — туди й переходимо, інакше угода «зникла б»
+       з екрана відкритого журналу одразу після збереження. */
+    if(btOn() && window.__btj && t.bt_run) __btj.select(t.bt_run);
     await reload(); closeModal(); render();
     /* Звірка з ТС — уже після того, як форма закрилась: людина не має
        чекати ні на сервер, ні на модель. Правки чужих полів не чіпаємо:
@@ -2598,6 +2620,7 @@ const BT_HIDDEN={day:1,news:1};
 function viewAllowed(v){
   if(!VIEWS[v]) return false;
   if(BT_HIDDEN[v] && btOn()) return false;
+  if(v==="btj" && !btOn()) return false;     // журнали бектесту — тільки в ньому
   return window.Pub&&Pub.on ? !!PUB_VIEWS[v] : true;
 }
 function render(){
@@ -2609,6 +2632,7 @@ function render(){
      саме воно на #accounts, а «Огляд» лишається сірим. */
   document.querySelectorAll(".nav a, .side a[data-v]").forEach(a=>a.classList.toggle("on",a.dataset.v===v));
   updateNavDash();
+  if(window.__btj) __btj.paint();
   if(window.PL) PL.reset();
   /* кнопка-якорь сейчас исчезнет вместе с разделом — список без неё не нужен */
   if(window.Pick) Pick.close();

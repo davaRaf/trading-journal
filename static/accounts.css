@@ -41,6 +41,11 @@
 .ac-grid{display:grid; grid-template-columns:repeat(auto-fit,minmax(330px,1fr));
   gap:var(--stack)}
 .ac-grid > .shell{margin-bottom:0; max-width:430px}
+/* У темній темі сусідні картки розсуває .shell+.shell (style.css). У сітці
+   це зсувало вниз усі картки, крім першої, — відступ тут дає сама сітка.
+   Селектор такої ж ваги, як те правило, а файл іде пізніше — тож перемагає
+   він, а саме правило лишається як було. */
+:root .ac-grid > .shell + .shell{margin-top:0}
 .ac-card{padding:18px 20px 14px; display:flex; flex-direction:column; gap:14px}
 
 .ac-top{display:flex; align-items:flex-start; gap:10px}

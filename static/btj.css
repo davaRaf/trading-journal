@@ -1,0 +1,28 @@
+/* Журнали бектесту (btj.js). Картки, поля й сітка — з accounts.css;
+   тут лише те, чого в рахунків немає. */
+
+/* Відкритий журнал видно здалеку: рамка кольору акценту. */
+.btj-card.on{box-shadow:0 0 0 1px var(--accent) inset}
+.ac-st.btj-open{color:var(--accent); border-color:var(--accent);
+  background:color-mix(in srgb, var(--accent) 10%, transparent)}
+.btj-note{white-space:pre-wrap}
+.btj-go{font-weight:500; color:var(--accent)}
+
+/* Який журнал зараз відкритий — у бічній панелі під перемикачем режиму.
+   Клік веде до списку журналів, звідти відкривається інший. */
+.btj-cur{display:flex; align-items:center; gap:8px; margin-top:2px; padding:8px 10px;
+  border:1px solid var(--line-soft); border-radius:10px; background:var(--panel-2);
+  color:var(--text); font-size:12.5px; text-decoration:none; transition:border-color .16s}
+.btj-cur:hover{border-color:var(--accent)}
+.btj-cur[hidden]{display:none}
+.btj-cur-l{flex:none; font-family:var(--mono); font-size:9px; letter-spacing:.14em;
+  text-transform:uppercase; color:var(--faint)}
+.btj-cur-n{flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;
+  font-weight:500}
+.btj-cur svg{flex:none; color:var(--faint)}
+
+@media (max-width:900px){
+  /* у шторці меню все крупніше — під палець */
+  .mmenu .btj-cur{min-height:46px; font-size:15px; padding:10px 14px}
+  .mmenu .btj-cur-l{font-size:10.5px}
+}
