@@ -117,6 +117,28 @@ function paint(){
    самого журналу, тому це окремий перемикач збоку, і видно його тільки
    на вкладці «Журнал». Вигляд памʼятаємо: повернувся з огляду — журнал
    такий самий, яким його лишив. */
+/* Фільтр «Журнал: … ▾» для «Аналітики»: розрізи рахуються по одному
+   журналу, і тут його обирають. Той самий список Pick, що й у формах. */
+function filterBtn(){
+  const j = curJ();
+  return '<button type="button" class="btj-filter" onclick="__btj.pickJournal(this)">'
+    + '<span>' + esc(D().curLab) + "</span><b>" + esc(j ? label(j) : D().noneYet) + "</b>"
+    + '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M6 9l6 6 6-6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>'
+    + "</button>";
+}
+function pickJournal(btn){
+  const items = list().map(j => ({v: j.k, label: label(j)}));
+  if (!items.length || !window.Pick) return;
+  Pick.open(btn, items, cur, k => {
+    const j = find(k);
+    if (!j) return;
+    select(j.name);
+    S.trades = S.all = filter(all());
+    S.pages = {}; S.filters = {};
+    render();
+  });
+}
+
 /* Назва журналу в рядку «‹ місяць › Сьогодні» календаря й списку. */
 function paneTitle(){
   const j = curJ();
@@ -147,9 +169,10 @@ function head(active){
     + '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M15 6l-6 6 6 6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>'
     + esc(d.navTitle) + "</a>"
     /* У календарі й списку назва стоїть у рядку перемотки місяців
-       (paneTitle нижче) — там вона поруч із тим, що гортають. Великий
-       заголовок лишається тільки для «Усіх угод» і «Огляду». */
-    + (["cal", "table"].indexOf(active) >= 0 ? ""
+       (paneTitle нижче), в «Усіх угодах» — у шапці картки. Великий заголовок
+       лишається тільки в «Огляді»: так шапка «Журналу» й «Усіх угод» однакова
+       й не стрибає при перемиканні. */
+    + (active !== "ov" ? ""
         : '<div class="btj-title"><h1>' + esc(label(j)) + "</h1>"
           + (sub ? '<span class="btj-sub">' + esc(sub) + "</span>" : "") + "</div>")
     + "</div>"
@@ -321,8 +344,13 @@ async function save(){
   if (!j.id || wasOpen) select(saved.name);
   closeModal();
   await reloadAll();
-  /* Новий журнал заводять, щоб писати в нього, — одразу всередину. */
-  if (!j.id && !j.blank) location.hash = "journal";
+  /* Новий журнал заводять, щоб писати в нього, — одразу всередину,
+     вкладкою «Журнал», а не тим, що було відкрите в попередньому. */
+  if (!j.id && !j.blank){
+    S.jMode = jStyle();
+    try{ localStorage.setItem("tj_jmode_bt", S.jMode); }catch(e){}
+    if (location.hash === "#journal") render(); else location.hash = "journal";
+  }
 }
 
 async function drop(id){
@@ -345,6 +373,7 @@ async function reloadAll(){
 
 window.__btj = {
   sync: sync, filter: filter, select: select, paint: paint, head: head, paneTitle: paneTitle,
+  filterBtn: filterBtn, pickJournal: pickJournal,
   isOpen(){ return !!curJ(); },
   /* Вкладки шапки журналу: календар, список і всі угоди — режими розділу
      «Журнал», огляд — окремий розділ. */
@@ -407,6 +436,7 @@ uk: {
   nameIt: "Назвати", blank: "Без журналу",
   blankHint: "Угоди, записані без журналу. Дай їм назву — і вони стануть окремим журналом.",
   ovTab: "Огляд", ovTabTip: "Підсумки тижня, місяця й року — по цьому журналу",
+  curLab: "Журнал", noneYet: "ще немає",
   jTab: "Журнал", jTabTip: "Угоди по днях — календарем або списком",
   emptyLead: "Журнал бектесту — окремий набір прогонів: свій актив, свій період, своя статистика.",
   emptyHint: "Заведи по журналу на кожен актив чи ідею — і їхні цифри не змішуватимуться.",
@@ -429,6 +459,7 @@ ru: {
   nameIt: "Назвать", blank: "Без журнала",
   blankHint: "Сделки, записанные без журнала. Дай им название — и они станут отдельным журналом.",
   ovTab: "Обзор", ovTabTip: "Итоги недели, месяца и года — по этому журналу",
+  curLab: "Журнал", noneYet: "ещё нет",
   jTab: "Журнал", jTabTip: "Сделки по дням — календарём или списком",
   emptyLead: "Журнал бэктеста — отдельный набор прогонов: свой актив, свой период, своя статистика.",
   emptyHint: "Заведи по журналу на каждый актив или идею — и их цифры не будут смешиваться.",
@@ -451,6 +482,7 @@ en: {
   nameIt: "Name it", blank: "No journal",
   blankHint: "Trades logged without a journal. Give them a name and they become a journal of their own.",
   ovTab: "Overview", ovTabTip: "Week, month and year results — for this journal",
+  curLab: "Journal", noneYet: "none yet",
   jTab: "Journal", jTabTip: "Trades by day — as a calendar or a list",
   emptyLead: "A backtest journal is a separate set of runs: its own asset, period and stats.",
   emptyHint: "Keep one journal per asset or idea so their numbers never mix.",

@@ -1144,9 +1144,13 @@ function vJournal(){
     "</div>";
   let h='<div class="jhead">'+(btOn()&&window.__btj ? __btj.head(S.jMode) : '<h1>'+T.jrTitle+'</h1>'+modeTabs);
   if(S.jMode==="list"){
-    h+="</div>";
+    /* «Інструменти» — те саме гніздо, що й у календарі: без нього
+       sharelink.js не знаходив місця й ставив «Поділитись» ліворуч. */
+    h+='<div class="tools"></div></div>';
     const list=sortDesc(applyFilters(S.trades));
-    return h+filterBar()+tradesCard(list,T.jrAllTab+" · "+list.length,"all");
+    /* у бектесті назва журналу — у шапці картки, як у рядку місяців календаря */
+    const cap=(btOn()&&window.__btj&&__btj.curName()?__btj.curName()+" · ":"")+T.jrAllTab+" · "+list.length;
+    return h+filterBar()+tradesCard(list,cap,"all");
   }
   /* «Інструменти» лишаються порожні: сюди sharelink.js кладе кнопки
      «поділитись» за день, тиждень, місяць і рік */
@@ -1521,7 +1525,9 @@ function vYearly(){
 /* ---------- Analytics ---------- */
 function vAnalytics(){
   const list=applyFilters(S.trades);
-  let h='<div class="vhead"><h1>'+T.anTitle+'</h1><span class="sub">'+list.length+" "+T.anSampleSuffix+"</span></div>";
+  let h='<div class="vhead"><h1>'+T.anTitle+'</h1><span class="sub">'+list.length+" "+T.anSampleSuffix+"</span>"+
+    /* у бектесті розрізи рахуються по одному журналу — обираємо, по якому */
+    (btOn()&&window.__btj?__btj.filterBtn():"")+"</div>";
   h+=filterBar();
   /* Десять розрізів у рядок — стіна кнопок на телефоні. Там вони живуть
      під кнопкою з поточним розрізом і закриваються після вибору. */
