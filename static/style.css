@@ -11,6 +11,8 @@
   --accent:#2b62e3; --accent-ink:#ffffff; --accent-soft:rgba(43,98,227,.09);
   --up:#128a53; --down:#c94430; --be:#9c7514;
   --up-soft:rgba(18,138,83,.10); --down-soft:rgba(201,68,48,.10); --be-soft:rgba(156,117,20,.12);
+  /* BE+ окремим кольором: зелений зливався з TP у календарі */
+  --beplus:#7c4dff; --beplus-soft:rgba(124,77,255,.12);
   --up-glow:transparent; --down-glow:transparent; --be-glow:transparent;
   --shadow:0 1px 2px rgba(23,27,36,.05),0 6px 20px -12px rgba(23,27,36,.12);
   --shadow-pop:0 24px 60px -24px rgba(23,27,36,.28);
@@ -43,6 +45,7 @@
   --accent:#40e094; --accent-ink:#06130d; --accent-soft:rgba(64,224,148,.12);
   --up:#40e094; --down:#ff6e60; --be:#efc258;
   --up-soft:rgba(64,224,148,.13); --down-soft:rgba(255,110,96,.13); --be-soft:rgba(239,194,88,.12);
+  --beplus:#b48cff; --beplus-soft:rgba(180,140,255,.16);
   --up-glow:transparent; --down-glow:transparent; --be-glow:transparent;
   /* поверхности сплошные, как в макете входа */
   --card:#0d0d0e; --card-lip:0 0 transparent;
@@ -769,11 +772,11 @@ tr.click:hover .go{opacity:1;color:var(--accent)}
 .seg button.on.skipk{background:var(--panel-2);border-color:var(--faint);color:var(--dim)}
 .fhint{font-size:11.5px;color:var(--faint);margin-top:4px;display:block}
 
-/* ---------- BE+ отдельным цветом ---------- */
-.badge.beplus{background:var(--accent-soft);color:var(--accent)}
-.mk.beplus{background:var(--accent-soft);color:var(--accent)}
-.mk.beplus.rev{border-color:var(--accent)}
-.seg button.on.bepk{background:var(--accent);border-color:var(--accent);color:#fff}
+/* ---------- BE+ отдельным цветом: фиолетовый, чтобы не путать с TP ---------- */
+.badge.beplus{background:var(--beplus-soft);color:var(--beplus)}
+.mk.beplus{background:var(--beplus-soft);color:var(--beplus)}
+.mk.beplus.rev{border-color:var(--beplus)}
+.seg button.on.bepk{background:var(--beplus);border-color:var(--beplus);color:#fff}
 
 /* ---------- разбор безубытков ---------- */
 .begrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:12px;margin-bottom:14px}
@@ -869,7 +872,7 @@ table.simple.mini td:last-child{white-space:nowrap;font-weight:600}
 .seg.res button.on.win{background:var(--up);border-color:var(--up)}
 .seg.res button.on.loss{background:var(--down);border-color:var(--down)}
 .seg.res button.on.bek{background:var(--be);border-color:var(--be);color:#1c1608}
-.seg.res button.on.bepk{background:var(--accent);border-color:var(--accent);color:var(--accent-ink,#fff)}
+.seg.res button.on.bepk{background:var(--beplus);border-color:var(--beplus);color:#fff}
 
 /* автоопределение типа входа */
 .autobox{display:flex;align-items:center;gap:10px;border:1px dashed var(--line);border-radius:var(--r-sm);
