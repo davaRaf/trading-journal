@@ -113,8 +113,13 @@ html[data-guest] body.has-gbar .main{padding-top:52px}
 .gate-later:hover{color:var(--dim)}
 
 /* з чого почати — порожній журнал у свого, вже зареєстрованого */
-.begin{display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:12px; margin-top:20px}
+/* Карточки однієї ширини (третина рядка) і по центру: у бектесті шляхів
+   два, і в сітці на три колонки праворуч лишалась порожня дірка. */
+.ov-empty{text-align:center}
+.ov-empty .hint{margin-inline:auto}
+.begin{display:flex; flex-wrap:wrap; justify-content:center; gap:12px; margin-top:20px}
 .begin .way{
+  flex:0 1 calc((100% - 24px) / 3); min-width:0;
   border:1px solid var(--line); border-radius:12px; padding:16px; background:var(--panel-2);
   text-align:left; display:flex; flex-direction:column; gap:7px; cursor:pointer;
   transition:border-color .15s, background .15s;
@@ -137,5 +142,5 @@ html[data-guest] body.has-gbar .main{padding-top:52px}
   html[data-guest] body.has-gbar .side,
   html[data-guest] body.has-gbar .main{padding-top:14px}
   html[data-guest] .mtop{top:38px}
-  .begin{grid-template-columns:1fr}
+  .begin .way{flex-basis:100%}
 }

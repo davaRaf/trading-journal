@@ -1019,7 +1019,7 @@ function vDashboard(){
        виглядати однаково, у порожньому журналі й у повному. У .vhead свій
        заголовок — дрібніший і жирніший, і на переході це було видно. */
     return '<div class="ohead">'+ovTabsHtml("dashboard")+'</div>'+
-      '<div class="card"><div class="in" style="padding:26px 24px">'+
+      '<div class="card"><div class="in ov-empty" style="padding:26px 24px">'+
       '<div style="font-size:20px;font-weight:600;letter-spacing:-.01em">'+T.bgTitle+'</div>'+
       '<div class="hint" style="margin-top:8px;max-width:62ch;line-height:1.6">'+(bt?T.btEmpty:T.bgLead)+'</div>'+
       '<div class="begin">'+
