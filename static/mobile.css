@@ -206,14 +206,8 @@
   .cal .mk.skip{color:var(--faint)}
   .cal .mk.rev{background:transparent; box-shadow:inset 0 0 0 1.5px currentColor}
 
-  /* «Моя ТС» */
+  /* «Моя ТС»: решта телефонних правил розділу — у ts.css, блок .tsv */
   .ts-ways{grid-template-columns:1fr}
-  .ts-tf{grid-template-columns:1fr; gap:10px}
-  .ts-line{grid-template-columns:1fr; gap:4px}
-  .ts-mods{grid-template-columns:1fr}
-  .ts-no{grid-template-columns:1fr}
-  .ts-three{grid-template-columns:repeat(2,minmax(0,1fr)); gap:8px}
-  .ts-three .n{font-size:24px}
   .ts-cmp .r{grid-template-columns:1fr; gap:6px}
   .ts-cmp .v{text-align:left}
 

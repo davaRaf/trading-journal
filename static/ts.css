@@ -85,105 +85,11 @@
 .ts-why ul b{color:var(--text); font-weight:600}
 .ts-why .after{margin:18px 0 0; font-size:13px; color:var(--dim)}
 
-/* ---------- заповнена ТС ---------- */
-/* слоти під скрін трохи нижчі: інакше картка таймфрейму роздувається */
-.ts-tf .ts-shot .ph{height:88px}
-/* ---------- три рівні заголовків ----------
-   Було два рівні, набрані однаково: назва розділу («Ринок і час») і підзаголовок
-   усередині («Чим торгую») — обидва моно, капсом, 10.5px, кольором --dim, а
-   підзаголовок ще й жирніший за назву розділу. Око не бачило, де починається
-   розділ, а де блок усередині: усе читалось однією сірою стрічкою.
-
-   Тепер крок помітний на кожному рівні — розміром, накресленням і яскравістю:
-     назва розділу — 15px звичайним шрифтом, не капсом, кольором тексту;
-     підзаголовок  — 11.5px моно капсом, теж яскравий, із більшим повітрям зверху;
-     підпис рядка  — лишається 13px приглушеним.
-   Капс лишили тільки підзаголовку: він тримає зв'язок із рештою сайту. */
-:root[data-page="ts"] .card > h3{font-family:var(--sans); font-size:15px; font-weight:650;
-  letter-spacing:-.015em; text-transform:none; color:var(--text); padding:14px 16px}
+/* ---------- заповнена ТС: див. блок «tsv» унизу файлу ---------- */
 .ts-sub2{font-family:var(--mono); font-size:11.5px; font-weight:600; letter-spacing:.12em;
   text-transform:uppercase; color:var(--text); margin:30px 0 12px}
 .ts-sub2:first-child{margin-top:0}
-
-.ts-assets{display:flex; gap:8px; flex-wrap:wrap}
-.ts-assets b{font-family:var(--mono); font-size:14px; font-weight:500; padding:8px 15px;
-  border-radius:99px; background:var(--panel-2); border:1px solid var(--line);
-  color:var(--text); transition:border-color .15s}
-.ts-assets b:hover{border-color:color-mix(in srgb, var(--accent) 30%, var(--line))}
-
-.ts-lines{display:flex; flex-direction:column}
-.ts-line{display:grid; grid-template-columns:180px 1fr; gap:18px; align-items:start;
-  padding:13px 10px; margin:0 -10px; border-radius:var(--r-sm);
-  border-bottom:1px solid var(--line-soft); transition:background .15s}
-.ts-line:hover{background:var(--panel-2)}
-.ts-line:last-child{border-bottom:none}
-.ts-line>.k{font-size:13px; color:var(--dim); padding-top:3px}
-.ts-line>.v{font-size:14px; line-height:1.6; min-width:0; color:var(--text)}
-.ts-line>.v b{font-weight:600; color:var(--text)}
-.ts-line>.v span:not(.ts-ed){color:var(--dim); display:flex; flex-wrap:wrap;
-  align-items:baseline; gap:6px 14px; min-width:0}
 .ts-list{margin:0; padding-left:17px; display:flex; flex-direction:column; gap:6px; color:var(--text)}
-
-/* таймфрейми: кожен окремою карткою — рядки через лінійку зливались в одну стіну */
-.ts-tfs{display:flex; flex-direction:column; gap:10px}
-.ts-tf{display:grid; grid-template-columns:110px 1fr 180px; gap:18px; align-items:start;
-  padding:14px 16px; border:1px solid var(--line); border-radius:var(--r-sm);
-  background:var(--panel-2); transition:border-color .15s}
-.ts-tf:hover{border-color:color-mix(in srgb, var(--accent) 30%, var(--line))}
-.ts-tf .head{min-width:0}
-.ts-tf .n{font-family:var(--mono); font-size:26px; line-height:1}
-/* Підпис до списку стоїть над ним, у колонці опису. Був під таймфреймом,
-   набраний капсом у колонці 110px: довга фраза розсипалась по літері на
-   рядок і однаково не читалась. Тут це звичайний рядок — заголовок переліку. */
-.ts-tf .what .lead{font-size:13px; line-height:1.5; color:var(--dim); margin-bottom:7px}
-.ts-tf .what .lead .ts-ed{display:inline}
-/* під таймфреймом зазвичай перелік — зберігаємо переноси, інакше пункти
-   злипаються в один абзац і читати їх неможливо */
-.ts-tf .what{font-size:14px; color:var(--text); line-height:1.6; white-space:pre-wrap}
-
-/* цифри ризику: плитки, щоб число читалось як показник, а не як абзац */
-.ts-three{display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:10px}
-.ts-three>div{border:1px solid var(--line); border-radius:var(--r-sm); background:var(--panel-2);
-  padding:14px 16px; min-width:0}
-.ts-three .k{font-family:var(--mono); font-size:10.5px; letter-spacing:.11em;
-  text-transform:uppercase; color:var(--dim)}
-.ts-three .n{font-family:var(--mono); font-size:28px; line-height:1.1; margin-top:10px;
-  letter-spacing:-.02em; color:var(--text)}
-.ts-three .n.neg{color:var(--down)}
-
-/* моделі входу: назва, пояснення і приклад — в одній картці, а не купою тексту */
-.ts-mods{display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:12px}
-.ts-mod{display:flex; flex-direction:column; gap:9px; padding:14px; min-width:0;
-  border:1px solid var(--line); border-radius:var(--r-sm); background:var(--panel-2);
-  transition:border-color .15s}
-.ts-mod:hover{border-color:color-mix(in srgb, var(--accent) 30%, var(--line))}
-.ts-mod .nm{font-size:15px; font-weight:600; color:var(--text); flex:1; min-width:0}
-.ts-mod .note{font-size:13px; color:var(--dim); line-height:1.55}
-/* приклади до моделі: квадратні плитки, які додаються по одній, —
-   слот на всю ширину картки виглядав як велика порожня пляма */
-.ts-mod .ts-shots{margin-top:auto; gap:8px}
-.ts-mod .ts-shots .ts-shot.mini{width:84px; height:84px; flex:none}
-.ts-mod .ts-shot .ph{height:100%; box-sizing:border-box; gap:3px; font-size:10.5px;
-  line-height:1.25; padding:5px}
-.ts-mod .ts-shot .ph .ic{width:19px; height:19px}
-.ts-mod .ts-shot .ph em{display:none}          /* «файл · Ctrl+V» у квадрат не влазить */
-/* картинку розтягуємо по всій плитці: inset замість width/height, бо
-   слот — це ще й шар з підписом і кнопкою, і висота від них залежала */
-.ts-mod .ts-shot img{position:absolute; inset:0; width:100%; height:100%; object-fit:cover}
-.ts-mod .ts-shot .over{font-size:10.5px; padding:5px}
-
-/* коли не входжу: три причини поруч, кожна своєю колонкою */
-.ts-no{display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:12px}
-.ts-nocol{display:flex; flex-direction:column; padding:14px 16px; min-width:0;
-  border:1px solid var(--line); border-radius:var(--r-sm); background:var(--panel-2)}
-.ts-nocol .h{font-size:13px; font-weight:600; color:var(--text); margin-bottom:11px}
-.ts-nocol .ts-list{font-size:13.5px; line-height:1.55}
-.ts-nocol .none{margin:0; font-size:13px; color:var(--dim)}
-.ts-nocol .ts-add{margin-top:12px}
-
-/* нагадування собі */
-.ts-said{padding:15px 17px; border-radius:var(--r-sm); background:var(--panel-2);
-  border-left:2px solid var(--accent); font-size:14px; line-height:1.6; color:var(--text)}
 
 /* чек-лист */
 /* Перелік правил, а не робочий чек-лист на угоду: квадратики й лічильник
@@ -242,12 +148,6 @@
 /* багаторядкове порожнє поле тягнемо на всю ширину — інакше «+ заповнити»
    висить дрібним хвостиком у широкій колонці й губиться */
 .ts-ed.multi.blank{display:flex; width:100%; box-sizing:border-box; padding:8px 11px}
-/* у плитці інструмента рамка вже є — друга лінія зайва */
-.ts-assets .ts-ed{border-bottom:none}
-.ts-assets .ts-ed:hover{box-shadow:none}
-.ts-assets .ts-ed.blank{border:none; padding:0; margin:0}
-/* у великих цифрах підказка «+ заповнити» не має бути 32-м кеглем */
-.ts-three .n .ts-ed.blank, .ts-tf .n .ts-ed.blank{font-size:15px; letter-spacing:0}
 .ts-in{width:100%; box-sizing:border-box; background:var(--panel-2); color:var(--text);
   border:1px solid color-mix(in srgb, var(--accent) 55%, transparent); border-radius:6px;
   padding:1px 5px; margin:0 0 0 -6px; font:inherit; line-height:inherit; cursor:text;
@@ -267,7 +167,7 @@ textarea.ts-in{resize:none; overflow:auto; display:block; max-height:50vh;
 .ts-x{flex:none; border:0; background:transparent; color:var(--dim); font:inherit;
   font-size:16px; line-height:1; cursor:pointer; padding:2px 6px; opacity:0;
   transition:opacity .15s, color .15s}
-.ts-line:hover .ts-x, .ts-row:hover .ts-x, .ts-tf:hover .ts-x{opacity:1}
+.ts-row:hover .ts-x{opacity:1}
 .ts-x:focus-visible{opacity:1; outline:2px solid var(--accent); outline-offset:1px}
 .ts-x:hover{color:var(--down)}
 /* «+ додати» має читатись як дія, а не як сірий службовий напис */
@@ -394,27 +294,9 @@ textarea.ts-ask-inp{min-height:116px; resize:vertical}
 .ts-done-l div:last-child{border-bottom:none}
 .ts-done-l .k{color:var(--dim); font-size:13px}
 
-@media (max-width:1000px){
-  .ts-mods{grid-template-columns:repeat(2,minmax(0,1fr))}
-  .ts-no{grid-template-columns:1fr}
-  .ts-three{grid-template-columns:repeat(2,minmax(0,1fr))}
-}
 @media (max-width:860px){
   .ts-ways{grid-template-columns:1fr}
-  .ts-mods{grid-template-columns:1fr}
-  .ts-tf{grid-template-columns:1fr; gap:11px}
-  .ts-line{grid-template-columns:1fr; gap:4px}
 }
-
-/* ×  біля інструмента: у плитці немає рядка-батька, тримаємо ховер на ній самій */
-.ts-assets b:hover .ts-x{opacity:1}
-
-/* підказка під заголовком: інакше не видно, що все тут правиться.
-   Раніше була сірим рядком і зливалась із текстом — тепер плашка */
-.ts-tip{font-size:13px; color:var(--dim); margin:2px 0 20px; line-height:1.55;
-  padding:11px 14px; border-radius:var(--r-sm); background:var(--panel-2);
-  border-left:2px solid color-mix(in srgb, var(--accent) 55%, transparent)}
-.ts-tip b{color:var(--text); font-weight:600}
 
 /* ---------- опитувальник: прибрати варіант з підказок ---------- */
 .ts-optw{position:relative; display:inline-flex}
@@ -433,3 +315,186 @@ textarea.ts-ask-inp{min-height:116px; resize:vertical}
 .ts-optundo{border:1px dashed var(--line); background:none; color:var(--faint); border-radius:10px;
   padding:9px 12px; font-size:12.5px; cursor:pointer}
 .ts-optundo:hover{color:var(--accent); border-color:var(--accent)}
+
+/* ============================================================
+   Заповнена ТС: паспорт + вкладки (варіант B, 18.09.2026).
+   .tsv — корінь розділу; .editing на ньому вмикає режим правки.
+   ============================================================ */
+.tsv-head{margin-bottom:6px}
+.tsv-btn{height:38px; padding:0 14px; border-radius:10px; border:1px solid var(--line);
+  background:var(--panel); color:var(--text); font:inherit; font-size:14px; font-weight:500;
+  display:inline-flex; align-items:center; gap:7px; cursor:pointer; white-space:nowrap;
+  transition:border-color .15s, background .15s, filter .15s}
+.tsv-btn:hover{border-color:var(--faint)}
+.tsv-btn svg{width:16px; height:16px; flex:none}
+.tsv-btn.pri{background:var(--accent); border-color:var(--accent); color:var(--accent-ink)}
+.tsv-btn.pri:hover{filter:brightness(1.08)}
+.tsv-btn.ic{width:38px; padding:0; justify-content:center}
+.tsv-btn:focus-visible, .tsv-tabs button:focus-visible, .tsv-menu button:focus-visible{
+  outline:2px solid var(--accent); outline-offset:2px}
+
+/* меню «⋯»: опитування, видалення (і «Поділитись» на телефоні) */
+.tsv-more{position:relative; display:inline-flex}
+.tsv-menu{position:absolute; right:0; top:calc(100% + 6px); z-index:30; min-width:220px;
+  background:var(--panel); border:1px solid var(--line); border-radius:12px; padding:6px;
+  box-shadow:0 12px 32px -12px rgba(0,0,0,.28); display:flex; flex-direction:column;
+  animation:tsvPop .14s ease-out}
+@keyframes tsvPop{from{opacity:0; transform:translateY(-4px)}}
+.tsv-menu button{border:0; background:none; color:var(--text); font:inherit; font-size:14px;
+  text-align:left; padding:10px 12px; border-radius:8px; cursor:pointer}
+.tsv-menu button:hover{background:var(--panel-2)}
+.tsv-menu button.danger{color:var(--down)}
+.tsv-menu .m-share{display:none}
+
+.tsv-editbar{display:flex; align-items:center; gap:14px; margin:14px 0 4px; padding:11px 12px 11px 16px;
+  border-radius:12px; background:var(--accent-soft); font-size:13.5px; line-height:1.5; color:var(--dim)}
+.tsv-editbar p{margin:0; flex:1}
+.tsv-editbar b{color:var(--text); font-weight:600}
+
+.tsv-card{background:var(--card); border:1px solid var(--line); border-radius:var(--r);
+  box-shadow:var(--shadow); padding:18px 20px; min-width:0}
+.tsv-card h3{margin:0 0 10px; padding:0; border:0; font-family:var(--sans); font-size:15px;
+  font-weight:650; letter-spacing:-.01em; text-transform:none; color:var(--text)}
+.tsv-gap{margin-top:14px}
+.tsv-lab{font-family:var(--mono); font-size:10.5px; font-weight:500; letter-spacing:.11em;
+  text-transform:uppercase; color:var(--dim)}
+.tsv-subh{font-size:13px; font-weight:600; color:var(--dim); margin:28px 0 10px}
+.tsv-subh:first-child{margin-top:0}
+.tsv-none{font-size:13px; color:var(--faint); margin:0}
+
+/* ---- паспорт ---- */
+.tsv-pass{display:grid; grid-template-columns:minmax(0,1.5fr) minmax(0,1.25fr) repeat(4,minmax(0,.8fr));
+  margin-top:18px; background:var(--card); border:1px solid var(--line); border-radius:var(--r);
+  box-shadow:var(--shadow)}
+.tsv-pc{padding:15px 18px; min-width:0; border-left:1px solid var(--line-soft)}
+.tsv-pc:first-child{border-left:0}
+.tsv-chips{display:flex; flex-wrap:wrap; gap:6px; margin-top:9px; align-items:center}
+.tsv-chip{display:inline-flex; align-items:center; font-family:var(--mono); font-size:13px;
+  padding:4px 6px 4px 11px; border-radius:99px; background:var(--panel-2); border:1px solid var(--line)}
+.tsv:not(.editing) .tsv-chip{padding-right:11px}
+.tsv-chip .ts-ed{border-bottom:0}
+.tsv-chip .ts-x{padding:0 4px; font-size:14px}
+.tsv-chips .ts-add{margin-top:0; padding:4px 11px}
+.tsv-wins{display:flex; flex-direction:column; gap:3px; margin-top:9px; font-size:13.5px;
+  line-height:1.45; color:var(--dim)}
+.tsv-wins b{color:var(--text); font-weight:600}
+.tsv-big{font-family:var(--mono); font-size:24px; font-weight:500; letter-spacing:-.02em;
+  line-height:1.1; margin-top:9px; color:var(--text)}
+.tsv-big small{font-family:var(--sans); font-size:12.5px; letter-spacing:0; color:var(--dim);
+  margin-left:5px}
+.tsv-big.s{font-size:16px; margin-top:5px}
+.tsv-big .ts-ed.blank, .tsv-wins .ts-ed.blank{font-size:13px; letter-spacing:0; font-family:var(--sans)}
+
+/* ---- вкладки ---- */
+.tsv-tabs{display:flex; gap:26px; border-bottom:1px solid var(--line); margin:26px 0 20px;
+  overflow-x:auto; scrollbar-width:none}
+.tsv-tabs::-webkit-scrollbar{display:none}
+.tsv-tabs button{flex:none; border:0; background:none; font:inherit; font-size:14.5px; color:var(--dim);
+  padding:4px 0 12px; margin-bottom:-1px; border-bottom:2px solid transparent; cursor:pointer;
+  white-space:nowrap; transition:color .15s, border-color .15s}
+.tsv-tabs button:hover{color:var(--text)}
+.tsv-tabs button.on{color:var(--text); font-weight:600; border-bottom-color:var(--text)}
+.tsv-panel{animation:tsvIn .2s ease-out}
+@keyframes tsvIn{from{opacity:0; transform:translateY(4px)}}
+@media (prefers-reduced-motion:reduce){ .tsv-panel, .tsv-menu{animation:none} }
+
+/* ---- «Перед входом» ---- */
+.tsv-two{display:grid; grid-template-columns:minmax(0,1.15fr) minmax(0,1fr); gap:14px; align-items:start}
+.tsv-nogo{display:flex; flex-direction:column; gap:16px}
+.tsv-nog .h{font-size:13px; font-weight:600; color:var(--text); margin-bottom:6px}
+.tsv-nog .ts-list{font-size:14px; line-height:1.55}
+.tsv-nog .ts-add{margin-top:8px}
+.tsv-quote{margin-top:16px; padding:13px 15px; border-radius:var(--r-sm); background:var(--panel-2);
+  font-size:14px; line-height:1.55; color:var(--text)}
+.tsv-quote .tsv-lab{margin-bottom:6px}
+.tsv-kv{display:grid; grid-template-columns:200px minmax(0,1fr); gap:16px; padding:11px 0;
+  border-bottom:1px solid var(--line-soft); font-size:14px; line-height:1.55}
+.tsv-kv:last-of-type{border-bottom:0}
+.tsv-kv>.k{font-weight:600; color:var(--text)}
+.tsv-kv>.v{min-width:0; color:var(--text)}
+.tsv-kv .v span:not(.ts-ed){display:flex; flex-wrap:wrap; align-items:baseline; gap:4px 12px; color:var(--dim)}
+
+/* ---- «Як входжу» ---- */
+.tsv-tfs{display:grid; grid-template-columns:repeat(auto-fill,minmax(250px,1fr)); gap:12px}
+.tsv-tf{display:flex; flex-direction:column}
+.tsv-tfh{display:flex; align-items:center; gap:8px}
+.tsv-tfh .n{font-family:var(--mono); font-size:24px; line-height:1.1; flex:1; min-width:0}
+.tsv-tfh .n .ts-ed.blank{font-size:13px; font-family:var(--sans)}
+.tsv-tf .what{margin-top:8px; font-size:14px; line-height:1.6; color:var(--text); white-space:pre-wrap; flex:1}
+.tsv-tf .role{font-size:13px; color:var(--dim); margin-bottom:5px; white-space:normal}
+.tsv-tf .ts-shot{margin-top:12px}
+.tsv-tf .ts-shot .ph{height:88px}
+
+.tsv-mods{display:grid; grid-template-columns:repeat(auto-fill,minmax(260px,1fr)); gap:12px}
+.tsv-mod{display:flex; flex-direction:column; gap:8px}
+.tsv-mod .nm{font-size:15px; font-weight:600; color:var(--text); flex:1; min-width:0}
+.tsv-mod .note{font-size:13.5px; color:var(--dim); line-height:1.55}
+/* приклади входу: плитки по дві в ряд — роздивитись графік у квадраті 84px не виходило */
+.tsv-mod .ts-shots{display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:8px; margin-top:auto; padding-top:4px}
+.tsv-mod .ts-shots .ts-shot.mini{width:auto; height:96px}
+.tsv-mod .ts-shot img, .tsv-rules .ts-shot img{position:absolute; inset:0; width:100%; height:100%; object-fit:cover}
+.tsv-mod .ts-shot .ph, .tsv-rules .ts-shot .ph{height:100%; box-sizing:border-box; gap:3px; font-size:11px; padding:5px}
+.tsv-mod .ts-shot .ph em, .tsv-rules .ts-shot .ph em{display:none}
+.tsv-rules{display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:12px}
+.tsv-rules .v{margin-top:8px; font-size:14px; line-height:1.6; color:var(--text)}
+.tsv-rules .ts-shots .ts-shot.mini{width:100%; height:110px}
+
+.tsv-score{display:flex; align-items:baseline; gap:10px; margin:2px 0 8px}
+.tsv-score b{font-family:var(--mono); font-size:30px; font-weight:500; letter-spacing:-.02em}
+.tsv-score span{font-size:13.5px; color:var(--dim)}
+
+/* ---- звичайний вигляд: без слідів редактора ----
+   Пунктири, «+ додати», хрестики й порожні слоти — лише в режимі правки.
+   Порожнє коротке поле показуємо тире, порожній текст ховаємо зовсім. */
+.tsv:not(.editing) .ts-add,
+.tsv:not(.editing) .ts-x,
+.tsv:not(.editing) .ts-shot:not(.has),
+.tsv:not(.editing) .ts-shot .rp,
+.tsv:not(.editing) .ts-shot .rm{display:none}
+.tsv:not(.editing) .ts-ed{cursor:auto; border-bottom-color:transparent; padding:0; margin:0}
+.tsv:not(.editing) .ts-ed:hover{background:none; box-shadow:none}
+.tsv:not(.editing) .ts-ed.blank{border:0; padding:0; font-size:0; gap:0}
+.tsv:not(.editing) .ts-ed.blank::before{content:"—"; font-size:14px; color:var(--faint); opacity:1}
+.tsv:not(.editing) .ts-ed.multi.blank{display:none}
+/* у правці хрестики видно одразу: на тачі ховера немає */
+.tsv.editing .ts-x{opacity:.55}
+.tsv.editing .ts-x:hover{opacity:1}
+
+@media (max-width:1100px){
+  .tsv-pass{grid-template-columns:repeat(4,minmax(0,1fr))}
+  .tsv-pc.wide{grid-column:span 2}
+  .tsv-pc:nth-child(n+3){border-top:1px solid var(--line-soft)}
+  .tsv-pc:nth-child(3){border-left:0}
+}
+@media (max-width:900px){
+  .vhead.tsv-head .right{width:auto; margin-left:auto; flex-wrap:nowrap}
+  .tsv-btn{height:44px}
+  .tsv-btn.ic{width:44px}
+  .tsv-btn.share{display:none}
+  .tsv-menu .m-share{display:block}
+  /* «Готово» вже є вгорі, біля заголовка — на вузькому екрані друга така кнопка зайва */
+  .tsv-editbar .tsv-btn{display:none}
+  .tsv-pass{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .tsv-pc.wide{grid-column:span 2}
+  .tsv-pc{border-left:0; border-top:1px solid var(--line-soft)}
+  .tsv-pc:first-child{border-top:0}
+  .tsv-pc:nth-child(4), .tsv-pc:nth-child(6){border-left:1px solid var(--line-soft)}
+  .tsv-tabs{gap:22px; margin:22px -10px 16px; padding:0 10px}
+  .tsv-two, .tsv-rules{grid-template-columns:minmax(0,1fr)}
+  .tsv-kv{grid-template-columns:minmax(0,1fr); gap:3px}
+  .tsv-card{padding:16px}
+  /* таймфрейм на телефоні: скрін праворуч від тексту, а не під ним */
+  .tsv-tfs{grid-template-columns:minmax(0,1fr)}
+  .tsv-tf.sh{display:grid; grid-template-columns:minmax(0,1fr) 112px; column-gap:12px; align-content:start}
+  .tsv-tf.sh .tsv-tfh, .tsv-tf.sh .what{grid-column:1}
+  .tsv-tf.sh .ts-shot{grid-column:2; grid-row:1 / span 2; margin:0; height:84px}
+  .tsv-tf.sh .ts-shot img{position:absolute; inset:0; width:100%; height:100%; object-fit:cover}
+  .tsv-tf.sh .ts-shot .ph{height:100%; box-sizing:border-box; font-size:11px; gap:3px; padding:4px}
+  .tsv-tf.sh .ts-shot .ph em{display:none}
+  /* моделі, сетапи, супровід — гортаються пальцем убік, а не тягнуть сторінку вниз */
+  .tsv-mods{display:flex; overflow-x:auto; gap:10px; margin:0 -10px; padding:0 10px 6px;
+    scroll-snap-type:x mandatory; scrollbar-width:none}
+  .tsv-mods::-webkit-scrollbar{display:none}
+  .tsv-mods > .tsv-mod{flex:0 0 84%; scroll-snap-align:start}
+  .tsv-mods > .tsv-mod:only-child{flex-basis:100%}
+}

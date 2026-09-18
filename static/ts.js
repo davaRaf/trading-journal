@@ -219,183 +219,192 @@ function urlFields(){
   return h;
 }
 
-/* ================= заповнена ТС ================= */
-function card(title, inner, extra){
-  return '<div class="card"><h3>' + esc(title) + (extra || "") + '</h3><div class="in">'
-    + inner + "</div></div>";
-}
+/* ================= заповнена ТС =================
+   Паспорт зверху + вкладки (варіант B, 18.09.2026). Раніше тут стояли дев'ять
+   карток підряд, і найпотрібніше перед угодою — чек-лист і «коли не входжу» —
+   лежало в самому низу. Тепер ключові цифри завжди на виду, а решта розкладена
+   по п'яти вкладках: на екрані одна тема за раз.
 
-function secMarket(){
+   Два режими. Звичайний — для читання: без пунктирів, порожніх полів і кнопок
+   «+ додати», саме вони й робили сторінку «напханою». Кнопка «Редагувати»
+   вмикає правку — і все це з'являється. Дані ТС ті самі, що й були: змінилась
+   лише подача, тож старі стратегії відкриваються без жодного перенесення. */
+let editing = false;
+let menuOpen = false;
+const TAB_KEY = "tj_ts_tab";
+const TABS = ["before", "entry", "risk", "real", "extra"];
+let tab = (() => {
+  try{ const t = localStorage.getItem(TAB_KEY); return TABS.indexOf(t) >= 0 ? t : "before"; }
+  catch(e){ return "before"; }
+})();
+
+const PEN_IC = '<svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M4 20h4L19 9l-4-4L4 16v4z" '
+  + 'stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"/></svg>';
+const DONE_IC = '<svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5" '
+  + 'stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+const SHARE_IC = '<svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M12 15V4M7 9l5-5 5 5M5 14v4a2 2 0 002 2h10a2 2 0 002-2v-4" '
+  + 'stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+const DOTS_IC = '<svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><circle cx="5" cy="12" r="1.7" fill="currentColor"/>'
+  + '<circle cx="12" cy="12" r="1.7" fill="currentColor"/><circle cx="19" cy="12" r="1.7" fill="currentColor"/></svg>';
+
+function card(title, inner, cls){
+  return '<div class="tsv-card' + (cls ? " " + cls : "") + '">'
+    + (title ? "<h3>" + esc(title) + "</h3>" : "") + inner + "</div>";
+}
+function lab(t){ return '<div class="tsv-lab">' + esc(t) + "</div>"; }
+function subh(t){ return '<p class="tsv-subh">' + esc(t) + "</p>"; }
+function none(t){ return '<div class="empty">' + esc(t) + "</div>"; }
+
+/* ---------- паспорт: цифри, які мають бути на виду завжди ---------- */
+function passport(){
   const d = D();
-  const assets = (TS.assets || []);
-  let h = '<p class="ts-sub2">' + esc(d.lAssets) + "</p>";
-  h += '<div class="ts-assets">'
-    + assets.map((a, i) => "<b>" + ed("assets." + i) + x("assets", i) + "</b>").join("")
-    + "</div>" + add("assets", d.addAsset);
-
-  h += '<p class="ts-sub2">' + esc(d.lWindows) + '</p><div class="ts-lines">'
-    + (TS.windows || []).map((w, i) =>
-        '<div class="ts-line"><div class="k">' + ed("windows." + i + ".name") + "</div>"
-        + '<div class="v"><div class="ts-row"><span><b>' + ed("windows." + i + ".time", "", d.emptyTime)
-        + "</b> " + ed("windows." + i + ".note", "", d.emptyNote) + "</span>"
-        + x("windows", i) + "</div></div></div>").join("")
-    + "</div>" + add("windows", d.addWindow);
-
-  h += '<p class="ts-sub2">' + esc(d.lDaysNews) + '</p><div class="ts-lines">'
-    + '<div class="ts-line"><div class="k">' + esc(d.lTradeDays) + "</div>"
-    +   '<div class="v">' + ed("days") + "</div></div>"
-    + '<div class="ts-line"><div class="k">' + esc(d.lRedNews) + "</div>"
-    +   '<div class="v">' + ed("news") + "</div></div></div>";
-  return h;
+  const assets = TS.assets || [];
+  const wins = TS.windows || [];
+  const cell = (label, inner, cls) => '<div class="tsv-pc' + (cls ? " " + cls : "") + '">' + lab(label) + inner + "</div>";
+  return '<div class="tsv-pass">'
+    + cell(d.lAssets, '<div class="tsv-chips">'
+        + assets.map((a, i) => '<span class="tsv-chip">' + ed("assets." + i) + x("assets", i) + "</span>").join("")
+        + (assets.length ? "" : '<span class="tsv-none">' + esc(d.noneYet) + "</span>")
+        + add("assets", d.addAsset) + "</div>", "wide")
+    + cell(d.lWindows, '<div class="tsv-wins">'
+        + wins.map((w, i) => "<div><b>" + ed("windows." + i + ".name", "", d.emptyName) + "</b> "
+            + ed("windows." + i + ".time", "", d.emptyTime) + "</div>").join("")
+        + (wins.length ? "" : '<span class="tsv-none">' + esc(d.noneYet) + "</span>") + "</div>", "wide")
+    + cell(d.pRisk, '<div class="tsv-big">' + ed("risk.per") + "</div>")
+    + cell(d.pRr, '<div class="tsv-big">' + ed("risk.rr") + "</div>")
+    /* тижневий ліміт є не в кожного — порожній рядок «— тиждень» тільки заважав би */
+    + cell(d.lLimits, '<div class="tsv-big">' + ed("risk.day") + "<small>" + esc(d.wDay) + "</small></div>"
+        + ((get("risk.week") || editing)
+            ? '<div class="tsv-big s">' + ed("risk.week") + "<small>" + esc(d.wWeek) + "</small></div>" : ""))
+    + cell(d.pMax, '<div class="tsv-big">' + ed("maxtrades") + "</div>")
+    + "</div>";
 }
 
-function secTf(){
+/* ---------- вкладка «Перед входом» ---------- */
+function secCheck(){
   const d = D();
-  const rows = (TS.tfs || []).map((r, i) =>
-    /* Під самим таймфреймом — нічого: підпис до списку («якщо відкриття
-       місяця, я заходжу подивитись…») стоїть над списком, у колонці опису.
-       Він і читається як заголовок переліку, а не як бирка збоку, і його
-       більше не тре в вузьку колонку по літері. */
-    '<div class="ts-tf"><div class="head"><div class="n">' + ed("tfs." + i + ".tf", "", d.emptyTf) + "</div></div>"
-    + '<div class="what"><div class="lead">' + ed("tfs." + i + ".role", "", d.emptyRole) + "</div>"
-    + '<div class="ts-row">' + edArea("tfs." + i + ".what", d.emptyWhat)
-    + x("tfs", i) + "</div></div>"
-    + shot("tfs." + i + ".shot") + "</div>").join("");
-  return (rows ? '<div class="ts-tfs">' + rows + "</div>"
-               : '<div class="empty">' + esc(d.noTfs) + "</div>") + add("tfs", d.addTf);
-}
-
-/* Моделі входу й сетапи показуються однаково: назва, опис і приклади входів
-   картинками. Різниця лише в тому, що трейдер вкладає в ці слова, тож малює
-   їх один код — і виправляти вигляд треба в одному місці. */
-function namedCards(path, list, d, none){
+  const list = TS.check || [];
+  /* Просто перелік правил — тим самим виглядом, що й у спільному посиланні.
+     Галочок і лічильника «0 / 1» тут немає: «Моя ТС» описує систему, а не
+     веде окрему угоду. */
   return (list.length
-    ? '<div class="ts-mods">' + list.map((m, i) =>
-        '<div class="ts-mod"><div class="ts-row"><b class="nm">'
-        + ed(path + "." + i + ".name", "", d.emptyName) + "</b>" + x(path, i) + "</div>"
-        + '<div class="note">' + edArea(path + "." + i + ".note", d.emptyNote) + "</div>"
-        + '<div class="ts-shots">'
-        +   (m.shots || []).map((f, j) =>
-              shot(path + "." + i + ".shots." + j, d.shotExample, true)).join("")
-        +   shot(path + "." + i + ".shots." + (m.shots || []).length,
-                 (m.shots || []).length ? d.shotAddShort : d.shotExample, true)
-        + "</div></div>").join("") + "</div>"
-    : '<div class="empty">' + esc(none) + "</div>");
-}
-
-function secEntry(){
-  const d = D();
-  let h = '<p class="ts-sub2">' + esc(d.lModels) + "</p>"
-    + namedCards("models", TS.models || [], d, d.noModels)
-    + add("models", d.addModel);
-
-  h += '<p class="ts-sub2">' + esc(d.lSetups) + "</p>"
-    + namedCards("setups", TS.setups || [], d, d.noSetups)
-    + add("setups", d.addSetup);
-
-  h += '<p class="ts-sub2">' + esc(d.lRules) + '</p><div class="ts-lines">'
-    + '<div class="ts-line"><div class="k">' + esc(d.lBias) + '</div><div class="v">'
-    +   edArea("bias") + "</div></div>"
-    + '<div class="ts-line"><div class="k">' + esc(d.lStop) + '</div><div class="v">'
-    +   edArea("stop.v") + '<div class="ts-shots">' + shot("stop.shot", d.shotHow, true) + "</div></div></div>"
-    + '<div class="ts-line"><div class="k">' + esc(d.lTarget) + '</div><div class="v">'
-    +   edArea("target.v") + '<div class="ts-shots">' + shot("target.shot", d.shotHow, true) + "</div></div></div>"
-    + '<div class="ts-line"><div class="k">' + esc(d.lMaxTrades) + '</div><div class="v"><b>'
-    +   ed("maxtrades") + "</b></div></div>"
-    + "</div>";
-  return h;
-}
-
-function secRisk(){
-  const d = D();
-  const cell = (k, p) => '<div><div class="k">' + esc(k) + '</div><div class="n">' + ed(p) + "</div></div>";
-  let h = '<div class="ts-three">'
-    + cell(d.lRrMin, "risk.rr") + cell(d.lRiskPer, "risk.per")
-    + cell(d.lDayLimit, "risk.day") + cell(d.lWeekLimit, "risk.week")
-    + "</div>";
-  h += '<p class="ts-sub2">' + esc(d.lRiskCases) + '</p><div class="ts-lines">'
-    + (TS.riskCases || []).map((c, i) =>
-        '<div class="ts-line"><div class="k">' + ed("riskCases." + i + ".k") + "</div>"
-        + '<div class="v"><div class="ts-row">' + edArea("riskCases." + i + ".v")
-        + x("riskCases", i) + "</div></div></div>").join("")
-    + "</div>" + add("riskCases", d.addCase);
-  return h;
-}
-
-function secManage(){
-  const d = D();
-  return '<div class="ts-lines">'
-    + (TS.manage || []).map((m, i) => {
-        const shots = (m.shots || []);
-        return '<div class="ts-line"><div class="k">' + ed("manage." + i + ".k", "", d.emptyRule) + "</div>"
-          + '<div class="v"><div class="ts-row">' + edArea("manage." + i + ".v") + x("manage", i) + "</div>"
-          + '<div class="ts-shots">'
-          +   shots.map((f, j) => shot("manage." + i + ".shots." + j, d.shotHow, true)).join("")
-          +   shot("manage." + i + ".shots." + shots.length, d.shotAddShort, true)
-          + "</div></div></div>";
-      }).join("")
-    + "</div>" + add("manage", d.addRule);
+      ? '<div class="ts-q">' + list.map((c, i) =>
+          '<div class="ts-qi"><i>' + String(i + 1).padStart(2, "0") + "</i>"
+          + '<span class="t"><div class="ts-row">' + edArea("check." + i) + x("check", i)
+          + "</div></span></div>").join("") + "</div>"
+      : none(d.noCheck))
+    + add("check", d.addCheck);
 }
 
 function secNo(){
   const d = D();
   const col = (key, label) => {
     const items = ((TS.no && TS.no[key]) || []);
-    return '<div class="ts-nocol"><div class="h">' + esc(label) + "</div>"
+    return '<div class="tsv-nog"><div class="h">' + esc(label) + "</div>"
       + (items.length
           ? '<ul class="ts-list">' + items.map((v, i) =>
               '<li><div class="ts-row">' + edArea("no." + key + "." + i) + x("no." + key, i)
               + "</div></li>").join("") + "</ul>"
-          : '<p class="none">' + esc(d.noneYet) + "</p>")
+          : '<p class="tsv-none">' + esc(d.noneYet) + "</p>")
       + add("no." + key, d.addLine) + "</div>";
   };
-  let h = '<div class="ts-no">' + col("market", d.lNoMarket) + col("time", d.lNoTime)
-    + col("self", d.lNoSelf) + "</div>";
-  h += '<p class="ts-sub2">' + esc(d.lMind) + '</p><div class="ts-said">'
-    + edArea("mind", d.emptyMind) + "</div>";
-  return h;
+  const mind = get("mind");
+  return '<div class="tsv-nogo">' + col("market", d.lNoMarket) + col("time", d.lNoTime)
+    + col("self", d.lNoSelf) + "</div>"
+    + ((mind || editing)
+        ? '<div class="tsv-quote">' + lab(d.lMind) + edArea("mind", d.emptyMind) + "</div>" : "");
 }
 
-/* Вільний розділ: усе, що не лягло в готові поля. Влаштований як
-   «Супровід угоди» — заголовок, текст і скріни, — бо це найзручніша
-   форма для довільного правила. */
-function secExtra(){
+/* вікна з поясненнями, дні й новини — «коли я взагалі сідаю торгувати» */
+function secWhen(){
   const d = D();
-  const list = TS.extra || [];
-  return '<div class="ts-lines">'
-    + list.map((m, i) => {
-        const shots = (m.shots || []);
-        return '<div class="ts-line"><div class="k">' + ed("extra." + i + ".k", "", d.emptyExtraK) + "</div>"
-          + '<div class="v"><div class="ts-row">' + edArea("extra." + i + ".v", d.emptyExtraV)
-          + x("extra", i) + "</div>"
-          + '<div class="ts-shots">'
-          +   shots.map((f, j) => shot("extra." + i + ".shots." + j, d.shotHow, true)).join("")
-          +   shot("extra." + i + ".shots." + shots.length, d.shotAddShort, true)
-          + "</div></div></div>";
-      }).join("")
-    + "</div>"
-    + (list.length ? "" : '<div class="empty">' + esc(d.noExtra) + "</div>")
-    + add("extra", d.addExtra);
+  const row = (k, v) => '<div class="tsv-kv"><div class="k">' + k + '</div><div class="v">' + v + "</div></div>";
+  return row(esc(d.lTradeDays), ed("days")) + row(esc(d.lRedNews), ed("news"))
+    + (TS.windows || []).map((w, i) => row(ed("windows." + i + ".name", "", d.emptyName),
+        '<div class="ts-row"><span><b>' + ed("windows." + i + ".time", "", d.emptyTime) + "</b> "
+        + ed("windows." + i + ".note", "", d.emptyNote) + "</span>" + x("windows", i) + "</div>")).join("")
+    + add("windows", d.addWindow);
 }
 
-function secCheck(){
+function tabBefore(){
   const d = D();
-  const list = TS.check || [];
-  if (!list.length) return '<div class="empty">' + esc(d.noCheck) + "</div>" + add("check", d.addCheck);
-  /* Просто перелік правил — тим самим виглядом, що й у спільному посиланні.
-     Галочки й лічильник «0 / 1» звідси прибрані: «Моя ТС» описує систему, а не
-     веде окрему угоду. Відмітка однаково нікуди не зберігалась і зникала на
-     першому ж оновленні сторінки. */
-  return '<div class="ts-q">'
-    + list.map((c, i) =>
-        '<div class="ts-qi"><i>' + String(i + 1).padStart(2, "0") + "</i>"
-        + '<span class="t"><div class="ts-row">' + edArea("check." + i) + x("check", i)
-        + "</div></span></div>").join("")
-    + "</div>"
-    + add("check", d.addCheck);
+  return '<div class="tsv-two">' + card(d.secCheck, secCheck()) + card(d.secNo, secNo()) + "</div>"
+    + card(d.secWhen, secWhen(), "tsv-gap");
 }
 
-/* ---------- звірка з журналом ---------- */
+/* ---------- вкладка «Як входжу» ---------- */
+function secTf(){
+  const d = D();
+  const list = TS.tfs || [];
+  /* Підпис до списку («якщо відкриття місяця, я заходжу подивитись…») стоїть
+     окремим рядком над описом: це заголовок переліку, а не бирка збоку. */
+  const rows = list.map((r, i) =>
+    '<div class="tsv-card tsv-tf' + ((r.shot || editing) ? " sh" : "") + '">'
+    + '<div class="tsv-tfh"><span class="n">' + ed("tfs." + i + ".tf", "", d.emptyTf) + "</span>" + x("tfs", i) + "</div>"
+    + '<div class="what"><div class="role">' + ed("tfs." + i + ".role", "", d.emptyRole) + "</div>"
+    + edArea("tfs." + i + ".what", d.emptyWhat) + "</div>"
+    + shot("tfs." + i + ".shot") + "</div>").join("");
+  return (rows ? '<div class="tsv-tfs">' + rows + "</div>" : none(d.noTfs)) + add("tfs", d.addTf);
+}
+
+/* Моделі входу, сетапи, супровід і «Додатково» — однакові картки: назва,
+   пояснення і скріни. Малює їх один код, тож і виправляти вигляд — в одному
+   місці. kk/vk — як у цьому списку звуться поля назви й тексту. */
+function tiles(path, kk, vk, o){
+  const d = D();
+  const list = get(path) || [];
+  if (!list.length) return none(o.none) + add(path, o.add);
+  return '<div class="tsv-mods">' + list.map((m, i) => {
+      const p = path + "." + i;
+      const shots = m.shots || [];
+      return '<div class="tsv-card tsv-mod"><div class="ts-row"><b class="nm">'
+        + ed(p + "." + kk, "", o.phK) + "</b>" + x(path, i) + "</div>"
+        + '<div class="note">' + edArea(p + "." + vk, o.phV) + "</div>"
+        + '<div class="ts-shots">'
+        +   shots.map((f, j) => shot(p + ".shots." + j, o.shot, true)).join("")
+        +   shot(p + ".shots." + shots.length, shots.length ? d.shotAddShort : o.shot, true)
+        + "</div></div>";
+    }).join("") + "</div>" + add(path, o.add);
+}
+
+function secRules(){
+  const d = D();
+  const one = (label, path, shotPath) => card("", lab(label) + '<div class="v">' + edArea(path) + "</div>"
+    + (shotPath ? '<div class="ts-shots">' + shot(shotPath, d.shotHow, true) + "</div>" : ""));
+  return '<div class="tsv-rules">' + one(d.lBias, "bias") + one(d.lStop, "stop.v", "stop.shot")
+    + one(d.lTarget, "target.v", "target.shot") + "</div>";
+}
+
+function tabEntry(){
+  const d = D();
+  return subh(d.secTf) + secTf()
+    + subh(d.lModels) + tiles("models", "name", "note",
+        {none: d.noModels, add: d.addModel, phK: d.emptyName, phV: d.emptyNote, shot: d.shotExample})
+    + subh(d.lSetups) + tiles("setups", "name", "note",
+        {none: d.noSetups, add: d.addSetup, phK: d.emptyName, phV: d.emptyNote, shot: d.shotExample})
+    + subh(d.lRules) + secRules();
+}
+
+/* ---------- вкладка «Ризик і супровід» ---------- */
+function secCases(){
+  const d = D();
+  const list = TS.riskCases || [];
+  return card("", (list.length
+      ? list.map((c, i) => '<div class="tsv-kv"><div class="k">' + ed("riskCases." + i + ".k") + "</div>"
+          + '<div class="v"><div class="ts-row">' + edArea("riskCases." + i + ".v")
+          + x("riskCases", i) + "</div></div></div>").join("")
+      : none(d.noCases))
+    + add("riskCases", d.addCase));
+}
+
+function tabRisk(){
+  const d = D();
+  return subh(d.secManage) + tiles("manage", "k", "v",
+      {none: d.noManage, add: d.addRule, phK: d.emptyRule, phV: "", shot: d.shotHow})
+    + subh(d.lRiskCases) + secCases();
+}
+
+/* ---------- вкладка «Звірка з журналом» ---------- */
 function dayMap(list){
   const m = new Map();
   for (const t of list){
@@ -413,9 +422,13 @@ function against(){
   if (list.length < 5) return '<div class="empty">' + esc(d.realFew) + "</div>";
 
   const rows = [];
-  const R = (nm, note, val, em, cls) => rows.push(
-    '<div class="r"><div class="nm">' + esc(nm) + "<i>" + esc(note) + "</i></div>"
-    + '<div class="v ' + cls + '">' + esc(val) + (em ? "<em>" + esc(em) + "</em>" : "") + "</div></div>");
+  let kept = 0;
+  const R = (nm, note, val, em, cls) => {
+    if (cls === "pos") kept++;
+    rows.push(
+      '<div class="r"><div class="nm">' + esc(nm) + "<i>" + esc(note) + "</i></div>"
+      + '<div class="v ' + cls + '">' + esc(val) + (em ? "<em>" + esc(em) + "</em>" : "") + "</div></div>");
+  };
 
   const minRR = parseFloat(String((TS.risk || {}).rr || "").replace(",", "."));
   if (minRR > 0){
@@ -472,9 +485,21 @@ function against(){
   }
 
   if (!rows.length) return '<div class="empty">' + esc(d.realNeed) + "</div>";
-  return '<div class="ts-cmp">' + rows.join("") + "</div>";
+  /* підсумок одним числом: скільки правил тримаються без жодного порушення */
+  return '<div class="tsv-score"><b>' + kept + " / " + rows.length + "</b><span>" + esc(d.realScore) + "</span></div>"
+    + '<div class="ts-cmp">' + rows.join("") + "</div>";
 }
 
+function tabReal(){
+  const d = D();
+  /* У бектесті звірка теж має сенс — «скільки разів прогін порушив правила».
+     Але з заголовка має бути видно, по чому саме рахували. */
+  const bt = typeof btOn === "function" && btOn();
+  return card(d.secReal + " · " + (S.trades || []).length + " " + d.wTrades
+              + (bt ? " · " + T.btTsNote : ""), against());
+}
+
+/* ---------- вкладка «Додатково» ---------- */
 /* Звідки підтягнуто: список сторінок, з якими працюємо далі. Сюди ж
    додають наступну — контекст на одній сторінці, моделі входу на іншій.
    Перечитуємо завжди всі разом: інакше модель бачила б систему по шматку. */
@@ -518,36 +543,53 @@ function secRaw(){
         + esc(n.text) + "</div>" : "")
     + (rest.length ? '<p class="ts-sub2">' + esc(D().rawShots) + '</p><div class="ts-shots">'
         + rest.map(s => '<div class="ts-shot has mini"><img alt="" src="'
-            + esc(tsShotSrc(s.file)) + '"></div>').join("") + "</div>" : ""));
+            + esc(tsShotSrc(s.file)) + '"></div>').join("") + "</div>" : ""), "tsv-gap");
+}
+
+function tabExtra(){
+  const d = D();
+  return tiles("extra", "k", "v",
+      {none: d.noExtra, add: d.addExtra, phK: d.emptyExtraK, phV: d.emptyExtraV, shot: d.shotHow})
+    + secRaw();
 }
 
 function vFull(){
   const d = D();
+  const tabsL = [["before", d.tabBefore], ["entry", d.tabEntry], ["risk", d.tabRisk],
+                 ["real", d.tabReal], ["extra", d.tabExtra]];
   /* Біля назви розділу нічого не пишемо: звідки взялась ТС і коли її чіпали
-     востаннє — службова дрібниця, а не заголовок. Дату збірки далі зберігаємо
-     в самій ТС, просто не показуємо в шапці. */
-  let h = '<div class="vhead"><h1>' + esc(d.title) + "</h1>"
+     востаннє — службова дрібниця, а не заголовок. Головна дія одна —
+     «Редагувати»; опитування й видалення пішли в меню «⋯». */
+  let h = '<div class="tsv' + (editing ? " editing" : "") + '">';
+  h += '<div class="vhead tsv-head"><h1>' + esc(d.title) + "</h1>"
     + '<span class="right">'
-    +   '<button class="pill" onclick="__ts.ask()">' + esc(d.btnAsk) + "</button>"
-    +   '<button class="pill" onclick="__ts.share()">' + esc(d.btnShare) + "</button>"
-    +   '<button class="pill" onclick="__ts.wipe()">' + esc(d.btnDelete) + "</button>"
-    + "</span></div>";
-  h += '<p class="ts-tip">' + d.editTip + "</p>";
-  h += card(d.secMarket, secMarket());
-  h += card(d.secTf, secTf());
-  h += card(d.secEntry, secEntry());
-  h += card(d.secRisk, secRisk());
-  h += card(d.secManage, secManage());
-  h += card(d.secNo, secNo());
-  h += card(d.secExtra, secExtra());
-  h += card(d.secCheck, secCheck());
-  /* У бектесті звірка теж має сенс — «скільки разів прогін порушив правила».
-     Але з заголовка має бути видно, по чому саме рахували. */
-  const bt = typeof btOn === "function" && btOn();
-  h += card(d.secReal + " · " + (S.trades || []).length + " " + d.wTrades
-            + (bt ? " · " + T.btTsNote : ""), against());
-  h += secRaw();
-  return h;
+    +   '<button class="tsv-btn pri" type="button" onclick="__ts.edit()">'
+    +     (editing ? DONE_IC + esc(d.btnDone) : PEN_IC + esc(d.btnEdit)) + "</button>"
+    +   '<button class="tsv-btn share" type="button" onclick="__ts.share()">' + SHARE_IC
+    +     "<span>" + esc(d.btnShare) + "</span></button>"
+    +   '<span class="tsv-more"><button class="tsv-btn ic" type="button" aria-haspopup="menu" aria-expanded="'
+    +     menuOpen + '" aria-label="' + esc(d.btnMore) + '" title="' + esc(d.btnMore)
+    +     '" onclick="__ts.menu()">' + DOTS_IC + "</button>"
+    +     (menuOpen
+          ? '<div class="tsv-menu" role="menu">'
+            + '<button type="button" role="menuitem" class="m-share" onclick="__ts.share()">' + esc(d.btnShare) + "</button>"
+            + '<button type="button" role="menuitem" onclick="__ts.ask()">' + esc(d.btnAsk) + "</button>"
+            + '<button type="button" role="menuitem" class="danger" onclick="__ts.wipe()">' + esc(d.btnDelete) + "</button>"
+            + "</div>"
+          : "")
+    +   "</span></span></div>";
+  if (editing){
+    h += '<div class="tsv-editbar"><p>' + d.editTip + "</p>"
+      + '<button class="tsv-btn" type="button" onclick="__ts.edit()">' + esc(d.btnDone) + "</button></div>";
+  }
+  h += passport();
+  h += '<div class="tsv-tabs" role="tablist">' + tabsL.map(([id, l]) =>
+      '<button type="button" role="tab" aria-selected="' + (id === tab) + '"' + (id === tab ? ' class="on"' : "")
+      + ' onclick="__ts.tab(\'' + id + '\')">' + esc(l) + "</button>").join("") + "</div>";
+  h += '<div class="tsv-panel">'
+    + ({before: tabBefore, entry: tabEntry, risk: tabRisk, real: tabReal, extra: tabExtra}[tab])()
+    + "</div>";
+  return h + "</div>";
 }
 
 function vTS(){
@@ -666,7 +708,20 @@ filePick.onchange = () => {
 document.addEventListener("click", e => {
   if (S.view !== "ts" || !TS) return;
 
+  /* меню «⋯» закривається кліком будь-куди поза ним */
+  if (menuOpen && !(e.target.closest && e.target.closest(".tsv-more"))){
+    menuOpen = false;
+    render();
+    return;
+  }
+
   const sl = e.target.closest && e.target.closest(".ts-shot[data-p]");
+  /* поза режимом правки скрін можна лише роздивитись */
+  if (sl && !editing){
+    const have = get(sl.dataset.p);
+    if (have && typeof openLightbox === "function") openLightbox(sl.querySelector("img") || tsShotSrc(have));
+    return;
+  }
   if (sl){
     if (e.target.closest(".rm")){
       e.stopPropagation();
@@ -711,13 +766,13 @@ document.addEventListener("click", e => {
   }
 
   const el = e.target.closest && e.target.closest(".ts-ed[data-p]");
-  if (el) startEdit(el);
+  if (el && editing) startEdit(el);
 });
 
 /* подвійний клік — вибір файлу з комп'ютера. Заповнений слот пропускаємо:
    там перший клік уже відкрив скрін, і діалог файлів поверх нього — сюрприз */
 document.addEventListener("dblclick", e => {
-  if (S.view !== "ts" || !TS) return;
+  if (S.view !== "ts" || !TS || !editing) return;
   if (touchOnly()) return;             /* на телефоні два тапи ловить ShotTap */
   const sl = e.target.closest && e.target.closest(".ts-shot[data-p]");
   if (!sl || get(sl.dataset.p)) return;
@@ -736,11 +791,12 @@ document.addEventListener("keydown", e => {
   /* поки висить питання «точно вийти?», Escape належить йому: цей обробник
      зареєстрований раніше й інакше відкрив би ще одне таке саме питання */
   if (window.Ask && Ask.isOpen()) return;
-  if (e.key === "Escape" && askBox){ e.stopPropagation(); askClose(); }
+  if (e.key === "Escape" && askBox){ e.stopPropagation(); askClose(); return; }
+  if (e.key === "Escape" && menuOpen && S.view === "ts"){ menuOpen = false; render(); }
 }, true);
 
 document.addEventListener("paste", e => {
-  if (S.view !== "ts" || !TS) return;
+  if (S.view !== "ts" || !TS || !editing) return;
   if (e.target.closest && e.target.closest("input,textarea")) return;
   const files = (e.clipboardData && e.clipboardData.files) || [];
   if (!files.length) return;
@@ -755,6 +811,7 @@ document.addEventListener("paste", e => {
 });
 
 document.addEventListener("dragover", e => {
+  if (!editing) return;
   const el = e.target.closest && e.target.closest(".ts-shot[data-p]");
   if (!el) return;
   e.preventDefault();
@@ -765,6 +822,7 @@ document.addEventListener("dragleave", e => {
   if (el) el.classList.remove("drop");
 });
 document.addEventListener("drop", e => {
+  if (!editing) return;
   const el = e.target.closest && e.target.closest(".ts-shot[data-p]");
   if (!el) return;
   e.preventDefault();
@@ -1111,10 +1169,26 @@ window.__ts = {
     };
   },
   share(){
+    if (menuOpen){ menuOpen = false; render(); }
     if (window.Guest && Guest.block(T.gsGateTs)) return;
     if (window.Share) Share.open("ts");
   },
-  ask(){ if(guestStop()) return; askOpen(); }, close: askClose, prev: askPrev, next: askNext, pick: pick, own: own, finish: finish,
+  /* «Редагувати» / «Готово»: перемикає звичайний вигляд і режим правки */
+  edit(){
+    if (!editing && guestStop()) return;
+    editing = !editing;
+    menuOpen = false;
+    armed = null;
+    render();
+  },
+  tab(id){
+    if (TABS.indexOf(id) < 0) return;
+    tab = id;
+    try{ localStorage.setItem(TAB_KEY, id); }catch(e){}
+    render();
+  },
+  menu(){ menuOpen = !menuOpen; render(); },
+  ask(){ menuOpen = false; if(guestStop()){ render(); return; } askOpen(); }, close: askClose, prev: askPrev, next: askNext, pick: pick, own: own, finish: finish,
   again(){ step = 0; drawAsk(); },
   text(k, v){ answers[k] = v; },
   /* прибрати варіант з підказок: і з екрана, і з відповіді, якщо був обраний */
@@ -1171,10 +1245,13 @@ window.__ts = {
     save(); render();
   },
   async wipe(){
+    menuOpen = false;
+    render();
     if (!await Ask.yes(D().confirmDelete, {ok:T.askYes, cancel:T.askNo, danger:true})) return;
     if (demo()){ try{ localStorage.removeItem(DEMO_KEY); }catch(e){} }
     else { try{ await api("POST", "/api/ts/clear", {kind: btOn()?"bt":""}); }catch(e){} }
     TS = null;
+    editing = false;
     render();
   },
 };
@@ -1203,8 +1280,8 @@ if (typeof realApply === "function"){
 const DICT = {
 uk: {
   title: "Моя ТС", navTip: "Твої правила входу — і звірка з тим, що в журналі",
-  editTip: "<b>Тут усе правиться прямо на сторінці.</b> Клікни по будь-якому полі — воно стане рядком для вводу. "
-         + "Пунктирна рамка означає, що поле порожнє й туди можна писати. Скрін — клік по слоту, Ctrl+V або перетягни картинку.",
+  editTip: "<b>Режим правки.</b> Клікни будь-яке підкреслене поле, щоб змінити його. Скрін — клік по слоту й Ctrl+V "
+         + "або перетягни картинку. Порожні поля й кнопки «+ додати» видно тільки зараз.",
   loading: "Хвилинку…", empty: "заповнити", emptyNote: "додати пояснення",
   emptyRole: "підпис до списку", emptyWhat: "що дивлюсь на цьому таймфреймі", emptyRule: "правило",
   emptyTime: "час", emptyTf: "таймфрейм", emptyName: "назва",
@@ -1262,6 +1339,13 @@ uk: {
   shotTouchEmpty: "У буфері нема картинки. Два тапи — обрати файл.",
   shotReplace: "замінити скрін", shotOpen: "відкрити", shotExample: "приклад", shotHow: "як це виглядає",
 
+  btnEdit: "Редагувати", btnDone: "Готово", btnMore: "Ще дії",
+  tabBefore: "Перед входом", tabEntry: "Як входжу", tabRisk: "Ризик і супровід",
+  tabReal: "Звірка з журналом", tabExtra: "Додатково",
+  pRisk: "Ризик", pRr: "Мін. RR", pMax: "Угод / день",
+  lLimits: "Ліміт збитку", wDay: "день", wWeek: "тиждень", secWhen: "Коли торгую",
+  noManage: "Правил супроводу ще немає", noCases: "Окремих випадків ще немає",
+  realScore: "правил без порушень",
   btnAsk: "Пройти опитування", btnShare: "Поділитись", btnDelete: "Видалити ТС",
   confirmDelete: "Видалити стратегію? Скріни до неї теж зникнуть.",
   confirmQuitAsk: "Вийти з опитування? Відповіді не збережуться.",
@@ -1320,8 +1404,8 @@ uk: {
 
 ru: {
   title: "Моя ТС", navTip: "Твои правила входа — и сверка с тем, что в журнале",
-  editTip: "<b>Здесь всё правится прямо на странице.</b> Кликни по любому полю — оно станет строкой ввода. "
-         + "Пунктирная рамка значит, что поле пустое и туда можно писать. Скрин — клик по слоту, Ctrl+V или перетащи картинку.",
+  editTip: "<b>Режим правки.</b> Кликни любое подчёркнутое поле, чтобы изменить его. Скрин — клик по слоту и Ctrl+V "
+         + "или перетащи картинку. Пустые поля и кнопки «+ добавить» видны только сейчас.",
   loading: "Минутку…", empty: "заполнить", emptyNote: "добавить пояснение",
   emptyRole: "подпись к списку", emptyWhat: "что смотрю на этом таймфрейме", emptyRule: "правило",
   emptyTime: "время", emptyTf: "таймфрейм", emptyName: "название",
@@ -1379,6 +1463,13 @@ ru: {
   shotTouchEmpty: "В буфере нет картинки. Два тапа — выбрать файл.",
   shotReplace: "заменить скрин", shotOpen: "открыть", shotExample: "пример", shotHow: "как это выглядит",
 
+  btnEdit: "Редактировать", btnDone: "Готово", btnMore: "Ещё",
+  tabBefore: "Перед входом", tabEntry: "Как вхожу", tabRisk: "Риск и сопровождение",
+  tabReal: "Сверка с журналом", tabExtra: "Дополнительно",
+  pRisk: "Риск", pRr: "Мин. RR", pMax: "Сделок / день",
+  lLimits: "Лимит убытка", wDay: "день", wWeek: "неделя", secWhen: "Когда торгую",
+  noManage: "Правил сопровождения пока нет", noCases: "Отдельных случаев пока нет",
+  realScore: "правил без нарушений",
   btnAsk: "Пройти опрос", btnShare: "Поделиться", btnDelete: "Удалить ТС",
   confirmDelete: "Удалить стратегию? Скрины к ней тоже пропадут.",
   confirmQuitAsk: "Выйти из опроса? Ответы не сохранятся.",
@@ -1437,8 +1528,8 @@ ru: {
 
 en: {
   title: "My system", navTip: "Your entry rules — checked against the journal",
-  editTip: "<b>Everything here is editable right on the page.</b> Click any field and it turns into an input. "
-         + "A dashed outline means the field is empty and waiting for text. Screenshot — click the slot, Ctrl+V or drop an image on it.",
+  editTip: "<b>Edit mode.</b> Click any underlined field to change it. Screenshot — click the slot and press Ctrl+V "
+         + "or drop an image on it. Empty fields and «+ add» buttons only show up now.",
   loading: "One moment…", empty: "fill in", emptyNote: "add a note",
   emptyTime: "time", emptyTf: "timeframe", emptyName: "name",
   emptyRole: "list caption", emptyWhat: "what I look at on this timeframe", emptyRule: "rule",
@@ -1496,6 +1587,13 @@ en: {
   shotTouchEmpty: "No image in the clipboard. Double tap to pick a file.",
   shotReplace: "replace screenshot", shotOpen: "open", shotExample: "example", shotHow: "what it looks like",
 
+  btnEdit: "Edit", btnDone: "Done", btnMore: "More",
+  tabBefore: "Before entry", tabEntry: "How I enter", tabRisk: "Risk & management",
+  tabReal: "Journal check", tabExtra: "Extra",
+  pRisk: "Risk", pRr: "Min RR", pMax: "Trades / day",
+  lLimits: "Loss limit", wDay: "day", wWeek: "week", secWhen: "When I trade",
+  noManage: "No management rules yet", noCases: "No special cases yet",
+  realScore: "rules kept",
   btnAsk: "Run the questions", btnShare: "Share", btnDelete: "Delete system",
   confirmDelete: "Delete the system? Its screenshots go too.",
   confirmQuitAsk: "Leave the questionnaire? Your answers will be lost.",
