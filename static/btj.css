@@ -7,6 +7,20 @@
   background:color-mix(in srgb, var(--accent) 10%, transparent)}
 .btj-note{white-space:pre-wrap}
 .btj-go{font-weight:500; color:var(--accent)}
+.btj-card{cursor:pointer; transition:box-shadow .16s}
+.btj-card:hover{box-shadow:0 0 0 1px var(--line) inset}
+.btj-card.on:hover{box-shadow:0 0 0 1px var(--accent) inset}
+
+/* Сітка журналів. У «Рахунків» колонки розтягуються на всю ширину (auto-fit),
+   а сама картка не ширша за 430px — і при двох картках між ними лишалась
+   діра на пів екрана. Тут колонки однакові й ідуть зліва підряд (auto-fill):
+   порожні місця справа, а не між картками. */
+.ac-grid.btj-grid{grid-template-columns:repeat(auto-fill,minmax(330px,1fr))}
+.ac-grid.btj-grid > .shell{max-width:none; display:flex; flex-direction:column}
+/* картки в ряду однакової висоти, «Відкрити / Правити» — по нижньому краю */
+.ac-grid.btj-grid .btj-card{flex:1}
+.btj-card .ac-foot{margin-top:auto}
+@media (max-width:900px){ .ac-grid.btj-grid{grid-template-columns:minmax(0,1fr)} }
 
 /* ---- шапка всередині журналу: назад до списку, назва, вкладки ----
    Стоїть і в календарі (.jhead), і в огляді (.ohead) — однаково в обох,
@@ -19,4 +33,26 @@
 .jhead .btj-title h1, .ohead .btj-title h1{margin:0; font-size:clamp(22px,3.2vw,30px); font-weight:600;
   letter-spacing:-.02em; line-height:1.15; overflow-wrap:anywhere}
 .btj-sub{color:var(--faint); font-size:13px}
-.btj-tabs{margin-left:0}
+
+/* Вкладки журналу: зверху — що дивимось (підкреслення, як «Огляд / Рахунки»
+   в реальному режимі), збоку — вигляд журналу сегментом. Різна форма —
+   щоб не читались як один ряд рівноправних кнопок. */
+.btj-nav{flex:1 1 100%; display:flex; align-items:center; gap:14px 20px; flex-wrap:wrap;
+  border-bottom:1px solid var(--line-soft)}
+.btj-main{display:flex; gap:22px}
+.btj-main button{border:0; background:none; padding:10px 0 11px; margin-bottom:-1px;
+  font:inherit; font-size:15px; font-weight:500; color:var(--faint); cursor:pointer;
+  border-bottom:2px solid transparent; transition:color .16s, border-color .16s}
+.btj-main button:hover{color:var(--text)}
+.btj-main button.on{color:var(--text); border-bottom-color:var(--accent)}
+.btj-main button:focus-visible{outline:2px solid var(--accent); outline-offset:2px; border-radius:4px}
+/* .btj-nav спереду — інакше .jhead .seg-tabs{margin-left:0} зі style.css
+   тримав би перемикач впритул до вкладок. */
+.btj-nav .btj-style{margin-left:auto; margin-bottom:6px}
+@media (max-width:560px){
+  .btj-main{gap:18px}
+  .btj-main button{font-size:14.5px; padding:12px 0}
+  /* на телефоні вигляд журналу — окремим рядком на всю ширину */
+  .btj-nav .btj-style{margin-left:0; width:100%; margin-bottom:10px}
+  .btj-style button{flex:1}
+}

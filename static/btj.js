@@ -111,13 +111,26 @@ function paint(){
 }
 
 /* Шапка всередині журналу: повернутись до списку, назва журналу й вкладки.
-   «Огляд» — остання вкладка: відкривається журнал календарем, як звичайний. */
+
+   Вкладки двох рівнів, і вони розведені навмисне. Зверху — що дивимось:
+   «Журнал», «Усі угоди», «Огляд». «Календар | Список» — лише вигляд
+   самого журналу, тому це окремий перемикач збоку, і видно його тільки
+   на вкладці «Журнал». Вигляд памʼятаємо: повернувся з огляду — журнал
+   такий самий, яким його лишив. */
+function jStyle(){
+  try{ const v = localStorage.getItem("tj_jstyle"); return v === "table" ? "table" : "cal"; }
+  catch(e){ return "cal"; }
+}
 function head(active){
   const d = D(), j = curJ();
   if (!j) return "<h1>" + esc(d.title) + "</h1>";
   const period = j.period_from || j.period_to
     ? [human(j.period_from), human(j.period_to)].filter(Boolean).join(" – ") : "";
   const sub = [j.asset, period].filter(Boolean).join(" · ");
+  const inJ = active === "cal" || active === "table";
+  const main = (v, on, l, tip) => '<button type="button" class="' + (on ? "on" : "") + '"'
+    + (on ? ' aria-current="page"' : "") + (tip ? ' data-tip="' + esc(tip) + '"' : "")
+    + ' onclick="__btj.tab(\'' + v + '\')">' + esc(l) + "</button>";
   const tab = (v, l, tip) => '<button class="' + (active === v ? "on" : "") + '"'
     + (tip ? ' data-tip="' + esc(tip) + '"' : "") + ' onclick="__btj.tab(\'' + v + '\')">' + esc(l) + "</button>";
   return '<div class="btj-head"><a class="btj-back" href="#btj">'
@@ -125,9 +138,13 @@ function head(active){
     + esc(d.navTitle) + "</a>"
     + '<div class="btj-title"><h1>' + esc(label(j)) + "</h1>"
     + (sub ? '<span class="btj-sub">' + esc(sub) + "</span>" : "") + "</div></div>"
-    + '<div class="seg-tabs btj-tabs">'
-    + tab("cal", T.jrCalTab, T.jrCalTabTip) + tab("table", T.jrTableTab, T.jrTableTabTip)
-    + tab("list", T.jrAllTab, T.jrAllTabTip) + tab("ov", d.ovTab, d.ovTabTip) + "</div>";
+    + '<div class="btj-nav"><div class="btj-main" role="tablist">'
+    + main("journal", inJ, d.jTab, d.jTabTip)
+    + main("list", active === "list", T.jrAllTab, T.jrAllTabTip)
+    + main("ov", active === "ov", d.ovTab, d.ovTabTip) + "</div>"
+    + (inJ ? '<div class="seg-tabs btj-style">'
+        + tab("cal", T.jrCalTab, T.jrCalTabTip) + tab("table", T.jrTableTab, T.jrTableTabTip) + "</div>" : "")
+    + "</div>";
 }
 
 /* ---------------- картка журналу ---------------- */
@@ -165,7 +182,10 @@ function card(j){
   ];
   const spark = window.__acc && __acc.spark ? __acc.spark(s.curve) : "";
   const arg = j.blank ? "null" : j.id;
-  return '<div class="shell"><div class="core ac-card btj-card' + (open ? " on" : "") + '">'
+  /* Уся картка — вхід у журнал: так швидше, ніж цілитись у кнопку. Кнопка
+     «Відкрити» лишається — видно, що картка натискається. */
+  const go = "__btj.open(" + (j.blank ? "\'\'" : arg) + ")";
+  return '<div class="shell"><div class="core ac-card btj-card' + (open ? " on" : "") + '" onclick="' + go + '">'
     + '<div class="ac-top"><div class="ac-name"><b>' + esc(label(j)) + "</b>"
     +   (sub ? '<div class="ac-sub">' + esc(sub) + "</div>" : "") + "</div>"
     +   (open ? '<span class="ac-st btj-open">' + esc(d.opened) + "</span>" : "") + "</div>"
@@ -179,9 +199,11 @@ function card(j){
     + (j.note ? '<p class="ac-note btj-note">' + esc(j.note) + "</p>" : "")
     + (j.blank ? '<p class="ac-note">' + esc(d.blankHint) + "</p>" : "")
     + '<div class="ac-foot">'
-    +   (open ? "" : '<button class="ac-link btj-go" onclick="__btj.open(' + (j.blank ? "\'\'" : arg) + ')">' + esc(d.open) + "</button>")
+    /* Відкрити можна й відкритий журнал: з нього виходять до списку, і
+       повернутись має бути так само просто, як зайти в будь-який інший. */
+    +   '<button class="ac-link btj-go" onclick="event.stopPropagation();' + go + '">' + esc(d.open) + "</button>"
     +   '<span class="sp"></span>'
-    +   '<button class="ac-link" onclick="__btj.edit(' + arg + ')">' + esc(j.blank ? d.nameIt : d.edit) + "</button>"
+    +   '<button class="ac-link" onclick="event.stopPropagation();__btj.edit(' + arg + ')">' + esc(j.blank ? d.nameIt : d.edit) + "</button>"
     + "</div></div></div>";
 }
 
@@ -201,7 +223,7 @@ function vBtj(){
   }
   /* Відкритий — першим: саме його людина шукає очима, повернувшись сюди. */
   l.sort((a, b) => (b.k === cur) - (a.k === cur));
-  return '<div class="acw">' + head + '<div class="ac-grid">' + l.map(card).join("") + "</div></div>";
+  return '<div class="acw">' + head + '<div class="ac-grid btj-grid">' + l.map(card).join("") + "</div></div>";
 }
 
 /* ---------------- форма журналу ---------------- */
@@ -316,6 +338,8 @@ window.__btj = {
      «Журнал», огляд — окремий розділ. */
   tab(v){
     if (v === "ov"){ location.hash = "dashboard"; return; }
+    if (v === "journal") v = jStyle();
+    if (v === "cal" || v === "table"){ try{ localStorage.setItem("tj_jstyle", v); }catch(e){} }
     S.jMode = v;
     try{ localStorage.setItem("tj_jmode", v); }catch(e){}
     if (location.hash === "#journal") render(); else location.hash = "journal";
@@ -366,6 +390,7 @@ uk: {
   nameIt: "Назвати", blank: "Без журналу",
   blankHint: "Угоди, записані без журналу. Дай їм назву — і вони стануть окремим журналом.",
   ovTab: "Огляд", ovTabTip: "Підсумки тижня, місяця й року — по цьому журналу",
+  jTab: "Журнал", jTabTip: "Угоди по днях — календарем або списком",
   emptyLead: "Журнал бектесту — окремий набір прогонів: свій актив, свій період, своя статистика.",
   emptyHint: "Заведи по журналу на кожен актив чи ідею — і їхні цифри не змішуватимуться.",
   nTrades: "Угод", wr: "Вінрейт", avgRR: "Середній RR", maxDD: "Просадка від піку", skipTag: " скіп",
@@ -387,6 +412,7 @@ ru: {
   nameIt: "Назвать", blank: "Без журнала",
   blankHint: "Сделки, записанные без журнала. Дай им название — и они станут отдельным журналом.",
   ovTab: "Обзор", ovTabTip: "Итоги недели, месяца и года — по этому журналу",
+  jTab: "Журнал", jTabTip: "Сделки по дням — календарём или списком",
   emptyLead: "Журнал бэктеста — отдельный набор прогонов: свой актив, свой период, своя статистика.",
   emptyHint: "Заведи по журналу на каждый актив или идею — и их цифры не будут смешиваться.",
   nTrades: "Сделок", wr: "Винрейт", avgRR: "Средний RR", maxDD: "Просадка от пика", skipTag: " скип",
@@ -408,6 +434,7 @@ en: {
   nameIt: "Name it", blank: "No journal",
   blankHint: "Trades logged without a journal. Give them a name and they become a journal of their own.",
   ovTab: "Overview", ovTabTip: "Week, month and year results — for this journal",
+  jTab: "Journal", jTabTip: "Trades by day — as a calendar or a list",
   emptyLead: "A backtest journal is a separate set of runs: its own asset, period and stats.",
   emptyHint: "Keep one journal per asset or idea so their numbers never mix.",
   nTrades: "Trades", wr: "Win rate", avgRR: "Avg RR", maxDD: "Drawdown from peak", skipTag: " skip",
