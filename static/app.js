@@ -287,8 +287,16 @@ async function setMode(m){
   if(modeBusy) return;
   modeBusy = true;
   const was = S.mode;
-  S.mode = m;
-  markMode();
+  /* Перехід без смикання. Раніше меню, смужка й відступ зверху мінялись
+     одразу, ще до угод, а сторінка — окремо, коли вони доїдуть; потім
+     зміна адреси малювала її вдруге. Тепер: кнопка світиться одразу (клік
+     помічено), сторінка тихо пригасає, поки їдуть угоди, а тоді все
+     міняється одним кадром — плавним переходом браузера, де він є. */
+  document.querySelectorAll("#modeTabs button").forEach(b=>
+    b.classList.toggle("on", b.dataset.mode===m));
+  const main=$("#main");
+  if(main) main.classList.add("mode-wait");
+  S.mode = m;                            // reload() питає режим через btOn()
   dataReady=false;                       // поки не перечитали — не малюємо
   try{
     await reload();
@@ -297,6 +305,7 @@ async function setMode(m){
        одного режиму під написом іншого, і наступна угода пішла б не туди. */
     S.mode = was;
     markMode();
+    if(main) main.classList.remove("mode-wait");
     dataReady=true; modeBusy=false;
     alert(T.modeFail);
     return;
@@ -309,10 +318,26 @@ async function setMode(m){
   S.selDay=isoDay(now); S.jMonth=isoMonth(now); S.pages={}; S.filters={};
   /* Розділ, якого в цьому режимі немає, міняємо разом з адресою: інакше в
      рядку лишиться #day, а на екрані буде огляд. */
-  if(m==="bt"){ S.view="btj"; location.hash="btj"; }
-  else if(!viewAllowed(S.view)){ S.view="dashboard"; location.hash="dashboard"; }
-  render();
+  const swap=()=>{
+    markMode();
+    if(m==="bt") goView("btj");
+    else if(!viewAllowed(S.view)) goView("dashboard");
+    render();
+    if(main) main.classList.remove("mode-wait");
+  };
+  const calm = window.matchMedia && matchMedia("(prefers-reduced-motion: reduce)").matches;
+  if(document.startViewTransition && !calm){
+    try{ await document.startViewTransition(swap).finished; }catch(e){}
+  } else swap();
   modeBusy = false;
+}
+
+/* Змінити розділ разом з адресою, але намалювати один раз: сама зміна
+   адреси викликає hashchange, і той малював би сторінку вдруге. */
+let hashSkip=null;
+function goView(v){
+  S.view=v;
+  if(location.hash!=="#"+v){ hashSkip=v; location.hash=v; }
 }
 
 /* Позначка режиму: атрибут на <html> для стилів і підсвічений сегмент.
@@ -2662,7 +2687,13 @@ function render(){
   if(window.PL) PL.mount();
   if(window.Tip) Tip.mount($("#main"));
 }
-window.addEventListener("hashchange",()=>{ S.view=location.hash.slice(1)||"dashboard"; render(); });
+window.addEventListener("hashchange",()=>{
+  const v=location.hash.slice(1)||"dashboard";
+  /* адресу змінив goView() і сторінку вже намальовано */
+  if(hashSkip===v){ hashSkip=null; return; }
+  hashSkip=null;
+  S.view=v; render();
+});
 document.addEventListener("keydown",e=>{
   if(e.key==="Escape"){ if(!$("#lightbox").hidden)closeLightbox(); else if(!$("#modal").hidden)closeModal(); }
 });

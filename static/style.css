@@ -1329,6 +1329,27 @@ h1.ovh a.on::after{content:"";position:absolute;left:0;right:0;bottom:0;height:2
 :root[data-mode="bt"] a[data-v="journal"]{display:none}
 :root:not([data-mode="bt"]) a.bt-only{display:none}
 
+/* Перемикання режиму: поки їдуть угоди, сторінка тихо пригасає, а сама
+   заміна — одним плавним кадром (View Transitions у setMode). */
+#main{transition:opacity .18s ease}
+#main.mode-wait{opacity:.35;pointer-events:none}
+/* Перехід розкладено на частини. Одним знімком сторінки було видно
+   подвоєння: смужка бектесту зсуває все на 20px, і стара й нова сторінки
+   просвічували одна крізь одну зі зсувом. Тепер панель і робоча область
+   їдуть на нове місце цілими шматками, стара сторінка швидко гасне, нова
+   проявляється з легким підйомом, а капсула режиму стоїть на місці. */
+.side{view-transition-name:side}
+body > .tgn-col, body > .main{view-transition-name:page}
+.bt-flag{view-transition-name:btflag}
+@media (min-width:901px){ :root:not([data-layout="top"]) .side .mode-sw{view-transition-name:modesw} }
+::view-transition-group(*){animation-duration:.3s;animation-timing-function:cubic-bezier(.2,.7,.2,1)}
+::view-transition-old(page){animation:vtOut .14s ease both}
+::view-transition-new(page){animation:vtIn .28s .06s cubic-bezier(.2,.7,.2,1) both}
+::view-transition-old(side),::view-transition-new(side){animation-duration:.24s}
+@keyframes vtOut{to{opacity:0}}
+@keyframes vtIn{from{opacity:0;transform:translateY(8px)}}
+@media (prefers-reduced-motion:reduce){ #main{transition:none} }
+
 /* Смужка «зараз бектест». Тонка й зверху: помітно краєм ока, але не
    з'їдає місця й не лізе під руку. */
 .bt-flag{position:fixed;top:0;left:0;right:0;z-index:60;pointer-events:none;
