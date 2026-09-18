@@ -414,3 +414,20 @@
     from{opacity:0; transform:translateY(7px) scale(.96)}
     to{opacity:.1; transform:none}}
 }
+
+/* Смужка «Режим бектесту» на телефоні: вона fixed зверху, а шапка .mtop
+   теж липне до верху — смужка наїжджала на неї й зрізала «Нову угоду».
+   Як із гостьовою смужкою (guest.css): висота точна, сторінка й шапка
+   зсуваються на неї. */
+@media (max-width:900px){
+  .bt-flag{height:18px; line-height:18px; padding:0 10px}
+  :root[data-mode="bt"] body{padding-top:18px}
+  :root[data-mode="bt"] .mtop{top:18px}
+}
+
+/* Результатів сім, по чотири в ряд: на телефоні «TP руками» й «В роботі»
+   розривались на два рядки, і кнопки виходили різної висоти. */
+@media (max-width:560px){
+  .seg.big.res{gap:6px}
+  .seg.big.res button{padding:11px 2px; font-size:13px; white-space:nowrap}
+}
