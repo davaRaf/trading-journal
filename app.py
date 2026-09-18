@@ -2057,6 +2057,13 @@ class H(BaseHTTPRequestHandler):
                 for attr in ('property="og:description"', 'name="twitter:description"'):
                     html = re.sub(r'(%s content=")[^"]*' % re.escape(attr),
                                   lambda m: m.group(1) + desc, html, 1)
+            # головна картинка теж із часом зміни в адресі: месенджери кешують
+            # прев'ю за адресою, і перемальована картинка інакше не показувалась.
+            # Після партнерського блоку: там її вже підмінено на свою.
+            main_og = os.path.join(STATIC, "og-main.png")
+            if os.path.exists(main_og):
+                html = html.replace('"/static/og-main.png"',
+                                    '"/static/og-main.png?v=%d"' % int(os.path.getmtime(main_og)))
             html = html.replace('content="/static/', 'content="%s/static/' % self._base())
             if 'property="og:url"' not in html:
                 html = html.replace("</title>",
