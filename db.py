@@ -900,9 +900,9 @@ _SETS = ", ".join('"%s"=%%s' % f for f in FIELDS) + ', screenshots=%s, hidden=%s
 # пополам. Перед записью подставляем то написание, которое в журнале уже
 # есть.
 #
-# Сводим только регистр, пробелы и знаки. «USTEC» и «NAS100» — тоже один
-# индекс, но эту границу машине видно не всегда, и решает её человек в окне
-# сведения (tidy.py).
+# Сводим регистр, пробелы, знаки и известные имена одного актива из
+# tidy.SAME: «US100», «Nasdaq» и «NQ» — один инструмент, «US30» и «US100» —
+# разные. Незнакомые синонимы по-прежнему сводит человек в окне сведения.
 # ---------------------------------------------------------------------------
 def _known_pairs(conn, user_id, skip_id=None):
     """Написание -> как этот инструмент чаще всего записан в журнале.
@@ -920,7 +920,7 @@ def _known_pairs(conn, user_id, skip_id=None):
     best = {}
     for r in sorted(rows, key=lambda r: (-r["n"], (r["p"] or ""))):
         v = (r["p"] or "").strip()
-        k = tidy.plain(v)
+        k = tidy.pair_key(v)
         if k and k not in best:
             best[k] = v
     return best
@@ -936,7 +936,7 @@ def _one_spelling(conn, user_id, trades, skip_id=None):
     known = _known_pairs(conn, user_id, skip_id)
     for t in trades:
         v = str(t.get("pair") or "").strip()
-        k = tidy.plain(v)
+        k = tidy.pair_key(v)
         if not k:
             continue
         if k in known:

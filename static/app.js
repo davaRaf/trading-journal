@@ -75,6 +75,25 @@ function looksLikePair(v){
 function plainName(v){
   return (v==null?"":v).toString().replace(/[^0-9A-Za-zА-Яа-яЁёІіЇїЄєҐґ]+/g,"").toUpperCase();
 }
+/* Імена одного активу в різних брокерів — копія tidy.SAME на сервері, який
+   зводить їх при записі: «US100», «Nasdaq» і «NQ» — один інструмент. Тут
+   потрібно, щоб після запису «NQ» поруч з «US100» не з'являлась кнопка-двійник. */
+const PAIR_SAME = [
+  ["US100","NAS100","NASDAQ","NASDAQ100","USTEC","NDX","NQ"],
+  ["US30","DJI","DOW","DOWJONES","US30CASH","YM"],
+  ["US500","SPX","SP500","SPX500","ES"],
+  ["GER40","GER30","DAX","DAX40"],
+  ["XAUUSD","GOLD","ЗОЛОТО","ЗОЛОТА"],
+  ["XAGUSD","SILVER","СРІБЛО"],
+  ["UK100","FTSE","FTSE100"],
+  ["JP225","NIKKEI","NIKKEI225"],
+  ["BTCUSD","BTCUSDT","BITCOIN","XBTUSD"],
+  ["ETHUSD","ETHUSDT","ETHEREUM"],
+  ["USOIL","WTI","CRUDE","CL"],
+];
+const PAIR_SYN = {};
+PAIR_SAME.forEach(g=>{ const c=g.slice().sort()[0]; g.forEach(w=>{ PAIR_SYN[plainName(w)]=c; }); });
+function pairKey(v){ const k=plainName(v); return PAIR_SYN[k]||k; }
 function num(v){ const x=parseFloat(v); return isNaN(x)?null:x; }
 /* в интерфейсе результат называется TP / SL / BE, внутри хранится Win / Loss / BE.
    WinM — тот же тейк, но закрытый рукой: для денег это TP, метка нужна,
@@ -2395,7 +2414,7 @@ async function saveTrade(id){
       for(const part of (isMulti(k)?splitVals(t[k]):[t[k]])){
         /* інструмент сервер запише вже прийнятим написанням — запам'ятовувати
            своє зайве: у списку з'явиться двійник, який нічого не додає */
-        if(k==="pair" && Prefs.vals(k, QUICK_BASE[k]||[]).some(x=>plainName(x)===plainName(part))) continue;
+        if(k==="pair" && Prefs.vals(k, QUICK_BASE[k]||[]).some(x=>pairKey(x)===pairKey(part))) continue;
         Prefs.add(k, part);
       }
   }
