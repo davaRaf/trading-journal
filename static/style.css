@@ -1309,7 +1309,12 @@ h1.ovh a.on::after{content:"";position:absolute;left:0;right:0;bottom:0;height:2
    з'їдає місця й не лізе під руку. */
 .bt-flag{position:fixed;top:0;left:0;right:0;z-index:60;pointer-events:none;
   padding:3px 10px;text-align:center;background:var(--accent);color:var(--accent-ink,#fff);
-  font-family:var(--mono);font-size:9px;letter-spacing:.16em;text-transform:uppercase}
+  font-family:var(--mono);font-size:9px;letter-spacing:.16em;text-transform:uppercase;
+  height:20px;line-height:14px}
+/* Смужка лежить поверх сторінки, тож місце під неї звільняємо: інакше вона
+   накривала смужку новин і верх панелі. На телефоні висота своя (mobile.css). */
+:root[data-mode="bt"] body{padding-top:20px}
+:root[data-mode="bt"] .side{top:20px}
 .mini{display:flex;align-items:center;gap:9px;padding:7px 10px;border-radius:10px;border:1px solid var(--line-soft);
   background:var(--panel-2);color:var(--dim);font-size:12.5px;cursor:pointer;transition:.18s;text-align:left}
 .mini:hover{color:var(--text);background:var(--panel-2);border-color:var(--line)}
