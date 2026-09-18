@@ -1,26 +1,11 @@
 /* Журнали бектесту (btj.js). Картки, поля й сітка — з accounts.css;
    тут лише те, чого в рахунків немає. */
 
-/* Відкритий журнал видно здалеку: рамка кольору акценту. */
-.btj-card.on{box-shadow:0 0 0 1px var(--accent) inset}
-.ac-st.btj-open{color:var(--accent); border-color:var(--accent);
-  background:color-mix(in srgb, var(--accent) 10%, transparent)}
 .btj-note{white-space:pre-wrap}
 .btj-go{font-weight:500; color:var(--accent)}
 .btj-card{cursor:pointer; transition:box-shadow .16s}
 .btj-card:hover{box-shadow:0 0 0 1px var(--line) inset}
-.btj-card.on:hover{box-shadow:0 0 0 1px var(--accent) inset}
-
-/* Сітка журналів. У «Рахунків» колонки розтягуються на всю ширину (auto-fit),
-   а сама картка не ширша за 430px — і при двох картках між ними лишалась
-   діра на пів екрана. Тут колонки однакові й ідуть зліва підряд (auto-fill):
-   порожні місця справа, а не між картками. */
-.ac-grid.btj-grid{grid-template-columns:repeat(auto-fill,minmax(330px,1fr))}
-.ac-grid.btj-grid > .shell{max-width:none; display:flex; flex-direction:column}
-/* картки в ряду однакової висоти, «Відкрити / Правити» — по нижньому краю */
-.ac-grid.btj-grid .btj-card{flex:1}
-.btj-card .ac-foot{margin-top:auto}
-@media (max-width:900px){ .ac-grid.btj-grid{grid-template-columns:minmax(0,1fr)} }
+/* Сітка — спільна з «Рахунками» (accounts.css). */
 
 /* ---- шапка всередині журналу: назад до списку, назва, вкладки ----
    Стоїть і в календарі (.jhead), і в огляді (.ohead) — однаково в обох,

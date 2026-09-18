@@ -183,7 +183,6 @@ function stat(k){
 
 function card(j){
   const d = D(), s = stat(j.k), c = s.c;
-  const open = j.k === cur;
   const period = j.period_from || j.period_to
     ? [human(j.period_from), human(j.period_to)].filter(Boolean).join(" – ")
     : "";
@@ -200,10 +199,10 @@ function card(j){
   /* Уся картка — вхід у журнал: так швидше, ніж цілитись у кнопку. Кнопка
      «Відкрити» лишається — видно, що картка натискається. */
   const go = "__btj.open(" + (j.blank ? "\'\'" : arg) + ")";
-  return '<div class="shell"><div class="core ac-card btj-card' + (open ? " on" : "") + '" onclick="' + go + '">'
+  return '<div class="shell"><div class="core ac-card btj-card" onclick="' + go + '">'
     + '<div class="ac-top"><div class="ac-name"><b>' + esc(label(j)) + "</b>"
     +   (sub ? '<div class="ac-sub">' + esc(sub) + "</div>" : "") + "</div>"
-    +   (open ? '<span class="ac-st btj-open">' + esc(d.opened) + "</span>" : "") + "</div>"
+    + "</div>"
     + '<div class="ac-bal"><div class="big ' + tone + '">' + esc(c.n ? fmtR(c.net) : "—") + "</div>"
     +   '<div class="ac-from">' + esc(s.n ? d.tradedAt.replace("%s", human(s.first) + (s.last !== s.first ? " – " + human(s.last) : "")) : d.noTrades)
     +   "</div></div>"
@@ -236,8 +235,6 @@ function vBtj(){
       + '<button class="btn primary" onclick="__btj.add()">' + esc(d.add) + "</button>"
       + "</div></div></div>";
   }
-  /* Відкритий — першим: саме його людина шукає очима, повернувшись сюди. */
-  l.sort((a, b) => (b.k === cur) - (a.k === cur));
   return '<div class="acw">' + head + '<div class="ac-grid btj-grid">' + l.map(card).join("") + "</div></div>";
 }
 
@@ -356,7 +353,8 @@ window.__btj = {
     if (v === "journal") v = jStyle();
     if (v === "cal" || v === "table"){ try{ localStorage.setItem("tj_jstyle", v); }catch(e){} }
     S.jMode = v;
-    try{ localStorage.setItem("tj_jmode", v); }catch(e){}
+    /* ключ бектесту: реальний журнал свій вигляд памʼятає окремо */
+    try{ localStorage.setItem("tj_jmode_bt", v); }catch(e){}
     if (location.hash === "#journal") render(); else location.hash = "journal";
   },
   navLabel(){ return D().navTitle; },
@@ -382,6 +380,10 @@ window.__btj = {
     if (!j) return;
     select(j.name);
     S.trades = S.all = filter(all());
+    /* Новий журнал відкривається вкладкою «Журнал» (календар чи список —
+       як звик), а не тим, що лишилось відкритим у попередньому. */
+    S.jMode = jStyle();
+    try{ localStorage.setItem("tj_jmode_bt", S.jMode); }catch(e){}
     /* Календар і день — на останню угоду журналу: прогін іде по історії,
        і поточний місяць у ньому зазвичай порожній. */
     const last = sortAsc(S.all).pop();

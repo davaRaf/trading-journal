@@ -316,6 +316,7 @@ async function setMode(m){
      підказки не звідти. */
   if(window.__ts && __ts.reload) __ts.reload();
   S.selDay=isoDay(now); S.jMonth=isoMonth(now); S.pages={}; S.filters={};
+  S.jMode=readJMode();                   // у кожного режиму свій вигляд журналу
   /* Розділ, якого в цьому режимі немає, міняємо разом з адресою: інакше в
      рядку лишиться #day, а на екрані буде огляд. */
   const swap=()=>{
@@ -1218,8 +1219,16 @@ function monthNavHtml(){
 /* вид журнала: календарь, таблица месяца или все сделки. Выбор запоминаем */
 function setJMode(v){
   S.jMode=v; S.pages={};
-  try{ localStorage.setItem("tj_jmode",v); }catch(e){}
+  try{ localStorage.setItem(jModeKey(),v); }catch(e){}
   render();
+}
+/* Вигляд журналу памʼятаємо окремо для реальної торгівлі й бектесту:
+   інакше «Усі угоди», відкриті в журналі бектесту, відкривались би й у
+   реальному журналі після перемикання режиму. */
+function jModeKey(){ return S.mode==="bt" ? "tj_jmode_bt" : "tj_jmode"; }
+function readJMode(){
+  try{ const v=localStorage.getItem(jModeKey()); return v==="table"||v==="list" ? v : "cal"; }
+  catch(e){ return "cal"; }
 }
 
 /* месяц таблицей: те же угоди, что в календаре, но подряд и с колонками */
