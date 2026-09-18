@@ -1307,9 +1307,11 @@ h1.ovh a.on::after{content:"";position:absolute;left:0;right:0;bottom:0;height:2
   :root:not([data-layout="top"]) .side .mode-sw .seg-tabs{width:auto;border:0;border-radius:999px;padding:0}
   :root:not([data-layout="top"]) .side .mode-sw .seg-tabs button{flex:none;padding:8px 20px;font-size:13px;border-radius:999px}
   :root[data-mode="bt"]:not([data-layout="top"]) .side .mode-sw{border-color:var(--accent)}
-  /* низ сторінки не ховається під капсулою */
-  :root:not([data-layout="top"]) .main{padding-bottom:max(clamp(16px,3vw,36px), 84px)}
-  :root:not([data-layout="top"]) .main:has(.ovw, .acw){padding-bottom:84px}
+  /* низ сторінки не ховається під капсулою. Саме #main: клас main
+     мають і головні кнопки (репліка агента, «шляхи» на порожньому огляді) —
+     з голим .main вони отримували ці 84px знизу й витягувались угору. */
+  :root:not([data-layout="top"]) #main{padding-bottom:max(clamp(16px,3vw,36px), 84px)}
+  :root:not([data-layout="top"]) #main:has(.ovw, .acw){padding-bottom:84px}
 }
 .mode-sw .seg-tabs{margin-left:0;width:100%;border-radius:12px}
 .mode-sw .seg-tabs button{flex:1;padding:7px 8px;font-size:12px}
