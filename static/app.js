@@ -257,7 +257,14 @@ const BT_READY = true;
 function btOn(){ return BT_READY && S.mode==="bt" && !DEMO && !(window.Pub && Pub.on); }
 
 async function reload(){
-  S.all = await api("GET","/api/trades" + (btOn()?"?kind=bt":""));
+  const got = await api("GET","/api/trades" + (btOn()?"?kind=bt":""));
+  /* У бектесті статистика завжди по одному журналу (btj.js): усі прогони
+     лежать у S.btAll, а на екрани йдуть угоди відкритого. */
+  if(btOn() && window.__btj){
+    S.btAll = got;
+    await __btj.sync();
+    S.all = __btj.filter(got);
+  } else { S.btAll = null; S.all = got; }
   S.trades = S.all;          // в статистике участвуют все сделки
   await Prefs.load();        // після угод: тепер відомо, демо це чи ні
   /* Рахунки читаємо про запас і не чекаємо на них: вони потрібні формі
@@ -280,8 +287,16 @@ async function setMode(m){
   if(modeBusy) return;
   modeBusy = true;
   const was = S.mode;
-  S.mode = m;
-  markMode();
+  /* Перехід без смикання. Раніше меню, смужка й відступ зверху мінялись
+     одразу, ще до угод, а сторінка — окремо, коли вони доїдуть; потім
+     зміна адреси малювала її вдруге. Тепер: кнопка світиться одразу (клік
+     помічено), сторінка тихо пригасає, поки їдуть угоди, а тоді все
+     міняється одним кадром — плавним переходом браузера, де він є. */
+  document.querySelectorAll("#modeTabs button").forEach(b=>
+    b.classList.toggle("on", b.dataset.mode===m));
+  const main=$("#main");
+  if(main) main.classList.add("mode-wait");
+  S.mode = m;                            // reload() питає режим через btOn()
   dataReady=false;                       // поки не перечитали — не малюємо
   try{
     await reload();
@@ -290,6 +305,7 @@ async function setMode(m){
        одного режиму під написом іншого, і наступна угода пішла б не туди. */
     S.mode = was;
     markMode();
+    if(main) main.classList.remove("mode-wait");
     dataReady=true; modeBusy=false;
     alert(T.modeFail);
     return;
@@ -300,11 +316,29 @@ async function setMode(m){
      підказки не звідти. */
   if(window.__ts && __ts.reload) __ts.reload();
   S.selDay=isoDay(now); S.jMonth=isoMonth(now); S.pages={}; S.filters={};
+  S.jMode=readJMode();                   // у кожного режиму свій вигляд журналу
   /* Розділ, якого в цьому режимі немає, міняємо разом з адресою: інакше в
      рядку лишиться #day, а на екрані буде огляд. */
-  if(!viewAllowed(S.view)){ S.view="dashboard"; location.hash="dashboard"; }
-  render();
+  const swap=()=>{
+    markMode();
+    if(m==="bt") goView("btj");
+    else if(!viewAllowed(S.view)) goView("dashboard");
+    render();
+    if(main) main.classList.remove("mode-wait");
+  };
+  const calm = window.matchMedia && matchMedia("(prefers-reduced-motion: reduce)").matches;
+  if(document.startViewTransition && !calm){
+    try{ await document.startViewTransition(swap).finished; }catch(e){}
+  } else swap();
   modeBusy = false;
+}
+
+/* Змінити розділ разом з адресою, але намалювати один раз: сама зміна
+   адреси викликає hashchange, і той малював би сторінку вдруге. */
+let hashSkip=null;
+function goView(v){
+  S.view=v;
+  if(location.hash!=="#"+v){ hashSkip=v; location.hash=v; }
 }
 
 /* Позначка режиму: атрибут на <html> для стилів і підсвічений сегмент.
@@ -1005,12 +1039,18 @@ function ovRailHtml(){
 
    Підпис береться з accounts.js: словник розділу живе там. Немає розділу
    (бектест, чужий журнал) — лишається звичайний заголовок. */
+/* Друга вкладка поруч з «Оглядом» — «Рахунки». У бектесті її немає: там
+   огляд — вкладка всередині журналу (btj.js). */
+function ovSub(){
+  if(btOn()) return {v:"", nm:""};           // у бектесті огляд живе в журналі
+  return {v:"accounts", nm:viewAllowed("accounts")&&window.__acc&&__acc.navLabel?__acc.navLabel():""};
+}
 function ovTabsHtml(cur){
-  const nm=viewAllowed("accounts")&&window.__acc&&__acc.navLabel?__acc.navLabel():"";
-  if(!nm) return "<h1>"+esc(T.ovTitle)+"</h1>";
+  const sub=ovSub();
+  if(!sub.nm) return "<h1>"+esc(T.ovTitle)+"</h1>";
   const tab=(v,l)=>'<a href="#'+v+'" class="'+(cur===v?"on":"")+'"'
     +(cur===v?' aria-current="page"':"")+">"+esc(l)+"</a>";
-  return '<h1 class="ovh">'+tab("dashboard",T.ovTitle)+tab("accounts",nm)+"</h1>";
+  return '<h1 class="ovh">'+tab("dashboard",T.ovTitle)+tab(sub.v,sub.nm)+"</h1>";
 }
 window.ovTabsHtml=ovTabsHtml;
 
@@ -1023,10 +1063,10 @@ function updateNavDash(){
   const a=document.querySelector('.nav a[data-v="dashboard"], .side a[data-v="dashboard"]');
   const sp=a&&a.querySelector("span");
   if(sp) sp.textContent=T.ovTitle;
-  const sub=document.querySelector('.nav a.navsub[data-v="accounts"], .side a.navsub[data-v="accounts"]');
+  const sub=document.querySelector('.nav a.navsub, .side a.navsub');
   if(!sub) return;
-  const nm=viewAllowed("accounts")&&window.__acc&&__acc.navLabel?__acc.navLabel():"";
-  if(nm){ sub.textContent=nm; sub.hidden=false; }
+  const o=ovSub();
+  if(o.nm){ sub.textContent=o.nm; sub.hidden=false; sub.dataset.v=o.v; sub.setAttribute("href","#"+o.v); }
   else{ sub.hidden=true; }
 }
 window.updateNavDash=updateNavDash;
@@ -1049,10 +1089,12 @@ function vDashboard(){
     return '<div class="ohead">'+ovTabsHtml("dashboard")+'</div>'+
       '<div class="card"><div class="in ov-empty" style="padding:26px 24px">'+
       '<div style="font-size:20px;font-weight:600;letter-spacing:-.01em">'+T.bgTitle+'</div>'+
-      '<div class="hint" style="margin-top:8px;max-width:62ch;line-height:1.6">'+(bt?T.btEmpty:T.bgLead)+'</div>'+
+      '<div class="hint" style="margin-top:8px;max-width:62ch;line-height:1.6">'+(bt?(window.__btj&&__btj.none()?T.btNoJ:T.btEmpty):T.bgLead)+'</div>'+
       '<div class="begin">'+
         (bt?"":way(" main","__notion.open()","bgNotionTag","bgNotionTitle","bgNotionText"))+
-        way(bt?" main":"","openForm()","bgTradeTag","bgTradeTitle","bgTradeText")+
+        (bt&&window.__btj&&__btj.none()
+          ? way(" main","__btj.add()","bgBtjTag","bgBtjTitle","bgBtjText")
+          : way(bt?" main":"","openForm()","bgTradeTag","bgTradeTitle","bgTradeText"))+
         way("","location.hash='ts'","bgTsTag","bgTsTitle","bgTsText")+
       '</div></div></div>';
   }
@@ -1099,11 +1141,15 @@ function vJournal(){
     '<button class="'+(S.jMode==="table"?"on":"")+'" data-tip="'+T.jrTableTabTip+'" onclick="setJMode(\'table\')">'+T.jrTableTab+'</button>'+
     '<button class="'+(S.jMode==="list"?"on":"")+'" data-tip="'+T.jrAllTabTip+'" onclick="setJMode(\'list\')">'+T.jrAllTab+'</button>'+
     "</div>";
-  let h='<div class="jhead"><h1>'+T.jrTitle+'</h1>'+modeTabs;
+  let h='<div class="jhead">'+(btOn()&&window.__btj ? __btj.head(S.jMode) : '<h1>'+T.jrTitle+'</h1>'+modeTabs);
   if(S.jMode==="list"){
-    h+="</div>";
+    /* «Інструменти» — те саме гніздо, що й у календарі: без нього
+       sharelink.js не знаходив місця й ставив «Поділитись» ліворуч. */
+    h+='<div class="tools"></div></div>';
     const list=sortDesc(applyFilters(S.trades));
-    return h+filterBar()+tradesCard(list,T.jrAllTab+" · "+list.length,"all");
+    /* у бектесті назва журналу — у шапці картки, як у рядку місяців календаря */
+    const cap=(btOn()&&window.__btj&&__btj.curName()?__btj.curName()+" · ":"")+T.jrAllTab+" · "+list.length;
+    return h+filterBar()+tradesCard(list,cap,"all");
   }
   /* «Інструменти» лишаються порожні: сюди sharelink.js кладе кнопки
      «поділитись» за день, тиждень, місяць і рік */
@@ -1143,7 +1189,8 @@ function vJournal(){
 
   const leftPane = S.jMode==="table"
     ? monthTableHtml(monthTrades)
-    : '<div class="card jpane jpane-cal"><div class="panehead">'+monthNavHtml()+"</div>"+
+    : '<div class="card jpane jpane-cal"><div class="panehead">'+
+        (btOn()&&window.__btj?__btj.paneTitle():"")+monthNavHtml()+"</div>"+
       calHtml(S.jMonth,"pickDay",S.selDay)+
       "</div>";
   /* панель дня живёт в гнезде: так её высота равна левой половине, а не тянет страницу вниз */
@@ -1175,14 +1222,22 @@ function monthNavHtml(){
 /* вид журнала: календарь, таблица месяца или все сделки. Выбор запоминаем */
 function setJMode(v){
   S.jMode=v; S.pages={};
-  try{ localStorage.setItem("tj_jmode",v); }catch(e){}
+  try{ localStorage.setItem(jModeKey(),v); }catch(e){}
   render();
+}
+/* Вигляд журналу памʼятаємо окремо для реальної торгівлі й бектесту:
+   інакше «Усі угоди», відкриті в журналі бектесту, відкривались би й у
+   реальному журналі після перемикання режиму. */
+function jModeKey(){ return S.mode==="bt" ? "tj_jmode_bt" : "tj_jmode"; }
+function readJMode(){
+  try{ const v=localStorage.getItem(jModeKey()); return v==="table"||v==="list" ? v : "cal"; }
+  catch(e){ return "cal"; }
 }
 
 /* месяц таблицей: те же угоди, что в календаре, но подряд и с колонками */
 function monthTableHtml(list){
   if(!list.length)
-    return '<div class="card jpane jpane-list"><h3>'+T.jrMonthTrades+
+    return '<div class="card jpane jpane-list"><h3>'+(btOn()&&window.__btj?__btj.paneTitle():T.jrMonthTrades)+
       '<span class="hr">'+monthNavHtml()+'</span></h3>'+
       '<div class="empty">'+T.jrMonthEmpty+'</div></div>';
   const rows=sortAsc(list).map(t=>{
@@ -1202,7 +1257,7 @@ function monthTableHtml(list){
       '<td class="num">'+(t.rr!=null&&t.rr!==""?r1(t.rr):"—")+"</td>"+
       '<td class="num '+clsR(r)+'">'+tradePct(t)+"</td></tr>";
   }).join("");
-  return '<div class="card jpane jpane-list"><h3>'+T.jrMonthTrades+
+  return '<div class="card jpane jpane-list"><h3>'+(btOn()&&window.__btj?__btj.paneTitle():T.jrMonthTrades)+
     '<span class="hr"><em>'+list.length+' '+T.abbrPieces+'</em>'+monthNavHtml()+"</span></h3>"+
     '<div class="mtwrap"><table class="mtable">'+
     "<thead><tr><th>"+T.fDate+"</th><th>"+T.fPair+"</th><th>"+T.fPosition+"</th><th>"+T.fSession+"</th>"+
@@ -1469,7 +1524,9 @@ function vYearly(){
 /* ---------- Analytics ---------- */
 function vAnalytics(){
   const list=applyFilters(S.trades);
-  let h='<div class="vhead"><h1>'+T.anTitle+'</h1><span class="sub">'+list.length+" "+T.anSampleSuffix+"</span></div>";
+  let h='<div class="vhead"><h1>'+T.anTitle+'</h1><span class="sub">'+list.length+" "+T.anSampleSuffix+"</span>"+
+    /* у бектесті розрізи рахуються по одному журналу — обираємо, по якому */
+    (btOn()&&window.__btj?__btj.filterBtn():"")+"</div>";
   h+=filterBar();
   /* Десять розрізів у рядок — стіна кнопок на телефоні. Там вони живуть
      під кнопкою з поточним розрізом і закриваються після вибору. */
@@ -1886,6 +1943,9 @@ function openForm(id, presetDay){
   /* гостя спиняємо тут, а не на «зберегти»: нечесно давати заповнити
      всю форму й аж тоді сказати, що записати нікуди */
   if(window.Guest && Guest.block(T.gsGateTrade)) return;
+  /* У бектесті нова угода пишеться у відкритий журнал. Журналу ще немає —
+     спершу заводимо його: угода без журналу в бектесті нікуди не ляже. */
+  if(!id && btOn() && window.__btj && !__btj.curName()){ __btj.add(); return; }
   const t=id?(S.all.length?S.all:S.trades).find(x=>x.id===id):null;
   /* підпис береться разом із таймфреймом: без нього форма правки відкривала
      скріни з порожніми полями, і написане зникало на першому ж збереженні */
@@ -1938,7 +1998,7 @@ function openForm(id, presetDay){
   '<section class="fcard"><h4>'+T.tradeDefaultName+'</h4><div class="fbody">'+
     '<div class="frow">'+
       '<div class="f"><label>'+T.fPair+' <i>*</i></label>'+
-        pick("pair",pairs,t?t.pair:"",T.fmOwnPairPh)+"</div>"+
+        pick("pair",pairs,t?t.pair:(btOn()&&window.__btj?__btj.asset():""),T.fmOwnPairPh)+"</div>"+
       '<div class="f"><label>'+T.fmDateTime+' <i>*</i></label>'+
         '<input id="fld_date" type="datetime-local" value="'+esc(dt)+'"></div>'+
     "</div>"+
@@ -1947,9 +2007,14 @@ function openForm(id, presetDay){
         pick("session",SESSIONS,t?t.session:"",T.fmOwnSessionPh)+"</div>"+
       /* У бектесті рахунку немає — на його місці підпис прогону: що саме
          ганяв. Одне поле замість другого, форма не росте. */
+      /* У бектесті угода пишеться в той журнал, у якому людина зараз
+         (btj.js), — вибирати тут нічого: журнал показуємо, а не питаємо.
+         Правка старої угоди лишає її в її журналі. */
       (btOn()
-        ? '<div class="f"><label>'+T.fBtRun+'</label>'+
-            pick("bt_run",topVals("bt_run",4),t?t.bt_run:"",T.fmBtRunPh)+"</div>"
+        ? (()=>{ const jn=t?(t.bt_run||""):(window.__btj?__btj.curName():"");
+            return '<div class="f"><label>'+T.fBtRun+'</label>'+
+              '<div class="fjournal">'+esc(jn||"—")+'</div>'+
+              '<input type="hidden" id="fld_bt_run" value="'+esc(jn)+'"></div>'; })()
         : '<div class="f"><label>'+T.fAccount+'</label>'+
             pick("account",accounts,t?t.account:lastAccount(),T.fmOwnAccountPh)+"</div>")+
       '<div class="f"><label>'+T.fmDirectionLabel+'</label>'+
@@ -2398,6 +2463,7 @@ async function saveTrade(id){
      перепитуємо: раптом інструмент і справді так зветься */
   if(!looksLikePair(t.pair) && !await Ask.yes(T.alertOddPair.replace("%s", t.pair), {ok:T.askYes, cancel:T.askNo})) return;
   if(!t.date){ formErr("date", T.alertNeedDate); return; }
+  if(btOn() && !t.bt_run.trim()){ formErr("bt_run", T.alertNeedJournal); return; }
   if(!t.result){ formErr("result", T.alertNeedResult); return; }
   if(t.result==="Win" && !num(t.rr)){ formErr("rr", T.alertNeedRR); return; }
   /* У скипа сделки не было: RR и риск не сохраняем, чтобы они не попали
@@ -2424,6 +2490,9 @@ async function saveTrade(id){
     if(id) await api("PUT","/api/trades/"+id,t);
     else   saved=await api("POST","/api/trades",t);
     Draft.done(id||"");
+    /* Записав в інший журнал — туди й переходимо, інакше угода «зникла б»
+       з екрана відкритого журналу одразу після збереження. */
+    if(btOn() && window.__btj && t.bt_run) __btj.select(t.bt_run);
     await reload(); closeModal(); render();
     /* Звірка з ТС — уже після того, як форма закрилась: людина не має
        чекати ні на сервер, ні на модель. Правки чужих полів не чіпаємо:
@@ -2594,21 +2663,32 @@ const PUB_VIEWS={dashboard:1,journal:1,monthly:1,quarterly:1,yearly:1,analytics:
 /* Чого в бектесті немає: розбір дня — про план на ранок, новини — про
    майбутній тиждень. У панелі їх сховано, тож і за адресою з решіткою
    туди не пускаємо: інакше розділ відкривався б без кнопки назад. */
-const BT_HIDDEN={day:1,news:1};
+/* «Огляду» (з кварталом і роком) у бектесті теж немає: підсумки прогону —
+   у самому журналі й в «Аналітиці» (18.09.2026, власник: «не потрібен»). */
+const BT_HIDDEN={day:1,news:1,dashboard:1,quarterly:1,yearly:1};
+const BT_IN_JOURNAL={journal:1,monthly:1};
+/* Куди вести, коли розділу в режимі немає: у бектесті — до списку журналів. */
+function homeView(){ return btOn()?"btj":"dashboard"; }
 function viewAllowed(v){
   if(!VIEWS[v]) return false;
   if(BT_HIDDEN[v] && btOn()) return false;
+  if(v==="btj" && !btOn()) return false;     // журнали бектесту — тільки в ньому
+  /* У бектесті огляд і календар — всередині журналу: поки жоден не відкритий,
+     туди не пускаємо, людина потрапляє до списку журналів. */
+  if(btOn() && window.__btj && !__btj.isOpen() && BT_IN_JOURNAL[v]) return false;
   return window.Pub&&Pub.on ? !!PUB_VIEWS[v] : true;
 }
 function render(){
   if(!dataReady) return;
-  const v=viewAllowed(S.view)?S.view:"dashboard";
+  const v=viewAllowed(S.view)?S.view:homeView();
   /* «Новини» переїхали з меню в групу інструментів — підсвічування шукаємо
      і там, інакше відкритий розділ ніде не позначався */
   /* «Рахунки» тепер своє посилання (a.navsub поруч з «Огляд») — світиться
      саме воно на #accounts, а «Огляд» лишається сірим. */
-  document.querySelectorAll(".nav a, .side a[data-v]").forEach(a=>a.classList.toggle("on",a.dataset.v===v));
+  const navV = btOn() && BT_IN_JOURNAL[v] ? "btj" : v;
+  document.querySelectorAll(".nav a, .side a[data-v]").forEach(a=>a.classList.toggle("on",a.dataset.v===navV));
   updateNavDash();
+  if(window.__btj) __btj.paint();
   if(window.PL) PL.reset();
   /* кнопка-якорь сейчас исчезнет вместе с разделом — список без неё не нужен */
   if(window.Pick) Pick.close();
@@ -2630,7 +2710,16 @@ function render(){
   if(window.PL) PL.mount();
   if(window.Tip) Tip.mount($("#main"));
 }
-window.addEventListener("hashchange",()=>{ S.view=location.hash.slice(1)||"dashboard"; render(); });
+window.addEventListener("hashchange",()=>{
+  const v=location.hash.slice(1)||"dashboard";
+  /* адресу змінив goView() і сторінку вже намальовано */
+  if(hashSkip===v){ hashSkip=null; return; }
+  hashSkip=null;
+  /* розділу в цьому режимі немає (логотип веде на #dashboard, а в бектесті
+     огляду нема) — міняємо й адресу, щоб у рядку не лишалась чужа решітка */
+  if(!viewAllowed(v)){ goView(homeView()); render(); return; }
+  S.view=v; render();
+});
 document.addEventListener("keydown",e=>{
   if(e.key==="Escape"){ if(!$("#lightbox").hidden)closeLightbox(); else if(!$("#modal").hidden)closeModal(); }
 });
@@ -2751,7 +2840,7 @@ function markDemo(){
   S.view=location.hash.slice(1)||"dashboard";
   if(S.view==="monthly"){ S.view="journal"; location.hash="journal"; }
   /* Відкрили журнал за старою адресою розділу, якого в цьому режимі немає */
-  if(!viewAllowed(S.view)){ S.view="dashboard"; location.hash="dashboard"; }
+  if(!viewAllowed(S.view)){ S.view=homeView(); location.hash=S.view; }
   render();
   if(window.Sparks) Sparks.start();
   if(!DEMO && !(window.Pub && Pub.on)) refreshTelegramStatus();

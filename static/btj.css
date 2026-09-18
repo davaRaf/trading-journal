@@ -1,0 +1,66 @@
+/* Журнали бектесту (btj.js). Картки, поля й сітка — з accounts.css;
+   тут лише те, чого в рахунків немає. */
+
+.btj-note{white-space:pre-wrap}
+.btj-go{font-weight:500; color:var(--accent)}
+.btj-card{cursor:pointer; transition:box-shadow .16s}
+.btj-card:hover{box-shadow:0 0 0 1px var(--line) inset}
+/* Сітка — спільна з «Рахунками» (accounts.css). */
+
+/* ---- шапка всередині журналу: назад до списку, назва, вкладки ----
+   Стоїть і в календарі (.jhead), і в огляді (.ohead) — однаково в обох,
+   щоб при перемиканні вкладок нічого не стрибало. */
+.btj-head{flex:1 1 100%; display:flex; flex-direction:column; align-items:flex-start; gap:6px; min-width:0}
+.btj-back{display:inline-flex; align-items:center; gap:4px; color:var(--faint); font-size:13px;
+  text-decoration:none; padding:2px 6px 2px 0; transition:color .16s}
+.btj-back:hover{color:var(--text)}
+
+/* Фільтр журналу в «Аналітиці»: маленька кнопка поруч із заголовком. */
+.btj-filter{display:inline-flex; align-items:center; gap:8px; margin-left:auto; padding:7px 12px;
+  border:1px solid var(--line); border-radius:10px; background:var(--panel-2); color:var(--text);
+  font:inherit; font-size:13px; cursor:pointer; transition:border-color .16s}
+.btj-filter:hover, .btj-filter[aria-expanded="true"]{border-color:var(--accent)}
+.btj-filter span{font-family:var(--mono); font-size:9.5px; letter-spacing:.14em; text-transform:uppercase; color:var(--faint)}
+.btj-filter b{font-weight:500; max-width:240px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap}
+.btj-filter svg{color:var(--faint)}
+
+/* Назва журналу в рядку перемотки місяців: зліва, навпроти «‹ місяць ›». */
+.panehead .btj-pane, .jpane-list h3 .btj-pane{margin-right:auto}
+/* назва зверху, актив і період — тихим рядком під нею */
+.btj-pane{display:flex; flex-direction:column; gap:1px; min-width:0; padding-left:6px; line-height:1.3}
+.btj-pane b{font-size:18px; font-weight:600; letter-spacing:-.01em; color:var(--text);
+  text-transform:none; font-family:var(--sans)}
+.btj-pane span{font-size:12.5px; font-weight:400; color:var(--faint); letter-spacing:0;
+  text-transform:none; font-family:var(--sans)}
+@media (max-width:560px){
+  /* на телефоні назва — своїм рядком над перемоткою */
+  .panehead:has(.btj-pane){flex-wrap:wrap; row-gap:10px}
+  .panehead .btj-pane{flex:1 1 100%; padding-left:4px}
+}
+
+/* Вкладки журналу: зверху — що дивимось (підкреслення, як «Огляд / Рахунки»
+   в реальному режимі), збоку — вигляд журналу сегментом. Різна форма —
+   щоб не читались як один ряд рівноправних кнопок. */
+/* не на весь рядок: праворуч від вкладок ще стають «Поділитись» і періоди огляду */
+/* Висота рядка однакова з перемикачем вигляду й без нього (у «Усіх угодах»
+   його немає) — інакше вкладки підстрибували на 3px при переході. Вкладки
+   притиснуті до низу: підкреслення лежить на лінії рядка. */
+.btj-nav{flex:1 1 auto; display:flex; align-items:flex-end; gap:14px 20px; flex-wrap:wrap;
+  min-height:52px; border-bottom:1px solid var(--line-soft)}
+.btj-main{display:flex; gap:22px}
+.btj-main button{border:0; background:none; padding:10px 0 11px; margin-bottom:-1px;
+  font:inherit; font-size:15px; font-weight:500; color:var(--faint); cursor:pointer;
+  border-bottom:2px solid transparent; transition:color .16s, border-color .16s}
+.btj-main button:hover{color:var(--text)}
+.btj-main button.on{color:var(--text); border-bottom-color:var(--accent)}
+.btj-main button:focus-visible{outline:2px solid var(--accent); outline-offset:2px; border-radius:4px}
+/* .btj-nav спереду — інакше .jhead .seg-tabs{margin-left:0} зі style.css
+   тримав би перемикач впритул до вкладок. */
+.btj-nav .btj-style{margin-left:auto; margin-bottom:6px}
+@media (max-width:560px){
+  .btj-main{gap:18px}
+  .btj-main button{font-size:14.5px; padding:12px 0}
+  /* на телефоні вигляд журналу — окремим рядком на всю ширину */
+  .btj-nav .btj-style{margin-left:0; width:100%; margin-bottom:10px}
+  .btj-style button{flex:1}
+}
