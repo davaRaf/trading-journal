@@ -62,6 +62,8 @@ def res_label(r, lang):
         return t(lang, "resHandFull")
     if r == "Skip":
         return t(lang, "resSkip")
+    if r == "Open":
+        return t(lang, "resOpen")
     return RES_LABEL.get(r, r or "")
 
 
@@ -107,7 +109,7 @@ def trade_detail(tr, lang):
         "pair": tr.get("pair") or "",
         "result": res_label(r, lang),
         "cls": "pos" if is_win(tr) else "neg" if r == "Loss" else "be",
-        "skip": r == "Skip",
+        "skip": r in ("Skip", "Open"),   # відкрита ще без результату — як скіп, без відсотка
         "net": net_r(tr),
         "info": [{"k": k, "v": str(v)} for k, v in info if v],
         "texts": [{"k": k, "v": v.strip()} for k, v in texts if (v or "").strip()],

@@ -770,6 +770,18 @@ tr.click:hover .go{opacity:1;color:var(--accent)}
 .mk.skip{padding:3px 6px}
 .dtrade.skip,tr.skip{opacity:.72}
 .seg button.on.skipk{background:var(--panel-2);border-color:var(--faint);color:var(--dim)}
+/* «В роботі» — угода ще відкрита. Акцентна пунктирна рамка без заливки:
+   видно, що до неї треба повернутись, але з результатом її не сплутати. */
+.badge.open,.mk.open{background:transparent;border:1px dashed var(--accent);color:var(--accent)}
+.mk.open{padding:3px 6px}
+.dtrade.open .r,tr.open td.num:last-child{color:var(--faint)}
+.seg.res button.on.openk{background:var(--accent-soft);border:1px dashed var(--accent);color:var(--accent)}
+.outcome.open{border:1px dashed var(--accent);background:var(--accent-soft)} .outcome.open .big{color:var(--accent)}
+/* Незаповнене поле форми: наша підказка замість системного вікна браузера */
+.form .f.ferr input:not([type=hidden]),.form .f.ferr .seg button{border-color:var(--down)}
+.ferr-msg{margin-top:6px;padding:7px 10px;border-radius:var(--r-sm);font-size:12.5px;font-weight:500;line-height:1.4;
+  background:var(--down-soft);color:var(--down);animation:ferrIn .18s ease-out}
+@keyframes ferrIn{from{opacity:0;transform:translateY(-3px)}to{opacity:1;transform:none}}
 .fhint{font-size:11.5px;color:var(--faint);margin-top:4px;display:block}
 
 /* ---------- BE+ отдельным цветом: фиолетовый, чтобы не путать с TP ---------- */
@@ -869,6 +881,8 @@ table.simple.mini td:last-child{white-space:nowrap;font-weight:600}
 .seg.big button.on{color:#fff}
 .seg.big button.on.lng{background:var(--accent);border-color:var(--accent);color:var(--accent-ink,#fff)}
 .seg.big button.on.shr{background:var(--down);border-color:var(--down)}
+/* результатів сім — в один ряд вони стискались до нечитабельного, тож два ряди: 4 + 3 */
+.seg.big.res{grid-auto-flow:row;grid-template-columns:repeat(4,minmax(0,1fr))}
 .seg.res button.on.win{background:var(--up);border-color:var(--up)}
 .seg.res button.on.loss{background:var(--down);border-color:var(--down)}
 .seg.res button.on.bek{background:var(--be);border-color:var(--be);color:#1c1608}

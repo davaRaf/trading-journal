@@ -1070,7 +1070,8 @@ def trades_with_emotion(user_id):
         return conn.execute(
             "SELECT \"emotion\", \"result\", rr, risk, \"date\", \"pair\", \"setup\", "
             "\"mistakes\", emotion_raw FROM trades "
-            "WHERE user_id=%s AND \"emotion\" <> '' AND \"result\" <> '' ORDER BY \"date\"",
+            "WHERE user_id=%s AND \"emotion\" <> '' AND \"result\" NOT IN ('', 'Open') "
+            "ORDER BY \"date\"",
             (user_id,)).fetchall()
 
 

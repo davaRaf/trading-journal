@@ -50,14 +50,16 @@ def net_pct(t):
 
 
 def is_skip(t):
-    """Скіп — угоди не було. У середні його пускати не можна: винрейт поїде."""
-    return t.get("result") == "Skip"
+    """Скіп — угоди не було. У середні його пускати не можна: винрейт поїде.
+    Угода «В роботі» (Open) ще не закрилась — у середні теж не йде, поки
+    людина не впише результат."""
+    return t.get("result") in ("Skip", "Open")
 
 
 def stats(all_trades):
     # скіпи рахуємо окремо, у решту арифметики не пускаємо
     trades = [t for t in all_trades if not is_skip(t)]
-    skips = len(all_trades) - len(trades)
+    skips = sum(1 for t in all_trades if t.get("result") == "Skip")   # «В роботі» — не скіп
     n = len(trades)
     if not n:
         return {"n": 0, "wr": None, "net": 0.0, "avg_rr": None,

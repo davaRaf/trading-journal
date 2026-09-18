@@ -69,7 +69,7 @@ function tradeDetail(t){
     pair: t.pair || "",
     result: resLabel(t.result),
     cls: isWin(t) ? "pos" : t.result === "Loss" ? "neg" : "be",
-    skip: isSkip(t),                 /* скіп — не угода: без відсотка й кольору */
+    skip: isSkip(t) || isOpen(t),    /* скіп і відкрита — без відсотка й кольору */
     net: netR(t),
     info: info,
     texts: texts,
