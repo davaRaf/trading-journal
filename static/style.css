@@ -1290,6 +1290,24 @@ h1.ovh a.on::after{content:"";position:absolute;left:0;right:0;bottom:0;height:2
 /* Режим журналу: реальна торгівля чи бектест. Той самий сегмент, що й
    режими журналу в шапці, тільки на всю ширину панелі. */
 .mode-sw{display:flex;flex-direction:column;gap:6px}
+/* На компʼютері перемикач режиму — капсулою знизу посередині робочої
+   області (18.09.2026, прохання власника). Сама розмітка лишається в
+   панелі, тож на телефоні mobile.js так само забирає її в шторку.
+   Центр рахуємо від краю панелі: інакше капсула стояла б посередині вікна,
+   тобто зсунутою вліво відносно сторінки. */
+@media (min-width:901px){
+  :root:not([data-layout="top"]) .side .mode-sw{position:fixed;z-index:40;bottom:18px;
+    left:calc(var(--side-w) + (100vw - var(--side-w)) / 2);transform:translateX(-50%);
+    padding:5px;border-radius:999px;background:var(--panel);border:1px solid var(--line);
+    box-shadow:0 10px 30px -12px rgba(0,0,0,.45)}
+  :root:not([data-layout="top"]) .side .mode-sw .lab{display:none}
+  :root:not([data-layout="top"]) .side .mode-sw .seg-tabs{width:auto;border:0;border-radius:999px;padding:0}
+  :root:not([data-layout="top"]) .side .mode-sw .seg-tabs button{flex:none;padding:8px 20px;font-size:13px;border-radius:999px}
+  :root[data-mode="bt"]:not([data-layout="top"]) .side .mode-sw{border-color:var(--accent)}
+  /* низ сторінки не ховається під капсулою */
+  :root:not([data-layout="top"]) .main{padding-bottom:max(clamp(16px,3vw,36px), 84px)}
+  :root:not([data-layout="top"]) .main:has(.ovw, .acw){padding-bottom:84px}
+}
 .mode-sw .seg-tabs{margin-left:0;width:100%;border-radius:12px}
 .mode-sw .seg-tabs button{flex:1;padding:7px 8px;font-size:12px}
 :root[data-mode="bt"] .mode-sw .seg-tabs{border-color:var(--accent)}
