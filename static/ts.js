@@ -201,6 +201,7 @@ function soft(ids){
   old.replaceWith(nu);
   const nb = nu.querySelector(".tsv-tabs");
   if (nb) nb.scrollLeft = sx;
+  placeInk();
 }
 function x(path, i){
   return '<button class="ts-x" type="button" title="' + D().remove
@@ -739,6 +740,38 @@ function tabExtra(){
     + secRaw();
 }
 
+/* Полоска під обраною вкладкою їде до нової, а не перестрибує. Розділ при
+   перемиканні малюється заново, тож перед перемальовкою запамʼятовуємо, де
+   полоска стояла (inkFrom), а після — ставимо її туди без анімації й ведемо
+   до нової вкладки. Поки полоска не на місці, підкреслення дає рамка самої
+   кнопки (див. .ink-on у ts.css) — тож нічого не блимає. */
+let inkFrom = null;
+function inkAt(){
+  const on = document.querySelector("#main .tsv-tabs button.on");
+  return on ? {x: on.offsetLeft, w: on.offsetWidth} : null;
+}
+function placeInk(){
+  const bar = document.querySelector("#main .tsv-tabs");
+  const ink = bar && bar.querySelector(".tsv-ink");
+  const to = inkAt();
+  if (!ink || !to) return;
+  const put = p => { ink.style.transform = "translateX(" + p.x + "px)"; ink.style.width = p.w + "px"; };
+  const from = inkFrom;
+  inkFrom = null;
+  if (from && (from.x !== to.x || from.w !== to.w)){
+    ink.style.transition = "none";
+    put(from);
+    bar.classList.add("ink-on");
+    void ink.offsetWidth;            /* зафіксувати старе місце, інакше переходу не буде */
+    ink.style.transition = "";
+  }
+  put(to);
+  bar.classList.add("ink-on");
+}
+/* ширина вкладок міняється з вікном і коли догрузився шрифт */
+window.addEventListener("resize", () => placeInk());
+if (document.fonts && document.fonts.ready) document.fonts.ready.then(() => placeInk());
+
 function tabIntoView(){
   const bar = document.querySelector(".tsv-tabs");
   const on = bar && bar.querySelector("button.on");
@@ -780,10 +813,11 @@ function vFull(){
   h += passport();
   h += '<div class="tsv-tabs" role="tablist">' + tabsL.map(([id, l]) =>
       '<button type="button" role="tab" aria-selected="' + (id === tab) + '"' + (id === tab ? ' class="on"' : "")
-      + ' onclick="__ts.tab(\'' + id + '\')">' + esc(l) + "</button>").join("") + "</div>";
+      + ' onclick="__ts.tab(\'' + id + '\')">' + esc(l) + "</button>").join("")
+    + '<span class="tsv-ink" aria-hidden="true"></span></div>';
   /* вкладок вісім, на телефоні смуга гортається — підкручуємо її до
      обраної, інакше вона могла стояти за краєм екрана */
-  setTimeout(tabIntoView, 0);
+  setTimeout(() => { placeInk(); tabIntoView(); }, 0);
   h += '<div class="tsv-panel">'
     + ({before: tabBefore, assets: tabAssets, context: tabContext, models: tabModels,
         risk: tabRisk, psy: tabPsy, real: tabReal, extra: tabExtra}[tab])()
@@ -1405,19 +1439,23 @@ window.__ts = {
   },
   tab(id){
     if (TABS.indexOf(id) < 0) return;
+    inkFrom = inkAt();
     tab = id;
     editSec = null;
     try{ localStorage.setItem(TAB_KEY, id); }catch(e){}
     render();
+    placeInk();
   },
   menu(){ menuOpen = !menuOpen; soft(); },
   /* «Додати сторінку з Notion»: відкриваємо вкладку з джерелами й ставимо
      курсор у порожнє поле під посилання */
   srcOpen(){
     menuOpen = false;
+    inkFrom = inkAt();
     tab = "extra";
     try{ localStorage.setItem(TAB_KEY, tab); }catch(e){}
     render();
+    placeInk();
     const f = [...document.querySelectorAll("input.ts-url")].pop();
     if (f){ f.scrollIntoView({block: "center", behavior: "smooth"}); f.focus({preventScroll: true}); }
   },

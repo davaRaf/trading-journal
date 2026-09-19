@@ -391,9 +391,18 @@ textarea.ts-ask-inp{min-height:116px; resize:vertical}
 .tsv-tabs::-webkit-scrollbar{display:none}
 .tsv-tabs button{flex:none; border:0; background:none; font:inherit; font-size:14px; color:var(--dim);
   padding:4px 0 12px; margin-bottom:-1px; border-bottom:2px solid transparent; cursor:pointer;
-  white-space:nowrap; transition:color .15s, border-color .15s}
+  white-space:nowrap; transition:color .15s}
 .tsv-tabs button:hover{color:var(--text)}
 .tsv-tabs button.on{color:var(--text); font-weight:600; border-bottom-color:var(--text)}
+/* полоска під обраною вкладкою — окремий елемент, що їде до нової вкладки
+   (ставить її placeInk у ts.js). Поки вона не на місці, підкреслює рамка кнопки. */
+.tsv-tabs{position:relative}
+.tsv-ink{position:absolute; left:0; bottom:0; width:0; height:2px; background:var(--text); border-radius:2px;
+  opacity:0; pointer-events:none; will-change:transform;
+  transition:transform .34s cubic-bezier(.3,.75,.25,1), width .34s cubic-bezier(.3,.75,.25,1)}
+.tsv-tabs.ink-on .tsv-ink{opacity:1}
+.tsv-tabs.ink-on button.on{border-bottom-color:transparent}
+@media (prefers-reduced-motion:reduce){ .tsv-ink{transition:none} }
 .tsv-panel{animation:tsvIn .2s ease-out}
 /* тиха перемальовка після правки — панель не випливає заново */
 .tsv.still .tsv-panel{animation:none}
