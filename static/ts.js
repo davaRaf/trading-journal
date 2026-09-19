@@ -401,10 +401,14 @@ function passport(){
         + assets.map((a, i) => '<span class="tsv-chip">' + ed("assets." + i) + x("assets", i) + "</span>").join("")
         + (assets.length ? "" : '<span class="tsv-none">' + esc(d.noneYet) + "</span>")
         + add("assets", d.addAsset) + "</div>", "wide")
+    /* У паспорті — лише торговий час: вікна, де стоїть час. Сесії без часу
+       (London, New York) живуть у картці «Коли торгую». Щойно додане вікно
+       (ще без назви) лишаємо — у нього зараз і вписують час. */
     + cell(d.lWindows, '<div class="tsv-wins">'
-        + wins.map((w, i) => "<div><b>" + ed("windows." + i + ".name", "", d.emptyName) + "</b> "
-            + ed("windows." + i + ".time", "", d.emptyTime) + "</div>").join("")
-        + (wins.length ? "" : '<span class="tsv-none">' + esc(d.noneYet) + "</span>") + "</div>"
+        + wins.map((w, i) => (String(w.time || "").trim() || !String(w.name || "").trim())
+            ? "<div><b>" + ed("windows." + i + ".name", "", d.emptyName) + "</b> "
+              + ed("windows." + i + ".time", "", d.emptyTime) + "</div>" : "").join("")
+        + (wins.some(w => String(w.time || "").trim()) ? "" : '<span class="tsv-none">' + esc(d.noneYet) + "</span>") + "</div>"
         + add("windows", d.addWindow), "wide")
     + cell(d.pRisk, '<div class="tsv-big">' + ed("risk.per") + "</div>")
     + cell(d.pRr, '<div class="tsv-big">' + ed("risk.rr") + "</div>")
