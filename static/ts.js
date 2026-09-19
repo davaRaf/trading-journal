@@ -479,9 +479,18 @@ function tabContext(){
 }
 
 /* ---------- вкладка «Моделі входу» ---------- */
+/* Над моделями — загальні правила входу, що стосуються всіх моделей
+   («BOS/Shift лише в межах однієї сесії», «спершу зняття ліквідності»).
+   Порожній блок не показуємо: у кого таких правил немає, тому він зайвий;
+   дописати можна в режимі «Редагувати». */
 function tabModels(){
   const d = D();
-  return secBlock("models", d.lModels, tiles("models", "name", "note",
+  const note = String(TS.modelsNote || "").trim();
+  return (note || editing || editSec === "mnote"
+      ? secBlock("mnote", d.lModelsNote, card("", '<div class="tsv-one">'
+          + edArea("modelsNote", d.emptyModelsNote) + "</div>"))
+      : "")
+    + secBlock("models", d.lModels, tiles("models", "name", "note",
       {none: d.noModels, add: d.addModel, phK: d.emptyName, phV: d.emptyNote, shot: d.shotExample}));
 }
 
@@ -1530,7 +1539,7 @@ uk: {
 
   lAssets: "Чим торгую", lWindows: "Вікна", lDaysNews: "Дні та новини",
   lTradeDays: "Торгові дні", lRedNews: "Червоні новини",
-  lModels: "Моделі входу", lSetups: "Сетапи", lRules: "Правила входу", lBias: "Біас визначаю",
+  lModels: "Моделі входу", lModelsNote: "Загальні правила входу", emptyModelsNote: "правила, що стосуються всіх моделей", lSetups: "Сетапи", lRules: "Правила входу", lBias: "Біас визначаю",
   lStop: "Де стоп", lTarget: "Де ціль", lMaxTrades: "Угод за день",
   lRrMin: "Мінімальний RR", lRiskPer: "Ризик на угоду", lDayLimit: "Ліміт за день",
   lWeekLimit: "Ліміт за тиждень", lRiskCases: "Окремі випадки",
@@ -1662,7 +1671,7 @@ ru: {
 
   lAssets: "Чем торгую", lWindows: "Окна", lDaysNews: "Дни и новости",
   lTradeDays: "Торговые дни", lRedNews: "Красные новости",
-  lModels: "Модели входа", lSetups: "Сетапы", lRules: "Правила входа", lBias: "Биас определяю",
+  lModels: "Модели входа", lModelsNote: "Общие правила входа", emptyModelsNote: "правила, которые касаются всех моделей", lSetups: "Сетапы", lRules: "Правила входа", lBias: "Биас определяю",
   lStop: "Где стоп", lTarget: "Где цель", lMaxTrades: "Сделок за день",
   lRrMin: "Минимальный RR", lRiskPer: "Риск на сделку", lDayLimit: "Лимит за день",
   lWeekLimit: "Лимит за неделю", lRiskCases: "Отдельные случаи",
@@ -1794,7 +1803,7 @@ en: {
 
   lAssets: "What I trade", lWindows: "Windows", lDaysNews: "Days and news",
   lTradeDays: "Trading days", lRedNews: "Red news",
-  lModels: "Entry models", lSetups: "Setups", lRules: "Entry rules", lBias: "Bias from",
+  lModels: "Entry models", lModelsNote: "General entry rules", emptyModelsNote: "rules that apply to every model", lSetups: "Setups", lRules: "Entry rules", lBias: "Bias from",
   lStop: "Stop goes", lTarget: "Target", lMaxTrades: "Trades per day",
   lRrMin: "Minimum RR", lRiskPer: "Risk per trade", lDayLimit: "Daily limit",
   lWeekLimit: "Weekly limit", lRiskCases: "Special cases",

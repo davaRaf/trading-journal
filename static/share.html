@@ -588,7 +588,10 @@ function tsHtml(ts){
   const entryRules = rows([[T.tsShBias, ts.bias], [T.tsShStop, ts.stop.v],
                            [T.tsShTarget, ts.target.v]]);
   const entryShots = shotsHtml((ts.stop.shots || []).concat(ts.target.shots || []));
-  const entry = sub(T.tsShModels, models) + sub(T.tsShSetups, setups)
+  /* загальні правила входу — з 19.09.2026, у старих знімках їх немає */
+  const mnote = ts.modelsNote
+    ? '<div class="what" style="white-space:pre-wrap">' + esc(ts.modelsNote) + "</div>" : "";
+  const entry = sub(T.tsShModelsNote, mnote) + sub(T.tsShModels, models) + sub(T.tsShSetups, setups)
     + sub(T.tsShRules, entryRules + entryShots);
 
   /* ризик */

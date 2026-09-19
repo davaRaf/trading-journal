@@ -376,7 +376,7 @@ def _read_one(url, user_id, shots_dir, seq, shots_left):
     потім віддають 403.
     """
     pid, _ = notion_public.parse_link(url)
-    text, images = notion_public.row_content(pid)
+    text, images = notion_public.row_content(pid, indent=True)
 
     shots = []
     for i, im in enumerate(images[:max(SHOTS_MIN, shots_left)]):
@@ -663,28 +663,42 @@ def _route_models(draft, page):
             names.append(m.group(1).strip())
     if not names:
         return False
+    # Ідемо по рядках, а не по пунктах: так видно глибину. Пояснення моделі
+    # лишається деревом, як у Notion: «• правило / ◦ уточнення / ▸ виняток».
     models, cur, preface = [], None, []
-    for line in _items(page["text"]):
-        head = line.split("\n")[0]
-        hit = next((n for n in names if re.match(r"^" + re.escape(n) + r"\s+[-–—]", head)), None)
-        if hit:
-            cur = {"name": hit, "note": [], "shots": []}
-            models.append(cur)
-        elif DRAFT_RE.search(head):
+    base = None                          # глибина рядка з назвою моделі
+    for raw in (page["text"] or "").split("\n"):
+        t = raw.strip()
+        if not t:
             continue
-        elif cur:
-            keep = [x for x in line.split("\n") if not DRAFT_RE.search(x.strip())]
-            if keep:
-                cur["note"].append("\n".join(keep))
+        depth = (len(raw) - len(raw.lstrip(" "))) // 2
+        body = ITEM_RE.sub("", t)
+        hit = next((n for n in names if re.match(r"^" + re.escape(n) + r"\s+[-–—]", body)), None)
+        if hit:
+            cur, base = {"name": hit, "note": [], "shots": []}, depth
+            models.append(cur)
+        elif DRAFT_RE.search(body):
+            continue
+        elif cur is not None and depth > base:
+            lvl = depth - base - 1
+            cur["note"].append("   " * lvl + ("•◦▸"[min(lvl, 2)]) + " " + body)
+        elif cur is not None and not ITEM_RE.match(t):
+            # звичайний рядок після моделі без відступу — теж її пояснення
+            cur["note"].append("• " + body)
         else:
-            preface.append(line)
+            # пункт до першої моделі (або між моделями на їхньому рівні) —
+            # загальне правило входу для всіх моделей
+            cur = None
+            preface.append("   " * depth + "•◦▸"[min(depth, 2)] + " " + body)
     for m in models:
         m["shots"] = [sh["file"] for sh in page["shots"]
                       if (sh.get("caption") or "").lower().startswith(m["name"].lower())][:8]
-        m["note"] = "\n".join("• " + x for x in m["note"])[:800]
+        m["note"] = "\n".join(m["note"])[:800]
     draft["models"] = models
     if preface:
-        draft.setdefault("extra", []).append(_block(page["title"] or "Entry", preface))
+        # загальні правила входу — окреме поле, його видно у вкладці моделей
+        prev = draft.get("modelsNote") or ""
+        draft["modelsNote"] = ((prev + "\n") if prev else "") + "\n".join(preface)[:1500]
     return True
 
 

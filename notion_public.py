@@ -349,11 +349,15 @@ def map_simple(props, mapping):
 
 # --------------------------------------------------------- содержимое строки
 
+# toggle — «▸ розгортний пункт»: у ТС ним часто ховають уточнення до правила
 TEXT_BLOCKS = ("text", "header", "sub_header", "sub_sub_header", "quote",
-               "callout", "bulleted_list", "numbered_list", "to_do", "code")
+               "callout", "bulleted_list", "numbered_list", "to_do", "code", "toggle")
+# на скільки рівнів заходимо всередину: «модель → правило → уточнення →
+# виняток» — це вже четвертий рівень, раніше все глибше за третій губилось
+MAX_DEPTH = 5
 
 
-def row_content(pid):
+def row_content(pid, indent=False):
     """
     Заметки и картинки внутри карточки сделки — в том порядке, в каком
     они лежат на странице.
@@ -389,10 +393,13 @@ def row_content(pid):
 
         own = title_of(b)
         if bt in TEXT_BLOCKS and own:
-            text.append(("• " if "list" in bt else "") + own)
+            # indent=True — рівень вкладеності відступом (два пробіли на рівень):
+            # ТС показує підпункти під своїм пунктом, а не суцільним списком
+            text.append(("  " * depth if indent else "")
+                        + ("• " if "list" in bt or bt == "toggle" else "") + own)
 
         kids = b.get("content") or []
-        if not kids or depth > 2:
+        if not kids or depth >= MAX_DEPTH:
             return
         # подпись этого блока становится подписью для картинок внутри
         sub = own or label

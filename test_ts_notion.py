@@ -191,6 +191,31 @@ def check_routes():
     assert d["no"]["market"] == ["Перед новинами", "Флет"], d["no"]
     assert [m["k"] for m in d["manage"]] == ["BE", "Частичная фиксация"], d.get("manage")
     assert d["manage"][0]["shots"] == ["a.png"]
+    # сторінка моделей: загальні правила — у modelsNote, пояснення моделі —
+    # деревом з усіма рівнями (тогли й глибокі підпункти не губляться)
+    d = {"extra": [], "psy": []}
+    tn.route_pages(d, [{"title": "Entry models", "url": "", "shots": [], "text": (
+        "• Модели входа использую через BOS\n"
+        "• BOS/Shift в рамках одной сессии\n"
+        "• BOS - как модель для входа\n"
+        "  • Вхожу сразу как цена приходит к BOS\n"
+        "    • Могу дожидаться закрепа в одном случае\n"
+        "      • Когда перед сломом есть имбаланс\n"
+        "  Черновой пример:\n"
+        "• Shift - как модель для входа\n"
+        "  • Вхожу после закрепа свечи")}])
+    assert d["modelsNote"] == "• Модели входа использую через BOS\n• BOS/Shift в рамках одной сессии", d.get("modelsNote")
+    assert [m["name"] for m in d["models"]] == ["BOS", "Shift"]
+    assert d["models"][0]["note"] == ("• Вхожу сразу как цена приходит к BOS\n"
+                                      "   ◦ Могу дожидаться закрепа в одном случае\n"
+                                      "      ▸ Когда перед сломом есть имбаланс"), d["models"][0]["note"]
+    assert d["models"][1]["note"] == "• Вхожу после закрепа свечи"
+    assert not d["extra"], d["extra"]
+
+    d = {"extra": [], "psy": [], "no": {"market": [], "time": [], "self": []}}
+    tn.route_pages(d, [
+        {"title": "Market structure", "text": "Дивлюсь на злами структури", "shots": [], "url": ""},
+    ])
     # контекст без таймфреймів не губиться — лягає в «Додатково»
     assert [e["k"] for e in d["extra"]] == ["Market structure"], d["extra"]
     print("розкладка сторінок за назвою: ок")

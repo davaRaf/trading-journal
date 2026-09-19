@@ -189,6 +189,7 @@ function tsSnapshot(){
       models: models,
       setups: setups,
       bias: str(ts.bias),
+      modelsNote: str(ts.modelsNote),
       stop: {v: str((ts.stop || {}).v), shots: shots([(ts.stop || {}).shot])},
       target: {v: str((ts.target || {}).v), shots: shots([(ts.target || {}).shot])},
       riskCases: cases,
@@ -205,7 +206,7 @@ function tsSnapshot(){
   /* порожньою стратегією ділитись нема чого */
   const t = data.ts;
   const any = has(t.assets) || has(t.tfs) || has(t.models) || has(t.setups) || has(t.manage)
-    || has(t.check) || has(t.extra) || has(t.psy) || t.bias || t.mind || t.stop.v || t.target.v
+    || has(t.check) || has(t.extra) || has(t.psy) || t.modelsNote || t.bias || t.mind || t.stop.v || t.target.v
     || has(t.no.market) || has(t.no.time) || has(t.no.self) || rk.length;
   return any ? data : null;
 }

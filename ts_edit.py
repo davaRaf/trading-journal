@@ -49,7 +49,7 @@ OBJ_LISTS = {
     # тож шукаємо за текстом правила
     "psy":       ("v",    ("k", "v")),
 }
-SCALARS = ("bias", "days", "news", "mind", "maxtrades", "stop.v", "target.v",
+SCALARS = ("bias", "days", "news", "mind", "modelsNote", "maxtrades", "stop.v", "target.v",
            "risk.per", "risk.rr", "risk.day", "risk.week")
 MAXLEN = 300
 
@@ -68,6 +68,7 @@ RULES = (
     "«Сетап», «сэтап», «setup» — це шлях setups (окремий розділ «Сетапи»). «Модель входу», "
     "«модель» — це models. Не плутай їх між собою.\n"
     "Скалярні шляхи (лише op=set, value — рядок): bias, days, news, mind, maxtrades, "
+    "modelsNote (загальні правила входу для всіх моделей), "
     "stop.v, target.v, risk.per, risk.rr, risk.day, risk.week.\n"
     "Назви інструментів пиши великими латинськими, як прийнято: XAUUSD, US100, GER40, "
     "EURUSD. «Золото» — XAUUSD, «насдак» — US100, «дакс» — GER40, «евро» — EURUSD.\n"
