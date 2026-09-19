@@ -455,6 +455,7 @@ def read(urls, user_id, shots_dir):
         route_pages(draft, pages)
     draft.setdefault("psy", [])
     draft.setdefault("ctx", [])
+    draft.setdefault("corr", [])
     draft["source"] = "notion"
     keep = max(2000, 20000 // len(pages))
     draft["notion"] = {
@@ -627,6 +628,7 @@ ITEM_RE = re.compile(r"^([•·*\-—–]|\d+[.)])\s+")
 SKIP_HEAD_RE = re.compile(r"skip|скіп|скип|не вход|не захож|пропуск", re.I)
 RISK_HEAD_RE = re.compile(r"risk|ризик|риск", re.I)
 DRAFT_RE = re.compile(r"^(черновой|чорновий|draft)\b|^(примеры?|приклади?)\s+(из|з)\s+графік|^(примеры?|приклади?)\s+(из|з)\s+график", re.I)
+CORR_HEAD_RE = re.compile(r"correl|корел|коррел|\bpairs?\b|\bпар[ыи]\b", re.I)
 MANAGE_HEAD_RE = re.compile(r"^be$|беззбит|безубыт|break\s?even|partial|частков|частичн|супровід|сопровожд|manage", re.I)
 
 # Скільки тексту лишаємо в одному полі. Раніше тут було 800 символів і 12
@@ -960,6 +962,10 @@ def _route_general(draft, page):
                 draft.setdefault("extra", []).append(_block(page["title"] or "General", g["head"]["t"], g["shots"]))
             _use(page, head)
             continue
+        if CORR_HEAD_RE.search(h):
+            _route_corr(draft, g["rows"])
+            _use(page, head + g["rows"])
+            continue
         if RISK_HEAD_RE.search(h):
             _risk_rows(draft, g, page)
             continue
@@ -980,6 +986,18 @@ def _route_general(draft, page):
             continue
         draft.setdefault("extra", []).extend(_cards(h or page["title"] or "General", g["rows"], g["shots"]))
         _use(page, head + g["rows"])
+
+
+def _route_corr(draft, rows):
+    """«Pairs and correlations»: кожен пункт — пара і з чим вона корелює
+    («EUR/USD - DXY»). Пункт без пари («XAU/USD») теж лишаємо — людина його
+    написала. Підпункти дописуємо в той самий рядок."""
+    corr = draft.setdefault("corr", [])
+    for _, text in _units(rows):
+        line = re.sub(r"\s*\n\s*[•◦▸]?\s*", "; ", text.strip())
+        if line and line not in corr:
+            corr.append(line[:200])
+    draft["corr"] = corr[:LIST_CAP]
 
 
 def _route_list(page):
@@ -1014,6 +1032,7 @@ def route_pages(draft, pages):
     кладемо в «Додатково» цілою — під її ж назвою, зі скрінами."""
     draft.setdefault("extra", [])
     draft.setdefault("ctx", [])
+    draft.setdefault("corr", [])
     draft.setdefault("psy", [])
     # Пошук за словами по всьому тексту дає уривки: будь-який рядок зі словом
     # «бу» ставав правилом супроводу, будь-яке «не входжу» — стоп-сигналом.
@@ -1024,7 +1043,9 @@ def route_pages(draft, pages):
     seen = set()      # розділи, вже взяті зі сторінки: друга така сторінка додається, а не затирає
     for page in pages:
         title = page.get("title") or ""
-        kind = page_kind(title, page.get("text") or "")
+        # «Pairs and correlations», «Мои корреляции» — окремий розділ, словник
+        # сторінок про нього не знає
+        kind = "corr" if CORR_HEAD_RE.search(title) else page_kind(title, page.get("text") or "")
         before = list(draft.get(kind) or []) if kind in seen else []
         if kind == "psy":
             rules = [{"k": k[:80], "v": v[:TEXT_CAP]} for k, v in _route_list(page)]
@@ -1054,6 +1075,10 @@ def route_pages(draft, pages):
                 draft["manage"] = []          # слова з усього тексту — гірші за саму сторінку
             _route_manage(draft, page)
             seen.add("manage")
+        elif kind == "corr":
+            rows = _lines(page)
+            _route_corr(draft, rows)
+            _use(page, rows)
         else:
             # не впізнали — уся сторінка одним блоком під своєю назвою
             rows = _lines(page)

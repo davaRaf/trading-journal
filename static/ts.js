@@ -356,6 +356,19 @@ function secBlock(id, title, body){
     + '<div class="tsv-sh"><p class="tsv-subh">' + esc(title) + "</p>" + editBtn(id) + "</div>" + body + "</section>";
 }
 
+/* ---------- кореляції ----------
+   «EUR/USD — DXY», «GER40 — EU50»: пара і те, на що дивлюсь разом із нею.
+   Стоять під інструментами — і в паспорті, і у вкладці «Активи й сесії». */
+function corrList(empty){
+  const d = D();
+  const list = TS.corr || [];
+  return (list.length
+      ? '<ul class="tsv-corr">' + list.map((c, i) => '<li><div class="ts-row">'
+          + ed("corr." + i, "", d.emptyCorr) + x("corr", i) + "</div></li>").join("") + "</ul>"
+      : (empty ? '<p class="tsv-none">' + esc(d.noCorr) + "</p>" : ""))
+    + add("corr", d.addCorr);
+}
+
 /* ---------- паспорт: цифри, які мають бути на виду завжди ---------- */
 function passport(){
   const d = D();
@@ -367,7 +380,9 @@ function passport(){
     + cell(d.lAssets, '<div class="tsv-chips">'
         + assets.map((a, i) => '<span class="tsv-chip">' + ed("assets." + i) + x("assets", i) + "</span>").join("")
         + (assets.length ? "" : '<span class="tsv-none">' + esc(d.noneYet) + "</span>")
-        + add("assets", d.addAsset) + "</div>", "wide")
+        + add("assets", d.addAsset) + "</div>"
+        + ((TS.corr || []).length || canEdit("pass")
+            ? '<div class="tsv-corrw">' + lab(d.lCorr) + corrList() + "</div>" : ""), "wide")
     + cell(d.lWindows, '<div class="tsv-wins">'
         + wins.map((w, i) => "<div><b>" + ed("windows." + i + ".name", "", d.emptyName) + "</b> "
             + ed("windows." + i + ".time", "", d.emptyTime) + "</div>").join("")
@@ -438,11 +453,12 @@ function tabBefore(){
 function tabAssets(){
   const d = D();
   const assets = TS.assets || [];
-  return '<div class="tsv-two assets">'
+  return '<div class="tsv-two assets"><div class="tsv-col">'
     + secCard("assets", d.secAssets, '<div class="tsv-chips">'
         + assets.map((a, i) => '<span class="tsv-chip">' + ed("assets." + i) + x("assets", i) + "</span>").join("")
         + (assets.length ? "" : '<span class="tsv-none">' + esc(d.noneYet) + "</span>")
         + add("assets", d.addAsset) + "</div>")
+    + secCard("corr", d.lCorr, corrList(true)) + "</div>"
     + secCard("when", d.secWhen, secWhen()) + "</div>";
 }
 
@@ -1502,7 +1518,7 @@ window.__ts = {
     if (!Array.isArray(arr)) set(path, []);
     const list = get(path);
     const proto = {
-      assets: "", check: "", "no.market": "", "no.time": "", "no.self": "",
+      assets: "", corr: "", check: "", "no.market": "", "no.time": "", "no.self": "",
       windows: {name: "", time: "", note: ""},
       tfs: {tf: "", role: "", what: "", shot: ""},
       models: {name: "", note: "", shots: []},
@@ -1607,7 +1623,7 @@ uk: {
   secReal: "Що виходить насправді", secRaw: "Сторінки з Notion, як ми їх прочитали",
   rawText: "Текст сторінок", rawShots: "Скріни зі сторінок",
 
-  lAssets: "Чим торгую", lWindows: "Вікна", lDaysNews: "Дні та новини",
+  lAssets: "Чим торгую", lCorr: "Кореляції", emptyCorr: "пара — з чим корелює", addCorr: "кореляція", noCorr: "Кореляцій ще немає", lWindows: "Вікна", lDaysNews: "Дні та новини",
   lTradeDays: "Торгові дні", lRedNews: "Червоні новини",
   lModels: "Моделі входу", lModelsNote: "Загальні правила входу", lCtx: "Ще про контекст", noCtx: "Тут — усе про контекст, що не прив'язане до одного таймфрейму", addCtx: "ще блок", emptyCtxV: "наприклад, синхронізація таймфреймів", emptyModelsNote: "правила, що стосуються всіх моделей", lSetups: "Сетапи", lRules: "Правила входу", lBias: "Біас визначаю",
   lStop: "Де стоп", lTarget: "Де ціль", lMaxTrades: "Угод за день",
@@ -1739,7 +1755,7 @@ ru: {
   secReal: "Что выходит на самом деле", secRaw: "Страницы из Notion, как мы их прочитали",
   rawText: "Текст страниц", rawShots: "Скрины со страниц",
 
-  lAssets: "Чем торгую", lWindows: "Окна", lDaysNews: "Дни и новости",
+  lAssets: "Чем торгую", lCorr: "Корреляции", emptyCorr: "пара — с чем коррелирует", addCorr: "корреляция", noCorr: "Корреляций пока нет", lWindows: "Окна", lDaysNews: "Дни и новости",
   lTradeDays: "Торговые дни", lRedNews: "Красные новости",
   lModels: "Модели входа", lModelsNote: "Общие правила входа", lCtx: "Ещё о контексте", noCtx: "Здесь — всё о контексте, что не привязано к одному таймфрейму", addCtx: "ещё блок", emptyCtxV: "например, синхронизация таймфреймов", emptyModelsNote: "правила, которые касаются всех моделей", lSetups: "Сетапы", lRules: "Правила входа", lBias: "Биас определяю",
   lStop: "Где стоп", lTarget: "Где цель", lMaxTrades: "Сделок за день",
@@ -1871,7 +1887,7 @@ en: {
   secReal: "What actually happens", secRaw: "The Notion pages as we read them",
   rawText: "Text of the pages", rawShots: "Screenshots from the pages",
 
-  lAssets: "What I trade", lWindows: "Windows", lDaysNews: "Days and news",
+  lAssets: "What I trade", lCorr: "Correlations", emptyCorr: "pair — what it moves with", addCorr: "correlation", noCorr: "No correlations yet", lWindows: "Windows", lDaysNews: "Days and news",
   lTradeDays: "Trading days", lRedNews: "Red news",
   lModels: "Entry models", lModelsNote: "General entry rules", lCtx: "More on context", noCtx: "Anything about context that is not tied to one timeframe", addCtx: "another block", emptyCtxV: "e.g. timeframe alignment", emptyModelsNote: "rules that apply to every model", lSetups: "Setups", lRules: "Entry rules", lBias: "Bias from",
   lStop: "Stop goes", lTarget: "Target", lMaxTrades: "Trades per day",

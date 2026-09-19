@@ -19,6 +19,7 @@ import llm
 
 FIELDS_HINT = """{
  "assets": ["інструменти, якими торгує"],
+ "corr": ["пари й кореляції, кожна окремим рядком, як на сторінці: «EUR/USD - DXY»"],
  "tfs": [{"tf":"1W|1D|4H|2H|1H|30M|15M|5M|3M|1M","role":"підпис, що стоїть над переліком, слово в слово як на сторінці","what":"сам перелік: що дивиться на цьому ТФ","shot":номер скріна або ""}],
  "ctx": [{"k":"про що блок","v":"частина контексту, не привʼязана до одного ТФ (синхронізація / розсинхронізація ТФ тощо), з підпунктами","shots":[номери скрінів]}],
  "windows": [{"name":"назва сесії","time":"09:00 – 12:00","note":""}],
@@ -253,6 +254,7 @@ def shape(raw, shots, tfs_all, tfs_in):
 
     return {
         "assets": _strs(d.get("assets"), 20, 24),
+        "corr": _strs(d.get("corr"), 20, 200),
         "tfs": rows,
         "ctx": ctx,
         "windows": windows,
@@ -281,7 +283,7 @@ def shape(raw, shots, tfs_all, tfs_in):
 def is_empty(d):
     """Чи вийшло хоч щось. Порожній результат — привід відкотитись до регулярок."""
     return not any([d["assets"], d["tfs"], d["models"], d["windows"], d["manage"],
-                    d["check"], d["extra"], d["bias"], d["mind"], d.get("psy"), d.get("modelsNote"), d.get("ctx"),
+                    d["check"], d["extra"], d["bias"], d["mind"], d.get("psy"), d.get("modelsNote"), d.get("ctx"), d.get("corr"),
                     d["stop"]["v"], d["target"]["v"],
                     any(d["risk"].values()), any(d["no"].values())])
 

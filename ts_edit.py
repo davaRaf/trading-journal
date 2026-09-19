@@ -25,7 +25,7 @@ _WHAT = re.compile(
     r"таймфрейм|тф\b|timeframe|"
     r"правил|чек-?лист|checklist|риск|ризик|сесси|сесі|окн[оа]\b|не вхо|не захо|"
     r"стоп|цел[ьи]\b|таргет|напоминан|нагадуван|психолог|дисциплін|дисциплин|"
-    r"asset|model|rule|risk|psycholog)", re.I | re.U)
+    r"корел|коррел|correl|asset|model|rule|risk|psycholog)", re.I | re.U)
 
 
 def looks_like(text):
@@ -35,7 +35,7 @@ def looks_like(text):
 
 # ------------------------------------------------------------ схема ----
 # списки рядків
-STR_LISTS = ("assets", "check", "no.market", "no.time", "no.self")
+STR_LISTS = ("assets", "corr", "check", "no.market", "no.time", "no.self")
 # списки об'єктів: ключ, за яким шукаємо при видаленні, і дозволені поля
 OBJ_LISTS = {
     "tfs":       ("tf",   ("tf", "role", "what")),
@@ -60,7 +60,7 @@ RULES = (
     "без ``` і без тексту навколо.\n"
     "Формат: {\"ops\":[{\"op\":\"add|remove|set\",\"path\":\"…\",\"value\":…}], "
     "\"say\":\"одне речення трейдеру його мовою, що саме зроблено\"}.\n"
-    "Шляхи-списки рядків: assets (інструменти), check (чек-лист), no.market, no.time, "
+    "Шляхи-списки рядків: assets (інструменти), corr (кореляції: «EUR/USD - DXY»), check (чек-лист), no.market, no.time, "
     "no.self (коли не входить). value — рядок.\n"
     "Шляхи-списки обʼєктів: tfs {tf, what}, models {name, note}, setups {name, note}, "
     "windows {name, time, note}, manage {k, v}, riskCases {k, v}, extra {k, v}, ctx {k, v} (контекст, не привʼязаний до одного ТФ: синхронізація ТФ тощо), "

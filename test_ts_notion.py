@@ -254,6 +254,23 @@ def check_routes():
         ("Синхронизация", ["s1.png"]), ("Рассинхронизация", ["r1.png"])], d["ctx"]
     assert d["ctx"][0]["v"] == "Тяну на дальние таргеты", d["ctx"][0]["v"]
 
+    # «Pairs and correlations» — у кореляції, а не в «Додатково»
+    d = {"extra": [], "psy": [], "no": {"market": [], "time": [], "self": []}}
+    tn.route_pages(d, [{"title": "General Rules", "url": "", "shots": [], "text": (
+        "Pairs and correlations\n"
+        "  • EUR/USD - DXY\n"
+        "  • GER40 - EU50\n"
+        "  • XAU/USD\n"
+        "Re-Entry:\n"
+        "  • Если произошел ресвип в POI, перезахожу")}])
+    assert d["corr"] == ["EUR/USD - DXY", "GER40 - EU50", "XAU/USD"], d["corr"]
+    assert [e["k"] for e in d["extra"]] == ["Re-Entry"], d["extra"]
+    # окрема сторінка з такою назвою — теж
+    d = {"extra": [], "psy": []}
+    tn.route_pages(d, [{"title": "Мои корреляции", "url": "", "shots": [],
+                        "text": "• US100 - US500"}])
+    assert d["corr"] == ["US100 - US500"] and not d["extra"], (d["corr"], d["extra"])
+
     # вкладений випадок моделі зі своїми прикладами — окрема модель
     d = {"extra": [], "psy": []}
     tn.route_pages(d, [{"title": "Entry models", "url": "", "text": (
