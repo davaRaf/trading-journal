@@ -629,6 +629,8 @@ ITEM_RE = re.compile(r"^([•·*\-—–]|\d+[.)])\s+")
 SKIP_HEAD_RE = re.compile(r"skip|скіп|скип|не вход|не захож|пропуск", re.I)
 RISK_HEAD_RE = re.compile(r"risk|ризик|риск", re.I)
 DRAFT_RE = re.compile(r"^(черновой|чорновий|draft)\b|^(примеры?|приклади?)\s+(из|з)\s+графік|^(примеры?|приклади?)\s+(из|з)\s+график", re.I)
+# Order Flow — частина контексту (куди тягне ціна), а не «Додатково»
+OF_HEAD_RE = re.compile(r"order\s*-?\s*flow|ордер\s*-?\s*фло|(?-i:\bOF\b)", re.I)   # «OF» лише великими: «Rules of entry» — не воно
 CORR_HEAD_RE = re.compile(r"correl|корел|коррел|\bpairs?\b|\bпар[ыи]\b", re.I)
 MANAGE_HEAD_RE = re.compile(r"^be$|беззбит|безубыт|break\s?even|partial|частков|частичн|супровід|сопровожд|manage", re.I)
 
@@ -963,6 +965,10 @@ def _route_general(draft, page):
                 draft.setdefault("extra", []).append(_block(page["title"] or "General", g["head"]["t"], g["shots"]))
             _use(page, head)
             continue
+        if OF_HEAD_RE.search(h):
+            draft.setdefault("ctx", []).extend(_cards(h, g["rows"], g["shots"]))
+            _use(page, head + g["rows"])
+            continue
         if CORR_HEAD_RE.search(h):
             _route_corr(draft, g["rows"])
             _use(page, head + g["rows"])
@@ -1062,7 +1068,8 @@ def route_pages(draft, pages):
         title = page.get("title") or ""
         # «Pairs and correlations», «Мои корреляции» — окремий розділ, словник
         # сторінок про нього не знає
-        kind = "corr" if CORR_HEAD_RE.search(title) else page_kind(title, page.get("text") or "")
+        kind = ("corr" if CORR_HEAD_RE.search(title) else
+                "of" if OF_HEAD_RE.search(title) else page_kind(title, page.get("text") or ""))
         before = list(draft.get(kind) or []) if kind in seen else []
         if kind == "psy":
             rules = [{"k": k[:80], "v": v[:TEXT_CAP]} for k, v in _route_list(page)]
@@ -1092,6 +1099,12 @@ def route_pages(draft, pages):
                 draft["manage"] = []          # слова з усього тексту — гірші за саму сторінку
             _route_manage(draft, page)
             seen.add("manage")
+        elif kind == "of":
+            # уся сторінка — картками у «Ще про контекст», зі своїми скрінами
+            rows = _lines(page)
+            if rows or page["shots"]:
+                draft["ctx"].extend(_cards(title, rows, page["shots"]))
+            _use(page, rows)
         elif kind == "corr":
             rows = _lines(page)
             _route_corr(draft, rows)

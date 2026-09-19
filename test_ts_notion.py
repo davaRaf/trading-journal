@@ -274,6 +274,22 @@ def check_routes():
     assert d["corr"] == {"US100": "US500"} and d["assets"] == ["US100"] and not d["extra"], \
         (d["corr"], d["assets"], d["extra"])
 
+    # Order Flow — у «Ще про контекст» (вкладка «Контекст»), зі скрінами
+    d = {"extra": [], "psy": []}
+    tn.route_pages(d, [{"title": "Order Flow", "url": "", "text": (
+        "Как я работаю с OF\n"
+        "• У моего OF должен быть четкий таргет\n"
+        "• OF должен быть через рейд ликвидности"),
+        "shots": [{"file": "of1.png", "caption": "", "at": 3}]}])
+    assert [(c["k"], c["shots"]) for c in d["ctx"]] == [("Order Flow", ["of1.png"])], d["ctx"]
+    assert "Как я работаю с OF" in d["ctx"][0]["v"] and not d["extra"], (d["ctx"], d["extra"])
+    # і блок «Order flow» на сторінці загальних правил — теж
+    d = {"extra": [], "psy": [], "no": {"market": [], "time": [], "self": []}}
+    tn.route_pages(d, [{"title": "General Rules", "url": "", "shots": [], "text": (
+        "Order flow:\n"
+        "  • Ступень должна давать перелой")}])
+    assert [c["k"] for c in d["ctx"]] == ["Order flow"] and not d["extra"], (d["ctx"], d["extra"])
+
     # вкладений випадок моделі зі своїми прикладами — окрема модель
     d = {"extra": [], "psy": []}
     tn.route_pages(d, [{"title": "Entry models", "url": "", "text": (
