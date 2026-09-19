@@ -49,13 +49,31 @@ MODELS = [
 
 SESSIONS = [
     (r"frankfurt|франкфурт", "Frankfurt"),
-    (r"london|лондон", "London"),
-    (r"new\s?york|нью[-\s]?йорк|\bny\b", "New York"),
+    # «LO/NY» — так сесії скорочують у записах ICT
+    (r"london|лондон|\blo\b", "London"),
+    (r"new\s?york|нью[-\s]?йорк|\bny\b|\bnyse\b", "New York"),
     (r"power\s?hour", "Power Hour"),
     (r"asia|азі|ази", "Азія"),
 ]
 
-TIME_RE = re.compile(r"\b([01]?\d|2[0-3])[:.]([0-5]\d)\s*[-–—]\s*([01]?\d|2[0-3])[:.]([0-5]\d)")
+# «9:00 – 12:00», а також «9:00am - 5:00pm» і «9:00am - 17:00pm»: am/pm після
+# часу раніше рвали збіг, і вікно сесії не знаходилось зовсім
+TIME_RE = re.compile(r"\b([01]?\d|2[0-3])[:.]([0-5]\d)\s*(am|pm)?\s*[-–—]\s*"
+                     r"([01]?\d|2[0-3])[:.]([0-5]\d)\s*(am|pm)?", re.I)
+
+# заголовок переліку сесій: під ним пунктами йдуть самі сесії, часто без часу
+SESS_HEAD_RE = re.compile(r"trad\w*\s+sessions?|sessions?|торгов\w*\s+сес|сесі|сесси", re.I)
+
+
+def _hm(h, m, ap):
+    """Година з am/pm у 24-годинному записі. «17:00pm» лишаємо 17:00."""
+    h = int(h)
+    ap = (ap or "").lower()
+    if ap == "pm" and h < 12:
+        h += 12
+    if ap == "am" and h == 12:
+        h = 0
+    return "%02d:%s" % (h, m)
 PCT_RE = re.compile(r"(\d+(?:[.,]\d+)?)\s*%")
 NUM_RE = re.compile(r"(\d+(?:[.,]\d+)?)")
 
@@ -177,6 +195,7 @@ def parse(text):
     # «H1» забрати опис із наступних рядків і зупинитись на сусідньому ТФ
     split = [_tf_split(l) for l in lines]
     windows, manage, no_market, mind = [], [], [], []
+    head = ""                          # останній рядок-заголовок (не пункт списку)
     risk = {"per": "", "rr": "", "day": "", "week": ""}
     maxtrades = ""
     stop = target = bias = ""
@@ -223,22 +242,36 @@ def parse(text):
                     # неї і пишуть («(entry)», «контекст»), а список лише збиває
                     tf_role_src.setdefault(tf, rest)
 
-        # вікна сесій: назва сесії поруч із проміжком часу
+        # вікна сесій: назва сесії поруч із проміжком часу. Коли час стоїть
+        # окремим пунктом («OTT - Prague Time» і нижче «• 9:00am - 17:00pm»),
+        # назвою стає заголовок над ним, а не сам час
         tm = TIME_RE.search(line)
         if tm:
             names = _hits(line, SESSIONS)
+            label = re.sub(r"\s+", " ", TIME_RE.sub(" ", line)).strip(" \t:—–-•,;/")
+            if not names and not label and head:
+                label = head
             windows.append({
-                "name": names[0] if names else line[:28],
-                "time": "%s:%s – %s:%s" % (tm.group(1).zfill(2), tm.group(2),
-                                           tm.group(3).zfill(2), tm.group(4)),
+                "name": names[0] if names else (label or line)[:28],
+                "time": "%s – %s" % (_hm(tm.group(1), tm.group(2), tm.group(3)),
+                                     _hm(tm.group(4), tm.group(5), tm.group(6))),
                 "note": "",
             })
+        elif is_item[i] and SESS_HEAD_RE.search(head):
+            # «Trade sessions» і пунктом «GER40/EUR/XAU - LO/NY (Asia/Frankfurt -
+            # інформаційні)». Те, що в дужках, — пояснення, а не торгові сесії
+            main = re.sub(r"\([^)]*\)", " ", line)
+            for nm in _hits(main, SESSIONS):
+                if not any(w["name"] == nm for w in windows):
+                    windows.append({"name": nm, "time": "", "note": line[:200]})
+        if not is_item[i]:
+            head = line
 
         # ризик і ліміти — тільки там, де в рядку і слово, і відсоток
         if PCT_RE.search(line):
             if re.search(r"ризик|риск|risk", low) and not re.search(r"день|дня|day|тижд|недел|week", low):
                 risk["per"] = risk["per"] or _pct(line)
-            if re.search(r"(за |на )?день|дня|daily|day", low) and re.search(r"ліміт|лимит|limit|стоп|stop|втрат|потер", low):
+            if re.search(r"(за |на )?день|дня|daily|day", low) and re.search(r"ліміт|лимит|limit|стоп|stop|втрат|потер|loss|збит|убыт", low):
                 risk["day"] = risk["day"] or _pct(line)
             if re.search(r"тижд|недел|week", low):
                 risk["week"] = risk["week"] or _pct(line)
