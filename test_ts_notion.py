@@ -212,6 +212,33 @@ def check_routes():
     assert d["models"][1]["note"] == "• Вхожу после закрепа свечи"
     assert not d["extra"], d["extra"]
 
+    # контекст: «D/4h - текст» — одна картка «1D/4H», текст цілий (без
+    # вирізаного «1h» посередині), скрін — до того блока, де він стоїть
+    d = {"extra": [], "psy": []}
+    page = {"title": "Context", "url": "", "text": (
+        "Как я определяю контекст ?\n"
+        "D/4h - При открытии дня смотрю:\n"
+        "• POI\n"
+        "30м/15м - Вспомогательные после 1h, на них:\n"
+        "• Инверсии\n"
+        "Синхронизация ТФ\n"
+        "• Синхронизация\n"
+        "  • Тяну на дальние таргеты"),
+        "shots": [{"file": "sync.png", "caption": "1h лонг OF", "at": 8}]}
+    tn.route_pages(d, [page])
+    assert [t["tf"] for t in d["tfs"]] == ["1D/4H", "30M/15M"], d["tfs"]
+    assert d["tfs"][1]["role"] == "Вспомогательные после 1h, на них:", d["tfs"][1]["role"]
+    assert d["tfs"][0]["what"] == "POI"
+    sync = [e for e in d["extra"] if e["k"] == "Синхронизация ТФ"]
+    assert sync and sync[0]["shots"] == ["sync.png"], d["extra"]
+    assert "   ◦ Тяну на дальние таргеты" in sync[0]["v"], sync[0]["v"]
+
+    # страховка: розбір моделлю щось пропустив — рядок і скрін не губляться
+    d = {"extra": [], "models": []}
+    tn._rescue(d, [{"title": "Нотатки", "url": "", "text": "Правила\n• Не входжу проти тренду",
+                    "shots": [{"file": "x.png", "caption": "", "at": 2}]}])
+    assert d["extra"] == [{"k": "Правила", "v": "Не входжу проти тренду", "shots": ["x.png"]}], d["extra"]
+
     d = {"extra": [], "psy": [], "no": {"market": [], "time": [], "self": []}}
     tn.route_pages(d, [
         {"title": "Market structure", "text": "Дивлюсь на злами структури", "shots": [], "url": ""},

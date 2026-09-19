@@ -388,7 +388,10 @@ def row_content(pid, indent=False):
             src = _plain(props.get("source")) or (b.get("format") or {}).get("display_source") or ""
             if src:
                 cap = _plain(props.get("caption")) or label
-                images.append({"url": signed(src, key), "caption": cap})
+                # at — скільки рядків тексту було до картинки: так ТС кладе
+                # скрін у той блок, під яким він стоїть на сторінці
+                images.append({"url": signed(src, key), "caption": cap,
+                               "at": sum(t.count("\n") + 1 for t in text)})
             return
 
         own = title_of(b)

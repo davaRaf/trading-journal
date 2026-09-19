@@ -384,7 +384,7 @@ def _read_one(url, user_id, shots_dir, seq, shots_left):
             base = "ts%d_%s" % (int(user_id), ("n%d%02d" % (seq, i))
                                 + format(abs(hash(im["url"])) % 0xFFFFFF, "x"))
             name = notion_import.download(im["url"], shots_dir, base)
-            shots.append({"file": name, "caption": im.get("caption") or ""})
+            shots.append({"file": name, "caption": im.get("caption") or "", "at": im.get("at")})
         except Exception:
             continue
 
@@ -469,15 +469,27 @@ def read(urls, user_id, shots_dir):
 
     # підписані скріни розкладаємо по таймфреймах: у Notion підпис
     # блока — це зазвичай і є таймфрейм
+    # Лише ті скріни, що ще нікуди не лягли, і лише в порожні рядки: скрін,
+    # який стоїть у блоці «Синхронізація» з підписом «1h лонг OF», — приклад
+    # синхронізації, а не картинка таймфрейму 1H.
+    placed = set(_strings(draft, []))
     by_tf = {}
     for sh in shots:
+        if sh["file"] in placed:
+            continue
         for tf in _tfs_in(sh.get("caption") or ""):
             by_tf.setdefault(tf, sh["file"])
     for row in draft["tfs"]:
-        if row["tf"] in by_tf:
-            row["shot"] = by_tf[row["tf"]]
+        if row.get("shot"):
+            continue
+        hit = next((by_tf[t] for t in str(row["tf"]).split("/") if t in by_tf), "")
+        if hit and hit not in placed:
+            row["shot"] = hit
+            placed.add(hit)
 
     attach_by_caption(draft, shots)
+    # і наостанок — усе, що не лягло в жоден розділ, у «Додатково»
+    _rescue(draft, pages)
     return draft
 
 
@@ -616,46 +628,151 @@ RISK_HEAD_RE = re.compile(r"risk|ризик|риск", re.I)
 DRAFT_RE = re.compile(r"^(черновой|чорновий|draft)\b|^(примеры?|приклади?)\s+(из|з)\s+графік|^(примеры?|приклади?)\s+(из|з)\s+график", re.I)
 MANAGE_HEAD_RE = re.compile(r"^be$|беззбит|безубыт|break\s?even|partial|частков|частичн|супровід|сопровожд|manage", re.I)
 
+# Скільки тексту лишаємо в одному полі. Раніше тут було 800 символів і 12
+# блоків — і довгий розділ правил просто обрізався посередині.
+TEXT_CAP = 6000
+LIST_CAP = 60
 
-def _items(text):
-    """Пункти сторінки: нумерований або маркований рядок починає пункт,
-    звичайні рядки під ним — його продовження («1. Правило» і пояснення нижче)."""
+
+# ------------------------------------------------ сторінка по рядках ----
+#
+# Головне правило імпорту: зі сторінки нічого не губиться. Тому кожен
+# обробник позначає рядки, які забрав (page["_used"]), а в кінці _rescue()
+# кладе в «Додатково» все, що не забрав ніхто, — під заголовком свого блока
+# і зі скрінами, які стояли поруч.
+
+def _lines(page):
+    """Рядки сторінки: глибина (два пробіли на рівень), чи це пункт списку,
+    текст без маркера і номер рядка. «Черновой пример:» — підпис над
+    картинкою, а не правило, його пропускаємо."""
     out = []
-    for raw in (text or "").split("\n"):
+    for i, raw in enumerate((page.get("text") or "").split("\n")):
         t = raw.strip()
         if not t:
             continue
-        if ITEM_RE.match(t) or not out:
-            out.append(ITEM_RE.sub("", t))
-        else:
-            out[-1] += "\n" + t
-    return [x.strip() for x in out if x.strip()]
-
-
-def _sections(text):
-    """Сторінка по підзаголовках: [(заголовок, [пункти])]. Заголовок — рядок
-    без маркера («Risk management:», «Skip:»), пункти — рядки з маркером."""
-    out = [("", [])]
-    for raw in (text or "").split("\n"):
-        t = raw.strip()
-        if not t:
+        body = ITEM_RE.sub("", t)
+        if DRAFT_RE.search(body):
             continue
-        if ITEM_RE.match(t):
-            out[-1][1].append(ITEM_RE.sub("", t))
+        out.append({"d": (len(raw) - len(raw.lstrip(" "))) // 2,
+                    "item": bool(ITEM_RE.match(t)), "t": body, "i": i})
+    return out
+
+
+def _use(page, rows):
+    page.setdefault("_used", set()).update(r["i"] for r in rows)
+
+
+def _tree(rows):
+    """Рядки → текст деревом, як у Notion: «• пункт / ◦ підпункт / ▸ ще глибше»."""
+    if not rows:
+        return ""
+    if len(rows) == 1:
+        return rows[0]["t"]
+    base = min(r["d"] for r in rows)
+    out = []
+    for r in rows:
+        lvl = r["d"] - base
+        mark = ("•◦▸"[min(lvl, 2)] + " ") if (r["item"] or lvl) else ""
+        out.append("   " * lvl + mark + r["t"])
+    return "\n".join(out)
+
+
+def _is_head(r, nxt):
+    """Підзаголовок: рядок не зі списку, що закінчується двокрапкою чи
+    питанням, або короткий («Trade sessions», «General») і під ним пункти.
+    Довгий абзац після пункту — це продовження правила, а не заголовок."""
+    t = r["t"].strip()
+    if r["item"]:
+        return False
+    if t.endswith(":") or t.endswith("?"):
+        return True
+    below = nxt is not None and (nxt["d"] > r["d"] or nxt["item"])
+    return below and (len(t) <= 40 or nxt["d"] > r["d"])
+
+
+def _groups(page, rows=None):
+    """Сторінка по блоках: підзаголовок верхнього рівня і все під ним.
+    До кожного блока йдуть скріни, що стоять у ньому на сторінці."""
+    rows = _lines(page) if rows is None else rows
+    base = min((r["d"] for r in rows), default=0)
+    out = [{"head": None, "rows": [], "from": -1, "shots": []}]
+    for n, r in enumerate(rows):
+        if r["d"] == base and _is_head(r, rows[n + 1] if n + 1 < len(rows) else None):
+            out.append({"head": r, "rows": [], "from": r["i"], "shots": []})
         else:
-            out.append((t.rstrip(":").strip(), []))
-    return [(h, it) for h, it in out if h or it]
+            out[-1]["rows"].append(r)
+    out = [g for g in out if g["head"] or g["rows"]]
+    for sh in page.get("shots") or []:
+        at = sh.get("at")
+        if not out:
+            continue
+        if at is None:                   # місце невідоме (старий запис) — до першого блока
+            out[0]["shots"].append(sh)
+            continue
+        g = [g for g in out if g["from"] < at]
+        (g[-1] if g else out[0])["shots"].append(sh)
+    return out
 
 
-def _block(k, lines, shots=None):
-    v = "\n".join("• " + x for x in lines) if len(lines) > 1 else "".join(lines)
-    return {"k": k[:60], "v": v[:800], "shots": [s["file"] for s in (shots or [])][:8]}
+def _head_text(g):
+    return g["head"]["t"].rstrip(":").strip() if g["head"] else ""
 
+
+def _units(rows):
+    """Пункти верхнього рівня з усім, що під ними: «1. Правило» + пояснення
+    рядком нижче + підпункти — це одне правило, а не три."""
+    if not rows:
+        return []
+    base = min(r["d"] for r in rows)
+    has_items = any(r["item"] and r["d"] == base for r in rows)
+    units = []
+    for r in rows:
+        top = r["d"] == base and (r["item"] or not has_items or not units)
+        if top:
+            units.append([r])
+        else:
+            units[-1].append(r)
+    out = []
+    for u in units:
+        first, rest = u[0], u[1:]
+        # продовження без відступу — просто наступний абзац того ж правила
+        text = first["t"] + "".join(
+            ("\n" + x["t"]) if x["d"] == first["d"] else "" for x in rest if x["d"] == first["d"])
+        deeper = [x for x in rest if x["d"] > first["d"]]
+        if deeper:
+            text += "\n" + _tree(deeper)
+        out.append((u, text))
+    return out
+
+
+def _block(k, text, shots=None):
+    return {"k": (k or "")[:80], "v": (text or "")[:TEXT_CAP],
+            "shots": [s["file"] for s in (shots or [])][:12]}
+
+
+def _tf_head(r):
+    """«D/4h - При открытии дня…» → (["1D", "4H"], «При открытии дня…»).
+    Таймфрейми беремо лише з початку рядка: «вспомогательные после 1h» у
+    тексті — це слова, а не ще один таймфрейм."""
+    m = re.match(r"^(.{1,24}?)\s*(?:[-–—:]\s+|$)(.*)$", r["t"])
+    if not m:
+        return [], ""
+    tfs = _tfs_in(m.group(1))
+    if not tfs:
+        return [], ""
+    if re.search(r"місяц|месяц|month", r["t"], re.I):
+        tfs = ["1MN" if t == "1M" else t for t in tfs]
+    # старший першим, як їх і читають: «1D/4H», а не «4H/1D»
+    tfs.sort(key=lambda t: TFS.index(t) if t in TFS else len(TFS))
+    return tfs, m.group(2).strip()
+
+
+# ------------------------------------------------------- обробники ----
 
 def _route_models(draft, page):
-    """«BOS - как модель для входа» і пункти під ним — модель BOS. Назви
-    беремо з таких рядків і з підписів скрінів; те, що до першої моделі, —
-    загальні правила входу, вони йдуть у «Додатково»."""
+    """«BOS - как модель для входа» і все під ним — модель BOS. Назви беремо
+    з таких рядків і з підписів скрінів. Пункти до першої моделі — загальні
+    правила входу (modelsNote). Скріни — ті, що стоять під моделлю."""
     names = []
     for src in [sh.get("caption") or "" for sh in page["shots"]] + page["text"].split("\n"):
         m = re.match(r"^[•·*\-—–\s]*(.+?)\s+[-–—]\s+.*(модел|model|вход|вхід|entry)", src.strip(), re.I)
@@ -663,122 +780,160 @@ def _route_models(draft, page):
             names.append(m.group(1).strip())
     if not names:
         return False
-    # Ідемо по рядках, а не по пунктах: так видно глибину. Пояснення моделі
-    # лишається деревом, як у Notion: «• правило / ◦ уточнення / ▸ виняток».
-    models, cur, preface = [], None, []
-    base = None                          # глибина рядка з назвою моделі
-    for raw in (page["text"] or "").split("\n"):
-        t = raw.strip()
-        if not t:
-            continue
-        depth = (len(raw) - len(raw.lstrip(" "))) // 2
-        body = ITEM_RE.sub("", t)
-        hit = next((n for n in names if re.match(r"^" + re.escape(n) + r"\s+[-–—]", body)), None)
+    rows = _lines(page)
+    models, cur, preface, spans = [], None, [], []
+    base = None
+    for r in rows:
+        hit = next((n for n in names if re.match(r"^" + re.escape(n) + r"\s+[-–—]", r["t"])), None)
         if hit:
-            cur, base = {"name": hit, "note": [], "shots": []}, depth
+            cur, base = {"name": hit, "note": [], "shots": []}, r["d"]
             models.append(cur)
-        elif DRAFT_RE.search(body):
-            continue
-        elif cur is not None and depth > base:
-            lvl = depth - base - 1
-            cur["note"].append("   " * lvl + ("•◦▸"[min(lvl, 2)]) + " " + body)
-        elif cur is not None and not ITEM_RE.match(t):
-            # звичайний рядок після моделі без відступу — теж її пояснення
-            cur["note"].append("• " + body)
+            spans.append([r["i"], None])
+        elif cur is not None and (r["d"] > base or not r["item"]):
+            cur["note"].append(r)
         else:
-            # пункт до першої моделі (або між моделями на їхньому рівні) —
-            # загальне правило входу для всіх моделей
+            if cur is not None:
+                spans[-1][1] = r["i"]
             cur = None
-            preface.append("   " * depth + "•◦▸"[min(depth, 2)] + " " + body)
-    for m in models:
-        m["shots"] = [sh["file"] for sh in page["shots"]
-                      if (sh.get("caption") or "").lower().startswith(m["name"].lower())][:8]
-        m["note"] = "\n".join(m["note"])[:800]
+            preface.append(r)
+    _use(page, rows)
+    for n, m in enumerate(models):
+        lo, hi = spans[n][0], spans[n][1] if spans[n][1] is not None else 10 ** 9
+        if n + 1 < len(models):
+            hi = min(hi, spans[n + 1][0])
+        by_place = [sh["file"] for sh in page["shots"] if sh.get("at") is not None and lo < sh["at"] <= hi]
+        by_cap = [sh["file"] for sh in page["shots"]
+                  if (sh.get("caption") or "").lower().startswith(m["name"].lower())]
+        m["shots"] = (by_place or by_cap)[:12]
+        rel = [dict(x, d=x["d"]) for x in m["note"]]
+        m["note"] = (_tree(rel) if len(rel) > 1 else ("• " + rel[0]["t"] if rel else ""))[:TEXT_CAP]
     draft["models"] = models
     if preface:
-        # загальні правила входу — окреме поле, його видно у вкладці моделей
         prev = draft.get("modelsNote") or ""
-        draft["modelsNote"] = ((prev + "\n") if prev else "") + "\n".join(preface)[:1500]
+        note = _tree(preface) if len(preface) > 1 else "• " + preface[0]["t"]
+        draft["modelsNote"] = (((prev + "\n") if prev else "") + note)[:TEXT_CAP]
     return True
 
 
 def _route_context(draft, page):
-    """Таймфрейми — тільки зі сторінки контексту: інакше в список лізли
-    всі ТФ, згадані будь-де. Решта сторінки (синхронізація тощо) — окремим
-    блоком у «Додатково»."""
-    tfs = parse(page["text"])["tfs"]
-    if not tfs:
-        # «Market structure», «Мій біас» — про контекст, але без таймфреймів
-        lines = [x for x in _items(page["text"]) if not DRAFT_RE.search(x)]
-        if lines or page["shots"]:
-            draft.setdefault("extra", []).append(_block(page["title"] or "Context", lines, page["shots"]))
-        return
-    draft["tfs"] = tfs
-    rest, seen_tf, on = [], False, False
-    for h, it in _sections(page["text"]):
-        if _tfs_in(h):
-            seen_tf = True
-        elif seen_tf and h and not h.endswith("?"):
-            # перший підзаголовок без таймфрейму після блоку ТФ — далі «інше»
-            on = True
-        if on:
-            rest += ([h] if h and not DRAFT_RE.search(h) else []) + it
-    rest = [x for x in rest if not DRAFT_RE.search(x)]
-    if rest:
-        tf_caps = [sh for sh in page["shots"] if not _tfs_in(sh.get("caption") or "")]
-        draft.setdefault("extra", []).append(_block(page["title"] or "Context", rest, tf_caps))
+    """Блок «ТФ - навіщо дивлюсь» + пункти під ним — один рядок таймфреймів,
+    як у людини на сторінці («D/4h» — одна картка, а не дві однакові).
+    Блоки без таймфрейму (синхронізація тощо) — у «Додатково»."""
+    groups = _groups(page)
+    rows_out = []
+    for g in groups:
+        tfs, role = _tf_head(g["head"]) if g["head"] else ([], "")
+        if tfs:
+            rows_out.append({"tf": "/".join(tfs), "role": role[:300], "what": _tree(g["rows"])[:TEXT_CAP],
+                             "shot": g["shots"][0]["file"] if g["shots"] else ""})
+            _use(page, [g["head"]] + g["rows"])
+            if len(g["shots"]) > 1:
+                draft.setdefault("extra", []).append(_block("/".join(tfs), "", g["shots"][1:]))
+    if not rows_out:
+        return False
+    prev = draft.get("tfs") if draft.get("_ctx") else []
+    draft["tfs"] = (prev or []) + rows_out
+    draft["_ctx"] = True
+    for g in groups:
+        if g["head"] and _tf_head(g["head"])[0]:
+            continue
+        if g["head"] and not g["rows"] and g["head"]["t"].rstrip().endswith("?"):
+            _use(page, [g["head"]])          # «Как я определяю контекст?» — лише заголовок
+            continue
+        if g["rows"] or g["shots"]:
+            k = _head_text(g) or page["title"] or "Context"
+            draft.setdefault("extra", []).append(_block(k, _tree(g["rows"]), g["shots"]))
+            _use(page, ([g["head"]] if g["head"] else []) + g["rows"])
+    return True
 
 
 def _route_stop(draft, page):
-    """Сторінка про стоп і тейк: рядки — стоп, підписи скрінів — ціль."""
-    lines = _items(page["text"])
-    caps = [sh for sh in page["shots"] if (sh.get("caption") or "").strip()]
-    stop = [x for x in lines if re.search(r"стоп|stop|\bsl\b", x, re.I)] or lines
-    tgt = [sh["caption"].strip() for sh in caps if re.search(r"тейк|take|\btp\b|ціл|цел|target", sh["caption"], re.I)]
-    tgt += [x for x in lines if re.search(r"тейк|take|\btp\b|ціл|цел|target", x, re.I) and x not in stop]
+    """Сторінка про стоп і тейк. Рядки про тейк / ціль — у «ціль», решта —
+    у «стоп» (нічого не відкидаємо). Скріни: перший — до стопу, другий — до цілі."""
+    rows = _lines(page)
+    tgt_re = r"тейк|take|\btp\b|ціл|цел|target|таргет"
+    tgt = [r for r in rows if re.search(tgt_re, r["t"], re.I) and not re.search(r"стоп|stop|\bsl\b", r["t"], re.I)]
+    stop = [r for r in rows if r not in tgt]
     if stop:
-        draft["stop"] = {"v": "\n".join("• " + x for x in stop)[:600] if len(stop) > 1 else stop[0][:600],
-                         "shot": page["shots"][0]["file"] if page["shots"] else ""}
+        draft["stop"] = {"v": _tree(stop)[:TEXT_CAP], "shot": page["shots"][0]["file"] if page["shots"] else ""}
     if tgt:
-        draft["target"] = {"v": "\n".join("• " + x for x in tgt)[:600] if len(tgt) > 1 else tgt[0][:600],
+        draft["target"] = {"v": _tree([dict(r, d=0, item=True) for r in tgt])[:TEXT_CAP],
                            "shot": page["shots"][1]["file"] if len(page["shots"]) > 1 else ""}
+    _use(page, rows)
+
+
+def _risk_rows(draft, g, page):
+    """Ризик уже розібрали в цифри (risk.per, rr, day). Рядок, де крім цифри
+    є ще щось («2% (SL per day - 2)»), — окремим випадком, щоб не зникло."""
+    vals = {str(v).strip().lower() for v in list((draft.get("risk") or {}).values()) + [draft.get("maxtrades")] if v}
+    for r in g["rows"]:
+        m = re.match(r"^([^:]+):\s*(.+)$", r["t"]) or re.match(r"^(.*?)\s[—–-]\s*(.+)$", r["t"])
+        k, v = (m.group(1).strip(), m.group(2).strip()) if m else ("", r["t"])
+        if v.lower() not in vals:
+            draft.setdefault("riskCases", []).append({"k": k[:80], "v": v[:TEXT_CAP]})
+    _use(page, ([g["head"]] if g["head"] else []) + g["rows"])
 
 
 def _route_general(draft, page):
-    """Загальні правила по підзаголовках: сесії й ризик уже взяв розбір за
-    словами, «Skip» — це «коли не входжу», решта — окремі блоки."""
+    """Загальні правила по підзаголовках: «Skip» — у «коли не входжу», «BE» —
+    у супровід, ризик — у цифри (+ деталі окремими випадками), час сесій —
+    у вікна; решта — окремими блоками в «Додатково»."""
     no = draft.setdefault("no", {"market": [], "time": [], "self": []})
-    for h, it in _sections(page["text"]):
-        if not it:
+    for g in _groups(page):
+        h = _head_text(g)
+        head = [g["head"]] if g["head"] else []
+        if not g["rows"]:
+            if g["head"] and not h.endswith("?"):
+                draft.setdefault("extra", []).append(_block(page["title"] or "General", g["head"]["t"], g["shots"]))
+            _use(page, head)
             continue
-        if SESS_HEAD_RE.search(h) or RISK_HEAD_RE.search(h) or any(TIME_RE.search(x) for x in it):
+        if RISK_HEAD_RE.search(h):
+            _risk_rows(draft, g, page)
+            continue
+        if SESS_HEAD_RE.search(h) or any(TIME_RE.search(r["t"]) for r in g["rows"]):
+            # час уже у вікнах сесій; рядки без часу (хто на яких сесіях,
+            # «Asia/Frankfurt — інформаційні») не забираємо — їх збереже _rescue
+            _use(page, head + [r for r in g["rows"] if TIME_RE.search(r["t"])])
             continue
         if SKIP_HEAD_RE.search(h):
-            for x in it:
-                if x not in no["market"]:
-                    no["market"].append(x[:300])
+            for _, text in _units(g["rows"]):
+                if text not in no["market"]:
+                    no["market"].append(text[:TEXT_CAP])
+            _use(page, head + g["rows"])
             continue
         if MANAGE_HEAD_RE.search(h):
-            b = _block(h, it)
-            draft.setdefault("manage", []).append({"k": b["k"], "v": b["v"][:500], "shots": []})
+            draft.setdefault("manage", []).append(dict(_block(h, _tree(g["rows"]), g["shots"])))
+            _use(page, head + g["rows"])
             continue
-        draft.setdefault("extra", []).append(_block(h or page["title"] or "General", it))
+        draft.setdefault("extra", []).append(_block(h or page["title"] or "General", _tree(g["rows"]), g["shots"]))
+        _use(page, head + g["rows"])
+
+
+def _route_list(page):
+    """Сторінка-перелік (психологія, чек-лист, «коли не входжу»): пункти з
+    поясненнями під ними. Підзаголовок стає «ситуацією» для своїх пунктів."""
+    out = []
+    for g in _groups(page):
+        h = _head_text(g)
+        if not g["rows"]:
+            if g["head"] and not h.endswith("?") and not g["head"]["t"].endswith(":"):
+                out.append(("", g["head"]["t"]))
+        else:
+            for _, text in _units(g["rows"]):
+                out.append((h, text))
+        _use(page, ([g["head"]] if g["head"] else []) + g["rows"])
+    return out
 
 
 def _route_manage(draft, page):
     """Супровід угоди: кожен підзаголовок («BE», «Часткова фіксація») —
-    окреме правило; без підзаголовків — уся сторінка одним правилом."""
-    secs = [(h, it) for h, it in _sections(page["text"]) if it]
-    if not secs:
-        secs = [(page["title"] or "", _items(page["text"]))]
-    shots = [sh["file"] for sh in page["shots"]][:8]
-    for n, (h, it) in enumerate(secs):
-        it = [x for x in it if not DRAFT_RE.search(x)]
-        if not it:
+    окреме правило зі своїми скрінами; без підзаголовків — уся сторінка."""
+    for g in _groups(page):
+        if not g["rows"] and not g["shots"]:
             continue
-        b = _block(h or page["title"] or "", it)
-        draft.setdefault("manage", []).append({"k": b["k"], "v": b["v"][:500],
-                                               "shots": shots if n == 0 else []})
+        k = _head_text(g) or page["title"] or ""
+        draft.setdefault("manage", []).append(_block(k, _tree(g["rows"]), g["shots"]))
+        _use(page, ([g["head"]] if g["head"] else []) + g["rows"])
 
 
 def route_pages(draft, pages):
@@ -786,44 +941,109 @@ def route_pages(draft, pages):
     кладемо в «Додатково» цілою — під її ж назвою, зі скрінами."""
     draft.setdefault("extra", [])
     draft.setdefault("psy", [])
+    # Пошук за словами по всьому тексту дає уривки: будь-який рядок зі словом
+    # «бу» ставав правилом супроводу, будь-яке «не входжу» — стоп-сигналом.
+    # Коли є сторінки, ці поля збираємо з них самих; нічого не пропаде —
+    # решту підбере _rescue.
+    draft["manage"] = []
+    draft.setdefault("no", {"market": [], "time": [], "self": []})["market"] = []
     seen = set()      # розділи, вже взяті зі сторінки: друга така сторінка додається, а не затирає
     for page in pages:
         title = page.get("title") or ""
         kind = page_kind(title, page.get("text") or "")
         before = list(draft.get(kind) or []) if kind in seen else []
-        lines = [x for x in _items(page["text"]) if not DRAFT_RE.search(x)]
         if kind == "psy":
-            rules = [{"k": "", "v": x[:500]} for x in _items(page["text"]) if not DRAFT_RE.search(x)]
-            draft["psy"] = (before + rules)[:12]
+            rules = [{"k": k[:80], "v": v[:TEXT_CAP]} for k, v in _route_list(page)]
+            draft["psy"] = (before + rules)[:LIST_CAP]
             seen.add("psy")
         elif kind == "models" and _route_models(draft, page):
-            draft["models"] = (before + draft["models"])[:12]
+            draft["models"] = (before + draft["models"])[:LIST_CAP]
             seen.add("models")
         elif kind == "stop":
             _route_stop(draft, page)
-        elif kind == "context":
-            _route_context(draft, page)
+        elif kind == "context" and _route_context(draft, page):
+            pass
         elif kind == "general":
             _route_general(draft, page)
-        elif kind == "check" and lines:
-            draft["check"] = (before + [x[:300] for x in lines])[:20]
+        elif kind == "check":
+            items = [((k + ": ") if k else "") + v for k, v in _route_list(page)]
+            draft["check"] = (before + [x[:TEXT_CAP] for x in items])[:LIST_CAP]
             seen.add("check")
-        elif kind == "nogo" and lines:
+        elif kind == "nogo":
             no = draft.setdefault("no", {"market": [], "time": [], "self": []})
-            no["market"] = no.get("market", []) + [x[:300] for x in lines if x not in no.get("market", [])]
-        elif kind == "manage" and lines:
+            for k, v in _route_list(page):
+                x = (((k + ": ") if k else "") + v)[:TEXT_CAP]
+                if x not in no.get("market", []):
+                    no.setdefault("market", []).append(x)
+        elif kind == "manage":
             if "manage" not in seen:
                 draft["manage"] = []          # слова з усього тексту — гірші за саму сторінку
             _route_manage(draft, page)
             seen.add("manage")
         else:
-            if lines or page["shots"]:
-                draft["extra"].append(_block(title or "Notion", lines, page["shots"]))
-    draft["extra"] = draft["extra"][:12]
+            # не впізнали — уся сторінка одним блоком під своєю назвою
+            rows = _lines(page)
+            if rows or page["shots"]:
+                draft["extra"].append(_block(title or "Notion", _tree(rows), page["shots"]))
+            _use(page, rows)
+    draft.pop("_ctx", None)
+    draft["extra"] = draft["extra"][:LIST_CAP]
     taken = " ".join(b["v"] for b in draft["extra"] + draft.get("manage", []))
     no = draft.get("no") or {}
     no["market"] = [x for x in no.get("market", [])
-                    if not x.rstrip().endswith(":") and x not in taken][:20]
+                    if not x.rstrip().endswith(":") and x not in taken][:LIST_CAP]
+    return draft
+
+
+# --------------------------------------------- страховка: нічого не губимо --
+
+def _plain(s):
+    s = re.sub(r"[•◦▸·*]", " ", s or "")
+    return re.sub(r"\s+", " ", s).strip().lower()
+
+
+def _strings(o, out):
+    if isinstance(o, str):
+        out.append(o)
+    elif isinstance(o, list):
+        for x in o:
+            _strings(x, out)
+    elif isinstance(o, dict):
+        for k, v in o.items():
+            if k not in ("notion", "source", "updated"):
+                _strings(v, out)
+    return out
+
+
+def _rescue(draft, pages):
+    """Усе зі сторінок, що не лягло в жоден розділ, — у «Додатково» під
+    заголовком свого блока, зі скрінами, які стояли поруч. Так і розбір
+    словами, і розбір моделлю ніколи не губить написаного людиною."""
+    strs = _strings(draft, [])
+    hay = _plain(" \n ".join(strs))
+    files = {s for s in strs if re.match(r"^ts\d+_", s)}
+    extra = draft.setdefault("extra", [])
+    for page in pages:
+        used = page.get("_used") or set()
+        for g in _groups(page):
+            left = [r for r in g["rows"] if r["i"] not in used and _plain(r["t"]) not in hay]
+            head_left = g["head"] and g["head"]["i"] not in used and _plain(g["head"]["t"]) not in hay
+            shots = [sh for sh in g["shots"] if sh["file"] not in files]
+            lone = head_left and not g["rows"] and not g["head"]["t"].rstrip().endswith(("?", ":"))
+            if left or shots:
+                extra.append(_block(_head_text(g) or page.get("title") or "Notion", _tree(left), shots))
+            elif lone:
+                # окремий абзац-рядок без пунктів під ним
+                extra.append(_block(page.get("title") or "Notion", g["head"]["t"]))
+            else:
+                continue
+            files.update(sh["file"] for sh in shots)
+        # скріни без місця (без «at») — наприкінці сторінки
+        rest = [sh for sh in page.get("shots") or [] if sh["file"] not in files]
+        if rest:
+            extra.append(_block(page.get("title") or "Notion", "", rest))
+            files.update(sh["file"] for sh in rest)
+    draft["extra"] = extra[:LIST_CAP]
     return draft
 
 
