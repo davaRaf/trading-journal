@@ -20,6 +20,7 @@ import llm
 FIELDS_HINT = """{
  "assets": ["інструменти, якими торгує"],
  "tfs": [{"tf":"1W|1D|4H|2H|1H|30M|15M|5M|3M|1M","role":"підпис, що стоїть над переліком, слово в слово як на сторінці","what":"сам перелік: що дивиться на цьому ТФ","shot":номер скріна або ""}],
+ "ctx": [{"k":"про що блок","v":"частина контексту, не привʼязана до одного ТФ (синхронізація / розсинхронізація ТФ тощо), з підпунктами","shots":[номери скрінів]}],
  "windows": [{"name":"назва сесії","time":"09:00 – 12:00","note":""}],
  "days": "дні тижня, коли торгує", "news": "як поводиться з новинами",
  "modelsNote": "загальні правила входу, що стосуються всіх моделей (до опису окремих моделей)",
@@ -229,6 +230,12 @@ def shape(raw, shots, tfs_all, tfs_in):
             extra.append({"k": _clip(m.get("k"), 60), "v": _clip(m.get("v"), 800),
                           "shots": _shot_list(m.get("shots"), shots)})
 
+    ctx = []
+    for m in (d.get("ctx") or [])[:12]:
+        if isinstance(m, dict) and _clip(m.get("v"), 800):
+            ctx.append({"k": _clip(m.get("k"), 60), "v": _clip(m.get("v"), 800),
+                        "shots": _shot_list(m.get("shots"), shots)})
+
     psy = []
     for c in (d.get("psy") or [])[:12]:
         if isinstance(c, dict) and _clip(c.get("v"), 500):
@@ -247,6 +254,7 @@ def shape(raw, shots, tfs_all, tfs_in):
     return {
         "assets": _strs(d.get("assets"), 20, 24),
         "tfs": rows,
+        "ctx": ctx,
         "windows": windows,
         "days": _clip(d.get("days"), 200),
         "news": _clip(d.get("news"), 300),
@@ -273,7 +281,7 @@ def shape(raw, shots, tfs_all, tfs_in):
 def is_empty(d):
     """Чи вийшло хоч щось. Порожній результат — привід відкотитись до регулярок."""
     return not any([d["assets"], d["tfs"], d["models"], d["windows"], d["manage"],
-                    d["check"], d["extra"], d["bias"], d["mind"], d.get("psy"), d.get("modelsNote"),
+                    d["check"], d["extra"], d["bias"], d["mind"], d.get("psy"), d.get("modelsNote"), d.get("ctx"),
                     d["stop"]["v"], d["target"]["v"],
                     any(d["risk"].values()), any(d["no"].values())])
 

@@ -45,6 +45,7 @@ OBJ_LISTS = {
     "manage":    ("k",    ("k", "v")),
     "riskCases": ("k",    ("k", "v")),
     "extra":     ("k",    ("k", "v")),
+    "ctx":       ("k",    ("k", "v")),
     # правило психології: v — саме правило, k — ситуація (буває порожня),
     # тож шукаємо за текстом правила
     "psy":       ("v",    ("k", "v")),
@@ -62,7 +63,7 @@ RULES = (
     "Шляхи-списки рядків: assets (інструменти), check (чек-лист), no.market, no.time, "
     "no.self (коли не входить). value — рядок.\n"
     "Шляхи-списки обʼєктів: tfs {tf, what}, models {name, note}, setups {name, note}, "
-    "windows {name, time, note}, manage {k, v}, riskCases {k, v}, extra {k, v}, "
+    "windows {name, time, note}, manage {k, v}, riskCases {k, v}, extra {k, v}, ctx {k, v} (контекст, не привʼязаний до одного ТФ: синхронізація ТФ тощо), "
     "psy {k, v} (психологія: v — правило, k — ситуація або \"\"). Для add "
     "value — обʼєкт; для remove — рядок-назва (tf, name, k; для psy — текст правила v).\n"
     "«Сетап», «сэтап», «setup» — це шлях setups (окремий розділ «Сетапи»). «Модель входу», "

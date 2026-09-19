@@ -132,7 +132,26 @@ function edArea(path, ph){
   const v = get(path);
   const blank = !v;
   return '<span class="ts-ed multi' + (blank ? " blank" : "") + '" data-p="' + path
-    + '" data-ph="' + esc(ph || D().empty) + '" data-multi="1">' + esc(blank ? (ph || D().empty) : v) + "</span>";
+    + '" data-ph="' + esc(ph || D().empty) + '" data-multi="1">' + (blank ? esc(ph || D().empty) : rich(v)) + "</span>";
+}
+
+/* Текст із пунктами й підпунктами («• / ◦ / ▸» з відступами, як приходить з
+   Notion) показуємо списком: маркер ліворуч, перенесений рядок — під текстом,
+   а не під маркером, кожен рівень — трохи правіше. Звичайний текст без
+   пунктів лишається як є. Правиться все одно сирий текст — див. startEdit. */
+const BUL_RE = /^([•◦▸·▪*\-–—])\s+/;
+function rich(v){
+  const lines = String(v).split("\n");
+  if (!lines.some(l => BUL_RE.test(l.trim()) || /^\s{2,}\S/.test(l))) return esc(v);
+  return lines.map(l => {
+    const t = l.trim();
+    if (!t) return '<span class="tl gap"></span>';
+    const m = t.match(BUL_RE);
+    const ind = l.length - l.replace(/^\s+/, "").length;
+    const lvl = Math.min(4, Math.max(Math.round(ind / 3), m ? ({"◦": 1, "▸": 2}[m[1]] || 0) : 0));
+    return '<span class="tl l' + lvl + (m ? " li" : "") + '" style="--l:' + lvl + '">'
+      + esc(m ? t.slice(m[0].length) : t) + "</span>";
+  }).join("");
 }
 /* Збережене поле оновлюємо на місці, без перемальовки розділу: інакше
    після кожного Enter чи кліку повз поле плашка смикалась, а клік по
@@ -143,7 +162,8 @@ function fill(path){
     const blank = s.dataset.multi === "1" ? !v : (!v && v !== 0);
     s.classList.remove("on");
     s.classList.toggle("blank", blank);
-    s.textContent = blank ? (s.dataset.ph || D().empty) : v;
+    if (s.dataset.multi === "1") s.innerHTML = blank ? esc(s.dataset.ph || D().empty) : rich(v);
+    else s.textContent = blank ? (s.dataset.ph || D().empty) : v;
   });
 }
 
@@ -447,12 +467,16 @@ function tiles(path, kk, vk, o){
   const d = D();
   const list = get(path) || [];
   if (!list.length) return none(o.none) + add(path, o.add);
+  /* Картка зі скрінами — на всю ширину: текст зліва згори донизу, скріни
+     справа. Вузька картка з шістьма скрінами під текстом тяглась на пів
+     екрана вниз. Картки без скрінів стоять поруч, по кілька в ряд. */
   return '<div class="tsv-mods">' + list.map((m, i) => {
       const p = path + "." + i;
       const shots = m.shots || [];
-      return '<div class="tsv-card tsv-mod"><div class="ts-row"><b class="nm">'
+      return '<div class="tsv-card tsv-mod' + (shots.length ? " wide" : "") + '"><div class="tsv-mb">'
+        + '<div class="ts-row"><b class="nm">'
         + ed(p + "." + kk, "", o.phK) + "</b>" + x(path, i) + "</div>"
-        + '<div class="note">' + edArea(p + "." + vk, o.phV) + "</div>"
+        + '<div class="note">' + edArea(p + "." + vk, o.phV) + "</div></div>"
         + '<div class="ts-shots">'
         +   shots.map((f, j) => shot(p + ".shots." + j, o.shot, true)).join("")
         +   shot(p + ".shots." + shots.length, shots.length ? d.shotAddShort : o.shot, true)
@@ -471,7 +495,14 @@ function secRules(){
 /* ---------- вкладка «Контекст»: таймфрейми згори донизу, біас і сетапи ---------- */
 function tabContext(){
   const d = D();
-  return secBlock("tf", d.secTf, secTf())
+  /* «Ще про контекст» — блоки сторінки контексту без таймфрейму
+     (синхронізація / розсинхронізація ТФ з прикладами). Порожній не
+     показуємо: дописати можна в режимі «Редагувати». */
+  const ctx = (TS.ctx || []).length || editing || editSec === "ctx"
+    ? secBlock("ctx", d.lCtx, tiles("ctx", "k", "v",
+        {none: d.noCtx, add: d.addCtx, phK: d.emptyExtraK, phV: d.emptyCtxV, shot: d.shotExample}))
+    : "";
+  return secBlock("tf", d.secTf, secTf()) + ctx
     + secBlock("bias", d.lBias, card("", '<div class="tsv-one">' + edArea("bias") + "</div>"
         + (get("bias") || canEdit("bias") ? "" : '<p class="tsv-none">' + esc(d.noneYet) + "</p>")))
     + secBlock("setups", d.lSetups, tiles("setups", "name", "note",
@@ -1442,6 +1473,7 @@ window.__ts = {
       psy: {k: "", v: ""},
       manage: {k: "", v: "", shots: []},
       extra: {k: "", v: "", shots: []},
+      ctx: {k: "", v: "", shots: []},
     }[path];
     list.push(typeof proto === "object" && proto !== null ? Object.assign({}, proto) : "");
     save(); soft();
@@ -1539,7 +1571,7 @@ uk: {
 
   lAssets: "Чим торгую", lWindows: "Вікна", lDaysNews: "Дні та новини",
   lTradeDays: "Торгові дні", lRedNews: "Червоні новини",
-  lModels: "Моделі входу", lModelsNote: "Загальні правила входу", emptyModelsNote: "правила, що стосуються всіх моделей", lSetups: "Сетапи", lRules: "Правила входу", lBias: "Біас визначаю",
+  lModels: "Моделі входу", lModelsNote: "Загальні правила входу", lCtx: "Ще про контекст", noCtx: "Тут — усе про контекст, що не прив'язане до одного таймфрейму", addCtx: "ще блок", emptyCtxV: "наприклад, синхронізація таймфреймів", emptyModelsNote: "правила, що стосуються всіх моделей", lSetups: "Сетапи", lRules: "Правила входу", lBias: "Біас визначаю",
   lStop: "Де стоп", lTarget: "Де ціль", lMaxTrades: "Угод за день",
   lRrMin: "Мінімальний RR", lRiskPer: "Ризик на угоду", lDayLimit: "Ліміт за день",
   lWeekLimit: "Ліміт за тиждень", lRiskCases: "Окремі випадки",
@@ -1671,7 +1703,7 @@ ru: {
 
   lAssets: "Чем торгую", lWindows: "Окна", lDaysNews: "Дни и новости",
   lTradeDays: "Торговые дни", lRedNews: "Красные новости",
-  lModels: "Модели входа", lModelsNote: "Общие правила входа", emptyModelsNote: "правила, которые касаются всех моделей", lSetups: "Сетапы", lRules: "Правила входа", lBias: "Биас определяю",
+  lModels: "Модели входа", lModelsNote: "Общие правила входа", lCtx: "Ещё о контексте", noCtx: "Здесь — всё о контексте, что не привязано к одному таймфрейму", addCtx: "ещё блок", emptyCtxV: "например, синхронизация таймфреймов", emptyModelsNote: "правила, которые касаются всех моделей", lSetups: "Сетапы", lRules: "Правила входа", lBias: "Биас определяю",
   lStop: "Где стоп", lTarget: "Где цель", lMaxTrades: "Сделок за день",
   lRrMin: "Минимальный RR", lRiskPer: "Риск на сделку", lDayLimit: "Лимит за день",
   lWeekLimit: "Лимит за неделю", lRiskCases: "Отдельные случаи",
@@ -1803,7 +1835,7 @@ en: {
 
   lAssets: "What I trade", lWindows: "Windows", lDaysNews: "Days and news",
   lTradeDays: "Trading days", lRedNews: "Red news",
-  lModels: "Entry models", lModelsNote: "General entry rules", emptyModelsNote: "rules that apply to every model", lSetups: "Setups", lRules: "Entry rules", lBias: "Bias from",
+  lModels: "Entry models", lModelsNote: "General entry rules", lCtx: "More on context", noCtx: "Anything about context that is not tied to one timeframe", addCtx: "another block", emptyCtxV: "e.g. timeframe alignment", emptyModelsNote: "rules that apply to every model", lSetups: "Setups", lRules: "Entry rules", lBias: "Bias from",
   lStop: "Stop goes", lTarget: "Target", lMaxTrades: "Trades per day",
   lRrMin: "Minimum RR", lRiskPer: "Risk per trade", lDayLimit: "Daily limit",
   lWeekLimit: "Weekly limit", lRiskCases: "Special cases",

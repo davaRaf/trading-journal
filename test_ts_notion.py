@@ -229,9 +229,52 @@ def check_routes():
     assert [t["tf"] for t in d["tfs"]] == ["1D/4H", "30M/15M"], d["tfs"]
     assert d["tfs"][1]["role"] == "Вспомогательные после 1h, на них:", d["tfs"][1]["role"]
     assert d["tfs"][0]["what"] == "POI"
-    sync = [e for e in d["extra"] if e["k"] == "Синхронизация ТФ"]
-    assert sync and sync[0]["shots"] == ["sync.png"], d["extra"]
+    # блок без таймфрейму — у вкладку «Контекст» (ctx), а не в «Додатково»
+    sync = [e for e in d["ctx"] if e["k"] == "Синхронизация ТФ"]
+    assert sync and sync[0]["shots"] == ["sync.png"], d["ctx"]
     assert "   ◦ Тяну на дальние таргеты" in sync[0]["v"], sync[0]["v"]
+    assert not d["extra"], d["extra"]
+
+    # у кожного пункту свої приклади — окремі картки, скріни біля свого пункту
+    d = {"extra": [], "psy": []}
+    page = {"title": "Context", "url": "", "text": (
+        "D/4h - смотрю:\n"
+        "• POI\n"
+        "Синхронизация и рассинхронизация ТФ\n"
+        "• Синхронизация\n"
+        "  • Тяну на дальние таргеты\n"
+        "  Черновой пример:\n"
+        "• Рассинхронизация\n"
+        "  • Тяну на ближайший таргет\n"
+        "  Черновой пример:"),
+        "shots": [{"file": "s1.png", "caption": "", "at": 6},
+                  {"file": "r1.png", "caption": "", "at": 9}]}
+    tn.route_pages(d, [page])
+    assert [(c["k"], c["shots"]) for c in d["ctx"]] == [
+        ("Синхронизация", ["s1.png"]), ("Рассинхронизация", ["r1.png"])], d["ctx"]
+    assert d["ctx"][0]["v"] == "Тяну на дальние таргеты", d["ctx"][0]["v"]
+
+    # вкладений випадок моделі зі своїми прикладами — окрема модель
+    d = {"extra": [], "psy": []}
+    tn.route_pages(d, [{"title": "Entry models", "url": "", "text": (
+        "• BOS - как модель для входа\n"
+        "  • Вхожу сразу\n"
+        "    • Когда перед сломом есть имбаланс, жду закрытия\n"
+        "      Черновой пример:\n"
+        "      15м: жду инверсию FVG\n"
+        "  Черновой пример:\n"
+        "• Shift - как модель для входа\n"
+        "  • Вхожу после закрепа"),
+        "shots": [{"file": "case.png", "caption": "", "at": 4},
+                  {"file": "bos.png", "caption": "", "at": 6},
+                  {"file": "shift.png", "caption": "", "at": 8}]}])
+    got = [(m["name"], m["shots"]) for m in d["models"]]
+    assert got == [("BOS", ["bos.png"]),
+                   ("BOS · Когда перед сломом есть имбаланс", ["case.png"]),
+                   ("Shift", ["shift.png"])], got
+    assert d["models"][1]["note"] == ("Когда перед сломом есть имбаланс, жду закрытия\n"
+                                      "• 15м: жду инверсию FVG"), d["models"][1]["note"]
+    assert "15м" not in d["models"][0]["note"], d["models"][0]["note"]
 
     # страховка: розбір моделлю щось пропустив — рядок і скрін не губляться
     d = {"extra": [], "models": []}

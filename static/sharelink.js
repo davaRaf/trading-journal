@@ -157,6 +157,11 @@ function tsSnapshot(){
     .filter(m => str(m.k) || str(m.v))
     .map(m => ({k: str(m.k), v: str(m.v), shots: shots(m.shots)}));
 
+  /* «Ще про контекст» — з 19.09.2026 */
+  const ctx = (ts.ctx || [])
+    .filter(m => str(m.k) || str(m.v))
+    .map(m => ({k: str(m.k), v: str(m.v), shots: shots(m.shots)}));
+
   const cases = (ts.riskCases || [])
     .filter(c => str(c.k) || str(c.v))
     .map(c => ({k: str(c.k), v: str(c.v)}));
@@ -186,6 +191,7 @@ function tsSnapshot(){
       windows: windows,
       days: str(ts.days), news: str(ts.news),
       tfs: tfs,
+      ctx: ctx,
       models: models,
       setups: setups,
       bias: str(ts.bias),
@@ -206,7 +212,7 @@ function tsSnapshot(){
   /* порожньою стратегією ділитись нема чого */
   const t = data.ts;
   const any = has(t.assets) || has(t.tfs) || has(t.models) || has(t.setups) || has(t.manage)
-    || has(t.check) || has(t.extra) || has(t.psy) || t.modelsNote || t.bias || t.mind || t.stop.v || t.target.v
+    || has(t.check) || has(t.extra) || has(t.psy) || has(t.ctx) || t.modelsNote || t.bias || t.mind || t.stop.v || t.target.v
     || has(t.no.market) || has(t.no.time) || has(t.no.self) || rk.length;
   return any ? data : null;
 }

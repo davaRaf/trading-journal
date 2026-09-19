@@ -454,6 +454,7 @@ def read(urls, user_id, shots_dir):
         draft = parse(joined)
         route_pages(draft, pages)
     draft.setdefault("psy", [])
+    draft.setdefault("ctx", [])
     draft["source"] = "notion"
     keep = max(2000, 20000 // len(pages))
     draft["notion"] = {
@@ -750,6 +751,25 @@ def _block(k, text, shots=None):
             "shots": [s["file"] for s in (shots or [])][:12]}
 
 
+def _cards(k, rows, shots):
+    """Блок, де в кожного пункту верхнього рівня свої скріни («Синхронізація»
+    зі своїми прикладами, «Розсинхронізація» зі своїми), — окремими картками:
+    так картинка стоїть біля свого пункту, а не купою під усім блоком.
+    Інакше — одна картка на весь блок."""
+    units = _units(rows)
+    if len(units) > 1 and shots and all(sh.get("at") is not None for sh in shots):
+        starts = [u[0]["i"] for u, _ in units]
+        own, lead = [[] for _ in units], []
+        for sh in shots:
+            n = max((j for j, s in enumerate(starts) if s < sh["at"]), default=None)
+            (own[n] if n is not None else lead).append(sh)
+        if sum(1 for o in own if o) >= 2:
+            own[0] = lead + own[0]
+            return [_block(u[0]["t"].rstrip(":").strip(), _tree(u[1:]), own[j])
+                    for j, (u, _) in enumerate(units)]
+    return [_block(k, _tree(rows), shots)]
+
+
 def _tf_head(r):
     """«D/4h - При открытии дня…» → (["1D", "4H"], «При открытии дня…»).
     Таймфрейми беремо лише з початку рядка: «вспомогательные после 1h» у
@@ -797,6 +817,8 @@ def _route_models(draft, page):
             cur = None
             preface.append(r)
     _use(page, rows)
+    raw = page["text"].split("\n")
+    out = []
     for n, m in enumerate(models):
         lo, hi = spans[n][0], spans[n][1] if spans[n][1] is not None else 10 ** 9
         if n + 1 < len(models):
@@ -804,10 +826,33 @@ def _route_models(draft, page):
         by_place = [sh["file"] for sh in page["shots"] if sh.get("at") is not None and lo < sh["at"] <= hi]
         by_cap = [sh["file"] for sh in page["shots"]
                   if (sh.get("caption") or "").lower().startswith(m["name"].lower())]
-        m["shots"] = (by_place or by_cap)[:12]
-        rel = [dict(x, d=x["d"]) for x in m["note"]]
-        m["note"] = (_tree(rel) if len(rel) > 1 else ("• " + rel[0]["t"] if rel else ""))[:TEXT_CAP]
-    draft["models"] = models
+        shots = by_place or by_cap
+        rows_m = m["note"]
+        # Вкладений випадок зі своїми прикладами («коли перед зламом є
+        # імбаланс — чекаю закриття, інверсія FVG») — окрема модель: інакше
+        # його скріни змішувались зі скрінами самої моделі.
+        cases = []
+        for p, end in (_model_cases(raw, lo, hi, rows_m) if by_place else []):
+            own = [sh["file"] for sh in page["shots"]
+                   if sh.get("at") is not None and p["i"] < sh["at"] <= end]
+            if not own:
+                continue
+            kids = [r for r in rows_m if p["i"] < r["i"] < end]
+            rows_m = [r for r in rows_m if r not in kids]
+            shots = [f for f in shots if f not in own]
+            head = p["t"].rstrip(":").strip()
+            cut = head.find(",")
+            short = head[:cut] if cut >= 12 else head
+            note = _tree([dict(r, item=True) for r in kids]) if len(kids) > 1 else \
+                ("• " + kids[0]["t"] if kids else "")
+            if short != head:
+                note = head + ("\n" + note if note else "")
+            cases.append({"name": (m["name"] + " · " + short)[:80], "note": note[:TEXT_CAP],
+                          "shots": own[:12]})
+        m["shots"] = shots[:12]
+        m["note"] = (_tree(rows_m) if len(rows_m) > 1 else ("• " + rows_m[0]["t"] if rows_m else ""))[:TEXT_CAP]
+        out += [m] + cases
+    draft["models"] = out
     if preface:
         prev = draft.get("modelsNote") or ""
         note = _tree(preface) if len(preface) > 1 else "• " + preface[0]["t"]
@@ -815,12 +860,39 @@ def _route_models(draft, page):
     return True
 
 
+def _model_cases(raw, lo, hi, rows):
+    """Пункти в описі моделі, під якими стоять свої приклади («Черновой
+    пример:», «Пример из графика:»). Повертає (пункт, де його гілка
+    закінчується) — усе між ними, разом зі скрінами, і є цей випадок."""
+    def depth(j):
+        return (len(raw[j]) - len(raw[j].lstrip(" "))) // 2
+
+    def draft_line(j):
+        return bool(raw[j].strip()) and bool(DRAFT_RE.search(ITEM_RE.sub("", raw[j].strip())))
+
+    ids = {r["i"]: r for r in rows}
+    found = []
+    for j in range(lo + 1, min(hi, len(raw))):
+        if not draft_line(j):
+            continue
+        k = j - 1
+        while k > lo and (not raw[k].strip() or draft_line(k) or depth(k) >= depth(j)):
+            k -= 1
+        if k in ids and all(f[0]["i"] != k for f in found):
+            end = next((x for x in range(k + 1, len(raw))
+                        if raw[x].strip() and depth(x) <= depth(k)), len(raw))
+            found.append((ids[k], end))
+    return found
+
+
 def _route_context(draft, page):
     """Блок «ТФ - навіщо дивлюсь» + пункти під ним — один рядок таймфреймів,
     як у людини на сторінці («D/4h» — одна картка, а не дві однакові).
-    Блоки без таймфрейму (синхронізація тощо) — у «Додатково»."""
+    Блоки без таймфрейму (синхронізація тощо) — теж у вкладку «Контекст»,
+    окремими картками (ctx): це частина контексту, а не «Додатково»."""
     groups = _groups(page)
     rows_out = []
+    ctx = draft.setdefault("ctx", [])
     for g in groups:
         tfs, role = _tf_head(g["head"]) if g["head"] else ([], "")
         if tfs:
@@ -828,7 +900,7 @@ def _route_context(draft, page):
                              "shot": g["shots"][0]["file"] if g["shots"] else ""})
             _use(page, [g["head"]] + g["rows"])
             if len(g["shots"]) > 1:
-                draft.setdefault("extra", []).append(_block("/".join(tfs), "", g["shots"][1:]))
+                ctx.append(_block("/".join(tfs), "", g["shots"][1:]))
     if not rows_out:
         return False
     prev = draft.get("tfs") if draft.get("_ctx") else []
@@ -842,8 +914,9 @@ def _route_context(draft, page):
             continue
         if g["rows"] or g["shots"]:
             k = _head_text(g) or page["title"] or "Context"
-            draft.setdefault("extra", []).append(_block(k, _tree(g["rows"]), g["shots"]))
+            ctx.extend(_cards(k, g["rows"], g["shots"]))
             _use(page, ([g["head"]] if g["head"] else []) + g["rows"])
+    draft["ctx"] = ctx[:LIST_CAP]
     return True
 
 
@@ -905,7 +978,7 @@ def _route_general(draft, page):
             draft.setdefault("manage", []).append(dict(_block(h, _tree(g["rows"]), g["shots"])))
             _use(page, head + g["rows"])
             continue
-        draft.setdefault("extra", []).append(_block(h or page["title"] or "General", _tree(g["rows"]), g["shots"]))
+        draft.setdefault("extra", []).extend(_cards(h or page["title"] or "General", g["rows"], g["shots"]))
         _use(page, head + g["rows"])
 
 
@@ -932,7 +1005,7 @@ def _route_manage(draft, page):
         if not g["rows"] and not g["shots"]:
             continue
         k = _head_text(g) or page["title"] or ""
-        draft.setdefault("manage", []).append(_block(k, _tree(g["rows"]), g["shots"]))
+        draft.setdefault("manage", []).extend(_cards(k, g["rows"], g["shots"]))
         _use(page, ([g["head"]] if g["head"] else []) + g["rows"])
 
 
@@ -940,6 +1013,7 @@ def route_pages(draft, pages):
     """Розкладає сторінки за їхніми назвами. Сторінку, чию назву не впізнали,
     кладемо в «Додатково» цілою — під її ж назвою, зі скрінами."""
     draft.setdefault("extra", [])
+    draft.setdefault("ctx", [])
     draft.setdefault("psy", [])
     # Пошук за словами по всьому тексту дає уривки: будь-який рядок зі словом
     # «бу» ставав правилом супроводу, будь-яке «не входжу» — стоп-сигналом.
@@ -1065,7 +1139,7 @@ def attach_by_caption(draft, shots):
     чіпаємо.
     """
     taken = {row.get("shot") for row in draft.get("tfs") or [] if row.get("shot")}
-    for key in ("models", "manage", "extra"):
+    for key in ("models", "manage", "extra", "ctx"):
         for row in draft.get(key) or []:
             taken.update(row.get("shots") or [])
     for key in ("stop", "target"):
@@ -1073,7 +1147,7 @@ def attach_by_caption(draft, shots):
         if got:
             taken.add(got)
 
-    for key, title in (("models", "name"), ("manage", "k"), ("extra", "k")):
+    for key, title in (("models", "name"), ("manage", "k"), ("ctx", "k"), ("extra", "k")):
         for row in draft.get(key) or []:
             if row.get("shots"):
                 continue
