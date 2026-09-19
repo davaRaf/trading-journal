@@ -371,7 +371,7 @@ textarea.ts-ask-inp{min-height:116px; resize:vertical}
 .tsv-chips{display:flex; flex-wrap:wrap; gap:6px; margin-top:9px; align-items:center}
 .tsv-chip{display:inline-flex; align-items:center; font-family:var(--mono); font-size:13px;
   padding:4px 6px 4px 11px; border-radius:99px; background:var(--panel-2); border:1px solid var(--line)}
-.tsv:not(.editing) .tsv-chip{padding-right:11px}
+.ro .tsv-chip{padding-right:11px}
 .tsv-chip .ts-ed{border-bottom:0}
 .tsv-chip .ts-x{padding:0 4px; font-size:14px}
 .tsv-chips .ts-add{margin-top:0; padding:4px 11px}
@@ -446,19 +446,41 @@ textarea.ts-ask-inp{min-height:116px; resize:vertical}
 /* ---- звичайний вигляд: без слідів редактора ----
    Пунктири, «+ додати», хрестики й порожні слоти — лише в режимі правки.
    Порожнє коротке поле показуємо тире, порожній текст ховаємо зовсім. */
-.tsv:not(.editing) .ts-add,
-.tsv:not(.editing) .ts-x,
-.tsv:not(.editing) .ts-shot:not(.has),
-.tsv:not(.editing) .ts-shot .rp,
-.tsv:not(.editing) .ts-shot .rm{display:none}
-.tsv:not(.editing) .ts-ed{cursor:auto; border-bottom-color:transparent; padding:0; margin:0}
-.tsv:not(.editing) .ts-ed:hover{background:none; box-shadow:none}
-.tsv:not(.editing) .ts-ed.blank{border:0; padding:0; font-size:0; gap:0}
-.tsv:not(.editing) .ts-ed.blank::before{content:"—"; font-size:14px; color:var(--faint); opacity:1}
-.tsv:not(.editing) .ts-ed.multi.blank{display:none}
+.ro .ts-add,
+.ro .ts-x,
+.ro .ts-shot:not(.has),
+.ro .ts-shot .rp,
+.ro .ts-shot .rm{display:none}
+.ro .ts-ed{cursor:auto; border-bottom-color:transparent; padding:0; margin:0}
+.ro .ts-ed:hover{background:none; box-shadow:none}
+.ro .ts-ed.blank{border:0; padding:0; font-size:0; gap:0}
+.ro .ts-ed.blank::before{content:"—"; font-size:14px; color:var(--faint); opacity:1}
+.ro .ts-ed.multi.blank{display:none}
 /* у правці хрестики видно одразу: на тачі ховера немає */
-.tsv.editing .ts-x{opacity:.55}
-.tsv.editing .ts-x:hover{opacity:1}
+.tsv-sec:not(.ro) .ts-x{opacity:.55}
+.tsv-sec:not(.ro) .ts-x:hover{opacity:1}
+
+/* ---- плашки з кнопкою «Змінити» (19.09.2026) ---- */
+.tsv-sec{position:relative}
+.tsv-sh{display:flex; align-items:center; gap:10px; margin-bottom:10px; min-height:30px}
+.tsv-sh h3{margin:0; flex:1; min-width:0}
+.tsv-sh .tsv-subh{margin:0; flex:1; min-width:0}
+.tsv-blk{margin-top:26px}
+.tsv-panel > .tsv-blk:first-child{margin-top:0}
+.tsv-eb{flex:none; display:inline-flex; align-items:center; gap:5px; height:30px; padding:0 10px;
+  border:1px solid var(--line); border-radius:8px; background:var(--panel); color:var(--dim);
+  font:inherit; font-size:12.5px; font-weight:500; cursor:pointer;
+  transition:color .15s, border-color .15s, background .15s}
+.tsv-eb svg{width:13px; height:13px}
+.tsv-eb:hover{color:var(--accent); border-color:color-mix(in srgb, var(--accent) 45%, var(--line))}
+.tsv-eb.on{background:var(--accent); border-color:var(--accent); color:var(--accent-ink)}
+.tsv-eb:focus-visible{outline:2px solid var(--accent); outline-offset:2px}
+/* плашка, відкрита на правку сама по собі, — підсвічена рамкою */
+.tsv-card.sel, .tsv-passw.sel .tsv-pass{border-color:color-mix(in srgb, var(--accent) 55%, var(--line));
+  box-shadow:0 0 0 3px var(--accent-soft)}
+/* у паспорта заголовка немає — кнопка в правому нижньому куті, де порожньо */
+.tsv-passw > .tsv-eb{position:absolute; right:10px; bottom:10px; z-index:1}
+.tsv-kv.one{grid-template-columns:minmax(0,1fr)}
 
 /* вкладки «Активи й сесії», «Контекст», «Ризик і супровід», «Психологія» (19.09.2026) */
 .tsv-two.assets{grid-template-columns:minmax(0,1fr) minmax(0,1.6fr)}
@@ -477,6 +499,7 @@ textarea.ts-ask-inp{min-height:116px; resize:vertical}
   .tsv-btn{height:44px}
   .tsv-btn.ic{width:44px}
   .tsv-btn.share{display:none}
+  .tsv-eb{height:36px; padding:0 12px}
   .tsv-menu .m-share{display:block}
   /* «Готово» вже є вгорі, біля заголовка — на вузькому екрані друга така кнопка зайва */
   .tsv-editbar .tsv-btn{display:none}

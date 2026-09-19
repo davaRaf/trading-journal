@@ -21,7 +21,7 @@ import ts_ai
 
 # ------------------------------------------------------------ словники ----
 
-TFS = ["1W", "1D", "4H", "2H", "1H", "30M", "15M", "5M", "3M", "1M"]
+TFS = ["1MN", "1W", "1D", "4H", "2H", "1H", "30M", "15M", "5M", "3M", "1M"]
 
 # інструменти, які пишуть по-різному: ліворуч — як шукаємо, праворуч — як покажемо
 ASSETS = [
@@ -147,10 +147,12 @@ def _tf_split(line):
         letter = m.group(1).upper()
         letter = _CYR_UNIT.get(letter, letter)
         add("%d%s" % (int(m.group(2)), letter), m.span())
+    month = re.search(r"місяц|месяц|month", line, re.I)
     for m in _TF_BARE.finditer(line):
         letter = (m.group(1) or m.group(2)).upper()
         letter = _CYR_UNIT.get(letter, letter)
-        add("1" + letter, m.span())
+        # «M/W» поруч зі словом «місяць» — це місяць і тиждень, а не хвилина
+        add("1MN" if (letter == "M" and month) else "1" + letter, m.span())
     for pat, tf in _TF_WORDS:
         m = re.search(pat, line, re.I)
         if m:
@@ -443,7 +445,14 @@ def read(urls, user_id, shots_dir):
     # спершу модель: вона читає сторінку цілком і бачить те, чого ключові
     # слова не ловлять. Розбір нижче лишається запасним — якщо ключа немає
     # або відповідь не склалась
-    draft = ts_ai.parse(joined, shots, TFS, _tfs_in) or parse(joined)
+    draft = ts_ai.parse(joined, shots, TFS, _tfs_in)
+    if not draft:
+        # Без моделі ключові слова ловлять лише шматки. Сторінки ж у людини
+        # названі за розділами («Psychology», «Entry models», «Where SL and TP») —
+        # тож розкладаємо їх за назвами, а слова лишаємо на решту.
+        draft = parse(joined)
+        route_pages(draft, pages)
+    draft.setdefault("psy", [])
     draft["source"] = "notion"
     keep = max(2000, 20000 // len(pages))
     draft["notion"] = {
@@ -468,6 +477,185 @@ def read(urls, user_id, shots_dir):
             row["shot"] = by_tf[row["tf"]]
 
     attach_by_caption(draft, shots)
+    return draft
+
+
+# ------------------------------------------------ сторінки за назвами ----
+#
+# Людина веде ТС у Notion розділами, і назва сторінки прямо каже, що в ній:
+# «Psychology», «Entry models», «Where SL and TP». Без моделі це найнадійніша
+# підказка — надійніша за ключові слова, які ловлять просто згадки.
+
+PAGE_ROUTES = [
+    ("psy", r"psycholog|психолог|mindset|дисципл"),
+    ("models", r"entry|вход|вхід|модел"),
+    ("stop", r"\bsl\b|\btp\b|stop|стоп|тейк|take|target|ціл|цел"),
+    ("context", r"context|контекст"),
+    ("general", r"general|rules|правил|загальн|общ"),
+]
+ITEM_RE = re.compile(r"^([•·*\-—–]|\d+[.)])\s+")
+SKIP_HEAD_RE = re.compile(r"skip|скіп|скип|не вход|не захож|пропуск", re.I)
+RISK_HEAD_RE = re.compile(r"risk|ризик|риск", re.I)
+DRAFT_RE = re.compile(r"^(черновой|чорновий|draft)\b|^(примеры?|приклади?)\s+(из|з)\s+графік|^(примеры?|приклади?)\s+(из|з)\s+график", re.I)
+MANAGE_HEAD_RE = re.compile(r"^be$|беззбит|безубыт|break\s?even|partial|частков|частичн|супровід|сопровожд|manage", re.I)
+
+
+def _items(text):
+    """Пункти сторінки: нумерований або маркований рядок починає пункт,
+    звичайні рядки під ним — його продовження («1. Правило» і пояснення нижче)."""
+    out = []
+    for raw in (text or "").split("\n"):
+        t = raw.strip()
+        if not t:
+            continue
+        if ITEM_RE.match(t) or not out:
+            out.append(ITEM_RE.sub("", t))
+        else:
+            out[-1] += "\n" + t
+    return [x.strip() for x in out if x.strip()]
+
+
+def _sections(text):
+    """Сторінка по підзаголовках: [(заголовок, [пункти])]. Заголовок — рядок
+    без маркера («Risk management:», «Skip:»), пункти — рядки з маркером."""
+    out = [("", [])]
+    for raw in (text or "").split("\n"):
+        t = raw.strip()
+        if not t:
+            continue
+        if ITEM_RE.match(t):
+            out[-1][1].append(ITEM_RE.sub("", t))
+        else:
+            out.append((t.rstrip(":").strip(), []))
+    return [(h, it) for h, it in out if h or it]
+
+
+def _block(k, lines, shots=None):
+    v = "\n".join("• " + x for x in lines) if len(lines) > 1 else "".join(lines)
+    return {"k": k[:60], "v": v[:800], "shots": [s["file"] for s in (shots or [])][:8]}
+
+
+def _route_models(draft, page):
+    """«BOS - как модель для входа» і пункти під ним — модель BOS. Назви
+    беремо з таких рядків і з підписів скрінів; те, що до першої моделі, —
+    загальні правила входу, вони йдуть у «Додатково»."""
+    names = []
+    for src in [sh.get("caption") or "" for sh in page["shots"]] + page["text"].split("\n"):
+        m = re.match(r"^[•·*\-—–\s]*(.+?)\s+[-–—]\s+.*(модел|model|вход|вхід|entry)", src.strip(), re.I)
+        if m and m.group(1).strip() not in names:
+            names.append(m.group(1).strip())
+    if not names:
+        return False
+    models, cur, preface = [], None, []
+    for line in _items(page["text"]):
+        head = line.split("\n")[0]
+        hit = next((n for n in names if re.match(r"^" + re.escape(n) + r"\s+[-–—]", head)), None)
+        if hit:
+            cur = {"name": hit, "note": [], "shots": []}
+            models.append(cur)
+        elif DRAFT_RE.search(head):
+            continue
+        elif cur:
+            keep = [x for x in line.split("\n") if not DRAFT_RE.search(x.strip())]
+            if keep:
+                cur["note"].append("\n".join(keep))
+        else:
+            preface.append(line)
+    for m in models:
+        m["shots"] = [sh["file"] for sh in page["shots"]
+                      if (sh.get("caption") or "").lower().startswith(m["name"].lower())][:8]
+        m["note"] = "\n".join("• " + x for x in m["note"])[:800]
+    draft["models"] = models
+    if preface:
+        draft.setdefault("extra", []).append(_block(page["title"] or "Entry", preface))
+    return True
+
+
+def _route_context(draft, page):
+    """Таймфрейми — тільки зі сторінки контексту: інакше в список лізли
+    всі ТФ, згадані будь-де. Решта сторінки (синхронізація тощо) — окремим
+    блоком у «Додатково»."""
+    tfs = parse(page["text"])["tfs"]
+    if tfs:
+        draft["tfs"] = tfs
+    rest, seen_tf, on = [], False, False
+    for h, it in _sections(page["text"]):
+        if _tfs_in(h):
+            seen_tf = True
+        elif seen_tf and h and not h.endswith("?"):
+            # перший підзаголовок без таймфрейму після блоку ТФ — далі «інше»
+            on = True
+        if on:
+            rest += ([h] if h and not DRAFT_RE.search(h) else []) + it
+    rest = [x for x in rest if not DRAFT_RE.search(x)]
+    if rest:
+        tf_caps = [sh for sh in page["shots"] if not _tfs_in(sh.get("caption") or "")]
+        draft.setdefault("extra", []).append(_block(page["title"] or "Context", rest, tf_caps))
+
+
+def _route_stop(draft, page):
+    """Сторінка про стоп і тейк: рядки — стоп, підписи скрінів — ціль."""
+    lines = _items(page["text"])
+    caps = [sh for sh in page["shots"] if (sh.get("caption") or "").strip()]
+    stop = [x for x in lines if re.search(r"стоп|stop|\bsl\b", x, re.I)] or lines
+    tgt = [sh["caption"].strip() for sh in caps if re.search(r"тейк|take|\btp\b|ціл|цел|target", sh["caption"], re.I)]
+    tgt += [x for x in lines if re.search(r"тейк|take|\btp\b|ціл|цел|target", x, re.I) and x not in stop]
+    if stop:
+        draft["stop"] = {"v": "\n".join("• " + x for x in stop)[:600] if len(stop) > 1 else stop[0][:600],
+                         "shot": page["shots"][0]["file"] if page["shots"] else ""}
+    if tgt:
+        draft["target"] = {"v": "\n".join("• " + x for x in tgt)[:600] if len(tgt) > 1 else tgt[0][:600],
+                           "shot": page["shots"][1]["file"] if len(page["shots"]) > 1 else ""}
+
+
+def _route_general(draft, page):
+    """Загальні правила по підзаголовках: сесії й ризик уже взяв розбір за
+    словами, «Skip» — це «коли не входжу», решта — окремі блоки."""
+    no = draft.setdefault("no", {"market": [], "time": [], "self": []})
+    for h, it in _sections(page["text"]):
+        if not it:
+            continue
+        if SESS_HEAD_RE.search(h) or RISK_HEAD_RE.search(h) or any(TIME_RE.search(x) for x in it):
+            continue
+        if SKIP_HEAD_RE.search(h):
+            for x in it:
+                if x not in no["market"]:
+                    no["market"].append(x[:300])
+            continue
+        if MANAGE_HEAD_RE.search(h):
+            b = _block(h, it)
+            draft.setdefault("manage", []).append({"k": b["k"], "v": b["v"][:500], "shots": []})
+            continue
+        draft.setdefault("extra", []).append(_block(h or page["title"] or "General", it))
+
+
+def route_pages(draft, pages):
+    """Розкладає сторінки за їхніми назвами. Сторінку, чию назву не впізнали,
+    кладемо в «Додатково» цілою — під її ж назвою, зі скрінами."""
+    draft.setdefault("extra", [])
+    draft.setdefault("psy", [])
+    for page in pages:
+        title = page.get("title") or ""
+        kind = next((k for k, pat in PAGE_ROUTES if re.search(pat, title, re.I)), None)
+        if kind == "psy":
+            draft["psy"] = [{"k": "", "v": x[:500]} for x in _items(page["text"])][:12]
+        elif kind == "models" and _route_models(draft, page):
+            pass
+        elif kind == "stop":
+            _route_stop(draft, page)
+        elif kind == "context":
+            _route_context(draft, page)
+        elif kind == "general":
+            _route_general(draft, page)
+        else:
+            lines = [x for x in _items(page["text"]) if not DRAFT_RE.search(x)]
+            if lines or page["shots"]:
+                draft["extra"].append(_block(title or "Notion", lines, page["shots"]))
+    draft["extra"] = draft["extra"][:12]
+    taken = " ".join(b["v"] for b in draft["extra"] + draft.get("manage", []))
+    no = draft.get("no") or {}
+    no["market"] = [x for x in no.get("market", [])
+                    if not x.rstrip().endswith(":") and x not in taken][:10]
     return draft
 
 
