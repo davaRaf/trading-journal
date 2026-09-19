@@ -188,7 +188,9 @@ function tsSnapshot(){
     kpis: rk,
     ts: {
       assets: line(ts.assets),
-      corr: line(ts.corr),
+      /* кореляція біля активу: {"EURUSD": "DXY"} */
+      corr: Object.fromEntries(Object.entries(ts.corr && !Array.isArray(ts.corr) && typeof ts.corr === "object"
+        ? ts.corr : {}).map(([k, v]) => [str(k), str(v)]).filter(([k, v]) => k && v)),
       windows: windows,
       days: str(ts.days), news: str(ts.news),
       tfs: tfs,
@@ -213,7 +215,7 @@ function tsSnapshot(){
   /* порожньою стратегією ділитись нема чого */
   const t = data.ts;
   const any = has(t.assets) || has(t.tfs) || has(t.models) || has(t.setups) || has(t.manage)
-    || has(t.check) || has(t.extra) || has(t.psy) || has(t.ctx) || has(t.corr) || t.modelsNote || t.bias || t.mind || t.stop.v || t.target.v
+    || has(t.check) || has(t.extra) || has(t.psy) || has(t.ctx) || t.modelsNote || t.bias || t.mind || t.stop.v || t.target.v
     || has(t.no.market) || has(t.no.time) || has(t.no.self) || rk.length;
   return any ? data : null;
 }

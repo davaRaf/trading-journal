@@ -455,7 +455,8 @@ def read(urls, user_id, shots_dir):
         route_pages(draft, pages)
     draft.setdefault("psy", [])
     draft.setdefault("ctx", [])
-    draft.setdefault("corr", [])
+    if not isinstance(draft.get("corr"), dict):
+        draft["corr"] = {}
     draft["source"] = "notion"
     keep = max(2000, 20000 // len(pages))
     draft["notion"] = {
@@ -989,15 +990,30 @@ def _route_general(draft, page):
 
 
 def _route_corr(draft, rows):
-    """«Pairs and correlations»: кожен пункт — пара і з чим вона корелює
-    («EUR/USD - DXY»). Пункт без пари («XAU/USD») теж лишаємо — людина його
-    написала. Підпункти дописуємо в той самий рядок."""
-    corr = draft.setdefault("corr", [])
+    """«Pairs and correlations»: кожен пункт — актив і з чим він корелює
+    («EUR/USD - DXY»). Кореляцію кладемо біля активу (corr: {"EURUSD": "DXY"}),
+    актив, якого ще немає в «Чим торгую», додаємо — це ж пари, якими людина
+    торгує. Пункт без пари («XAU/USD») — просто актив. Підпункти дописуємо
+    до кореляції того ж активу."""
+    corr = draft.get("corr") if isinstance(draft.get("corr"), dict) else {}
+    assets = draft.setdefault("assets", [])
     for _, text in _units(rows):
-        line = re.sub(r"\s*\n\s*[•◦▸]?\s*", "; ", text.strip())
-        if line and line not in corr:
-            corr.append(line[:200])
-    draft["corr"] = corr[:LIST_CAP]
+        first, *rest = text.strip().split("\n")
+        parts = re.split(r"\s+[-–—]\s+", first, maxsplit=1)
+        left = parts[0].strip(" :")
+        hit = _hits(left, ASSETS)
+        a = hit[0] if hit else re.sub(r"[\s/]+", "", left).upper()[:24]
+        if not a:
+            continue
+        if a not in assets:
+            assets.append(a)
+        bits = ([parts[1].strip()] if len(parts) > 1 else []) + \
+            [re.sub(r"^[\s•◦▸]+", "", r) for r in rest if r.strip()]
+        v = "; ".join(b for b in bits if b)
+        if v:
+            corr[a] = ((corr[a] + "; ") if corr.get(a) and v not in corr[a] else "") + v
+            corr[a] = corr[a][:200]
+    draft["corr"] = corr
 
 
 def _route_list(page):
@@ -1032,7 +1048,8 @@ def route_pages(draft, pages):
     кладемо в «Додатково» цілою — під її ж назвою, зі скрінами."""
     draft.setdefault("extra", [])
     draft.setdefault("ctx", [])
-    draft.setdefault("corr", [])
+    if not isinstance(draft.get("corr"), dict):
+        draft["corr"] = {}
     draft.setdefault("psy", [])
     # Пошук за словами по всьому тексту дає уривки: будь-який рядок зі словом
     # «бу» ставав правилом супроводу, будь-яке «не входжу» — стоп-сигналом.

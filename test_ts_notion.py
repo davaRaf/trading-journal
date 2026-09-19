@@ -263,13 +263,16 @@ def check_routes():
         "  • XAU/USD\n"
         "Re-Entry:\n"
         "  • Если произошел ресвип в POI, перезахожу")}])
-    assert d["corr"] == ["EUR/USD - DXY", "GER40 - EU50", "XAU/USD"], d["corr"]
+    # кореляція лягає біля свого активу, актив без пари — просто в «Чим торгую»
+    assert d["corr"] == {"EURUSD": "DXY", "GER40": "EU50"}, d["corr"]
+    assert d["assets"] == ["EURUSD", "GER40", "XAUUSD"], d["assets"]
     assert [e["k"] for e in d["extra"]] == ["Re-Entry"], d["extra"]
     # окрема сторінка з такою назвою — теж
     d = {"extra": [], "psy": []}
     tn.route_pages(d, [{"title": "Мои корреляции", "url": "", "shots": [],
                         "text": "• US100 - US500"}])
-    assert d["corr"] == ["US100 - US500"] and not d["extra"], (d["corr"], d["extra"])
+    assert d["corr"] == {"US100": "US500"} and d["assets"] == ["US100"] and not d["extra"], \
+        (d["corr"], d["assets"], d["extra"])
 
     # вкладений випадок моделі зі своїми прикладами — окрема модель
     d = {"extra": [], "psy": []}

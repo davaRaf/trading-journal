@@ -35,7 +35,9 @@ def looks_like(text):
 
 # ------------------------------------------------------------ схема ----
 # списки рядків
-STR_LISTS = ("assets", "corr", "check", "no.market", "no.time", "no.self")
+STR_LISTS = ("assets", "check", "no.market", "no.time", "no.self")
+# кореляція активу: corr.<АКТИВ> = «з чим корелює»
+CORR_RE = re.compile(r"^corr\.([^.]{1,24})$")
 # списки об'єктів: ключ, за яким шукаємо при видаленні, і дозволені поля
 OBJ_LISTS = {
     "tfs":       ("tf",   ("tf", "role", "what")),
@@ -60,7 +62,7 @@ RULES = (
     "без ``` і без тексту навколо.\n"
     "Формат: {\"ops\":[{\"op\":\"add|remove|set\",\"path\":\"…\",\"value\":…}], "
     "\"say\":\"одне речення трейдеру його мовою, що саме зроблено\"}.\n"
-    "Шляхи-списки рядків: assets (інструменти), corr (кореляції: «EUR/USD - DXY»), check (чек-лист), no.market, no.time, "
+    "Шляхи-списки рядків: assets (інструменти), check (чек-лист), no.market, no.time, "
     "no.self (коли не входить). value — рядок.\n"
     "Шляхи-списки обʼєктів: tfs {tf, what}, models {name, note}, setups {name, note}, "
     "windows {name, time, note}, manage {k, v}, riskCases {k, v}, extra {k, v}, ctx {k, v} (контекст, не привʼязаний до одного ТФ: синхронізація ТФ тощо), "
@@ -70,6 +72,7 @@ RULES = (
     "«модель» — це models. Не плутай їх між собою.\n"
     "Скалярні шляхи (лише op=set, value — рядок): bias, days, news, mind, maxtrades, "
     "modelsNote (загальні правила входу для всіх моделей), "
+    "corr.<АКТИВ> — з чим корелює актив (path \"corr.EURUSD\", value \"DXY\"; порожнє — прибрати), "
     "stop.v, target.v, risk.per, risk.rr, risk.day, risk.week.\n"
     "Назви інструментів пиши великими латинськими, як прийнято: XAUUSD, US100, GER40, "
     "EURUSD. «Золото» — XAUUSD, «насдак» — US100, «дакс» — GER40, «евро» — EURUSD.\n"
@@ -205,6 +208,17 @@ def apply(ts, ops):
             else:
                 continue
             _set(ts, path, lst)
+
+        elif CORR_RE.match(path) and kind in ("set", "add"):
+            a = CORR_RE.match(path).group(1).strip()
+            v = _s(val)
+            c = dict(ts["corr"]) if isinstance(ts.get("corr"), dict) else {}
+            if v:
+                c[a] = v
+            else:
+                c.pop(a, None)
+            ts["corr"] = c
+            done.append("= %s: %s" % (path, v or "—"))
 
         elif path in SCALARS and kind in ("set", "add"):
             v = _s(val)

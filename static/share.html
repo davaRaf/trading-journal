@@ -299,7 +299,7 @@ html{interpolate-size:allow-keywords}
   color:var(--faint); margin-bottom:8px}
 
 .ts-chips{display:flex; flex-wrap:wrap; gap:7px}
-.ts-corr{margin:0; padding-left:18px; font-size:14px; line-height:1.7}
+.ts-chips b i{font-style:normal; font-family:var(--sans, inherit); font-weight:400; font-size:12px; opacity:.65; margin-left:6px}
 .ts-chips b{font-family:var(--mono); font-size:13px; font-weight:600; padding:6px 12px;
   border-radius:8px; background:var(--panel-2); border:1px solid var(--line-soft)}
 
@@ -563,14 +563,12 @@ function tsHtml(ts){
 
   /* ринок і час */
   const assets = ts.assets.length
-    ? '<div class="ts-chips">' + ts.assets.map(a => "<b>" + esc(a) + "</b>").join("") + "</div>" : "";
+    ? '<div class="ts-chips">' + ts.assets.map(a => "<b>" + esc(a)
+        + ((ts.corr || {})[a] ? "<i>↔ " + esc(ts.corr[a]) + "</i>" : "") + "</b>").join("") + "</div>" : "";
   const windows = rows(ts.windows.map(w =>
     [w.name || "—", [w.time, w.note].filter(Boolean).join("  ·  ")]));
   const when = rows([[T.tsShDays, ts.days], [T.tsShNews, ts.news]]);
-  /* кореляції — з 19.09.2026, у старих знімках їх немає */
-  const corr = !(ts.corr || []).length ? "" :
-    '<ul class="ts-corr">' + ts.corr.map(c => "<li>" + esc(c) + "</li>").join("") + "</ul>";
-  const market = sub(T.tsShAssets, assets) + sub(T.tsShCorr, corr) + sub(T.tsShWindows, windows) + when;
+  const market = sub(T.tsShAssets, assets) + sub(T.tsShWindows, windows) + when;
 
   /* таймфрейми */
   const tfs = !ts.tfs.length ? "" :
