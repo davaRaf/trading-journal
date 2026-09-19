@@ -269,6 +269,27 @@ def prefetch_relations(blocks, ids, schema, space):
         resolve_relations(want, space)
 
 
+def closed_relations(blocks, ids, schema, cols):
+    """Колонки-связи, у которых не открылось ни одно название.
+
+    Связь ведёт в другую таблицу («Пары», «Сессии»). Если та не опубликована,
+    Notion отвечает «нет доступа», и вся колонка приходит пустой — у каждой
+    строки сразу. Отличаем это от колонки, которую человек просто не заполнил:
+    там ссылок нет вовсе."""
+    by_name = {(v.get("name") or k): k for k, v in (schema or {}).items()}
+    out = []
+    for name in cols:
+        pid = by_name.get(name)
+        if not pid or ((schema.get(pid) or {}).get("type") != "relation"):
+            continue
+        want = []
+        for bid in ids:
+            want += rel_ids((_unwrap(blocks.get(bid) or {}).get("properties") or {}).get(pid))
+        if want and not any(_REL.get(i) for i in want):
+            out.append(name)
+    return out
+
+
 def _files(rich):
     """Вложения: [["имя.png", [["a", "https://…"]]]]"""
     out = []
@@ -312,28 +333,6 @@ def row_props(block, schema):
             continue
         out[name] = _plain(rich)
     return out, files
-
-
-def looks_like_pair(v):
-    """Похоже ли это на инструмент, а не на кусок текста из соседней колонки.
-
-    В таблицах Notion между сделками попадаются строки-разделители вроде
-    «1 Месяц» — заголовок месяца, а не сделка. У них заполнено только название,
-    и раньше они приезжали в журнал наравне с настоящими сделками.
-
-    Тикеры пишут латиницей и коротко: «NAS 100», «GER40», «S&P 500».
-    Кириллица, длинная фраза или полное отсутствие латиницы — не инструмент.
-    """
-    v = (v or "").strip()
-    if not v:
-        return False
-    if re.search(r"[Ѐ-ӿ]", v):      # кириллица
-        return False
-    if len(v) > 16:
-        return False
-    if len(v.split()) > 3:
-        return False
-    return bool(re.search(r"[A-Za-z]", v))
 
 
 def map_simple(props, mapping):
@@ -556,6 +555,7 @@ def run_public_import(job, tables, mapping, opts, shots_dir, known_pairs, existi
 
         job.step = "читаємо таблиці"
         plans = []
+        closed = []       # колонки-связи, чьи таблицы закрыты от чтения
         for t in tables:
             src = {"collection": t["collection"], "view": t["view"],
                    "space": t.get("space") or ""}
@@ -582,11 +582,17 @@ def run_public_import(job, tables, mapping, opts, shots_dir, known_pairs, existi
                 vals = {n: [r.get(n, "") for r in probe] for n in types}
                 use = guess_mapping(types, vals)
                 job.warnings.append("«%s»: колонки інші, звірили окремо" % (title or "таблиця"))
+            for col in closed_relations(rm.get("block") or {}, ids, schema,
+                                        [c for c in use.values() if c]):
+                if col not in closed:
+                    closed.append(col)
             plans.append((ids, rm, schema, use, title or t.get("path") or ""))
 
         job.total = sum(len(p[0]) for p in plans)
         batch = []
-        odd = []          # названия, не похожие на инструмент, — покажем в конце
+        odd = []          # названия строк без даты и результата — покажем в конце
+        blank = 0         # сколько таких строк пропустили
+        nopair = 0        # угод, у которых инструмент не прочитался
 
         for ids, rm, schema, use, tname in plans:
             blocks = rm.get("block") or {}
@@ -607,17 +613,19 @@ def run_public_import(job, tables, mapping, opts, shots_dir, known_pairs, existi
                     continue
                 t["notion_id"] = bid
                 t["import_id"] = job.batch
-                # Строка-разделитель отличается от сделки двумя вещами: в поле
-                # инструмента у неё текст, и нет ни даты, ни результата. Первое
-                # ловит только явный мусор («1 Месяц»), латинское «August 2026»
-                # прошло бы насквозь — поэтому вторая проверка и главная.
+                # Строка-разделитель («1 Месяц», «August 2026») — это только
+                # название: ни даты, ни результата. Название само по себе
+                # ничего не говорит: люди пишут «Золото», «Угода 12»,
+                # «Gold Buy setup A» — и это настоящие сделки. Поэтому судим
+                # только по дате и результату.
                 empty = (not (t.get("date") or "").strip()
                          and not (t.get("result") or "").strip())
-                if empty or not looks_like_pair(t.get("pair")):
+                if empty:
                     # не молча: пусть человек видит, что мы не взяли и почему
                     name = (t.get("pair") or "").strip()
                     if name and name not in odd:
                         odd.append(name)
+                    blank += 1
                     job.skipped += 1
                     continue
 
@@ -669,6 +677,8 @@ def run_public_import(job, tables, mapping, opts, shots_dir, known_pairs, existi
                     known_pairs.add(pair)
                     job.new_assets.append(pair)
 
+                if not (t.get("pair") or "").strip():
+                    nopair += 1
                 batch.append(t)
                 job.added += 1
                 if len(batch) >= 25:
@@ -677,11 +687,20 @@ def run_public_import(job, tables, mapping, opts, shots_dir, known_pairs, existi
 
         if batch:
             sink(batch)
-        if odd:
+        if blank:
             shown = ", ".join("«%s»" % x for x in odd[:5])
             more = " та ще %d" % (len(odd) - 5) if len(odd) > 5 else ""
-            job.warnings.append("пропустили рядки, де замість інструмента текст: "
-                                + shown + more)
+            job.warnings.append("пропустили %d рядків без дати й результату%s"
+                                % (blank, (": " + shown + more) if shown else ""))
+        if closed:
+            job.warnings.append(
+                "колонки %s — це звʼязки з іншими таблицями Notion, а ті закриті для "
+                "читання, тому вони приїхали порожніми. Опублікуйте ці таблиці "
+                "(Share → Publish) або всю сторінку, де вони лежать, і перенесіть ще раз"
+                % ", ".join("«%s»" % c for c in closed))
+        elif nopair:
+            job.warnings.append("у %d угод не прочитався інструмент: колонка порожня"
+                                % nopair)
         job.step = "готово"
         job.state = "done"
     except NotionError as ex:

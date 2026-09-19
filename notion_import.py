@@ -345,6 +345,9 @@ def norm_result(v):
     for words, val in RESULTS:
         if low in words:
             return val
+    # «Lose», «Lost» — целым словом: подстрокой поймали бы «Closed»
+    if re.search(r"\b(lose|lost)\b", low):
+        return "Loss"
     for words, val in RESULTS:
         if any(w in low for w in words if len(w) > 1):
             return val
