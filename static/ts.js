@@ -508,15 +508,16 @@ function srcList(){
   const n = TS.notion || {};
   const pages = (n.pages && n.pages.length) ? n.pages
     : (n.url ? [{url: n.url, title: ""}] : []);
-  if (!pages.length && !srcUrls.some(u => u.trim())) return "";
-  let h = '<p class="ts-sub2">' + esc(d.srcHave) + '</p><div class="ts-srcs">';
+  let h = "";
+  if (pages.length) h += '<div class="ts-srcs">';
   h += pages.map((pg, i) => '<span class="ts-src"><a href="' + esc(pg.url)
       + '" target="_blank" rel="noopener">' + esc(pg.title || pg.url) + "</a>"
       + (pages.length > 1 && !busy
           ? '<button class="rm" title="' + esc(d.srcDrop)
             + '" onclick="__ts.srcOut(' + i + ')">×</button>'
           : "") + "</span>").join("");
-  h += "</div>";
+  if (pages.length) h += "</div>";
+  else h += '<p class="tsv-none" style="margin-bottom:12px">' + esc(d.srcNone) + "</p>";
   const bad = n.failed || [];
   if (bad.length){
     h += '<p class="ts-err">' + esc(d.srcFailed) + " "
@@ -525,21 +526,27 @@ function srcList(){
   h += (busy ? '<div class="ts-load"><i></i><span>' + esc(d.pulling) + "</span></div>" : "")
     + (pullErr ? '<p class="ts-err">' + esc(pullErr) + "</p>" : "")
     + urlFields()
-    + '<p class="hint">' + esc(d.srcAgainWarn) + "</p>";
+    + (pages.length ? '<p class="hint">' + esc(d.srcAgainWarn) + "</p>" : "");
   return h;
 }
 
 /* Сторінка з Notion, як ми її прочитали. Тримаємо поруч, бо розбір
    ніколи не витягне все: людина звіряє й дописує руками. Скріни, які
    не лягли до таймфреймів, теж лишаються тут, а не зникають. */
+/* Сторінки Notion — окремою карткою й першими у вкладці. Систему тримають
+   розділами на кількох сторінках, і після першого посилання людина шукала,
+   куди вставити наступне: поле ховалось під нотатками, в картці з текстом. */
+function secSources(){
+  return card(D().secSources, srcList(), "tsv-src");
+}
+
 function secRaw(){
   const n = TS.notion || {};
   if (!n.text && !(n.shots || []).length) return "";
   const used = (TS.tfs || []).map(t => t.shot).filter(Boolean);
   const rest = (n.shots || []).filter(s => used.indexOf(s.file) < 0);
   return card(D().secRaw,
-    srcList()
-    + (n.text ? '<p class="ts-sub2">' + esc(D().rawText) + '</p><div class="ts-raw">'
+    (n.text ? '<p class="ts-sub2">' + esc(D().rawText) + '</p><div class="ts-raw">'
         + esc(n.text) + "</div>" : "")
     + (rest.length ? '<p class="ts-sub2">' + esc(D().rawShots) + '</p><div class="ts-shots">'
         + rest.map(s => '<div class="ts-shot has mini"><img alt="" src="'
@@ -548,7 +555,8 @@ function secRaw(){
 
 function tabExtra(){
   const d = D();
-  return tiles("extra", "k", "v",
+  return secSources()
+    + subh(d.secExtra) + tiles("extra", "k", "v",
       {none: d.noExtra, add: d.addExtra, phK: d.emptyExtraK, phV: d.emptyExtraV, shot: d.shotHow})
     + secRaw();
 }
@@ -573,6 +581,7 @@ function vFull(){
     +     (menuOpen
           ? '<div class="tsv-menu" role="menu">'
             + '<button type="button" role="menuitem" class="m-share" onclick="__ts.share()">' + esc(d.btnShare) + "</button>"
+            + '<button type="button" role="menuitem" onclick="__ts.srcOpen()">' + esc(d.btnNotion) + "</button>"
             + '<button type="button" role="menuitem" onclick="__ts.ask()">' + esc(d.btnAsk) + "</button>"
             + '<button type="button" role="menuitem" class="danger" onclick="__ts.wipe()">' + esc(d.btnDelete) + "</button>"
             + "</div>"
@@ -1188,6 +1197,16 @@ window.__ts = {
     render();
   },
   menu(){ menuOpen = !menuOpen; render(); },
+  /* «Додати сторінку з Notion»: відкриваємо вкладку з джерелами й ставимо
+     курсор у порожнє поле під посилання */
+  srcOpen(){
+    menuOpen = false;
+    tab = "extra";
+    try{ localStorage.setItem(TAB_KEY, tab); }catch(e){}
+    render();
+    const f = [...document.querySelectorAll("input.ts-url")].pop();
+    if (f){ f.scrollIntoView({block: "center", behavior: "smooth"}); f.focus({preventScroll: true}); }
+  },
   ask(){ menuOpen = false; if(guestStop()){ render(); return; } askOpen(); }, close: askClose, prev: askPrev, next: askNext, pick: pick, own: own, finish: finish,
   again(){ step = 0; drawAsk(); },
   text(k, v){ answers[k] = v; },
@@ -1341,7 +1360,9 @@ uk: {
 
   btnEdit: "Редагувати", btnDone: "Готово", btnMore: "Ще дії",
   tabBefore: "Перед входом", tabEntry: "Як входжу", tabRisk: "Ризик і супровід",
-  tabReal: "Звірка з журналом", tabExtra: "Додатково",
+  tabReal: "Звірка з журналом", tabExtra: "Notion і нотатки",
+  secSources: "Сторінки з Notion", btnNotion: "Додати сторінку з Notion",
+  srcNone: "Систему розбито на кілька сторінок? Вставляй посилання по одному — «+ ще сторінка» додає поле під наступне.",
   pRisk: "Ризик", pRr: "Мін. RR", pMax: "Угод / день",
   lLimits: "Ліміт збитку", wDay: "день", wWeek: "тиждень", secWhen: "Коли торгую",
   noManage: "Правил супроводу ще немає", noCases: "Окремих випадків ще немає",
@@ -1465,7 +1486,9 @@ ru: {
 
   btnEdit: "Редактировать", btnDone: "Готово", btnMore: "Ещё",
   tabBefore: "Перед входом", tabEntry: "Как вхожу", tabRisk: "Риск и сопровождение",
-  tabReal: "Сверка с журналом", tabExtra: "Дополнительно",
+  tabReal: "Сверка с журналом", tabExtra: "Notion и заметки",
+  secSources: "Страницы из Notion", btnNotion: "Добавить страницу из Notion",
+  srcNone: "Система разбита на несколько страниц? Вставляй ссылки по одной — «+ ещё страница» добавляет поле под следующую.",
   pRisk: "Риск", pRr: "Мин. RR", pMax: "Сделок / день",
   lLimits: "Лимит убытка", wDay: "день", wWeek: "неделя", secWhen: "Когда торгую",
   noManage: "Правил сопровождения пока нет", noCases: "Отдельных случаев пока нет",
@@ -1589,7 +1612,9 @@ en: {
 
   btnEdit: "Edit", btnDone: "Done", btnMore: "More",
   tabBefore: "Before entry", tabEntry: "How I enter", tabRisk: "Risk & management",
-  tabReal: "Journal check", tabExtra: "Extra",
+  tabReal: "Journal check", tabExtra: "Notion & notes",
+  secSources: "Notion pages", btnNotion: "Add a Notion page",
+  srcNone: "System split across several pages? Paste the links one by one — «+ one more page» adds a field for the next one.",
   pRisk: "Risk", pRr: "Min RR", pMax: "Trades / day",
   lLimits: "Loss limit", wDay: "day", wWeek: "week", secWhen: "When I trade",
   noManage: "No management rules yet", noCases: "No special cases yet",
