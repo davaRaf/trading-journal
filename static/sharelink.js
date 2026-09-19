@@ -161,6 +161,11 @@ function tsSnapshot(){
     .filter(c => str(c.k) || str(c.v))
     .map(c => ({k: str(c.k), v: str(c.v)}));
 
+  /* правила психології — окремий розділ з 19.09.2026 */
+  const psy = (ts.psy || [])
+    .filter(c => str(c.v))
+    .map(c => ({k: str(c.k), v: str(c.v)}));
+
   const no = ts.no || {};
   const line = arr => (arr || []).map(str).filter(Boolean);
 
@@ -190,6 +195,7 @@ function tsSnapshot(){
       manage: manage,
       no: {market: line(no.market), time: line(no.time), self: line(no.self)},
       mind: str(ts.mind),
+      psy: psy,
       check: line(ts.check),
       extra: extra,
     },
@@ -199,7 +205,7 @@ function tsSnapshot(){
   /* порожньою стратегією ділитись нема чого */
   const t = data.ts;
   const any = has(t.assets) || has(t.tfs) || has(t.models) || has(t.setups) || has(t.manage)
-    || has(t.check) || has(t.extra) || t.bias || t.mind || t.stop.v || t.target.v
+    || has(t.check) || has(t.extra) || has(t.psy) || t.bias || t.mind || t.stop.v || t.target.v
     || has(t.no.market) || has(t.no.time) || has(t.no.self) || rk.length;
   return any ? data : null;
 }

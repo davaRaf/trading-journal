@@ -761,7 +761,9 @@ function vTS(){
 VIEWS.ts = vTS;
 
 /* ================= правка на місці ================= */
-function startEdit(el){
+/* fresh — пункт щойно додали кнопкою «+»: якщо в нього так нічого й не
+   написали, прибираємо його, а не лишаємо порожній овал «заповнити» */
+function startEdit(el, fresh){
   if (el.querySelector("input,textarea")) return;
   const path = el.dataset.p;
   const multi = el.dataset.multi === "1";
@@ -802,6 +804,13 @@ function startEdit(el){
   const commit = ok => {
     if (done) return;
     done = true;
+    if (fresh && !f.value.trim()){
+      const keys = path.split(".");
+      const arr = get(keys.slice(0, -1).join("."));
+      if (Array.isArray(arr)) arr.splice(+keys[keys.length - 1], 1);
+      save(); soft();
+      return;
+    }
     if (ok){
       set(path, f.value.trim());
       TS.updated = today();
@@ -1407,6 +1416,10 @@ window.__ts = {
     pullWith(left);
   },
   add(path){
+    /* з якої плашки натиснули «+» — там і відкриємо новий пункт */
+    const ev = window.event;
+    const sec = ev && ev.target && ev.target.closest && ev.target.closest("[data-sec]");
+    const from = sec ? sec.dataset.sec : "";
     const arr = get(path);
     if (!Array.isArray(arr)) set(path, []);
     const list = get(path);
@@ -1424,8 +1437,16 @@ window.__ts = {
     list.push(typeof proto === "object" && proto !== null ? Object.assign({}, proto) : "");
     save(); soft();
     /* новий пункт одразу відкриваємо на введення — не треба ще раз по ньому клікати */
-    const f = document.querySelector('#main .ts-ed[data-p^="' + path + "." + (list.length - 1) + '"]');
-    if (f && !f.closest(".ro")) startEdit(f);
+    /* Той самий пункт буває на сторінці двічі — інструменти є і в паспорті, і
+       в «Активи й сесії». Беремо копію в плашці, відкритій на правку, і саме
+       поле, а не його «хвости» (assets.4, а не assets.40). */
+    const at = path + "." + (list.length - 1);
+    const all = [...document.querySelectorAll('#main .ts-ed[data-p]')]
+      .filter(e => (e.dataset.p === at || e.dataset.p.indexOf(at + ".") === 0) && !e.closest(".ro"));
+    const f = all.find(e => from && e.closest('[data-sec="' + from + '"]')) || all[0];
+    /* прибирати порожнє можна лише прості списки (інструменти, чек-лист…):
+       у моделі чи вікна крім назви є скріни й примітки */
+    if (f) startEdit(f, typeof proto === "string");
   },
   del(path, i){
     const arr = get(path);

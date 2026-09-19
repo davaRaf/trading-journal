@@ -11,6 +11,7 @@
 Ключа не потребує: розбір моделлю перевіряємо на заздалегідь записаній
 відповіді, а не живим запитом.
 """
+import re
 import ts_ai
 import ts_notion as tn
 
@@ -113,9 +114,38 @@ def check_fallback():
     print("запасний розбір: ок")
 
 
+def check_routes():
+    """Сторінки розкладаються за назвою, хоч би як її написали, а без
+    підказки в назві — за тим, про що текст."""
+    kind = lambda t, text="": (next((k for k, p in tn.PAGE_ROUTES if re.search(p, t, re.I)), None)
+                               or tn._guess_kind({"text": text}))
+    for t in ["Psychology", "Психология", "Психологія", "Mindset", "Дисципліна"]:
+        assert kind(t) == "psy", t
+    for t in ["Where SL and TP", "Стоп и тейк", "SL/TP", "Stop loss & Take profit", "Куди ставлю стоп"]:
+        assert kind(t) == "stop", t
+    for t in ["Entry models", "Модели входа", "Моделі входу", "Setups", "Мої сетапи"]:
+        assert kind(t) == "models", t
+    for t in ["Context Synchron and desynchron", "Контекст", "HTF bias", "Аналіз таймфреймів"]:
+        assert kind(t) == "context", t
+    for t in ["General Rules", "Правила", "Risk management", "Торгові сесії"]:
+        assert kind(t) == "general", t
+    for t in ["Mistakes", "Order Flow", "Domain notes"]:
+        assert kind(t) is None, t
+    notes = "1. Не торгую в тильті\n2. Після стопу — перерва, емоції вниз\n3. Страх і жадність записую"
+    assert kind("Мої нотатки", notes) == "psy"
+
+    # дві сторінки психології — правила додаються, а не затирають одна одну
+    d = {"extra": [], "psy": []}
+    tn.route_pages(d, [{"title": "Psychology", "text": "1. Перше\n2. Друге", "shots": [], "url": ""},
+                       {"title": "Emotions", "text": "1. Третє", "shots": [], "url": ""}])
+    assert [p["v"] for p in d["psy"]] == ["Перше", "Друге", "Третє"], d["psy"]
+    print("розкладка сторінок за назвою: ок")
+
+
 if __name__ == "__main__":
     check_timeframes()
     check_shape()
     check_garbage()
     check_fallback()
+    check_routes()
     print("усе зійшлось")

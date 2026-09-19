@@ -486,13 +486,33 @@ def read(urls, user_id, shots_dir):
 # «Psychology», «Entry models», «Where SL and TP». Без моделі це найнадійніша
 # підказка — надійніша за ключові слова, які ловлять просто згадки.
 
+# Назви пишуть як завгодно й будь-якою мовою: «Psychology», «Психология»,
+# «Mindset», «Стоп и тейк», «SL/TP», «Модели входа», «Setups»… Порядок
+# важливий: «Stop & entry» — це про стоп, а не про вхід.
 PAGE_ROUTES = [
-    ("psy", r"psycholog|психолог|mindset|дисципл"),
-    ("models", r"entry|вход|вхід|модел"),
-    ("stop", r"\bsl\b|\btp\b|stop|стоп|тейк|take|target|ціл|цел"),
-    ("context", r"context|контекст"),
-    ("general", r"general|rules|правил|загальн|общ"),
+    ("psy", r"psych|психо|mindset|mental|менталь|emotion|емоц|эмоц|дисципл|discipl|tilt|тильт|тільт"),
+    ("stop", r"\bsl\b|\btp\b|\bstop|стоп|тейк|\btake|target|таргет|\bціл|\bцел|\bexit|выход|вихід|профит|профіт"),
+    ("models", r"entry|entries|вход|вхід|модел|model|setup|сетап|trigger|тригер|execution"),
+    ("context", r"context|контекст|bias|біас|биас|htf|narrative|наратив|таймфрейм|timeframe|synchron|синхрон|аналіз|анализ"),
+    ("general", r"general|rules|правил|загальн|общ|основн|\bmain\b|risk|ризик|риск|session|сесі|сесси|money"),
 ]
+
+# Назва нічого не підказала («Notes», «Мої нотатки») — дивимось, про що
+# сам текст. Беремо тільки явного лідера: хибно впізнана сторінка гірша за
+# сторінку, яка просто лягла в «Додатково».
+CONTENT_HINTS = [
+    ("psy", r"эмоц|емоц|тильт|тільт|\btilt|fomo|фомо|жадн|страх|\bfear|greed|revenge|отыгр|відігр|"
+            r"дисциплин|дисциплін|психолог|терпен|терпін|спокі|спокой|азарт|самоконтрол"),
+    ("stop", r"стоп|\bstop|\bsl\b|тейк|take.?profit|\btp\b|таргет|target"),
+    ("models", r"модел|entry model|\bbos\b|choch|cisd|\bi?fvg\b|order.?block|\bsmt\b|свип|sweep"),
+]
+
+
+def _guess_kind(page):
+    text = page.get("text") or ""
+    score = sorted(((len(re.findall(pat, text, re.I)), k) for k, pat in CONTENT_HINTS), reverse=True)
+    (top, kind), (second, _) = score[0], score[1]
+    return kind if top >= 3 and top >= 2 * second else None
 ITEM_RE = re.compile(r"^([•·*\-—–]|\d+[.)])\s+")
 SKIP_HEAD_RE = re.compile(r"skip|скіп|скип|не вход|не захож|пропуск", re.I)
 RISK_HEAD_RE = re.compile(r"risk|ризик|риск", re.I)
@@ -634,13 +654,19 @@ def route_pages(draft, pages):
     кладемо в «Додатково» цілою — під її ж назвою, зі скрінами."""
     draft.setdefault("extra", [])
     draft.setdefault("psy", [])
+    seen = set()      # розділи, вже взяті зі сторінки: друга така сторінка додається, а не затирає
     for page in pages:
         title = page.get("title") or ""
-        kind = next((k for k, pat in PAGE_ROUTES if re.search(pat, title, re.I)), None)
+        kind = (next((k for k, pat in PAGE_ROUTES if re.search(pat, title, re.I)), None)
+                or _guess_kind(page))
+        before = list(draft.get(kind) or []) if kind in seen else []
         if kind == "psy":
-            draft["psy"] = [{"k": "", "v": x[:500]} for x in _items(page["text"])][:12]
+            rules = [{"k": "", "v": x[:500]} for x in _items(page["text"]) if not DRAFT_RE.search(x)]
+            draft["psy"] = (before + rules)[:12]
+            seen.add("psy")
         elif kind == "models" and _route_models(draft, page):
-            pass
+            draft["models"] = (before + draft["models"])[:12]
+            seen.add("models")
         elif kind == "stop":
             _route_stop(draft, page)
         elif kind == "context":

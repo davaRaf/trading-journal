@@ -609,6 +609,13 @@ function tsHtml(ts){
         + col(T.tsShNoTime, ts.no.time) + col(T.tsShNoSelf, ts.no.self) + "</div>" : "")
     + (ts.mind ? '<div class="ts-mind">' + esc(ts.mind) + "</div>" : "");
 
+  /* психологія. У знімках до 19.09.2026 цього поля немає — звідси `|| []`. */
+  const psy = !(ts.psy || []).length ? "" :
+    '<div class="ts-check">' + ts.psy.map((c, i) =>
+      "<div><i>" + String(i + 1).padStart(2, "0") + "</i><span>"
+      + (c.k ? "<b>" + esc(c.k) + "</b> — " : "") + esc(c.v) + "</span></div>").join("")
+    + "</div>";
+
   /* чек-лист */
   const check = !ts.check.length ? "" :
     '<div class="ts-check">' + ts.check.map((c, i) =>
@@ -622,7 +629,7 @@ function tsHtml(ts){
 
   const body = sec(T.tsShMarket, market) + sec(T.tsShTfs, tfs) + sec(T.tsShEntry, entry)
     + sec(T.tsShRisk, risk) + sec(T.tsShManage, manage) + sec(T.tsShNo, no)
-    + sec(T.tsShExtra, extra) + sec(T.tsShCheck, check);
+    + sec(T.tsShPsy, psy) + sec(T.tsShExtra, extra) + sec(T.tsShCheck, check);
   return body ? '<div class="ts">' + body + "</div>" : "";
 }
 
