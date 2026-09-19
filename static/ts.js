@@ -232,10 +232,13 @@ function urlFields(){
 let editing = false;
 let menuOpen = false;
 const TAB_KEY = "tj_ts_tab";
-const TABS = ["before", "entry", "risk", "real", "extra"];
+const TABS = ["before", "assets", "context", "models", "risk", "psy", "real", "extra"];
 let tab = (() => {
-  try{ const t = localStorage.getItem(TAB_KEY); return TABS.indexOf(t) >= 0 ? t : "before"; }
-  catch(e){ return "before"; }
+  try{
+    let t = localStorage.getItem(TAB_KEY);
+    if (t === "entry") t = "models";      /* так звалась вкладка до 19.09.2026 */
+    return TABS.indexOf(t) >= 0 ? t : "before";
+  }catch(e){ return "before"; }
 })();
 
 const PEN_IC = '<svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M4 20h4L19 9l-4-4L4 16v4z" '
@@ -308,11 +311,19 @@ function secNo(){
           : '<p class="tsv-none">' + esc(d.noneYet) + "</p>")
       + add("no." + key, d.addLine) + "</div>";
   };
-  const mind = get("mind");
-  return '<div class="tsv-nogo">' + col("market", d.lNoMarket) + col("time", d.lNoTime)
-    + col("self", d.lNoSelf) + "</div>"
-    + ((mind || editing)
-        ? '<div class="tsv-quote">' + lab(d.lMind) + edArea("mind", d.emptyMind) + "</div>" : "");
+  return '<div class="tsv-nogo">' + col("market", d.lNoMarket) + col("time", d.lNoTime) + "</div>";
+}
+
+/* колонка «не входжу» окремо — «за собою» живе у вкладці «Психологія» */
+function noList(key){
+  const d = D();
+  const items = ((TS.no && TS.no[key]) || []);
+  return (items.length
+      ? '<ul class="ts-list">' + items.map((v, i) =>
+          '<li><div class="ts-row">' + edArea("no." + key + "." + i) + x("no." + key, i)
+          + "</div></li>").join("") + "</ul>"
+      : '<p class="tsv-none">' + esc(d.noneYet) + "</p>")
+    + add("no." + key, d.addLine);
 }
 
 /* вікна з поясненнями, дні й новини — «коли я взагалі сідаю торгувати» */
@@ -328,8 +339,19 @@ function secWhen(){
 
 function tabBefore(){
   const d = D();
-  return '<div class="tsv-two">' + card(d.secCheck, secCheck()) + card(d.secNo, secNo()) + "</div>"
-    + card(d.secWhen, secWhen(), "tsv-gap");
+  return '<div class="tsv-two">' + card(d.secCheck, secCheck()) + card(d.secNo, secNo()) + "</div>";
+}
+
+/* ---------- вкладка «Активи й сесії» ---------- */
+function tabAssets(){
+  const d = D();
+  const assets = TS.assets || [];
+  return '<div class="tsv-two assets">'
+    + card(d.secAssets, '<div class="tsv-chips">'
+        + assets.map((a, i) => '<span class="tsv-chip">' + ed("assets." + i) + x("assets", i) + "</span>").join("")
+        + (assets.length ? "" : '<span class="tsv-none">' + esc(d.noneYet) + "</span>")
+        + add("assets", d.addAsset) + "</div>")
+    + card(d.secWhen, secWhen()) + "</div>";
 }
 
 /* ---------- вкладка «Як входжу» ---------- */
@@ -371,18 +393,24 @@ function secRules(){
   const d = D();
   const one = (label, path, shotPath) => card("", lab(label) + '<div class="v">' + edArea(path) + "</div>"
     + (shotPath ? '<div class="ts-shots">' + shot(shotPath, d.shotHow, true) + "</div>" : ""));
-  return '<div class="tsv-rules">' + one(d.lBias, "bias") + one(d.lStop, "stop.v", "stop.shot")
+  return '<div class="tsv-rules two">' + one(d.lStop, "stop.v", "stop.shot")
     + one(d.lTarget, "target.v", "target.shot") + "</div>";
 }
 
-function tabEntry(){
+/* ---------- вкладка «Контекст»: таймфрейми згори донизу, біас і сетапи ---------- */
+function tabContext(){
   const d = D();
   return subh(d.secTf) + secTf()
-    + subh(d.lModels) + tiles("models", "name", "note",
-        {none: d.noModels, add: d.addModel, phK: d.emptyName, phV: d.emptyNote, shot: d.shotExample})
+    + subh(d.lBias) + card("", '<div class="tsv-one">' + edArea("bias") + "</div>")
     + subh(d.lSetups) + tiles("setups", "name", "note",
-        {none: d.noSetups, add: d.addSetup, phK: d.emptyName, phV: d.emptyNote, shot: d.shotExample})
-    + subh(d.lRules) + secRules();
+        {none: d.noSetups, add: d.addSetup, phK: d.emptyName, phV: d.emptyNote, shot: d.shotExample});
+}
+
+/* ---------- вкладка «Моделі входу» ---------- */
+function tabModels(){
+  const d = D();
+  return tiles("models", "name", "note",
+      {none: d.noModels, add: d.addModel, phK: d.emptyName, phV: d.emptyNote, shot: d.shotExample});
 }
 
 /* ---------- вкладка «Ризик і супровід» ---------- */
@@ -399,9 +427,31 @@ function secCases(){
 
 function tabRisk(){
   const d = D();
-  return subh(d.secManage) + tiles("manage", "k", "v",
+  return subh(d.lStopTarget) + secRules()
+    + subh(d.secManage) + tiles("manage", "k", "v",
       {none: d.noManage, add: d.addRule, phK: d.emptyRule, phV: "", shot: d.shotHow})
     + subh(d.lRiskCases) + secCases();
+}
+
+/* ---------- вкладка «Психологія» ----------
+   Нагадування собі, «не входжу, коли я…» і власні правила голови: що роблю
+   після стопу, після серії плюсів, коли хочеться відігратись. Правила —
+   окремий список psy[] з полями k/v, як «окремі випадки» ризику. */
+function tabPsy(){
+  const d = D();
+  const list = TS.psy || [];
+  const mind = get("mind");
+  return ((mind || editing)
+      ? '<div class="tsv-quote big">' + lab(d.lMind) + edArea("mind", d.emptyMind) + "</div>" : "")
+    + '<div class="tsv-two">'
+    + card(d.secPsyRules, (list.length
+        ? list.map((c, i) => '<div class="tsv-kv"><div class="k">' + ed("psy." + i + ".k", "", d.emptyPsyK) + "</div>"
+            + '<div class="v"><div class="ts-row">' + edArea("psy." + i + ".v", d.emptyPsyV)
+            + x("psy", i) + "</div></div></div>").join("")
+        : none(d.noPsy))
+      + add("psy", d.addPsy))
+    + card(d.secSelf, noList("self"))
+    + "</div>";
 }
 
 /* ---------- вкладка «Звірка з журналом» ---------- */
@@ -561,9 +611,17 @@ function tabExtra(){
     + secRaw();
 }
 
+function tabIntoView(){
+  const bar = document.querySelector(".tsv-tabs");
+  const on = bar && bar.querySelector("button.on");
+  if (!on || bar.scrollWidth <= bar.clientWidth) return;
+  bar.scrollLeft = on.offsetLeft - bar.offsetLeft - (bar.clientWidth - on.offsetWidth) / 2;
+}
+
 function vFull(){
   const d = D();
-  const tabsL = [["before", d.tabBefore], ["entry", d.tabEntry], ["risk", d.tabRisk],
+  const tabsL = [["before", d.tabBefore], ["assets", d.tabAssets], ["context", d.tabContext],
+                 ["models", d.tabModels], ["risk", d.tabRisk], ["psy", d.tabPsy],
                  ["real", d.tabReal], ["extra", d.tabExtra]];
   /* Біля назви розділу нічого не пишемо: звідки взялась ТС і коли її чіпали
      востаннє — службова дрібниця, а не заголовок. Головна дія одна —
@@ -595,8 +653,12 @@ function vFull(){
   h += '<div class="tsv-tabs" role="tablist">' + tabsL.map(([id, l]) =>
       '<button type="button" role="tab" aria-selected="' + (id === tab) + '"' + (id === tab ? ' class="on"' : "")
       + ' onclick="__ts.tab(\'' + id + '\')">' + esc(l) + "</button>").join("") + "</div>";
+  /* вкладок вісім, на телефоні смуга гортається — підкручуємо її до
+     обраної, інакше вона могла стояти за краєм екрана */
+  setTimeout(tabIntoView, 0);
   h += '<div class="tsv-panel">'
-    + ({before: tabBefore, entry: tabEntry, risk: tabRisk, real: tabReal, extra: tabExtra}[tab])()
+    + ({before: tabBefore, assets: tabAssets, context: tabContext, models: tabModels,
+        risk: tabRisk, psy: tabPsy, real: tabReal, extra: tabExtra}[tab])()
     + "</div>";
   return h + "</div>";
 }
@@ -1252,6 +1314,7 @@ window.__ts = {
       models: {name: "", note: "", shots: []},
       setups: {name: "", note: "", shots: []},
       riskCases: {k: "", v: ""},
+      psy: {k: "", v: ""},
       manage: {k: "", v: "", shots: []},
       extra: {k: "", v: "", shots: []},
     }[path];
@@ -1359,7 +1422,12 @@ uk: {
   shotReplace: "замінити скрін", shotOpen: "відкрити", shotExample: "приклад", shotHow: "як це виглядає",
 
   btnEdit: "Редагувати", btnDone: "Готово", btnMore: "Ще дії",
-  tabBefore: "Перед входом", tabEntry: "Як входжу", tabRisk: "Ризик і супровід",
+  tabBefore: "Перед входом", tabAssets: "Активи й сесії", tabContext: "Контекст",
+  tabModels: "Моделі входу", tabRisk: "Ризик і супровід", tabPsy: "Психологія",
+  secAssets: "Чим торгую", lStopTarget: "Стоп і ціль",
+  secPsyRules: "Мої правила", secSelf: "Не входжу, коли я…",
+  noPsy: "Правил ще немає. Наприклад: «після стопу — 15 хвилин перерви».", addPsy: "правило",
+  emptyPsyK: "коли", emptyPsyV: "що роблю",
   tabReal: "Звірка з журналом", tabExtra: "Notion і нотатки",
   secSources: "Сторінки з Notion", btnNotion: "Додати сторінку з Notion",
   srcNone: "Систему розбито на кілька сторінок? Вставляй посилання по одному — «+ ще сторінка» додає поле під наступне.",
@@ -1485,7 +1553,12 @@ ru: {
   shotReplace: "заменить скрин", shotOpen: "открыть", shotExample: "пример", shotHow: "как это выглядит",
 
   btnEdit: "Редактировать", btnDone: "Готово", btnMore: "Ещё",
-  tabBefore: "Перед входом", tabEntry: "Как вхожу", tabRisk: "Риск и сопровождение",
+  tabBefore: "Перед входом", tabAssets: "Активы и сессии", tabContext: "Контекст",
+  tabModels: "Модели входа", tabRisk: "Риск и сопровождение", tabPsy: "Психология",
+  secAssets: "Чем торгую", lStopTarget: "Стоп и цель",
+  secPsyRules: "Мои правила", secSelf: "Не вхожу, когда я…",
+  noPsy: "Правил пока нет. Например: «после стопа — 15 минут перерыва».", addPsy: "правило",
+  emptyPsyK: "когда", emptyPsyV: "что делаю",
   tabReal: "Сверка с журналом", tabExtra: "Notion и заметки",
   secSources: "Страницы из Notion", btnNotion: "Добавить страницу из Notion",
   srcNone: "Система разбита на несколько страниц? Вставляй ссылки по одной — «+ ещё страница» добавляет поле под следующую.",
@@ -1611,7 +1684,12 @@ en: {
   shotReplace: "replace screenshot", shotOpen: "open", shotExample: "example", shotHow: "what it looks like",
 
   btnEdit: "Edit", btnDone: "Done", btnMore: "More",
-  tabBefore: "Before entry", tabEntry: "How I enter", tabRisk: "Risk & management",
+  tabBefore: "Before entry", tabAssets: "Assets & sessions", tabContext: "Context",
+  tabModels: "Entry models", tabRisk: "Risk & management", tabPsy: "Psychology",
+  secAssets: "What I trade", lStopTarget: "Stop & target",
+  secPsyRules: "My rules", secSelf: "I don't enter when I…",
+  noPsy: "No rules yet. For example: «after a stop — a 15-minute break».", addPsy: "rule",
+  emptyPsyK: "when", emptyPsyV: "what I do",
   tabReal: "Journal check", tabExtra: "Notion & notes",
   secSources: "Notion pages", btnNotion: "Add a Notion page",
   srcNone: "System split across several pages? Paste the links one by one — «+ one more page» adds a field for the next one.",
