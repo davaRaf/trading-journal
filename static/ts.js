@@ -397,9 +397,8 @@ function passport(){
   return '<div class="tsv-sec tsv-passw' + ro("pass") + (editSec === "pass" ? " sel" : "") + '" data-sec="pass">'
     + editBtn("pass") + '<div class="tsv-pass">'
     + cell(d.lAssets, '<div class="tsv-chips">'
-        + assets.map((a, i) => '<span class="tsv-chip">' + ed("assets." + i)
-            + (corrOf(a) ? '<small class="tsv-cs">' + esc(corrOf(a)) + "</small>" : "")
-            + x("assets", i) + "</span>").join("")
+        /* у паспорті — самі активи; кореляції видно в картці «Чим торгую» */
+        + assets.map((a, i) => '<span class="tsv-chip">' + ed("assets." + i) + x("assets", i) + "</span>").join("")
         + (assets.length ? "" : '<span class="tsv-none">' + esc(d.noneYet) + "</span>")
         + add("assets", d.addAsset) + "</div>", "wide")
     + cell(d.lWindows, '<div class="tsv-wins">'

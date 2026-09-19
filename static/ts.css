@@ -372,8 +372,6 @@ textarea.ts-ask-inp{min-height:116px; resize:vertical}
 .tsv-cor{display:flex; align-items:center; gap:16px; min-width:0; font-size:13.5px; color:var(--text)}
 .tsv-cor i{font-style:normal; color:var(--faint)}
 .tsv-arows + .ts-add{margin-top:12px}
-/* у паспорті кореляція — дрібною припискою в чипі активу */
-.tsv-chip .tsv-cs{font-family:var(--sans); font-size:11.5px; color:var(--dim); margin-left:7px}
 .tsv-chip{display:inline-flex; align-items:center; font-family:var(--mono); font-size:13px;
   padding:4px 6px 4px 11px; border-radius:99px; background:var(--panel-2); border:1px solid var(--line)}
 .ro .tsv-chip{padding-right:11px}
@@ -492,6 +490,8 @@ textarea.ts-ask-inp{min-height:116px; resize:vertical}
 .ro .ts-ed:hover{background:none; box-shadow:none}
 .ro .ts-ed.blank{border:0; padding:0; font-size:0; gap:0}
 .ro .ts-ed.blank::before{content:"—"; font-size:14px; color:var(--faint); opacity:1}
+/* паспорт: у вікна без часу — сама назва, без «—» справа */
+.ro .tsv-wins .ts-ed.blank{display:none}
 .ro .ts-ed.multi.blank{display:none}
 /* Два поля в одному рядку («London» і «10:00–13:00», час і примітка):
    від'ємний відступ овалу наповзав на сусіда — ставимо їх рядком із зазором. */
