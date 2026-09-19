@@ -121,45 +121,41 @@
   max-height:320px; overflow:auto}
 
 /* ---------- правка на місці ----------
-   Головне тут — щоб було видно, що поле правиться, ще ДО наведення: на тачі
-   ховера немає взагалі, та й мишею людина не водить по тексту навмання.
-   Тому заповнене поле має пунктирне підкреслення, порожнє — рамку «сюди
-   пишуть» зі знаком «+», а ховер лише підсилює те, що вже видно. */
-.ts-ed{cursor:pointer; border-radius:6px; padding:1px 5px; margin:0 -5px;
-  border-bottom:1px dashed color-mix(in srgb, var(--faint) 40%, transparent);
-  transition:background .15s, box-shadow .15s, border-color .15s, color .15s}
+   Поле, яке можна правити, — світлий овал, як чип інструмента в паспорті.
+   Порожнє поле — той самий овал з підказкою. Поле введення теж: без
+   підсвічених рамок, тіней і анімацій — клік просто ставить курсор у овал.
+   (Раніше тут було пунктирне підкреслення, рамка «+», синє кільце — власнику
+   це читалось як «навалено».) */
+.ts-ed{cursor:pointer; border-radius:99px; padding:1px 8px; margin:0 -8px;
+  background:var(--panel-2); transition:background .15s, color .15s}
 /* Перенос рядка в тексті — це перенос і на екрані. Без цього список правил
-   («General rules» і подібне) злипався в суцільний абзац, а рядками ставав
-   тільки коли поле відкривали на правку: у textarea переноси видно, а в
-   звичайному span браузер їх з'їдає. */
+   («General rules» і подібне) злипався в суцільний абзац. */
 .ts-ed{white-space:pre-wrap}
-/* широке багаторядкове поле підкреслювати не треба: лінія на всю колонку
-   читається як роздільник, а не як «сюди можна писати» */
-.ts-ed.multi:not(.blank){border-bottom-color:transparent; display:block; line-height:1.62}
-.ts-ed.multi:not(.blank):hover{border-bottom-color:transparent}
-.ts-ed:hover{background:var(--accent-soft); border-bottom-color:transparent;
-  box-shadow:inset 0 0 0 1px color-mix(in srgb, var(--accent) 45%, transparent)}
-/* порожнє поле саме показує, що в нього пишуть */
-.ts-ed.blank{color:var(--dim); border:1px dashed color-mix(in srgb, var(--faint) 75%, transparent);
-  border-radius:7px; padding:2px 9px 2px 7px; display:inline-flex; align-items:baseline; gap:5px}
-.ts-ed.blank::before{content:"+"; font-size:13px; line-height:1; opacity:.8}
-.ts-ed.blank:hover{color:var(--accent); background:var(--accent-soft); box-shadow:none;
-  border-color:color-mix(in srgb, var(--accent) 60%, transparent)}
-/* багаторядкове порожнє поле тягнемо на всю ширину — інакше «+ заповнити»
-   висить дрібним хвостиком у широкій колонці й губиться */
-.ts-ed.multi.blank{display:flex; width:100%; box-sizing:border-box; padding:8px 11px}
-.ts-in{width:100%; box-sizing:border-box; background:var(--panel-2); color:var(--text);
-  border:1px solid color-mix(in srgb, var(--accent) 55%, transparent); border-radius:6px;
-  padding:1px 5px; margin:0 0 0 -6px; font:inherit; line-height:inherit; cursor:text;
-  box-shadow:0 0 0 3px color-mix(in srgb, var(--accent) 12%, transparent)}
-.ts-in:focus{outline:none}
-.ts-in{animation:tsIn .16s ease-out}
-@keyframes tsIn{from{box-shadow:0 0 0 0 transparent;
-  border-color:color-mix(in srgb, var(--accent) 20%, transparent)}}
-@media (prefers-reduced-motion:reduce){ .ts-in{animation:none} }
+.ts-ed.multi{display:block; line-height:1.62; border-radius:12px; padding:6px 12px; margin:0 -12px}
+.ts-ed:hover{background:color-mix(in srgb, var(--panel-2) 88%, var(--text))}
+.ts-ed.blank{color:var(--dim); border:1px solid var(--line); padding:2px 11px; margin:0;
+  display:inline-flex; align-items:baseline}
+.ts-ed.multi.blank{display:flex; width:100%; box-sizing:border-box; padding:7px 13px; margin:0}
+/* поле відкрите на введення: овал малює сам input, span лише тримає місце */
+.ts-ed.on, .ts-ed.on.blank, .ts-ed.on:hover{background:none; border:0; padding:0; margin:0; display:block}
+/* Відступи й рамка підібрані так, щоб овал введення став рівно на місце
+   овалу-поля: текст не зсувається і нічого не стрибає. */
+.ts-in{box-sizing:border-box; width:calc(100% + 16px); background:var(--panel-2); color:var(--text);
+  border:1px solid var(--line); border-radius:99px; padding:0 7px; margin:0 -8px;
+  font:inherit; line-height:inherit; cursor:text; box-shadow:none}
+@supports (field-sizing:content){
+  input.ts-in{field-sizing:content; width:auto; min-width:4ch; max-width:calc(100% + 16px)}
+}
+/* висота рівно в рядок тексту, разом з рамкою: сусідні рядки не зсуваються */
+input.ts-in{height:1lh; padding-block:0}
+.ts-in:focus{outline:none; border-color:var(--faint)}
+.ts-in::placeholder{color:var(--dim)}
+.ts-ed.blank.on input.ts-in{margin:0; padding:0 10px; height:calc(1lh + 6px); max-width:100%}
 /* висота під набраний текст: ставиться з JS, тут лише плавність */
-textarea.ts-in{resize:none; overflow:auto; display:block; max-height:50vh;
-  transition:height .16s cubic-bezier(.16,1,.3,1)}
+textarea.ts-in{border-radius:12px; padding:5px 11px; margin:0 -12px; width:calc(100% + 24px);
+  resize:none; overflow:auto; display:block;
+  max-height:50vh; transition:height .16s cubic-bezier(.16,1,.3,1)}
+.ts-ed.blank.on textarea.ts-in{margin:0; padding:6px 12px; width:100%}
 @media (prefers-reduced-motion:reduce){ textarea.ts-in{transition:none} }
 
 .ts-row{display:flex; align-items:flex-start; gap:8px}
@@ -372,7 +368,11 @@ textarea.ts-ask-inp{min-height:116px; resize:vertical}
 .tsv-chip{display:inline-flex; align-items:center; font-family:var(--mono); font-size:13px;
   padding:4px 6px 4px 11px; border-radius:99px; background:var(--panel-2); border:1px solid var(--line)}
 .ro .tsv-chip{padding-right:11px}
-.tsv-chip .ts-ed{border-bottom:0}
+/* чип сам і є овал — поле в ньому без свого фону, інакше овал в овалі */
+.tsv-chip .ts-ed, .tsv-chip .ts-ed:hover, .tsv-chip .ts-ed.blank{background:none; border:0; padding:0; margin:0}
+.tsv-chip .ts-ed.on{display:inline-block}
+.tsv-chip .ts-in, .tsv-chip .ts-ed.blank.on .ts-in{background:none; border:0; border-radius:0; padding:0;
+  margin:0; width:auto; max-width:none; field-sizing:content; min-width:4ch}
 .tsv-chip .ts-x{padding:0 4px; font-size:14px}
 .tsv-chips .ts-add{margin-top:0; padding:4px 11px}
 .tsv-wins{display:flex; flex-direction:column; gap:3px; margin-top:9px; font-size:13.5px;
@@ -395,6 +395,8 @@ textarea.ts-ask-inp{min-height:116px; resize:vertical}
 .tsv-tabs button:hover{color:var(--text)}
 .tsv-tabs button.on{color:var(--text); font-weight:600; border-bottom-color:var(--text)}
 .tsv-panel{animation:tsvIn .2s ease-out}
+/* тиха перемальовка після правки — панель не випливає заново */
+.tsv.still .tsv-panel{animation:none}
 @keyframes tsvIn{from{opacity:0; transform:translateY(4px)}}
 @media (prefers-reduced-motion:reduce){ .tsv-panel, .tsv-menu{animation:none} }
 
@@ -451,11 +453,20 @@ textarea.ts-ask-inp{min-height:116px; resize:vertical}
 .ro .ts-shot:not(.has),
 .ro .ts-shot .rp,
 .ro .ts-shot .rm{display:none}
-.ro .ts-ed{cursor:auto; border-bottom-color:transparent; padding:0; margin:0}
+.ro .ts-ed{cursor:auto; background:none; border-radius:0; padding:0; margin:0}
 .ro .ts-ed:hover{background:none; box-shadow:none}
 .ro .ts-ed.blank{border:0; padding:0; font-size:0; gap:0}
 .ro .ts-ed.blank::before{content:"—"; font-size:14px; color:var(--faint); opacity:1}
 .ro .ts-ed.multi.blank{display:none}
+/* Два поля в одному рядку («London» і «10:00–13:00», час і примітка):
+   від'ємний відступ овалу наповзав на сусіда — ставимо їх рядком із зазором. */
+.tsv-sec:not(.ro) .tsv-wins > div,
+.tsv-sec:not(.ro) .ts-row > span:not(.ts-ed){display:flex; flex-wrap:wrap; align-items:baseline; gap:5px 6px}
+.tsv-sec:not(.ro) .tsv-wins .ts-ed:not(.blank),
+.tsv-sec:not(.ro) .ts-row > span:not(.ts-ed) .ts-ed:not(.blank){margin:0}
+.tsv-sec:not(.ro) .tsv-wins .ts-in,
+.tsv-sec:not(.ro) .ts-row > span:not(.ts-ed) .ts-in{margin:0; max-width:100%}
+.tsv-sec:not(.ro) .tsv-big small{margin-left:12px}
 /* у правці хрестики видно одразу: на тачі ховера немає */
 .tsv-sec:not(.ro) .ts-x{opacity:.55}
 .tsv-sec:not(.ro) .ts-x:hover{opacity:1}

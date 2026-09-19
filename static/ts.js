@@ -126,13 +126,61 @@ function ed(path, cls, ph){
   const v = get(path);
   const blank = !v && v !== 0;
   return '<span class="ts-ed' + (blank ? " blank" : "") + (cls ? " " + cls : "")
-    + '" data-p="' + path + '">' + esc(blank ? (ph || D().empty) : v) + "</span>";
+    + '" data-p="' + path + '" data-ph="' + esc(ph || D().empty) + '">' + esc(blank ? (ph || D().empty) : v) + "</span>";
 }
 function edArea(path, ph){
   const v = get(path);
   const blank = !v;
   return '<span class="ts-ed multi' + (blank ? " blank" : "") + '" data-p="' + path
-    + '" data-multi="1">' + esc(blank ? (ph || D().empty) : v) + "</span>";
+    + '" data-ph="' + esc(ph || D().empty) + '" data-multi="1">' + esc(blank ? (ph || D().empty) : v) + "</span>";
+}
+/* Збережене поле оновлюємо на місці, без перемальовки розділу: інакше
+   після кожного Enter чи кліку повз поле плашка смикалась, а клік по
+   сусідньому полю губився — під ним уже був новий DOM. */
+function fill(path){
+  const v = get(path);
+  document.querySelectorAll('#main .ts-ed[data-p="' + path + '"]').forEach(s => {
+    const blank = s.dataset.multi === "1" ? !v : (!v && v !== 0);
+    s.classList.remove("on");
+    s.classList.toggle("blank", blank);
+    s.textContent = blank ? (s.dataset.ph || D().empty) : v;
+  });
+}
+
+/* ---------- тиха перемальовка ----------
+   render() з app.js міняє весь #main, і панель вкладки щоразу заново
+   випливала з анімацією: «Змінити», «Готово», «+ додати» смикали весь
+   розділ. Тут міняємо лише потрібні плашки (або весь розділ, але без
+   анімації), а картинки переносимо старими вузлами — щоб не блимали. */
+function keepImgs(from, to){
+  const pool = [...from.querySelectorAll("img")];
+  to.querySelectorAll("img").forEach(im => {
+    const i = pool.findIndex(o => o.outerHTML === im.outerHTML);
+    if (i >= 0){ im.replaceWith(pool[i]); pool.splice(i, 1); }
+  });
+}
+function soft(ids){
+  const old = S.view === "ts" && TS && document.querySelector("#main .tsv");
+  if (!old){ render(); return; }
+  const t = document.createElement("template");
+  t.innerHTML = vTS();
+  const nu = t.content.querySelector(".tsv");
+  if (!nu){ render(); return; }
+  if (ids){
+    const pairs = ids.filter(Boolean).map(id => [old.querySelector('[data-sec="' + id + '"]'),
+                                                 nu.querySelector('[data-sec="' + id + '"]')]);
+    if (pairs.every(([a, b]) => a && b)){
+      pairs.forEach(([a, b]) => { keepImgs(a, b); a.replaceWith(b); });
+      return;
+    }
+  }
+  nu.classList.add("still");
+  const bar = old.querySelector(".tsv-tabs");
+  const sx = bar ? bar.scrollLeft : 0;
+  keepImgs(old, nu);
+  old.replaceWith(nu);
+  const nb = nu.querySelector(".tsv-tabs");
+  if (nb) nb.scrollLeft = sx;
 }
 function x(path, i){
   return '<button class="ts-x" type="button" title="' + D().remove
@@ -278,12 +326,12 @@ function editBtn(id){
 }
 /* плашка-картка: заголовок і кнопка всередині рамки */
 function secCard(id, title, body, cls){
-  return '<div class="tsv-card tsv-sec' + ro(id) + (editSec === id ? " sel" : "") + (cls ? " " + cls : "") + '">'
+  return '<div class="tsv-card tsv-sec' + ro(id) + (editSec === id ? " sel" : "") + (cls ? " " + cls : "") + '" data-sec="' + id + '">'
     + '<div class="tsv-sh"><h3>' + esc(title) + "</h3>" + editBtn(id) + "</div>" + body + "</div>";
 }
 /* блок із сіткою карток (таймфрейми, моделі…): заголовок над сіткою */
 function secBlock(id, title, body){
-  return '<section class="tsv-sec tsv-blk' + ro(id) + '">'
+  return '<section class="tsv-sec tsv-blk' + ro(id) + '" data-sec="' + id + '">'
     + '<div class="tsv-sh"><p class="tsv-subh">' + esc(title) + "</p>" + editBtn(id) + "</div>" + body + "</section>";
 }
 
@@ -293,7 +341,7 @@ function passport(){
   const assets = TS.assets || [];
   const wins = TS.windows || [];
   const cell = (label, inner, cls) => '<div class="tsv-pc' + (cls ? " " + cls : "") + '">' + lab(label) + inner + "</div>";
-  return '<div class="tsv-sec tsv-passw' + ro("pass") + (editSec === "pass" ? " sel" : "") + '">'
+  return '<div class="tsv-sec tsv-passw' + ro("pass") + (editSec === "pass" ? " sel" : "") + '" data-sec="pass">'
     + editBtn("pass") + '<div class="tsv-pass">'
     + cell(d.lAssets, '<div class="tsv-chips">'
         + assets.map((a, i) => '<span class="tsv-chip">' + ed("assets." + i) + x("assets", i) + "</span>").join("")
@@ -719,8 +767,12 @@ function startEdit(el){
   const multi = el.dataset.multi === "1";
   const val = get(path);
   const f = document.createElement(multi ? "textarea" : "input");
+  if (multi) f.rows = 1;     /* без цього textarea відкривалась на два рядки */
   f.className = "ts-in";
   f.value = (val == null ? "" : val);
+  /* підказка лишається в порожньому овалі — і за нею ж він тримає ширину */
+  f.placeholder = el.dataset.ph || "";
+  el.classList.add("on");
   el.textContent = "";
   el.appendChild(f);
 
@@ -755,7 +807,7 @@ function startEdit(el){
       TS.updated = today();
       save();
     }
-    render();
+    fill(path);
   };
   f.addEventListener("blur", () => commit(true));
   f.addEventListener("keydown", e => {
@@ -783,7 +835,7 @@ async function upload(el, dataUrl){
   if (demo()){
     set(el.dataset.p, dataUrl);
     TS.updated = today();
-    save(); render();
+    save(); soft();
     return;
   }
   el.classList.add("busy");
@@ -794,7 +846,7 @@ async function upload(el, dataUrl){
     save();
   }catch(e){}
   el.classList.remove("busy");
-  render();
+  soft();
 }
 
 function takeFile(file, el){
@@ -822,7 +874,7 @@ document.addEventListener("click", e => {
   /* меню «⋯» закривається кліком будь-куди поза ним */
   if (menuOpen && !(e.target.closest && e.target.closest(".tsv-more"))){
     menuOpen = false;
-    render();
+    soft();
     return;
   }
 
@@ -843,7 +895,7 @@ document.addEventListener("click", e => {
         const arr = get(keys.slice(0, -1).join("."));
         if (Array.isArray(arr)) arr.splice(+last, 1);
       } else set(p, "");
-      save(); render();
+      save(); soft();
       return;
     }
     /* кнопка «замінити» — файли з комп'ютера, як і був подвійний клік */
@@ -903,7 +955,7 @@ document.addEventListener("keydown", e => {
      зареєстрований раніше й інакше відкрив би ще одне таке саме питання */
   if (window.Ask && Ask.isOpen()) return;
   if (e.key === "Escape" && askBox){ e.stopPropagation(); askClose(); return; }
-  if (e.key === "Escape" && menuOpen && S.view === "ts"){ menuOpen = false; render(); }
+  if (e.key === "Escape" && menuOpen && S.view === "ts"){ menuOpen = false; soft(); }
 }, true);
 
 document.addEventListener("paste", e => {
@@ -1280,7 +1332,7 @@ window.__ts = {
     };
   },
   share(){
-    if (menuOpen){ menuOpen = false; render(); }
+    if (menuOpen){ menuOpen = false; soft(); }
     if (window.Guest && Guest.block(T.gsGateTs)) return;
     if (window.Share) Share.open("ts");
   },
@@ -1291,14 +1343,16 @@ window.__ts = {
     editSec = null;
     menuOpen = false;
     armed = null;
-    render();
+    soft();
   },
   /* «Змінити» в заголовку плашки: відкрити на правку тільки її */
   secEdit(id){
     if (editSec !== id && guestStop()) return;
+    const was = editSec;
     editSec = (editSec === id) ? null : id;
     armed = null;
-    render();
+    /* міняються тільки дві плашки: та, що закрилась, і та, що відкрилась */
+    soft([was, id]);
   },
   tab(id){
     if (TABS.indexOf(id) < 0) return;
@@ -1307,7 +1361,7 @@ window.__ts = {
     try{ localStorage.setItem(TAB_KEY, id); }catch(e){}
     render();
   },
-  menu(){ menuOpen = !menuOpen; render(); },
+  menu(){ menuOpen = !menuOpen; soft(); },
   /* «Додати сторінку з Notion»: відкриваємо вкладку з джерелами й ставимо
      курсор у порожнє поле під посилання */
   srcOpen(){
@@ -1318,7 +1372,7 @@ window.__ts = {
     const f = [...document.querySelectorAll("input.ts-url")].pop();
     if (f){ f.scrollIntoView({block: "center", behavior: "smooth"}); f.focus({preventScroll: true}); }
   },
-  ask(){ menuOpen = false; if(guestStop()){ render(); return; } askOpen(); }, close: askClose, prev: askPrev, next: askNext, pick: pick, own: own, finish: finish,
+  ask(){ menuOpen = false; if(guestStop()){ soft(); return; } askOpen(); }, close: askClose, prev: askPrev, next: askNext, pick: pick, own: own, finish: finish,
   again(){ step = 0; drawAsk(); },
   text(k, v){ answers[k] = v; },
   /* прибрати варіант з підказок: і з екрана, і з відповіді, якщо був обраний */
@@ -1368,16 +1422,19 @@ window.__ts = {
       extra: {k: "", v: "", shots: []},
     }[path];
     list.push(typeof proto === "object" && proto !== null ? Object.assign({}, proto) : "");
-    save(); render();
+    save(); soft();
+    /* новий пункт одразу відкриваємо на введення — не треба ще раз по ньому клікати */
+    const f = document.querySelector('#main .ts-ed[data-p^="' + path + "." + (list.length - 1) + '"]');
+    if (f && !f.closest(".ro")) startEdit(f);
   },
   del(path, i){
     const arr = get(path);
     if (Array.isArray(arr)) arr.splice(i, 1);
-    save(); render();
+    save(); soft();
   },
   async wipe(){
     menuOpen = false;
-    render();
+    soft();
     if (!await Ask.yes(D().confirmDelete, {ok:T.askYes, cancel:T.askNo, danger:true})) return;
     if (demo()){ try{ localStorage.removeItem(DEMO_KEY); }catch(e){} }
     else { try{ await api("POST", "/api/ts/clear", {kind: btOn()?"bt":""}); }catch(e){} }
