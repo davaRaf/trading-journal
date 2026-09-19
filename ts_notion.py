@@ -12,6 +12,7 @@
 Нічого не вигадуємо: якщо числа на сторінці немає, поле лишається
 порожнім, а не заповнюється «типовим» значенням.
 """
+import difflib
 import re
 
 import notion_import
@@ -482,24 +483,66 @@ def read(urls, user_id, shots_dir):
 
 # ------------------------------------------------ сторінки за назвами ----
 #
-# Людина веде ТС у Notion розділами, і назва сторінки прямо каже, що в ній:
-# «Psychology», «Entry models», «Where SL and TP». Без моделі це найнадійніша
-# підказка — надійніша за ключові слова, які ловлять просто згадки.
+# Людина веде ТС у Notion розділами, і назва сторінки каже, що в ній. Але
+# кожен називає по-своєму: «Psychology», «Моя психологія», «🧠 Mindset»,
+# «Где стоп, где тейк», «SL/TP», «Как я вхожу», «Сетапы», «Коли не торгую»,
+# «Чек-лист перед угодою» — і з помилками теж («Психалогия»).
+#
+# Тому не шукаємо одне точне слово, а рахуємо бали: назву зводимо до простих
+# слів (регістр, емодзі, дефіси й скісні геть), і кожен корінь зі словника
+# розділу, з якого починається слово назви, дає бали. Словосполучення («не
+# входжу», «перед входом») важать більше за окреме слово — інакше «Коли не
+# входжу» пішло б у моделі входу через «вход». Схоже слово з помилкою дає
+# менше. Нічия — вирішує текст сторінки, далі порядок розділів.
 
-# Назви пишуть як завгодно й будь-якою мовою: «Psychology», «Психология»,
-# «Mindset», «Стоп и тейк», «SL/TP», «Модели входа», «Setups»… Порядок
-# важливий: «Stop & entry» — це про стоп, а не про вхід.
-PAGE_ROUTES = [
-    ("psy", r"psych|психо|mindset|mental|менталь|emotion|емоц|эмоц|дисципл|discipl|tilt|тильт|тільт"),
-    ("stop", r"\bsl\b|\btp\b|\bstop|стоп|тейк|\btake|target|таргет|\bціл|\bцел|\bexit|выход|вихід|профит|профіт"),
-    ("models", r"entry|entries|вход|вхід|модел|model|setup|сетап|trigger|тригер|execution"),
-    ("context", r"context|контекст|bias|біас|биас|htf|narrative|наратив|таймфрейм|timeframe|synchron|синхрон|аналіз|анализ"),
-    ("general", r"general|rules|правил|загальн|общ|основн|\bmain\b|risk|ризик|риск|session|сесі|сесси|money"),
-]
+# корінь -> з нього має починатись слово назви; "=sl" — тільки саме слово
+PAGE_VOCAB = {
+    "psy": ["психолог", "психо", "психік", "психик", "psych", "mindset", "mind", "мышлен",
+            "мислен", "менталь", "mental", "emotion", "эмоц", "емоц", "дисципл", "discipl",
+            "tilt", "тильт", "тільт", "fomo", "фомо", "страх", "fear", "greed", "жадн",
+            "самоконтрол", "self control", "характер", "настро", "mood", "стресс", "стрес",
+            "stress", "терпен", "терпін", "терпел", "мотивац", "motivat", "inner game",
+            "внутрен", "внутріш", "состояни", "мой стан", "мій стан"],
+    "nogo": ["не вход", "не вхож", "не входж", "не торг", "не захож", "не заход", "skip",
+             "скип", "скіп", "no trade", "dont trade", "don t trade", "do not trade",
+             "not trade", "avoid", "избега", "уника", "заборон", "запрет", "пропуск",
+             "no go", "nogo", "red flag", "стоп фактор", "стоп факт", "когда нельзя",
+             "коли не можна", "не беру", "не открыв", "не відкрива"],
+    "check": ["чек лист", "чеклист", "checklist", "check list", "перед вход", "перед угод",
+              "перед сделк", "перед входом", "before entry", "before trade", "pre trade",
+              "pretrade", "=чек", "=check"],
+    "stop": ["стоп", "stop", "=sl", "=tp", "take", "тейк", "тэйк", "profit", "профит", "профіт",
+             "target", "таргет", "=цель", "=цели", "=ціль", "=цілі", "exit", "выход", "вихід",
+             "фиксац", "фіксац", "фиксир", "фіксу", "прибыл", "прибут", "invalid", "инвалид", "інвалід", "закрыт", "закрит"],
+    "manage": ["сопровожд", "супровід", "супровод", "trade manag", "position manag",
+               "управлен сделк", "управлін угод", "ведение сделк", "ведення угод", "безубыт",
+               "беззбит", "breakeven", "break even", "=be", "partial", "частичн", "частков",
+               "трейлинг", "трейлінг", "trailing", "частичн фикс", "частков фікс",
+               "partial close", "partial take", "trailing stop", "перенос стоп",
+               "перенос в безуб", "move stop", "move sl"],
+    "models": ["entry", "entri", "вход", "вхід", "входж", "вхож", "модел", "model", "setup",
+               "сетап", "сэтап", "trigger", "тригер", "триггер", "execution", "исполнен",
+               "точка вход", "точки вход", "=poi", "confirm", "подтвержд", "підтвердж",
+               "паттерн", "патерн", "pattern", "=bos", "=cisd", "=fvg", "=ifvg", "=choch",
+               "=smt", "order block", "ордер блок"],
+    "context": ["context", "контекст", "bias", "биас", "біас", "=htf", "=mtf", "narrativ",
+                "наратив", "нарратив", "таймфрейм", "timeframe", "time frame", "=tf", "=тф",
+                "synchron", "синхрон", "аналіз", "анализ", "analys", "структур", "structure",
+                "тренд", "trend", "направлен", "напрям", "direction", "top down", "premium",
+                "discount", "мульти", "multi time"],
+    "general": ["general", "rule", "правил", "загальн", "общ", "основн", "=main", "базов",
+                "basic", "план", "plan", "risk", "ризик", "риск", "money", "мани", "=mm", "=rm",
+                "менеджмент", "session", "сесі", "сесс", "kill zone", "killzone", "килзон",
+                "время торг", "час торг", "schedule", "расписан", "розклад", "ліміт", "лимит",
+                "limit", "pair", "пары", "пари", "инструмент", "інструмент", "instrument", "актив", "asset",
+                "correlat", "кореляц", "корреляц"],
+}
+# при нічиї: вужчий розділ важливіший за загальний («Правила входу» — це вхід)
+KIND_ORDER = ["psy", "nogo", "check", "stop", "manage", "models", "context", "general"]
 
-# Назва нічого не підказала («Notes», «Мої нотатки») — дивимось, про що
-# сам текст. Беремо тільки явного лідера: хибно впізнана сторінка гірша за
-# сторінку, яка просто лягла в «Додатково».
+# Про що сам текст — для нічиєї і для сторінок, чия назва нічого не каже
+# («Notes», «Мої нотатки»). Без назви беремо тільки явного лідера: хибно
+# впізнана сторінка гірша за сторінку, яка просто лягла в «Додатково».
 CONTENT_HINTS = [
     ("psy", r"эмоц|емоц|тильт|тільт|\btilt|fomo|фомо|жадн|страх|\bfear|greed|revenge|отыгр|відігр|"
             r"дисциплин|дисциплін|психолог|терпен|терпін|спокі|спокой|азарт|самоконтрол"),
@@ -508,11 +551,65 @@ CONTENT_HINTS = [
 ]
 
 
-def _guess_kind(page):
-    text = page.get("text") or ""
-    score = sorted(((len(re.findall(pat, text, re.I)), k) for k, pat in CONTENT_HINTS), reverse=True)
-    (top, kind), (second, _) = score[0], score[1]
+def _norm(s):
+    """«🧠 Моя Психология!», «SL/TP-1», «Stop-loss & Take-profit» → прості слова."""
+    s = (s or "").lower().replace("ё", "е").replace("’", "").replace("'", "")
+    s = re.sub(r"(?<=[^\W\d_])(?=\d)|(?<=\d)(?=[^\W\d_])", " ", s)   # tp1 → tp 1
+    return " ".join(re.findall(r"[^\W_]+", s))
+
+
+def _stem_re(st):
+    """Корінь → шаблон на початок слова. У словосполученні кожне слово —
+    теж початок: «частичн фикс» ловить «Частичная фиксация»."""
+    exact = st.startswith("=")
+    parts = st.lstrip("=").split()
+    body = " ".join(re.escape(w) + (r"\w*" if len(w) > 2 else "") for w in parts[:-1])
+    body = (body + " " if body else "") + re.escape(parts[-1])
+    return r"(?:^| )" + body + (r"(?= |$)" if exact else r"\w*")
+
+
+def _title_scores(title):
+    t = _norm(title)
+    score, used = {}, set()
+    for kind, stems in PAGE_VOCAB.items():
+        for st in stems:
+            m = re.search(_stem_re(st), t)
+            if m:
+                score[kind] = score.get(kind, 0) + (3 if " " in st.strip("=") else 2)
+                used.update(m.group(0).split())
+    # помилка в слові («психалогия», «psyhology») — тільки для слів, які не
+    # впізнались точно: інакше «фиксация» ще й «схожа» на укр. «фіксац» і
+    # отримує подвійну вагу
+    for w in t.split():
+        if w in used or len(w) < 5:
+            continue
+        for kind, stems in PAGE_VOCAB.items():
+            if any(not st.startswith("=") and " " not in st and len(st) >= 5 and len(w) >= len(st)
+                   and difflib.SequenceMatcher(None, w[:len(st)], st).ratio() >= .8 for st in stems):
+                score[kind] = score.get(kind, 0) + 1
+    return score
+
+
+def _content_scores(text):
+    return {k: len(re.findall(pat, text or "", re.I)) for k, pat in CONTENT_HINTS}
+
+
+def page_kind(title, text=""):
+    """Розділ ТС для сторінки: psy, nogo, check, stop, manage, models, context,
+    general — або None, якщо ні назва, ні текст певної відповіді не дають."""
+    ts = _title_scores(title)
+    cs = _content_scores(text)
+    if ts:
+        best = max(ts.values())
+        tied = [k for k in KIND_ORDER if ts.get(k) == best]
+        if len(tied) > 1 and any(cs.get(k) for k in tied):
+            return max(tied, key=lambda k: (cs.get(k, 0), -KIND_ORDER.index(k)))
+        return tied[0]
+    ranked = sorted(((v, k) for k, v in cs.items()), reverse=True)
+    (top, kind), (second, _) = ranked[0], ranked[1]
     return kind if top >= 3 and top >= 2 * second else None
+
+
 ITEM_RE = re.compile(r"^([•·*\-—–]|\d+[.)])\s+")
 SKIP_HEAD_RE = re.compile(r"skip|скіп|скип|не вход|не захож|пропуск", re.I)
 RISK_HEAD_RE = re.compile(r"risk|ризик|риск", re.I)
@@ -596,8 +693,13 @@ def _route_context(draft, page):
     всі ТФ, згадані будь-де. Решта сторінки (синхронізація тощо) — окремим
     блоком у «Додатково»."""
     tfs = parse(page["text"])["tfs"]
-    if tfs:
-        draft["tfs"] = tfs
+    if not tfs:
+        # «Market structure», «Мій біас» — про контекст, але без таймфреймів
+        lines = [x for x in _items(page["text"]) if not DRAFT_RE.search(x)]
+        if lines or page["shots"]:
+            draft.setdefault("extra", []).append(_block(page["title"] or "Context", lines, page["shots"]))
+        return
+    draft["tfs"] = tfs
     rest, seen_tf, on = [], False, False
     for h, it in _sections(page["text"]):
         if _tfs_in(h):
@@ -649,6 +751,22 @@ def _route_general(draft, page):
         draft.setdefault("extra", []).append(_block(h or page["title"] or "General", it))
 
 
+def _route_manage(draft, page):
+    """Супровід угоди: кожен підзаголовок («BE», «Часткова фіксація») —
+    окреме правило; без підзаголовків — уся сторінка одним правилом."""
+    secs = [(h, it) for h, it in _sections(page["text"]) if it]
+    if not secs:
+        secs = [(page["title"] or "", _items(page["text"]))]
+    shots = [sh["file"] for sh in page["shots"]][:8]
+    for n, (h, it) in enumerate(secs):
+        it = [x for x in it if not DRAFT_RE.search(x)]
+        if not it:
+            continue
+        b = _block(h or page["title"] or "", it)
+        draft.setdefault("manage", []).append({"k": b["k"], "v": b["v"][:500],
+                                               "shots": shots if n == 0 else []})
+
+
 def route_pages(draft, pages):
     """Розкладає сторінки за їхніми назвами. Сторінку, чию назву не впізнали,
     кладемо в «Додатково» цілою — під її ж назвою, зі скрінами."""
@@ -657,9 +775,9 @@ def route_pages(draft, pages):
     seen = set()      # розділи, вже взяті зі сторінки: друга така сторінка додається, а не затирає
     for page in pages:
         title = page.get("title") or ""
-        kind = (next((k for k, pat in PAGE_ROUTES if re.search(pat, title, re.I)), None)
-                or _guess_kind(page))
+        kind = page_kind(title, page.get("text") or "")
         before = list(draft.get(kind) or []) if kind in seen else []
+        lines = [x for x in _items(page["text"]) if not DRAFT_RE.search(x)]
         if kind == "psy":
             rules = [{"k": "", "v": x[:500]} for x in _items(page["text"]) if not DRAFT_RE.search(x)]
             draft["psy"] = (before + rules)[:12]
@@ -673,15 +791,25 @@ def route_pages(draft, pages):
             _route_context(draft, page)
         elif kind == "general":
             _route_general(draft, page)
+        elif kind == "check" and lines:
+            draft["check"] = (before + [x[:300] for x in lines])[:20]
+            seen.add("check")
+        elif kind == "nogo" and lines:
+            no = draft.setdefault("no", {"market": [], "time": [], "self": []})
+            no["market"] = no.get("market", []) + [x[:300] for x in lines if x not in no.get("market", [])]
+        elif kind == "manage" and lines:
+            if "manage" not in seen:
+                draft["manage"] = []          # слова з усього тексту — гірші за саму сторінку
+            _route_manage(draft, page)
+            seen.add("manage")
         else:
-            lines = [x for x in _items(page["text"]) if not DRAFT_RE.search(x)]
             if lines or page["shots"]:
                 draft["extra"].append(_block(title or "Notion", lines, page["shots"]))
     draft["extra"] = draft["extra"][:12]
     taken = " ".join(b["v"] for b in draft["extra"] + draft.get("manage", []))
     no = draft.get("no") or {}
     no["market"] = [x for x in no.get("market", [])
-                    if not x.rstrip().endswith(":") and x not in taken][:10]
+                    if not x.rstrip().endswith(":") and x not in taken][:20]
     return draft
 
 

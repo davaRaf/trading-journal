@@ -117,20 +117,58 @@ def check_fallback():
 def check_routes():
     """Сторінки розкладаються за назвою, хоч би як її написали, а без
     підказки в назві — за тим, про що текст."""
-    kind = lambda t, text="": (next((k for k, p in tn.PAGE_ROUTES if re.search(p, t, re.I)), None)
-                               or tn._guess_kind({"text": text}))
-    for t in ["Psychology", "Психология", "Психологія", "Mindset", "Дисципліна"]:
-        assert kind(t) == "psy", t
-    for t in ["Where SL and TP", "Стоп и тейк", "SL/TP", "Stop loss & Take profit", "Куди ставлю стоп"]:
-        assert kind(t) == "stop", t
-    for t in ["Entry models", "Модели входа", "Моделі входу", "Setups", "Мої сетапи"]:
-        assert kind(t) == "models", t
-    for t in ["Context Synchron and desynchron", "Контекст", "HTF bias", "Аналіз таймфреймів"]:
-        assert kind(t) == "context", t
-    for t in ["General Rules", "Правила", "Risk management", "Торгові сесії"]:
-        assert kind(t) == "general", t
-    for t in ["Mistakes", "Order Flow", "Domain notes"]:
-        assert kind(t) is None, t
+    kind = tn.page_kind
+    want = {
+        "psy": ["Psychology", "Психология", "Психологія", "Моя психология", "Моя психологія",
+                "🧠 Mindset", "Дисципліна", "Эмоции в трейдинге", "Трейдерское мышление",
+                "Psychology rules", "Правила психологии", "Психалогия", "Psyhology",
+                "Мой mindset", "Работа с тильтом", "FOMO", "Emotional control", "Мій стан"],
+        "stop": ["Where SL and TP", "Стоп и тейк", "SL/TP", "Stop loss & Take profit",
+                 "Куди ставлю стоп", "Где стоп, где тейк", "Де стоп, де тейк", "Стоп-лосс",
+                 "Take-profit", "TP1 / TP2", "Цели", "Выход из сделки", "Exit rules",
+                 "Targets", "Где фиксирую прибыль", "Стоп и цели", "Invalidation"],
+        "models": ["Entry models", "Модели входа", "Моделі входу", "Setups", "Мої сетапи",
+                   "Как я вхожу", "Як я входжу", "Точка входа", "Entry", "Мои модели",
+                   "Триггеры", "Сэтапы", "Execution", "Правила входа", "BOS", "Паттерны"],
+        "context": ["Context Synchron and desynchron", "Контекст", "HTF bias", "Аналіз таймфреймів",
+                    "Мой биас", "Daily bias", "Market structure", "Структура рынка",
+                    "Top down analysis", "Анализ рынка", "Таймфреймы", "Narrative"],
+        "general": ["General Rules", "Правила", "Risk management", "Торгові сесії", "Мои правила",
+                    "Основные правила", "Торговый план", "Trading plan", "Риск-менеджмент",
+                    "Мани менеджмент", "Сессии", "Kill zones", "Время торговли", "Пары и корреляции",
+                    "Лимиты"],
+        "nogo": ["Когда не вхожу", "Коли не входжу", "Когда не торгую", "Коли не торгую",
+                 "No trade conditions", "Skip", "Стоп-факторы", "Не захожу если", "Red flags",
+                 "Что избегаю"],
+        "check": ["Чек-лист", "Чеклист перед входом", "Checklist", "Pre-trade checklist",
+                  "Перед угодою", "Перед сделкой"],
+        "manage": ["Сопровождение сделки", "Супровід угоди", "Trade management", "Безубыток",
+                   "BE rules", "Частичная фиксация", "Partial close", "Трейлинг"],
+    }
+    # друга пачка — назви, під які словник не підганяли (перевірка «на свіжих»)
+    more = {
+        "psy": ["💭 Психология трейдинга", "Мої емоції", "Discipline", "Контроль эмоций",
+                "Тильт и как с ним бороться", "Mental game", "Мышление трейдера", "Страхи",
+                "Психологія та дисципліна"],
+        "stop": ["Stop Loss", "Стопы", "Мой стоп", "Куда ставлю тейк", "Тейк профит", "TP", "SL",
+                 "Stop & Target", "Фиксация прибыли", "Вихід з угоди", "Где выхожу", "Цілі"],
+        "models": ["Мої моделі", "Entry Model #1", "Модель входу BOS", "Сетап дня", "Мои входы",
+                   "Entries", "Confirmation entry", "Підтвердження входу", "Trade setups"],
+        "context": ["HTF", "Біас", "Контекст рынка", "Market context", "Direction", "Trend",
+                    "Анализ HTF", "Мультитаймфрейм", "Bias & narrative"],
+        "general": ["Rules", "Загальні правила", "Правила торговли", "Risk", "Ризик", "Сесії",
+                    "London / NY sessions", "Мой торговый план", "Instruments", "Активи",
+                    "Money management"],
+        "nogo": ["Не торгую коли", "Когда нельзя входить", "Skip days", "Не входить если", "Избегаю"],
+        "check": ["Мой чек-лист", "Checklist before entry", "Чек лист", "Перед входом"],
+        "manage": ["Управление сделкой", "BE", "Breakeven", "Перенос в безубыток", "Trailing stop"],
+    }
+    for group in (want, more):
+        for k, titles in group.items():
+            for t in titles:
+                assert kind(t) == k, "%r -> %r, чекали %s" % (t, kind(t), k)
+    for t in ["Mistakes", "Order Flow", "Domain notes", "Мои заметки", ""]:
+        assert kind(t) is None, "%r -> %r" % (t, kind(t))
     notes = "1. Не торгую в тильті\n2. Після стопу — перерва, емоції вниз\n3. Страх і жадність записую"
     assert kind("Мої нотатки", notes) == "psy"
 
@@ -139,6 +177,22 @@ def check_routes():
     tn.route_pages(d, [{"title": "Psychology", "text": "1. Перше\n2. Друге", "shots": [], "url": ""},
                        {"title": "Emotions", "text": "1. Третє", "shots": [], "url": ""}])
     assert [p["v"] for p in d["psy"]] == ["Перше", "Друге", "Третє"], d["psy"]
+
+    # нові розділи: чек-лист, «коли не входжу», супровід — зі своїх сторінок
+    d = {"extra": [], "psy": [], "no": {"market": [], "time": [], "self": []}}
+    tn.route_pages(d, [
+        {"title": "Мой чек-лист", "text": "1. Контекст за мене\n2. Є підтвердження", "shots": [], "url": ""},
+        {"title": "Когда не вхожу", "text": "- Перед новинами\n- Флет", "shots": [], "url": ""},
+        {"title": "Сопровождение сделки", "text": "BE\n- після 1R у беззбиток\nЧастичная фиксация\n- 50% на 2R",
+         "shots": [{"file": "a.png"}], "url": ""},
+        {"title": "Market structure", "text": "Дивлюсь на злами структури", "shots": [], "url": ""},
+    ])
+    assert d["check"] == ["Контекст за мене", "Є підтвердження"], d.get("check")
+    assert d["no"]["market"] == ["Перед новинами", "Флет"], d["no"]
+    assert [m["k"] for m in d["manage"]] == ["BE", "Частичная фиксация"], d.get("manage")
+    assert d["manage"][0]["shots"] == ["a.png"]
+    # контекст без таймфреймів не губиться — лягає в «Додатково»
+    assert [e["k"] for e in d["extra"]] == ["Market structure"], d["extra"]
     print("розкладка сторінок за назвою: ок")
 
 
