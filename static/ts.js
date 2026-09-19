@@ -302,13 +302,14 @@ let editing = false;
 let editSec = null;       /* плашка, відкрита на правку сама по собі */
 let menuOpen = false;
 const TAB_KEY = "tj_ts_tab";
-const TABS = ["before", "assets", "context", "models", "risk", "psy", "real", "extra"];
+/* «Перед входом» — одразу після моделей входу: спершу що й як я шукаю, потім що звіряю */
+const TABS = ["assets", "context", "models", "before", "risk", "psy", "real", "extra"];
 let tab = (() => {
   try{
     let t = localStorage.getItem(TAB_KEY);
     if (t === "entry") t = "models";      /* так звалась вкладка до 19.09.2026 */
-    return TABS.indexOf(t) >= 0 ? t : "before";
-  }catch(e){ return "before"; }
+    return TABS.indexOf(t) >= 0 ? t : TABS[0];
+  }catch(e){ return TABS[0]; }
 })();
 
 const PEN_IC = '<svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M4 20h4L19 9l-4-4L4 16v4z" '
@@ -814,8 +815,8 @@ function tabIntoView(){
 
 function vFull(){
   const d = D();
-  const tabsL = [["before", d.tabBefore], ["assets", d.tabAssets], ["context", d.tabContext],
-                 ["models", d.tabModels], ["risk", d.tabRisk], ["psy", d.tabPsy],
+  const tabsL = [["assets", d.tabAssets], ["context", d.tabContext], ["models", d.tabModels],
+                 ["before", d.tabBefore], ["risk", d.tabRisk], ["psy", d.tabPsy],
                  ["real", d.tabReal], ["extra", d.tabExtra]];
   /* Біля назви розділу нічого не пишемо: звідки взялась ТС і коли її чіпали
      востаннє — службова дрібниця, а не заголовок. Головна дія одна —
