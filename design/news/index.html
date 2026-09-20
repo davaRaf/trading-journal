@@ -1,0 +1,379 @@
+<!doctype html>
+<html lang="uk" data-theme="dark">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>StatsAI — новини</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Geist+Mono:wght@400;500&family=Geist:wght@400;500;600&display=swap">
+<style>
+/* Палитра взята из приложения, чтобы раздел встал в него без переделки. */
+:root{
+  --bg:#f2f4f8; --panel:#ffffff; --panel-2:#f6f8fb; --line:#dde3ec; --line-soft:#eaeef5;
+  --text:#171b24; --dim:#5a6373; --faint:#99a2b3;
+  --up:#128a53; --down:#c94430; --be:#9c7514;
+  --up-soft:rgba(18,138,83,.10); --down-soft:rgba(201,68,48,.10); --be-soft:rgba(156,117,20,.12);
+  --card:var(--panel); --shell-bg:var(--panel-2);
+  /* важность: красный · оранжевый · жёлтый */
+  --n-h:#c94430; --n-m:#c2701a; --n-l:#a8860f;
+  --n-h-bg:rgba(201,68,48,.10); --n-m-bg:rgba(194,112,26,.11); --n-l-bg:rgba(168,134,15,.11);
+  --sans:"Geist","Segoe UI",system-ui,sans-serif;
+  --mono:"Geist Mono",ui-monospace,Consolas,monospace;
+  --r:10px; --r-sm:8px;
+  --ease:cubic-bezier(.16,1,.3,1);
+}
+:root[data-theme="dark"]{
+  --bg:#08080a;
+  --panel:rgba(255,255,255,.045); --panel-2:rgba(255,255,255,.075);
+  --line:rgba(255,255,255,.10); --line-soft:rgba(255,255,255,.055);
+  --text:#f0f0f1; --dim:#94949a; --faint:#63636b;
+  --up:#4fd18f; --down:#f2645f; --be:#efc258;
+  --up-soft:rgba(79,209,143,.14); --down-soft:rgba(242,100,95,.13); --be-soft:rgba(239,194,88,.13);
+  --card:linear-gradient(180deg,rgba(255,255,255,.062),rgba(255,255,255,.016));
+  --shell-bg:linear-gradient(180deg,rgba(255,255,255,.028),rgba(255,255,255,0));
+  --n-h:#f2645f; --n-m:#f0964a; --n-l:#efc258;
+  --n-h-bg:rgba(242,100,95,.13); --n-m-bg:rgba(240,150,74,.13); --n-l-bg:rgba(239,194,88,.12);
+}
+*{box-sizing:border-box}
+body{margin:0; background:var(--bg); color:var(--text); font-family:var(--sans);
+  -webkit-font-smoothing:antialiased}
+.wrap{max-width:1000px; margin:0 auto; padding:clamp(26px,4vw,48px) 22px 80px;
+  display:flex; flex-direction:column; gap:18px}
+
+/* ---------- шапка ---------- */
+.head{display:flex; align-items:flex-end; justify-content:space-between; gap:18px; flex-wrap:wrap}
+h1{margin:0; font-size:26px; font-weight:600; letter-spacing:-.02em}
+.head .when{font-family:var(--mono); font-size:11.5px; letter-spacing:.08em;
+  text-transform:uppercase; color:var(--faint)}
+.themebtn{border:1px solid var(--line); background:var(--panel); color:var(--dim);
+  font-family:var(--mono); font-size:11px; padding:7px 12px; border-radius:var(--r-sm);
+  cursor:pointer; transition:color .2s var(--ease)}
+.themebtn:hover{color:var(--text)}
+
+/* ---------- предупреждение ---------- */
+.warn{display:flex; gap:10px; align-items:flex-start; padding:12px 14px; border-radius:var(--r);
+  background:var(--be-soft); border:1px solid color-mix(in srgb, var(--be) 34%, transparent);
+  font-size:13.5px; color:var(--text); line-height:1.5}
+.warn b{color:var(--be)}
+.warn[hidden]{display:none}
+
+/* ---------- дни недели ---------- */
+.days{display:flex; gap:6px; overflow-x:auto; padding-bottom:2px}
+.week{flex:0 0 auto; min-width:96px; border:1px solid var(--line); border-radius:var(--r);
+  background:var(--card); color:var(--text); padding:10px 14px; cursor:pointer;
+  display:flex; flex-direction:column; gap:3px; align-items:center; justify-content:center;
+  transition:border-color .2s var(--ease), background .2s var(--ease)}
+.week:hover{border-color:color-mix(in srgb, var(--text) 22%, transparent)}
+.week.on{background:var(--panel-2); border-color:color-mix(in srgb, var(--text) 30%, transparent)}
+.week .wd{font-family:var(--mono); font-size:10px; letter-spacing:.12em;
+  text-transform:uppercase; color:var(--faint)}
+.week .dt{font-family:var(--mono); font-size:14px; font-weight:500; color:inherit}
+
+/* заголовок дня в режиме недели */
+.dayhead{display:flex; align-items:center; gap:10px; margin:14px 0 2px}
+.dayhead:first-child{margin-top:0}
+.dayhead b{font-size:13.5px; font-weight:600; letter-spacing:-.01em}
+.dayhead span{font-family:var(--mono); font-size:10.5px; letter-spacing:.1em;
+  text-transform:uppercase; color:var(--faint)}
+.dayhead .rule{flex:1; height:1px; background:var(--line-soft)}
+.ev .dc{display:none}
+.day{flex:1 1 0; min-width:76px; border:1px solid var(--line); border-radius:var(--r);
+  background:var(--card); color:var(--text);        /* без этого кнопка берёт чёрный цвет браузера */
+  padding:10px 8px; cursor:pointer; text-align:center;
+  display:flex; flex-direction:column; gap:3px;
+  transition:border-color .2s var(--ease), background .2s var(--ease)}
+.day:hover{border-color:color-mix(in srgb, var(--text) 22%, transparent)}
+.day.on{background:var(--panel-2); border-color:color-mix(in srgb, var(--text) 30%, transparent)}
+.day .wd{font-family:var(--mono); font-size:10px; letter-spacing:.12em;
+  text-transform:uppercase; color:var(--faint)}
+.day .dt{font-family:var(--mono); font-size:17px; font-weight:500;
+  font-variant-numeric:tabular-nums; color:inherit}
+.day.today .dt{color:var(--up)}
+.day .dots{display:flex; gap:3px; justify-content:center; min-height:6px; margin-top:1px}
+.day .dots i{width:5px; height:5px; border-radius:50%}
+.day .dots i.h{background:var(--n-h)} .day .dots i.m{background:var(--n-m)}
+.day .dots i.l{background:var(--n-l)}
+
+/* ---------- фильтры ---------- */
+.filters{display:flex; flex-wrap:wrap; gap:14px; align-items:center;
+  background:var(--shell-bg); border:1px solid var(--line-soft);
+  border-radius:var(--r); padding:12px 14px}
+.grp{display:flex; align-items:center; gap:6px; flex-wrap:wrap}
+.grp .lab{font-family:var(--mono); font-size:10px; letter-spacing:.13em;
+  text-transform:uppercase; color:var(--faint); margin-right:3px}
+.chip{border:1px solid var(--line); background:var(--panel); color:var(--dim);
+  font:inherit; font-size:12.5px; padding:6px 11px; border-radius:99px; cursor:pointer;
+  display:flex; align-items:center; gap:7px; white-space:nowrap;
+  transition:color .18s var(--ease), border-color .18s var(--ease), background .18s var(--ease)}
+.chip:hover{color:var(--text)}
+.chip.on{background:var(--panel-2); color:var(--text);
+  border-color:color-mix(in srgb, var(--text) 26%, transparent)}
+.chip i{width:8px; height:8px; border-radius:50%; flex:none}
+.chip i.h{background:var(--n-h)} .chip i.m{background:var(--n-m)}
+.chip i.l{background:var(--n-l)} .chip i.all{background:var(--text); opacity:.5}
+.chip.off{opacity:.42}
+.chip .n{font-family:var(--mono); font-size:10.5px; color:var(--faint)}
+.chip.on .n{color:var(--dim)}
+
+/* ---------- сегменты: важность и валюта одним блоком ---------- */
+.filters{flex-direction:column; align-items:flex-start; gap:10px}
+.grp{flex-wrap:nowrap; overflow-x:auto; max-width:100%;
+  gap:0; padding:3px; border-radius:99px;
+  background:var(--panel); border:1px solid var(--line);
+  scrollbar-width:none}
+.grp::-webkit-scrollbar{display:none}
+.grp .lab{padding:0 12px 0 11px; margin:0; flex:0 0 auto}
+.grp .chip{border:0; background:transparent; border-radius:99px; padding:7px 14px; flex:0 0 auto}
+.grp .chip.on{background:var(--panel-2); box-shadow:inset 0 0 0 1px var(--line)}
+
+/* ---------- список ---------- */
+.list{display:flex; flex-direction:column; gap:6px}
+.ev{display:grid; grid-template-columns:64px 52px 1fr auto; gap:0 14px; align-items:center;
+  background:var(--card); border:1px solid var(--line-soft); border-radius:var(--r);
+  padding:12px 16px; border-left:3px solid transparent;
+  transition:border-color .2s var(--ease)}
+.ev.h{border-left-color:var(--n-h); background:var(--n-h-bg)}
+.ev.m{border-left-color:var(--n-m); background:var(--n-m-bg)}
+.ev.l{border-left-color:var(--n-l); background:var(--n-l-bg)}
+.ev.past{opacity:.42}
+/* ближайшее событие помечаем только плашкой «скоро» — без обводки вокруг карточки */
+.ev .tm{font-family:var(--mono); font-size:13.5px; font-variant-numeric:tabular-nums;
+  color:var(--text)}
+.ev .cur{font-family:var(--mono); font-size:11px; letter-spacing:.06em; color:var(--dim);
+  border:1px solid var(--line); border-radius:6px; padding:3px 0; text-align:center}
+.ev .ttl{font-size:14px; line-height:1.35; min-width:0}
+.ev .ttl small{display:block; font-family:var(--mono); font-size:10.5px; color:var(--faint);
+  margin-top:3px; letter-spacing:.04em}
+.ev .num{display:flex; gap:16px; font-family:var(--mono); font-size:12px;
+  font-variant-numeric:tabular-nums; color:var(--dim); text-align:right}
+.ev .num > div:not(.badge){display:flex; flex-direction:column; gap:2px; min-width:52px}
+.ev .num span{font-size:9.5px; letter-spacing:.1em; text-transform:uppercase; color:var(--faint)}
+.ev .badge{
+  display:inline-flex; align-items:center; justify-content:center; align-self:center;
+  font-family:var(--mono); font-size:9.5px; letter-spacing:.1em; text-transform:uppercase;
+  line-height:1; height:22px; padding:0 10px; white-space:nowrap;
+  color:var(--up); border:1px solid color-mix(in srgb, var(--up) 45%, transparent);
+  background:var(--up-soft); border-radius:99px;
+}
+
+.empty{padding:40px 20px; text-align:center; color:var(--faint); font-size:14px;
+  border:1px dashed var(--line); border-radius:var(--r)}
+
+.foot{font-size:12.5px; color:var(--faint); line-height:1.6}
+.foot code{font-family:var(--mono); font-size:11.5px}
+
+@media (max-width:720px){
+  .ev{grid-template-columns:56px 46px 1fr; gap:0 10px}
+  .ev .num{grid-column:1/-1; justify-content:flex-start; margin-top:8px; text-align:left}
+  .ev .num div{min-width:0}
+}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <div class="head">
+    <div>
+      <h1>Новини</h1>
+      <div class="when" id="when">завантаження…</div>
+    </div>
+    <button class="themebtn" id="themeBtn" type="button">Світла тема</button>
+  </div>
+
+  <div class="warn" id="warn" hidden></div>
+
+  <div class="days" id="days"></div>
+
+  <div class="filters">
+    <div class="grp" id="impactRow"><span class="lab">Важливість</span></div>
+    <div class="grp" id="curRow"><span class="lab">Валюта</span></div>
+  </div>
+
+  <div class="list" id="list"></div>
+
+  <p class="foot">
+    Джерело — тижневий календар Forex Factory. Сервер ходить за ним раз на пів години
+    і зберігає копію, тому фід не блокує нас за частими запитами.
+    Час показано у твоєму поясі. Доступний лише поточний тиждень.
+  </p>
+
+</div>
+
+<script>
+const WD = ["Нд","Пн","Вт","Ср","Чт","Пт","Сб"];
+const IMPACT = {High:"h", Medium:"m", Low:"l", Holiday:"l"};
+const IMPACT_NAME = {h:"Червоні", m:"Помаранчеві", l:"Жовті"};
+
+let EVENTS = [];      // всё, что пришло
+let day = null;       // выбранный день, "YYYY-MM-DD"
+let impact = "all";   // all | h | m | l
+let cur = "all";      // all | USD | EUR | …
+
+const $ = s => document.querySelector(s);
+const key = d => d.getFullYear() + "-" + String(d.getMonth()+1).padStart(2,"0")
+                 + "-" + String(d.getDate()).padStart(2,"0");
+
+/* Фид отдаёт время с поясом (-04:00). new Date разбирает его сам
+   и переводит в пояс пользователя — отдельная возня не нужна. */
+const when = e => new Date(e.date);
+
+async function load(){
+  try{
+    const res = await fetch("/api/calendar");
+    if(!res.ok) throw new Error("HTTP " + res.status);
+    const data = await res.json();
+    EVENTS = (data.events || []).map(e => ({...e, _d: when(e), _i: IMPACT[e.impact] || "l"}))
+                                .filter(e => !isNaN(e._d));
+    EVENTS.sort((a,b) => a._d - b._d);
+    if(data.warning) showWarn(data.warning);
+  }catch(err){
+    showWarn("не вдалося отримати календар: " + err.message);
+    EVENTS = [];
+  }
+  build();
+}
+
+function showWarn(text){
+  const w = $("#warn");
+  w.innerHTML = "<b>Увага.</b> " + text;
+  w.hidden = false;
+}
+
+function build(){
+  if(!EVENTS.length){
+    $("#when").textContent = "немає даних";
+    $("#days").innerHTML = "";
+    $("#list").innerHTML = '<div class="empty">Подій немає.<br>' +
+      'Схоже, фід тимчасово недоступний — спробуй оновити сторінку за кілька хвилин.</div>';
+    return;
+  }
+
+  const days = [...new Set(EVENTS.map(e => key(e._d)))].sort();
+  const today = key(new Date());
+  // "all" — режим всей недели, он не входит в список дней и сбрасывать его нельзя
+  if(day !== "all" && (!day || !days.includes(day)))
+    day = days.includes(today) ? today : days[0];
+
+  const f = new Date(days[0] + "T00:00"), l = new Date(days[days.length-1] + "T00:00");
+  const fmt = d => d.getDate() + " " + ["січ","лют","бер","кві","тра","чер",
+                    "лип","сер","вер","жов","лис","гру"][d.getMonth()];
+  $("#when").textContent = fmt(f) + " — " + fmt(l) + " · " + EVENTS.length + " подій";
+
+  // дни недели плюс кнопка «весь тиждень»
+  const weekBtn = '<button class="week'+(day==="all"?" on":"")+'" data-d="all">'
+    + '<span class="wd">увесь</span><span class="dt">тиждень</span></button>';
+  $("#days").innerHTML = weekBtn + days.map(d => {
+    const dd = new Date(d + "T00:00");
+    const of = EVENTS.filter(e => key(e._d) === d);
+    const dots = ["h","m"].filter(i => of.some(e => e._i === i))
+                  .map(i => '<i class="'+i+'"></i>').join("")
+                  || (of.length ? '<i class="l"></i>' : "");
+    return '<button class="day'+(d===day?" on":"")+(d===today?" today":"")+'" data-d="'+d+'">'
+      + '<span class="wd">'+WD[dd.getDay()]+'</span>'
+      + '<span class="dt">'+dd.getDate()+'</span>'
+      + '<span class="dots">'+dots+'</span></button>';
+  }).join("");
+  document.querySelectorAll(".day, .week").forEach(b =>
+    b.onclick = () => { day = b.dataset.d; build(); });
+
+  // «увесь тиждень» — считаем и показываем по всем дням сразу
+  const ofDay = day === "all" ? EVENTS : EVENTS.filter(e => key(e._d) === day);
+
+  // фильтр важности — счётчики считаем по дню
+  const cnt = i => ofDay.filter(e => e._i === i).length;
+  $("#impactRow").innerHTML = '<span class="lab">Важливість</span>' +
+    ['<button class="chip'+(impact==="all"?" on":"")+'" data-i="all"><i class="all"></i>Усі'
+      + '<span class="n">'+ofDay.length+'</span></button>']
+    .concat(["h","m","l"].map(i =>
+      '<button class="chip'+(impact===i?" on":"")+'" data-i="'+i+'"><i class="'+i+'"></i>'
+      + IMPACT_NAME[i] + '<span class="n">'+cnt(i)+'</span></button>')).join("");
+  document.querySelectorAll("#impactRow .chip").forEach(b =>
+    b.onclick = () => { impact = b.dataset.i; build(); });
+
+  /* Валюты берём за всю неделю, а не за выбранный день: иначе список
+     прыгает при переключении дней и кажется, что валюта пропала.
+     Те, у кого сегодня событий нет, просто приглушены. */
+  const curs = [...new Set(EVENTS.map(e => e.country))].filter(c => c && c !== "All").sort();
+  const curCnt = c => ofDay.filter(e => e.country === c).length;
+  $("#curRow").innerHTML = '<span class="lab">Валюта</span>' +
+    ['<button class="chip'+(cur==="all"?" on":"")+'" data-c="all">Усі'
+      + '<span class="n">'+ofDay.length+'</span></button>']
+    .concat(curs.map(c => {
+      const n = curCnt(c);
+      return '<button class="chip'+(cur===c?" on":"")+(n?"":" off")+'" data-c="'+c+'">'
+        + c + '<span class="n">'+n+'</span></button>';
+    })).join("");
+  document.querySelectorAll("#curRow .chip").forEach(b =>
+    b.onclick = () => { cur = b.dataset.c; build(); });
+
+  render(ofDay.filter(e => (impact === "all" || e._i === impact)
+                        && (cur === "all" || e.country === cur)));
+}
+
+function render(items){
+  const list = $("#list");
+  if(!items.length){
+    list.innerHTML = '<div class="empty">За цим фільтром подій немає.</div>';
+    return;
+  }
+  const now = new Date();
+  const next = items.find(e => e._d > now);   // ближайшая ещё не минула
+
+  const row = e => {
+    const t = e._d.getHours().toString().padStart(2,"0") + ":"
+            + e._d.getMinutes().toString().padStart(2,"0");
+    return '<div class="ev '+e._i+(e._d < now ? " past" : "")+'">'
+      + '<div class="tm">'+t+'</div>'
+      + '<div class="cur">'+(e.country||"—")+'</div>'
+      + '<div class="ttl">'+esc(e.title)
+        + '<small>'+(e.impact==="Holiday" ? "вихідний" : IMPACT_NAME[e._i].toLowerCase())+'</small></div>'
+      + '<div class="num">'
+        + (e === next ? '<div class="badge">скоро</div>' : "")
+        + '<div><span>прогноз</span>'+(esc(e.forecast)||"—")+'</div>'
+        + '<div><span>було</span>'+(esc(e.previous)||"—")+'</div>'
+      + '</div></div>';
+  };
+
+  if (day !== "all"){ list.innerHTML = items.map(row).join(""); return; }
+
+  /* Весь тиждень: ставим заголовок перед каждым днём, иначе полторы сотни
+     строк подряд читаются как каша. */
+  const MON = ["січня","лютого","березня","квітня","травня","червня",
+               "липня","серпня","вересня","жовтня","листопада","грудня"];
+  let out = "", last = null;
+  for (const e of items){
+    const k = key(e._d);
+    if (k !== last){
+      last = k;
+      const d = e._d;
+      out += '<div class="dayhead"><b>' + WD[d.getDay()] + ", " + d.getDate()
+           + " " + MON[d.getMonth()] + '</b>'
+           + '<span>' + items.filter(x => key(x._d) === k).length + '</span>'
+           + '<div class="rule"></div></div>';
+    }
+    out += row(e);
+  }
+  list.innerHTML = out;
+}
+
+function esc(s){ return String(s==null?"":s)
+  .replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c])); }
+
+/* тема — как в приложении */
+const themeBtn = $("#themeBtn");
+function setTheme(t){
+  document.documentElement.setAttribute("data-theme", t);
+  themeBtn.textContent = t === "dark" ? "Світла тема" : "Темна тема";
+  try{ localStorage.setItem("tj_theme", t); }catch(e){}
+}
+themeBtn.onclick = () =>
+  setTheme(document.documentElement.getAttribute("data-theme") === "dark" ? "light" : "dark");
+let startTheme = "dark";
+try{ startTheme = localStorage.getItem("tj_theme") || "dark"; }catch(e){}
+setTheme(startTheme);
+
+load();
+</script>
+</body>
+</html>

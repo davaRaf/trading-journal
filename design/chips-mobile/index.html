@@ -1,0 +1,138 @@
+<title>Корзина на телефоне</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+/* ============================================================
+   Красный бейдж «убрать» на телефоне вышел слишком ярким: на
+   экране двадцать красных кружков, и они перебивают сами
+   подсказки. На компьютере бейдж появляется только при наведении,
+   там всё в порядке — меняем только телефон.
+
+   Ниже пять вариантов, как приглушить. Каждый — живой ряд подсказок
+   на ширину телефона: тапай по корзине, чтобы убрать, по плашке —
+   чтобы выбрать.
+   ============================================================ */
+:root{
+  --bg:#050505; --panel:#0d0d0e; --panel-2:#111112; --panel-3:#161617;
+  --line:rgba(255,255,255,.08); --line-soft:rgba(255,255,255,.045);
+  --text:#f2f2f3; --dim:#8c8c90; --faint:#5c5c61;
+  --accent:#40e094; --accent-ink:#06130d; --accent-soft:rgba(64,224,148,.12);
+  --down:#ff6e60; --down-soft:rgba(255,110,96,.14);
+  --sans:"Geist",system-ui,sans-serif;
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--text);font:14px/1.5 var(--sans);-webkit-font-smoothing:antialiased}
+h1,h2,h3{margin:0;font-weight:600}
+button{font:inherit;color:inherit;background:none;border:0;cursor:pointer}
+.wrap{max-width:1100px;margin:0 auto;padding:30px 20px 80px}
+.lead h1{font-size:22px;letter-spacing:-.02em}
+.lead p{margin:9px 0 0;color:var(--dim);max-width:70ch;font-size:13.5px}
+
+.vars{display:grid;grid-template-columns:repeat(auto-fill,minmax(340px,1fr));gap:18px;margin-top:26px}
+.card{border:1px solid var(--line);border-radius:16px;background:var(--panel);overflow:hidden}
+.card>.h{padding:12px 16px;border-bottom:1px solid var(--line-soft);display:flex;align-items:baseline;gap:10px}
+.card>.h b{font-size:14px}
+.card>.h span{color:var(--faint);font-size:12px}
+.card>.h .rec{margin-left:auto;font-size:9px;letter-spacing:.14em;text-transform:uppercase;color:var(--accent);
+  border:1px solid rgba(64,224,148,.4);border-radius:5px;padding:2px 6px}
+.phone{padding:18px 16px 14px;background:var(--bg)}
+.card .why{margin:0;padding:12px 16px 14px;color:var(--faint);font-size:12.5px;line-height:1.5;border-top:1px solid var(--line-soft)}
+
+/* ---------- ряд подсказок, как в форме на телефоне ---------- */
+.f label{display:block;font-size:12.5px;color:var(--faint);margin-bottom:9px}
+.quick{display:flex;flex-wrap:wrap;gap:7px;align-items:center}
+.chip{position:relative;display:inline-flex;align-items:center;padding:9px 15px;border:1px solid var(--line);
+  border-radius:22px;background:var(--panel-2);color:var(--dim);font-size:14px;transition:.14s}
+.chip.on{background:var(--accent);border-color:var(--accent);color:var(--accent-ink);font-weight:600}
+.more{border:1px dashed var(--line);border-radius:22px;padding:8px 14px;color:var(--faint);font-weight:600}
+.undo{border:1px dashed var(--line);border-radius:22px;padding:8px 12px;color:var(--faint);font-size:13px}
+.edit{border:1px solid var(--line);border-radius:22px;padding:8px 12px;color:var(--faint);font-size:13px}
+.edit.on{color:var(--accent);border-color:var(--accent);background:var(--accent-soft)}
+svg.tr{width:10px;height:10px}
+
+/* базовый бейдж, от которого отталкиваемся (как сейчас) */
+.bin{position:absolute;top:-7px;right:-7px;width:18px;height:18px;border-radius:50%;background:var(--down);
+  color:#fff;display:grid;place-items:center;box-shadow:0 2px 8px rgba(0,0,0,.45)}
+
+/* А: меньше и тише — 14px, полупрозрачный, без тени */
+.vA .bin{width:14px;height:14px;top:-5px;right:-5px;box-shadow:none;background:rgba(255,110,96,.62)}
+.vA .bin svg{width:8px;height:8px}
+
+/* Б: контур — прозрачный кружок с тонкой красной рамкой */
+.vB .bin{background:var(--panel);border:1px solid rgba(255,110,96,.75);color:var(--down);box-shadow:none;
+  width:16px;height:16px;top:-6px;right:-6px}
+.vB .bin svg{width:8px;height:8px}
+
+/* В: серый, краснеет только при нажатии */
+.vC .bin{background:var(--panel-3);border:1px solid var(--line);color:var(--faint);box-shadow:none;
+  width:16px;height:16px;top:-6px;right:-6px}
+.vC .bin:active{background:var(--down);border-color:var(--down);color:#fff}
+.vC .bin svg{width:8px;height:8px}
+
+/* Г: корзин нет, пока не нажал «править» */
+.vD .bin{display:none}
+.vD.editing .bin{display:grid;width:16px;height:16px;top:-6px;right:-6px;box-shadow:none;background:rgba(255,110,96,.85)}
+.vD.editing .bin svg{width:8px;height:8px}
+
+/* Д: маленькая красная точка без значка */
+.vE .bin{width:9px;height:9px;top:-3px;right:-3px;box-shadow:none;background:rgba(255,110,96,.8)}
+.vE .bin svg{display:none}
+.vE .bin::after{content:"";position:absolute;inset:-9px}   /* область тапа шире точки */
+
+.toast{padding:0 16px 12px;font-size:12.5px;color:var(--accent);min-height:30px}
+</style>
+
+<div class="wrap">
+  <div class="lead">
+    <h1>Корзина «убрать» на телефоне — тише</h1>
+    <p>Красный бейдж на телефоне оказался слишком ярким: двадцать красных кружков перебивают сами подсказки.
+      На компьютере он появляется только при наведении — там всё в порядке, меняем <b>только телефон</b>.
+      Пять вариантов ниже — каждый на ширину телефона, живой: тапай по корзине, чтобы убрать, по плашке — чтобы выбрать.</p>
+  </div>
+  <div class="vars" id="vars"></div>
+</div>
+
+<script>
+const TRASH = '<svg class="tr" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round">'
+  + '<path d="M4 7h16M10 11v6M14 11v6M6 7l1 12a2 2 0 002 2h6a2 2 0 002-2l1-12M9 7V4h6v3"/></svg>';
+const BASE = ["US100","GER40","EUR/USD","GBP/USD","ES500"];
+const V = [
+  {k:"A", name:"А · Меньше и тише", sub:"14px, полупрозрачный, без тени",
+   why:"Тот же красный кружок, но на четверть меньше, без тени и на 40% прозрачнее. Ряд читается, корзины видны, но не кричат. Самая маленькая правка."},
+  {k:"B", name:"Б · Контур", sub:"прозрачный кружок, красная рамка",
+   why:"Кружок не залит — только тонкая красная рамка и красная корзинка внутри. Заметен, когда ищешь, и почти не виден, когда не ищешь."},
+  {k:"C", name:"В · Серый, краснеет при нажатии", sub:"цвет появляется в момент тапа", rec:true,
+   why:"В покое серый кружок, как остальные элементы. Красным становится только под пальцем — в тот момент, когда это и важно. Ряд спокойный, а действие всё равно ясно."},
+  {k:"D", name:"Г · Только в режиме «править»", sub:"по умолчанию корзин нет",
+   why:"Чистый ряд без единой корзины. Рядом с «+» кнопка «править»: нажал — корзины появились, убрал лишнее — «готово». Как удаление приложений на телефоне."},
+  {k:"E", name:"Д · Красная точка", sub:"без значка, 9px",
+   why:"Совсем маленькая красная точка на углу. Тапаешь — плашка уходит. Минимально заметна, но менее очевидно, что это именно удаление."},
+];
+const st = {}; V.forEach(v => st[v.k] = {sel:"US100", hidden:[], edit:false});
+
+function row(k){
+  const s = st[k];
+  return BASE.filter(x => !s.hidden.includes(x)).map(x =>
+    '<span class="chip' + (s.sel === x ? " on" : "") + '" onclick="pick(\'' + k + "','" + x + "')\">" + x
+    + '<i class="bin" onclick="event.stopPropagation();hide(\'' + k + "','" + x + "')\">" + TRASH + "</i></span>").join("")
+    + '<button class="more">＋</button>'
+    + (k === "D" ? '<button class="edit' + (s.edit ? " on" : "") + '" onclick="st.D.edit=!st.D.edit;paint()">' + (s.edit ? "готово" : "править") + "</button>" : "")
+    + (s.hidden.length ? '<button class="undo" onclick="st[\'' + k + '\'].hidden=[];paint()">↺</button>' : "");
+}
+function paint(){
+  document.getElementById("vars").innerHTML = V.map(v =>
+    '<div class="card"><div class="h"><b>' + v.name + "</b><span>" + v.sub + "</span>" + (v.rec ? '<span class="rec">мой выбор</span>' : "") + "</div>"
+    + '<div class="phone v' + v.k + (st[v.k].edit ? " editing" : "") + '"><div class="f"><label>Инструмент <span style="color:var(--accent)">*</span></label>'
+    + '<div class="quick">' + row(v.k) + "</div></div></div>"
+    + '<div class="toast" id="t' + v.k + '"></div>'
+    + '<p class="why">' + v.why + "</p></div>").join("");
+}
+function pick(k, x){ st[k].sel = st[k].sel === x ? "" : x; paint(); }
+function hide(k, x){
+  st[k].hidden.push(x); if (st[k].sel === x) st[k].sel = ""; paint();
+  const t = document.getElementById("t" + k); t.textContent = x + " убран из подсказок · ↺ вернёт";
+  setTimeout(() => { if (t.textContent.startsWith(x)) t.textContent = ""; }, 2000);
+}
+paint();
+</script>
