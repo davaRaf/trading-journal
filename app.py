@@ -2961,6 +2961,11 @@ class H(BaseHTTPRequestHandler):
             return self._json({"ok": True, "removed": got[0]})
 
         if p == "/api/day/shot":
+            # затискання Ctrl+V сотнями — не робочий сценарій: понад 60 картинок
+            # за хвилину від однієї людини притримуємо
+            if ratelimit.check(["shot:%s" % uid], limit=60):
+                return self._json({"error": "занадто багато картинок за хвилину"}, 429)
+            ratelimit.miss(["shot:%s" % uid], limit=60)
             try:
                 name = day_store.save_shot(uid, (body or {}).get("data") or "", SHOTS)
             except ValueError as e:
@@ -3016,6 +3021,9 @@ class H(BaseHTTPRequestHandler):
             return self._json({"ok": True})
 
         if p == "/api/ts/shot":
+            if ratelimit.check(["shot:%s" % uid], limit=60):
+                return self._json({"error": "занадто багато картинок за хвилину"}, 429)
+            ratelimit.miss(["shot:%s" % uid], limit=60)
             try:
                 name = ts_store.save_shot(uid, (body or {}).get("data") or "", SHOTS)
             except ValueError as e:

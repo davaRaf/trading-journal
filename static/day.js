@@ -313,9 +313,29 @@ function removeShot(path){
   }
 }
 
+/* Межа скрінів на один список (графіки зранку, ввечері) і захист від
+   «Ctrl+V сто разів»: та сама картинка в комірку «+ таймфрейм» вдруге не
+   лягає. Хеші тримаємо на час сесії — на сервері імена файлів, картинки за
+   ними не порівняти. */
+const MAX_SHOTS = 20;
+const SEEN = new Map();   /* listPath → Set(hash) */
+function hashStr(s){
+  let h = 5381;
+  for (let i = 0; i < s.length; i += 7) h = ((h << 5) + h + s.charCodeAt(i)) | 0;
+  return h + ":" + s.length;
+}
 async function upload(el, dataUrl){
   const path = el.dataset.shot;
   armed = null;
+  if (path.endsWith(".+")){
+    const listPath = path.slice(0, -2);
+    const list = get(listPath) || [];
+    if (list.length >= MAX_SHOTS){ flashHint(el, D().shotLimit); return; }
+    const h = hashStr(dataUrl);
+    const seen = SEEN.get(listPath) || new Set();
+    if (seen.has(h)){ flashHint(el, D().shotDup); return; }
+    seen.add(h); SEEN.set(listPath, seen);
+  }
   if (demo()){
     place(path, dataUrl);
     save(); render();
@@ -925,9 +945,12 @@ document.addEventListener("paste", e => {
   if (!files.length) return;
   /* спершу той слот, який людина обрала кліком, потім той, над яким
      стоїть миша, і лише тоді перший порожній */
+  /* без обраної чи наведеної комірки — лише порожній слот наявного
+     таймфрейму; комірка «+ таймфрейм» сама по собі не береться, інакше
+     кожне Ctrl+V заводило нову */
   const el = (armed && document.querySelector('.dv-shot[data-shot="' + armed + '"]'))
     || (hotShot && document.body.contains(hotShot) ? hotShot : null)
-    || document.querySelector(".dv-shot[data-shot]:not(.has):not(.ro)");
+    || document.querySelector('.dv-shot[data-shot]:not(.has):not(.ro):not([data-shot$=".+"])');
   if (!el) return;
   e.preventDefault();
   takeFile(files[0], el);
@@ -1119,6 +1142,7 @@ uk: {
   shotArmed: "тепер Ctrl+V", tfOwn: "свій", shotOpen: "відкрити", shotReplace: "замінити скрін",
   shotHintTouch: "тап → вставити з буфера · два тапи → файл",
   shotTouchEmpty: "У буфері нема картинки. Два тапи — обрати файл.",
+  shotLimit: "Не більше 20 скрінів", shotDup: "Цей скрін уже є",
 
   autoTag: "саме", newsAuto: "Новини на сьогодні беруться з розділу «Новини»",
   tradesAuto: "Угоди підтягуються з журналу за назвою інструмента — тут їх не набирають",
@@ -1191,6 +1215,7 @@ ru: {
   shotArmed: "теперь Ctrl+V", tfOwn: "свой", shotOpen: "открыть", shotReplace: "заменить скрин",
   shotHintTouch: "тап → вставить из буфера · два тапа → файл",
   shotTouchEmpty: "В буфере нет картинки. Два тапа — выбрать файл.",
+  shotLimit: "Не больше 20 скринов", shotDup: "Этот скрин уже есть",
 
   autoTag: "само", newsAuto: "Новости на сегодня берутся из раздела «Новости»",
   tradesAuto: "Сделки подтягиваются из журнала по названию инструмента — тут их не набирают",
@@ -1263,6 +1288,7 @@ en: {
   shotArmed: "now press Ctrl+V", tfOwn: "custom", shotOpen: "open", shotReplace: "replace screenshot",
   shotHintTouch: "tap → paste from clipboard · double tap → file",
   shotTouchEmpty: "No image in the clipboard. Double tap to pick a file.",
+  shotLimit: "20 screenshots at most", shotDup: "This screenshot is already here",
 
   autoTag: "auto", newsAuto: "Today's news comes from the News section",
   tradesAuto: "Trades come from the journal, matched by instrument — no typing here",
