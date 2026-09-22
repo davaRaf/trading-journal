@@ -163,8 +163,48 @@ S = {trades: [
   {date: "2026-09-04", result: "Win", session: "Лондон"},
   {date: "2026-09-05", result: "Win", session: "Лондон"},
 ]};
-check("слово на «lo» не стає Лондоном",
-      row(against(), "окн").indexOf("4 / 5") >= 0);
+h = against();
+check("слово на «lo» не стає Лондоном", row(h, "окн").indexOf("5 / 5") < 0);
+check("незнайому назву не записуємо в порушення — просто не судимо її",
+      row(h, "окн").indexOf("4 / 4") >= 0);
+
+/* ---- «00:00» — не вхід опівночі, а угода без часу ----------------------- */
+TS = {windows: [{name: "London", time: "09:00 – 12:00"}], risk: {}};
+S = {trades: [
+  {date: "2026-05-21T00:00", result: "Win", session: "LONDON"},
+  {date: "2026-05-18T00:00", result: "Loss", session: "LONDON"},
+  {date: "2026-05-15T00:00", result: "Win", session: "LONDON"},
+  {date: "2026-09-21T11:11", result: "Win", session: "LONDON"},
+  {date: "2026-09-16T10:30", result: "Win", session: "LONDON"},
+]};
+check("угоди без часу, але зі своєю сесією — у вікні, всі пʼять",
+      row(against(), "окн").indexOf("5 / 5") >= 0);
+
+/* вікно назване по-своєму: звіряти нема з чим, судимо лише ті, де є час */
+TS = {windows: [{name: "09:00 - 12:00 killzone", time: "09:00 – 12:00"}], risk: {}};
+S = {trades: [
+  {date: "2026-05-21T00:00", result: "Win", session: "LONDON"},
+  {date: "2026-05-18T00:00", result: "Loss", session: "LONDON"},
+  {date: "2026-05-15T00:00", result: "Win", session: "LONDON"},
+  {date: "2026-09-21T11:11", result: "Win", session: "LONDON"},
+  {date: "2026-09-16T10:30", result: "Win", session: "LONDON"},
+]};
+h = against();
+check("з незнайомим вікном судимо лише дві угоди, де записано час",
+      row(h, "окн").indexOf("2 / 2") >= 0);
+check("і опівнічні в порушення не йдуть", row(h, "окн").indexOf("вне окон") < 0);
+
+/* справжній вхід о 00:00 у нічне вікно — за назвою все одно зарахуємо */
+TS = {windows: [{name: "Asia", time: "00:00 – 09:00"}], risk: {}};
+S = {trades: [
+  {date: "2026-05-21T00:00", result: "Win", session: "Азия"},
+  {date: "2026-05-18T00:00", result: "Loss", session: "Азия"},
+  {date: "2026-05-15T00:00", result: "Win", session: "Азия"},
+  {date: "2026-05-14T02:00", result: "Win", session: "Азия"},
+  {date: "2026-05-13T03:00", result: "Win", session: "Азия"},
+]};
+check("нічна сесія не постраждала: назва збіглась — усі пʼять у вікні",
+      row(against(), "окн").indexOf("5 / 5") >= 0);
 
 /* вхід справді поза вікном лишається порушенням */
 TS = {windows: [{name: "London", time: "09:00 – 12:00"}], risk: {}};
