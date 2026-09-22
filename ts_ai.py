@@ -274,7 +274,7 @@ def shape(raw, shots, tfs_all, tfs_in):
         if k or v:
             cases.append({"k": k, "v": v})
 
-    return {
+    out = {
         "assets": _strs(d.get("assets"), 20, 24),
         "corr": corr,
         "tfs": rows,
@@ -300,6 +300,171 @@ def shape(raw, shots, tfs_all, tfs_in):
         "check": _strs(d.get("check"), 15, 200),
         "extra": extra,
     }
+    # заголовок блока знає, куди він; модель у цьому не надійна
+    return _route_extra(out)
+
+
+# ------------------------------------------------------ розкладка по полях --
+#
+# Підказка в правилах — це прохання, а не гарантія: модель однаково зносила
+# цілі розділи в "extra", і людина бачила «Синхронізація», «Psychology»,
+# «Entry models» у «Додатково» (22.09.2026, скарга власника). Тому розкладаємо
+# самі, вже після відповіді: дивимось на заголовок блока й кладемо його туди,
+# де він має бути. Переносимо тільки туди, де нічого не загубиться — поле має
+# вміщати і текст, і скріни блока. Не впізнали заголовок — блок лишається в
+# "extra", і людина перекладе його руками.
+
+_ROUTE = [
+    ("ctx", ("синхрон", "розсинхрон", "рассинхрон", "synchron", "desync", "de-sync",
+             "order flow", "orderflow", "ордер флоу", "ордер-флоу", "ордерфлоу",
+             "потік ордер", "поток ордер", "контекст", "context")),
+    ("psy", ("психолог", "psychology", "дисциплін", "дисциплин", "mindset",
+             "правила голови", "правила головы")),
+    ("models", ("entry model", "моделі входу", "модели входа", "модель входу",
+                "модель входа", "як я входжу", "как я вхожу", "entry setup")),
+    ("no", ("skip", "скіп", "скип", "не входжу", "не вхожу", "не торгую")),
+    ("check", ("чек-лист", "чеклист", "чек лист", "checklist", "check list")),
+    ("manage", ("супровід", "сопровожд", "беззбит", "безубыт",
+                "break-even", "breakeven")),
+    ("corr", ("кореляц", "корреляц", "correlation", "pairs and",
+              "пари й", "пари та", "пары и")),
+]
+
+# «1. текст 2. текст» — це перелік правил, а не одне довге правило
+_NUMBERED = re.compile(r"(?:^|\s)(\d{1,2})[.)]\s+")
+
+
+def _where(title):
+    t = re.sub(r"\s+", " ", str(title or "")).strip().lower()
+    if not t:
+        return ""
+    for field, words in _ROUTE:
+        for w in words:
+            if w in t:
+                return field
+    return ""
+
+
+def _asset_key(s):
+    """Ключ для звірки назв: «EUR/USD», «eurusd», «EUR USD» — одне й те саме."""
+    return re.sub(r"[^0-9A-Za-z]", "", str(s or "")).upper()
+
+
+def _fill_corr(out, text):
+    """«(EUR/USD, GBPUSD) – DXY. GER40 – EU50» -> corr біля своїх активів.
+
+    Кореляція живе тільки поруч зі своїм активом: ключ, якого немає в
+    "assets", на сторінці не покажеться взагалі. Тому переносимо, лише
+    коли кожну пару вдалось привʼязати — інакше блок лишається в
+    «Додатково», і нічого не пропадає.
+    """
+    known = {}
+    for a in out.get("assets") or []:
+        k = _asset_key(a)
+        if k:
+            known.setdefault(k, a)
+    if not known:
+        return False
+    pairs = []
+    for part in re.split(r"[.;\n]+", str(text or "")):
+        part = part.strip(" ()")
+        if not part:
+            continue
+        bits = re.split(r"\s[-\u2013\u2014]\s", part)
+        if len(bits) != 2 or not bits[1].strip():
+            return False
+        right = bits[1].strip(" ()")[:200]
+        names = [n.strip(" ()") for n in bits[0].split(",") if n.strip(" ()")]
+        if not names:
+            return False
+        for n in names:
+            a = known.get(_asset_key(n))
+            if not a:
+                return False
+            pairs.append((a, right))
+    if not pairs:
+        return False
+    for a, with_what in pairs:
+        out["corr"].setdefault(a, with_what)
+    return True
+
+
+# «General», «Загальне», «Общее» — назва ні про що: під нею в кожного своє.
+# Тому дивимось не на заголовок, а на текст: якщо він про контекст — місце
+# блока в «Контексті». Не впізнали — лишаємо в «Додатково», не вгадуючи.
+_VAGUE = ("general", "загальне", "общее", "загальні правила", "общие правила",
+          "основне", "основное")
+
+
+def _vague_where(title, text):
+    t = re.sub(r"\s+", " ", str(title or "")).strip().lower()
+    if not any(w == t or t.startswith(w) for w in _VAGUE):
+        return ""
+    low = str(text or "").lower()
+    if "контекст" in low or "валідац" in low or "валидац" in low:
+        return "ctx"
+    return ""
+
+
+def _split_rules(text):
+    """Пронумерований перелік — на окремі правила, решта — як є."""
+    parts = _NUMBERED.split(str(text or ""))
+    if len(parts) < 5:                       # менше двох пунктів — не перелік
+        return [str(text or "").strip()]
+    out, lead = [], parts[0].strip()
+    if lead:
+        out.append(lead)
+    for i in range(1, len(parts) - 1, 2):
+        piece = parts[i + 1].strip()
+        if piece:
+            out.append(piece)
+    return out or [str(text or "").strip()]
+
+
+def _route_extra(out):
+    """Блоки «Додатково» з упізнаваним заголовком — у своє поле."""
+    rest = []
+    for b in out.get("extra") or []:
+        k, v, pics = b.get("k") or "", b.get("v") or "", b.get("shots") or []
+        field = _where(k) or _vague_where(k, v)
+
+        if field == "ctx":                    # тримає і текст, і скріни
+            out["ctx"].append({"k": k, "v": v, "shots": pics})
+            continue
+        if field == "manage":
+            out["manage"].append({"k": k, "v": v, "shots": pics})
+            continue
+        if field == "corr" and not pics and _fill_corr(out, v):
+            continue
+        if field == "models":
+            # зі скрінами — окремою карткою в моделях, щоб картинки не зникли;
+            # без скрінів це загальні правила входу над списком моделей
+            if pics:
+                out["models"].append({"name": k, "note": v, "shots": pics})
+            elif not out["modelsNote"]:
+                out["modelsNote"] = v[:1500]
+            else:
+                rest.append(b)
+            continue
+        # нижче поля скрінів не мають — блок зі скрінами лишаємо як є
+        if pics:
+            rest.append(b)
+            continue
+        if field == "psy":
+            for one in _split_rules(v):
+                out["psy"].append({"k": "", "v": one[:500]})
+            continue
+        if field == "no":
+            for one in _split_rules(v):
+                out["no"]["market"].append(one[:300])
+            continue
+        if field == "check":
+            for one in _split_rules(v):
+                out["check"].append(one[:200])
+            continue
+        rest.append(b)
+    out["extra"] = rest
+    return out
 
 
 def is_empty(d):
