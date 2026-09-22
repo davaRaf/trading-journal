@@ -588,7 +588,10 @@ textarea.ts-ask-inp{min-height:116px; resize:vertical}
   .tsv-tfs{grid-template-columns:minmax(0,1fr)}
   .tsv-tf.sh{display:grid; grid-template-columns:minmax(0,1fr) 112px; column-gap:12px; align-content:start}
   .tsv-tf.sh .tsv-tfh, .tsv-tf.sh .what{grid-column:1}
-  .tsv-tf.sh .ts-shot{grid-column:2; grid-row:1 / span 2; margin:0; height:84px}
+  /* Скрін тримаємо низом урівень з текстом: коли опис у кілька рядків,
+     квадратик висів угорі сам по собі (22.09.2026, прохання власника). */
+  .tsv-tf.sh .ts-shot{grid-column:2; grid-row:1 / span 2; margin:0; height:84px;
+    align-self:end}
   .tsv-tf.sh .ts-shot img{position:absolute; inset:0; width:100%; height:100%; object-fit:cover}
   .tsv-tf.sh .ts-shot .ph{height:100%; box-sizing:border-box; font-size:11px; gap:3px; padding:4px}
   .tsv-tf.sh .ts-shot .ph em{display:none}
