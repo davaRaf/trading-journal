@@ -1933,6 +1933,8 @@ function applyLang(code){
 
   const st = document.getElementById("settingsBtn");
   if(st){ setTip(st, T.stTip); st.setAttribute("aria-label", T.stTitle); const sp = st.querySelector("span"); if(sp) sp.textContent = T.stTitle; }
+  const sk = document.getElementById("skinBtn");
+  if(sk){ setTip(sk, T.thModalTitle); sk.setAttribute("aria-label", T.thModalTitle); }
   setText("sideMeSub", T.stProfile);
   const smb = document.getElementById("sideMeBtn"); if(smb) setTip(smb, T.stProfile);
 

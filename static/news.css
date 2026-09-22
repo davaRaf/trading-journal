@@ -171,6 +171,12 @@
 .nw-tablewrap{background:var(--card); border:1px solid var(--line); border-radius:var(--r);
   overflow-x:auto}
 .nw-tab{width:100%; border-collapse:collapse; font-size:13.5px}
+/* top саме 0, і ніяк інакше. Обгортка таблиці має overflow-x:auto — а це
+   робить її власним вікном прокрутки, тож sticky рахує top від її верху,
+   а не від краю екрана. Коли сюди вписали відступ під смугу зверху,
+   шапка відʼїхала на ту саму сотню з гаком пікселів усередину таблиці й
+   лягла поверх перших рядків (20.09.2026). Під смугу вона й не заїде:
+   по висоті обгортка не прокручується. */
 .nw-tab thead th{position:sticky; top:0; z-index:2; background:var(--panel-2);
   font-family:var(--mono); font-size:9.5px; font-weight:400; letter-spacing:.13em;
   text-transform:uppercase; color:var(--faint); text-align:left; white-space:nowrap;

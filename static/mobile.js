@@ -85,7 +85,10 @@ const MOVABLE = ["#sideMe", "#modeSwitch", ".grp", ".conn", ".side-foot", ".side
 const homes = new Map();
 function openMenu(){
   MOVABLE.forEach(sel => {
-    const el = side.querySelector(sel);
+    /* Шукаємо по всьому документу, а не в панелі: #sideMe переїхав у
+       смугу зверху, і пошук у .side його вже не знаходив би. Повертає
+       блок на місце все одно homes — за справжнім батьком. */
+    const el = document.querySelector(sel);
     if (!el) return;
     homes.set(el, {parent: el.parentNode, next: el.nextSibling});
     menu.appendChild(el);

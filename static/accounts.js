@@ -301,7 +301,8 @@ function card(a){
   const under = (kind ? '<i class="ac-kind">' + esc(kind) + "</i>" : "")
     + (sub ? (kind ? " · " : "") + esc(sub) : "");
   return '<div class="shell"><div class="core ac-card ' + st + '">'
-    + '<div class="ac-top"><div class="ac-name"><b>' + esc(a.name) + "</b>"
+    + '<div class="ac-top">' + logo(a.firm, a.name, "ac-logo")
+    + '<div class="ac-name"><b>' + esc(a.name) + "</b>"
     +   (under ? '<div class="ac-sub">' + under + "</div>" : "") + "</div>"
     + '<span class="ac-st ' + st + '">' + esc(d.status[a.status] || "") + "</span></div>"
     + head + spark(s.curve) + bars + stats + cut
@@ -373,9 +374,56 @@ function human(iso){
    поле лишається звичайним текстовим, і своє можна вписати завжди. Список
    не сортуємо за «популярністю» — просто ходові назви, щоб не набирати
    руками й не плодити «ФТМО», «ftmo» і «FTMO» в одному журналі. */
-const FIRMS = ["FTMO", "FundingPips", "FundedNext", "The5ers", "Topstep",
-  "Apex Trader Funding", "MyFundedFX", "E8 Markets", "Alpha Capital Group",
-  "Take Profit Trader", "Goat Funded Trader", "Funded Trading Plus"];
+/* Проп-фірми і їхні значки. `hint` — за чим упізнаємо фірму в назві
+   рахунку: назву збирає сама форма («FTMO Челендж 100k»), але вписати її
+   могли й руками, і поле «Фірма» при цьому лишилось порожнім. Тому
+   спершу дивимось на фірму, потім шукаємо підказку в назві.
+
+   Файли лежать у static/firms — 128px, показуємо ~36px. */
+const FIRM_LIST = [
+  {name: "FTMO", ic: "ftmo", hint: ["ftmo"]},
+  {name: "FundingPips", ic: "fundingpips", hint: ["fundingpips", "fpips"]},
+  {name: "FundedNext", ic: "fundednext", hint: ["fundednext"]},
+  {name: "The5ers", ic: "the5ers", hint: ["the5ers", "5ers"]},
+  {name: "Topstep", ic: "topstep", hint: ["topstep"]},
+  {name: "Apex Trader Funding", ic: "apex", hint: ["apextraderfunding", "apex"]},
+  {name: "MyFundedFX", ic: "myfundedfx", hint: ["myfundedfx", "mffx"]},
+  {name: "E8 Markets", ic: "e8", hint: ["e8markets", "e8funding"]},
+  {name: "Alpha Capital Group", ic: "alphacapital", hint: ["alphacapitalgroup", "alphacapital"]},
+  {name: "Take Profit Trader", ic: "takeprofittrader", hint: ["takeprofittrader", "tpt"]},
+  {name: "Goat Funded Trader", ic: "goatfundedtrader", hint: ["goatfundedtrader", "goatfunded"]},
+  {name: "Funded Trading Plus", ic: "fundedtradingplus", hint: ["fundedtradingplus"]},
+];
+const FIRMS = FIRM_LIST.map(f => f.name);
+
+/* Адреса значка з версією: файли лежать під постійними іменами, і коли
+   картинку міняють (логотипи Topstep і Take Profit Trader якось помінялись
+   місцями), без версії браузер показував би стару зі свого кешу. */
+const IC_V = 2;
+function icPath(ic){ return "/static/firms/" + ic + ".png?v=" + IC_V; }
+
+/* Тільки літери й цифри: «The 5%ers», «The5ers» і «the 5 ers» — одна фірма. */
+function firmKey(s){ return String(s == null ? "" : s).toLowerCase().replace(/[^a-z0-9]+/g, ""); }
+function iconOf(firm, name){
+  const k = firmKey(firm);
+  if (k){
+    const hit = FIRM_LIST.find(f => firmKey(f.name) === k || f.hint.indexOf(k) >= 0);
+    if (hit) return icPath(hit.ic);
+  }
+  /* Фірму не вказали — пробуємо впізнати її в назві рахунку. Найдовша
+     підказка перемагає: коротке «e8» трапилось би і всередині іншого слова. */
+  const nk = firmKey(name);
+  if (!nk) return "";
+  let best = null, len = 0;
+  for (const f of FIRM_LIST)
+    for (const h of f.hint)
+      if (h.length > len && nk.indexOf(h) >= 0){ best = f; len = h.length; }
+  return best ? icPath(best.ic) : "";
+}
+function logo(firm, name, cls){
+  const src = iconOf(firm, name);
+  return src ? '<img class="' + cls + '" src="' + esc(src) + '" alt="" loading="lazy">' : "";
+}
 
 /* Ряд підказок під полем. Значення підставляється в поле, а не замінює
    його: людина може взяти підказку й дописати до неї своє — «FTMO 100k». */
@@ -480,7 +528,8 @@ function syncName(){
 
    Поле лишається текстовим: список тільки підставляє значення, своє
    можна вписати завжди — фірм на світі більше, ніж у будь-якому списку. */
-function comboField(label, id, val, ph){
+function comboField(label, id, val, ph, o){
+  o = o || {};
   return '<div class="ac-f ac-combo">'
     + '<span>' + esc(label) + '</span>'
     /* Стан «список відкритий» тримає обгортка, бо саме вона — якір
@@ -488,21 +537,43 @@ function comboField(label, id, val, ph){
        список закривався б, щоб тут-таки відкритись знову. */
     + '<span class="ac-combo-in" role="combobox" aria-expanded="false">'
     +   '<input class="ac-in" id="' + id + '" type="text" autocomplete="off"'
+    +     (o.numeric ? ' inputmode="decimal"' : "")
     +     ' value="' + esc(val == null ? "" : val) + '"'
     +     ' placeholder="' + esc(ph || "") + '"'
-    +     ' data-combo="1">'
+    +     ' data-combo="' + (o.kind || "firm") + '">'
     +   '<button type="button" class="ac-combo-x" data-combo-open="' + id + '"'
-    +     ' aria-label="' + esc(D().pickFirm) + '">'
+    +     ' aria-label="' + esc(o.pick || D().pickFirm) + '">'
     +     '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" aria-hidden="true">'
     +     '<path d="M6 9l6 6 6-6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></button>'
     + '</span></div>';
+}
+
+/* Розміри рахунків, які дають проп-фірми: майже в кожної це 5k, 10k, 25k,
+   50k, 100k, 200k. Вибір зі списку — щоб не набирати нулі руками й не
+   помилитись на порядок. Поле лишається звичайним: своє число вписується
+   як і раніше, список нічого не забороняє. */
+const SIZES = [5000, 10000, 25000, 50000, 100000, 200000];
+/* 100000 читається як «сто тисяч» тільки по пробілах — саме число в полі
+   лишається голим, інакше його довелось би чистити перед підрахунком. */
+function grouped(n){ return String(n).replace(/\B(?=(\d{3})+$)/g, "\u2009"); }
+function openSizes(inp){
+  const now = inp.value.replace(/\s/g, "").replace(",", ".");
+  const list = SIZES.map(v => ({v: String(v), label: grouped(v)}));
+  const box = inp.closest(".ac-combo-in") || inp;
+  Pick.open(box, list, now, v => {
+    inp.value = v;
+    syncName();
+    keepDraft();
+    inp.focus();
+  });
 }
 
 function openFirms(inp){
   const d = D();
   /* Порожній рядок першим: свій депозит фірми не має, і прибрати її має
      бути так само просто, як вибрати. */
-  const list = [{v: "", label: d.noFirm}].concat(FIRMS.map(v => ({v: v, label: v})));
+  const list = [{v: "", label: d.noFirm}].concat(
+    FIRM_LIST.map(f => ({v: f.name, label: f.name, icon: icPath(f.ic)})));
   const box = inp.closest(".ac-combo-in") || inp;
   Pick.open(box, list, inp.value.trim(), v => {
     inp.value = v;
@@ -564,7 +635,9 @@ function form(a){
     +     seg("acKind", a.kind || "own",
             [["own", d.kinds.own], ["challenge", d.kinds.challenge], ["funded", d.kinds.funded]])
     +   "</div></div>"
-    + '<div class="ac-row3 ac-money">' + field(d.fStart, "acStart", a.start_balance, "100000", "number")
+    + '<div class="ac-row3 ac-money">'
+    +   comboField(d.fStart, "acStart", a.start_balance, d.phStart,
+          {kind: "size", numeric: true, pick: d.pickSize})
     +   field(d.fNow, "acNow", a.current_balance, d.phNow, "number")
     +   field(d.fCur, "acCur", a.currency || "USD", "USD") + "</div>"
     /* Назва — звʼязок з угодами, тому підказуємо тим, що вже стоїть в угодах. */
@@ -648,7 +721,9 @@ function val(id){
   return el ? el.value.trim() : "";
 }
 function num(id){
-  const v = val(id).replace(",", ".");
+  /* «10 000» з пробілом — так число пишуть руками й так воно стоїть у
+     списку розмірів; parseFloat обірвав би його на першому пробілі. */
+  const v = val(id).replace(/\s/g, "").replace(",", ".");
   if (!v) return null;
   const f = parseFloat(v);
   return isNaN(f) ? null : f;
@@ -877,7 +952,7 @@ document.addEventListener("click", e => {
   if (cb){
     const inp = cb.dataset.comboOpen
       ? document.getElementById(cb.dataset.comboOpen) : cb;
-    if (inp) openFirms(inp);
+    if (inp) (inp.dataset.combo === "size" ? openSizes : openFirms)(inp);
     return;
   }
 
@@ -945,7 +1020,7 @@ document.addEventListener("input", e => {
 });
 
 /* Гачок для перевірок: збірку назви інакше не викликати ззовні. */
-window.__accTest = {factor: factorOf, stamp: stampOld, sync: syncName, made: madeName, firms: openFirms, status: paintStatus,
+window.__accTest = {factor: factorOf, stamp: stampOld, sync: syncName, made: madeName, firms: openFirms, sizes: openSizes, status: paintStatus,
   stat: stat, total: total, free: freeName, norm: normName, spark: spark,
   accs(list){ ACCS = list; }};
 
@@ -1027,7 +1102,8 @@ uk: {
   fOpened: "Відкритий", fStatus: "Стан", fClosed: "Закритий", fReason: "Причина",
   fNote: "Нотатка",
   fNow: "Баланс зараз", phNow: "з кабінету", pickDate: "обрати дату",
-  pickFirm: "Обрати фірму", noFirm: "без фірми",
+  pickFirm: "Обрати фірму", noFirm: "без фірми", pickSize: "Обрати розмір",
+  phStart: "обрати або вписати",
   noLimit: "немає", nName: "як в угодах",
   noStartPct: "Стартовий баланс не заданий — відсотків не порахувати.",
   byJournal: "за угодами журналу:",
@@ -1067,7 +1143,8 @@ ru: {
   fOpened: "Открыт", fStatus: "Состояние", fClosed: "Закрыт", fReason: "Причина",
   fNote: "Заметка",
   fNow: "Баланс сейчас", phNow: "из кабинета", pickDate: "выбрать дату",
-  pickFirm: "Выбрать фирму", noFirm: "без фирмы",
+  pickFirm: "Выбрать фирму", noFirm: "без фирмы", pickSize: "Выбрать размер",
+  phStart: "выбрать или вписать",
   noLimit: "нет", nName: "как в сделках",
   noStartPct: "Стартовый баланс не задан — процентов не посчитать.",
   byJournal: "по сделкам журнала:",
@@ -1107,7 +1184,8 @@ en: {
   fOpened: "Opened", fStatus: "Status", fClosed: "Closed", fReason: "Reason",
   fNote: "Note",
   fNow: "Balance now", phNow: "from the dashboard", pickDate: "pick a date",
-  pickFirm: "Pick a firm", noFirm: "no firm",
+  pickFirm: "Pick a firm", noFirm: "no firm", pickSize: "Pick a size",
+  phStart: "pick or type",
   noLimit: "none", nName: "as in trades",
   noStartPct: "No starting balance — percentages cannot be counted.",
   byJournal: "by journal trades:",

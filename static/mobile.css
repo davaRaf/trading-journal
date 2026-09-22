@@ -42,7 +42,12 @@
   input:not([type="checkbox"]):not([type="radio"]),
   select, textarea{font-size:16px !important}
   .side{display:none}
-  body > .main, body > .tgn-col{margin-left:0!important}
+  /* Смуга зверху — річ широкого екрана: на телефоні те саме робить .mtop.
+     Висоту обнуляємо змінною, щоб разом із нею поїхало все, що від неї
+     рахується: відступ сторінки й липка шапка таблиці новин. */
+  :root{--tb-h:0px}
+  .topbar{display:none}
+  body > .main, body > .tgn-col{margin-left:0!important;margin-top:0!important}
   .main{padding:14px 14px 24px}
 
   /* ---- шапка ---- */
