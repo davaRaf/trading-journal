@@ -411,6 +411,23 @@ svg.chart{display:block;width:100%;height:auto}
 .panehead{display:flex;justify-content:flex-end;align-items:center;
   padding:9px 12px;border-bottom:1px solid var(--line-soft);min-height:47px}
 .jpane-cal .panehead+.cal{padding-top:12px}
+/* «Недобрав» у шапці картки журналу: лівий кут, один рядок із перемоткою
+   місяця. У стрічці KPI ця плитка з'являлась і зникала разом із місяцем —
+   сітка переносила рядок, і журнал стрибав по висоті. Тут висоту тримає
+   перемотка (min-height:47px), а плашка нижча за неї, тож нічого не рухає.
+   margin-right:auto штовхає перемотку праворуч, як це робить назва
+   журналу в бектесті (22.09.2026, прохання власника). */
+.panehead .hout, .jpane-list h3 .hout{margin-right:auto}
+.hout{display:inline-flex;align-items:center;gap:7px;max-width:100%;min-width:0;
+  font-family:var(--mono);font-size:12px;line-height:1.35;padding:5px 10px;
+  border-radius:9px;background:var(--down-soft);color:var(--down);
+  border:1px solid transparent;white-space:nowrap;overflow:hidden}
+.hout i{font-style:normal;letter-spacing:.1em;text-transform:uppercase;
+  font-size:9.5px;opacity:.85;overflow:hidden;text-overflow:ellipsis}
+.hout b{font-weight:600;font-variant-numeric:tabular-nums}
+/* у бектесті ліворуч уже стоїть назва журналу — плашка йде за нею,
+   а розпирає рядок далі вона, а не назва */
+.panehead:has(.hout) .btj-pane, .jpane-list h3:has(.hout) .btj-pane{margin-right:0}
 .jpane-list h3{padding-right:12px}
 .jpane-list h3 .hr{display:flex;align-items:center;gap:12px}
 .jpane-list h3 .hr em{font-style:normal;color:var(--faint)}
