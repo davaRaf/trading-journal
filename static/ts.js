@@ -704,9 +704,20 @@ function nWord(n, key){
   return n + " " + forms[i];
 }
 
+/* Угоди, по яких узагалі є що звіряти. Скіп — сетап, який людина свідомо
+   не взяла, «в роботі» — угода без результату. Журнал їх у статистику не
+   бере (realTrades в app.js), і звірка не має брати: інакше пропущений
+   сетап поза вікном ставав «порушенням вікна», ризик, прикинутий наперед, —
+   перевищенням ризику, а пʼять скіпів за день — перевищенням ліміту угод.
+   Рахувало по всьому підряд, і цифри в усіх рядках були чужі
+   (22.09.2026, скарга власника). */
+function realList(){
+  return (S.trades || []).filter(t => !t.hidden && !isSkip(t) && !isOpen(t));
+}
+
 function against(){
   const d = D();
-  const list = (S.trades || []).filter(t => !t.hidden);
+  const list = realList();
   if (list.length < 5) return '<div class="empty">' + esc(d.realFew) + "</div>";
 
   const rows = [];
@@ -768,8 +779,12 @@ function against(){
       over.length ? "neg" : "pos");
   }
 
-  /* назви моделей показуємо, як людина їх написала, а звіряємо в нижньому регістрі */
-  const modelNames = (TS.models || []).map(m => String((m && m.name) || "").trim()).filter(Boolean);
+  /* Назви показуємо, як людина їх написала, а звіряємо в нижньому регістрі.
+     Беремо і моделі входу, і сетапи: те саме людина пише то в один розділ,
+     то в другий, а журнал знає одне поле «модель входу». Звіряли лише з
+     моделями — і власні сетапи виходили «чужими». */
+  const modelNames = [].concat(TS.models || [], TS.setups || [])
+    .map(m => String((m && m.name) || "").trim()).filter(Boolean);
   const models = modelNames.map(n => n.toLowerCase());
   const withModel = list.filter(t => (t.entry_model || "").trim());
   if (models.length && withModel.length){
@@ -786,7 +801,24 @@ function against(){
   }
 
   /* інструменти: вхід по тому, чого немає в «Чим торгую», — теж порушення */
-  const same = v => String(v || "").toLowerCase().replace(/[^a-z0-9а-яіїєґ]/g, "");
+  const same = v => String(v || "").toLowerCase().replace(/[^a-z0-9а-яіїєґё]/g, "");
+  /* Одна й та сама сесія зветься по-різному: у ТС, стягнутій з англійської
+     сторінки Notion, вікно «London», а в журналі сесія «Лондон». Порівнювали
+     рядки як є — і всі до одної угоди виходили «поза вікном», хоча людина
+     торгувала рівно в своє вікно (22.09.2026, скарга власника). Тому зводимо
+     назву до спільного ключа. Незнайому назву лишаємо як є: два однакових
+     написання однаково збіжаться. */
+  const SES = [["london", /^(лондон|london|ldn|lo)/], ["newyork", /^(ньюйорк|ньойорк|newyork|ny)/],
+               ["asia", /^(аз[иі]|asia|asian|токио|токіо|tokyo|сидней|sydney)/],
+               ["frankfurt", /^(франкфурт|frankfurt|fra)/],
+               ["powerhour", /^(powerhour|паверхаур|силовагодина)/],
+               ["premarket", /^(premarket|премаркет|передринок)/]];
+  const sesKey = v => {
+    const s = same(v);
+    if (!s) return "";
+    for (const [key, re] of SES) if (re.test(s)) return key;
+    return s;
+  };
   const assets = (TS.assets || []).map(same).filter(Boolean);
   const withPair = list.filter(t => (t.pair || "").trim());
   if (assets.length && withPair.length){
@@ -804,20 +836,32 @@ function against(){
 
   /* торгові вікна: сесія угоди або час входу проти описаних вікон */
   const wins = (TS.windows || []).filter(w => w && (String(w.name || "").trim() || String(w.time || "").trim()));
-  const wNames = wins.map(w => same(w.name)).filter(Boolean);
+  const wNames = wins.map(w => sesKey(w.name)).filter(Boolean);
   const spans = wins.map(w => {
     const g = String(w.time || "").match(/\d{1,2}(?::\d{2})?/g) || [];
     if (g.length < 2) return null;
     const m = v => { const p = v.split(":"); return (+p[0]) * 60 + (+(p[1] || 0)); };
     return [m(g[0]), m(g[1])];
   }).filter(Boolean);
-  const inWin = t => {
-    const ses = same(t.session);
-    if (ses && wNames.length) return wNames.indexOf(ses) >= 0;
+  /* Час входу — окремо: за ним видно правду навіть тоді, коли назви
+     розходяться. */
+  const byTime = t => {
     const hhmm = String(t.date || "").slice(11, 16);
     if (!spans.length || !/^\d{2}:\d{2}$/.test(hhmm)) return null;
     const v = (+hhmm.slice(0, 2)) * 60 + (+hhmm.slice(3));
     return spans.some(s => (s[0] <= s[1] ? (v >= s[0] && v <= s[1]) : (v >= s[0] || v <= s[1])));
+  };
+  /* Назва збіглась — усе гаразд. Не збіглась — це ще не порушення: у ТС
+     вікно може зватись «London», а в журналі сесія — «Лондон» або «NY».
+     Раніше на цьому все й ламалось: назви розходились, і кожна угода
+     ставала «поза вікном». Тому дивимось на час входу, і тільки коли часу
+     немає — віримо назві. */
+  const inWin = t => {
+    const ses = sesKey(t.session);
+    if (ses && wNames.length && wNames.indexOf(ses) >= 0) return true;
+    const tm = byTime(t);
+    if (tm !== null) return tm;
+    return (ses && wNames.length) ? false : null;
   };
   if (wins.length){
     const known = list.map(inWin).filter(v => v !== null);
@@ -841,7 +885,9 @@ function tabReal(){
   /* У бектесті звірка теж має сенс — «скільки разів прогін порушив правила».
      Але з заголовка має бути видно, по чому саме рахували. */
   const bt = typeof btOn === "function" && btOn();
-  return card(d.secReal + " · " + (S.trades || []).length + " " + d.wTrades
+  /* Число в заголовку — те саме, по якому рахуємо нижче: раніше сюди
+     йшли всі угоди підряд, разом зі скіпами й тими, що в роботі. */
+  return card(d.secReal + " · " + realList().length + " " + d.wTrades
               + (bt ? " · " + T.btTsNote : ""), against());
 }
 
