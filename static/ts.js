@@ -825,12 +825,16 @@ function against(){
     ["нью", "newyork"], ["us", "newyork"],
     ["as", "asia"], ["аз", "asia"], ["fr", "frankfurt"], ["fra", "frankfurt"],
     ["фр", "frankfurt"], ["ph", "powerhour"], ["pm", "premarket"]]);
-  const sesKey = v => {
+  /* Вертаємо не лише ключ, а й чи впізнали ми сесію. Різниця важлива:
+     дві впізнані сесії можна впевнено порівняти («Лондон» проти «Азії» —
+     це справді різні вікна), а незнайому назву проти незнайомої —
+     ні, і видавати це за порушення не можна. */
+  const sesOf = v => {
     const s = same(v);
-    if (!s) return "";
-    if (SES_SHORT.has(s)) return SES_SHORT.get(s);
-    for (const [key, re] of SES) if (re.test(s)) return key;
-    return s;
+    if (!s) return {key: "", known: false};
+    if (SES_SHORT.has(s)) return {key: SES_SHORT.get(s), known: true};
+    for (const [key, re] of SES) if (re.test(s)) return {key: key, known: true};
+    return {key: s, known: false};
   };
   const assets = (TS.assets || []).map(same).filter(Boolean);
   const withPair = list.filter(t => (t.pair || "").trim());
@@ -849,7 +853,10 @@ function against(){
 
   /* торгові вікна: сесія угоди або час входу проти описаних вікон */
   const wins = (TS.windows || []).filter(w => w && (String(w.name || "").trim() || String(w.time || "").trim()));
-  const wNames = wins.map(w => sesKey(w.name)).filter(Boolean);
+  const wSes = wins.map(w => sesOf(w.name)).filter(x => x.key);
+  const wNames = wSes.map(x => x.key);
+  /* чи всі вікна названі впізнаваними сесіями */
+  const wKnown = wSes.length > 0 && wSes.every(x => x.known);
   const spans = wins.map(w => {
     const g = String(w.time || "").match(/\d{1,2}(?::\d{2})?/g) || [];
     if (g.length < 2) return null;
@@ -861,6 +868,11 @@ function against(){
   const byTime = t => {
     const hhmm = String(t.date || "").slice(11, 16);
     if (!spans.length || !/^\d{2}:\d{2}$/.test(hhmm)) return null;
+    /* «00:00» — не вхід опівночі, а угода, записана самою тільки датою:
+       так лягають перенесені з таблиці й дописані заднім числом. Рахували
+       це за справжній час — і кожна така угода виходила «поза вікном»
+       (22.09.2026, скарга власника). Часу немає — значить немає. */
+    if (hhmm === "00:00") return null;
     const v = (+hhmm.slice(0, 2)) * 60 + (+hhmm.slice(3));
     return spans.some(s => (s[0] <= s[1] ? (v >= s[0] && v <= s[1]) : (v >= s[0] || v <= s[1])));
   };
@@ -870,11 +882,17 @@ function against(){
      ставала «поза вікном». Тому дивимось на час входу, і тільки коли часу
      немає — віримо назві. */
   const inWin = t => {
-    const ses = sesKey(t.session);
-    if (ses && wNames.length && wNames.indexOf(ses) >= 0) return true;
+    const me = sesOf(t.session);
+    if (me.key && wNames.length && wNames.indexOf(me.key) >= 0) return true;
     const tm = byTime(t);
     if (tm !== null) return tm;
-    return (ses && wNames.length) ? false : null;
+    /* Назви не збіглись, часу немає. Порушенням це звемо тільки тоді, коли
+       обидві назви — впізнані сесії: тоді «Азія» проти вікна «Лондон»
+       справді розходження. А коли вікно зветься по-своєму («09:00-12:00»,
+       «Killzone»), звіряти нема з чим — така угода в рахунок не йде
+       взагалі, бо чесніше промовчати, ніж записати людині порушення. */
+    if (me.key && me.known && wKnown) return false;
+    return null;
   };
   if (wins.length){
     const known = list.map(inWin).filter(v => v !== null);
