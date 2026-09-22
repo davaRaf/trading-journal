@@ -139,7 +139,7 @@ uk: {
   fmEditTitle: "Змінити угоду", fmNewTitle: "Нова угода", fmOwnValueTip: "Своє значення",
   // чернетка форми й гортання скрінів
   dfKept: "Чернетка відновлена", dfFresh: "Почати заново",
-  snPh: "Як заходив на цьому ТФ",
+  snPh: "Як заходив на цьому ТФ", shotLimit: "Не більше 20 скрінів на угоду",
   lbPrev: "Попередній скрін", lbNext: "Наступний скрін",
   fmOwnPairPh: "свій інструмент", fmDateTime: "Дата й час", fmOwnSessionPh: "своя сесія",
   fmDirectionLabel: "Напрямок угоди", fmContextSection: "Контекст", fmBiasLabel: "Біас дня",
@@ -761,7 +761,7 @@ ru: {
   fmEditTitle: "Изменить сделку", fmNewTitle: "Новая сделка", fmOwnValueTip: "Своё значение",
   // черновик формы и листание скринов
   dfKept: "Черновик восстановлен", dfFresh: "Начать заново",
-  snPh: "Как заходил на этом ТФ",
+  snPh: "Как заходил на этом ТФ", shotLimit: "Не больше 20 скринов на сделку",
   lbPrev: "Предыдущий скрин", lbNext: "Следующий скрин",
   fmOwnPairPh: "свой инструмент", fmDateTime: "Дата и время", fmOwnSessionPh: "своя сессия",
   fmDirectionLabel: "Направление сделки", fmContextSection: "Контекст", fmBiasLabel: "Биас дня",
@@ -1371,7 +1371,7 @@ en: {
   fmEditTitle: "Edit Trade", fmNewTitle: "New Trade", fmOwnValueTip: "Custom value",
   // form draft and screenshot flipping
   dfKept: "Draft restored", dfFresh: "Start over",
-  snPh: "How you entered on this TF",
+  snPh: "How you entered on this TF", shotLimit: "20 screenshots per trade at most",
   lbPrev: "Previous screenshot", lbNext: "Next screenshot",
   fmOwnPairPh: "your instrument", fmDateTime: "Date & time", fmOwnSessionPh: "your session",
   fmDirectionLabel: "Trade direction", fmContextSection: "Context", fmBiasLabel: "Bias of the day",

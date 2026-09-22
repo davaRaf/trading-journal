@@ -1,0 +1,1066 @@
+<!doctype html>
+<html lang="uk" data-theme="dark" data-skin="night">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>StatsAI — аналіз дня</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Geist+Mono:wght@400;500&family=Geist:wght@400;500;600;700&display=swap">
+<style>
+/* ================= теми ================= */
+:root{
+  --r:14px; --r-sm:10px;
+  --sans:"Geist","Segoe UI",system-ui,sans-serif;
+  --mono:"Geist Mono","Geist",monospace;
+}
+:root[data-skin="night"]{
+  --bg:#050505; --panel:#0d0d0e; --panel-2:#111112;
+  --line:rgba(255,255,255,.08); --line-soft:rgba(255,255,255,.045);
+  --text:#f2f2f3; --dim:#8c8c90; --faint:#5c5c61;
+  --accent:#40e094; --accent-ink:#06130d;
+  --up:#40e094; --down:#ff6e60; --be:#efc258;
+}
+:root[data-skin="graphite"]{
+  --bg:#101012; --panel:#17171a; --panel-2:#1c1c20;
+  --line:rgba(255,255,255,.09); --line-soft:rgba(255,255,255,.05);
+  --text:#ececef; --dim:#96969e; --faint:#64646d;
+  --accent:#f0a13c; --accent-ink:#1a1005;
+  --up:#59c98a; --down:#ef6a5e; --be:#e0b352;
+}
+:root[data-skin="midnight"]{
+  --bg:#070b14; --panel:#0d1421; --panel-2:#111a2b;
+  --line:rgba(150,190,255,.11); --line-soft:rgba(150,190,255,.055);
+  --text:#e6edf7; --dim:#8496b0; --faint:#566579;
+  --accent:#38bdf8; --accent-ink:#04202e;
+  --up:#34d399; --down:#fb7185; --be:#fbbf24;
+}
+:root[data-skin="pine"]{
+  --bg:#06110d; --panel:#0c1a14; --panel-2:#10221a;
+  --line:rgba(160,255,210,.10); --line-soft:rgba(160,255,210,.05);
+  --text:#e7f4ec; --dim:#86a397; --faint:#5b7268;
+  --accent:#a3e635; --accent-ink:#16210a;
+  --up:#4ade80; --down:#f87171; --be:#facc15;
+}
+:root[data-skin="day"]{
+  --bg:#f2f4f8; --panel:#ffffff; --panel-2:#f6f8fb;
+  --line:#dde3ec; --line-soft:#eaeef5;
+  --text:#171b24; --dim:#5a6373; --faint:#99a2b3;
+  --accent:#2b62e3; --accent-ink:#ffffff;
+  --up:#128a53; --down:#c94430; --be:#9c7514;
+}
+:root[data-skin="paper"]{
+  --bg:#f6f2ea; --panel:#fffdf8; --panel-2:#f3eee4;
+  --line:#e3dbcc; --line-soft:#eee8dd;
+  --text:#241f18; --dim:#6b6155; --faint:#a49a8b;
+  --accent:#c2410c; --accent-ink:#fffdf8;
+  --up:#15803d; --down:#b91c1c; --be:#a16207;
+}
+:root{
+  --card:var(--panel);
+  --up-soft:color-mix(in srgb, var(--up) 13%, transparent);
+  --down-soft:color-mix(in srgb, var(--down) 13%, transparent);
+  --accent-soft:color-mix(in srgb, var(--accent) 13%, transparent);
+  --be-soft:color-mix(in srgb, var(--be) 15%, transparent);
+}
+
+*{box-sizing:border-box}
+[hidden]{display:none !important}
+body{margin:0; background:var(--bg); color:var(--text); font-family:var(--sans);
+  font-size:14px; line-height:1.5; transition:background .3s, color .3s}
+
+.skins{position:fixed; top:0; left:0; right:0; z-index:40; display:flex; align-items:center;
+  padding:9px 18px; background:var(--panel); border-bottom:1px solid var(--line-soft)}
+.skins .cap{font-family:var(--mono); font-size:9px; letter-spacing:.15em; text-transform:uppercase;
+  color:var(--faint); margin-right:12px}
+.skins button{border:0; background:transparent; color:var(--dim); font:inherit; font-size:12.5px;
+  padding:6px 13px; border-radius:99px; cursor:pointer}
+.skins button.on{background:var(--panel-2); color:var(--text); box-shadow:inset 0 0 0 1px var(--line)}
+
+.page{max-width:1080px; margin:0 auto; padding:74px 22px 90px}
+
+/* ---------- шапка дня ---------- */
+.vhead{display:flex; align-items:baseline; gap:14px; margin-bottom:6px; flex-wrap:wrap}
+.vhead h1{margin:0; font-size:27px; font-weight:650; letter-spacing:-.025em}
+.vhead .when{font-family:var(--mono); font-size:12px; color:var(--faint)}
+.vhead .asset{font-family:var(--mono); font-size:12px; padding:4px 10px; border-radius:99px;
+  background:var(--panel-2); border:1px solid var(--line); color:var(--dim)}
+.lead{font-size:13.5px; color:var(--dim); margin:0 0 18px; max-width:780px; line-height:1.6}
+.lead b{color:var(--text); font-weight:600}
+
+.tabs{display:inline-flex; padding:3px; border-radius:99px; background:var(--panel-2);
+  border:1px solid var(--line); margin-bottom:22px; flex-wrap:wrap}
+.tabs button{border:0; background:transparent; color:var(--dim); font:inherit; font-size:13px;
+  padding:8px 17px; border-radius:99px; cursor:pointer; white-space:nowrap}
+.tabs button.on{background:var(--panel); color:var(--text); box-shadow:inset 0 0 0 1px var(--line)}
+.tabs button i{font-style:normal; color:var(--faint); font-size:11.5px; margin-left:7px}
+
+.why{font-size:13px; color:var(--faint); margin:0 0 16px; max-width:760px; line-height:1.6}
+
+.card{background:var(--card); border:1px solid var(--line-soft); border-radius:var(--r);
+  padding:24px 26px; margin-bottom:16px}
+.h3{font-family:var(--mono); font-size:9px; letter-spacing:.2em; text-transform:uppercase;
+  color:var(--faint); margin:0 0 16px; display:flex; align-items:center; gap:10px}
+.h3 s{flex:1; height:1px; background:var(--line-soft); text-decoration:none}
+.h3 b{font-family:var(--sans); font-size:11px; letter-spacing:0; text-transform:none;
+  padding:2px 9px; border-radius:99px; font-weight:500}
+.h3 b.plan{background:var(--accent-soft); color:var(--accent)}
+.h3 b.fact{background:var(--panel-2); color:var(--dim)}
+
+.sub2{font-family:var(--mono); font-size:9px; letter-spacing:.18em; text-transform:uppercase;
+  color:var(--faint); margin:22px 0 10px}
+.sub2:first-child{margin-top:0}
+
+/* ---------- біас ---------- */
+.bias{display:flex; align-items:center; gap:14px}
+.bias .side{font-family:var(--mono); font-size:25px; line-height:1; letter-spacing:-.01em}
+.bias .side.up{color:var(--up)} .bias .side.down{color:var(--down)}
+.bias .tf{font-family:var(--mono); font-size:10px; letter-spacing:.12em; text-transform:uppercase;
+  color:var(--faint); padding:4px 9px; border-radius:99px; border:1px solid var(--line)}
+.say{font-size:13.5px; color:var(--dim); line-height:1.65; margin:9px 0 0}
+.say b{color:var(--text); font-weight:600}
+
+/* ---------- рівні ---------- */
+.lv{display:flex; flex-direction:column}
+.lvr{display:grid; grid-template-columns:88px 104px 1fr; gap:14px; align-items:baseline;
+  padding:10px 0; border-bottom:1px solid var(--line-soft)}
+.lvr:last-child{border-bottom:none}
+.lvr .p{font-family:var(--mono); font-size:15.5px}
+.lvr .t{font-family:var(--mono); font-size:9.5px; letter-spacing:.12em; text-transform:uppercase;
+  color:var(--faint)}
+.lvr .n{font-size:13px; color:var(--dim)}
+.lvr.up .p{color:var(--up)} .lvr.down .p{color:var(--down)}
+
+/* ---------- сценарії ---------- */
+.sc{display:flex; flex-direction:column; gap:10px}
+.scr{display:flex; gap:14px; padding:14px 16px; border-radius:var(--r-sm);
+  background:var(--panel-2); border:1px solid var(--line-soft)}
+.scr.main{border-color:color-mix(in srgb, var(--accent) 38%, transparent);
+  background:linear-gradient(180deg, var(--accent-soft), transparent 70%), var(--panel-2)}
+.scr .k{font-family:var(--mono); font-size:16px; line-height:1.35; color:var(--faint); flex:none; width:18px}
+.scr.main .k{color:var(--accent)}
+.scr .tx{font-size:13.5px; line-height:1.6; color:var(--dim)}
+.scr .tx b{color:var(--text); font-weight:600}
+.scr .rr{margin-left:auto; font-family:var(--mono); font-size:12px; color:var(--faint); flex:none;
+  white-space:nowrap}
+.scr.won{border-color:color-mix(in srgb, var(--up) 45%, transparent)}
+.tag{display:inline-block; font-family:var(--mono); font-size:9px; letter-spacing:.12em;
+  text-transform:uppercase; padding:3px 8px; border-radius:99px; margin-left:8px;
+  background:var(--up-soft); color:var(--up); vertical-align:middle}
+
+/* ---------- списки ---------- */
+.ul{margin:0; padding-left:17px; display:flex; flex-direction:column; gap:6px; color:var(--dim);
+  font-size:13.5px; line-height:1.55}
+.news{display:flex; flex-direction:column; gap:8px}
+.nw{display:flex; align-items:center; gap:12px; font-size:13.5px}
+.nw .t{font-family:var(--mono); font-size:13px; color:var(--text)}
+.nw .d{width:7px; height:7px; border-radius:50%; background:var(--down); flex:none}
+.nw .n{color:var(--dim)}
+
+/* ---------- угоди дня ---------- */
+.trs{display:flex; flex-direction:column}
+.tr{display:grid; grid-template-columns:58px 1fr auto auto; gap:13px; align-items:center;
+  padding:13px 0; border-bottom:1px solid var(--line-soft); position:relative}
+.tr:last-child{border-bottom:none}
+.tr .tm{font-family:var(--mono); font-size:13px; color:var(--faint)}
+.tr .nm{font-size:13.5px; min-width:0}
+.tr .nm i{font-style:normal; color:var(--faint); font-size:12.5px}
+.tr .nm em{font-style:normal; display:block; font-size:12px; color:var(--down); margin-top:3px}
+.tr .res{font-family:var(--mono); font-size:11px; letter-spacing:.08em; padding:3px 9px;
+  border-radius:99px; background:var(--panel-2); color:var(--dim)}
+.tr .res.tp{background:var(--up-soft); color:var(--up)}
+.tr .res.sl{background:var(--down-soft); color:var(--down)}
+.tr .r{font-family:var(--mono); font-size:15px; min-width:62px; text-align:right}
+.tr .r.pos{color:var(--up)} .tr .r.neg{color:var(--down)}
+.tr.off::before{content:""; position:absolute; left:-14px; top:9px; bottom:9px; width:2px;
+  border-radius:2px; background:var(--down)}
+
+/* ---------- висновок ---------- */
+.lesson{padding:16px 18px; border-radius:var(--r-sm); background:var(--panel-2);
+  border-left:2px solid var(--accent); font-size:14px; line-height:1.65; color:var(--dim)}
+.lesson b{color:var(--text)}
+
+/* ---------- оцінка ---------- */
+.marks{display:flex; gap:34px; flex-wrap:wrap}
+.marks .m .k{font-family:var(--mono); font-size:9.5px; letter-spacing:.14em; text-transform:uppercase;
+  color:var(--faint)}
+.marks .m .v{font-size:16.5px; margin-top:8px; display:flex; align-items:center; gap:9px}
+.marks .m .v b{font-weight:600}
+.dot{width:9px; height:9px; border-radius:50%; flex:none}
+.dot.ok{background:var(--up)} .dot.mid{background:var(--be)} .dot.no{background:var(--down)}
+
+/* ---------- слот під графік ---------- */
+.shot{position:relative; border:1px dashed var(--line); border-radius:var(--r-sm);
+  overflow:hidden; background:var(--panel-2); cursor:pointer; transition:border-color .18s}
+.shot:hover{border-color:color-mix(in srgb, var(--accent) 50%, transparent)}
+.shot.has{border-style:solid; border-color:var(--line-soft)}
+.shot img{width:100%; display:block}
+.shot .ph{display:flex; flex-direction:column; align-items:center; justify-content:center;
+  gap:7px; height:196px; color:var(--faint); font-size:13.5px; text-align:center; padding:12px}
+.shot .ph b{font-size:23px; font-weight:400; line-height:1}
+.shot .ph em{font-style:normal; font-size:11px; font-family:var(--mono); letter-spacing:.05em;
+  opacity:.75}
+.shot:hover .ph em{opacity:1}
+.shot svg{width:100%; height:auto; display:block}
+.shot .cap{position:absolute; left:0; right:0; bottom:0; display:flex; align-items:center; gap:8px;
+  padding:9px 12px; font-size:11.5px; color:#fff;
+  background:linear-gradient(to top, rgba(0,0,0,.62), transparent)}
+.shot .cap em{font-style:normal; margin-left:auto; opacity:0; font-family:var(--mono); font-size:10px}
+.shot:hover .cap em{opacity:.85}
+.shot .rm{position:absolute; top:8px; right:8px; width:22px; height:22px; border:0; border-radius:50%;
+  background:rgba(0,0,0,.55); color:#fff; font:inherit; font-size:15px; line-height:1; cursor:pointer;
+  opacity:0; transition:opacity .18s}
+.shot:hover .rm{opacity:1}
+
+/* ---------- А: розворот ----------
+   Головне тут — рядки стоять парами: ліва й права половина однієї
+   теми починаються на одній висоті. Інакше колонки з'їжджають і
+   доводиться шукати очима, що чому відповідає. */
+.sp{background:var(--card); border:1px solid var(--line-soft); border-radius:var(--r);
+  overflow:hidden}
+.sphead{display:grid; grid-template-columns:1fr 1fr; border-bottom:1px solid var(--line)}
+.sphead span{padding:15px 26px; font-family:var(--mono); font-size:10px; letter-spacing:.18em;
+  text-transform:uppercase; color:var(--faint); display:flex; align-items:center; gap:10px}
+.sphead span:first-child{border-right:1px solid var(--line-soft)}
+.sphead b{font-family:var(--sans); font-size:11px; letter-spacing:0; text-transform:none;
+  padding:2px 9px; border-radius:99px; font-weight:500}
+.sphead b.plan{background:var(--accent-soft); color:var(--accent)}
+.sphead b.fact{background:var(--panel-2); color:var(--dim)}
+.sphead i{margin-left:auto; font-style:normal; letter-spacing:.1em}
+
+.pair{display:grid; grid-template-columns:1fr 1fr; border-top:1px solid var(--line-soft)}
+.pair:first-of-type{border-top:none}
+.cell{padding:22px 26px; min-width:0}
+.cell:first-child{border-right:1px solid var(--line-soft)}
+
+/* назва пари: звичайними словами, а не дрібним капслоком */
+.pt{display:flex; align-items:baseline; gap:10px; margin:0 0 14px; font-size:15px;
+  font-weight:600; letter-spacing:-.01em; flex-wrap:wrap}
+.pt b{font-family:var(--mono); font-size:11px; font-weight:500; color:var(--faint);
+  padding:3px 7px; border-radius:6px; background:var(--panel-2); letter-spacing:.06em}
+.pt i{font-style:normal; font-size:12.5px; color:var(--faint); font-weight:400}
+
+/* що сталось із рівнями */
+.lvd{display:flex; flex-direction:column}
+.lvr2{display:grid; grid-template-columns:88px 20px 1fr; gap:14px; align-items:baseline;
+  padding:10px 0; border-bottom:1px solid var(--line-soft)}
+.lvr2:last-child{border-bottom:none}
+.lvr2 .p{font-family:var(--mono); font-size:15.5px}
+.lvr2 .p.up{color:var(--up)} .lvr2 .p.down{color:var(--down)}
+.lvr2 .n{font-size:13px; color:var(--dim)}
+.lvr2 .ic{width:18px; height:18px; border-radius:50%; align-self:center; position:relative;
+  border:1px solid var(--line); background:transparent; padding:0; cursor:pointer;
+  transition:border-color .15s}
+.lvr2 .ic:hover{border-color:var(--faint)}
+.lvr2.ok .ic, .lvr2.mid .ic, .lvr2.no .ic{border-color:transparent}
+.lvr2.ok .ic{background:var(--up-soft)}
+.lvr2.mid .ic{background:var(--be-soft)}
+.lvr2 .ic::after{content:"✓"; position:absolute; inset:0; display:flex; align-items:center;
+  justify-content:center; font-size:10px}
+.lvr2.ok .ic::after{color:var(--up)}
+.lvr2.mid .ic::after{content:"~"; color:var(--be)}
+.lvr2.no .ic{background:var(--down-soft)}
+.lvr2.no .ic::after{content:"×"; color:var(--down); font-size:12px}
+
+@media (max-width:900px){
+  .sphead{grid-template-columns:1fr}
+  .sphead span:first-child{border-right:none; border-bottom:1px solid var(--line-soft)}
+  .pair{grid-template-columns:1fr}
+  .cell:first-child{border-right:none; border-bottom:1px solid var(--line-soft)}
+}
+
+/* ---------- А: старий розворот (лишився для порівняння) ---------- */
+.spread{display:grid; grid-template-columns:1fr 1fr; background:var(--card);
+  border:1px solid var(--line-soft); border-radius:var(--r); overflow:hidden}
+.spread>div{padding:24px 26px; min-width:0}
+.spread>div:first-child{border-right:1px solid var(--line-soft)}
+.spread .row{padding:18px 0 0; margin-top:18px; border-top:1px solid var(--line-soft)}
+.spread .row.first{border-top:none; margin-top:16px; padding-top:0}
+@media (max-width:900px){
+  .spread{grid-template-columns:1fr}
+  .spread>div:first-child{border-right:none; border-bottom:1px solid var(--line)}
+}
+
+/* ---------- Б: стрічка ---------- */
+.tl{position:relative; padding-left:104px}
+.tl::before{content:""; position:absolute; left:84px; top:8px; bottom:8px; width:1px; background:var(--line)}
+.ev{position:relative; padding-bottom:26px}
+.ev:last-child{padding-bottom:0}
+.ev .tm{position:absolute; left:-104px; top:0; width:60px; text-align:right;
+  font-family:var(--mono); font-size:13px; color:var(--faint)}
+.ev .dt{position:absolute; left:-25px; top:5px; width:11px; height:11px; border-radius:50%;
+  background:var(--panel); border:2px solid var(--line)}
+.ev.plan .dt{border-color:var(--accent)}
+.ev.hit .dt{background:var(--up); border-color:var(--up)}
+.ev.bad .dt{background:var(--down); border-color:var(--down)}
+.ev .ti{font-size:15px; font-weight:600; letter-spacing:-.01em; margin-bottom:5px}
+.ev .tx{font-size:13.5px; color:var(--dim); line-height:1.65; max-width:660px}
+.ev .tx b{color:var(--text); font-weight:600}
+.badge{display:inline-block; font-family:var(--mono); font-size:9px; letter-spacing:.12em;
+  text-transform:uppercase; padding:3px 8px; border-radius:99px; margin-left:9px;
+  vertical-align:middle; background:var(--panel-2); color:var(--faint)}
+.ev.plan .badge{background:var(--accent-soft); color:var(--accent)}
+.ev.bad .badge{background:var(--down-soft); color:var(--down)}
+.ev .box{margin-top:13px; max-width:660px}
+@media (max-width:760px){
+  .tl{padding-left:32px}
+  .tl::before{left:12px}
+  .ev .tm{position:static; width:auto; text-align:left; display:block; margin-bottom:3px}
+  .ev .dt{left:-26px; top:24px}
+}
+
+/* ---------- В: графік ---------- */
+.cmp{position:relative; border-radius:var(--r); overflow:hidden; border:1px solid var(--line-soft);
+  background:var(--panel-2); user-select:none; touch-action:none; cursor:ew-resize}
+.cmp .lay{position:relative; width:100%}
+.cmp .lay svg{width:100%; height:auto; display:block}
+/* верхній шар має бути непрозорим: інакше нижній графік просвічує
+   крізь нього, і ліворуч від повзунка видно обидва одразу */
+.cmp .top{position:absolute; inset:0; background:var(--panel-2)}
+.cmp .knob{position:absolute; top:0; bottom:0; width:2px; background:var(--accent)}
+.cmp .knob::after{content:"⇄"; position:absolute; top:50%; left:50%; transform:translate(-50%,-50%);
+  width:34px; height:34px; border-radius:50%; background:var(--accent); color:var(--accent-ink);
+  display:flex; align-items:center; justify-content:center; font-size:16px}
+.cmp .tag2{position:absolute; top:12px; font-family:var(--mono); font-size:10px; letter-spacing:.12em;
+  text-transform:uppercase; padding:5px 11px; border-radius:99px; background:rgba(0,0,0,.45); color:#fff}
+.cmp .tag2.l{left:12px} .cmp .tag2.r{right:12px}
+.cols3{display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:16px; margin-top:16px}
+.cols3 .card{margin-bottom:0}
+@media (max-width:900px){ .cols3{grid-template-columns:1fr} }
+
+/* ---------- ранок: порожня форма ---------- */
+.tabs.states{margin:-8px 0 22px}
+.tabs.states .clr{color:var(--faint); font-size:12px}
+.tabs.states .clr:hover{color:var(--down)}
+
+.sp.two{display:grid; grid-template-columns:1fr 1fr}
+.sp.two .col{padding:0; min-width:0}
+.sp.two .col.left{border-right:1px solid var(--line-soft)}
+.sp.two .blk{padding:22px 26px; border-top:1px solid var(--line-soft)}
+.sp.two .blk:first-child{border-top:none}
+
+/* поле, яке заповнюють */
+.f{cursor:text; border-radius:6px; padding:2px 6px; margin:0 -6px; display:inline-block;
+  min-width:60px; transition:background .15s, box-shadow .15s}
+.f:hover{background:var(--panel-2); box-shadow:inset 0 0 0 1px var(--line-soft)}
+.f.blank{color:var(--faint)}
+.f.wide{display:block; margin:0}
+.fin{width:100%; box-sizing:border-box; background:var(--panel-2); color:var(--text);
+  border:1px solid color-mix(in srgb, var(--accent) 50%, transparent); border-radius:var(--r-sm);
+  padding:9px 11px; font:inherit; font-size:14px; line-height:1.55}
+.fin:focus{outline:none}
+textarea.fin{min-height:84px; resize:vertical}
+
+.pick{display:flex; gap:8px; flex-wrap:wrap}
+.pick button{border:1px solid var(--line); background:var(--panel-2); color:var(--dim);
+  font:inherit; font-size:14px; padding:9px 18px; border-radius:99px; cursor:pointer}
+.pick button:hover{color:var(--text)}
+.pick button.on{border-color:transparent; color:var(--accent-ink); background:var(--accent)}
+.pick button.on.down{background:var(--down)}
+.pick button.on.flat{background:var(--dim)}
+
+.addr{border:1px dashed var(--line); background:transparent; color:var(--faint); font:inherit;
+  font-size:12.5px; padding:7px 13px; border-radius:99px; cursor:pointer; margin-top:12px}
+.addr:hover{color:var(--text); border-color:var(--faint)}
+
+.auto{display:flex; align-items:center; gap:9px; font-size:12.5px; color:var(--faint);
+  margin-top:10px}
+.auto b{font-family:var(--mono); font-size:9px; letter-spacing:.14em; text-transform:uppercase;
+  padding:3px 8px; border-radius:99px; background:var(--panel-2); color:var(--dim); font-weight:500}
+
+/* права колонка, поки день не закінчився */
+.wait{position:sticky; top:74px; padding:26px}
+.wait .ttl{font-size:16px; font-weight:650; letter-spacing:-.015em; margin-bottom:8px}
+.wait .sub{font-size:13.5px; color:var(--dim); line-height:1.6; margin:0 0 18px}
+.wait ul{list-style:none; margin:0 0 20px; padding:0; display:flex; flex-direction:column; gap:13px}
+.wait li{display:flex; gap:12px; font-size:13.5px; color:var(--dim); line-height:1.5}
+.wait li span{width:20px; height:20px; border-radius:50%; flex:none; background:var(--panel-2);
+  display:flex; align-items:center; justify-content:center; font-size:10px; color:var(--faint);
+  font-family:var(--mono)}
+.wait li b{color:var(--text); font-weight:600}
+.wait .go{width:100%; border:0; border-radius:var(--r-sm); font:inherit; font-size:14.5px;
+  font-weight:600; padding:13px 18px; cursor:pointer; background:var(--accent);
+  color:var(--accent-ink)}
+.wait .go:hover{filter:brightness(1.08)}
+.wait .go[disabled]{background:var(--panel-2); color:var(--faint); cursor:default; filter:none}
+.wait .note{font-size:12px; color:var(--faint); margin:10px 0 0; text-align:center}
+
+@media (max-width:900px){
+  .sp.two{grid-template-columns:1fr}
+  .sp.two .col.left{border-right:none; border-bottom:1px solid var(--line)}
+  .wait{position:static}
+}
+
+/* ---------- смуга за місяць ---------- */
+.strip{display:flex; margin-top:22px; border:1px solid var(--line-soft); border-radius:var(--r);
+  overflow:hidden; background:var(--card); flex-wrap:wrap}
+.strip .s{flex:1; min-width:190px; padding:20px 22px; border-left:1px solid var(--line-soft)}
+.strip .s:first-child{border-left:none}
+.strip .s .k{font-family:var(--mono); font-size:9px; letter-spacing:.16em; text-transform:uppercase;
+  color:var(--faint)}
+.strip .s .v{font-family:var(--mono); font-size:26px; line-height:1; margin-top:10px}
+.strip .s .v.neg{color:var(--down)} .strip .s .v.pos{color:var(--up)}
+.strip .s .n{font-size:12.5px; color:var(--faint); margin-top:8px; line-height:1.5}
+</style>
+</head>
+<body>
+
+<div class="skins">
+  <span class="cap">Тема</span>
+  <button class="on" data-s="night">Ніч</button>
+  <button data-s="graphite">Графіт</button>
+  <button data-s="midnight">Опівніч</button>
+  <button data-s="pine">Хвоя</button>
+  <button data-s="day">День</button>
+  <button data-s="paper">Папір</button>
+</div>
+
+<div class="page">
+
+  <div class="vhead">
+    <h1>Аналіз дня</h1>
+    <span class="when">вівторок, 4 серпня 2026</span>
+    <span class="asset">US100</span>
+  </div>
+  <p class="lead">Не цифри дня, а <b>розбір</b>: що ти побачив на графіку зранку, який був план —
+    і як ринок це відпрацював. Три варіанти одного дня, дані всюди ті самі.
+    Графік можна замінити своїм скріном: клік по ньому, <b>Ctrl+V</b> або перетягни картинку.</p>
+
+  <div class="tabs" id="tabs">
+    <button class="on" data-v="a">А — розворот<i>план і факт поруч</i></button>
+    <button data-v="b">Б — стрічка<i>день по годинах</i></button>
+    <button data-v="c">В — графік<i>ранок / вечір одним рухом</i></button>
+  </div>
+
+  <div class="tabs states" id="states">
+    <button data-m="empty">Ранок · порожньо<i>нічого ще не записано</i></button>
+    <button data-m="planned">План записаний<i>день іде</i></button>
+    <button class="on" data-m="done">День закрито<i>усе заповнено</i></button>
+    <button class="clr" onclick="__day.clear()">очистити те, що я набрав</button>
+  </div>
+
+  <div id="view"></div>
+
+</div>
+
+<script>
+/* ---------- теми ---------- */
+document.querySelectorAll(".skins button").forEach(b => b.onclick = () => {
+  document.querySelectorAll(".skins button").forEach(x => x.classList.remove("on"));
+  b.classList.add("on");
+  document.documentElement.setAttribute("data-skin", b.dataset.s);
+  document.documentElement.setAttribute("data-theme",
+    ["day","paper"].includes(b.dataset.s) ? "light" : "dark");
+});
+
+/* ============================================================
+   Один день. Усі три варіанти малюються з цього ж об'єкта —
+   інакше вони розійдуться, і порівнювати буде нічого.
+   ============================================================ */
+const DAY = {
+  bias: {side: "Long", cls: "up", tf: "4H",
+    why: "Учора забрали лоу вівторка й повернулись у діапазон. Чекаю викуп до денного імбалансу — "
+       + "проти цього руху сьогодні не працюю."},
+  /* did — що з рівнем сталось насправді: без цього права колонка
+     не має чим відповісти на ліву */
+  levels: [
+    {p: "23 620", t: "Ціль",        n: "фрактал п'ятниці, туди тягну", cls: "up",
+     did: "дійшли о 11:20 — але вже без мене", dcls: "mid"},
+    {p: "23 480", t: "POI",         n: "4H імбаланс — звідси працюю",  cls: "",
+     did: "рух пішов саме звідси", dcls: "ok"},
+    {p: "23 350", t: "Ліквідність", n: "лоу азії, має бути зняте",     cls: "down",
+     did: "знято о 09:12, як і чекав", dcls: "ok"},
+  ],
+  plans: [
+    {k: "А", main: true, rr: "RR 2.4",
+     tx: "Знімають <b>лоу азії 23 350</b> → чекаю злам 15m угору → лонг від 23 380, "
+       + "стоп за структуру, ціль 23 620."},
+    {k: "Б", rr: "",
+     tx: "Відкриття вище 23 480 без зняття лоу — чекаю ретест зверху. <b>Шорт не беру</b>: проти 4H."},
+  ],
+  skip: ["До 11:00 зламу 15m немає — виходжу з-за графіка",
+         "15 хвилин навколо CPI не входжу",
+         "Другий вхід того ж дня — тільки за новим зламом, а не «щоб відігратись»"],
+  news: [{t: "15:30", n: "CPI · США"}],
+
+  fact: {
+    played: "А",
+    text: "Лоу азії зняли о <b>09:12</b>, злам 15m прийшов о <b>09:40</b> — сценарій А відпрацював "
+        + "майже за планом. Ціль 23 620 ринок дійшов о 11:20, вже без мене: вийшов раніше, на 23 560.",
+    followed: {v: "частково", cls: "mid"},
+    match:    {v: "так", cls: "ok"},
+    trades: [
+      {tm: "09:44", nm: "US100 · Long",  model: "cisd", res: "TP", cls: "tp", r: "+2.4%", rcls: "pos", plan: true},
+      {tm: "12:10", nm: "US100 · Short", model: "—",    res: "SL", cls: "sl", r: "−1.0%", rcls: "neg", plan: false,
+       why: "поза планом · після тейку хотілось ще"},
+    ],
+    lesson: "<b>Друга угода — не з графіка, а з роздратування</b>, що вийшов рано. Перша зробила день, "
+          + "друга з'їла майже половину. Правило на завтра: після ТП закриваю термінал до 15:00.",
+  },
+
+  month: {days: 28, played: 19, off: 11, cost: "−6.2%"},
+};
+
+/* ---------- графіки ----------
+   Малюємо самі, а не картинкою: так вони живуть у будь-якій темі
+   й показують саме те, що треба — план пунктиром, факт лінією. */
+const VB = "0 0 640 300";
+const LV = {target: 80, poi: 140, liq: 210};
+const WAS  = "20,140 60,155 100,130 140,165 180,150 220,180";
+const PLAN = "220,180 262,214 300,172 380,148 470,112 560,86";
+const REST = "20,140 60,155 100,130 140,165 180,150 220,180 262,214 300,171 340,178 380,150 "
+           + "420,132 460,143 500,108 540,86 580,93 620,82";
+
+/* м'яка заливка під ціною: із нею графік читається як графік, а не як схема */
+function fill(id, pts, color){
+  const first = pts.split(" ")[0].split(",")[0];
+  const last = pts.split(" ").slice(-1)[0].split(",")[0];
+  return '<defs><linearGradient id="' + id + '" x1="0" y1="0" x2="0" y2="1">'
+    + '<stop offset="0" stop-color="' + color + '" stop-opacity=".22"/>'
+    + '<stop offset="1" stop-color="' + color + '" stop-opacity="0"/></linearGradient></defs>'
+    + '<polygon points="' + first + ',300 ' + pts + " " + last + ',300" fill="url(#' + id + ')"/>';
+}
+
+function grid(){
+  let g = "";
+  for (let y = 40; y < 300; y += 52){
+    g += '<line x1="0" y1="' + y + '" x2="640" y2="' + y + '" stroke="var(--line-soft)" stroke-width="1"/>';
+  }
+  return g;
+}
+function level(y, label, color){
+  return '<line x1="0" y1="' + y + '" x2="640" y2="' + y + '" stroke="' + color
+    + '" stroke-width="1.2" stroke-dasharray="5 6" opacity=".8"/>'
+    + '<text x="632" y="' + (y - 7) + '" text-anchor="end" font-size="11" fill="' + color
+    + '" opacity=".95">' + label + "</text>";
+}
+function chartMorning(){
+  return '<svg viewBox="' + VB + '" xmlns="http://www.w3.org/2000/svg">'
+    + grid()
+    + level(LV.target, "23 620 · ціль", "var(--up)")
+    + level(LV.poi, "23 480 · POI", "var(--faint)")
+    + level(LV.liq, "23 350 · лоу азії", "var(--down)")
+    + fill("gm", WAS, "var(--text)")
+    + '<polyline points="' + WAS + '" fill="none" stroke="var(--text)" stroke-width="2.4"'
+    +   ' stroke-linejoin="round" stroke-linecap="round"/>'
+    + '<polyline points="' + PLAN + '" fill="none" stroke="var(--accent)" stroke-width="2.2"'
+    +   ' stroke-dasharray="7 7" stroke-linejoin="round" stroke-linecap="round"/>'
+    + '<circle cx="220" cy="180" r="4" fill="var(--text)"/>'
+    + '<text x="232" y="176" font-size="11" fill="var(--faint)">зараз · 08:40</text>'
+    + '<text x="286" y="242" font-size="11" fill="var(--accent)">так має піти</text>'
+    + "</svg>";
+}
+function chartEvening(){
+  return '<svg viewBox="' + VB + '" xmlns="http://www.w3.org/2000/svg">'
+    + grid()
+    + level(LV.target, "23 620 · ціль", "var(--up)")
+    + level(LV.poi, "23 480 · POI", "var(--faint)")
+    + level(LV.liq, "23 350 · лоу азії", "var(--down)")
+    + fill("ge", REST, "var(--text)")
+    + '<polyline points="' + REST + '" fill="none" stroke="var(--text)" stroke-width="2.4"'
+    +   ' stroke-linejoin="round" stroke-linecap="round"/>'
+    + '<circle cx="300" cy="171" r="5.5" fill="var(--up)"/>'
+    + '<text x="312" y="167" font-size="11" fill="var(--up)">лонг 09:44</text>'
+    + '<circle cx="420" cy="132" r="5.5" fill="var(--down)"/>'
+    /* підпис праворуч від точки: інакше повзунок «ранок / вечір» ріже його навпіл */
+    + '<text x="432" y="128" font-size="11" fill="var(--down)">шорт 12:10 · поза планом</text>'
+    + "</svg>";
+}
+
+/* ---------- слот під скрін ---------- */
+const SHOT_KEY = "dayplan_shots";
+let shots = {};
+try{ shots = JSON.parse(localStorage.getItem(SHOT_KEY) || "{}"); }catch(e){}
+let hot = null;
+
+function shot(id, cap, svg){
+  const own = shots[id];
+  const ph = '<div class="ph"><b>+</b>вставити скрін<em>клік · Ctrl+V · перетягни</em></div>';
+  return '<div class="shot' + (own ? " has" : "") + '" data-slot="' + id + '">'
+    + (own ? '<img alt="" src="' + own + '">' : (svg || ph))
+    + '<div class="cap"><span>' + cap + '</span><em>клік · Ctrl+V · перетягни</em></div>'
+    + (own ? '<button class="rm" type="button">×</button>' : "")
+    + "</div>";
+}
+
+/* ============================================================
+   Спільні шматки
+   ============================================================ */
+function biasHtml(){
+  return '<div class="bias"><span class="side ' + DAY.bias.cls + '">' + DAY.bias.side + "</span>"
+    + '<span class="tf">' + DAY.bias.tf + "</span></div>"
+    + '<p class="say">' + DAY.bias.why + "</p>";
+}
+function levelsHtml(){
+  return '<div class="lv">' + DAY.levels.map(l =>
+    '<div class="lvr ' + l.cls + '"><span class="p">' + l.p + '</span><span class="t">' + l.t
+    + '</span><span class="n">' + l.n + "</span></div>").join("") + "</div>";
+}
+function plansHtml(){
+  return '<div class="sc">' + DAY.plans.map(p =>
+    '<div class="scr' + (p.main ? " main" : "") + '"><span class="k">' + p.k + '</span>'
+    + '<span class="tx">' + p.tx + '</span><span class="rr">' + p.rr + "</span></div>").join("") + "</div>";
+}
+function tradesHtml(){
+  return '<div class="trs">' + DAY.fact.trades.map(t =>
+    '<div class="tr' + (t.plan ? "" : " off") + '"><span class="tm">' + t.tm + "</span>"
+    + '<span class="nm">' + t.nm + " <i>· " + t.model + "</i>"
+    + (t.why ? "<em>" + t.why + "</em>" : "") + "</span>"
+    + '<span class="res ' + t.cls + '">' + t.res + "</span>"
+    + '<span class="r ' + t.rcls + '">' + t.r + "</span></div>").join("") + "</div>";
+}
+function marksHtml(){
+  const f = DAY.fact;
+  return '<div class="marks">'
+    + '<div class="m"><div class="k">Ринок пішов за планом</div><div class="v">'
+    +   '<span class="dot ' + f.match.cls + '"></span><b>' + f.match.v + "</b></div></div>"
+    + '<div class="m"><div class="k">Тримався плану</div><div class="v">'
+    +   '<span class="dot ' + f.followed.cls + '"></span><b>' + f.followed.v + "</b></div></div>"
+    + "</div>";
+}
+function strip(){
+  const m = DAY.month;
+  return '<div class="strip">'
+    + '<div class="s"><div class="k">Сценарій зіграв</div><div class="v pos">' + m.played + " / " + m.days
+    +   '</div><div class="n">днів за останній місяць</div></div>'
+    + '<div class="s"><div class="k">Угод поза планом</div><div class="v">' + m.off
+    +   '</div><div class="n">взяв те, чого зранку не планував</div></div>'
+    + '<div class="s"><div class="k">Скільки вони коштували</div><div class="v neg">' + m.cost
+    +   '</div><div class="n">без них місяць був би в плюсі</div></div>'
+    + "</div>";
+}
+
+/* ============================================================
+   Що набрав сам. Поки тут порожньо — показуємо демо-день; щойно
+   людина щось написала, демо зникає й лишається тільки її текст.
+   Інакше вона не зрозуміє, де її слова, а де наші.
+   ============================================================ */
+const MY_KEY = "dayplan_my";
+let MY = {};
+try{ MY = JSON.parse(localStorage.getItem(MY_KEY) || "{}"); }catch(e){}
+let MODE = "done";          /* empty | planned | done */
+
+function mine(){ return Object.keys(MY).length > 0; }
+function keep(){ try{ localStorage.setItem(MY_KEY, JSON.stringify(MY)); }catch(e){} }
+
+function demoOf(path){
+  if (path === "skipText") return DAY.skip.join("\n");
+  return path.split(".").reduce((o, k) => (o == null ? o : o[k]), DAY);
+}
+/* side: "l" — ранкова половина, "r" — вечірня */
+function v(path, side){
+  if (MY[path] !== undefined) return MY[path];
+  if (mine()) return "";
+  if (MODE === "done") return demoOf(path) || "";
+  if (MODE === "planned" && side === "l") return demoOf(path) || "";
+  return "";
+}
+
+function fld(path, side, ph, multi, style){
+  const val = v(path, side);
+  return '<span class="f' + (val ? "" : " blank") + (multi ? " wide" : "")
+    + '" data-f="' + path + '"' + (multi ? ' data-multi="1"' : "")
+    + (style ? ' style="' + style + '"' : "") + ">"
+    + (val ? val.replace(/\n/g, "<br>") : ph) + "</span>";
+}
+
+function levelsN(){
+  const n = MY.levelsN;
+  return n ? +n : 3;
+}
+
+/* ---- ранкові поля ---- */
+function biasEd(side){
+  const cur = v("bias.side", side);
+  const b = (val, cls) => '<button class="' + (cur === val ? "on " + (cls || "") : "")
+    + '" onclick="__day.side(\'' + val + '\')">' + val + "</button>";
+  return '<div class="pick">' + b("Long") + b("Short", "down") + b("Нейтрально", "flat") + "</div>"
+    + fld("bias.why", side, "Чому саме так — одним-двома реченнями", true, "margin-top:14px");
+}
+function levelsEd(side){
+  let h = '<div class="lv">';
+  for (let i = 0; i < levelsN(); i++){
+    h += '<div class="lvr"><span class="p">' + fld("levels." + i + ".p", side, "ціна") + "</span>"
+      + '<span class="t">' + fld("levels." + i + ".t", side, "що це") + "</span>"
+      + '<span class="n">' + fld("levels." + i + ".n", side, "навіщо він мені") + "</span></div>";
+  }
+  return h + "</div>" + '<button class="addr" onclick="__day.more()">+ ще рівень</button>';
+}
+function plansEd(side){
+  return '<div class="sc">'
+    + '<div class="scr main"><span class="k">А</span><span class="tx">'
+    +   fld("plans.0.tx", side, "Якщо ринок зробить … — я зроблю …", true) + "</span></div>"
+    + '<div class="scr"><span class="k">Б</span><span class="tx">'
+    +   fld("plans.1.tx", side, "А якщо піде інакше — тоді …", true) + "</span></div>"
+    + "</div>";
+}
+function skipEd(side){
+  return fld("skipText", side, "Кожне правило з нового рядка. Наприклад: до 11:00 входу немає — виходжу з-за графіка", true)
+    + '<div class="auto"><b>саме</b>Новини на сьогодні беруться з розділу «Новини»</div>'
+    + '<div class="news" style="margin-top:10px">'
+    + DAY.news.map(n => '<div class="nw"><span class="d"></span><span class="t">' + n.t
+        + '</span><span class="n">' + n.n + "</span></div>").join("") + "</div>";
+}
+
+/* ---- вечірні поля ---- */
+/* Рядки показуємо завжди, скільки їх є ліворуч: якщо ховати порожні,
+   увечері виявляється, що написати нема куди. Кружечок — перемикач:
+   дійшло / наполовину / ні. */
+function levelsDoneEd(){
+  let h = '<div class="lvd">';
+  for (let i = 0; i < levelsN(); i++){
+    const price = v("levels." + i + ".p", "l");
+    const cls = v("levels." + i + ".dcls", "r") || "";
+    h += '<div class="lvr2 ' + cls + '"><span class="p">' + (price || "—") + "</span>"
+      + '<button class="ic" type="button" title="дійшло / наполовину / ні" onclick="__day.hit('
+      + i + ')"></button><span class="n">'
+      + fld("levels." + i + ".did", "r", "що з ним сталось") + "</span></div>";
+  }
+  return h + "</div>";
+}
+function marksEd(){
+  const one = (path, label) => {
+    const cur = v(path, "r");
+    const b = t => '<button class="' + (cur === t ? "on" : "") + '" onclick="__day.mark(\''
+      + path + "','" + t + "')\">" + t + "</button>";
+    return '<div class="m"><div class="k">' + label + '</div><div class="pick" style="margin-top:9px">'
+      + b("так") + b("частково") + b("ні") + "</div></div>";
+  };
+  return '<div class="marks">' + one("fact.match.v", "Ринок пішов за планом")
+    + one("fact.followed.v", "Тримався плану") + "</div>";
+}
+
+/* ---- А: розворот ---- */
+function levelsDone(){
+  return '<div class="lvd">' + DAY.levels.map(l =>
+    '<div class="lvr2 ' + l.dcls + '"><span class="p ' + l.cls + '">' + l.p + "</span>"
+    + '<span class="ic"></span><span class="n">' + l.did + "</span></div>").join("") + "</div>";
+}
+
+/* Пара рядків: ліворуч ранок, праворуч вечір. Номер стоїть в обох
+   половинах — око саме склеює їх у пару, і не треба гадати, що чому
+   відповідає. */
+function pair(n, lt, lsub, lbody, rt, rsub, rbody){
+  const t = (num, ti, sub) => '<div class="pt"><b>' + num + "</b>" + ti
+    + (sub ? "<i>" + sub + "</i>" : "") + "</div>";
+  return '<div class="pair">'
+    + '<div class="cell">' + t(n, lt, lsub) + lbody + "</div>"
+    + '<div class="cell">' + t(n, rt, rsub) + rbody + "</div>"
+    + "</div>";
+}
+
+function vA(){
+  return MODE === "done" ? spreadDone() : spreadMorning();
+}
+
+/* Демо-графік доречний, поки показуємо демо-день. Щойно людина
+   заповнює свій — слот має бути порожнім, інакше не зрозуміло,
+   чий це графік. */
+function demoChart(fn){ return (mine() || MODE === "empty") ? null : fn(); }
+
+/* ---------- ранок: ліворуч форма, праворуч — що буде ввечері ---------- */
+function spreadMorning(){
+  const planned = MODE === "planned" || mine();
+  return '<p class="why">Так це виглядає, поки день не закінчився. Ліворуч заповнюєш зранку, '
+    + 'права половина чекає вечора — там майже все підтягнеться саме.</p>'
+    + '<div class="sp two">'
+    +   '<div class="col left">'
+    +     '<div class="blk"><div class="pt"><b>01</b>Графік зранку<i>вставити скрін розмітки</i></div>'
+    +       shot("a-plan", "Розмітка зранку · 15M", demoChart(chartMorning)) + "</div>"
+    +     '<div class="blk"><div class="pt"><b>02</b>Куди дивишся<i>лонг чи шорт і чому</i></div>'
+    +       biasEd("l") + "</div>"
+    +     '<div class="blk"><div class="pt"><b>03</b>Рівні, які відмітив<i>ціна і що це</i></div>'
+    +       levelsEd("l") + "</div>"
+    +     '<div class="blk"><div class="pt"><b>04</b>Що плануєш робити<i>сценарії на день</i></div>'
+    +       plansEd("l") + "</div>"
+    +     '<div class="blk"><div class="pt"><b>05</b>Чого не робити<i>правила на день</i></div>'
+    +       skipEd("l") + "</div>"
+    +   "</div>"
+    +   '<div class="col right"><div class="wait">'
+    +     '<div class="ttl">Вечір · ще попереду</div>'
+    +     '<p class="sub">Повернешся сюди після торгів. Набирати руками майже нічого не доведеться:</p>'
+    +     "<ul>"
+    +       '<li><span>01</span><div>Графік увечері — <b>один скрін</b>, той самий інструмент</div></li>'
+    +       '<li><span>02</span><div>Куди ринок пішов — <b>одне речення</b> своїми словами</div></li>'
+    +       '<li><span>03</span><div>Що з рівнями сталось — <b>позначиш по кожному</b></div></li>'
+    +       '<li><span>04</span><div>Угоди дня — <b>підтягнуться з журналу самі</b></div></li>'
+    +       '<li><span>05</span><div>Чи втримався і висновок — <b>дві кнопки й рядок</b></div></li>'
+    +     "</ul>"
+    +     '<button class="go" onclick="__day.mode(\'done\')"' + (planned ? "" : " disabled") + ">"
+    +       (planned ? "Записати підсумок дня" : "Спершу запиши план") + "</button>"
+    +     '<p class="note">'
+    +       (planned ? "день закінчився — відкриється друга половина"
+                     : "кнопка ввімкнеться, коли зʼявиться план")
+    +     "</p>"
+    +   "</div></div>"
+    + "</div>" + strip();
+}
+
+/* ---------- день закрито: розворот парами ---------- */
+function spreadDone(){
+  return '<p class="why">Ліворуч — те, що написав зранку, праворуч — що з цього вийшло. '
+    + 'Рядки стоять парами й пронумеровані: <b>01</b> ліворуч завжди відповідає <b>01</b> праворуч.</p>'
+    + '<div class="sp">'
+    +   '<div class="sphead"><span>Ранок <b class="plan">план</b><i>08:40</i></span>'
+    +     '<span>Вечір <b class="fact">факт</b><i>18:00</i></span></div>'
+
+    +   pair("01", "Графік зранку", "як бачив ринок",
+            shot("a-plan", "Розмітка зранку · 15M", demoChart(chartMorning)),
+            "Той самий графік увечері", "як усе закінчилось",
+            shot("a-fact", "Кінець дня · 15M", demoChart(chartEvening)))
+
+    +   pair("02", "Куди дивився", "лонг чи шорт і чому", biasEd("l"),
+            "Куди ринок пішов", "своїми словами",
+            fld("fact.text", "r", "Що ринок зробив насправді", true))
+
+    +   pair("03", "Рівні, які відмітив", "ціна і що це", levelsEd("l"),
+            "Що з ними сталось", "по кожному рівню", levelsDoneEd())
+
+    +   pair("04", "Що планував робити", "сценарії на день", plansEd("l"),
+            "Що зробив насправді", "угоди з журналу",
+            tradesHtml() + '<div class="auto"><b>саме</b>Угоди беруться з журналу — '
+            + "тут їх не набирають</div>")
+
+    +   pair("05", "Чого не робити", "правила на день", skipEd("l"),
+            "Чи втримався", "і що з цього винести",
+            marksEd() + '<div class="lesson" style="margin-top:18px">'
+            + fld("fact.lesson", "r", "Один рядок собі на завтра", true) + "</div>")
+
+    + "</div>" + strip();
+}
+
+/* ---- Б: стрічка ---- */
+function ev(o){
+  return '<div class="ev ' + (o.cls || "") + '"><span class="tm">' + o.tm + "</span>"
+    + '<span class="dt"></span>'
+    + '<div class="ti">' + o.ti + (o.badge ? '<span class="badge">' + o.badge + "</span>" : "") + "</div>"
+    + (o.tx ? '<div class="tx">' + o.tx + "</div>" : "")
+    + (o.box ? '<div class="box">' + o.box + "</div>" : "")
+    + "</div>";
+}
+function vB(){
+  const f = DAY.fact;
+  return '<p class="why">День так, як він ішов: спершу план, далі позначки часу — '
+    + 'і видно, у яку саме хвилину все пішло не за планом.</p>'
+    + '<div class="card"><div class="tl">'
+    + ev({tm: "08:40", cls: "plan", ti: "Розмітка зранку", badge: "план",
+         tx: DAY.bias.why + "<br><b>" + DAY.bias.side + " на " + DAY.bias.tf + "</b> · рівні "
+           + DAY.levels.map(l => l.p).join(" · "),
+         box: shot("b-plan", "Розмітка зранку · 15M", chartMorning())})
+    + ev({tm: "08:45", cls: "plan", ti: "Сценарій А", badge: "основний",
+         tx: DAY.plans[0].tx + " · " + DAY.plans[0].rr,
+         box: '<div class="sc"><div class="scr"><span class="k">Б</span><span class="tx">'
+            + DAY.plans[1].tx + "</span></div></div>"})
+    + ev({tm: "09:12", cls: "hit", ti: "Лоу азії зняли",
+         tx: "23 350 пробили вниз — рівно те, чого й чекав."})
+    + ev({tm: "09:40", cls: "hit", ti: "Злам 15m угору",
+         tx: "Підтвердження прийшло. Умова входу закрита."})
+    + ev({tm: "09:44", cls: "hit", ti: "Лонг · cisd", badge: "за планом",
+         tx: "Вхід 23 380, стоп за структуру, ціль 23 620."})
+    + ev({tm: "11:20", ti: "Ціль дійшла вже без мене",
+         tx: "Вийшов на 23 560 — раніше, ніж планував.",
+         box: shot("b-fact", "Як вийшло · 15M", chartEvening())})
+    + ev({tm: "12:10", cls: "bad", ti: "Шорт", badge: "поза планом",
+         tx: "Нового зламу не було. Взяв, бо після раннього виходу хотілось ще. Стоп.",
+         box: tradesHtml()})
+    + ev({tm: "18:00", ti: "Висновок дня",
+         box: '<div class="lesson">' + f.lesson + "</div>" + '<div style="margin-top:16px">'
+            + marksHtml() + "</div>"})
+    + "</div></div>" + strip();
+}
+
+/* ---- В: графік ---- */
+function vC(){
+  const f = DAY.fact;
+  return '<p class="why">Головне тут — сам графік. Потягни повзунок: ліворуч від нього ранкова '
+    + 'розмітка з планом, праворуч — те, що ринок зробив насправді.</p>'
+    + '<div class="cmp" id="cmp">'
+    +   '<div class="lay">' + chartEvening() + "</div>"
+    +   '<div class="top" id="cmpTop"><div class="lay">' + chartMorning() + "</div></div>"
+    +   '<span class="tag2 l">ранок · план</span><span class="tag2 r">вечір · факт</span>'
+    +   '<div class="knob" id="cmpKnob"></div>'
+    + "</div>"
+    + '<div class="cols3">'
+    +   '<div class="card"><p class="h3">План <b class="plan">08:40</b><s></s></p>'
+    +     biasHtml() + '<p class="sub2">Сценарій А</p>'
+    +     '<p class="say">' + DAY.plans[0].tx + "</p>"
+    +     '<p class="sub2">Рівні</p>' + levelsHtml() + "</div>"
+    +   '<div class="card"><p class="h3">Факт <b class="fact">18:00</b><s></s></p>'
+    +     '<p class="say">' + f.text + "</p>"
+    +     '<p class="sub2">Угоди дня</p>' + tradesHtml() + "</div>"
+    +   '<div class="card"><p class="h3">Оцінка<s></s></p>' + marksHtml()
+    +     '<p class="sub2">Висновок</p><div class="lesson">' + f.lesson + "</div></div>"
+    + "</div>" + strip();
+}
+
+/* ---------- перемикання ---------- */
+const VIEWS = {a: vA, b: vB, c: vC};
+let cur = "a";
+
+function draw(){
+  document.getElementById("view").innerHTML = VIEWS[cur]();
+  if (cur === "c") mountCmp();
+}
+document.querySelectorAll("#tabs button").forEach(b => b.onclick = () => {
+  document.querySelectorAll("#tabs button").forEach(x => x.classList.remove("on"));
+  b.classList.add("on");
+  cur = b.dataset.v;
+  syncStates();
+  draw();
+});
+
+/* стан дня — тільки для розвороту: у стрічці й на графіку показуємо готовий день */
+function syncStates(){
+  const box = document.getElementById("states");
+  box.style.display = cur === "a" ? "" : "none";
+  box.querySelectorAll("button[data-m]").forEach(x => x.classList.toggle("on", x.dataset.m === MODE));
+}
+document.querySelectorAll("#states button[data-m]").forEach(b => b.onclick = () => {
+  MODE = b.dataset.m;
+  syncStates();
+  draw();
+});
+
+window.__day = {
+  mode(m){ MODE = m; syncStates(); draw(); },
+  side(val){ MY["bias.side"] = (MY["bias.side"] === val ? "" : val); keep(); draw(); },
+  mark(path, val){ MY[path] = val; keep(); draw(); },
+  more(){ MY.levelsN = levelsN() + 1; keep(); draw(); },
+  hit(i){
+    const path = "levels." + i + ".dcls";
+    const cycle = {"": "ok", ok: "mid", mid: "no", no: ""};
+    MY[path] = cycle[v(path, "r") || ""];
+    keep(); draw();
+  },
+  clear(){
+    MY = {};
+    try{ localStorage.removeItem(MY_KEY); }catch(e){}
+    draw();
+  },
+};
+
+/* правка поля на місці: клік — набрав — Enter */
+document.addEventListener("click", e => {
+  const el = e.target.closest && e.target.closest(".f[data-f]");
+  if (!el || el.querySelector("input,textarea")) return;
+  const path = el.dataset.f;
+  const multi = el.dataset.multi === "1";
+  const f = document.createElement(multi ? "textarea" : "input");
+  f.className = "fin";
+  f.value = MY[path] !== undefined ? MY[path] : (mine() ? "" : (demoOf(path) || ""));
+  el.textContent = "";
+  el.appendChild(f);
+  f.focus();
+  if (f.setSelectionRange) f.setSelectionRange(f.value.length, f.value.length);
+  let done = false;
+  const commit = ok => {
+    if (done) return;
+    done = true;
+    if (ok){ MY[path] = f.value.trim(); keep(); }
+    draw();
+  };
+  f.addEventListener("blur", () => commit(true));
+  f.addEventListener("keydown", ev => {
+    if (ev.key === "Escape") commit(false);
+    if (ev.key === "Enter" && (!multi || ev.ctrlKey || ev.metaKey)){ ev.preventDefault(); commit(true); }
+  });
+});
+
+/* повзунок «ранок / вечір» */
+function mountCmp(){
+  const box = document.getElementById("cmp");
+  const top = document.getElementById("cmpTop");
+  const knob = document.getElementById("cmpKnob");
+  if (!box) return;
+  const put = v => {
+    const x = Math.max(0, Math.min(100, v));
+    top.style.clipPath = "inset(0 " + (100 - x) + "% 0 0)";
+    knob.style.left = x + "%";
+  };
+  /* стартуємо там, де план і факт уже розходяться: ліворуч від 08:40
+     обидва графіки однакові, і порівнювати нічого */
+  put(62);
+  const move = e => {
+    const r = box.getBoundingClientRect();
+    put((e.clientX - r.left) / r.width * 100);
+  };
+  box.addEventListener("pointerdown", e => {
+    box.setPointerCapture(e.pointerId);
+    move(e);
+    box.onpointermove = move;
+  });
+  const stop = () => { box.onpointermove = null; };
+  box.addEventListener("pointerup", stop);
+  box.addEventListener("pointercancel", stop);
+}
+
+/* ---------- скріни в слоти ---------- */
+function shrink(url, cb){
+  const im = new Image();
+  im.onload = () => {
+    const k = Math.min(1, 1100 / im.width);
+    const c = document.createElement("canvas");
+    c.width = Math.round(im.width * k);
+    c.height = Math.round(im.height * k);
+    c.getContext("2d").drawImage(im, 0, 0, c.width, c.height);
+    try{ cb(c.toDataURL("image/jpeg", .85)); }catch(e){ cb(url); }
+  };
+  im.onerror = () => cb(url);
+  im.src = url;
+}
+function takeFile(file, el){
+  if (!file || !/^image\//.test(file.type)) return;
+  const fr = new FileReader();
+  fr.onload = () => shrink(fr.result, u => {
+    shots[el.dataset.slot] = u;
+    try{ localStorage.setItem(SHOT_KEY, JSON.stringify(shots)); }catch(e){}
+    draw();
+  });
+  fr.readAsDataURL(file);
+}
+
+const pick = document.createElement("input");
+pick.type = "file"; pick.accept = "image/*"; pick.style.display = "none";
+document.body.appendChild(pick);
+pick.onchange = () => { if (pick._to && pick.files[0]) takeFile(pick.files[0], pick._to); pick.value = ""; };
+
+document.addEventListener("click", e => {
+  const el = e.target.closest && e.target.closest(".shot[data-slot]");
+  if (!el) return;
+  if (e.target.closest(".rm")){
+    e.stopPropagation();
+    delete shots[el.dataset.slot];
+    try{ localStorage.setItem(SHOT_KEY, JSON.stringify(shots)); }catch(e2){}
+    draw();
+    return;
+  }
+  pick._to = el;
+  pick.click();
+});
+document.addEventListener("mouseover", e => {
+  const el = e.target.closest && e.target.closest(".shot[data-slot]");
+  if (el) hot = el;
+});
+document.addEventListener("paste", e => {
+  const files = (e.clipboardData && e.clipboardData.files) || [];
+  if (!files.length) return;
+  const el = (hot && document.body.contains(hot)) ? hot : document.querySelector(".shot[data-slot]");
+  if (!el) return;
+  e.preventDefault();
+  takeFile(files[0], el);
+});
+document.addEventListener("dragover", e => {
+  if (e.target.closest && e.target.closest(".shot[data-slot]")) e.preventDefault();
+});
+document.addEventListener("drop", e => {
+  const el = e.target.closest && e.target.closest(".shot[data-slot]");
+  if (!el) return;
+  e.preventDefault();
+  takeFile(e.dataTransfer.files[0], el);
+});
+
+syncStates();
+draw();
+</script>
+</body>
+</html>

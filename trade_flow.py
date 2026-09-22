@@ -413,6 +413,9 @@ def on_photo(user, chat_id, photos):
         return False
     lang = botlang.of(user)
     trade = draft["data"].setdefault("trade", {})
+    if len(trade.get("screenshots") or []) >= 20:
+        tg_api.send_message(chat_id, t(lang, "shotLimit"))
+        return True
     # Телеграм присилає кілька розмірів одного фото — беремо найбільший.
     best = max(photos, key=lambda p: p.get("file_size") or 0)
     try:

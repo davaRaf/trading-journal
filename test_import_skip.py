@@ -124,6 +124,52 @@ def main():
                ([t["date"][:10] for t in got], job.similar),
                (["2026-05-05", "2026-05-06"], 1))
 
+    # назва угоди — не обов'язково тікер: «Золото», «Угода 12», «Gold Buy setup A».
+    # Розділювач місяця («1 Місяць») — це рядок без дати й результату.
+    named = [row("Золото", "2026-07-01"), row("Угода 12", "2026-07-02"),
+             row("Gold Buy setup A", "2026-07-03"),
+             row("US100 - London sweep + FVG entry", "2026-07-04"),
+             row("1 Місяць", "", "", ""), row("August 2026", "", "", "")]
+    fake_source(named, "n")
+    got, job = run(named, "n")
+    ok &= case("угоди з нетікерними назвами доїжджають, розділювачі — ні",
+               (len(got), job.skipped), (4, 2))
+    ok &= case("про розділювачі є попередження",
+               any("2 рядків без дати й результату" in w for w in job.warnings), True)
+
+    # «Lose» у Notion — це збиток, а не окреме значення; «Closed» — не збиток
+    from notion_import import norm_result
+    ok &= case("Lose / Lost = Loss, Closed не чіпаємо",
+               [norm_result(v) for v in ("Lose", "lost", "Loss", "Closed")],
+               ["Loss", "Loss", "Loss", "Closed"])
+
+    # інструмент не прочитався (звʼязок не відкрився), а дата й результат є:
+    # угоду беремо, але про порожній інструмент кажемо
+    blind = [row("", "2026-08-01"), row("", "2026-08-02")]
+    fake_source(blind, "z")
+    got, job = run(blind, "z")
+    ok &= case("порожній інструмент — беремо й попереджаємо",
+               (len(got), any("не прочитався інструмент" in w for w in job.warnings)),
+               (2, True))
+
+    # звʼязок веде в таблицю, закриту від читання: назви не відкрились ні в кого.
+    # Колонка, яку людина просто не заповнила, — це інше: посилань немає зовсім.
+    link = lambda i: [["‣", [["p", i, "s"]]]]
+    sch = {"p1": {"name": "Pair", "type": "relation"},
+           "p2": {"name": "Setup", "type": "relation"},
+           "p3": {"name": "Result", "type": "select"}}
+    blk = {"b1": {"properties": {"p1": link("x1"), "p3": [["Win"]]}},
+           "b2": {"properties": {"p1": link("x2"), "p3": [["Loss"]]}}}
+    npub._REL.clear()
+    npub._REL.update({"x1": "", "x2": ""})
+    ok &= case("закрита таблиця звʼязку — видно, що саме закрито",
+               npub.closed_relations(blk, ["b1", "b2"], sch, ["Pair", "Setup", "Result"]),
+               ["Pair"])
+    npub._REL.update({"x1": "GER40"})
+    ok &= case("хоч одна назва відкрилась — не закрито",
+               npub.closed_relations(blk, ["b1", "b2"], sch, ["Pair", "Setup", "Result"]), [])
+    npub._REL.clear()
+
     print("\n" + ("усе добре" if ok else "є помилки"))
     return 0 if ok else 1
 

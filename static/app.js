@@ -2386,11 +2386,20 @@ document.addEventListener("dblclick", e => {
   pickFor(slot.dataset.tf);
 });
 function pickFor(tf){ S.activeTf=tf; renderShots(); $("#shotFile").click(); }
+const MAX_SHOTS=20;   /* скрінів на одну угоду */
 function putShot(tf,dataUrl,name){
   const i=S.formShots.findIndex(s=>s.tf===tf);
   if(i>=0) S.formShots[i]={tf,data:dataUrl,name};   // замена в занятом слоте
-  else S.formShots.push({tf,data:dataUrl,name});
+  else{
+    if(S.formShots.length>=MAX_SHOTS){ shotsHintFlash(T.shotLimit); return; }
+    S.formShots.push({tf,data:dataUrl,name});
+  }
   renderShots();
+}
+function shotsHintFlash(text){
+  const el=$("#shotsEdit .tfhint"); if(!el) return;
+  el.textContent=text;
+  setTimeout(()=>{ if(document.body.contains(el)) el.innerHTML=shotsHintHtml(); },2400);
 }
 function firstEmptyTf(){ const s=Prefs.tfs(); return s.find(tf=>!S.formShots.some(x=>x.tf===tf))||s[0]||"15m"; }
 function guessTf(name){

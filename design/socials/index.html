@@ -1,0 +1,263 @@
+<meta charset="utf-8">
+<title>Куда поставить соцсети</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&family=Geist+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+/* ============================================================
+   Instagram и TikTok в интерфейсе — четыре места.
+
+   Профили: @statsai_trading_journal (оба).
+
+   Смысл вариантов разный: A и D — «чтобы было где найти»,
+   B и C уходят к чужим людям вместе с тем, чем делятся.
+   Это макет, сервер не нужен, ссылки настоящие.
+   ============================================================ */
+:root{
+  --bg:#050505; --panel:#0d0d0e; --panel-2:#111112; --panel-3:#161617;
+  --line:rgba(255,255,255,.08); --line-soft:rgba(255,255,255,.045);
+  --text:#f2f2f3; --dim:#8c8c90; --faint:#5c5c61;
+  --accent:#40e094; --accent-ink:#06130d; --accent-soft:rgba(64,224,148,.12);
+  --up:#40e094; --down:#ff6e60; --be:#e0b840;
+  --ig:#e1568f; --tt:#25f4ee;
+  --mono:"Geist Mono",ui-monospace,monospace; --sans:"Geist",system-ui,sans-serif;
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--text);font:14px/1.5 var(--sans);-webkit-font-smoothing:antialiased}
+h1,h2,h3{margin:0;font-weight:600}
+a{color:inherit;text-decoration:none}
+button{font:inherit;color:inherit;background:none;border:0;cursor:pointer}
+.wrap{max-width:1120px;margin:0 auto;padding:34px 26px 90px}
+.lead h1{font-size:22px;letter-spacing:-.02em}
+.lead p{margin:9px 0 0;color:var(--dim);max-width:74ch;font-size:13.5px}
+.lead .who{margin-top:12px;font-family:var(--mono);font-size:12px;color:var(--faint)}
+.lead .who b{color:var(--accent);font-weight:500}
+
+.vars{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:18px;margin-top:28px}
+@media (max-width:900px){.vars{grid-template-columns:1fr}}
+.card{border:1px solid var(--line);border-radius:14px;background:var(--panel);overflow:hidden;display:flex;flex-direction:column}
+.card>.h{padding:12px 16px;border-bottom:1px solid var(--line-soft);display:flex;align-items:baseline;gap:10px}
+.card>.h b{font-size:14px}
+.card>.h span{color:var(--faint);font-size:12px}
+.card>.b{padding:18px 16px 16px;flex:1;display:flex;flex-direction:column}
+.card .why{margin:14px 0 0;color:var(--faint);font-size:12.5px;line-height:1.55}
+.card .why b{color:var(--dim);font-weight:500}
+.rec{margin-left:auto;font-family:var(--mono);font-size:9px;letter-spacing:.14em;text-transform:uppercase;
+  color:var(--accent);border:1px solid rgba(64,224,148,.4);border-radius:5px;padding:2px 6px;white-space:nowrap}
+
+/* сцена — кусок настоящего интерфейса */
+.stage{background:var(--bg);border:1px solid var(--line-soft);border-radius:11px;padding:14px;
+  display:flex;justify-content:center}
+
+/* ---------- иконки ---------- */
+.si{display:inline-grid;place-items:center;transition:.15s}
+.si svg{width:16px;height:16px;display:block}
+
+/* A: подвал меню — тихий ряд */
+.sideMock{width:206px;background:var(--panel);border:1px solid var(--line);border-radius:11px;
+  padding:12px 11px;display:flex;flex-direction:column;gap:7px}
+.sideMock .mini{display:flex;align-items:center;gap:9px;padding:7px 9px;border-radius:8px;
+  color:var(--dim);font-size:13px}
+.sideMock .mini:hover{background:var(--panel-2);color:var(--text)}
+.sideMock .mini svg{width:14px;height:14px;flex:none;opacity:.8}
+.socRow{display:flex;align-items:center;gap:6px;padding:9px 9px 2px;margin-top:3px;
+  border-top:1px solid var(--line-soft)}
+.socRow .lab{font-family:var(--mono);font-size:9px;letter-spacing:.13em;text-transform:uppercase;
+  color:var(--faint);margin-right:auto}
+.socRow .si{width:26px;height:26px;border-radius:7px;color:var(--faint);border:1px solid transparent}
+.socRow .si:hover{color:var(--text);background:var(--panel-2);border-color:var(--line)}
+.socRow .si.ig:hover{color:var(--ig)} .socRow .si.tt:hover{color:var(--tt)}
+
+/* B: подпись на картинке, которой делятся */
+.shot{width:300px;max-width:100%;background:var(--panel-2);border:1px solid var(--line);border-radius:11px;overflow:hidden}
+.shot .top{padding:14px 15px 10px}
+.shot .kick{font-family:var(--mono);font-size:8.5px;letter-spacing:.16em;text-transform:uppercase;color:var(--accent)}
+.shot .ttl{display:flex;align-items:baseline;gap:8px;margin-top:5px}
+.shot .ttl b{font-size:19px;letter-spacing:-.02em}
+.shot .ttl i{margin-left:auto;font-family:var(--mono);font-style:normal;font-size:19px;font-weight:600;color:var(--up)}
+.shot .grid{display:grid;grid-template-columns:repeat(7,1fr);gap:3px;padding:0 15px 12px}
+.shot .grid i{aspect-ratio:1;border-radius:3px;background:var(--panel-3)}
+.shot .grid i.u{background:rgba(64,224,148,.22)} .shot .grid i.d{background:rgba(255,110,96,.2)}
+.shot .grid i.b{background:rgba(224,184,64,.18)}
+.shotFoot{display:flex;align-items:center;gap:8px;padding:10px 15px;border-top:1px solid var(--line-soft);
+  background:rgba(255,255,255,.015)}
+.shotFoot .mark{font-family:var(--mono);font-size:10px;color:var(--faint);letter-spacing:.04em}
+.shotFoot .tag{margin-left:auto;display:flex;align-items:center;gap:6px;font-family:var(--mono);
+  font-size:10.5px;color:var(--dim);min-width:0;overflow-wrap:anywhere}
+.shotFoot .si{width:15px;height:15px}
+.shotFoot .si.ig{color:var(--ig)} .shotFoot .si.tt{color:var(--tt)}
+
+/* C: подвал открытого журнала */
+.pubMock{width:100%;max-width:420px}
+.pubMock .body{border:1px solid var(--line);border-radius:11px 11px 0 0;border-bottom:0;
+  background:var(--panel-2);padding:16px 16px 18px}
+.pubMock .body .t{font-size:15px;font-weight:600}
+.pubMock .body .s{color:var(--faint);font-size:12px;margin-top:3px}
+.pubMock .body .nums{display:flex;gap:18px;margin-top:14px}
+.pubMock .body .nums div{font-family:var(--mono)}
+.pubMock .body .nums span{display:block;font-size:9px;letter-spacing:.12em;text-transform:uppercase;color:var(--faint)}
+.pubMock .body .nums b{font-size:17px;font-weight:500}
+.pubFoot{border:1px solid var(--line);border-radius:0 0 11px 11px;background:var(--panel);
+  padding:13px 16px;display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.pubFoot .made{font-size:12px;color:var(--faint)}
+.pubFoot .made b{color:var(--text);font-weight:600}
+.pubFoot .socs{margin-left:auto;display:flex;gap:7px}
+.pubFoot .si{width:30px;height:30px;border-radius:8px;border:1px solid var(--line);
+  background:var(--panel-2);color:var(--dim)}
+.pubFoot .si.ig:hover{color:#fff;background:var(--ig);border-color:var(--ig)}
+.pubFoot .si.tt:hover{color:#04100f;background:var(--tt);border-color:var(--tt)}
+
+/* D: окно поддержки — соцсети рядом с контактами */
+.modMock{width:100%;max-width:400px;border:1px solid var(--line);border-radius:12px;background:var(--panel-2);overflow:hidden}
+.modMock .mh{padding:13px 16px;border-bottom:1px solid var(--line-soft);font-weight:600;font-size:14px}
+.modMock .mb{padding:14px 16px 16px;display:flex;flex-direction:column;gap:8px}
+.row{display:flex;align-items:center;gap:11px;padding:10px 12px;border:1px solid var(--line);
+  border-radius:9px;background:var(--panel);transition:.14s}
+.row:hover{border-color:var(--faint)}
+.row .si{width:30px;height:30px;border-radius:8px;background:var(--panel-3);color:var(--dim);flex:none}
+.row .tx{min-width:0}
+.row .tx b{display:block;font-size:13px;font-weight:600}
+.row .tx i{overflow-wrap:anywhere}
+.row .tx i{font-style:normal;font-size:11.5px;color:var(--faint);font-family:var(--mono)}
+.row .go{margin-left:auto;color:var(--faint);font-size:16px}
+.row.ig:hover .si{background:var(--ig);color:#fff} .row.tt:hover .si{background:var(--tt);color:#04100f}
+.sep{display:flex;align-items:center;gap:10px;margin:5px 0 1px;
+  font-family:var(--mono);font-size:9px;letter-spacing:.14em;text-transform:uppercase;color:var(--faint)}
+.sep::after{content:"";flex:1;height:1px;background:var(--line-soft)}
+
+.note{margin-top:26px;border:1px solid var(--line);border-left:2px solid var(--accent);
+  border-radius:10px;background:var(--panel);padding:15px 17px;color:var(--dim);font-size:13px;line-height:1.6}
+.note b{color:var(--text);font-weight:600}
+.note code{font-family:var(--mono);font-size:12px;color:var(--accent)}
+</style>
+
+<div class="wrap">
+
+  <div class="lead">
+    <h1>Куда поставить Instagram и TikTok</h1>
+    <p>Четыре места. Первое и последнее — чтобы человек, который уже в журнале, мог вас найти.
+       Второе и третье уходят к чужим людям вместе с тем, чем делятся, — они и приводят подписчиков.</p>
+    <div class="who">instagram.com/<b>statsai_trading_journal</b> &nbsp;·&nbsp; tiktok.com/@<b>statsai_trading_journal</b></div>
+  </div>
+
+  <div class="vars">
+
+    <!-- ================= A ================= -->
+    <section class="card">
+      <div class="h"><b>A — подвал левого меню</b><span>всегда на виду</span></div>
+      <div class="b">
+        <div class="stage">
+          <div class="sideMock">
+            <div class="mini"><svg viewBox="0 0 24 24" fill="none"><path d="M4 12a8 8 0 0116 0v5.5a2.5 2.5 0 01-2.5 2.5H13" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/><rect x="2.6" y="11" width="4.4" height="6.4" rx="2.2" stroke="currentColor" stroke-width="1.7"/><rect x="17" y="11" width="4.4" height="6.4" rx="2.2" stroke="currentColor" stroke-width="1.7"/></svg> Підтримка</div>
+            <div class="mini"><svg viewBox="0 0 24 24" fill="none"><path d="M20 7h-7M7 7H4M20 17h-3M11 17H4" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/><circle cx="10" cy="7" r="2.5" stroke="currentColor" stroke-width="1.7"/><circle cx="14" cy="17" r="2.5" stroke="currentColor" stroke-width="1.7"/></svg> Налаштування</div>
+            <div class="mini"><svg viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="8.6" stroke="currentColor" stroke-width="1.7"/><path d="M12 3.4a8.6 8.6 0 000 17.2z" fill="currentColor" opacity=".55"/></svg> Оформлення</div>
+            <div class="socRow">
+              <span class="lab">Ми тут</span>
+              <a class="si ig" href="https://www.instagram.com/statsai_trading_journal" target="_blank" rel="noopener" title="Instagram" aria-label="Instagram"><svg viewBox="0 0 24 24" fill="none"><rect x="3" y="3" width="18" height="18" rx="5" stroke="currentColor" stroke-width="1.7"/><circle cx="12" cy="12" r="4" stroke="currentColor" stroke-width="1.7"/><circle cx="17.2" cy="6.8" r="1.1" fill="currentColor"/></svg></a>
+              <a class="si tt" href="https://www.tiktok.com/@statsai_trading_journal" target="_blank" rel="noopener" title="TikTok" aria-label="TikTok"><svg viewBox="0 0 24 24" fill="none"><path d="M14 3v11.2a3.3 3.3 0 11-2.6-3.22" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/><path d="M14 3.4c.5 2.4 2.3 4 4.7 4.2" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg></a>
+            </div>
+          </div>
+        </div>
+        <p class="why"><b>Тихий ряд под кнопками меню.</b> Иконки серые, цвет бренда появляется
+          только под курсором. Места не занимает, ничего не перебивает. Минус — видят только те,
+          кто уже пользуется журналом, новых людей это не приводит.</p>
+      </div>
+    </section>
+
+    <!-- ================= B ================= -->
+    <section class="card">
+      <div class="h"><b>B — подпись на картинке месяца</b><span class="rec">советую</span></div>
+      <div class="b">
+        <div class="stage">
+          <div class="shot">
+            <div class="top">
+              <div class="kick">Підсумки місяця</div>
+              <div class="ttl"><b>Серпень 2026</b><i>+8.4%</i></div>
+            </div>
+            <div class="grid">
+              <i></i><i></i><i class="u"></i><i class="d"></i><i class="u"></i><i></i><i></i>
+              <i class="b"></i><i class="u"></i><i class="u"></i><i class="d"></i><i class="u"></i><i></i><i></i>
+              <i class="d"></i><i class="u"></i><i class="b"></i><i class="u"></i><i class="u"></i><i></i><i></i>
+            </div>
+            <div class="shotFoot">
+              <span class="mark">StatsAI</span>
+              <span class="tag">
+                <span class="si ig"><svg viewBox="0 0 24 24" fill="none"><rect x="3" y="3" width="18" height="18" rx="5" stroke="currentColor" stroke-width="1.9"/><circle cx="12" cy="12" r="4" stroke="currentColor" stroke-width="1.9"/><circle cx="17.2" cy="6.8" r="1.2" fill="currentColor"/></svg></span>
+                <span class="si tt"><svg viewBox="0 0 24 24" fill="none"><path d="M14 3v11.2a3.3 3.3 0 11-2.6-3.22" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><path d="M14 3.4c.5 2.4 2.3 4 4.7 4.2" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg></span>
+                @statsai_trading_journal
+              </span>
+            </div>
+          </div>
+        </div>
+        <p class="why"><b>Строка в подвале картинки, которую вы выкладываете в канал.</b>
+          Картинка живёт своей жизнью — её пересылают, она попадает к людям, которые про журнал
+          не слышали. Ник едет вместе с ней. Это единственный вариант, который реально приводит
+          подписчиков, и он же самый дешёвый: одна строка при отрисовке.</p>
+      </div>
+    </section>
+
+    <!-- ================= C ================= -->
+    <section class="card">
+      <div class="h"><b>C — подвал открытого журнала</b><span>ссылка, которой делятся</span></div>
+      <div class="b">
+        <div class="stage">
+          <div class="pubMock">
+            <div class="body">
+              <div class="t">Журнал трейдера</div>
+              <div class="s">Відкритий доступ · серпень 2026</div>
+              <div class="nums">
+                <div><span>Угод</span><b>34</b></div>
+                <div><span>Winrate</span><b>52%</b></div>
+                <div><span>Підсумок</span><b style="color:var(--up)">+8.4%</b></div>
+              </div>
+            </div>
+            <div class="pubFoot">
+              <span class="made">Зроблено в <b>StatsAI</b></span>
+              <span class="socs">
+                <a class="si ig" href="https://www.instagram.com/statsai_trading_journal" target="_blank" rel="noopener" aria-label="Instagram"><svg viewBox="0 0 24 24" fill="none"><rect x="3" y="3" width="18" height="18" rx="5" stroke="currentColor" stroke-width="1.7"/><circle cx="12" cy="12" r="4" stroke="currentColor" stroke-width="1.7"/><circle cx="17.2" cy="6.8" r="1.1" fill="currentColor"/></svg></a>
+                <a class="si tt" href="https://www.tiktok.com/@statsai_trading_journal" target="_blank" rel="noopener" aria-label="TikTok"><svg viewBox="0 0 24 24" fill="none"><path d="M14 3v11.2a3.3 3.3 0 11-2.6-3.22" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/><path d="M14 3.4c.5 2.4 2.3 4 4.7 4.2" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg></a>
+              </span>
+            </div>
+          </div>
+        </div>
+        <p class="why"><b>Страница открытого журнала — её открывают чужие люди по ссылке.</b>
+          Здесь уместна не только иконка, но и «Зроблено в StatsAI»: человек видит чужую
+          статистику и понимает, в чём она сделана. Работает в паре с B и по той же причине.</p>
+      </div>
+    </section>
+
+    <!-- ================= D ================= -->
+    <section class="card">
+      <div class="h"><b>D — в окне «Підтримка»</b><span>рядом с контактами</span></div>
+      <div class="b">
+        <div class="stage">
+          <div class="modMock">
+            <div class="mh">Підтримка</div>
+            <div class="mb">
+              <a class="row"><span class="si"><svg viewBox="0 0 24 24" fill="none" width="15" height="15"><rect x="3" y="5" width="18" height="14" rx="3" stroke="currentColor" stroke-width="1.7"/><path d="M3.5 7l8.5 6 8.5-6" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></svg></span><span class="tx"><b>Пошта</b><i>support@statsai.app</i></span><span class="go">→</span></a>
+              <a class="row"><span class="si"><svg viewBox="0 0 24 24" fill="none" width="15" height="15"><path d="M21 4L3 11l6 2.2L19 6.5l-7.5 8.3.4 5.2 2.6-3.6 4.2 3.1L21 4z" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/></svg></span><span class="tx"><b>Telegram</b><i>@statsai_support</i></span><span class="go">→</span></a>
+              <div class="sep">Ми в мережах</div>
+              <a class="row ig" href="https://www.instagram.com/statsai_trading_journal" target="_blank" rel="noopener"><span class="si"><svg viewBox="0 0 24 24" fill="none" width="15" height="15"><rect x="3" y="3" width="18" height="18" rx="5" stroke="currentColor" stroke-width="1.7"/><circle cx="12" cy="12" r="4" stroke="currentColor" stroke-width="1.7"/><circle cx="17.2" cy="6.8" r="1.1" fill="currentColor"/></svg></span><span class="tx"><b>Instagram</b><i>@statsai_trading_journal</i></span><span class="go">→</span></a>
+              <a class="row tt" href="https://www.tiktok.com/@statsai_trading_journal" target="_blank" rel="noopener"><span class="si"><svg viewBox="0 0 24 24" fill="none" width="15" height="15"><path d="M14 3v11.2a3.3 3.3 0 11-2.6-3.22" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/><path d="M14 3.4c.5 2.4 2.3 4 4.7 4.2" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg></span><span class="tx"><b>TikTok</b><i>@statsai_trading_journal</i></span><span class="go">→</span></a>
+            </div>
+          </div>
+        </div>
+        <p class="why"><b>Окно уже есть, и в нём уже лежат контакты.</b> Соцсети встают отдельной
+          группой под ними — новых кнопок в интерфейсе не появляется вообще. Минус тот же,
+          что у A: сюда заходят редко и только свои.</p>
+      </div>
+    </section>
+
+  </div>
+
+  <div class="note">
+    <b>Если брать одно — берите B.</b> Остальные три показывают соцсети тем, кто уже внутри;
+    подпись на картинке — единственная, которая выходит наружу.<br><br>
+    <b>Разумный минимум:</b> B + A. Картинка приводит людей, ряд в меню даёт им же способ
+    подписаться, не выходя из журнала. C добавить, когда открытым журналом начнут делиться заметно.<br><br>
+    Ссылки в макете живые, кликаются. Иконки нарисованы контуром в одном стиле с остальным
+    интерфейсом — фирменные цвета появляются только на наведении, чтобы не спорить с зелёным
+    акцентом журнала.
+  </div>
+
+</div>

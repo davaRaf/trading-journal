@@ -1543,6 +1543,17 @@ class H(BaseHTTPRequestHandler):
                 last = conn.execute("""SELECT u.nickname, u.created_at, coalesce(u.ref_source,'') AS ref,
                                               (SELECT count(*) FROM trades t WHERE t.user_id=u.id) AS trades
                                        FROM users u ORDER BY u.created_at DESC LIMIT 20""").fetchall()
+                # пошук людини за ніком або поштою: частина рядка, без регістру
+                query = urllib.parse.parse_qs(urlparse(self.path).query).get("q", [""])[0].strip()
+                found = []
+                if query:
+                    like = "%" + query.lower() + "%"
+                    found = conn.execute("""SELECT u.nickname, coalesce(u.email,'') AS email, u.created_at,
+                                                   coalesce(u.ref_source,'') AS ref,
+                                                   (SELECT count(*) FROM trades t WHERE t.user_id=u.id) AS trades
+                                            FROM users u
+                                            WHERE lower(u.nickname) LIKE %s OR lower(coalesce(u.email,'')) LIKE %s
+                                            ORDER BY u.created_at DESC LIMIT 30""", (like, like)).fetchall()
             e = lambda x: str(x).replace("&","&amp;").replace("<","&lt;")
             row = lambda k, v: "<tr><td>%s</td><td><b>%s</b></td></tr>" % (e(k), e(v))
             html = ("<!doctype html><html lang=ru><meta charset=utf-8>"
@@ -1552,8 +1563,21 @@ class H(BaseHTTPRequestHandler):
                     "margin:0;padding:20px;max-width:640px}h1{font-size:18px;margin:0 0 16px}h2{font-size:12px;"
                     "letter-spacing:.12em;text-transform:uppercase;color:#8a8a90;margin:22px 0 8px}table{width:100%;"
                     "border-collapse:collapse}td{padding:7px 0;border-top:1px solid #222}td+td{text-align:right}"
-                    "small{color:#8a8a90}</style>"
+                    "small{color:#8a8a90}a{color:#40e094}"
+                    "form{display:flex;gap:8px;margin:0 0 6px}input{flex:1;font:inherit;padding:9px 12px;border-radius:9px;"
+                    "border:1px solid #2a2a2e;background:#141416;color:#eee}button{font:inherit;padding:9px 14px;"
+                    "border-radius:9px;border:1px solid #2a2a2e;background:#1b1b1e;color:#eee;cursor:pointer}</style>"
                     "<h1>StatsAI · цифры <small>" + e(datetime.datetime.now().strftime("%d.%m.%Y %H:%M")) + "</small></h1>"
+                    "<h2>Найти человека</h2>"
+                    "<form method=get action='/admin'><input name=q placeholder='Ник или почта' value='"
+                    + e(query).replace("'", "&#39;") + "' autofocus><button>Найти</button></form>"
+                    + (("<table>" + "".join(
+                        "<tr><td><a href='/admin/u/%s'>%s</a> <small>%s · %s%s</small></td><td>%s сд.</td></tr>" % (
+                            e(r["nickname"]), e(r["nickname"]), e(r["email"]) or "без почты",
+                            r["created_at"].strftime("%d.%m.%Y"), (" · " + e(r["ref"])) if r["ref"] else "",
+                            r["trades"]) for r in found) + "</table>")
+                       if found else ("<p><small>Никого не нашёл по «%s».</small></p>" % e(query) if query else ""))
+                    + 
                     "<h2>Аккаунты</h2><table>"
                     + row("Всего", u["n"]) + row("За 7 дней", u["d7"]) + row("За 30 дней", u["d30"])
                     + row("С Telegram", u["tg"]) + row("С подтверждённой почтой", u["mail"]) + "</table>"
@@ -2937,6 +2961,11 @@ class H(BaseHTTPRequestHandler):
             return self._json({"ok": True, "removed": got[0]})
 
         if p == "/api/day/shot":
+            # затискання Ctrl+V сотнями — не робочий сценарій: понад 60 картинок
+            # за хвилину від однієї людини притримуємо
+            if ratelimit.check(["shot:%s" % uid], limit=60):
+                return self._json({"error": "занадто багато картинок за хвилину"}, 429)
+            ratelimit.miss(["shot:%s" % uid], limit=60)
             try:
                 name = day_store.save_shot(uid, (body or {}).get("data") or "", SHOTS)
             except ValueError as e:
@@ -2992,6 +3021,9 @@ class H(BaseHTTPRequestHandler):
             return self._json({"ok": True})
 
         if p == "/api/ts/shot":
+            if ratelimit.check(["shot:%s" % uid], limit=60):
+                return self._json({"error": "занадто багато картинок за хвилину"}, 429)
+            ratelimit.miss(["shot:%s" % uid], limit=60)
             try:
                 name = ts_store.save_shot(uid, (body or {}).get("data") or "", SHOTS)
             except ValueError as e:
