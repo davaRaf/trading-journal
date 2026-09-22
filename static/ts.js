@@ -718,12 +718,20 @@ function against(){
       + '<div class="v ' + cls + '">' + esc(val) + (em ? "<em>" + esc(em) + "</em>" : "") + "</div></div>");
   };
 
+  /* RR рахуємо лише по тих угодах, де він записаний. Рахували від усіх
+     підряд — і доля виходила в рази меншою за справжню: угоди без RR
+     (скіпи, відкриті, просто не заповнені) роздували знаменник. Та ще й
+     рядок читався навпаки: «9% усіх» під заголовком «не менше 1.5» люди
+     розуміли як «правило тримається», хоча це була частка порушень
+     (22.09.2026, скарга власника). Тепер рядок такий самий, як сусідні:
+     скільки з тих, де RR є, вкладається в мінімум. */
   const minRR = parseFloat(String((TS.risk || {}).rr || "").replace(",", "."));
-  if (minRR > 0){
-    const bad = list.filter(t => t.rr != null && t.rr < minRR - 1e-9);
+  const withRR = list.filter(t => t.rr != null && !isNaN(t.rr));
+  if (minRR > 0 && withRR.length){
+    const bad = withRR.filter(t => t.rr < minRR - 1e-9);
     R(d.realRR, d.realRRNote.replace("%s", minRR),
-      nWord(bad.length, "wTrades"),
-      Math.round(bad.length / list.length * 100) + "% " + d.wOfAll,
+      (withRR.length - bad.length) + " / " + withRR.length,
+      bad.length ? d.realBelow + " " + bad.length : d.realHold,
       bad.length ? "neg" : "pos");
   }
 
@@ -1832,12 +1840,13 @@ uk: {
 
   realFew: "Замало угод для звірки — потрібно хоча б п'ять",
   realNeed: "Щоб звіряти, заповни хоча б мінімальний RR, ризик або ліміт за день",
-  realRR: "RR нижче мінімального", realRRNote: "у ТС — не менше %s",
+  realRR: "RR не нижче мінімального", realRRNote: "у ТС — не менше %s",
   realDay: "Денний ліміт перевищено", realDayNote: "у ТС — не більше %s",
   realMax: "Більше угод за день, ніж у ТС", realMaxNote: "у ТС — не більше %s",
   realRisk: "Ризик на угоду", realRiskNote: "у ТС — %s",
   realModel: "Входи за своїми моделями", realModelNote: "у ТС — %s",
   realWorst: "найгірший", realMost: "найбільше", realHold: "тримаєш",
+  realBelow: "нижче мінімуму:",
   realAsset: "Входи за своїми інструментами", realAssetNote: "у ТС — %s",
   realWindow: "Входи у свої вікна", realWindowNote: "у ТС — %s",
   realAvg: "у середньому", realOut: "поза вікнами:",
@@ -1969,12 +1978,13 @@ ru: {
 
   realFew: "Мало сделок для сверки — нужно хотя бы пять",
   realNeed: "Чтобы сверять, заполни хотя бы минимальный RR, риск или лимит за день",
-  realRR: "RR ниже минимального", realRRNote: "в ТС — не меньше %s",
+  realRR: "RR не ниже минимального", realRRNote: "в ТС — не меньше %s",
   realDay: "Дневной лимит превышен", realDayNote: "в ТС — не больше %s",
   realMax: "Больше сделок за день, чем в ТС", realMaxNote: "в ТС — не больше %s",
   realRisk: "Риск на сделку", realRiskNote: "в ТС — %s",
   realModel: "Входы по своим моделям", realModelNote: "в ТС — %s",
   realWorst: "худший", realMost: "больше всего", realHold: "держишь",
+  realBelow: "ниже минимума:",
   realAsset: "Входы по своим инструментам", realAssetNote: "в ТС — %s",
   realWindow: "Входы в свои окна", realWindowNote: "в ТС — %s",
   realAvg: "в среднем", realOut: "вне окон:",
@@ -2106,12 +2116,13 @@ en: {
 
   realFew: "Too few trades to compare — five at least",
   realNeed: "To compare, fill in at least the minimum RR, the risk or the daily limit",
-  realRR: "RR below the minimum", realRRNote: "your rule — at least %s",
+  realRR: "RR at or above the minimum", realRRNote: "your rule — at least %s",
   realDay: "Daily limit broken", realDayNote: "your rule — no more than %s",
   realMax: "More trades a day than your rule", realMaxNote: "your rule — no more than %s",
   realRisk: "Risk per trade", realRiskNote: "your rule — %s",
   realModel: "Entries by your own models", realModelNote: "your rule — %s",
   realWorst: "worst", realMost: "most", realHold: "holding",
+  realBelow: "below the minimum:",
   realAsset: "Entries on your own instruments", realAssetNote: "your rule — %s",
   realWindow: "Entries inside your windows", realWindowNote: "your rule — %s",
   realAvg: "average", realOut: "outside:",
