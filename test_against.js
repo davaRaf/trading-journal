@@ -131,6 +131,41 @@ S = {trades: [
 check("«New York», «Нью-Йорк», «ny» — теж одне вікно",
       row(against(), "окн").indexOf("5 / 5") >= 0);
 
+/* сесію часто пишуть скороченням */
+TS = {windows: [{name: "NY", time: ""}, {name: "LO", time: ""}], risk: {}};
+S = {trades: [
+  {date: "2026-09-01", result: "Win", session: "Нью-Йорк"},
+  {date: "2026-09-02", result: "Win", session: "Лондон"},
+  {date: "2026-09-03", result: "Loss", session: "ny"},
+  {date: "2026-09-04", result: "Win", session: "LO"},
+  {date: "2026-09-05", result: "Win", session: "ЛОН"},
+]};
+check("вікна «NY» і «LO» впізнають і повні назви, і скорочення",
+      row(against(), "окн").indexOf("5 / 5") >= 0);
+
+TS = {windows: [{name: "London", time: ""}, {name: "New York", time: ""}], risk: {}};
+S = {trades: [
+  {date: "2026-09-01", result: "Win", session: "LO"},
+  {date: "2026-09-02", result: "Win", session: "NY"},
+  {date: "2026-09-03", result: "Loss", session: "НЙ"},
+  {date: "2026-09-04", result: "Win", session: "лон"},
+  {date: "2026-09-05", result: "Win", session: "Нью-Йорк"},
+]};
+check("і навпаки: у ТС повні назви, у журналі скорочення",
+      row(against(), "окн").indexOf("5 / 5") >= 0);
+
+/* скорочення звіряємо рівно: слово, що просто починається на «lo», — не Лондон */
+TS = {windows: [{name: "London", time: ""}], risk: {}};
+S = {trades: [
+  {date: "2026-09-01", result: "Win", session: "Лондон"},
+  {date: "2026-09-02", result: "Win", session: "Лондон"},
+  {date: "2026-09-03", result: "Loss", session: "Local range"},
+  {date: "2026-09-04", result: "Win", session: "Лондон"},
+  {date: "2026-09-05", result: "Win", session: "Лондон"},
+]};
+check("слово на «lo» не стає Лондоном",
+      row(against(), "окн").indexOf("4 / 5") >= 0);
+
 /* вхід справді поза вікном лишається порушенням */
 TS = {windows: [{name: "London", time: "09:00 – 12:00"}], risk: {}};
 S = {trades: [

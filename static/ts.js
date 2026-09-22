@@ -808,14 +808,27 @@ function against(){
      торгувала рівно в своє вікно (22.09.2026, скарга власника). Тому зводимо
      назву до спільного ключа. Незнайому назву лишаємо як є: два однакових
      написання однаково збіжаться. */
-  const SES = [["london", /^(лондон|london|ldn|lo)/], ["newyork", /^(ньюйорк|ньойорк|newyork|ny)/],
+  const SES = [["london", /^(лондон|лондонськ|лондонск|london)/],
+               ["newyork", /^(ньюйорк|ньойорк|нюйорк|newyork)/],
                ["asia", /^(аз[иі]|asia|asian|токио|токіо|tokyo|сидней|sydney)/],
-               ["frankfurt", /^(франкфурт|frankfurt|fra)/],
+               ["frankfurt", /^(франкфурт|frankfurt)/],
                ["powerhour", /^(powerhour|паверхаур|силовагодина)/],
                ["premarket", /^(premarket|премаркет|передринок)/]];
+  /* Сесію часто пишуть скороченням: «NY», «LO», «ЛОН», «НЙ». Їх звіряємо
+     рівно, а не за початком рядка: «lo» як початок зловило б будь-яке слово
+     на «lo». Map, а не звичайний обʼєкт, — щоб сесія з назвою на кшталт
+     «constructor» не підхопила чуже значення. */
+  const SES_SHORT = new Map([
+    ["lo", "london"], ["lon", "london"], ["ldn", "london"], ["лн", "london"],
+    ["лон", "london"], ["лд", "london"],
+    ["ny", "newyork"], ["nyc", "newyork"], ["нй", "newyork"], ["ньй", "newyork"],
+    ["нью", "newyork"], ["us", "newyork"],
+    ["as", "asia"], ["аз", "asia"], ["fr", "frankfurt"], ["fra", "frankfurt"],
+    ["фр", "frankfurt"], ["ph", "powerhour"], ["pm", "premarket"]]);
   const sesKey = v => {
     const s = same(v);
     if (!s) return "";
+    if (SES_SHORT.has(s)) return SES_SHORT.get(s);
     for (const [key, re] of SES) if (re.test(s)) return key;
     return s;
   };
