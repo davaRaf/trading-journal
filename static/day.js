@@ -586,9 +586,9 @@ function strip(){
 function head(){
   const d = D();
   const today = iso(new Date());
-  const nice = human(DATE);
+  /* Дата біля заголовка не потрібна: вона й так стоїть у перемикачі днів
+     поруч (22.09.2026, прохання власника). */
   return '<div class="vhead"><h1>' + esc(d.title) + "</h1>"
-    + '<span class="sub">' + esc(nice) + (DATE === today ? " · " + esc(d.today) : "") + "</span>"
     + '<span class="dv-nav">'
     +   '<span class="dv-seg">'
     +     '<button class="' + (N.closed ? "" : "on") + '" onclick="__dv.reopen()">' + esc(d.morning) + "</button>"

@@ -323,7 +323,6 @@
   .ovw .ohead .sh-pop{max-width:calc(100vw - 32px)}
 
   /* підпис над тижнем переноситься, а не тиснеться в один рядок */
-  .ovw .sec-lab{flex-wrap:wrap; gap:4px 10px; margin-bottom:10px}
 
   /* тиждень: сім клітинок, кожна ~46px — шрифти під цю ширину */
   .ovw .days{gap:4px}
