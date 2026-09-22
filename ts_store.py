@@ -18,6 +18,8 @@ import time
 
 from psycopg.types.json import Jsonb
 
+import ts_ai
+
 import db
 import filestore
 
@@ -106,15 +108,15 @@ def get(user_id, kind="", seed=True):
         if row is None:
             return None
         if _kind(kind) != "bt":
-            return row["data"] or None
+            return ts_ai.route_saved(row["data"] or None)
         if row["data_bt"] is not None or not seed:
-            return row["data_bt"] or None
+            return ts_ai.route_saved(row["data_bt"] or None)
         src = row["data"] or None
         if not src:
             return None                     # копіювати нема чого
         conn.execute("UPDATE strategies SET data_bt=%s WHERE user_id=%s "
                      "AND data_bt IS NULL", (Jsonb(src), user_id))
-        return src
+        return ts_ai.route_saved(src)
 
 
 def put(user_id, data, kind=""):
