@@ -11,6 +11,8 @@
 переносимо блок тільки туди, де вміститься і текст, і його скріни. Не
 впізнали заголовок — блок лишається в «Додатково», і людина перекладе руками.
 """
+import copy
+
 import ts_ai
 
 TFS = ["1W", "1D", "4H", "2H", "1H", "30M", "15M", "5M", "3M", "1M"]
@@ -124,6 +126,75 @@ case("звичайний розбір без «Додатково» цілий",
      and PLAIN["risk"]["per"] == "1%" and PLAIN["check"] == ["біас"])
 case("порожня відповідь так само вважається порожньою",
      lambda: ts_ai.is_empty(ts_ai.shape({}, [], TFS, NO_TF)))
+
+
+# ------------------------------------- уже збережені записи -----------------
+# Люди перенесли ТС раніше, ніж сторінка навчилась розкладати розділи. Гнати
+# їх стягувати заново не можна, тож розкладаємо на віддачі — ts_store.get().
+SAVED = {
+    "source": "notion", "updated": "2026-09-20",
+    "assets": ["EURUSD", "GBPUSD", "GER40"],
+    "tfs": [{"tf": "1D", "role": "контекст", "what": "напрямок", "shot": "a.png"}],
+    "models": [{"name": "BOS", "note": "", "shots": ["m1.png"]}],
+    "risk": {"per": "1%", "rr": "2", "day": "", "week": ""},
+    "extra": [
+        {"k": "Синхронизация и рассинхронизация ТФ", "v": "4h лонг OF.",
+         "shots": ["x1.png", "x2.png"]},
+        {"k": "Entry models", "v": "через BOS/Shift", "shots": ["e1.png"]},
+        {"k": "Psychology", "v": "1. Не дивитись. 2. Не відігруватись."},
+        {"k": "Pairs and correlations", "v": "(EUR/USD, GBPUSD) – DXY. GER40 – EU50."},
+        {"k": "Мої посилання", "v": "канал"},
+    ],
+}
+SAVED_COPY = copy.deepcopy(SAVED)
+SHOWN = ts_ai.route_saved(SAVED)
+
+case("збережений запис не міняється на місці", lambda: SAVED == SAVED_COPY)
+case("синхронізація видно в «Контексті» без перетягування",
+     lambda: "Синхронизация и рассинхронизация ТФ" in [c["k"] for c in SHOWN["ctx"]])
+case("її скріни цілі й іменами файлів",
+     lambda: [c for c in SHOWN["ctx"] if c["k"].startswith("Синхрон")][0]["shots"]
+     == ["x1.png", "x2.png"])
+case("Entry models — у моделях, зі своїм скріном",
+     lambda: [m for m in SHOWN["models"] if m["name"] == "Entry models"][0]["shots"] == ["e1.png"])
+case("психологія розібрана на правила", lambda: len(SHOWN["psy"]) == 2)
+case("кореляції стали біля активів",
+     lambda: SHOWN["corr"] == {"EURUSD": "DXY", "GBPUSD": "DXY", "GER40": "EU50"})
+case("свій блок лишився в «Додатково»",
+     lambda: [b["k"] for b in SHOWN["extra"]] == ["Мої посилання"])
+case("таймфрейми й ризик не зачеплені",
+     lambda: SHOWN["tfs"] == SAVED["tfs"] and SHOWN["risk"] == SAVED["risk"])
+case("повторне читання нічого не подвоює",
+     lambda: ts_ai.route_saved(SHOWN) == SHOWN)
+case("нема чого перекладати — той самий запис, не копія",
+     lambda: (lambda r: ts_ai.route_saved(r) is r)(
+         {"assets": ["US100"], "extra": [{"k": "Мої нотатки", "v": "текст"}]}))
+case("запис без «Додатково» вертається як є",
+     lambda: (lambda r: ts_ai.route_saved(r) is r)({"assets": ["US100"]}))
+case("порожнє й None не ламають",
+     lambda: ts_ai.route_saved(None) is None and ts_ai.route_saved({}) == {})
+
+
+def _files(o, acc=None):
+    """Усі імена скрінів усередині запису — на будь-якій глибині."""
+    acc = set() if acc is None else acc
+    if isinstance(o, dict):
+        for k, v in o.items():
+            if k in ("shot", "file") and isinstance(v, str) and v:
+                acc.add(v)
+            elif k == "shots" and isinstance(v, list):
+                for i in v:
+                    acc.add(i) if isinstance(i, str) and i else _files(i, acc)
+            else:
+                _files(v, acc)
+    elif isinstance(o, list):
+        for i in o:
+            _files(i, acc)
+    return acc
+
+
+case("жоден скрін не зник після розкладки",
+     lambda: _files(SAVED_COPY) == _files(SHOWN))
 
 
 def main():

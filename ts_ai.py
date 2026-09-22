@@ -467,6 +467,42 @@ def _route_extra(out):
     return out
 
 
+def route_saved(ts):
+    """Розкласти по вкладках уже збережену стратегію, без перетягування.
+
+    Люди перенесли ТС із Notion раніше, ніж сторінка навчилась розкладати
+    розділи, і в них усе лежить у «Додатково». Гнати кожного стягувати
+    заново — дурня: посилання може бути вже закрите, а ручні дописки
+    перетягування стирає. Тому розкладаємо на віддачі. У базі запис
+    лишається як є, сторінка показує блоки по місцях, а перше ж збереження
+    людини закріпить розкладку.
+
+    Нема чого перекладати — вертаємо той самий запис, не чіпаючи його.
+    """
+    if not isinstance(ts, dict):
+        return ts
+    blocks = [b for b in (ts.get("extra") or []) if isinstance(b, dict)]
+    if not any(_where(b.get("k")) or _vague_where(b.get("k"), b.get("v"))
+               for b in blocks):
+        return ts
+
+    # копіюємо все, куди складатимемо: чужий запис не чіпаємо на місці
+    out = dict(ts)
+    out["extra"] = [dict(b) for b in blocks]
+    out["ctx"] = list(ts.get("ctx") or [])
+    out["psy"] = list(ts.get("psy") or [])
+    out["manage"] = list(ts.get("manage") or [])
+    out["models"] = list(ts.get("models") or [])
+    out["check"] = list(ts.get("check") or [])
+    out["assets"] = list(ts.get("assets") or [])
+    out["modelsNote"] = str(ts.get("modelsNote") or "")
+    out["corr"] = dict(ts.get("corr")) if isinstance(ts.get("corr"), dict) else {}
+    no = ts.get("no") if isinstance(ts.get("no"), dict) else {}
+    out["no"] = dict(no)
+    out["no"]["market"] = list(no.get("market") or [])
+    return _route_extra(out)
+
+
 def is_empty(d):
     """Чи вийшло хоч щось. Порожній результат — привід відкотитись до регулярок."""
     return not any([d["assets"], d["tfs"], d["models"], d["windows"], d["manage"],
