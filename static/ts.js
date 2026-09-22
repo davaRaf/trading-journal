@@ -896,7 +896,9 @@ function against(){
 
   if (!rows.length) return '<div class="empty">' + esc(d.realNeed) + "</div>";
   /* підсумок одним числом: скільки правил тримаються без жодного порушення */
-  return '<div class="tsv-score"><b>' + kept + " / " + rows.length + "</b><span>" + esc(d.realScore) + "</span></div>"
+  /* Саме число, без підпису: «правил без порушень» під ним було зайвим
+     (22.09.2026, прохання власника). */
+  return '<div class="tsv-score"><b>' + kept + " / " + rows.length + "</b></div>"
     + '<div class="ts-cmp">' + rows.join("") + "</div>";
 }
 
@@ -1899,7 +1901,6 @@ uk: {
   pRisk: "Ризик", pRr: "Мін. RR", pMax: "Угод / день",
   lLimits: "Ліміти", grpRisk: "Ризик", secMarket: "Ринок і час", addStopT: "стоп і ціль", addManageT: "використання беззбитку", addExtraT: "додатково", wDay: "день", wWeek: "тиждень", secWhen: "Коли торгую",
   noManage: "Правил беззбитку ще немає", noCases: "Окремих випадків ще немає",
-  realScore: "правил без порушень",
   btnAsk: "Пройти опитування", btnShare: "Поділитись", btnDelete: "Видалити ТС",
   confirmDelete: "Видалити стратегію? Скріни до неї теж зникнуть.",
   confirmQuitAsk: "Вийти з опитування? Відповіді не збережуться.",
@@ -2033,7 +2034,6 @@ ru: {
   pRisk: "Риск", pRr: "Мин. RR", pMax: "Сделок / день",
   lLimits: "Лимиты", grpRisk: "Риск", secMarket: "Рынок и время", addStopT: "стоп и цель", addManageT: "использование безубытка", addExtraT: "дополнительно", wDay: "день", wWeek: "неделя", secWhen: "Когда торгую",
   noManage: "Правил безубытка пока нет", noCases: "Отдельных случаев пока нет",
-  realScore: "правил без нарушений",
   btnAsk: "Пройти опрос", btnShare: "Поделиться", btnDelete: "Удалить ТС",
   confirmDelete: "Удалить стратегию? Скрины к ней тоже пропадут.",
   confirmQuitAsk: "Выйти из опроса? Ответы не сохранятся.",
@@ -2167,7 +2167,6 @@ en: {
   pRisk: "Risk", pRr: "Min RR", pMax: "Trades / day",
   lLimits: "Limits", grpRisk: "Risk", secMarket: "Market & hours", addStopT: "stop & target", addManageT: "using break-even", addExtraT: "anything else", wDay: "day", wWeek: "week", secWhen: "When I trade",
   noManage: "No break-even rules yet", noCases: "No special cases yet",
-  realScore: "rules kept",
   btnAsk: "Run the questions", btnShare: "Share", btnDelete: "Delete system",
   confirmDelete: "Delete the system? Its screenshots go too.",
   confirmQuitAsk: "Leave the questionnaire? Your answers will be lost.",

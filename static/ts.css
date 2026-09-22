@@ -112,8 +112,12 @@
 .ts-cmp .r:last-child{border-bottom:none}
 .ts-cmp .nm{font-size:14px}
 .ts-cmp .nm i{display:block; font-style:normal; font-size:12.5px; color:var(--dim); margin-top:3px}
-.ts-cmp .v{font-family:var(--mono); font-size:16px; text-align:right; white-space:nowrap}
-.ts-cmp .v.pos{color:var(--up)} .ts-cmp .v.neg{color:var(--down)} .ts-cmp .v.mid{color:var(--be)}
+/* Цифра праворуч — звичайним кольором тексту, під оформлення. Зелене й
+   червоне з неї прибрали: рядків багато, і сторінка від них рябіла
+   (22.09.2026, прохання власника). Класи pos / neg у розмітці лишаються —
+   по них рахується підсумок зверху. */
+.ts-cmp .v{font-family:var(--mono); font-size:16px; text-align:right;
+  white-space:nowrap; color:var(--text)}
 
 /* текст сторінки Notion, як його прочитали */
 .ts-raw{white-space:pre-wrap; font-size:13.5px; line-height:1.65; color:var(--text);
