@@ -133,7 +133,7 @@ window.Sparks = Sparks;
    и при каждом переходе между разделами. */
 const Ticker = (function(){
   const SEL = ".ovw .sum .big, .ovw .stats .val, .ovw .chart-lab .v, .ovw .chart-lab .dd,"+
-              ".ovw .sec-lab .wsum, .ovw .day .dr, .kpi .v, .chip b, .plline .v, .arow .netr";
+              ".ovw .day .dr, .kpi .v, .chip b, .plline .v, .arow .netr";
   const DUR = 1100;               /* столько же длится пружина Magic UI */
   const STEP = 55;                /* сдвиг соседних чисел, чтобы шли волной */
   /* «просадка −8.00%» → префикс, число, хвост */

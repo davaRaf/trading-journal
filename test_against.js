@@ -1,11 +1,13 @@
 /* Звірка ТС із журналом. Запуск: node test_against.js
 
    Звірка рахувала по всьому, що лежить у журналі: скіпи, угоди «в роботі»,
-   угоди без RR. Через це цифри в кожному рядку були чужі — людина бачила
-   «усі 41 угода не в моїй сесії», хоча торгувала рівно в своє вікно
-   (22.09.2026). Перевіряємо не «порахувало», а «порахувало по тому, по
-   чому й має»: без скіпів, без відкритих, з базою з тих угод, де потрібне
-   поле взагалі заповнене. */
+   угоди без RR, а «00:00» брала за справжній час входу. Через це цифри в
+   кожному рядку були чужі — людина бачила «5 з 41 у моїй сесії», хоча
+   торгувала завжди в Лондон (22.09.2026).
+
+   Перевіряємо не «порахувало», а «порахувало по тому, по чому й має»: без
+   скіпів, без відкритих, з базою з тих угод, де потрібне поле заповнене, і
+   без вигаданих порушень там, де звіряти нема з чим. */
 const fs = require("fs");
 const src = fs.readFileSync("static/ts.js", "utf8");
 
@@ -28,7 +30,6 @@ function grab(name){
 const DICT = eval("(" + block(src.indexOf("const DICT")) + ")");
 const esc = s => String(s == null ? "" : s);
 const r1 = v => Math.round(v * 10) / 10;
-const fmtR = v => (v > 0 ? "+" : "") + r1(v) + "%";
 const isWin = t => ["Win", "WinM", "BE-"].indexOf(t.result) >= 0;
 const isSkip = t => t.result === "Skip";
 const isOpen = t => t.result === "Open";
@@ -53,9 +54,30 @@ function check(name, cond){
   console.log("  " + (cond ? "ok  " : "ПАДАЄ") + "  " + name);
   if (!cond) bad++;
 }
-const plain = h => h.replace(/<[^>]*>/g, " ").replace(/\s+/g, " ").trim();
-const row = (h, word) => plain(h.split('<div class="r">').find(x => x.indexOf(word) >= 0) || "рядка немає");
+/* сирий html рядка, у назві якого є слово */
+const raw = (h, word) => h.split('<div class="r">').find(x => x.indexOf(word) >= 0) || "";
+const text = s => s.replace(/<[^>]*>/g, " ").replace(/\s+/g, " ").trim();
+const row = (h, word) => text(raw(h, word)) || "рядка немає";
+const green = (h, word) => raw(h, word).indexOf('class="v pos"') >= 0;
+const red = (h, word) => raw(h, word).indexOf('class="v neg"') >= 0;
 const day = (n, hhmm) => "2026-09-" + String(n).padStart(2, "0") + "T" + hhmm;
+
+/* ---- під числом нічого не дописуємо ------------------------------------- */
+TS = {maxtrades: "3", risk: {per: "1", day: "2%", rr: "2"},
+      windows: [{name: "Лондон", time: "09:00 – 12:00"}],
+      models: [{name: "BOS"}], assets: ["GER40"]};
+S = {trades: [
+  {date: day(1, "10:00"), result: "Win", risk: 1, rr: 3, session: "Лондон", entry_model: "BOS", pair: "GER40"},
+  {date: day(2, "10:30"), result: "Loss", risk: 1, rr: 3, session: "Лондон", entry_model: "BOS", pair: "GER40"},
+  {date: day(3, "10:30"), result: "Win", risk: 1, rr: 3, session: "Лондон", entry_model: "BOS", pair: "GER40"},
+  {date: day(4, "10:30"), result: "Win", risk: 1, rr: 3, session: "Лондон", entry_model: "BOS", pair: "GER40"},
+  {date: day(5, "10:30"), result: "Loss", risk: 1, rr: 3, session: "Лондон", entry_model: "BOS", pair: "GER40"},
+]};
+let h = against();
+check("під числом немає жодного <em>", h.indexOf("<em>") < 0);
+check("і жодного старого підпису",
+      ["держишь", "худший", "больше всего", "в среднем", "вне окон", "остальное",
+       "ниже минимума", "% всех"].every(w => h.indexOf(w) < 0));
 
 /* ---- скіпи й «в роботі» — не угоди -------------------------------------- */
 TS = {maxtrades: "3", risk: {per: "1"}, windows: [{name: "Лондон", time: "09:00 – 12:00"}]};
@@ -71,11 +93,12 @@ S = {trades: [
   {date: day(3, "10:30"), result: "Win", risk: 1, session: "Лондон"},
   {date: day(4, "10:30"), result: "Loss", risk: 1, session: "Лондон"},
 ]};
-let h = against();
-check("пʼять скіпів за день не ламають ліміт угод", row(h, "день").indexOf("0 дней") >= 0);
-check("«більше за все» рахує лише справжні", row(h, "день").indexOf("больше всего 2") >= 0);
-check("скіп поза вікном — не порушення вікна", row(h, "окн").indexOf("держишь") >= 0);
-check("ризик скіпа не йде в перевищення", row(h, "иск").indexOf("держишь") >= 0);
+h = against();
+check("пʼять скіпів за день не ламають ліміт угод",
+      row(h, "Больше сделок").indexOf("0 дней") >= 0 && green(h, "Больше сделок"));
+check("скіп поза вікном — не порушення вікна",
+      row(h, "окн").indexOf("5 / 5") >= 0 && green(h, "окн"));
+check("ризик скіпа не йде в перевищення", green(h, "Риск на сделку"));
 
 /* ---- RR: база — ті угоди, де RR записаний ------------------------------- */
 TS = {risk: {rr: "1.5"}};
@@ -85,13 +108,12 @@ for (let i = 0; i < 8; i++) many.push({date: day(i % 9 + 1, "11:00"), result: "W
 for (let i = 0; i < 80; i++) many.push({date: day(i % 9 + 1, "12:00"), result: "Win", rr: null});
 S = {trades: many};
 h = against();
-check("RR рахуємо з тих, де він є, а не з усіх угод",
-      row(h, "RR").indexOf("8 / 20") >= 0);
-check("і кажемо, скільки нижче мінімуму", row(h, "RR").indexOf("ниже минимума: 12") >= 0);
-check("частки «від усіх» більше немає", row(h, "RR").indexOf("% всех") < 0);
+check("RR рахуємо з тих, де він є, а не з усіх угод", row(h, "RR").indexOf("8 / 20") >= 0);
+check("і позначаємо рядок порушеним", red(h, "RR"));
 
 S = {trades: [{rr: 2}, {rr: 3}, {rr: 1.5}, {rr: 4}, {rr: 2.2}, {rr: null}]};
-check("рівно мінімум — не порушення", row(against(), "RR").indexOf("5 / 5") >= 0);
+h = against();
+check("рівно мінімум — не порушення", row(h, "RR").indexOf("5 / 5") >= 0 && green(h, "RR"));
 S = {trades: [{rr: null}, {rr: null}, {rr: null}, {rr: null}, {rr: null}, {rr: null}]};
 check("жодного RR — рядка немає", against().indexOf("не ниже минимального") < 0);
 
@@ -106,7 +128,7 @@ S = {trades: [
 ]};
 h = against();
 check("сетап вважається своїм, а не чужим", row(h, "одел").indexOf("4 / 5") >= 0);
-check("чужа модель усе одно видно", row(h, "одел").indexOf("навмання 1") >= 0);
+check("чужа модель робить рядок порушеним", red(h, "одел"));
 
 /* ---- вікна: назва сесії іншою мовою ------------------------------------- */
 TS = {windows: [{name: "London", time: "09:00 – 12:00"}], risk: {}};
@@ -192,7 +214,7 @@ S = {trades: [
 h = against();
 check("з незнайомим вікном судимо лише дві угоди, де записано час",
       row(h, "окн").indexOf("2 / 2") >= 0);
-check("і опівнічні в порушення не йдуть", row(h, "окн").indexOf("вне окон") < 0);
+check("і опівнічні в порушення не йдуть", green(h, "окн"));
 
 /* справжній вхід о 00:00 у нічне вікно — за назвою все одно зарахуємо */
 TS = {windows: [{name: "Asia", time: "00:00 – 09:00"}], risk: {}};
@@ -215,10 +237,11 @@ S = {trades: [
   {date: day(4, "17:00"), result: "Win", session: "Нью-Йорк"},
   {date: day(5, "10:15"), result: "Win", session: "Лондон"},
 ]};
+h = against();
 check("вхід поза вікном за часом — порушення",
-      row(against(), "окн").indexOf("3 / 5") >= 0);
+      row(h, "окн").indexOf("3 / 5") >= 0 && red(h, "окн"));
 
-/* часу немає — віримо назві */
+/* часу немає — віримо назві, коли обидві назви впізнані */
 TS = {windows: [{name: "Лондон", time: ""}], risk: {}};
 S = {trades: [
   {date: "2026-09-01", result: "Win", session: "Лондон"},
@@ -227,7 +250,8 @@ S = {trades: [
   {date: "2026-09-04", result: "Win", session: "Лондон"},
   {date: "2026-09-05", result: "Win", session: "Лондон"},
 ]};
-check("без часу звіряємо за назвою", row(against(), "окн").indexOf("4 / 5") >= 0);
+check("«Азія» проти вікна «Лондон» — таки порушення",
+      row(against(), "окн").indexOf("4 / 5") >= 0);
 
 /* ---- денний ліміт ловиться, як і ловився -------------------------------- */
 TS = {risk: {day: "2%"}};
@@ -238,8 +262,9 @@ S = {trades: [
   {date: day(3, "10:00"), result: "Win", risk: 1, rr: 2},
   {date: day(4, "10:00"), result: "Loss", risk: 1},
 ]};
+h = against();
 check("день із втратою 3% при ліміті 2% спіймано",
-      row(against(), "лимит").indexOf("1 день") >= 0);
+      row(h, "лимит").indexOf("1 день") >= 0 && red(h, "лимит"));
 
 /* ---- замало справжніх угод — звірка мовчить ----------------------------- */
 TS = {risk: {rr: "2"}};

@@ -764,12 +764,11 @@ function ovWeekHtml(){
   const now=new Date();
   const today=new Date(now.getFullYear(),now.getMonth(),now.getDate());
   const monday=new Date(today.getFullYear(),today.getMonth(),today.getDate()-((today.getDay()+6)%7));
-  let cells="", n=0, sum=0;
+  let cells="";
   for(let i=0;i<7;i++){
     const d=new Date(monday.getFullYear(),monday.getMonth(),monday.getDate()+i);
     const key=isoDay(d), list=byDay.get(key)||[];
     const r=list.reduce((a,t)=>a+netR(t),0);
-    n+=list.length; sum+=r;
     const wd=T.wds[(d.getDay()+6)%7];
     if(!list.length){
       /* будній день без угод — пропуск. Вихідні не рахуємо, сьогодні і решту
@@ -791,12 +790,10 @@ function ovWeekHtml(){
       '<span class="wd">'+wd+'</span><span class="dn">'+d.getDate()+'</span>'+
       '<span class="bot"><span class="dr">'+val+'</span></span></div>';
   }
-  return '<div class="week rise">'+
-    '<div class="sec-lab"><span class="t">'+T.ovLastWeek+'</span>'+
-    '<span class="wn">'+n+" "+ovWord(n)+'</span>'+
-    '<span class="wsum '+ovSign(sum)+'">'+ovFmtRaw(sum)+'</span>'+
-    '<a href="#journal">'+T.ovWholeMonth+'</a></div>'+
-    '<div class="days">'+cells+"</div></div>";
+  /* Над тижнем був дрібний підпис «поточний тиждень · N угод · сума ·
+     весь місяць». Прибрали: самі дні нижче кажуть те саме, а рядок лише
+     шумів над ними (22.09.2026, прохання власника). */
+  return '<div class="week rise"><div class="days">'+cells+"</div></div>";
 }
 
 /* восемь показателей hairline-сеткой */
@@ -1537,7 +1534,9 @@ function vYearly(){
 /* ---------- Analytics ---------- */
 function vAnalytics(){
   const list=applyFilters(S.trades);
-  let h='<div class="vhead"><h1>'+T.anTitle+'</h1><span class="sub">'+list.length+" "+T.anSampleSuffix+"</span>"+
+  /* Біля заголовка розділу дрібного підпису немає: скільки угод у вибірці
+     видно нижче, у самій статистиці (22.09.2026, прохання власника). */
+  let h='<div class="vhead"><h1>'+T.anTitle+"</h1>"+
     /* у бектесті розрізи рахуються по одному журналу — обираємо, по якому */
     (btOn()&&window.__btj?__btj.filterBtn():"")+"</div>";
   h+=filterBar();

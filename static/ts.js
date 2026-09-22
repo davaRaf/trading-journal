@@ -722,11 +722,15 @@ function against(){
 
   const rows = [];
   let kept = 0;
-  const R = (nm, note, val, em, cls) => {
+  /* Під числом нічого не дописуємо: рядок і так читається — ліворуч
+     правило, праворуч скільки з нього вийшло. Підписи на кшталт
+     «найгірший −4%» чи «у середньому 0.93%» під цифрою тільки заважали
+     (22.09.2026, прохання власника). */
+  const R = (nm, note, val, cls) => {
     if (cls === "pos") kept++;
     rows.push(
       '<div class="r"><div class="nm">' + esc(nm) + "<i>" + esc(note) + "</i></div>"
-      + '<div class="v ' + cls + '">' + esc(val) + (em ? "<em>" + esc(em) + "</em>" : "") + "</div></div>");
+      + '<div class="v ' + cls + '">' + esc(val) + "</div></div>");
   };
 
   /* RR рахуємо лише по тих угодах, де він записаний. Рахували від усіх
@@ -742,29 +746,27 @@ function against(){
     const bad = withRR.filter(t => t.rr < minRR - 1e-9);
     R(d.realRR, d.realRRNote.replace("%s", minRR),
       (withRR.length - bad.length) + " / " + withRR.length,
-      bad.length ? d.realBelow + " " + bad.length : d.realHold,
       bad.length ? "neg" : "pos");
   }
 
   const days = dayMap(list);
   const dayLim = parseFloat(String((TS.risk || {}).day || "").replace(",", ".").replace("%", ""));
   if (dayLim > 0){
-    let over = 0, worst = 0;
+    let over = 0;
     days.forEach(arr => {
       const net = arr.reduce((s, t) => s + netR(t), 0);
-      if (net < -dayLim - 1e-9){ over++; if (net < worst) worst = net; }
+      if (net < -dayLim - 1e-9) over++;
     });
     R(d.realDay, d.realDayNote.replace("%s", dayLim + "%"),
-      nWord(over, "wDays"), over ? d.realWorst + " " + fmtR(worst) : d.realHold,
-      over ? "neg" : "pos");
+      nWord(over, "wDays"), over ? "neg" : "pos");
   }
 
   const maxT = parseInt(String(TS.maxtrades || "").replace(/\D/g, ""), 10);
   if (maxT > 0){
-    let over = 0, most = 0;
-    days.forEach(arr => { if (arr.length > maxT) over++; if (arr.length > most) most = arr.length; });
+    let over = 0;
+    days.forEach(arr => { if (arr.length > maxT) over++; });
     R(d.realMax, d.realMaxNote.replace("%s", maxT),
-      nWord(over, "wDays"), d.realMost + " " + most, over ? "neg" : "pos");
+      nWord(over, "wDays"), over ? "neg" : "pos");
   }
 
   const declared = parseFloat(String((TS.risk || {}).per || "").replace(",", ".").replace("%", ""));
@@ -775,7 +777,6 @@ function against(){
     const over = withRisk.filter(t => t.risk > declared + 1e-9);
     R(d.realRisk, d.realRiskNote.replace("%s", declared + "%"),
       over.length ? nWord(over.length, "wTrades") : r1(avg) + "%",
-      over.length ? d.realAvg + " " + r1(avg) + "%" : d.realHold,
       over.length ? "neg" : "pos");
   }
 
@@ -789,14 +790,8 @@ function against(){
   const withModel = list.filter(t => (t.entry_model || "").trim());
   if (models.length && withModel.length){
     const mine = withModel.filter(t => models.includes(t.entry_model.trim().toLowerCase()));
-    const rest = {};
-    withModel.filter(t => !models.includes(t.entry_model.trim().toLowerCase()))
-      .forEach(t => { const k = t.entry_model.trim(); rest[k] = (rest[k] || 0) + 1; });
-    const top = Object.keys(rest).sort((a, b) => rest[b] - rest[a]).slice(0, 3)
-      .map(k => k + " " + rest[k]).join(", ");
     R(d.realModel, d.realModelNote.replace("%s", modelNames.join(", ")),
       mine.length + " / " + withModel.length,
-      top ? d.realOther + " " + top : d.realHold,
       mine.length === withModel.length ? "pos" : "neg");
   }
 
@@ -840,14 +835,8 @@ function against(){
   const withPair = list.filter(t => (t.pair || "").trim());
   if (assets.length && withPair.length){
     const mine = withPair.filter(t => assets.indexOf(same(t.pair)) >= 0);
-    const rest = {};
-    withPair.filter(t => assets.indexOf(same(t.pair)) < 0)
-      .forEach(t => { const k = t.pair.trim(); rest[k] = (rest[k] || 0) + 1; });
-    const top = Object.keys(rest).sort((a, b) => rest[b] - rest[a]).slice(0, 3)
-      .map(k => k + " " + rest[k]).join(", ");
     R(d.realAsset, d.realAssetNote.replace("%s", (TS.assets || []).join(", ")),
       mine.length + " / " + withPair.length,
-      top ? d.realOther + " " + top : d.realHold,
       mine.length === withPair.length ? "pos" : "neg");
   }
 
@@ -901,7 +890,7 @@ function against(){
       R(d.realWindow, d.realWindowNote.replace("%s",
           wins.map(w => String(w.name || w.time || "").trim()).filter(Boolean).join(", ")),
         (known.length - out) + " / " + known.length,
-        out ? d.realOut + " " + out : d.realHold, out ? "neg" : "pos");
+        out ? "neg" : "pos");
     }
   }
 
@@ -1922,14 +1911,10 @@ uk: {
   realMax: "Більше угод за день, ніж у ТС", realMaxNote: "у ТС — не більше %s",
   realRisk: "Ризик на угоду", realRiskNote: "у ТС — %s",
   realModel: "Входи за своїми моделями", realModelNote: "у ТС — %s",
-  realWorst: "найгірший", realMost: "найбільше", realHold: "тримаєш",
-  realBelow: "нижче мінімуму:",
   realAsset: "Входи за своїми інструментами", realAssetNote: "у ТС — %s",
   realWindow: "Входи у свої вікна", realWindowNote: "у ТС — %s",
-  realAvg: "у середньому", realOut: "поза вікнами:",
   ckDone: "відмічено", ckReset: "зняти",
-  realOff: "розходиться з ТС", realOther: "решта:",
-  wTrades: "угод", wDays: "днів", wOfAll: "усіх",
+  wTrades: "угод", wDays: "днів",
   wTradesF: ["угода", "угоди", "угод"], wDaysF: ["день", "дні", "днів"],
 
   question: "питання", of: "з", next: "Далі", skipQ: "пропустити",
@@ -2060,14 +2045,10 @@ ru: {
   realMax: "Больше сделок за день, чем в ТС", realMaxNote: "в ТС — не больше %s",
   realRisk: "Риск на сделку", realRiskNote: "в ТС — %s",
   realModel: "Входы по своим моделям", realModelNote: "в ТС — %s",
-  realWorst: "худший", realMost: "больше всего", realHold: "держишь",
-  realBelow: "ниже минимума:",
   realAsset: "Входы по своим инструментам", realAssetNote: "в ТС — %s",
   realWindow: "Входы в свои окна", realWindowNote: "в ТС — %s",
-  realAvg: "в среднем", realOut: "вне окон:",
   ckDone: "отмечено", ckReset: "снять",
-  realOff: "расходится с ТС", realOther: "остальное:",
-  wTrades: "сделок", wDays: "дней", wOfAll: "всех",
+  wTrades: "сделок", wDays: "дней",
   wTradesF: ["сделка", "сделки", "сделок"], wDaysF: ["день", "дня", "дней"],
 
   question: "вопрос", of: "из", next: "Дальше", skipQ: "пропустить",
@@ -2198,14 +2179,10 @@ en: {
   realMax: "More trades a day than your rule", realMaxNote: "your rule — no more than %s",
   realRisk: "Risk per trade", realRiskNote: "your rule — %s",
   realModel: "Entries by your own models", realModelNote: "your rule — %s",
-  realWorst: "worst", realMost: "most", realHold: "holding",
-  realBelow: "below the minimum:",
   realAsset: "Entries on your own instruments", realAssetNote: "your rule — %s",
   realWindow: "Entries inside your windows", realWindowNote: "your rule — %s",
-  realAvg: "average", realOut: "outside:",
   ckDone: "ticked", ckReset: "clear",
-  realOff: "drifts from the rule", realOther: "the rest:",
-  wTrades: "trades", wDays: "days", wOfAll: "of all",
+  wTrades: "trades", wDays: "days",
   wTradesF: ["trade", "trades"], wDaysF: ["day", "days"],
 
   question: "question", of: "of", next: "Next", skipQ: "skip",

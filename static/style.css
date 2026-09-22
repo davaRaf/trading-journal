@@ -1155,12 +1155,6 @@ h1.ovh a.on::after{content:"";position:absolute;left:0;right:0;bottom:0;height:2
 .ovw .flow{min-width:0}
 
 /* заголовок секции */
-.ovw .sec-lab{display:flex;align-items:baseline;gap:12px;margin-bottom:16px}
-.ovw .sec-lab .t{font-family:var(--mono);font-size:9px;letter-spacing:.20em;text-transform:uppercase;color:var(--faint)}
-.ovw .sec-lab .wn{font-family:var(--mono);font-size:10px;color:var(--ghost);letter-spacing:0;text-transform:none}
-.ovw .sec-lab .wsum{font-family:var(--mono);font-size:11px}
-.ovw .sec-lab a{margin-left:auto;color:var(--faint);text-decoration:none;font-size:11.5px;transition:color .3s var(--ease)}
-.ovw .sec-lab a:hover{color:var(--text)}
 
 /* неделя — крупный ряд сверху */
 .ovw .week{margin-bottom:22px}
