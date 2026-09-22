@@ -299,6 +299,7 @@ html{interpolate-size:allow-keywords}
   color:var(--faint); margin-bottom:8px}
 
 .ts-chips{display:flex; flex-wrap:wrap; gap:7px}
+.ts-chips b i{font-style:normal; font-family:var(--sans, inherit); font-weight:400; font-size:12px; opacity:.65; margin-left:6px}
 .ts-chips b{font-family:var(--mono); font-size:13px; font-weight:600; padding:6px 12px;
   border-radius:8px; background:var(--panel-2); border:1px solid var(--line-soft)}
 
@@ -562,7 +563,8 @@ function tsHtml(ts){
 
   /* ринок і час */
   const assets = ts.assets.length
-    ? '<div class="ts-chips">' + ts.assets.map(a => "<b>" + esc(a) + "</b>").join("") + "</div>" : "";
+    ? '<div class="ts-chips">' + ts.assets.map(a => "<b>" + esc(a)
+        + ((ts.corr || {})[a] ? "<i>↔ " + esc(ts.corr[a]) + "</i>" : "") + "</b>").join("") + "</div>" : "";
   const windows = rows(ts.windows.map(w =>
     [w.name || "—", [w.time, w.note].filter(Boolean).join("  ·  ")]));
   const when = rows([[T.tsShDays, ts.days], [T.tsShNews, ts.news]]);
@@ -576,6 +578,10 @@ function tsHtml(ts){
       + (r.what ? '<div class="what">' + esc(r.what) + "</div>" : "")
       + shotsHtml(r.shots) + "</div>").join("") + "</div>";
 
+  /* «Ще про контекст» (синхронізація ТФ тощо). У старих знімках його немає. */
+  const ctx = !(ts.ctx || []).length ? "" :
+    ts.ctx.map(m => "<div>" + rows([[m.k || "—", m.v]]) + shotsHtml(m.shots) + "</div>").join("");
+
   /* вхід. Сетапи прийшли пізніше за моделі, тож у старих знімках посилань
      їх немає — звідси `|| []`. */
   const namedHtml = list => !(list || []).length ? "" :
@@ -588,7 +594,10 @@ function tsHtml(ts){
   const entryRules = rows([[T.tsShBias, ts.bias], [T.tsShStop, ts.stop.v],
                            [T.tsShTarget, ts.target.v]]);
   const entryShots = shotsHtml((ts.stop.shots || []).concat(ts.target.shots || []));
-  const entry = sub(T.tsShModels, models) + sub(T.tsShSetups, setups)
+  /* загальні правила входу — з 19.09.2026, у старих знімках їх немає */
+  const mnote = ts.modelsNote
+    ? '<div class="what" style="white-space:pre-wrap">' + esc(ts.modelsNote) + "</div>" : "";
+  const entry = sub(T.tsShModelsNote, mnote) + sub(T.tsShModels, models) + sub(T.tsShSetups, setups)
     + sub(T.tsShRules, entryRules + entryShots);
 
   /* ризик */
@@ -609,6 +618,13 @@ function tsHtml(ts){
         + col(T.tsShNoTime, ts.no.time) + col(T.tsShNoSelf, ts.no.self) + "</div>" : "")
     + (ts.mind ? '<div class="ts-mind">' + esc(ts.mind) + "</div>" : "");
 
+  /* психологія. У знімках до 19.09.2026 цього поля немає — звідси `|| []`. */
+  const psy = !(ts.psy || []).length ? "" :
+    '<div class="ts-check">' + ts.psy.map((c, i) =>
+      "<div><i>" + String(i + 1).padStart(2, "0") + "</i><span>"
+      + (c.k ? "<b>" + esc(c.k) + "</b> — " : "") + esc(c.v) + "</span></div>").join("")
+    + "</div>";
+
   /* чек-лист */
   const check = !ts.check.length ? "" :
     '<div class="ts-check">' + ts.check.map((c, i) =>
@@ -620,9 +636,9 @@ function tsHtml(ts){
     ts.extra.map(m =>
       "<div>" + rows([[m.k || "—", m.v]]) + shotsHtml(m.shots) + "</div>").join("");
 
-  const body = sec(T.tsShMarket, market) + sec(T.tsShTfs, tfs) + sec(T.tsShEntry, entry)
+  const body = sec(T.tsShMarket, market) + sec(T.tsShTfs, tfs) + sec(T.tsShCtx, ctx) + sec(T.tsShEntry, entry)
     + sec(T.tsShRisk, risk) + sec(T.tsShManage, manage) + sec(T.tsShNo, no)
-    + sec(T.tsShExtra, extra) + sec(T.tsShCheck, check);
+    + sec(T.tsShPsy, psy) + sec(T.tsShExtra, extra) + sec(T.tsShCheck, check);
   return body ? '<div class="ts">' + body + "</div>" : "";
 }
 

@@ -823,10 +823,15 @@ const Pick = (function(){
     pop = document.createElement("div");
     pop.className = "spop";
     pop.setAttribute("role", "listbox");
+    /* o.icon - картинка перед назвою (логотип проп-фірми). Без неї рядок
+       лишається тим самим текстовим рядком, що й був. */
     pop.innerHTML = list.map((o, i) =>
-      '<div class="sopt" role="option" data-i="' + i + '"'
+      '<div class="sopt' + (o.icon ? " ic" : "") + '" role="option" data-i="' + i + '"'
       + (o.v === value ? ' aria-selected="true"' : "")
-      + '>' + esc(o.label) + "</div>").join("");
+      + '>' + (o.icon
+          ? '<img src="' + esc(o.icon) + '" alt="" loading="lazy"><span>' + esc(o.label) + "</span>"
+          : esc(o.label))
+      + "</div>").join("");
     document.body.appendChild(pop);
     place();
     paint();

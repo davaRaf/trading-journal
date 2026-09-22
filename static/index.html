@@ -10,17 +10,17 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Geist:wght@300;400;500;600;700&family=Archivo:wght@400;500;600&display=swap">
-<link rel="stylesheet" href="/static/style.css?v=59">
-<link rel="stylesheet" href="/static/accounts.css?v=21">
+<link rel="stylesheet" href="/static/style.css?v=73">
+<link rel="stylesheet" href="/static/accounts.css?v=25">
 <link rel="stylesheet" href="/static/btj.css?v=11">
-<link rel="stylesheet" href="/static/news.css?v=38">
+<link rel="stylesheet" href="/static/news.css?v=42">
 <link rel="stylesheet" href="/static/import.css?v=5">
 <link rel="stylesheet" href="/static/themes.css?v=8">
 <link rel="stylesheet" href="/static/calc.css?v=1">
 <link rel="stylesheet" href="/static/links.css?v=2">
-<link rel="stylesheet" href="/static/ts.css?v=12">
-<link rel="stylesheet" href="/static/day.css?v=12">
-<link rel="stylesheet" href="/static/mobile.css?v=34">
+<link rel="stylesheet" href="/static/ts.css?v=34">
+<link rel="stylesheet" href="/static/day.css?v=14">
+<link rel="stylesheet" href="/static/mobile.css?v=38">
 <link rel="stylesheet" href="/static/tgnews.css?v=1">
 <link rel="stylesheet" href="/static/guest.css?v=5">
 <link rel="stylesheet" href="/static/pub.css?v=1">
@@ -83,25 +83,22 @@ try{if((location.pathname==="/"||location.pathname==="/index.html")&&!sessionSto
 
   </defs></svg>
 
-  <!-- Свій профіль — першим у панелі: аватар і нік ведуть у Налаштування →
-       Профіль (там же й вихід з акаунта). Заповнює static/sideme.js. -->
-  <div class="side-me" id="sideMe">
-    <button class="side-me-who" id="sideMeBtn" type="button" onclick="__settings.open('profile')"><span class="side-me-av" id="sideMeAv" aria-hidden="true"></span><span class="side-me-t"><b id="sideMeNick"></b><small id="sideMeSub">Профіль</small></span></button>
+  <!-- Знак — угорі панелі (20.09.2026, прохання власника). Був унизу, над
+       підвалом; відколи профіль поїхав у смугу зверху, верх панелі стояв
+       порожнім, і розділи починались просто від краю екрана. -->
+  <div class="brand">
+    <span class="marks" id="collabMark" data-tip="Колаборація зі спільнотою Black Swan">
+      <span class="mark"><svg class="logo" aria-hidden="true"><use href="#logomark"/></svg></span>
+      <i class="tie" aria-hidden="true">×</i>
+      <span class="mark swan"><img class="swan" src="/static/swan.png?v=1" alt="" aria-hidden="true"></span>
+    </span>
+    <span class="nm">Stats<i>AI</i><small id="brandTagline">помічник трейдера</small></span>
   </div>
 
+  <!-- «Нова угода» — у панелі, одразу під знаком (20.09.2026, прохання
+       власника). Стояла у смузі зверху; там вона губилась серед значків,
+       а тут це перший рядок після назви — головна дія журналу. -->
   <button class="newtrade" id="newTradeBtn" data-tip="Записати угоду · відкриється панель знизу" onclick="openForm()"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" class="ic"><path d="M12 5v14M5 12h14" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"/></svg> <span>Нова угода</span></button>
-
-  <!-- Реальна торгівля чи бектест. Не розділ у меню, а режим усього журналу:
-       ті самі екрани, інший набір угод. На компʼютері він плаває знизу
-       посередині сторінки (18.09.2026, прохання власника), на телефоні —
-       у шторці меню (mobile.js). У розмітці лишається тут, у панелі. -->
-  <div class="mode-sw" id="modeSwitch">
-    <div class="lab" id="modeLab">Режим</div>
-    <div class="seg-tabs" id="modeTabs">
-      <button type="button" class="on" data-mode="live" data-tip="Справжні угоди" onclick="setMode('live')">Реальні</button>
-      <button type="button" data-mode="bt" data-tip="Прогони на історії — окремо від реальної статистики" onclick="setMode('bt')">Бектест</button>
-    </div>
-  </div>
 
   <nav class="nav">
     <div class="nav-row">
@@ -139,18 +136,9 @@ try{if((location.pathname==="/"||location.pathname==="/index.html")&&!sessionSto
     </div>
   </div>
 
-  <div class="brand">
-    <span class="marks" id="collabMark" data-tip="Колаборація зі спільнотою Black Swan">
-      <span class="mark"><svg class="logo" aria-hidden="true"><use href="#logomark"/></svg></span>
-      <i class="tie" aria-hidden="true">×</i>
-      <span class="mark swan"><img class="swan" src="/static/swan.png?v=1" alt="" aria-hidden="true"></span>
-    </span>
-    <span class="nm">Stats<i>AI</i><small id="brandTagline">помічник трейдера</small></span>
-  </div>
-  <!-- Підвал панелі стоїть під логотипом (16.09.2026, прохання власника):
-       зверху робота — журнал, інструменти, підключення; знизу знак, під
-       ним «Підтримка», і в самому низу соцмережі. Оформлення переїхало
-       в «Налаштування» окремим розділом, кнопки тут більше немає. -->
+  <!-- Підвал панелі притиснутий до низу: «Підтримка», під нею соцмережі.
+       Оформлення переїхало в «Налаштування» окремим розділом, кнопки тут
+       більше немає. -->
   <div class="side-foot">
     <button class="mini" id="supportBtn" data-tip="Пошта й Телеграм — напиши, якщо щось не працює" onclick="__support.open()"><svg class="ic" width="14" height="14" viewBox="0 0 24 24" fill="none"><path d="M4 12a8 8 0 0116 0v5.5a2.5 2.5 0 01-2.5 2.5H13" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/><rect x="2.6" y="11" width="4.4" height="6.4" rx="2.2" stroke="currentColor" stroke-width="1.7"/><rect x="17" y="11" width="4.4" height="6.4" rx="2.2" stroke="currentColor" stroke-width="1.7"/></svg> <span>Підтримка</span></button>
     <button class="mini" id="settingsBtn" hidden data-tip="Мова інтерфейсу й відкритий журнал" onclick="__settings.open()"><svg class="ic" width="14" height="14" viewBox="0 0 24 24" fill="none"><path d="M20 7h-7M7 7H4M20 17h-3M11 17H4" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/><circle cx="10" cy="7" r="2.5" stroke="currentColor" stroke-width="1.7"/><circle cx="14" cy="17" r="2.5" stroke="currentColor" stroke-width="1.7"/></svg> <span>Налаштування</span></button>
@@ -166,6 +154,38 @@ try{if((location.pathname==="/"||location.pathname==="/index.html")&&!sessionSto
        target="_blank" rel="noopener" aria-label="TikTok"><svg class="ic" width="15" height="15" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M14 3v11.2a3.3 3.3 0 11-2.6-3.22" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/><path d="M14 3.4c.5 2.4 2.3 4 4.7 4.2" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg></a>
   </div>
 </aside>
+
+<!-- Смуга зверху робочої області (20.09.2026, прохання власника).
+     Режим журналу, оформлення і свій профіль — те, що стосується всього
+     журналу, а не окремої сторінки. Панель лишається про «куди піти»,
+     смуга — про «хто я» й «як воно виглядає». «Поділитися» живе в шапці
+     самого розділу: ділишся тим, що зараз на екрані. На телефоні смугу
+     замінює своя шапка .mtop (mobile.js), тому там вона схована. -->
+<header class="topbar" id="topbar">
+  <div class="tb-in">
+    <span class="tb-sp"></span>
+    <!-- Реальна торгівля чи бектест. Не розділ у меню, а режим усього
+         журналу: ті самі екрани, інший набір угод. Стоїть праворуч, перед
+         оформленням і профілем (20.09.2026, прохання власника). На телефоні
+         їде у шторку меню разом з іншими блоками (mobile.js). -->
+    <div class="mode-sw" id="modeSwitch">
+      <div class="lab" id="modeLab">Режим</div>
+      <div class="seg-tabs" id="modeTabs">
+        <button type="button" class="on" data-mode="live" data-tip="Справжні угоди" onclick="setMode('live')">Реальні</button>
+        <button type="button" data-mode="bt" data-tip="Прогони на історії — окремо від реальної статистики" onclick="setMode('bt')">Бектест</button>
+      </div>
+    </div>
+    <!-- Оформлення — окремий значок між дією і профілем: тем десять,
+         тож значок відкриває вибір у Налаштуваннях, а не перемикає
+         навмання. Півкола — звичний знак «змінити оформлення». -->
+    <button class="tb-ic" id="skinBtn" type="button" data-tip="Оформлення" aria-label="Оформлення" onclick="__skin.open()"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden="true"><circle cx="12" cy="12" r="8.6" stroke="currentColor" stroke-width="1.7"/><path d="M12 3.4a8.6 8.6 0 000 17.2z" fill="currentColor"/></svg></button>
+    <!-- Аватар і нік ведуть у Налаштування → Профіль (там же й вихід).
+         Заповнює static/sideme.js. -->
+    <div class="side-me" id="sideMe">
+      <button class="side-me-who" id="sideMeBtn" type="button" onclick="__settings.open('profile')"><span class="side-me-av" id="sideMeAv" aria-hidden="true"></span><span class="side-me-t"><b id="sideMeNick"></b><small id="sideMeSub">Профіль</small></span></button>
+    </div>
+  </div>
+</header>
 
 <!-- Смужка зверху, поки відкритий бектест: щоб прогін на історії не сплутати
      з реальним журналом і не записати угоду не туди. -->
@@ -206,9 +226,9 @@ try{if((location.pathname==="/"||location.pathname==="/index.html")&&!sessionSto
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 5l7 7-7 7"/></svg></button>
 </div>
 
-<script src="/static/i18n.js?v=74"></script>
+<script src="/static/i18n.js?v=79"></script>
 <script src="/static/hello.js?v=3"></script>
-<script src="/static/ui.js?v=18"></script>
+<script src="/static/ui.js?v=19"></script>
 <script src="/static/demo.js?v=3"></script>
 <script src="/static/guest.js?v=3"></script>
 <script src="/static/pub.js?v=4"></script>
@@ -227,16 +247,16 @@ try{if((location.pathname==="/"||location.pathname==="/index.html")&&!sessionSto
 <script src="/static/news.js?v=22"></script>
 <script src="/static/newsay.js?v=1"></script>
 <script src="/static/ogcal.js?v=17"></script>
-<script src="/static/sharelink.js?v=33"></script>
+<script src="/static/sharelink.js?v=40"></script>
 <script src="/static/tidy.js?v=1"></script>
 <script src="/static/notion.js?v=12"></script>
 <script src="/static/calc.js?v=1"></script>
 <script src="/static/links.js?v=1"></script>
-<script src="/static/ts.js?v=28"></script>
-<script src="/static/day.js?v=19"></script>
-<script src="/static/mobile.js?v=11"></script>
+<script src="/static/ts.js?v=55"></script>
+<script src="/static/day.js?v=20"></script>
+<script src="/static/mobile.js?v=14"></script>
 <script src="/static/tgnews.js?v=2"></script>
-<script src="/static/accounts.js?v=19"></script>
+<script src="/static/accounts.js?v=22"></script>
 <script src="/static/btj.js?v=10"></script>
 <script src="/static/tradeimg.js?v=14"></script>
 <script src="/static/themes.js?v=5"></script>

@@ -346,7 +346,7 @@ uk: {
   tsShTitle: "Моя торгова система",
   tsShMarket: "Ринок і час", tsShAssets: "Чим торгую", tsShWindows: "Коли торгую",
   tsShDays: "Дні тижня", tsShNews: "Новини",
-  tsShTfs: "Таймфрейми", tsShEntry: "Вхід", tsShModels: "Моделі входу",
+  tsShTfs: "Таймфрейми", tsShEntry: "Вхід", tsShModels: "Моделі входу", tsShModelsNote: "Загальні правила входу",
   tsShSetups: "Сетапи",
   tsShRules: "Правила входу", tsShBias: "Напрям", tsShStop: "Стоп", tsShTarget: "Ціль",
   tsShRisk: "Ризик", tsShCases: "Окремі випадки",
@@ -354,7 +354,7 @@ uk: {
   tsShWeek: "Ліміт на тиждень", tsShMax: "Угод на день",
   tsShManage: "Супровід угоди", tsShNo: "Коли не входжу",
   tsShNoMarket: "Ринок", tsShNoTime: "Час", tsShNoSelf: "Свій стан",
-  tsShCheck: "Чек-лист перед входом", tsShExtra: "Додатково",
+  tsShCheck: "Чек-лист перед входом", tsShExtra: "Додатково", tsShPsy: "Психологія", tsShCtx: "Ще про контекст",
   resHand: "TP руками", resSkip: "Скіп", resOpen: "В роботі", accOwn: "Особистий деп",
   fAccount: "Рахунок", fmOwnAccountPh: "своя назва",
   fmWhyNot: "Чому не зайшов", fmWhyNotPh: "що зупинило: не було підтвердження, новини, свій стан",
@@ -962,7 +962,7 @@ ru: {
   tsShTitle: "Моя торговая система",
   tsShMarket: "Рынок и время", tsShAssets: "Чем торгую", tsShWindows: "Когда торгую",
   tsShDays: "Дни недели", tsShNews: "Новости",
-  tsShTfs: "Таймфреймы", tsShEntry: "Вход", tsShModels: "Модели входа",
+  tsShTfs: "Таймфреймы", tsShEntry: "Вход", tsShModels: "Модели входа", tsShModelsNote: "Общие правила входа",
   tsShSetups: "Сетапы",
   tsShRules: "Правила входа", tsShBias: "Направление", tsShStop: "Стоп", tsShTarget: "Цель",
   tsShRisk: "Риск", tsShCases: "Отдельные случаи",
@@ -970,7 +970,7 @@ ru: {
   tsShWeek: "Лимит на неделю", tsShMax: "Сделок в день",
   tsShManage: "Сопровождение сделки", tsShNo: "Когда не вхожу",
   tsShNoMarket: "Рынок", tsShNoTime: "Время", tsShNoSelf: "Своё состояние",
-  tsShCheck: "Чек-лист перед входом", tsShExtra: "Дополнительно",
+  tsShCheck: "Чек-лист перед входом", tsShExtra: "Дополнительно", tsShPsy: "Психология", tsShCtx: "Ещё о контексте",
   resHand: "TP руками", resSkip: "Скип", resOpen: "В работе", accOwn: "Личный деп",
   fAccount: "Счёт", fmOwnAccountPh: "своё название",
   fmWhyNot: "Почему не зашёл", fmWhyNotPh: "что остановило: не было подтверждения, новости, своё состояние",
@@ -1572,7 +1572,7 @@ en: {
   tsShTitle: "My trading system",
   tsShMarket: "Market and time", tsShAssets: "What I trade", tsShWindows: "When I trade",
   tsShDays: "Days of the week", tsShNews: "News",
-  tsShTfs: "Timeframes", tsShEntry: "Entry", tsShModels: "Entry models",
+  tsShTfs: "Timeframes", tsShEntry: "Entry", tsShModels: "Entry models", tsShModelsNote: "General entry rules",
   tsShSetups: "Setups",
   tsShRules: "Entry rules", tsShBias: "Direction", tsShStop: "Stop", tsShTarget: "Target",
   tsShRisk: "Risk", tsShCases: "Special cases",
@@ -1580,7 +1580,7 @@ en: {
   tsShWeek: "Weekly limit", tsShMax: "Trades per day",
   tsShManage: "Managing the trade", tsShNo: "When I stay out",
   tsShNoMarket: "Market", tsShNoTime: "Time", tsShNoSelf: "My own state",
-  tsShCheck: "Checklist before entry", tsShExtra: "Anything else",
+  tsShCheck: "Checklist before entry", tsShExtra: "Anything else", tsShPsy: "Psychology", tsShCtx: "More on context",
   resHand: "TP by hand", resSkip: "Skip", resOpen: "In progress", accOwn: "Own account",
   fAccount: "Account", fmOwnAccountPh: "your own name",
   fmWhyNot: "Why I stayed out", fmWhyNotPh: "what stopped you: no confirmation, news, your own state",
@@ -1933,6 +1933,8 @@ function applyLang(code){
 
   const st = document.getElementById("settingsBtn");
   if(st){ setTip(st, T.stTip); st.setAttribute("aria-label", T.stTitle); const sp = st.querySelector("span"); if(sp) sp.textContent = T.stTitle; }
+  const sk = document.getElementById("skinBtn");
+  if(sk){ setTip(sk, T.thModalTitle); sk.setAttribute("aria-label", T.thModalTitle); }
   setText("sideMeSub", T.stProfile);
   const smb = document.getElementById("sideMeBtn"); if(smb) setTip(smb, T.stProfile);
 

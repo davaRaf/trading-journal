@@ -718,8 +718,14 @@ def ask(user_id, question, history=None, lang=None, brief=False, kind=""):
     return text or _sorry(detect_lang(question) or _lang_from(history) or lang)
 
 
-def _lang_hint(history):
-    """Розбір пишемо тією мовою, якою трейдер щойно говорив у чаті."""
+def _lang_hint(history, lang=None):
+    """Розбір пишемо тією мовою, якою трейдер щойно говорив у чаті.
+
+    Мовчазний чат — не привід писати українською: кнопку «Розбір
+    помилок» тиснуть і з порожньої розмови, а сторінка підказує свою
+    мову в `lang`. Без неї факти йшли російською, а текст над ними —
+    українською (22.09.2026, скарга власника).
+    """
     for m in reversed(history or []):
         if isinstance(m, dict) and m.get("who") == "me":
             text = str(m.get("text") or "").strip()
@@ -730,7 +736,7 @@ def _lang_hint(history):
             # мову не впізнали — хай модель орієнтується на саме повідомлення
             return ("ВІДПОВІДЬ НАПИШИ ТІЄЮ САМОЮ МОВОЮ, якою трейдер написав це: "
                     "«%s». Іншою мовою не відповідай." % text[:200])
-    return lang_order("", default="uk")   # мовчазний чат — пишемо українською
+    return lang_order("", default=lang or "uk")   # мовчазний чат — мовою сторінки
 
 
 def nudge(user_id, lang="uk", kind=""):
@@ -798,7 +804,7 @@ def review(user_id, history=None, lang=None, kind=""):
         "конкретну дію. Без вступів, без списків, без співчуття.%s\n\n%s"
         % ("\n".join("- " + f for f in facts),
            "\n\n" + BACKTEST if kind == "bt" else "",
-           _lang_hint(history)),
+           _lang_hint(history, lang)),
         max_tokens=700,
         system="Ти — спокійний тренер з трейдингу. Текст між тегами <<<ФАКТИ>>> і "
                "<<<//ФАКТИ>>> — це вже пораховані факти з журналу трейдера: спирайся "

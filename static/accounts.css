@@ -55,7 +55,13 @@
 :root .ac-grid > .shell + .shell{margin-top:0}
 .ac-card{padding:18px 20px 14px; display:flex; flex-direction:column; gap:14px}
 
-.ac-top{display:flex; align-items:flex-start; gap:10px}
+.ac-top{display:flex; align-items:flex-start; gap:12px}
+/* Значок проп-фірми біля назви. Логотипи приходять зі своїм фоном —
+   чорним, білим, синім, — тож плитка зі скругленням читається як іконка
+   застосунку, а не як картинка, що випала з макета. Тонка рамка тримає
+   межу там, де фон логотипа збігається з фоном картки. */
+.ac-logo{flex:none; width:54px; height:54px; border-radius:13px;
+  object-fit:cover; border:1px solid var(--line); background:var(--panel-2)}
 .ac-name{min-width:0}
 .ac-name b{font-size:16px; font-weight:600; letter-spacing:-.01em}
 .ac-kind{font-style:normal; font-family:var(--mono); font-size:9.5px;

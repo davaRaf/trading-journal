@@ -24,7 +24,8 @@ _WHAT = re.compile(
     r"актив|инструмент|інструмент|пар[ау]\b|модел|сетап|сэтап|setup|"
     r"таймфрейм|тф\b|timeframe|"
     r"правил|чек-?лист|checklist|риск|ризик|сесси|сесі|окн[оа]\b|не вхо|не захо|"
-    r"стоп|цел[ьи]\b|таргет|напоминан|нагадуван|asset|model|rule|risk)", re.I | re.U)
+    r"стоп|цел[ьи]\b|таргет|напоминан|нагадуван|психолог|дисциплін|дисциплин|"
+    r"корел|коррел|correl|asset|model|rule|risk|psycholog)", re.I | re.U)
 
 
 def looks_like(text):
@@ -35,6 +36,8 @@ def looks_like(text):
 # ------------------------------------------------------------ схема ----
 # списки рядків
 STR_LISTS = ("assets", "check", "no.market", "no.time", "no.self")
+# кореляція активу: corr.<АКТИВ> = «з чим корелює»
+CORR_RE = re.compile(r"^corr\.([^.]{1,24})$")
 # списки об'єктів: ключ, за яким шукаємо при видаленні, і дозволені поля
 OBJ_LISTS = {
     "tfs":       ("tf",   ("tf", "role", "what")),
@@ -44,8 +47,12 @@ OBJ_LISTS = {
     "manage":    ("k",    ("k", "v")),
     "riskCases": ("k",    ("k", "v")),
     "extra":     ("k",    ("k", "v")),
+    "ctx":       ("k",    ("k", "v")),
+    # правило психології: v — саме правило, k — ситуація (буває порожня),
+    # тож шукаємо за текстом правила
+    "psy":       ("v",    ("k", "v")),
 }
-SCALARS = ("bias", "days", "news", "mind", "maxtrades", "stop.v", "target.v",
+SCALARS = ("bias", "days", "news", "mind", "modelsNote", "maxtrades", "stop.v", "target.v",
            "risk.per", "risk.rr", "risk.day", "risk.week")
 MAXLEN = 300
 
@@ -58,11 +65,14 @@ RULES = (
     "Шляхи-списки рядків: assets (інструменти), check (чек-лист), no.market, no.time, "
     "no.self (коли не входить). value — рядок.\n"
     "Шляхи-списки обʼєктів: tfs {tf, what}, models {name, note}, setups {name, note}, "
-    "windows {name, time, note}, manage {k, v}, riskCases {k, v}, extra {k, v}. Для add "
-    "value — обʼєкт; для remove — рядок-назва (tf, name або k).\n"
+    "windows {name, time, note}, manage {k, v}, riskCases {k, v}, extra {k, v}, ctx {k, v} (контекст, не привʼязаний до одного ТФ: синхронізація ТФ тощо), "
+    "psy {k, v} (психологія: v — правило, k — ситуація або \"\"). Для add "
+    "value — обʼєкт; для remove — рядок-назва (tf, name, k; для psy — текст правила v).\n"
     "«Сетап», «сэтап», «setup» — це шлях setups (окремий розділ «Сетапи»). «Модель входу», "
     "«модель» — це models. Не плутай їх між собою.\n"
     "Скалярні шляхи (лише op=set, value — рядок): bias, days, news, mind, maxtrades, "
+    "modelsNote (загальні правила входу для всіх моделей), "
+    "corr.<АКТИВ> — з чим корелює актив (path \"corr.EURUSD\", value \"DXY\"; порожнє — прибрати), "
     "stop.v, target.v, risk.per, risk.rr, risk.day, risk.week.\n"
     "Назви інструментів пиши великими латинськими, як прийнято: XAUUSD, US100, GER40, "
     "EURUSD. «Золото» — XAUUSD, «насдак» — US100, «дакс» — GER40, «евро» — EURUSD.\n"
@@ -199,6 +209,17 @@ def apply(ts, ops):
                 continue
             _set(ts, path, lst)
 
+        elif CORR_RE.match(path) and kind in ("set", "add"):
+            a = CORR_RE.match(path).group(1).strip()
+            v = _s(val)
+            c = dict(ts["corr"]) if isinstance(ts.get("corr"), dict) else {}
+            if v:
+                c[a] = v
+            else:
+                c.pop(a, None)
+            ts["corr"] = c
+            done.append("= %s: %s" % (path, v or "—"))
+
         elif path in SCALARS and kind in ("set", "add"):
             v = _s(val)
             _set(ts, path, v)
@@ -269,13 +290,16 @@ if __name__ == "__main__":
         {"op": "set", "path": "nope.field", "value": "x"},             # чужий шлях — ігноруємо
         {"op": "add", "path": "no.self", "value": "після двох стопів"},
         {"op": "add", "path": "setups", "value": {"name": "FVG", "note": "вхід у розрив"}},
+        {"op": "add", "path": "psy", "value": {"k": "", "v": "Не торгую в тільті"}},
     ])
     assert ts["assets"] == ["US100", "XAUUSD"], ts["assets"]
     assert [m["name"] for m in ts["models"]] == ["BOS"] and ts["models"][0]["shots"] == []
     assert ts["risk"]["per"] == "0.5%" and "nope" not in ts
     assert ts["no"]["self"] == ["після двох стопів"]
     assert [s["name"] for s in ts["setups"]] == ["FVG"] and ts["setups"][0]["shots"] == []
-    assert len(done) == 6, done
+    assert ts["psy"] == [{"k": "", "v": "Не торгую в тільті"}], ts.get("psy")
+    assert len(done) == 7, done
+    assert looks_like("добавь в психологию правило не торговать в тильте")
     assert looks_like("добавь золото в активы") and looks_like("убери модель BOS из ТС")
     assert looks_like("добавь сетап FVG континуация")
     assert not looks_like("как дела?") and not looks_like("сколько у меня сделок")

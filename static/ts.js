@@ -126,13 +126,82 @@ function ed(path, cls, ph){
   const v = get(path);
   const blank = !v && v !== 0;
   return '<span class="ts-ed' + (blank ? " blank" : "") + (cls ? " " + cls : "")
-    + '" data-p="' + path + '">' + esc(blank ? (ph || D().empty) : v) + "</span>";
+    + '" data-p="' + path + '" data-ph="' + esc(ph || D().empty) + '">' + esc(blank ? (ph || D().empty) : v) + "</span>";
 }
 function edArea(path, ph){
   const v = get(path);
   const blank = !v;
   return '<span class="ts-ed multi' + (blank ? " blank" : "") + '" data-p="' + path
-    + '" data-multi="1">' + esc(blank ? (ph || D().empty) : v) + "</span>";
+    + '" data-ph="' + esc(ph || D().empty) + '" data-multi="1">' + (blank ? esc(ph || D().empty) : rich(v)) + "</span>";
+}
+
+/* Текст із пунктами й підпунктами («• / ◦ / ▸» з відступами, як приходить з
+   Notion) показуємо списком: маркер ліворуч, перенесений рядок — під текстом,
+   а не під маркером, кожен рівень — трохи правіше. Звичайний текст без
+   пунктів лишається як є. Правиться все одно сирий текст — див. startEdit. */
+const BUL_RE = /^([•◦▸·▪*\-–—])\s+/;
+function rich(v){
+  const lines = String(v).split("\n");
+  if (!lines.some(l => BUL_RE.test(l.trim()) || /^\s{2,}\S/.test(l))) return esc(v);
+  return lines.map(l => {
+    const t = l.trim();
+    if (!t) return '<span class="tl gap"></span>';
+    const m = t.match(BUL_RE);
+    const ind = l.length - l.replace(/^\s+/, "").length;
+    const lvl = Math.min(4, Math.max(Math.round(ind / 3), m ? ({"◦": 1, "▸": 2}[m[1]] || 0) : 0));
+    return '<span class="tl l' + lvl + (m ? " li" : "") + '" style="--l:' + lvl + '">'
+      + esc(m ? t.slice(m[0].length) : t) + "</span>";
+  }).join("");
+}
+/* Збережене поле оновлюємо на місці, без перемальовки розділу: інакше
+   після кожного Enter чи кліку повз поле плашка смикалась, а клік по
+   сусідньому полю губився — під ним уже був новий DOM. */
+function fill(path){
+  const v = get(path);
+  document.querySelectorAll('#main .ts-ed[data-p="' + path + '"]').forEach(s => {
+    const blank = s.dataset.multi === "1" ? !v : (!v && v !== 0);
+    s.classList.remove("on");
+    s.classList.toggle("blank", blank);
+    if (s.dataset.multi === "1") s.innerHTML = blank ? esc(s.dataset.ph || D().empty) : rich(v);
+    else s.textContent = blank ? (s.dataset.ph || D().empty) : v;
+  });
+}
+
+/* ---------- тиха перемальовка ----------
+   render() з app.js міняє весь #main, і панель вкладки щоразу заново
+   випливала з анімацією: «Змінити», «Готово», «+ додати» смикали весь
+   розділ. Тут міняємо лише потрібні плашки (або весь розділ, але без
+   анімації), а картинки переносимо старими вузлами — щоб не блимали. */
+function keepImgs(from, to){
+  const pool = [...from.querySelectorAll("img")];
+  to.querySelectorAll("img").forEach(im => {
+    const i = pool.findIndex(o => o.outerHTML === im.outerHTML);
+    if (i >= 0){ im.replaceWith(pool[i]); pool.splice(i, 1); }
+  });
+}
+function soft(ids){
+  const old = S.view === "ts" && TS && document.querySelector("#main .tsv");
+  if (!old){ render(); return; }
+  const t = document.createElement("template");
+  t.innerHTML = vTS();
+  const nu = t.content.querySelector(".tsv");
+  if (!nu){ render(); return; }
+  if (ids){
+    const pairs = ids.filter(Boolean).map(id => [old.querySelector('[data-sec="' + id + '"]'),
+                                                 nu.querySelector('[data-sec="' + id + '"]')]);
+    if (pairs.every(([a, b]) => a && b)){
+      pairs.forEach(([a, b]) => { keepImgs(a, b); a.replaceWith(b); });
+      return;
+    }
+  }
+  nu.classList.add("still");
+  const bar = old.querySelector(".tsv-tabs");
+  const sx = bar ? bar.scrollLeft : 0;
+  keepImgs(old, nu);
+  old.replaceWith(nu);
+  const nb = nu.querySelector(".tsv-tabs");
+  if (nb) nb.scrollLeft = sx;
+  placeInk();
 }
 function x(path, i){
   return '<button class="ts-x" type="button" title="' + D().remove
@@ -219,192 +288,420 @@ function urlFields(){
   return h;
 }
 
-/* ================= заповнена ТС ================= */
-function card(title, inner, extra){
-  return '<div class="card"><h3>' + esc(title) + (extra || "") + '</h3><div class="in">'
-    + inner + "</div></div>";
-}
+/* ================= заповнена ТС =================
+   Паспорт зверху + вкладки (варіант B, 18.09.2026). Раніше тут стояли дев'ять
+   карток підряд, і найпотрібніше перед угодою — чек-лист і «коли не входжу» —
+   лежало в самому низу. Тепер ключові цифри завжди на виду, а решта розкладена
+   по п'яти вкладках: на екрані одна тема за раз.
 
-function secMarket(){
+   Два режими. Звичайний — для читання: без пунктирів, порожніх полів і кнопок
+   «+ додати», саме вони й робили сторінку «напханою». Кнопка «Редагувати»
+   вмикає правку — і все це з'являється. Дані ТС ті самі, що й були: змінилась
+   лише подача, тож старі стратегії відкриваються без жодного перенесення. */
+let editing = false;
+let editSec = null;       /* плашка, відкрита на правку сама по собі */
+let menuOpen = false;
+const TAB_KEY = "tj_ts_tab";
+/* «Перед входом» — одразу після моделей входу: спершу що й як я шукаю, потім що звіряю */
+/* «Загальне» зібрало те, що займає мало місця: активи, час, ліміти, стоп і ціль,
+   супровід, а з Notion — усе «General». «Ризик і супровід» окремою вкладкою більше нема. */
+const TABS = ["general", "context", "models", "before", "psy", "real", "extra"];
+let tab = (() => {
+  try{
+    let t = localStorage.getItem(TAB_KEY);
+    if (t === "entry") t = "models";      /* так звалась вкладка до 19.09.2026 */
+    if (t === "assets" || t === "risk") t = "general";   /* злились у «Загальне» */
+    return TABS.indexOf(t) >= 0 ? t : TABS[0];
+  }catch(e){ return TABS[0]; }
+})();
+
+const PEN_IC = '<svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M4 20h4L19 9l-4-4L4 16v4z" '
+  + 'stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"/></svg>';
+const DONE_IC = '<svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5" '
+  + 'stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+const SHARE_IC = '<svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M12 15V4M7 9l5-5 5 5M5 14v4a2 2 0 002 2h10a2 2 0 002-2v-4" '
+  + 'stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+const DOTS_IC = '<svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><circle cx="5" cy="12" r="1.7" fill="currentColor"/>'
+  + '<circle cx="12" cy="12" r="1.7" fill="currentColor"/><circle cx="19" cy="12" r="1.7" fill="currentColor"/></svg>';
+
+function card(title, inner, cls){
+  return '<div class="tsv-card' + (cls ? " " + cls : "") + '">'
+    + (title ? "<h3>" + esc(title) + "</h3>" : "") + inner + "</div>";
+}
+function lab(t){ return '<div class="tsv-lab">' + esc(t) + "</div>"; }
+function subh(t){ return '<p class="tsv-subh">' + esc(t) + "</p>"; }
+function none(t){ return '<div class="empty">' + esc(t) + "</div>"; }
+
+/* ---------- плашки з власною кнопкою «Змінити» ----------
+   Кожен блок розділу (чек-лист, таймфрейми, моделі…) можна
+   відкрити на правку окремо: кнопка в його заголовку. Решта сторінки при
+   цьому лишається чистою. «Редагувати» вгорі, як і раніше, відкриває все
+   разом. Клас .ro на блоці — «тільки читання»: ховає поля-заготовки,
+   «+ додати», хрестики й порожні слоти під скріни (див. ts.css). */
+function canEdit(id){ return editing || editSec === id; }
+function ro(id){ return canEdit(id) ? "" : " ro"; }
+function editBtn(id){
+  if (editing) return "";                /* усе й так відкрито — кнопки зайві */
   const d = D();
-  const assets = (TS.assets || []);
-  let h = '<p class="ts-sub2">' + esc(d.lAssets) + "</p>";
-  h += '<div class="ts-assets">'
-    + assets.map((a, i) => "<b>" + ed("assets." + i) + x("assets", i) + "</b>").join("")
-    + "</div>" + add("assets", d.addAsset);
-
-  h += '<p class="ts-sub2">' + esc(d.lWindows) + '</p><div class="ts-lines">'
-    + (TS.windows || []).map((w, i) =>
-        '<div class="ts-line"><div class="k">' + ed("windows." + i + ".name") + "</div>"
-        + '<div class="v"><div class="ts-row"><span><b>' + ed("windows." + i + ".time", "", d.emptyTime)
-        + "</b> " + ed("windows." + i + ".note", "", d.emptyNote) + "</span>"
-        + x("windows", i) + "</div></div></div>").join("")
-    + "</div>" + add("windows", d.addWindow);
-
-  h += '<p class="ts-sub2">' + esc(d.lDaysNews) + '</p><div class="ts-lines">'
-    + '<div class="ts-line"><div class="k">' + esc(d.lTradeDays) + "</div>"
-    +   '<div class="v">' + ed("days") + "</div></div>"
-    + '<div class="ts-line"><div class="k">' + esc(d.lRedNews) + "</div>"
-    +   '<div class="v">' + ed("news") + "</div></div></div>";
-  return h;
+  const on = editSec === id;
+  return '<button type="button" class="tsv-eb' + (on ? " on" : "") + '" aria-pressed="' + on
+    + '" onclick="__ts.secEdit(\'' + id + '\')">'
+    + (on ? DONE_IC + "<span>" + esc(d.btnDone) + "</span>" : PEN_IC + "<span>" + esc(d.btnChange) + "</span>")
+    + "</button>";
+}
+/* плашка-картка: заголовок і кнопка всередині рамки */
+function secCard(id, title, body, cls){
+  return '<div class="tsv-card tsv-sec' + ro(id) + (editSec === id ? " sel" : "") + (cls ? " " + cls : "") + '" data-sec="' + id + '">'
+    + '<div class="tsv-sh"><h3>' + esc(title) + "</h3>" + editBtn(id) + "</div>" + body + "</div>";
+}
+/* блок із сіткою карток (таймфрейми, моделі…): заголовок над сіткою */
+function secBlock(id, title, body){
+  return '<section class="tsv-sec tsv-blk' + ro(id) + '" data-sec="' + id + '">'
+    + '<div class="tsv-sh"><p class="tsv-subh">' + esc(title) + "</p>" + editBtn(id) + "</div>" + body + "</section>";
 }
 
-function secTf(){
+/* ---------- чим торгую: актив і його кореляція ----------
+   Кореляція живе біля свого активу — corr: {"EURUSD": "DXY"}, — і картка
+   «Чим торгую» стає одним переліком «актив ↔ з чим корелює». Привʼязка за
+   назвою, а не за номером: список активів міняють і опитування, і помічник,
+   і номери зʼїхали б. */
+function corrOf(a){
+  const c = TS.corr;
+  return (c && !Array.isArray(c) && typeof c === "object" && c[String(a || "").trim()]) || "";
+}
+function assetRows(sec){
   const d = D();
-  const rows = (TS.tfs || []).map((r, i) =>
-    /* Під самим таймфреймом — нічого: підпис до списку («якщо відкриття
-       місяця, я заходжу подивитись…») стоїть над списком, у колонці опису.
-       Він і читається як заголовок переліку, а не як бирка збоку, і його
-       більше не тре в вузьку колонку по літері. */
-    '<div class="ts-tf"><div class="head"><div class="n">' + ed("tfs." + i + ".tf", "", d.emptyTf) + "</div></div>"
-    + '<div class="what"><div class="lead">' + ed("tfs." + i + ".role", "", d.emptyRole) + "</div>"
-    + '<div class="ts-row">' + edArea("tfs." + i + ".what", d.emptyWhat)
-    + x("tfs", i) + "</div></div>"
-    + shot("tfs." + i + ".shot") + "</div>").join("");
-  return (rows ? '<div class="ts-tfs">' + rows + "</div>"
-               : '<div class="empty">' + esc(d.noTfs) + "</div>") + add("tfs", d.addTf);
+  const assets = TS.assets || [];
+  const rows = assets.map((a, i) => {
+    const k = String(a || "").trim();
+    const cor = corrOf(k);
+    /* крапка в назві зламала б шлях поля (corr.XAU.USD) — тоді без кореляції */
+    const can = k && k.indexOf(".") < 0 && (cor || canEdit(sec));
+    return '<div class="tsv-arow"><span class="tsv-chip">' + ed("assets." + i) + x("assets", i) + "</span>"
+      + (can ? '<span class="tsv-cor"><i aria-hidden="true">↔</i>' + ed("corr." + k, "", d.emptyCorr) + "</span>" : "")
+      + "</div>";
+  }).join("");
+  return (rows ? '<div class="tsv-arows' + (assets.length > 6 ? " many" : "") + '">' + rows + "</div>"
+      : '<p class="tsv-none">' + esc(d.noneYet) + "</p>")
+    + add("assets", d.addAsset);
+}
+/* перейменували актив — його кореляція переходить до нової назви */
+function moveCorr(was, now){
+  const c = TS.corr;
+  if (!c || Array.isArray(c) || !was || was === now || !c[was]) return;
+  if (now && !c[now]) c[now] = c[was];
+  if ((TS.assets || []).indexOf(was) < 0) delete c[was];
 }
 
-/* Моделі входу й сетапи показуються однаково: назва, опис і приклади входів
-   картинками. Різниця лише в тому, що трейдер вкладає в ці слова, тож малює
-   їх один код — і виправляти вигляд треба в одному місці. */
-function namedCards(path, list, d, none){
-  return (list.length
-    ? '<div class="ts-mods">' + list.map((m, i) =>
-        '<div class="ts-mod"><div class="ts-row"><b class="nm">'
-        + ed(path + "." + i + ".name", "", d.emptyName) + "</b>" + x(path, i) + "</div>"
-        + '<div class="note">' + edArea(path + "." + i + ".note", d.emptyNote) + "</div>"
-        + '<div class="ts-shots">'
-        +   (m.shots || []).map((f, j) =>
-              shot(path + "." + i + ".shots." + j, d.shotExample, true)).join("")
-        +   shot(path + "." + i + ".shots." + (m.shots || []).length,
-                 (m.shots || []).length ? d.shotAddShort : d.shotExample, true)
-        + "</div></div>").join("") + "</div>"
-    : '<div class="empty">' + esc(none) + "</div>");
+/* ---------- вкладка «Перед входом» ---------- */
+/* Галочки чек-листа живуть один торговий день: зранку список знову чистий.
+   Тримаємо їх у браузері, а не в ТС: «Моя ТС» описує систему, а відмітки —
+   це підготовка до сьогоднішнього входу. */
+function ckDay(){
+  const t = new Date();
+  return new Date(t.getTime() - t.getTimezoneOffset() * 60000).toISOString().slice(0, 10);
 }
-
-function secEntry(){
-  const d = D();
-  let h = '<p class="ts-sub2">' + esc(d.lModels) + "</p>"
-    + namedCards("models", TS.models || [], d, d.noModels)
-    + add("models", d.addModel);
-
-  h += '<p class="ts-sub2">' + esc(d.lSetups) + "</p>"
-    + namedCards("setups", TS.setups || [], d, d.noSetups)
-    + add("setups", d.addSetup);
-
-  h += '<p class="ts-sub2">' + esc(d.lRules) + '</p><div class="ts-lines">'
-    + '<div class="ts-line"><div class="k">' + esc(d.lBias) + '</div><div class="v">'
-    +   edArea("bias") + "</div></div>"
-    + '<div class="ts-line"><div class="k">' + esc(d.lStop) + '</div><div class="v">'
-    +   edArea("stop.v") + '<div class="ts-shots">' + shot("stop.shot", d.shotHow, true) + "</div></div></div>"
-    + '<div class="ts-line"><div class="k">' + esc(d.lTarget) + '</div><div class="v">'
-    +   edArea("target.v") + '<div class="ts-shots">' + shot("target.shot", d.shotHow, true) + "</div></div></div>"
-    + '<div class="ts-line"><div class="k">' + esc(d.lMaxTrades) + '</div><div class="v"><b>'
-    +   ed("maxtrades") + "</b></div></div>"
-    + "</div>";
-  return h;
+function ckGet(){
+  try {
+    const raw = JSON.parse(localStorage.getItem("tj_ts_check") || "{}");
+    return (raw && raw.d === ckDay() && Array.isArray(raw.v)) ? raw.v : [];
+  } catch (e){ return []; }
 }
-
-function secRisk(){
-  const d = D();
-  const cell = (k, p) => '<div><div class="k">' + esc(k) + '</div><div class="n">' + ed(p) + "</div></div>";
-  let h = '<div class="ts-three">'
-    + cell(d.lRrMin, "risk.rr") + cell(d.lRiskPer, "risk.per")
-    + cell(d.lDayLimit, "risk.day") + cell(d.lWeekLimit, "risk.week")
-    + "</div>";
-  h += '<p class="ts-sub2">' + esc(d.lRiskCases) + '</p><div class="ts-lines">'
-    + (TS.riskCases || []).map((c, i) =>
-        '<div class="ts-line"><div class="k">' + ed("riskCases." + i + ".k") + "</div>"
-        + '<div class="v"><div class="ts-row">' + edArea("riskCases." + i + ".v")
-        + x("riskCases", i) + "</div></div></div>").join("")
-    + "</div>" + add("riskCases", d.addCase);
-  return h;
-}
-
-function secManage(){
-  const d = D();
-  return '<div class="ts-lines">'
-    + (TS.manage || []).map((m, i) => {
-        const shots = (m.shots || []);
-        return '<div class="ts-line"><div class="k">' + ed("manage." + i + ".k", "", d.emptyRule) + "</div>"
-          + '<div class="v"><div class="ts-row">' + edArea("manage." + i + ".v") + x("manage", i) + "</div>"
-          + '<div class="ts-shots">'
-          +   shots.map((f, j) => shot("manage." + i + ".shots." + j, d.shotHow, true)).join("")
-          +   shot("manage." + i + ".shots." + shots.length, d.shotAddShort, true)
-          + "</div></div></div>";
-      }).join("")
-    + "</div>" + add("manage", d.addRule);
-}
-
-function secNo(){
-  const d = D();
-  const col = (key, label) => {
-    const items = ((TS.no && TS.no[key]) || []);
-    return '<div class="ts-nocol"><div class="h">' + esc(label) + "</div>"
-      + (items.length
-          ? '<ul class="ts-list">' + items.map((v, i) =>
-              '<li><div class="ts-row">' + edArea("no." + key + "." + i) + x("no." + key, i)
-              + "</div></li>").join("") + "</ul>"
-          : '<p class="none">' + esc(d.noneYet) + "</p>")
-      + add("no." + key, d.addLine) + "</div>";
-  };
-  let h = '<div class="ts-no">' + col("market", d.lNoMarket) + col("time", d.lNoTime)
-    + col("self", d.lNoSelf) + "</div>";
-  h += '<p class="ts-sub2">' + esc(d.lMind) + '</p><div class="ts-said">'
-    + edArea("mind", d.emptyMind) + "</div>";
-  return h;
-}
-
-/* Вільний розділ: усе, що не лягло в готові поля. Влаштований як
-   «Супровід угоди» — заголовок, текст і скріни, — бо це найзручніша
-   форма для довільного правила. */
-function secExtra(){
-  const d = D();
-  const list = TS.extra || [];
-  return '<div class="ts-lines">'
-    + list.map((m, i) => {
-        const shots = (m.shots || []);
-        return '<div class="ts-line"><div class="k">' + ed("extra." + i + ".k", "", d.emptyExtraK) + "</div>"
-          + '<div class="v"><div class="ts-row">' + edArea("extra." + i + ".v", d.emptyExtraV)
-          + x("extra", i) + "</div>"
-          + '<div class="ts-shots">'
-          +   shots.map((f, j) => shot("extra." + i + ".shots." + j, d.shotHow, true)).join("")
-          +   shot("extra." + i + ".shots." + shots.length, d.shotAddShort, true)
-          + "</div></div></div>";
-      }).join("")
-    + "</div>"
-    + (list.length ? "" : '<div class="empty">' + esc(d.noExtra) + "</div>")
-    + add("extra", d.addExtra);
+function ckSet(v){
+  try { localStorage.setItem("tj_ts_check", JSON.stringify({d: ckDay(), v: v})); } catch (e){}
 }
 
 function secCheck(){
   const d = D();
   const list = TS.check || [];
-  if (!list.length) return '<div class="empty">' + esc(d.noCheck) + "</div>" + add("check", d.addCheck);
-  /* Просто перелік правил — тим самим виглядом, що й у спільному посиланні.
-     Галочки й лічильник «0 / 1» звідси прибрані: «Моя ТС» описує систему, а не
-     веде окрему угоду. Відмітка однаково нікуди не зберігалась і зникала на
-     першому ж оновленні сторінки. */
-  return '<div class="ts-q">'
-    + list.map((c, i) =>
-        '<div class="ts-qi"><i>' + String(i + 1).padStart(2, "0") + "</i>"
-        + '<span class="t"><div class="ts-row">' + edArea("check." + i) + x("check", i)
-        + "</div></span></div>").join("")
-    + "</div>"
+  const on = canEdit("check");
+  if (!list.length) return none(d.noCheck) + add("check", d.addCheck);
+  /* у режимі правки — номери рядків: там міняють текст, а не відмічають */
+  const done = on ? [] : ckGet().filter(i => i < list.length);
+  return (on ? "" : '<div class="ts-qh"><b>' + done.length + " / " + list.length + "</b>"
+      + "<span>" + esc(d.ckDone) + "</span>"
+      + (done.length ? '<button type="button" class="ts-qr" onclick="__ts.ckClear()">'
+          + esc(d.ckReset) + "</button>" : "") + "</div>")
+    /* відмічає весь рядок, а не саму галочку: пальцем у квадратик 20px не влучиш */
+    + '<div class="ts-q' + (on ? "" : " on") + '">' + list.map((c, i) => {
+        const hit = done.indexOf(i) >= 0;
+        return '<div class="ts-qi' + (hit ? " done" : "") + '"'
+          + (on ? "" : ' role="checkbox" tabindex="0" aria-checked="' + hit + '"'
+              + ' onclick="__ts.ck(' + i + ')"'
+              + ' onkeydown="if(event.key===\' \'||event.key===\'Enter\'){event.preventDefault();__ts.ck('
+              + i + ')}"')
+          + ">"
+          + (on ? "<i>" + String(i + 1).padStart(2, "0") + "</i>" : '<span class="ts-ck"></span>')
+          + '<span class="t"><div class="ts-row">' + edArea("check." + i) + x("check", i)
+          + "</div></span></div>";
+      }).join("") + "</div>"
     + add("check", d.addCheck);
 }
 
-/* ---------- звірка з журналом ---------- */
+/* колонка «не входжу»: ринок і час — у «Перед входом», «за собою» — у «Психології» */
+function noList(key){
+  const d = D();
+  const items = ((TS.no && TS.no[key]) || []);
+  return (items.length
+      ? '<ul class="ts-list">' + items.map((v, i) =>
+          '<li><div class="ts-row">' + edArea("no." + key + "." + i) + x("no." + key, i)
+          + "</div></li>").join("") + "</ul>"
+      : '<p class="tsv-none">' + esc(d.noneYet) + "</p>")
+    + add("no." + key, d.addLine);
+}
+
+function secNo(){
+  const d = D();
+  const col = (key, label) => '<div class="tsv-nog"><div class="h">' + esc(label) + "</div>" + noList(key) + "</div>";
+  return '<div class="tsv-nogo">' + col("market", d.lNoMarket) + col("time", d.lNoTime) + "</div>";
+}
+
+/* вікна з поясненнями, дні й новини — «коли я взагалі сідаю торгувати» */
+function secWhen(){
+  const d = D();
+  const row = (k, v) => '<div class="tsv-kv"><div class="k">' + k + '</div><div class="v">' + v + "</div></div>";
+  /* Пусті «Торгові дні», «Червоні новини», а також час і пояснення вікна
+     при читанні не показуємо — лишається чистий перелік сесій. Поля з'являються
+     в режимі правки, а в кого вони заповнені (опитувальник, імпорт) — видно завжди. */
+  const on = canEdit("market");
+  const opt = (p, ph) => (get(p) || on) ? ed(p, "", ph) : "";
+  const rows = (get("days") || on ? row(esc(d.lTradeDays), ed("days")) : "")
+    + (get("news") || on ? row(esc(d.lRedNews), ed("news")) : "")
+    + (TS.windows || []).map((w, i) => row(ed("windows." + i + ".name", "", d.emptyName),
+        '<div class="ts-row"><span>'
+        + (w.time || on ? "<b>" + ed("windows." + i + ".time", "", d.emptyTime) + "</b> " : "")
+        + opt("windows." + i + ".note", d.emptyNote) + "</span>" + x("windows", i) + "</div>")).join("");
+  return (rows || '<p class="tsv-none">' + esc(d.noneYet) + "</p>") + add("windows", d.addWindow);
+}
+
+function tabBefore(){
+  const d = D();
+  return '<div class="tsv-two">' + secCard("check", d.secCheck, secCheck())
+    + secCard("nogo", d.secNo, secNo()) + "</div>";
+}
+
+/* ---------- вкладка «Загальне» (варіант C, 19.09.2026) ----------
+   Цифри окремо, текст окремо: згори «Ризик» — короткі значення рядком великих
+   цифр і окремі випадки під ними; далі «Ринок і час» — активи й сесії однією
+   карткою у дві колонки; потім стоп і ціль, супровід, «Додатково».
+   У різних людей даних то більше, то менше, тож кожна частина підлаштовується:
+   порожнє при читанні не малюється (цифра, колонка, картка), а порожні блоки
+   згортаються в рядок кнопок «+ …» унизу — місце не пустує, але видно, що
+   ще можна дописати. У правці плашки з'являються всі поля. */
+function tabGeneral(){
+  const d = D();
+  const has = {
+    stop: !!(get("stop.v") || get("stop.shot") || get("target.v") || get("target.shot")),
+    manage: (TS.manage || []).length > 0,
+    extra: (TS.extra || []).length > 0,
+  };
+  const blocks = {
+    stop: () => secBlock("stop", d.lStopTarget, secRules()),
+    manage: () => secBlock("manage", d.secManage, tiles("manage", "k", "v",
+        {none: d.noManage, add: d.addRule, phK: d.emptyRule, phV: "", shot: d.shotHow})),
+    extra: () => secBlock("extra", d.secExtra, tiles("extra", "k", "v",
+        {none: d.noExtra, add: d.addExtra, phK: d.emptyExtraK, phV: d.emptyExtraV, shot: d.shotHow, list: true})),
+  };
+  const addL = {stop: d.addStopT, manage: d.addManageT, extra: d.addExtraT};
+  const ids = ["stop", "manage", "extra"];
+  const shown = ids.filter(id => has[id] || canEdit(id));
+  const empty = ids.filter(id => shown.indexOf(id) < 0);
+  return '<div class="tsv-gen">'
+    + secCard("market", d.secMarket, secMarket())
+    + secCard("risk", d.grpRisk, secRisk())
+    + "</div>"
+    + shown.map(id => blocks[id]()).join("")
+    + (empty.length ? '<div class="tsv-adds">' + empty.map(id => '<button class="ts-add" type="button" onclick="__ts.addSec(\''
+        + id + '\')">+ ' + esc(addL[id]) + "</button>").join("") + "</div>" : "");
+}
+
+/* «Ризик»: цифри рядком, окремі випадки під ними. Цифра без значення при
+   читанні не показується — у кого заповнено два поля, у того дві цифри на
+   всю ширину, а не п'ять клітинок із «—». Довге значення («0.5–1% залежно
+   від сетапу») пишемо звичайним шрифтом, щоб не рвало рядок. */
+function secRisk(){
+  const d = D();
+  const on = canEdit("risk");
+  const val = p => String(get(p) == null ? "" : get(p)).trim();
+  const figs = [[d.lRiskPer, "risk.per"], [d.lRrMin, "risk.rr"], [d.lDayLimit, "risk.day"],
+                [d.lWeekLimit, "risk.week"], [d.lMaxTrades, "maxtrades"]]
+    .filter(([, p]) => on || val(p))
+    .map(([l, p]) => '<div class="tsv-fig' + (val(p).length > 8 ? " long" : "") + '"><span class="fl">' + esc(l) + "</span>"
+      + ed(p) + "</div>").join("");
+  const list = TS.riskCases || [];
+  /* випадок без назви («1% на сделку» з Notion) — при читанні на всю ширину, без «—» зліва */
+  const cases = list.map((c, i) => (!on && !String(c.k || "").trim() ? '<div class="tsv-kv one">'
+        : '<div class="tsv-kv"><div class="k">' + ed("riskCases." + i + ".k") + "</div>")
+      + '<div class="v"><div class="ts-row">' + edArea("riskCases." + i + ".v")
+      + x("riskCases", i) + "</div></div></div>").join("");
+  if (!figs && !cases && !on) return '<p class="tsv-none">' + esc(d.noneYet) + "</p>";
+  const n = (figs.match(/tsv-fig[" ]/g) || []).length;
+  /* одна-дві цифри — клітинки за розміром, а не розтягнуті на всю картку */
+  return (figs ? '<div class="tsv-figs' + (n <= 2 ? " few" : "") + '">' + figs + "</div>" : "")
+    + (cases || on ? '<div class="tsv-cases">' + (cases ? lab(d.lRiskCases) + cases : "")
+        + add("riskCases", d.addCase) + "</div>" : "");
+}
+
+/* «Ринок і час»: активи ліворуч, сесії праворуч. Порожня колонка при читанні
+   зникає — тоді друга займає всю ширину. Активів багато — вони стають у дві
+   колонки, щоб ліва частина не тяглась донизу набагато довше за сесії. */
+function secMarket(){
+  const d = D();
+  const on = canEdit("market");
+  const hasA = (TS.assets || []).length > 0;
+  const hasW = (TS.windows || []).length > 0 || !!get("days") || !!get("news");
+  const cols = [];
+  if (hasA || on) cols.push('<div class="tsv-mcol a">' + lab(d.secAssets) + assetRows("market") + "</div>");
+  if (hasW || on) cols.push('<div class="tsv-mcol w">' + lab(d.secWhen) + secWhen() + "</div>");
+  if (!cols.length) return '<p class="tsv-none">' + esc(d.noneYet) + "</p>";
+  return '<div class="tsv-mkt' + (cols.length === 1 ? " one" : "") + '">' + cols.join("") + "</div>";
+}
+
+/* ---------- таймфрейми ---------- */
+function secTf(){
+  const d = D();
+  const list = TS.tfs || [];
+  /* Підпис до списку («якщо відкриття місяця, я заходжу подивитись…») стоїть
+     окремим рядком над описом: це заголовок переліку, а не бирка збоку. */
+  const rows = list.map((r, i) =>
+    '<div class="tsv-card tsv-tf' + ((r.shot || canEdit("tf")) ? " sh" : "") + '">'
+    + '<div class="tsv-tfh"><span class="n">' + ed("tfs." + i + ".tf", "", d.emptyTf) + "</span>" + x("tfs", i) + "</div>"
+    + '<div class="what"><div class="role">' + ed("tfs." + i + ".role", "", d.emptyRole) + "</div>"
+    + edArea("tfs." + i + ".what", d.emptyWhat) + "</div>"
+    + shot("tfs." + i + ".shot") + "</div>").join("");
+  return (rows ? '<div class="tsv-tfs">' + rows + "</div>" : none(d.noTfs)) + add("tfs", d.addTf);
+}
+
+/* Моделі входу, сетапи, супровід і «Додатково» — однакові картки: назва,
+   пояснення і скріни. Малює їх один код, тож і виправляти вигляд — в одному
+   місці. kk/vk — як у цьому списку звуться поля назви й тексту. */
+function tiles(path, kk, vk, o){
+  const d = D();
+  const list = get(path) || [];
+  if (!list.length) return none(o.none) + add(path, o.add);
+  /* Картка зі скрінами — на всю ширину: текст зліва згори донизу, скріни
+     справа. Вузька картка з шістьма скрінами під текстом тяглась на пів
+     екрана вниз. Картки без скрінів стоять поруч, по кілька в ряд. */
+  /* o.list — заметки одним списком: название слева, текст справа. Длинный
+     список пунктов при чтении делится на две колонки, короткая заметка
+     занимает одну строку, а не пустую вытянутую карточку. */
+  const cols = v => !canEdit(path) && String(v || "").split("\n").filter(l => l.trim()).length >= 6;
+  return '<div class="tsv-mods' + (o.list ? " tsv-notes" : "") + '">' + list.map((m, i) => {
+      const p = path + "." + i;
+      const shots = m.shots || [];
+      const cls = o.list ? (cols(m[vk]) ? " cols" : "") : (shots.length ? " wide" : "");
+      return '<div class="tsv-card tsv-mod' + cls + '"><div class="tsv-mb">'
+        + '<div class="ts-row"><b class="nm">'
+        + ed(p + "." + kk, "", o.phK) + "</b>" + x(path, i) + "</div>"
+        + '<div class="note">' + edArea(p + "." + vk, o.phV) + "</div></div>"
+        + '<div class="ts-shots">'
+        +   shots.map((f, j) => shot(p + ".shots." + j, o.shot, true)).join("")
+        +   shot(p + ".shots." + shots.length, shots.length ? d.shotAddShort : o.shot, true)
+        + "</div></div>";
+    }).join("") + "</div>" + add(path, o.add);
+}
+
+function secRules(){
+  const d = D();
+  const on = canEdit("stop");
+  /* при читанні — лише заповнена половина; одна картка стає на всю ширину */
+  const one = (label, path, shotPath) => (on || get(path) || get(shotPath))
+    ? card("", lab(label) + '<div class="v">' + edArea(path) + "</div>"
+      + (shotPath ? '<div class="ts-shots">' + shot(shotPath, d.shotHow, true) + "</div>" : "")) : "";
+  return '<div class="tsv-rules two">' + one(d.lStop, "stop.v", "stop.shot")
+    + one(d.lTarget, "target.v", "target.shot") + "</div>";
+}
+
+/* ---------- вкладка «Контекст»: таймфрейми згори донизу і біас ---------- */
+function tabContext(){
+  const d = D();
+  /* «Ще про контекст» — блоки сторінки контексту без таймфрейму
+     (синхронізація / розсинхронізація ТФ з прикладами). Порожній не
+     показуємо: дописати можна в режимі «Редагувати». */
+  const ctx = (TS.ctx || []).length || editing || editSec === "ctx"
+    ? secBlock("ctx", d.lCtx, tiles("ctx", "k", "v",
+        {none: d.noCtx, add: d.addCtx, phK: d.emptyExtraK, phV: d.emptyCtxV, shot: d.shotExample}))
+    : "";
+  /* Біас — окремий рядок не в усіх: у багатьох він і є весь контекст по
+     таймфреймах вище. Порожнього блоку не показуємо; дописати можна в правці. */
+  const bias = String(TS.bias || "").trim() || editing || editSec === "bias"
+    ? secBlock("bias", d.lBias, card("", '<div class="tsv-one">' + edArea("bias", d.emptyBias) + "</div>"))
+    /* Порожній блок не займає місця, але про нього треба знати: кнопка
+       відкриває його на правку одразу з курсором у полі (див. __ts.addBias). */
+    : '<section class="tsv-sec tsv-blk" data-sec="bias"><button class="ts-add" type="button" onclick="__ts.addBias()">+ '
+      + esc(d.addBias) + "</button></section>";
+  return secBlock("tf", d.secTf, secTf()) + ctx + bias;
+}
+
+/* ---------- вкладка «Моделі входу» ---------- */
+/* Над моделями — загальні правила входу, що стосуються всіх моделей
+   («BOS/Shift лише в межах однієї сесії», «спершу зняття ліквідності»).
+   Порожній блок не показуємо: у кого таких правил немає, тому він зайвий;
+   дописати можна в режимі «Редагувати». */
+function tabModels(){
+  const d = D();
+  const note = String(TS.modelsNote || "").trim();
+  return (note || editing || editSec === "mnote"
+      ? secBlock("mnote", d.lModelsNote, card("", '<div class="tsv-one">'
+          + edArea("modelsNote", d.emptyModelsNote) + "</div>"))
+      : "")
+    + secBlock("models", d.lModels, tiles("models", "name", "note",
+      {none: d.noModels, add: d.addModel, phK: d.emptyName, phV: d.emptyNote, shot: d.shotExample}))
+    /* Сетап — та сама модель у конкретних умовах («Азія + слом на 15m»),
+       тож його місце тут, під моделями, а не в кінці «Контексту». */
+    + secBlock("setups", d.lSetups, tiles("setups", "name", "note",
+      {none: d.noSetups, add: d.addSetup, phK: d.emptyName, phV: d.emptyNote, shot: d.shotExample}));
+}
+
+/* ---------- вкладка «Психологія» ----------
+   Нагадування собі, «не входжу, коли я…» і власні правила голови: що роблю
+   після стопу, після серії плюсів, коли хочеться відігратись. Правила —
+   окремий список psy[] з полями k/v, як «окремі випадки» ризику. */
+function tabPsy(){
+  const d = D();
+  const list = TS.psy || [];
+  const mind = get("mind");
+  return secBlock("mind", d.lMind, '<div class="tsv-quote big">'
+        + edArea("mind", d.emptyMind)
+        + (mind || canEdit("mind") ? "" : '<span class="tsv-none">' + esc(d.noMind) + "</span>") + "</div>")
+    + '<div class="tsv-two tsv-gap">'
+    + secCard("psy", d.secPsyRules, (list.length
+        /* правило без «коли» (так воно приходить з Notion) — одним рядком на
+           всю ширину, без тире в порожній колонці */
+        ? list.map((c, i) => (!c.k && !canEdit("psy")
+            ? '<div class="tsv-kv one"><div class="v">' + edArea("psy." + i + ".v", d.emptyPsyV) + "</div></div>"
+            : '<div class="tsv-kv"><div class="k">' + ed("psy." + i + ".k", "", d.emptyPsyK) + "</div>"
+              + '<div class="v"><div class="ts-row">' + edArea("psy." + i + ".v", d.emptyPsyV)
+              + x("psy", i) + "</div></div></div>")).join("")
+        : none(d.noPsy))
+      + add("psy", d.addPsy))
+    + secCard("self", d.secSelf, noList("self"))
+    + "</div>";
+}
+
+/* ---------- вкладка «Звірка з журналом» ---------- */
 function dayMap(list){
   const m = new Map();
   for (const t of list){
-    const k = t.date || "";
+    /* дата лежить як «2026-09-20T09:30» — день беремо без часу, інакше
+       кожна угода ставала окремим днем і денні ліміти не спрацьовували */
+    const k = (t.date || "").slice(0, 10);
     if (!k) continue;
     if (!m.has(k)) m.set(k, []);
     m.get(k).push(t);
   }
   return m;
+}
+
+/* «1 сделка», «2 сделки», «5 сделок»: без відмінка рядок читається як помилка */
+function nWord(n, key){
+  const d = D();
+  const forms = d[key + "F"];
+  if (!forms) return n + " " + d[key];
+  const i = (window.LANG === "en") ? (n === 1 ? 0 : 1)
+    : (n % 10 === 1 && n % 100 !== 11) ? 0
+    : (n % 10 >= 2 && n % 10 <= 4 && (n % 100 < 10 || n % 100 >= 20)) ? 1 : 2;
+  return n + " " + forms[i];
 }
 
 function against(){
@@ -413,15 +710,19 @@ function against(){
   if (list.length < 5) return '<div class="empty">' + esc(d.realFew) + "</div>";
 
   const rows = [];
-  const R = (nm, note, val, em, cls) => rows.push(
-    '<div class="r"><div class="nm">' + esc(nm) + "<i>" + esc(note) + "</i></div>"
-    + '<div class="v ' + cls + '">' + esc(val) + (em ? "<em>" + esc(em) + "</em>" : "") + "</div></div>");
+  let kept = 0;
+  const R = (nm, note, val, em, cls) => {
+    if (cls === "pos") kept++;
+    rows.push(
+      '<div class="r"><div class="nm">' + esc(nm) + "<i>" + esc(note) + "</i></div>"
+      + '<div class="v ' + cls + '">' + esc(val) + (em ? "<em>" + esc(em) + "</em>" : "") + "</div></div>");
+  };
 
   const minRR = parseFloat(String((TS.risk || {}).rr || "").replace(",", "."));
   if (minRR > 0){
     const bad = list.filter(t => t.rr != null && t.rr < minRR - 1e-9);
     R(d.realRR, d.realRRNote.replace("%s", minRR),
-      bad.length + " " + d.wTrades,
+      nWord(bad.length, "wTrades"),
       Math.round(bad.length / list.length * 100) + "% " + d.wOfAll,
       bad.length ? "neg" : "pos");
   }
@@ -435,7 +736,7 @@ function against(){
       if (net < -dayLim - 1e-9){ over++; if (net < worst) worst = net; }
     });
     R(d.realDay, d.realDayNote.replace("%s", dayLim + "%"),
-      over + " " + d.wDays, over ? d.realWorst + " " + fmtR(worst) : d.realHold,
+      nWord(over, "wDays"), over ? d.realWorst + " " + fmtR(worst) : d.realHold,
       over ? "neg" : "pos");
   }
 
@@ -444,19 +745,24 @@ function against(){
     let over = 0, most = 0;
     days.forEach(arr => { if (arr.length > maxT) over++; if (arr.length > most) most = arr.length; });
     R(d.realMax, d.realMaxNote.replace("%s", maxT),
-      over + " " + d.wDays, d.realMost + " " + most, over ? "mid" : "pos");
+      nWord(over, "wDays"), d.realMost + " " + most, over ? "neg" : "pos");
   }
 
   const declared = parseFloat(String((TS.risk || {}).per || "").replace(",", ".").replace("%", ""));
   const withRisk = list.filter(t => t.risk != null && !isNaN(t.risk));
   if (declared > 0 && withRisk.length){
     const avg = withRisk.reduce((s, t) => s + t.risk, 0) / withRisk.length;
-    const off = Math.abs(avg - declared) > declared * 0.25;
+    /* одна угода з більшим ризиком — це вже порушення: середнє його ховало */
+    const over = withRisk.filter(t => t.risk > declared + 1e-9);
     R(d.realRisk, d.realRiskNote.replace("%s", declared + "%"),
-      r1(avg) + "%", off ? d.realOff : d.realHold, off ? "mid" : "pos");
+      over.length ? nWord(over.length, "wTrades") : r1(avg) + "%",
+      over.length ? d.realAvg + " " + r1(avg) + "%" : d.realHold,
+      over.length ? "neg" : "pos");
   }
 
-  const models = (TS.models || []).map(m => (m.name || "").toLowerCase()).filter(Boolean);
+  /* назви моделей показуємо, як людина їх написала, а звіряємо в нижньому регістрі */
+  const modelNames = (TS.models || []).map(m => String((m && m.name) || "").trim()).filter(Boolean);
+  const models = modelNames.map(n => n.toLowerCase());
   const withModel = list.filter(t => (t.entry_model || "").trim());
   if (models.length && withModel.length){
     const mine = withModel.filter(t => models.includes(t.entry_model.trim().toLowerCase()));
@@ -465,16 +771,73 @@ function against(){
       .forEach(t => { const k = t.entry_model.trim(); rest[k] = (rest[k] || 0) + 1; });
     const top = Object.keys(rest).sort((a, b) => rest[b] - rest[a]).slice(0, 3)
       .map(k => k + " " + rest[k]).join(", ");
-    R(d.realModel, d.realModelNote.replace("%s", models.join(", ")),
+    R(d.realModel, d.realModelNote.replace("%s", modelNames.join(", ")),
       mine.length + " / " + withModel.length,
       top ? d.realOther + " " + top : d.realHold,
-      mine.length === withModel.length ? "pos" : "mid");
+      mine.length === withModel.length ? "pos" : "neg");
+  }
+
+  /* інструменти: вхід по тому, чого немає в «Чим торгую», — теж порушення */
+  const same = v => String(v || "").toLowerCase().replace(/[^a-z0-9а-яіїєґ]/g, "");
+  const assets = (TS.assets || []).map(same).filter(Boolean);
+  const withPair = list.filter(t => (t.pair || "").trim());
+  if (assets.length && withPair.length){
+    const mine = withPair.filter(t => assets.indexOf(same(t.pair)) >= 0);
+    const rest = {};
+    withPair.filter(t => assets.indexOf(same(t.pair)) < 0)
+      .forEach(t => { const k = t.pair.trim(); rest[k] = (rest[k] || 0) + 1; });
+    const top = Object.keys(rest).sort((a, b) => rest[b] - rest[a]).slice(0, 3)
+      .map(k => k + " " + rest[k]).join(", ");
+    R(d.realAsset, d.realAssetNote.replace("%s", (TS.assets || []).join(", ")),
+      mine.length + " / " + withPair.length,
+      top ? d.realOther + " " + top : d.realHold,
+      mine.length === withPair.length ? "pos" : "neg");
+  }
+
+  /* торгові вікна: сесія угоди або час входу проти описаних вікон */
+  const wins = (TS.windows || []).filter(w => w && (String(w.name || "").trim() || String(w.time || "").trim()));
+  const wNames = wins.map(w => same(w.name)).filter(Boolean);
+  const spans = wins.map(w => {
+    const g = String(w.time || "").match(/\d{1,2}(?::\d{2})?/g) || [];
+    if (g.length < 2) return null;
+    const m = v => { const p = v.split(":"); return (+p[0]) * 60 + (+(p[1] || 0)); };
+    return [m(g[0]), m(g[1])];
+  }).filter(Boolean);
+  const inWin = t => {
+    const ses = same(t.session);
+    if (ses && wNames.length) return wNames.indexOf(ses) >= 0;
+    const hhmm = String(t.date || "").slice(11, 16);
+    if (!spans.length || !/^\d{2}:\d{2}$/.test(hhmm)) return null;
+    const v = (+hhmm.slice(0, 2)) * 60 + (+hhmm.slice(3));
+    return spans.some(s => (s[0] <= s[1] ? (v >= s[0] && v <= s[1]) : (v >= s[0] || v <= s[1])));
+  };
+  if (wins.length){
+    const known = list.map(inWin).filter(v => v !== null);
+    const out = known.filter(v => !v).length;
+    if (known.length){
+      R(d.realWindow, d.realWindowNote.replace("%s",
+          wins.map(w => String(w.name || w.time || "").trim()).filter(Boolean).join(", ")),
+        (known.length - out) + " / " + known.length,
+        out ? d.realOut + " " + out : d.realHold, out ? "neg" : "pos");
+    }
   }
 
   if (!rows.length) return '<div class="empty">' + esc(d.realNeed) + "</div>";
-  return '<div class="ts-cmp">' + rows.join("") + "</div>";
+  /* підсумок одним числом: скільки правил тримаються без жодного порушення */
+  return '<div class="tsv-score"><b>' + kept + " / " + rows.length + "</b><span>" + esc(d.realScore) + "</span></div>"
+    + '<div class="ts-cmp">' + rows.join("") + "</div>";
 }
 
+function tabReal(){
+  const d = D();
+  /* У бектесті звірка теж має сенс — «скільки разів прогін порушив правила».
+     Але з заголовка має бути видно, по чому саме рахували. */
+  const bt = typeof btOn === "function" && btOn();
+  return card(d.secReal + " · " + (S.trades || []).length + " " + d.wTrades
+              + (bt ? " · " + T.btTsNote : ""), against());
+}
+
+/* ---------- вкладка «Notion і нотатки» ---------- */
 /* Звідки підтягнуто: список сторінок, з якими працюємо далі. Сюди ж
    додають наступну — контекст на одній сторінці, моделі входу на іншій.
    Перечитуємо завжди всі разом: інакше модель бачила б систему по шматку. */
@@ -483,15 +846,16 @@ function srcList(){
   const n = TS.notion || {};
   const pages = (n.pages && n.pages.length) ? n.pages
     : (n.url ? [{url: n.url, title: ""}] : []);
-  if (!pages.length && !srcUrls.some(u => u.trim())) return "";
-  let h = '<p class="ts-sub2">' + esc(d.srcHave) + '</p><div class="ts-srcs">';
+  let h = "";
+  if (pages.length) h += '<div class="ts-srcs">';
   h += pages.map((pg, i) => '<span class="ts-src"><a href="' + esc(pg.url)
       + '" target="_blank" rel="noopener">' + esc(pg.title || pg.url) + "</a>"
       + (pages.length > 1 && !busy
           ? '<button class="rm" title="' + esc(d.srcDrop)
             + '" onclick="__ts.srcOut(' + i + ')">×</button>'
           : "") + "</span>").join("");
-  h += "</div>";
+  if (pages.length) h += "</div>";
+  else h += '<p class="tsv-none" style="margin-bottom:12px">' + esc(d.srcNone) + "</p>";
   const bad = n.failed || [];
   if (bad.length){
     h += '<p class="ts-err">' + esc(d.srcFailed) + " "
@@ -500,54 +864,120 @@ function srcList(){
   h += (busy ? '<div class="ts-load"><i></i><span>' + esc(d.pulling) + "</span></div>" : "")
     + (pullErr ? '<p class="ts-err">' + esc(pullErr) + "</p>" : "")
     + urlFields()
-    + '<p class="hint">' + esc(d.srcAgainWarn) + "</p>";
+    + (pages.length ? '<p class="hint">' + esc(d.srcAgainWarn) + "</p>" : "");
   return h;
 }
 
 /* Сторінка з Notion, як ми її прочитали. Тримаємо поруч, бо розбір
    ніколи не витягне все: людина звіряє й дописує руками. Скріни, які
    не лягли до таймфреймів, теж лишаються тут, а не зникають. */
+/* Сторінки Notion — окремою карткою й першими у вкладці. Систему тримають
+   розділами на кількох сторінках, і після першого посилання людина шукала,
+   куди вставити наступне: поле ховалось під нотатками, в картці з текстом. */
+function secSources(){
+  return card(D().secSources, srcList(), "tsv-src");
+}
+
 function secRaw(){
   const n = TS.notion || {};
   if (!n.text && !(n.shots || []).length) return "";
   const used = (TS.tfs || []).map(t => t.shot).filter(Boolean);
   const rest = (n.shots || []).filter(s => used.indexOf(s.file) < 0);
   return card(D().secRaw,
-    srcList()
-    + (n.text ? '<p class="ts-sub2">' + esc(D().rawText) + '</p><div class="ts-raw">'
+    (n.text ? '<p class="ts-sub2">' + esc(D().rawText) + '</p><div class="ts-raw">'
         + esc(n.text) + "</div>" : "")
     + (rest.length ? '<p class="ts-sub2">' + esc(D().rawShots) + '</p><div class="ts-shots">'
         + rest.map(s => '<div class="ts-shot has mini"><img alt="" src="'
-            + esc(tsShotSrc(s.file)) + '"></div>').join("") + "</div>" : ""));
+            + esc(tsShotSrc(s.file)) + '"></div>').join("") + "</div>" : ""), "tsv-gap");
+}
+
+function tabExtra(){
+  const d = D();
+  return secSources() + secRaw();
+}
+
+/* Полоска під обраною вкладкою їде до нової, а не перестрибує. Розділ при
+   перемиканні малюється заново, тож перед перемальовкою запамʼятовуємо, де
+   полоска стояла (inkFrom), а після — ставимо її туди без анімації й ведемо
+   до нової вкладки. Поки полоска не на місці, підкреслення дає рамка самої
+   кнопки (див. .ink-on у ts.css) — тож нічого не блимає. */
+let inkFrom = null;
+function inkAt(){
+  const on = document.querySelector("#main .tsv-tabs button.on");
+  return on ? {x: on.offsetLeft, w: on.offsetWidth} : null;
+}
+function placeInk(){
+  const bar = document.querySelector("#main .tsv-tabs");
+  const ink = bar && bar.querySelector(".tsv-ink");
+  const to = inkAt();
+  if (!ink || !to) return;
+  const put = p => { ink.style.transform = "translateX(" + p.x + "px)"; ink.style.width = p.w + "px"; };
+  const from = inkFrom;
+  inkFrom = null;
+  if (from && (from.x !== to.x || from.w !== to.w)){
+    ink.style.transition = "none";
+    put(from);
+    bar.classList.add("ink-on");
+    void ink.offsetWidth;            /* зафіксувати старе місце, інакше переходу не буде */
+    ink.style.transition = "";
+  }
+  put(to);
+  bar.classList.add("ink-on");
+}
+/* ширина вкладок міняється з вікном і коли догрузився шрифт */
+window.addEventListener("resize", () => placeInk());
+if (document.fonts && document.fonts.ready) document.fonts.ready.then(() => placeInk());
+
+function tabIntoView(){
+  const bar = document.querySelector(".tsv-tabs");
+  const on = bar && bar.querySelector("button.on");
+  if (!on || bar.scrollWidth <= bar.clientWidth) return;
+  bar.scrollLeft = on.offsetLeft - bar.offsetLeft - (bar.clientWidth - on.offsetWidth) / 2;
 }
 
 function vFull(){
   const d = D();
+  const tabsL = [["general", d.tabGeneral], ["context", d.tabContext], ["models", d.tabModels],
+                 ["before", d.tabBefore], ["psy", d.tabPsy],
+                 ["real", d.tabReal], ["extra", d.tabExtra]];
   /* Біля назви розділу нічого не пишемо: звідки взялась ТС і коли її чіпали
-     востаннє — службова дрібниця, а не заголовок. Дату збірки далі зберігаємо
-     в самій ТС, просто не показуємо в шапці. */
-  let h = '<div class="vhead"><h1>' + esc(d.title) + "</h1>"
+     востаннє — службова дрібниця, а не заголовок. Головна дія одна —
+     «Редагувати»; опитування й видалення пішли в меню «⋯». */
+  let h = '<div class="tsv' + (editing ? " editing" : "") + '">';
+  h += '<div class="vhead tsv-head"><h1>' + esc(d.title) + "</h1>"
     + '<span class="right">'
-    +   '<button class="pill" onclick="__ts.ask()">' + esc(d.btnAsk) + "</button>"
-    +   '<button class="pill" onclick="__ts.share()">' + esc(d.btnShare) + "</button>"
-    +   '<button class="pill" onclick="__ts.wipe()">' + esc(d.btnDelete) + "</button>"
-    + "</span></div>";
-  h += '<p class="ts-tip">' + d.editTip + "</p>";
-  h += card(d.secMarket, secMarket());
-  h += card(d.secTf, secTf());
-  h += card(d.secEntry, secEntry());
-  h += card(d.secRisk, secRisk());
-  h += card(d.secManage, secManage());
-  h += card(d.secNo, secNo());
-  h += card(d.secExtra, secExtra());
-  h += card(d.secCheck, secCheck());
-  /* У бектесті звірка теж має сенс — «скільки разів прогін порушив правила».
-     Але з заголовка має бути видно, по чому саме рахували. */
-  const bt = typeof btOn === "function" && btOn();
-  h += card(d.secReal + " · " + (S.trades || []).length + " " + d.wTrades
-            + (bt ? " · " + T.btTsNote : ""), against());
-  h += secRaw();
-  return h;
+    +   '<button class="tsv-btn pri" type="button" onclick="__ts.edit()">'
+    +     (editing ? DONE_IC + esc(d.btnDone) : PEN_IC + esc(d.btnEdit)) + "</button>"
+    +   '<button class="tsv-btn share" type="button" onclick="__ts.share()">' + SHARE_IC
+    +     "<span>" + esc(d.btnShare) + "</span></button>"
+    +   '<span class="tsv-more"><button class="tsv-btn ic" type="button" aria-haspopup="menu" aria-expanded="'
+    +     menuOpen + '" aria-label="' + esc(d.btnMore) + '" title="' + esc(d.btnMore)
+    +     '" onclick="__ts.menu()">' + DOTS_IC + "</button>"
+    +     (menuOpen
+          ? '<div class="tsv-menu" role="menu">'
+            + '<button type="button" role="menuitem" class="m-share" onclick="__ts.share()">' + esc(d.btnShare) + "</button>"
+            + '<button type="button" role="menuitem" onclick="__ts.srcOpen()">' + esc(d.btnNotion) + "</button>"
+            + '<button type="button" role="menuitem" onclick="__ts.ask()">' + esc(d.btnAsk) + "</button>"
+            + '<button type="button" role="menuitem" class="danger" onclick="__ts.wipe()">' + esc(d.btnDelete) + "</button>"
+            + "</div>"
+          : "")
+    +   "</span></span></div>";
+  if (editing){
+    h += '<div class="tsv-editbar"><p>' + d.editTip + "</p>"
+      + '<button class="tsv-btn" type="button" onclick="__ts.edit()">' + esc(d.btnDone) + "</button></div>";
+  }
+  h += '<div class="tsv-tabs" role="tablist">' + tabsL.map(([id, l]) =>
+      '<button type="button" role="tab" aria-selected="' + (id === tab) + '"' + (id === tab ? ' class="on"' : "")
+      + ' data-t="' + esc(l) + '" onclick="__ts.tab(\'' + id + '\')">' + esc(l) + "</button>").join("")
+    + '<span class="tsv-ink" aria-hidden="true"></span></div>';
+  /* вкладок вісім, на телефоні смуга гортається — підкручуємо її до
+     обраної, інакше вона могла стояти за краєм екрана */
+  setTimeout(() => { placeInk(); tabIntoView(); }, 0);
+  h += '<div class="tsv-panel">'
+    + ({before: tabBefore, general: tabGeneral, context: tabContext, models: tabModels,
+        psy: tabPsy, real: tabReal, extra: tabExtra}[tab])()
+    + "</div>";
+  return h + "</div>";
 }
 
 function vTS(){
@@ -560,14 +990,20 @@ function vTS(){
 VIEWS.ts = vTS;
 
 /* ================= правка на місці ================= */
-function startEdit(el){
+/* fresh — пункт щойно додали кнопкою «+»: якщо в нього так нічого й не
+   написали, прибираємо його, а не лишаємо порожній овал «заповнити» */
+function startEdit(el, fresh){
   if (el.querySelector("input,textarea")) return;
   const path = el.dataset.p;
   const multi = el.dataset.multi === "1";
   const val = get(path);
   const f = document.createElement(multi ? "textarea" : "input");
+  if (multi) f.rows = 1;     /* без цього textarea відкривалась на два рядки */
   f.className = "ts-in";
   f.value = (val == null ? "" : val);
+  /* підказка лишається в порожньому овалі — і за нею ж він тримає ширину */
+  f.placeholder = el.dataset.ph || "";
+  el.classList.add("on");
   el.textContent = "";
   el.appendChild(f);
 
@@ -597,12 +1033,26 @@ function startEdit(el){
   const commit = ok => {
     if (done) return;
     done = true;
+    if (fresh && !f.value.trim()){
+      const keys = path.split(".");
+      const arr = get(keys.slice(0, -1).join("."));
+      if (Array.isArray(arr)) arr.splice(+keys[keys.length - 1], 1);
+      save(); soft();
+      return;
+    }
     if (ok){
+      const was = get(path);
       set(path, f.value.trim());
       TS.updated = today();
+      if (/^assets\.\d+$/.test(path)){
+        /* актив з'являється в картці з полем кореляції — мало оновити текст, перемальовуємо плашку */
+        moveCorr(String(was || "").trim(), f.value.trim());
+        save(); soft(["market"]);
+        return;
+      }
       save();
     }
-    render();
+    fill(path);
   };
   f.addEventListener("blur", () => commit(true));
   f.addEventListener("keydown", e => {
@@ -630,7 +1080,7 @@ async function upload(el, dataUrl){
   if (demo()){
     set(el.dataset.p, dataUrl);
     TS.updated = today();
-    save(); render();
+    save(); soft();
     return;
   }
   el.classList.add("busy");
@@ -641,7 +1091,7 @@ async function upload(el, dataUrl){
     save();
   }catch(e){}
   el.classList.remove("busy");
-  render();
+  soft();
 }
 
 function takeFile(file, el){
@@ -666,7 +1116,20 @@ filePick.onchange = () => {
 document.addEventListener("click", e => {
   if (S.view !== "ts" || !TS) return;
 
+  /* меню «⋯» закривається кліком будь-куди поза ним */
+  if (menuOpen && !(e.target.closest && e.target.closest(".tsv-more"))){
+    menuOpen = false;
+    soft();
+    return;
+  }
+
   const sl = e.target.closest && e.target.closest(".ts-shot[data-p]");
+  /* у плашці, яку не відкрили на правку, скрін можна лише роздивитись */
+  if (sl && sl.closest(".ro")){
+    const have = get(sl.dataset.p);
+    if (have && typeof openLightbox === "function") openLightbox(sl.querySelector("img") || tsShotSrc(have));
+    return;
+  }
   if (sl){
     if (e.target.closest(".rm")){
       e.stopPropagation();
@@ -677,7 +1140,7 @@ document.addEventListener("click", e => {
         const arr = get(keys.slice(0, -1).join("."));
         if (Array.isArray(arr)) arr.splice(+last, 1);
       } else set(p, "");
-      save(); render();
+      save(); soft();
       return;
     }
     /* кнопка «замінити» — файли з комп'ютера, як і був подвійний клік */
@@ -711,7 +1174,7 @@ document.addEventListener("click", e => {
   }
 
   const el = e.target.closest && e.target.closest(".ts-ed[data-p]");
-  if (el) startEdit(el);
+  if (el && !el.closest(".ro")) startEdit(el);
 });
 
 /* подвійний клік — вибір файлу з комп'ютера. Заповнений слот пропускаємо:
@@ -720,7 +1183,7 @@ document.addEventListener("dblclick", e => {
   if (S.view !== "ts" || !TS) return;
   if (touchOnly()) return;             /* на телефоні два тапи ловить ShotTap */
   const sl = e.target.closest && e.target.closest(".ts-shot[data-p]");
-  if (!sl || get(sl.dataset.p)) return;
+  if (!sl || sl.closest(".ro") || get(sl.dataset.p)) return;
   e.preventDefault();
   armed = null;
   filePick._to = sl;
@@ -736,7 +1199,8 @@ document.addEventListener("keydown", e => {
   /* поки висить питання «точно вийти?», Escape належить йому: цей обробник
      зареєстрований раніше й інакше відкрив би ще одне таке саме питання */
   if (window.Ask && Ask.isOpen()) return;
-  if (e.key === "Escape" && askBox){ e.stopPropagation(); askClose(); }
+  if (e.key === "Escape" && askBox){ e.stopPropagation(); askClose(); return; }
+  if (e.key === "Escape" && menuOpen && S.view === "ts"){ menuOpen = false; soft(); }
 }, true);
 
 document.addEventListener("paste", e => {
@@ -746,9 +1210,11 @@ document.addEventListener("paste", e => {
   if (!files.length) return;
   /* спершу слот, обраний кліком, потім той, над яким миша, і лише тоді
      перший порожній */
-  const el = (armed && document.querySelector('.ts-shot[data-p="' + armed + '"]'))
-    || (hotShot && document.body.contains(hotShot) ? hotShot : null)
-    || document.querySelector(".ts-shot[data-p]:not(.has)");
+  const open = n => n && !n.closest(".ro");
+  const el = [armed && document.querySelector('.ts-shot[data-p="' + armed + '"]'),
+              hotShot && document.body.contains(hotShot) ? hotShot : null]
+      .find(open)
+    || [...document.querySelectorAll(".ts-shot[data-p]:not(.has)")].find(open);
   if (!el) return;
   e.preventDefault();
   takeFile(files[0], el);
@@ -756,7 +1222,7 @@ document.addEventListener("paste", e => {
 
 document.addEventListener("dragover", e => {
   const el = e.target.closest && e.target.closest(".ts-shot[data-p]");
-  if (!el) return;
+  if (!el || el.closest(".ro")) return;
   e.preventDefault();
   el.classList.add("drop");
 });
@@ -766,7 +1232,7 @@ document.addEventListener("dragleave", e => {
 });
 document.addEventListener("drop", e => {
   const el = e.target.closest && e.target.closest(".ts-shot[data-p]");
-  if (!el) return;
+  if (!el || el.closest(".ro")) return;
   e.preventDefault();
   el.classList.remove("drop");
   takeFile(e.dataTransfer.files[0], el);
@@ -1091,6 +1557,15 @@ async function pull(){
 function guestStop(){ return !!(window.Guest && Guest.block(T.gsGateTs)); }
 
 window.__ts = {
+  /* галочка чек-листа: відмітки живуть до кінця дня, у браузері */
+  ck(i){
+    const v = ckGet().filter(n => n < (TS.check || []).length);
+    const at = v.indexOf(i);
+    if (at >= 0) v.splice(at, 1); else v.push(i);
+    ckSet(v);
+    soft(["check"]);
+  },
+  ckClear(){ ckSet([]); soft(["check"]); },
   /* інструменти з ТС — їх підказує «Аналіз дня», коли додаєш актив */
   assets(){ return (TS && Array.isArray(TS.assets)) ? TS.assets.filter(Boolean).slice() : []; },
   /* сама стратегія назовні — з неї sharelink.js збирає знімок */
@@ -1111,10 +1586,63 @@ window.__ts = {
     };
   },
   share(){
+    if (menuOpen){ menuOpen = false; soft(); }
     if (window.Guest && Guest.block(T.gsGateTs)) return;
     if (window.Share) Share.open("ts");
   },
-  ask(){ if(guestStop()) return; askOpen(); }, close: askClose, prev: askPrev, next: askNext, pick: pick, own: own, finish: finish,
+  /* «Редагувати» / «Готово»: перемикає звичайний вигляд і режим правки */
+  edit(){
+    if (!editing && guestStop()) return;
+    editing = !editing;
+    editSec = null;
+    menuOpen = false;
+    armed = null;
+    soft();
+  },
+  /* «Змінити» в заголовку плашки: відкрити на правку тільки її */
+  /* «+ …» замість порожнього блоку: відкрити його на правку й одразу ставити
+     курсор — у перше поле, а в списках (супровід, «Додатково») — у новий пункт */
+  addSec(id){
+    if (editSec !== id && guestStop()) return;
+    editSec = id;
+    armed = null;
+    soft();
+    if (id === "manage" || id === "extra"){ __ts.add(id); return; }
+    const f = document.querySelector('#main [data-sec="' + id + '"]:not(.ro) .ts-ed');
+    if (f) startEdit(f);
+  },
+  addBias(){ __ts.addSec("bias"); },
+  secEdit(id){
+    if (editSec !== id && guestStop()) return;
+    const was = editSec;
+    editSec = (editSec === id) ? null : id;
+    armed = null;
+    /* міняються тільки дві плашки: та, що закрилась, і та, що відкрилась */
+    soft([was, id]);
+  },
+  tab(id){
+    if (TABS.indexOf(id) < 0) return;
+    inkFrom = inkAt();
+    tab = id;
+    editSec = null;
+    try{ localStorage.setItem(TAB_KEY, id); }catch(e){}
+    render();
+    placeInk();
+  },
+  menu(){ menuOpen = !menuOpen; soft(); },
+  /* «Додати сторінку з Notion»: відкриваємо вкладку з джерелами й ставимо
+     курсор у порожнє поле під посилання */
+  srcOpen(){
+    menuOpen = false;
+    inkFrom = inkAt();
+    tab = "extra";
+    try{ localStorage.setItem(TAB_KEY, tab); }catch(e){}
+    render();
+    placeInk();
+    const f = [...document.querySelectorAll("input.ts-url")].pop();
+    if (f){ f.scrollIntoView({block: "center", behavior: "smooth"}); f.focus({preventScroll: true}); }
+  },
+  ask(){ menuOpen = false; if(guestStop()){ soft(); return; } askOpen(); }, close: askClose, prev: askPrev, next: askNext, pick: pick, own: own, finish: finish,
   again(){ step = 0; drawAsk(); },
   text(k, v){ answers[k] = v; },
   /* прибрати варіант з підказок: і з екрана, і з відповіді, якщо був обраний */
@@ -1149,6 +1677,10 @@ window.__ts = {
     pullWith(left);
   },
   add(path){
+    /* з якої плашки натиснули «+» — там і відкриємо новий пункт */
+    const ev = window.event;
+    const sec = ev && ev.target && ev.target.closest && ev.target.closest("[data-sec]");
+    const from = sec ? sec.dataset.sec : "";
     const arr = get(path);
     if (!Array.isArray(arr)) set(path, []);
     const list = get(path);
@@ -1159,22 +1691,39 @@ window.__ts = {
       models: {name: "", note: "", shots: []},
       setups: {name: "", note: "", shots: []},
       riskCases: {k: "", v: ""},
+      psy: {k: "", v: ""},
       manage: {k: "", v: "", shots: []},
       extra: {k: "", v: "", shots: []},
+      ctx: {k: "", v: "", shots: []},
     }[path];
     list.push(typeof proto === "object" && proto !== null ? Object.assign({}, proto) : "");
-    save(); render();
+    save(); soft();
+    /* новий пункт одразу відкриваємо на введення — не треба ще раз по ньому клікати */
+    /* Беремо поле в плашці, відкритій на правку, і саме його, а не «хвости»
+       (assets.4, а не assets.40). */
+    const at = path + "." + (list.length - 1);
+    const all = [...document.querySelectorAll('#main .ts-ed[data-p]')]
+      .filter(e => (e.dataset.p === at || e.dataset.p.indexOf(at + ".") === 0) && !e.closest(".ro"));
+    const f = all.find(e => from && e.closest('[data-sec="' + from + '"]')) || all[0];
+    /* прибирати порожнє можна лише прості списки (інструменти, чек-лист…):
+       у моделі чи вікна крім назви є скріни й примітки */
+    if (f) startEdit(f, typeof proto === "string");
   },
   del(path, i){
     const arr = get(path);
+    const gone = path === "assets" && Array.isArray(arr) ? String(arr[i] || "").trim() : "";
     if (Array.isArray(arr)) arr.splice(i, 1);
-    save(); render();
+    if (gone) moveCorr(gone, "");
+    save(); soft();
   },
   async wipe(){
+    menuOpen = false;
+    soft();
     if (!await Ask.yes(D().confirmDelete, {ok:T.askYes, cancel:T.askNo, danger:true})) return;
     if (demo()){ try{ localStorage.removeItem(DEMO_KEY); }catch(e){} }
     else { try{ await api("POST", "/api/ts/clear", {kind: btOn()?"bt":""}); }catch(e){} }
     TS = null;
+    editing = false;
     render();
   },
 };
@@ -1203,8 +1752,8 @@ if (typeof realApply === "function"){
 const DICT = {
 uk: {
   title: "Моя ТС", navTip: "Твої правила входу — і звірка з тим, що в журналі",
-  editTip: "<b>Тут усе правиться прямо на сторінці.</b> Клікни по будь-якому полі — воно стане рядком для вводу. "
-         + "Пунктирна рамка означає, що поле порожнє й туди можна писати. Скрін — клік по слоту, Ctrl+V або перетягни картинку.",
+  editTip: "<b>Режим правки.</b> Клікни будь-яке підкреслене поле, щоб змінити його. Скрін — клік по слоту й Ctrl+V "
+         + "або перетягни картинку. Порожні поля й кнопки «+ додати» видно тільки зараз.",
   loading: "Хвилинку…", empty: "заповнити", emptyNote: "додати пояснення",
   emptyRole: "підпис до списку", emptyWhat: "що дивлюсь на цьому таймфреймі", emptyRule: "правило",
   emptyTime: "час", emptyTf: "таймфрейм", emptyName: "назва",
@@ -1236,15 +1785,15 @@ uk: {
   whyAfter: "Можна почати з нуля, а потім підтягнути з Notion — друге допише те, чого не вистачає.",
 
   secMarket: "Ринок і час", secTf: "Таймфрейми", secEntry: "Вхід", secRisk: "Ризик",
-  secManage: "Супровід угоди", secExtra: "Додатково",
+  secManage: "Використання беззбитку", secExtra: "Додатково",
   addExtra: "ще блок", noExtra: "Тут можна дописати те, що не влізло в поля вище",
   emptyExtraK: "про що це", emptyExtraV: "своє правило або нотатка", secNo: "Коли не входжу", secCheck: "Чек-лист перед входом",
   secReal: "Що виходить насправді", secRaw: "Сторінки з Notion, як ми їх прочитали",
   rawText: "Текст сторінок", rawShots: "Скріни зі сторінок",
 
-  lAssets: "Чим торгую", lWindows: "Вікна", lDaysNews: "Дні та новини",
+  lAssets: "Чим торгую", emptyCorr: "з чим корелює", lWindows: "Вікна", lDaysNews: "Дні та новини",
   lTradeDays: "Торгові дні", lRedNews: "Червоні новини",
-  lModels: "Моделі входу", lSetups: "Сетапи", lRules: "Правила входу", lBias: "Біас визначаю",
+  lModels: "Моделі входу", lModelsNote: "Загальні правила входу", lCtx: "Ще про контекст", noCtx: "Тут — усе про контекст, що не прив'язане до одного таймфрейму", addCtx: "ще блок", emptyCtxV: "наприклад, синхронізація таймфреймів", emptyModelsNote: "правила, що стосуються всіх моделей", lSetups: "Сетапи", lRules: "Правила входу", lBias: "Як визначаю біас", addBias: "як визначаю біас", emptyBias: "наприклад: напрямок дня по D1 і H4",
   lStop: "Де стоп", lTarget: "Де ціль", lMaxTrades: "Угод за день",
   lRrMin: "Мінімальний RR", lRiskPer: "Ризик на угоду", lDayLimit: "Ліміт за день",
   lWeekLimit: "Ліміт за тиждень", lRiskCases: "Окремі випадки",
@@ -1262,6 +1811,21 @@ uk: {
   shotTouchEmpty: "У буфері нема картинки. Два тапи — обрати файл.",
   shotReplace: "замінити скрін", shotOpen: "відкрити", shotExample: "приклад", shotHow: "як це виглядає",
 
+  btnEdit: "Редагувати", btnDone: "Готово", btnMore: "Ще дії", btnChange: "Змінити",
+  noMind: "Нагадування ще немає. «Змінити» — і допиши, що сказати собі перед торгівлею.",
+  tabBefore: "Перед входом", tabGeneral: "Загальне", tabContext: "Контекст",
+  tabModels: "Моделі входу", tabPsy: "Психологія",
+  secAssets: "Чим торгую", lStopTarget: "Стоп і ціль",
+  secPsyRules: "Мої правила", secSelf: "Не входжу, коли я…",
+  noPsy: "Правил ще немає. Наприклад: «після стопу — 15 хвилин перерви».", addPsy: "правило",
+  emptyPsyK: "коли", emptyPsyV: "що роблю",
+  tabReal: "Звірка з журналом", tabExtra: "Notion і нотатки",
+  secSources: "Сторінки з Notion", btnNotion: "Додати сторінку з Notion",
+  srcNone: "Систему розбито на кілька сторінок? Вставляй посилання по одному — «+ ще сторінка» додає поле під наступне.",
+  pRisk: "Ризик", pRr: "Мін. RR", pMax: "Угод / день",
+  lLimits: "Ліміти", grpRisk: "Ризик", secMarket: "Ринок і час", addStopT: "стоп і ціль", addManageT: "використання беззбитку", addExtraT: "додатково", wDay: "день", wWeek: "тиждень", secWhen: "Коли торгую",
+  noManage: "Правил беззбитку ще немає", noCases: "Окремих випадків ще немає",
+  realScore: "правил без порушень",
   btnAsk: "Пройти опитування", btnShare: "Поділитись", btnDelete: "Видалити ТС",
   confirmDelete: "Видалити стратегію? Скріни до неї теж зникнуть.",
   confirmQuitAsk: "Вийти з опитування? Відповіді не збережуться.",
@@ -1274,8 +1838,13 @@ uk: {
   realRisk: "Ризик на угоду", realRiskNote: "у ТС — %s",
   realModel: "Входи за своїми моделями", realModelNote: "у ТС — %s",
   realWorst: "найгірший", realMost: "найбільше", realHold: "тримаєш",
+  realAsset: "Входи за своїми інструментами", realAssetNote: "у ТС — %s",
+  realWindow: "Входи у свої вікна", realWindowNote: "у ТС — %s",
+  realAvg: "у середньому", realOut: "поза вікнами:",
+  ckDone: "відмічено", ckReset: "зняти",
   realOff: "розходиться з ТС", realOther: "решта:",
   wTrades: "угод", wDays: "днів", wOfAll: "усіх",
+  wTradesF: ["угода", "угоди", "угод"], wDaysF: ["день", "дні", "днів"],
 
   question: "питання", of: "з", next: "Далі", skipQ: "пропустити",
   canPickMany: "можна кілька", ready: "готово", readyTitle: "Це твоя ТС",
@@ -1320,8 +1889,8 @@ uk: {
 
 ru: {
   title: "Моя ТС", navTip: "Твои правила входа — и сверка с тем, что в журнале",
-  editTip: "<b>Здесь всё правится прямо на странице.</b> Кликни по любому полю — оно станет строкой ввода. "
-         + "Пунктирная рамка значит, что поле пустое и туда можно писать. Скрин — клик по слоту, Ctrl+V или перетащи картинку.",
+  editTip: "<b>Режим правки.</b> Кликни любое подчёркнутое поле, чтобы изменить его. Скрин — клик по слоту и Ctrl+V "
+         + "или перетащи картинку. Пустые поля и кнопки «+ добавить» видны только сейчас.",
   loading: "Минутку…", empty: "заполнить", emptyNote: "добавить пояснение",
   emptyRole: "подпись к списку", emptyWhat: "что смотрю на этом таймфрейме", emptyRule: "правило",
   emptyTime: "время", emptyTf: "таймфрейм", emptyName: "название",
@@ -1353,15 +1922,15 @@ ru: {
   whyAfter: "Можно начать с нуля, а потом подтянуть из Notion — второе допишет то, чего не хватает.",
 
   secMarket: "Рынок и время", secTf: "Таймфреймы", secEntry: "Вход", secRisk: "Риск",
-  secManage: "Сопровождение сделки", secExtra: "Дополнительно",
+  secManage: "Использование безубытка", secExtra: "Дополнительно",
   addExtra: "ещё блок", noExtra: "Тут можно дописать то, что не влезло в поля выше",
   emptyExtraK: "о чём это", emptyExtraV: "своё правило или заметка", secNo: "Когда не вхожу", secCheck: "Чек-лист перед входом",
   secReal: "Что выходит на самом деле", secRaw: "Страницы из Notion, как мы их прочитали",
   rawText: "Текст страниц", rawShots: "Скрины со страниц",
 
-  lAssets: "Чем торгую", lWindows: "Окна", lDaysNews: "Дни и новости",
+  lAssets: "Чем торгую", emptyCorr: "с чем коррелирует", lWindows: "Окна", lDaysNews: "Дни и новости",
   lTradeDays: "Торговые дни", lRedNews: "Красные новости",
-  lModels: "Модели входа", lSetups: "Сетапы", lRules: "Правила входа", lBias: "Биас определяю",
+  lModels: "Модели входа", lModelsNote: "Общие правила входа", lCtx: "Ещё о контексте", noCtx: "Здесь — всё о контексте, что не привязано к одному таймфрейму", addCtx: "ещё блок", emptyCtxV: "например, синхронизация таймфреймов", emptyModelsNote: "правила, которые касаются всех моделей", lSetups: "Сетапы", lRules: "Правила входа", lBias: "Как определяю биас", addBias: "как определяю биас", emptyBias: "например: направление дня по D1 и H4",
   lStop: "Где стоп", lTarget: "Где цель", lMaxTrades: "Сделок за день",
   lRrMin: "Минимальный RR", lRiskPer: "Риск на сделку", lDayLimit: "Лимит за день",
   lWeekLimit: "Лимит за неделю", lRiskCases: "Отдельные случаи",
@@ -1379,6 +1948,21 @@ ru: {
   shotTouchEmpty: "В буфере нет картинки. Два тапа — выбрать файл.",
   shotReplace: "заменить скрин", shotOpen: "открыть", shotExample: "пример", shotHow: "как это выглядит",
 
+  btnEdit: "Редактировать", btnDone: "Готово", btnMore: "Ещё", btnChange: "Изменить",
+  noMind: "Напоминания пока нет. «Изменить» — и допиши, что сказать себе перед торговлей.",
+  tabBefore: "Перед входом", tabGeneral: "Общее", tabContext: "Контекст",
+  tabModels: "Модели входа", tabPsy: "Психология",
+  secAssets: "Чем торгую", lStopTarget: "Стоп и цель",
+  secPsyRules: "Мои правила", secSelf: "Не вхожу, когда я…",
+  noPsy: "Правил пока нет. Например: «после стопа — 15 минут перерыва».", addPsy: "правило",
+  emptyPsyK: "когда", emptyPsyV: "что делаю",
+  tabReal: "Сверка с журналом", tabExtra: "Notion и заметки",
+  secSources: "Страницы из Notion", btnNotion: "Добавить страницу из Notion",
+  srcNone: "Система разбита на несколько страниц? Вставляй ссылки по одной — «+ ещё страница» добавляет поле под следующую.",
+  pRisk: "Риск", pRr: "Мин. RR", pMax: "Сделок / день",
+  lLimits: "Лимиты", grpRisk: "Риск", secMarket: "Рынок и время", addStopT: "стоп и цель", addManageT: "использование безубытка", addExtraT: "дополнительно", wDay: "день", wWeek: "неделя", secWhen: "Когда торгую",
+  noManage: "Правил безубытка пока нет", noCases: "Отдельных случаев пока нет",
+  realScore: "правил без нарушений",
   btnAsk: "Пройти опрос", btnShare: "Поделиться", btnDelete: "Удалить ТС",
   confirmDelete: "Удалить стратегию? Скрины к ней тоже пропадут.",
   confirmQuitAsk: "Выйти из опроса? Ответы не сохранятся.",
@@ -1391,8 +1975,13 @@ ru: {
   realRisk: "Риск на сделку", realRiskNote: "в ТС — %s",
   realModel: "Входы по своим моделям", realModelNote: "в ТС — %s",
   realWorst: "худший", realMost: "больше всего", realHold: "держишь",
+  realAsset: "Входы по своим инструментам", realAssetNote: "в ТС — %s",
+  realWindow: "Входы в свои окна", realWindowNote: "в ТС — %s",
+  realAvg: "в среднем", realOut: "вне окон:",
+  ckDone: "отмечено", ckReset: "снять",
   realOff: "расходится с ТС", realOther: "остальное:",
   wTrades: "сделок", wDays: "дней", wOfAll: "всех",
+  wTradesF: ["сделка", "сделки", "сделок"], wDaysF: ["день", "дня", "дней"],
 
   question: "вопрос", of: "из", next: "Дальше", skipQ: "пропустить",
   canPickMany: "можно несколько", ready: "готово", readyTitle: "Это твоя ТС",
@@ -1437,8 +2026,8 @@ ru: {
 
 en: {
   title: "My system", navTip: "Your entry rules — checked against the journal",
-  editTip: "<b>Everything here is editable right on the page.</b> Click any field and it turns into an input. "
-         + "A dashed outline means the field is empty and waiting for text. Screenshot — click the slot, Ctrl+V or drop an image on it.",
+  editTip: "<b>Edit mode.</b> Click any underlined field to change it. Screenshot — click the slot and press Ctrl+V "
+         + "or drop an image on it. Empty fields and «+ add» buttons only show up now.",
   loading: "One moment…", empty: "fill in", emptyNote: "add a note",
   emptyTime: "time", emptyTf: "timeframe", emptyName: "name",
   emptyRole: "list caption", emptyWhat: "what I look at on this timeframe", emptyRule: "rule",
@@ -1470,15 +2059,15 @@ en: {
   whyAfter: "You can start from scratch and pull from Notion later — the second fills in what's missing.",
 
   secMarket: "Market and time", secTf: "Timeframes", secEntry: "Entry", secRisk: "Risk",
-  secManage: "Managing the trade", secExtra: "Anything else",
+  secManage: "Using break-even", secExtra: "Anything else",
   addExtra: "one more block", noExtra: "Room for whatever did not fit the fields above",
   emptyExtraK: "what it is about", emptyExtraV: "your own rule or a note", secNo: "When I stay out", secCheck: "Checklist before entry",
   secReal: "What actually happens", secRaw: "The Notion pages as we read them",
   rawText: "Text of the pages", rawShots: "Screenshots from the pages",
 
-  lAssets: "What I trade", lWindows: "Windows", lDaysNews: "Days and news",
+  lAssets: "What I trade", emptyCorr: "moves with", lWindows: "Windows", lDaysNews: "Days and news",
   lTradeDays: "Trading days", lRedNews: "Red news",
-  lModels: "Entry models", lSetups: "Setups", lRules: "Entry rules", lBias: "Bias from",
+  lModels: "Entry models", lModelsNote: "General entry rules", lCtx: "More on context", noCtx: "Anything about context that is not tied to one timeframe", addCtx: "another block", emptyCtxV: "e.g. timeframe alignment", emptyModelsNote: "rules that apply to every model", lSetups: "Setups", lRules: "Entry rules", lBias: "How I set bias", addBias: "how I set bias", emptyBias: "e.g. daily direction from D1 and H4",
   lStop: "Stop goes", lTarget: "Target", lMaxTrades: "Trades per day",
   lRrMin: "Minimum RR", lRiskPer: "Risk per trade", lDayLimit: "Daily limit",
   lWeekLimit: "Weekly limit", lRiskCases: "Special cases",
@@ -1496,6 +2085,21 @@ en: {
   shotTouchEmpty: "No image in the clipboard. Double tap to pick a file.",
   shotReplace: "replace screenshot", shotOpen: "open", shotExample: "example", shotHow: "what it looks like",
 
+  btnEdit: "Edit", btnDone: "Done", btnMore: "More", btnChange: "Edit",
+  noMind: "No reminder yet. Hit «Edit» and write what to tell yourself before trading.",
+  tabBefore: "Before entry", tabGeneral: "General", tabContext: "Context",
+  tabModels: "Entry models", tabPsy: "Psychology",
+  secAssets: "What I trade", lStopTarget: "Stop & target",
+  secPsyRules: "My rules", secSelf: "I don't enter when I…",
+  noPsy: "No rules yet. For example: «after a stop — a 15-minute break».", addPsy: "rule",
+  emptyPsyK: "when", emptyPsyV: "what I do",
+  tabReal: "Journal check", tabExtra: "Notion & notes",
+  secSources: "Notion pages", btnNotion: "Add a Notion page",
+  srcNone: "System split across several pages? Paste the links one by one — «+ one more page» adds a field for the next one.",
+  pRisk: "Risk", pRr: "Min RR", pMax: "Trades / day",
+  lLimits: "Limits", grpRisk: "Risk", secMarket: "Market & hours", addStopT: "stop & target", addManageT: "using break-even", addExtraT: "anything else", wDay: "day", wWeek: "week", secWhen: "When I trade",
+  noManage: "No break-even rules yet", noCases: "No special cases yet",
+  realScore: "rules kept",
   btnAsk: "Run the questions", btnShare: "Share", btnDelete: "Delete system",
   confirmDelete: "Delete the system? Its screenshots go too.",
   confirmQuitAsk: "Leave the questionnaire? Your answers will be lost.",
@@ -1508,8 +2112,13 @@ en: {
   realRisk: "Risk per trade", realRiskNote: "your rule — %s",
   realModel: "Entries by your own models", realModelNote: "your rule — %s",
   realWorst: "worst", realMost: "most", realHold: "holding",
+  realAsset: "Entries on your own instruments", realAssetNote: "your rule — %s",
+  realWindow: "Entries inside your windows", realWindowNote: "your rule — %s",
+  realAvg: "average", realOut: "outside:",
+  ckDone: "ticked", ckReset: "clear",
   realOff: "drifts from the rule", realOther: "the rest:",
   wTrades: "trades", wDays: "days", wOfAll: "of all",
+  wTradesF: ["trade", "trades"], wDaysF: ["day", "days"],
 
   question: "question", of: "of", next: "Next", skipQ: "skip",
   canPickMany: "pick as many as you like", ready: "done", readyTitle: "This is your system",

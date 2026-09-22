@@ -157,8 +157,18 @@ function tsSnapshot(){
     .filter(m => str(m.k) || str(m.v))
     .map(m => ({k: str(m.k), v: str(m.v), shots: shots(m.shots)}));
 
+  /* «Ще про контекст» — з 19.09.2026 */
+  const ctx = (ts.ctx || [])
+    .filter(m => str(m.k) || str(m.v))
+    .map(m => ({k: str(m.k), v: str(m.v), shots: shots(m.shots)}));
+
   const cases = (ts.riskCases || [])
     .filter(c => str(c.k) || str(c.v))
+    .map(c => ({k: str(c.k), v: str(c.v)}));
+
+  /* правила психології — окремий розділ з 19.09.2026 */
+  const psy = (ts.psy || [])
+    .filter(c => str(c.v))
     .map(c => ({k: str(c.k), v: str(c.v)}));
 
   const no = ts.no || {};
@@ -178,18 +188,24 @@ function tsSnapshot(){
     kpis: rk,
     ts: {
       assets: line(ts.assets),
+      /* кореляція біля активу: {"EURUSD": "DXY"} */
+      corr: Object.fromEntries(Object.entries(ts.corr && !Array.isArray(ts.corr) && typeof ts.corr === "object"
+        ? ts.corr : {}).map(([k, v]) => [str(k), str(v)]).filter(([k, v]) => k && v)),
       windows: windows,
       days: str(ts.days), news: str(ts.news),
       tfs: tfs,
+      ctx: ctx,
       models: models,
       setups: setups,
       bias: str(ts.bias),
+      modelsNote: str(ts.modelsNote),
       stop: {v: str((ts.stop || {}).v), shots: shots([(ts.stop || {}).shot])},
       target: {v: str((ts.target || {}).v), shots: shots([(ts.target || {}).shot])},
       riskCases: cases,
       manage: manage,
       no: {market: line(no.market), time: line(no.time), self: line(no.self)},
       mind: str(ts.mind),
+      psy: psy,
       check: line(ts.check),
       extra: extra,
     },
@@ -199,7 +215,7 @@ function tsSnapshot(){
   /* порожньою стратегією ділитись нема чого */
   const t = data.ts;
   const any = has(t.assets) || has(t.tfs) || has(t.models) || has(t.setups) || has(t.manage)
-    || has(t.check) || has(t.extra) || t.bias || t.mind || t.stop.v || t.target.v
+    || has(t.check) || has(t.extra) || has(t.psy) || has(t.ctx) || t.modelsNote || t.bias || t.mind || t.stop.v || t.target.v
     || has(t.no.market) || has(t.no.time) || has(t.no.self) || rk.length;
   return any ? data : null;
 }

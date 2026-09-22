@@ -143,8 +143,15 @@ html:has(.pnl-wrap){overflow-y:hidden}
    ширину .side, тож відступ завжди збігається з панеллю. Де панель не fixed
    (смуга зверху, вузький екран) — відступ знімаємо з !important, бо правила
    варіантів меню сильніші за медіазапит. */
-:root{--side-w:216px}
-body > .main, body > .tgn-col{margin-left:var(--side-w)}
+/* --tb-top — де починається смуга зверху. Над нею можуть стояти ще дві
+   смужки: «зараз бектест» і гостьова. Тримаємо зсув змінною, щоб під неї
+   підлаштовувалась не лише сама смуга, а й усе, що липне до верху екрана
+   (шапка таблиці новин). */
+:root{--side-w:216px; --tb-h:68px; --tb-top:0px}
+/* Зверху робочої області стоїть смуга (.topbar нижче), тож сусід панелі
+   відступає не лише вліво, а й униз. Відступ саме margin, а не padding:
+   у .main свій padding коротким записом, і padding-top тут з ним сперечався б. */
+body > .main, body > .tgn-col{margin-left:var(--side-w);margin-top:var(--tb-h)}
 /* смуга прокрутки в лівому меню не потрібна: воно коротке, а на низькому
    екрані докручується колесом. Разом зі смугою прибрано й місце під неї
    (scrollbar-gutter) — інакше праворуч лишалась порожня колонка. */
@@ -177,10 +184,51 @@ body > .main, body > .tgn-col{margin-left:var(--side-w)}
 .nav .navsub.on{opacity:1;color:var(--text);font-weight:600;background:var(--panel-2);box-shadow:none}
 /* Підвал панелі: стоїть під логотипом, тому вниз його притискає вже
    сам знак (.side .brand{margin-top:auto}), а не цей блок. */
-.side-foot{margin-top:8px;display:flex;flex-direction:column;gap:10px}
+.side-foot{margin-top:auto;display:flex;flex-direction:column;gap:10px}
 .ghost{border:1px solid var(--line);border-radius:var(--r-sm);padding:7px 10px;color:var(--dim);font-size:13px;text-align:center}
 .ghost:hover{color:var(--text);border-color:var(--faint)}
 #themeBtn{display:flex;align-items:center;justify-content:center;gap:7px}
+
+/* ================= смуга зверху ================= */
+/* «Нова угода» і свій профіль — те, чим користуються з будь-якого
+   розділу. У панелі вони стояли серед розділів і читались як ще два
+   пункти меню. Тепер вони окремою смугою над сторінкою: панель — про
+   «куди піти», смуга — про «що зробити» й «хто я».
+
+   Смуга прибита до вікна, як і панель, і починається рівно від її краю:
+   left бере ту саму змінну --side-w, тож вузьке меню значками чи
+   спокійне текстове зсувають смугу самі, без окремих правил. */
+.topbar{position:fixed;top:var(--tb-top);left:var(--side-w);right:0;z-index:9;height:var(--tb-h);
+  display:flex;align-items:center;padding:0 clamp(14px,1.6vw,22px);
+  background:var(--bg);border-bottom:1px solid var(--side-line)}
+/* Вміст смуги тримається правого краю, а не колонки сторінки (20.09.2026,
+   прохання власника): на широкому екрані сторінка впирається в свої 1320,
+   і профіль відʼїжджав від краю на сотню з гаком пікселів. */
+.tb-in{width:100%;display:flex;align-items:center;gap:10px}
+.tb-sp{flex:1}
+/* Значок у смузі: сам сірий, кольору набирає лише під курсором — щоб не
+   сперечатись із зеленою кнопкою поруч. Квадрат 36px, бо пальцем у саму
+   картинку 18px не влучиш. */
+.tb-ic{flex:none;width:36px;height:36px;display:grid;place-items:center;padding:0;
+  border:0;border-radius:10px;background:none;color:var(--faint);cursor:pointer;
+  transition:color .15s,background .15s}
+.tb-ic:hover{color:var(--text);background:var(--panel-2)}
+.tb-ic:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
+/* У панелі профіль був рядком на всю ширину з рискою знизу; у смузі він
+   тулиться до правого краю, тож ні ширини, ні риски йому не треба. */
+.topbar .side-me{flex:none;padding:0;border:0}
+/* Плашка під аватаром і ніком: у порожній смузі профіль розсипався на
+   картинку й два рядки тексту. Сірий прямокутник збирає їх в одне —
+   видно, що це кнопка, а не підпис збоку. */
+.topbar .side-me-who{flex:none;padding:5px 12px 5px 6px;min-height:40px;border-radius:12px;
+  background:var(--panel-2);border:1px solid var(--line-soft)}
+.topbar .side-me-who:hover{background:var(--panel-2);border-color:var(--line)}
+.topbar .side-me-t b{font-size:13px}
+.topbar .side-me-t small{font-size:11px}
+/* Смужка «зараз бектест» і гостьова смуга прибиті до самого верху —
+   смуга сідає під них, а не ховається за ними. */
+:root[data-mode="bt"]{--tb-top:20px}
+html[data-guest] body.has-gbar{--tb-top:52px}
 
 /* ================= main ================= */
 .main{flex:1;min-width:0;padding:clamp(16px,3vw,36px)}
@@ -1189,6 +1237,12 @@ h1.ovh a.on::after{content:"";position:absolute;left:0;right:0;bottom:0;height:2
 .ovgrid{stroke:var(--ov-grid);stroke-width:1}
 
 /* колонка-компаньон */
+/* Колонка тягнеться до низу сусідньої картки, і три розділи ділять ту
+   висоту порівну — так було й так лишається. Розгонило рядки: всередині
+   розділу стояло justify-content:space-between, тож коли сесія одна-дві,
+   друга відлітала в самий низ і між ними зяяла діра на пів екрана
+   (20.09.2026, прохання власника). Тепер рядки йдуть підряд одразу під
+   своїм заголовком, а вільне місце лишається під ними. */
 .ovw .rail{align-self:stretch;display:flex;flex-direction:column;border:1px solid var(--line-soft);
   border-radius:22px;padding:6px;background:var(--shell-bg)}
 .ovw .rail .inner{flex:1;background:var(--card);border:1px solid var(--line-soft);border-radius:17px;
@@ -1196,7 +1250,7 @@ h1.ovh a.on::after{content:"";position:absolute;left:0;right:0;bottom:0;height:2
 .ovw .cut{flex:1;display:flex;flex-direction:column}
 .ovw .cut section{flex:1;display:flex;flex-direction:column;min-height:0}
 .ovw .cut section + section{border-top:1px solid var(--line-soft);margin-top:18px;padding-top:18px}
-.ovw .cut section .rows{flex:1;display:flex;flex-direction:column;justify-content:space-between}
+.ovw .cut section .rows{flex:1;display:flex;flex-direction:column;justify-content:flex-start}
 .ovw .cut h3{margin:0 0 10px;padding:0;border:none;font-family:var(--mono);font-size:9px;letter-spacing:.20em;
   text-transform:uppercase;color:var(--faint);font-weight:400;display:flex;align-items:baseline;background:none}
 .ovw .cut h3 em{margin-left:auto;font-style:normal;letter-spacing:0;text-transform:none;font-size:10px;
@@ -1278,9 +1332,6 @@ h1.ovh a.on::after{content:"";position:absolute;left:0;right:0;bottom:0;height:2
 .brand .nm small{display:block;font-family:var(--mono);font-size:9px;letter-spacing:.14em;
   text-transform:uppercase;color:var(--faint);font-weight:400}
 .newtrade{display:flex;align-items:center;justify-content:center;gap:8px;border-radius:12px}
-:root[data-theme="dark"] .newtrade{background:var(--accent);border:1px solid var(--accent);
-  color:var(--accent-ink);font-weight:600}
-:root[data-theme="dark"] .newtrade:hover{filter:none;box-shadow:0 0 26px -4px rgba(64,224,148,.65)}
 .nav a{display:flex;align-items:center;gap:10px;padding:9px 11px;border-radius:11px;font-size:13.5px;
   border:1px solid transparent}
 .nav a.on{box-shadow:none;border-color:var(--line);background:var(--panel-2)}
@@ -1307,12 +1358,15 @@ h1.ovh a.on::after{content:"";position:absolute;left:0;right:0;bottom:0;height:2
   :root:not([data-layout="top"]) .side .mode-sw .seg-tabs{width:auto;border:0;border-radius:999px;padding:0}
   :root:not([data-layout="top"]) .side .mode-sw .seg-tabs button{flex:none;padding:8px 20px;font-size:13px;border-radius:999px}
   :root[data-mode="bt"]:not([data-layout="top"]) .side .mode-sw{border-color:var(--accent)}
-  /* низ сторінки не ховається під капсулою. Саме #main: клас main
-     мають і головні кнопки (репліка агента, «шляхи» на порожньому огляді) —
-     з голим .main вони отримували ці 84px знизу й витягувались угору. */
-  :root:not([data-layout="top"]) #main{padding-bottom:max(clamp(16px,3vw,36px), 84px)}
-  :root:not([data-layout="top"]) #main:has(.ovw, .acw){padding-bottom:84px}
 }
+/* У смузі перемикач стоїть рядком і без підпису «Режим»: поруч із ним
+   оформлення й профіль, підпис у такому ряду тільки заважає. Місце —
+   праворуч, перед значком оформлення (20.09.2026, прохання власника);
+   кути звичайні, як у всіх сегментів журналу, а не капсулою. */
+.topbar .mode-sw{flex:none;flex-direction:row;align-items:center;gap:0}
+.topbar .mode-sw .lab{display:none}
+.topbar .mode-sw .seg-tabs{width:auto;margin:0}
+.topbar .mode-sw .seg-tabs button{flex:none;padding:6px 15px;font-size:12.5px}
 .mode-sw .seg-tabs{margin-left:0;width:100%;border-radius:12px}
 .mode-sw .seg-tabs button{flex:1;padding:7px 8px;font-size:12px}
 :root[data-mode="bt"] .mode-sw .seg-tabs{border-color:var(--accent)}
@@ -1543,6 +1597,10 @@ button[data-tip],a[data-tip],.mk[data-tip]{cursor:pointer}
 .spop.in{opacity:1;transform:none}
 .sopt{padding:7px 10px;border-radius:7px;font-family:var(--mono);font-size:12px;color:var(--dim);
   cursor:pointer;white-space:nowrap}
+/* рядок зі значком (логотип проп-фірми у виборі фірми) */
+.sopt.ic{display:flex;align-items:center;gap:9px}
+.sopt.ic>img{flex:none;width:24px;height:24px;border-radius:6px;object-fit:cover;
+  border:1px solid var(--line)}
 .sopt.on{background:var(--panel-2);color:var(--text)}
 .sopt[aria-selected="true"]{color:var(--text);font-weight:600}
 .sopt[aria-selected="true"]::after{content:"·";margin-left:8px;color:var(--accent)}
@@ -1732,10 +1790,9 @@ body::after{
   border-right:1px solid var(--line-soft)}
 :root[data-nav="flat"]{--side-w:212px}
 :root[data-nav="flat"] .brand{padding:0 10px}
-:root[data-nav="flat"] .newtrade{background:none;border:1px solid var(--line);color:var(--text);
-  font-weight:500;border-radius:8px;padding:10px 12px}
-:root[data-nav="flat"] .newtrade:hover{background:none;border-color:var(--accent);color:var(--accent);
-  box-shadow:none;filter:none}
+/* «Нова угода» тут теж суцільно зелена (20.09.2026, прохання власника):
+   у плоскому меню вона була контуром, і головна дія журналу губилась
+   серед таких самих сірих рядків. Форму лишає базове правило. */
 :root[data-nav="flat"] .nav{gap:2px}
 :root[data-nav="flat"] .nav a{position:relative;flex-direction:row;align-items:center;text-align:left;
   gap:11px;padding:9px 10px;border:none;border-radius:6px;background:none;color:var(--dim);font-size:13.5px}
@@ -1760,7 +1817,7 @@ body::after{
   width:2px;border-radius:0 2px 2px 0;background:var(--accent)}
 /* Волосинка тепер над знаком: підвал стоїть під ним, і дві риски поспіль
    різали б низ панелі навпіл. */
-:root[data-nav="flat"] .side .brand{padding-top:16px;border-top:1px solid var(--line-soft)}
+:root[data-nav="flat"] .side .brand{padding-bottom:16px;border-bottom:1px solid var(--line-soft)}
 :root[data-nav="flat"] #themeBtn{justify-content:flex-start}
 /* «Рахунки» у flat: правило пункту меню вище за специфічністю перебиває
    .nav .navsub, тож повторюємо розмір і відступи тут. Акцентну смугу
@@ -1778,9 +1835,9 @@ body::after{
 :root[data-nav="icons"] .brand{padding:0;justify-content:center}
 :root[data-nav="icons"] .brand .nm{display:none}
 :root[data-nav="icons"] .brand .mark{width:36px;height:36px}
-:root[data-nav="icons"] .newtrade{font-size:0;width:44px;height:44px;padding:0;border-radius:14px;
+:root[data-nav="icons"] .side .newtrade{font-size:0;width:44px;height:44px;padding:0;border-radius:14px;
   justify-content:center;align-self:center}
-:root[data-nav="icons"] .newtrade svg{width:17px;height:17px}
+:root[data-nav="icons"] .side .newtrade svg{width:17px;height:17px}
 :root[data-nav="icons"] .nav{width:100%;gap:4px}
 :root[data-nav="icons"] .nav a{font-size:0;justify-content:center;padding:11px 0;border-radius:12px}
 :root[data-nav="icons"] .nav .navsub{display:none}
@@ -1790,7 +1847,7 @@ body::after{
 :root[data-nav="icons"] .mini{font-size:0;justify-content:center;padding:11px 0;border-radius:12px}
 :root[data-nav="icons"] .mini .ic{width:17px;height:17px}
 :root[data-nav="icons"] .side-foot{width:100%}
-:root[data-nav="icons"] .side .brand{width:100%;padding-top:16px;border-top:1px solid var(--line-soft)}
+:root[data-nav="icons"] .side .brand{width:100%;padding-bottom:16px;border-bottom:1px solid var(--line-soft)}
 :root[data-nav="icons"] #themeBtn{font-size:0;justify-content:center;padding:11px 0}
 :root[data-nav="icons"] #themeBtn span{display:none}
 /* доводка вариантов меню */
@@ -1824,13 +1881,14 @@ body::after{
 .side-me-t b{font-size:13.5px;font-weight:600;overflow-wrap:anywhere;line-height:1.3}
 .side-me-t small{font-size:11.5px;color:var(--faint);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .side-me-who:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
-.side .brand{flex:none;margin-top:auto}
+/* Знак стоїть першим у панелі, тож донизу тепер тисне підвал, а не він. */
+.side .brand{flex:none}
 .side-foot [hidden]{display:none !important}
-:root[data-nav="flat"] .side-me{margin:0 -2px}
+:root[data-nav="flat"] .side .side-me{margin:0 -2px}
 /* вузька смуга значків: лише аватар */
-:root[data-nav="icons"] .side-me{width:100%}
-:root[data-nav="icons"] .side-me-who{flex:none;justify-content:center;padding:4px}
-:root[data-nav="icons"] .side-me-t{display:none}
+:root[data-nav="icons"] .side .side-me{width:100%}
+:root[data-nav="icons"] .side .side-me-who{flex:none;justify-content:center;padding:4px}
+:root[data-nav="icons"] .side .side-me-t{display:none}
 /* меню рядком угорі: логотип першим, профіль в кінці, без підписів */
 :root[data-layout="top"] .brand{order:-2}
 :root[data-layout="top"] .side-me{order:10;padding:0;border:0}
