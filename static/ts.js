@@ -704,9 +704,20 @@ function nWord(n, key){
   return n + " " + forms[i];
 }
 
+/* Угоди, по яких узагалі є що звіряти. Скіп — сетап, який людина свідомо
+   не взяла, «в роботі» — угода без результату. Журнал їх у статистику не
+   бере (realTrades в app.js), і звірка не має брати: інакше пропущений
+   сетап поза вікном ставав «порушенням вікна», ризик, прикинутий наперед, —
+   перевищенням ризику, а пʼять скіпів за день — перевищенням ліміту угод.
+   Рахувало по всьому підряд, і цифри в усіх рядках були чужі
+   (22.09.2026, скарга власника). */
+function realList(){
+  return (S.trades || []).filter(t => !t.hidden && !isSkip(t) && !isOpen(t));
+}
+
 function against(){
   const d = D();
-  const list = (S.trades || []).filter(t => !t.hidden);
+  const list = realList();
   if (list.length < 5) return '<div class="empty">' + esc(d.realFew) + "</div>";
 
   const rows = [];
@@ -718,12 +729,20 @@ function against(){
       + '<div class="v ' + cls + '">' + esc(val) + (em ? "<em>" + esc(em) + "</em>" : "") + "</div></div>");
   };
 
+  /* RR рахуємо лише по тих угодах, де він записаний. Рахували від усіх
+     підряд — і доля виходила в рази меншою за справжню: угоди без RR
+     (скіпи, відкриті, просто не заповнені) роздували знаменник. Та ще й
+     рядок читався навпаки: «9% усіх» під заголовком «не менше 1.5» люди
+     розуміли як «правило тримається», хоча це була частка порушень
+     (22.09.2026, скарга власника). Тепер рядок такий самий, як сусідні:
+     скільки з тих, де RR є, вкладається в мінімум. */
   const minRR = parseFloat(String((TS.risk || {}).rr || "").replace(",", "."));
-  if (minRR > 0){
-    const bad = list.filter(t => t.rr != null && t.rr < minRR - 1e-9);
+  const withRR = list.filter(t => t.rr != null && !isNaN(t.rr));
+  if (minRR > 0 && withRR.length){
+    const bad = withRR.filter(t => t.rr < minRR - 1e-9);
     R(d.realRR, d.realRRNote.replace("%s", minRR),
-      nWord(bad.length, "wTrades"),
-      Math.round(bad.length / list.length * 100) + "% " + d.wOfAll,
+      (withRR.length - bad.length) + " / " + withRR.length,
+      bad.length ? d.realBelow + " " + bad.length : d.realHold,
       bad.length ? "neg" : "pos");
   }
 
@@ -760,8 +779,12 @@ function against(){
       over.length ? "neg" : "pos");
   }
 
-  /* назви моделей показуємо, як людина їх написала, а звіряємо в нижньому регістрі */
-  const modelNames = (TS.models || []).map(m => String((m && m.name) || "").trim()).filter(Boolean);
+  /* Назви показуємо, як людина їх написала, а звіряємо в нижньому регістрі.
+     Беремо і моделі входу, і сетапи: те саме людина пише то в один розділ,
+     то в другий, а журнал знає одне поле «модель входу». Звіряли лише з
+     моделями — і власні сетапи виходили «чужими». */
+  const modelNames = [].concat(TS.models || [], TS.setups || [])
+    .map(m => String((m && m.name) || "").trim()).filter(Boolean);
   const models = modelNames.map(n => n.toLowerCase());
   const withModel = list.filter(t => (t.entry_model || "").trim());
   if (models.length && withModel.length){
@@ -778,7 +801,37 @@ function against(){
   }
 
   /* інструменти: вхід по тому, чого немає в «Чим торгую», — теж порушення */
-  const same = v => String(v || "").toLowerCase().replace(/[^a-z0-9а-яіїєґ]/g, "");
+  const same = v => String(v || "").toLowerCase().replace(/[^a-z0-9а-яіїєґё]/g, "");
+  /* Одна й та сама сесія зветься по-різному: у ТС, стягнутій з англійської
+     сторінки Notion, вікно «London», а в журналі сесія «Лондон». Порівнювали
+     рядки як є — і всі до одної угоди виходили «поза вікном», хоча людина
+     торгувала рівно в своє вікно (22.09.2026, скарга власника). Тому зводимо
+     назву до спільного ключа. Незнайому назву лишаємо як є: два однакових
+     написання однаково збіжаться. */
+  const SES = [["london", /^(лондон|лондонськ|лондонск|london)/],
+               ["newyork", /^(ньюйорк|ньойорк|нюйорк|newyork)/],
+               ["asia", /^(аз[иі]|asia|asian|токио|токіо|tokyo|сидней|sydney)/],
+               ["frankfurt", /^(франкфурт|frankfurt)/],
+               ["powerhour", /^(powerhour|паверхаур|силовагодина)/],
+               ["premarket", /^(premarket|премаркет|передринок)/]];
+  /* Сесію часто пишуть скороченням: «NY», «LO», «ЛОН», «НЙ». Їх звіряємо
+     рівно, а не за початком рядка: «lo» як початок зловило б будь-яке слово
+     на «lo». Map, а не звичайний обʼєкт, — щоб сесія з назвою на кшталт
+     «constructor» не підхопила чуже значення. */
+  const SES_SHORT = new Map([
+    ["lo", "london"], ["lon", "london"], ["ldn", "london"], ["лн", "london"],
+    ["лон", "london"], ["лд", "london"],
+    ["ny", "newyork"], ["nyc", "newyork"], ["нй", "newyork"], ["ньй", "newyork"],
+    ["нью", "newyork"], ["us", "newyork"],
+    ["as", "asia"], ["аз", "asia"], ["fr", "frankfurt"], ["fra", "frankfurt"],
+    ["фр", "frankfurt"], ["ph", "powerhour"], ["pm", "premarket"]]);
+  const sesKey = v => {
+    const s = same(v);
+    if (!s) return "";
+    if (SES_SHORT.has(s)) return SES_SHORT.get(s);
+    for (const [key, re] of SES) if (re.test(s)) return key;
+    return s;
+  };
   const assets = (TS.assets || []).map(same).filter(Boolean);
   const withPair = list.filter(t => (t.pair || "").trim());
   if (assets.length && withPair.length){
@@ -796,20 +849,32 @@ function against(){
 
   /* торгові вікна: сесія угоди або час входу проти описаних вікон */
   const wins = (TS.windows || []).filter(w => w && (String(w.name || "").trim() || String(w.time || "").trim()));
-  const wNames = wins.map(w => same(w.name)).filter(Boolean);
+  const wNames = wins.map(w => sesKey(w.name)).filter(Boolean);
   const spans = wins.map(w => {
     const g = String(w.time || "").match(/\d{1,2}(?::\d{2})?/g) || [];
     if (g.length < 2) return null;
     const m = v => { const p = v.split(":"); return (+p[0]) * 60 + (+(p[1] || 0)); };
     return [m(g[0]), m(g[1])];
   }).filter(Boolean);
-  const inWin = t => {
-    const ses = same(t.session);
-    if (ses && wNames.length) return wNames.indexOf(ses) >= 0;
+  /* Час входу — окремо: за ним видно правду навіть тоді, коли назви
+     розходяться. */
+  const byTime = t => {
     const hhmm = String(t.date || "").slice(11, 16);
     if (!spans.length || !/^\d{2}:\d{2}$/.test(hhmm)) return null;
     const v = (+hhmm.slice(0, 2)) * 60 + (+hhmm.slice(3));
     return spans.some(s => (s[0] <= s[1] ? (v >= s[0] && v <= s[1]) : (v >= s[0] || v <= s[1])));
+  };
+  /* Назва збіглась — усе гаразд. Не збіглась — це ще не порушення: у ТС
+     вікно може зватись «London», а в журналі сесія — «Лондон» або «NY».
+     Раніше на цьому все й ламалось: назви розходились, і кожна угода
+     ставала «поза вікном». Тому дивимось на час входу, і тільки коли часу
+     немає — віримо назві. */
+  const inWin = t => {
+    const ses = sesKey(t.session);
+    if (ses && wNames.length && wNames.indexOf(ses) >= 0) return true;
+    const tm = byTime(t);
+    if (tm !== null) return tm;
+    return (ses && wNames.length) ? false : null;
   };
   if (wins.length){
     const known = list.map(inWin).filter(v => v !== null);
@@ -833,7 +898,9 @@ function tabReal(){
   /* У бектесті звірка теж має сенс — «скільки разів прогін порушив правила».
      Але з заголовка має бути видно, по чому саме рахували. */
   const bt = typeof btOn === "function" && btOn();
-  return card(d.secReal + " · " + (S.trades || []).length + " " + d.wTrades
+  /* Число в заголовку — те саме, по якому рахуємо нижче: раніше сюди
+     йшли всі угоди підряд, разом зі скіпами й тими, що в роботі. */
+  return card(d.secReal + " · " + realList().length + " " + d.wTrades
               + (bt ? " · " + T.btTsNote : ""), against());
 }
 
@@ -1832,12 +1899,13 @@ uk: {
 
   realFew: "Замало угод для звірки — потрібно хоча б п'ять",
   realNeed: "Щоб звіряти, заповни хоча б мінімальний RR, ризик або ліміт за день",
-  realRR: "RR нижче мінімального", realRRNote: "у ТС — не менше %s",
+  realRR: "RR не нижче мінімального", realRRNote: "у ТС — не менше %s",
   realDay: "Денний ліміт перевищено", realDayNote: "у ТС — не більше %s",
   realMax: "Більше угод за день, ніж у ТС", realMaxNote: "у ТС — не більше %s",
   realRisk: "Ризик на угоду", realRiskNote: "у ТС — %s",
   realModel: "Входи за своїми моделями", realModelNote: "у ТС — %s",
   realWorst: "найгірший", realMost: "найбільше", realHold: "тримаєш",
+  realBelow: "нижче мінімуму:",
   realAsset: "Входи за своїми інструментами", realAssetNote: "у ТС — %s",
   realWindow: "Входи у свої вікна", realWindowNote: "у ТС — %s",
   realAvg: "у середньому", realOut: "поза вікнами:",
@@ -1969,12 +2037,13 @@ ru: {
 
   realFew: "Мало сделок для сверки — нужно хотя бы пять",
   realNeed: "Чтобы сверять, заполни хотя бы минимальный RR, риск или лимит за день",
-  realRR: "RR ниже минимального", realRRNote: "в ТС — не меньше %s",
+  realRR: "RR не ниже минимального", realRRNote: "в ТС — не меньше %s",
   realDay: "Дневной лимит превышен", realDayNote: "в ТС — не больше %s",
   realMax: "Больше сделок за день, чем в ТС", realMaxNote: "в ТС — не больше %s",
   realRisk: "Риск на сделку", realRiskNote: "в ТС — %s",
   realModel: "Входы по своим моделям", realModelNote: "в ТС — %s",
   realWorst: "худший", realMost: "больше всего", realHold: "держишь",
+  realBelow: "ниже минимума:",
   realAsset: "Входы по своим инструментам", realAssetNote: "в ТС — %s",
   realWindow: "Входы в свои окна", realWindowNote: "в ТС — %s",
   realAvg: "в среднем", realOut: "вне окон:",
@@ -2106,12 +2175,13 @@ en: {
 
   realFew: "Too few trades to compare — five at least",
   realNeed: "To compare, fill in at least the minimum RR, the risk or the daily limit",
-  realRR: "RR below the minimum", realRRNote: "your rule — at least %s",
+  realRR: "RR at or above the minimum", realRRNote: "your rule — at least %s",
   realDay: "Daily limit broken", realDayNote: "your rule — no more than %s",
   realMax: "More trades a day than your rule", realMaxNote: "your rule — no more than %s",
   realRisk: "Risk per trade", realRiskNote: "your rule — %s",
   realModel: "Entries by your own models", realModelNote: "your rule — %s",
   realWorst: "worst", realMost: "most", realHold: "holding",
+  realBelow: "below the minimum:",
   realAsset: "Entries on your own instruments", realAssetNote: "your rule — %s",
   realWindow: "Entries inside your windows", realWindowNote: "your rule — %s",
   realAvg: "average", realOut: "outside:",
