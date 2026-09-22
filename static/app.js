@@ -369,10 +369,22 @@ function kpiHtml(st, opts){
      тогда их и не показываем. */
   if(st.skips) cells.push([T.kSkips, st.skips, "", T.kSkipsTip]);
   if(st.hands) cells.push([T.kHands, st.hands, "", T.kHandsTip]);
-  if(st.handOut>0.001) cells.push([T.kHandOut, "−"+r1(st.handOut)+"%", "neg", T.kHandOutTip]);
+  /* «Недобрав» у журналі живе в шапці картки (handOutChip), а не тут:
+     зайва плитка переносила рядок сітки, і журнал стрибав по висоті. */
+  if(st.handOut>0.001 && !opts.noHandOut) cells.push([T.kHandOut, "−"+r1(st.handOut)+"%", "neg", T.kHandOutTip]);
   return '<div class="kpis">'+cells.map(c=>
     '<div class="kpi"'+(c[3]?' data-tip="'+esc(c[3])+'"':"")+
     '><div class="l">'+c[0]+'</div><div class="v '+c[2]+'">'+c[1]+'</div></div>').join("")+"</div>";
+}
+
+/* «Недобрав» — скільки лишилось на столі через ранні виходи. Стоїть у
+   лівому куті шапки картки журналу, в один рядок із перемоткою місяця.
+   Місце там зайняте завжди, тож поява плашки нічого не зсуває.
+   Порожній місяць — порожній рядок: показувати нуль немає сенсу. */
+function handOutChip(st){
+  if(!st || !(st.handOut>0.001)) return "";
+  return '<span class="hout" data-tip="'+esc(T.kHandOutTip)+'">'+
+    '<i>'+T.kHandOut+'</i><b>−'+r1(st.handOut)+'%</b></span>';
 }
 
 /* ---------------- график equity ---------------- */
@@ -1156,7 +1168,7 @@ function vJournal(){
   h+='<div class="tools"></div></div>';
 
   /* лента статистики месяца */
-  h+=kpiHtml(st);
+  h+=kpiHtml(st,{noHandOut:true});
 
   /* выбранный день */
   if(S.selDay.slice(0,7)!==S.jMonth){
@@ -1190,7 +1202,7 @@ function vJournal(){
   const leftPane = S.jMode==="table"
     ? monthTableHtml(monthTrades)
     : '<div class="card jpane jpane-cal"><div class="panehead">'+
-        (btOn()&&window.__btj?__btj.paneTitle():"")+monthNavHtml()+"</div>"+
+        (btOn()&&window.__btj?__btj.paneTitle():"")+handOutChip(st)+monthNavHtml()+"</div>"+
       calHtml(S.jMonth,"pickDay",S.selDay)+
       "</div>";
   /* панель дня живёт в гнезде: так её высота равна левой половине, а не тянет страницу вниз */
@@ -1258,6 +1270,7 @@ function monthTableHtml(list){
       '<td class="num '+clsR(r)+'">'+tradePct(t)+"</td></tr>";
   }).join("");
   return '<div class="card jpane jpane-list"><h3>'+(btOn()&&window.__btj?__btj.paneTitle():T.jrMonthTrades)+
+    handOutChip(calc(list))+
     '<span class="hr"><em>'+list.length+' '+T.abbrPieces+'</em>'+monthNavHtml()+"</span></h3>"+
     '<div class="mtwrap"><table class="mtable">'+
     "<thead><tr><th>"+T.fDate+"</th><th>"+T.fPair+"</th><th>"+T.fPosition+"</th><th>"+T.fSession+"</th>"+
