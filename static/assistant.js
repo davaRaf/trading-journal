@@ -118,7 +118,9 @@ const Assistant = (function(){
         }
       }
     }catch(e){
-      log.push({who:"ai", text: T.asAskFailed + e.message});
+      /* про вичерпану порцію звернень уже сказала плашка — другий раз
+         тим самим рядком у розмові не повторюємо */
+      if(!e.soft) log.push({who:"ai", text: T.asAskFailed + e.message});
     }
     busy = false;
     paint();

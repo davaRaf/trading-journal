@@ -239,10 +239,16 @@ async function api(method,url,body){
   if(res.status===401){ if(dataReady) location.href="/login"; throw new Error("API 401"); }
   if(!res.ok){
     /* завеликий файл чи не картинка — людині своїми словами, а не «API 413» */
-    let code="";
-    try{ code=(await res.json()).code||""; }catch(e){}
+    let info={};
+    try{ info=await res.json()||{}; }catch(e){}
+    const code=info.code||"";
     if(code==="too_big") throw new Error(T.errTooBig);
     if(code==="bad_image") throw new Error(T.errBadImage);
+    /* Безкоштовне скінчилось. Плашку показуємо тут, одну на всі місця
+       (paywall.js), а вище лишається тільки мовчки вийти: людині вже
+       сказали, і друге вікно «не вдалось зберегти» було б зайвим. */
+    if(res.status===402 && code==="need_sub" && window.Paywall)
+      throw Paywall.soft(info.reason||"");
     throw new Error("API "+res.status);
   }
   return res.json();
@@ -2523,7 +2529,8 @@ async function saveTrade(id){
     /* Бектест із ТС не звіряємо: сервер на такий запит однаково відповідає
        порожнім, бо день збирається з реальних угод. */
     if(saved && saved.id && !btOn() && t.result!=="Skip" && window.Watch) Watch.afterTrade(saved.id);
-  }catch(err){ alert(T.alertSaveFail+err.message); if(btn){btn.disabled=false;btn.textContent=T.fmSave;} }
+  }catch(err){ if(!err.soft) alert(T.alertSaveFail+err.message);
+    if(btn){btn.disabled=false;btn.textContent=T.fmSave;} }
 }
 
 /* ---------- импорт / экспорт ---------- */
@@ -2643,7 +2650,14 @@ async function doImport(){
   }
   if(!out.length){ alert(T.imNothingToImport); return; }
   const btn=$("#impGo"); btn.disabled=true; btn.textContent=T.imImporting;
-  const res=await api("POST","/api/import",out);
+  let res;
+  try{ res=await api("POST","/api/import",out); }
+  catch(err){
+    /* відмова через ліміт уже показана плашкою — тут лише вертаємо кнопку */
+    if(!err.soft) alert(T.alertSaveFail+err.message);
+    btn.disabled=false; btn.textContent=T.imGoBtn;
+    return;
+  }
   await reload(); closeModal(); render();
   alert(T.imImportedCount+res.added);
 }

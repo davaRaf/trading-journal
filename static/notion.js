@@ -105,6 +105,11 @@ async function call(method, url, body){
   });
   let data = {};
   try{ data = await res.json(); }catch(e){}
+  /* Перенесення ходить своїм fetch, повз api(), тому плашку відмови
+     кличемо тут окремо — інакше людина побачила б у вікні голе
+     «imports_limit». */
+  if (res.status === 402 && data.code === "need_sub" && window.Paywall)
+    throw Paywall.soft(data.reason || "");
   if (!res.ok) throw new Error(data.error || (T.ntServerReplied + " " + res.status));
   return data;
 }
@@ -419,7 +424,12 @@ async function run(){
   try{
     job = await call("POST", "/api/notion/import",
       {url: link, title, mapping, tables: picked, options: opts});
-  }catch(e){ return err(e.message); }
+  }catch(e){
+    /* Плашка відмови вже все сказала — вертаємо кнопку й мовчимо. */
+    const b = document.querySelector("#ntRun");
+    if (b){ b.disabled = false; b.textContent = T.ntTransferAll; }
+    return e.soft ? undefined : err(e.message);
+  }
   batch = job.batch || job.id;
   watch(job.id);
 }

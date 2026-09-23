@@ -1,0 +1,52 @@
+/* Плашка відмови (paywall.js). Свій шар поверх усього: під нею може
+   лишатись відкрита форма угоди, і псувати її вигляд не можна. */
+
+.pw-back{
+  position:fixed; inset:0; display:flex; align-items:center; justify-content:center;
+  padding:20px; background:rgba(0,0,0,.55); backdrop-filter:blur(2px);
+  animation:pwIn .18s var(--ease, ease) both;
+}
+
+.pw-w{
+  width:100%; max-width:392px; padding:30px 30px 22px;
+  background:var(--panel); border:1px solid var(--line); border-radius:14px;
+  box-shadow:0 24px 60px rgba(0,0,0,.45);
+  animation:pwUp .22s var(--ease, ease) both;
+}
+
+.pw-brand{display:flex; align-items:baseline; gap:9px; margin-bottom:22px}
+.pw-brand .logo{height:26px; width:auto; aspect-ratio:902/1315; display:block;
+  color:var(--text); flex:0 0 auto}
+.pw-brand .nm{font-family:var(--mono); font-size:17px; font-weight:500; letter-spacing:-.02em}
+.pw-brand .nm i{font-style:normal; color:var(--accent)}
+
+.pw-w h3{margin:0 0 8px; font-size:18px; font-weight:600; letter-spacing:-.01em}
+.pw-w p{margin:0 0 20px; font-size:13px; line-height:1.6; color:var(--dim)}
+
+.pw-go{
+  display:block; width:100%; padding:12px 0; border-radius:9px; border:none;
+  background:var(--accent); color:var(--accent-ink, #fff);
+  font-size:14px; font-weight:500; cursor:pointer;
+  transition:opacity .2s var(--ease, ease);
+}
+.pw-go:hover{opacity:.88}
+.pw-go:active{transform:translateY(1px)}
+
+.pw-later{
+  display:block; width:100%; text-align:center; margin-top:14px;
+  font-size:12.5px; color:var(--faint); background:none; border:none; cursor:pointer;
+}
+.pw-later:hover{color:var(--dim)}
+
+@keyframes pwIn{from{opacity:0} to{opacity:1}}
+@keyframes pwUp{from{opacity:0; transform:translateY(10px)} to{opacity:1; transform:none}}
+
+@media (prefers-reduced-motion:reduce){
+  .pw-back, .pw-w{animation:none}
+}
+
+@media (max-width:560px){
+  .pw-back{align-items:flex-end; padding:0}
+  .pw-w{max-width:none; border-radius:16px 16px 0 0; border-bottom:none;
+        padding:26px 20px calc(20px + env(safe-area-inset-bottom))}
+}
