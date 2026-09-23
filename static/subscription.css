@@ -107,8 +107,8 @@
    у нього свій: інакше слово вилазить за квадратик. Відступ до аватарки
    більший за звичайний проміжок плашки — значок не її частина. */
 .side-me-tier{display:flex; flex:none; margin-right:5px}
-.side-me-tier .sub-tier{width:26px; height:26px; border-radius:8px; font-size:7.5px; letter-spacing:0}
-.side-me-tier .sub-tier.on{font-size:11px; letter-spacing:-.02em}
+.side-me-tier .sub-tier{width:32px; height:32px; border-radius:10px; font-size:9.5px; letter-spacing:0}
+.side-me-tier .sub-tier.on{font-size:13.5px; letter-spacing:-.02em}
 
 /* телефон: картки в стовпчик, річний першим — до нижніх можна й не долистати */
 @media (max-width:560px){
