@@ -274,6 +274,78 @@ CREATE TABLE IF NOT EXISTS notion_gone (
   removed_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 CREATE INDEX IF NOT EXISTS notion_gone_user ON notion_gone (user_id);
+
+-- ---------------------------------------------------------------- підписка --
+--
+-- Журнал став платним: безкоштовно людина записує перші 30 справжніх угод і
+-- окремо 30 прогонів бектесту, далі — підписка. Нічого не видаляється:
+-- закриваються тільки нові записи, перенесення з Notion і те, що коштує
+-- грошей за модель (помічник, розбори).
+--
+-- Чому лічильник, а не COUNT(*) по угодах: delete_trade прибирає рядок
+-- фізично. По COUNT людина записала б 30, прибрала всі й записала ще 30 —
+-- і так без кінця. Ці лічильники тільки ростуть.
+--
+-- Ліміти зберігаються в кожного свої (…_cap), щоб адмін міг дати бонус
+-- одній людині, не чіпаючи решту. Самі суми тарифів лежать у config.py:
+-- змінити ціну не означає чіпати схему.
+ALTER TABLE users ADD COLUMN IF NOT EXISTS plan TEXT NOT NULL DEFAULT 'free';
+ALTER TABLE users ADD COLUMN IF NOT EXISTS paid_until TIMESTAMPTZ;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS free_trades_used INTEGER NOT NULL DEFAULT 0;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS free_trades_cap INTEGER NOT NULL DEFAULT 30;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS free_bt_used INTEGER NOT NULL DEFAULT 0;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS free_bt_cap INTEGER NOT NULL DEFAULT 30;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS imports_used INTEGER NOT NULL DEFAULT 0;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS imports_cap INTEGER NOT NULL DEFAULT 3;
+-- Набір цін: 'std' — звичайні, 'early' — назавжди дешевші для тих, хто був
+-- у журналі до появи платних підписок. own_price_cents — разова своя ціна
+-- (NULL — рахуємо за набором).
+ALTER TABLE users ADD COLUMN IF NOT EXISTS price_plan TEXT NOT NULL DEFAULT 'std';
+ALTER TABLE users ADD COLUMN IF NOT EXISTS own_price_cents INTEGER;
+-- Звідки реєструвались: за парою «адреса + відбиток пристрою» ловимо другий
+-- безкоштовний акаунт того самого автора. Сам по собі збіг адреси нічого не
+-- означає (мобільні оператори дають одну адресу тисячам людей) — він лише
+-- лишає позначку в адмінці.
+ALTER TABLE users ADD COLUMN IF NOT EXISTS signup_ip TEXT;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS signup_device TEXT;
+-- Чому саме цій людині дали бонус чи свою ціну: щоб через місяць не
+-- гадати, що це було.
+ALTER TABLE users ADD COLUMN IF NOT EXISTS billing_note TEXT;
+
+-- Події платіжки. Ключ — її власний id події: та сама подія приходить
+-- повторно (платіжки шлють вебхук, доки не отримають 200), і другий раз
+-- вона має нічого не змінити.
+CREATE TABLE IF NOT EXISTS payments (
+  id           TEXT PRIMARY KEY,
+  user_id      BIGINT REFERENCES users(id) ON DELETE SET NULL,
+  event        TEXT NOT NULL DEFAULT '',
+  amount_cents INTEGER,
+  currency     TEXT NOT NULL DEFAULT 'EUR',
+  raw          JSONB NOT NULL DEFAULT '{}'::jsonb,
+  created_at   TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS payments_user ON payments (user_id, created_at);
+
+-- Уся історія реєстрацій за адресами, а не тільки остання: users.signup_ip
+-- в людини один, а знати треба всі акаунти, що приходили з цієї адреси.
+CREATE TABLE IF NOT EXISTS signup_ips (
+  id         BIGSERIAL PRIMARY KEY,
+  ip         TEXT NOT NULL DEFAULT '',
+  device     TEXT NOT NULL DEFAULT '',
+  user_id    BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS signup_ips_ip ON signup_ips (ip);
+CREATE INDEX IF NOT EXISTS signup_ips_user ON signup_ips (user_id);
+
+-- Адреси, які адмін дозволив руками: «це інша людина, пропускай». Без
+-- цього списку сімʼя за одним роутером чи двоє з одного офісу не змогли б
+-- завести другий акаунт.
+CREATE TABLE IF NOT EXISTS ip_allow (
+  ip         TEXT PRIMARY KEY,
+  note       TEXT NOT NULL DEFAULT '',
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
 """
 
 
