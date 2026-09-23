@@ -72,25 +72,6 @@ function badge(){
     + ' onclick="__settings.open(&quot;subscription&quot;)">' + esc(sign) + "</button>";
 }
 
-/* Перекреслена сума під ціною.
-
-   У звичайних цінах показуємо, скільки те саме вийшло б помісячно
-   (€11,99 × 12), у «ранніх» — звичайну ціну цього ж тарифу: у них
-   вигода саме проти неї, а не проти місяців у подарунок. */
-function was(plan, p){
-  const early = st.prices.set === "early";
-  if (early){
-    if (plan === "month"){
-      const off = Math.round((1 - p.cents / p.std_cents) * 100);
-      return "<s>" + money(p.std_cents) + "</s> → " + T.subSave.replace("%d", off);
-    }
-    return "<s>" + money(p.std_cents) + "</s> → " + money(p.cents);
-  }
-  if (plan === "month") return "&nbsp;";
-  const full = st.prices.month.cents * MONTHS[plan];
-  return "<s>" + money(full) + "</s> → " + money(p.cents);
-}
-
 function card(plan){
   const p = st.prices[plan];
   if (!p) return "";
@@ -99,7 +80,10 @@ function card(plan){
   const gift = best
     ? '<span class="sub-gift">' + esc(st.prices.set === "early" ? T.subYourPrice : T.subGift) + "</span>"
     : "";
-  const bill = {month: T.subBillM, quarter: T.subBillQ, year: T.subBillY}[plan];
+  /* Під ціною — сума, яку справді спишуть. Перекреслених «було/стало»
+     тут немає: власник прибрав їх 23.09.2026, лишається тільки ціна. */
+  const bill = ({month: T.subBillM, quarter: T.subBillQ, year: T.subBillY}[plan] || "")
+    .replace("%s", money(p.cents));
   const name = {month: T.subMonth, quarter: T.subQuarter, year: T.subYear}[plan];
   const val = (per / 100).toFixed(2).replace(".", ",");
   return '<div class="sub-plan' + (best ? " best" : "") + '" data-p="' + plan + '">'
@@ -108,7 +92,6 @@ function card(plan){
     + '<div class="sub-name">' + esc(name) + "</div>"
     + '<div class="sub-cost"><span class="cur">€</span><span class="val">' + esc(val) + "</span>"
     +   '<span class="cnt">' + esc(T.subPerMonth) + "</span></div>"
-    + '<div class="sub-was">' + was(plan, p) + "</div>"
     + '<div class="sub-bill">' + esc(bill) + "</div>"
     + '<button type="button" class="sub-btn" data-buy="' + plan + '">' + esc(T.subBuy) + "</button>"
     + "</div>";
