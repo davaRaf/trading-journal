@@ -107,6 +107,17 @@ def check_rules():
          billing.can_import(paid(created_at=NOW - datetime.timedelta(days=400))),
          (True, ""))
 
+    # Нічне оновлення: воно з тих самих баз, тому лічильник перенесень не
+    # чіпає — дивиться тільки на вікно й на підписку.
+    case("нічне оновлення в перші 30 днів", billing.can_autosync(person()), (True, ""))
+    case("витрачені перенесення оновленню не заважають",
+         billing.can_autosync(person(imports_used=3)), (True, ""))
+    case("після 30 днів оновлення спиняється", billing.can_autosync(late),
+         (False, "import_window"))
+    case("з підпискою оновлюємо завжди",
+         billing.can_autosync(paid(created_at=NOW - datetime.timedelta(days=400))),
+         (True, ""))
+
     # Звернення до моделі: 15 на місяць без підписки. Розділи журналу при
     # цьому відкриті всі — платимо ми саме за відповіді моделі.
     case("новому ШІ відкрито", billing.can_use_ai(person()), (True, ""))

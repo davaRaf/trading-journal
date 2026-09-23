@@ -25,6 +25,7 @@ import random
 import time
 from zoneinfo import ZoneInfo
 
+import billing
 import bot_share
 import botlang
 import db
@@ -63,9 +64,28 @@ def mode_kb(lang):
             [{"text": t(lang, "modeText"), "callback_data": "tw:free"}]]
 
 
+def paid_out(user, chat_id):
+    """Безкоштовні угоди скінчились — сказати про це й далі не йти.
+
+    Питаємо на вході в сценарій, коли угоду розібрали з тексту, і ще раз
+    перед самим записом. Перші — щоб людина не заповнювала десяток полів
+    заради відмови; останній обов'язковий: чернетка живе в базі й могла
+    початись ще до того, як безкоштовне скінчилось.
+    """
+    # Питаємо базу, а не рядок під рукою: чернетка могла пролежати добу,
+    # і за цей час людина дописала свої тридцять з сайту.
+    ok, _ = billing.can_add_trade(user["id"])
+    if ok:
+        return False
+    tg_api.send_message(chat_id, t(botlang.of(user), "subTrades", SITE_URL))
+    return True
+
+
 def ask_mode(user, chat_id):
     """Питання «як записуємо» — на випадок, коли людина просто сказала
     «запиши угоду», не назвавши жодної подробиці."""
+    if paid_out(user, chat_id):
+        return
     lang = botlang.of(user)
     tg_api.send_message(chat_id, t(lang, "modeAsk"), keyboard=mode_kb(lang))
 
@@ -76,6 +96,8 @@ def propose(user, chat_id, fields):
     Чернетку кладемо на крок підтвердження — далі працюють ті самі
     кнопки, що й наприкінці покрокового сценарію.
     """
+    if paid_out(user, chat_id):
+        return
     lang = botlang.of(user)
     trade = dict(fields)
     trade["id"] = _new_id()
@@ -311,6 +333,8 @@ def _ask(user, chat_id, draft):
 def start(user, chat_id):
     """Нова чернетка. Стару мовчки замінюємо: якщо людина натиснула
     «Записати угоду» посеред попередньої, вона саме цього й хоче."""
+    if paid_out(user, chat_id):
+        return
     trade = {"id": _new_id(), "screenshots": []}
     draft = {"chat_id": chat_id, "step": ORDER[0], "data": {"trade": trade}}
     _ask(user, chat_id, draft)
@@ -556,9 +580,13 @@ def _save(user, chat_id, draft):
         v = trade.get(f)
         t_[f] = float(v) if isinstance(v, (int, float)) else None
     t_["screenshots"] = trade.get("screenshots") or []
+    if paid_out(user, chat_id):
+        db.draft_clear(user["id"])
+        return
     # Емоцію в сценарії вже питали, тому вдогонку її не питаємо: статус
     # «na» саме про це — «питання не стоїть».
     db.insert_trade(user["id"], t_, "na")
+    billing.spend_trade(user["id"])
     db.draft_clear(user["id"])
     # одразу пропонуємо посилання: ділитись угодою хочуть саме в цю мить
     tg_api.send_message(chat_id, t(lang, "saved") + "\n\n" + card(t_, lang)

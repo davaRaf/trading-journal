@@ -17,6 +17,7 @@ import traceback
 from zoneinfo import ZoneInfo
 
 import assistant
+import billing
 import botlang
 import calendar_feed
 import db
@@ -376,12 +377,20 @@ def chat_answer(user, chat_id, tg_id, text):
     сайті: з виписками з журналу, новинами й своєю ТС.
     """
     lang = user_lang(tg_id, text)
+    # Розмова — теж звернення до моделі, і порція спільна з сайтом:
+    # відповідає той самий помічник.
+    ok, why = billing.can_use_ai(user["id"])
+    if not ok:
+        return (botlang.t(lang, "subAiCap") if why == billing.AI_CAP
+                else botlang.t(lang, "subAi", SITE_URL))
     history = CHAT_MEMORY.get(chat_id) or []
     try:
         out = assistant.ask(user["id"], text, history, lang, brief=True)
     except Exception as ex:
         print("chat:", ex)
         out = ""
+    if out:
+        billing.spend_ai(user["id"])     # за мовчання моделі не рахуємо
     out = shorten(plain(no_commands(out or "")))
     if not out:
         out = assistant._sorry(lang)
@@ -511,6 +520,16 @@ def on_report(chat_id, tg_id):
         tg_api.send_message(chat_id, "Емоції по угодах:\n%s\n\nЩе замало даних для висновків — "
                             "потрібно хоча б %d угод." % (table, MIN_FOR_REPORT))
         return
+    # Таблицю рахує код — її віддаємо завжди. Платний тут тільки висновок
+    # моделі під нею, тому без порції звернень лишається сама таблиця.
+    ok, why = billing.can_use_ai(user["id"])
+    if not ok:
+        lang = botlang.of(user)
+        tg_api.send_message(chat_id, "📊 Емоції та результат:\n%s\n\n%s"
+                            % (table, botlang.t(lang, "subAiCap") if why == billing.AI_CAP
+                               else botlang.t(lang, "subAi", SITE_URL)))
+        return
+    billing.spend_ai(user["id"])
     text = llm.ask(
         "<<<СТАТИСТИКА>>>\n%s\n<<<//СТАТИСТИКА>>>\n\n"
         "Українською, до 5 речень: назви емоцію, яка коштує найдорожче, емоцію, з якою "

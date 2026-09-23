@@ -231,6 +231,24 @@ def can_import(u):
     return True, ""
 
 
+def can_autosync(u):
+    """Нічне оновлення з Notion.
+
+    Лічильник перенесень воно не чіпає: це та сама база, яку людина вже
+    підключила руками, і рахувати щодобовий захід як одне з трьох
+    перенесень було б обманом. Правило простіше: або підписка, або ще не
+    минули перші 30 днів.
+    """
+    row = _user(u)
+    if not row:
+        return False, NO_USER
+    if active(row):
+        return True, ""
+    if import_days_left(row) <= 0:
+        return False, IMPORT_WINDOW
+    return True, ""
+
+
 def ai_cap(u):
     """Скільки звернень до моделі належить людині за вікно.
 

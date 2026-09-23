@@ -51,6 +51,28 @@ PHRASES = {
                     "I attach screenshots while logging a trade step by step. Say "
                     "«log a trade» to start."),
 
+    # ---- підписка ----
+    # Скільки лишилось, не кажемо ніде (рішення власника 22.09.2026): про
+    # межу людина дізнається саме тут, коли в неї впреться.
+    "subTrades":   ("Безкоштовні угоди скінчились — нові записуються з підпискою. "
+                    "Усе, що вже записано, лишається в журналі: %s",
+                    "Бесплатные сделки закончились — новые записываются с подпиской. "
+                    "Всё, что уже записано, остаётся в журнале: %s",
+                    "Your free trades are used up — logging new ones needs a "
+                    "subscription. Everything already logged stays in the journal: %s"),
+    "subAi":       ("Помічник на цей місяць замовк — місячна порція звернень "
+                    "вичерпана. Підписка знімає межу: %s",
+                    "Помощник на этот месяц замолчал — месячная порция обращений "
+                    "исчерпана. Подписка снимает предел: %s",
+                    "The assistant is out of answers for this month. A subscription "
+                    "lifts the limit: %s"),
+    "subAiCap":    ("Забагато звернень за місяць навіть для підписки. "
+                    "Трохи згодом відповім.",
+                    "Слишком много обращений за месяц даже для подписки. "
+                    "Отвечу чуть позже.",
+                    "Too many requests this month even for a subscription. "
+                    "I will answer a bit later."),
+
     # ---- прив'язка журналу ----
     "linkHow":     ("Щоб почати, прив'яжи журнал:\n\n"
                     "1. Відкрий %s\n"

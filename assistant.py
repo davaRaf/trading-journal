@@ -739,12 +739,16 @@ def _lang_hint(history, lang=None):
     return lang_order("", default=lang or "uk")   # мовчазний чат — мовою сторінки
 
 
-def nudge(user_id, lang="uk", kind=""):
+def nudge(user_id, lang="uk", kind="", talk=True):
     """Привід заговорити першим — рівно один і не щоразу.
 
     Повертає {code, text, ask, view}: code сторінка вміє сказати сама
     (трьома мовами), text — те саме, але вже словами моделі. Немає ключа
     до моделі — лишається code, і помічник усе одно не мовчить.
+
+    talk=False — те саме, але без звертання до моделі: так робимо, коли
+    місячна порція звернень уже вичерпана. Привід від цього не зникає,
+    людина бачить фразу сторінки й нічого зламаного не помічає.
     """
     trades = [t for t in db.list_trades(user_id, kind) if not t.get("hidden")]
     if len(trades) < 3:
@@ -770,7 +774,7 @@ def nudge(user_id, lang="uk", kind=""):
 
     fact = facts[0]
     text = ""
-    if llm.enabled():
+    if talk and llm.enabled():
         order = LANG_ORDER.get(lang, LANG_ORDER["uk"])
         text = llm.ask(
             "Факт із журналу трейдера:\n- %s\n\n"

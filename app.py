@@ -2738,6 +2738,13 @@ class H(BaseHTTPRequestHandler):
                 return self._json({"error": "порожнє питання"}, 400)
             if not llm.enabled():
                 return self._json({"error": "помічник вимкнений — немає DEEPSEEK_API_KEY"}, 503)
+            # Місячна порція звернень до моделі. Списуємо одразу й одне на
+            # питання, навіть якщо всередині модель смикають двічі (правка
+            # «Моєї ТС», добір угод на видалення): людина спитала раз.
+            ok, why = billing.can_use_ai(uid)
+            if not ok:
+                return self._json(billing.deny(uid, why), 402)
+            billing.spend_ai(uid)
             # історія розмови приходить з браузера — беремо тільки останні репліки
             raw = (body or {}).get("history")
             history = [m for m in raw if isinstance(m, dict)][-16:] if isinstance(raw, list) else []
@@ -2771,9 +2778,14 @@ class H(BaseHTTPRequestHandler):
 
         if p == "/api/assistant/nudge":
             lang = str((body or {}).get("lang") or "ru")
+            # Заговорює помічник сам, тому з порції нічого не знімаємо: не
+            # людина попросила. Але й платити за це без кінця не будемо —
+            # коли порція вичерпана, привід лишається, а слова до нього
+            # бере сторінка (у неї свої, на три мови).
             return self._json(assistant.nudge(
                 uid, lang if lang in ("uk", "ru", "en") else "ru",
-                "bt" if (body or {}).get("kind") == "bt" else ""))
+                "bt" if (body or {}).get("kind") == "bt" else "",
+                talk=billing.can_use_ai(uid)[0]))
 
         if p == "/api/assistant/review":
             # той самий платний запит до моделі — і лічильник той самий
@@ -2785,6 +2797,10 @@ class H(BaseHTTPRequestHandler):
             ratelimit.miss(keys, limit=ASK_LIMIT)
             if not llm.enabled():
                 return self._json({"error": "помічник вимкнений — немає DEEPSEEK_API_KEY"}, 503)
+            ok, why = billing.can_use_ai(uid)
+            if not ok:
+                return self._json(billing.deny(uid, why), 402)
+            billing.spend_ai(uid)
             raw = (body or {}).get("history")
             history = [m for m in raw if isinstance(m, dict)][-16:] if isinstance(raw, list) else []
             # мова журналу: факти під відповіддю показуються як є, і в
@@ -2883,10 +2899,16 @@ class H(BaseHTTPRequestHandler):
                       if isinstance(t, dict) and t.get("collection") and t.get("view")]
             if not tables or not mapping.get("pair"):
                 return self._json({"error": "потрібні таблиця і колонка з інструментом"}, 400)
+            # Три перенесення в перші 30 днів — далі тільки з підпискою.
+            # Дивимось до запуску потоку: скасувати його потім нічим.
+            ok, why = billing.can_import(uid)
+            if not ok:
+                return self._json(billing.deny(uid, why), 402)
             conf = notion_conf(uid)
             title = body.get("title") or ""
             conf.update({"url": url, "mapping": mapping, "title": title})
             job = start_import(uid, tables, mapping, body.get("options") or {})
+            billing.spend_import(uid)
             when = datetime.datetime.now().strftime("%Y-%m-%d %H:%M")
             # запись про базу кладём до того, как перенос закончится: браузер
             # могут закрыть посреди работы, а сделки уже поедут в журнал
@@ -3018,7 +3040,11 @@ class H(BaseHTTPRequestHandler):
             day = ts_check.same_day(db.list_trades(uid), trade)
             items = ts_check.check(ts, trade, day)
             lang = str((body or {}).get("lang") or "ru")
-            text = ts_check.say(items, lang if lang in ("uk", "ru", "en") else "ru")
+            # Розходження рахує код і вони безкоштовні завжди; модель тут
+            # лише переказує їх по-людськи. Скінчилась порція — лишаємо
+            # сам перелік, підписи до кодів у сторінки свої.
+            text = (ts_check.say(items, lang if lang in ("uk", "ru", "en") else "ru")
+                    if billing.can_use_ai(uid)[0] else "")
             # мовчазний помічник виглядає зламаним: коли звіряти нема за
             # що, кажемо про це прямо, а не вдаємо, що все гаразд
             return self._json({"items": items, "text": text,
@@ -3046,6 +3072,10 @@ class H(BaseHTTPRequestHandler):
             # розділах — контекст окремо, моделі входу окремо. Старий виклик
             # з одним "url" лишається робочим.
             b = body or {}
+            ok, why = billing.can_use_ai(uid)
+            if not ok:
+                return self._json(billing.deny(uid, why), 402)
+            billing.spend_ai(uid)
             links = b.get("urls") if isinstance(b.get("urls"), list) else None
             try:
                 draft = ts_notion.read(links if links else (b.get("url") or ""),
@@ -3058,16 +3088,22 @@ class H(BaseHTTPRequestHandler):
             if not isinstance(body, dict) or not str(body.get("pair", "")).strip():
                 return self._json({"error": "bad json or empty pair"}, 400)
             t = clean_trade(body, new_id())
+            user = db.get_user(uid)
+            # Спершу дозвіл, і лише потім робота: скріни важкі, а відмова
+            # їх однаково викине.
+            ok, why = billing.can_add_trade(user, t.get("kind"))
+            if not ok:
+                return self._json(billing.deny(user, why), 402)
             try:
                 save_screenshots(t, uid)
             except filestore.ShotError as e:
                 return self._shot_reply(e)
-            user = db.get_user(uid)
             # У бэктеста эмоции нет: входа не было, спрашивать не о чем.
             ask = (t.get("kind") != "bt"
                    and not str(t.get("emotion") or "").strip()
                    and user["telegram_id"] is not None)
             db.insert_trade(uid, t, "pending" if ask else "na")
+            billing.spend_trade(user, t.get("kind"))
             if ask:
                 ask_emotion_later(user, t)
             return self._json(t, 201)
@@ -3075,6 +3111,12 @@ class H(BaseHTTPRequestHandler):
         if p == "/api/import":
             if body is None:
                 return self._json({"error": "bad json"}, 400)
+            # Перенесення файлом — те саме перенесення, що й з Notion, і
+            # ліміт у них спільний: три рази в перші 30 днів. Інакше повз
+            # заслон на 30 угод можна було б завезти хоч тисячу таблицею.
+            ok, why = billing.can_import(uid)
+            if not ok:
+                return self._json(billing.deny(uid, why), 402)
             items = body if isinstance(body, list) else body.get("trades") or []
             batch = []
             for it in items:
@@ -3086,7 +3128,10 @@ class H(BaseHTTPRequestHandler):
                 except filestore.ShotError:
                     t["screenshots"] = []   # угоду з файлу беремо, битий скрін — ні
                 batch.append(t)
-            return self._json({"ok": True, "added": db.insert_trades(uid, batch)})
+            added = db.insert_trades(uid, batch)
+            if added:
+                billing.spend_import(uid)
+            return self._json({"ok": True, "added": added})
 
         self.send_response(404); self.end_headers()
 
