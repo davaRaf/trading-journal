@@ -144,6 +144,27 @@ def state(u):
     }
 
 
+def free_terms(u):
+    """Що дається без підписки — числами.
+
+    Це умови, а не лічильник: тут «дається 30», а не «лишилось 12». Різниця
+    принципова — залишок ми не показуємо ніде, а умови людина має бачити
+    перед тим, як платити.
+    """
+    row = _user(u)
+    if not row:
+        return {}
+    return {
+        "trades": _cap(row, "free_trades_cap", FREE_TRADES),
+        "bt": _cap(row, "free_bt_cap", FREE_BT),
+        "imports": _cap(row, "imports_cap", FREE_IMPORTS),
+        "import_days": IMPORT_WINDOW_DAYS,
+        # У того, хто платить, у ai_cap стоїть стеля підписки — в умовах
+        # безкоштовного вона ні до чого, там завжди місячна порція.
+        "ai": FREE_AI if active(row) else _cap(row, "ai_cap", FREE_AI),
+    }
+
+
 def public(u):
     """Те саме, але для браузера й бота.
 
@@ -156,6 +177,7 @@ def public(u):
     for k in ("trades_left", "bt_left", "imports_left", "import_days_left"):
         out.pop(k, None)
     out["prices"] = prices(u)
+    out["free"] = free_terms(u)
     return out
 
 

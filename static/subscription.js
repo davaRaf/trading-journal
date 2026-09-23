@@ -101,6 +101,21 @@ function card(plan){
     + "</div>";
 }
 
+/* Що дається без підписки. Це умови, а не лічильник: числа беремо
+   з сервера, щоб змінений ліміт не залишив тут стару обіцянку. */
+function freeTerms(){
+  const f = st && st.free;
+  if (!f || !f.trades) return "";
+  const rows = [
+    T.subFreeTrades.replace("%d", f.trades),
+    T.subFreeBt.replace("%d", f.bt),
+    T.subFreeImports.replace("%d", f.imports).replace("%d", f.import_days),
+    T.subFreeAi.replace("%d", f.ai),
+  ];
+  return '<div class="sub-fhead">' + esc(T.subFreeHead) + "</div>"
+    + '<ul class="sub-free">' + rows.map(r => "<li>" + r + "</li>").join("") + "</ul>";
+}
+
 function feats(){
   const rows = [T.subF1, T.subF2, T.subF3, T.subF4];
   return '<div class="sub-fhead">' + esc(T.subOpens) + "</div>"
@@ -117,6 +132,7 @@ function section(){
     +   esc(planLabel()) + "</span></div>"
     + '<div class="sub-plans">' + ORDER.map(card).join("") + "</div>"
     + feats()
+    + freeTerms()
     + '<p class="sub-soon" id="subSoon"></p>';
 }
 
