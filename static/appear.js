@@ -164,8 +164,15 @@ if (typeof renderOrig === "function"){
 const openOrig = window.openModal;
 if (typeof openOrig === "function"){
   window.openModal = function(html){
+    /* Чи було вікно вже відкрите. Налаштування перемальовують себе цілком
+       на кожен клік по розділу (settings.js, draw), і анімація появи грала
+       щоразу: блоки спливали на 18px знизу, тобто вміст сіпався вниз і
+       повертався. Поява доречна, коли вікно показують, а не коли міняють
+       його вміст, — тому тут граємо лише на першому показі. */
+    const m = document.getElementById("modal");
+    const wasOpen = !!m && !m.hidden;
     const r = openOrig.apply(this, arguments);
-    if (r !== false) run(document.getElementById("modalBox"));
+    if (r !== false && !wasOpen) run(document.getElementById("modalBox"));
     return r;
   };
 }
