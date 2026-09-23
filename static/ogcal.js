@@ -592,9 +592,16 @@ function day(data){
    людина поклала. Нічого не малюємо: ні смужки, ні знаків, ні теми —
    тільки скрін. Тому тут лише вибір потрібного файлу. */
 const TF_UNIT = {M: 1, H: 60, D: 1440, W: 10080};
+const TF_WORDS = {DAILY: 1440, DAY: 1440, D: 1440, WEEKLY: 10080, WEEK: 10080, W: 10080, MONTHLY: 43200, MONTH: 43200, MN: 43200};
+/* 15M, M15, 1H, H1, D, Daily, W… Незрозумілий підпис («Daily Screenshot»,
+   «свій») — у кінець, як найстарший: у превью має йти наймолодший */
 function tfWeight(tf){
-  const m = String(tf || "").trim().toUpperCase().match(/^(\d+)\s*([MHDW])$/);
-  return m ? Number(m[1]) * (TF_UNIT[m[2]] || 1) : 1e9;   /* без підпису — в кінець */
+  const t = String(tf || "").toUpperCase().replace(/[^A-Z0-9]/g, "");
+  if (TF_WORDS[t]) return TF_WORDS[t];
+  const m = t.match(/^(\d+)([MHDW])$/) || t.match(/^([MHDW])(\d+)$/);
+  if (!m) return 1e9;
+  const num = /^\d/.test(m[1]) ? m[1] : m[2], unit = /^\d/.test(m[1]) ? m[2] : m[1];
+  return Number(num) * (TF_UNIT[unit] || 1);
 }
 
 function reviewShot(data){

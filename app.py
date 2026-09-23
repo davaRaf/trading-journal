@@ -273,9 +273,29 @@ def share_shot_ok(rec, name):
 TF_ORDER = ["1W", "1D", "4H", "2H", "1H", "30M", "15M", "5M", "3M", "1M"]
 
 
+TF_MIN = {"M": 1, "H": 60, "D": 1440, "W": 10080}
+TF_WORDS = {"DAILY": 1440, "DAY": 1440, "D": 1440, "WEEKLY": 10080, "WEEK": 10080, "W": 10080,
+            "MONTHLY": 43200, "MONTH": 43200, "MN": 43200}
+
+
+def tf_minutes(tf):
+    """Таймфрейм у хвилинах: 15M, M15, 1H, H1, D, Daily, W… Незрозумілий
+    підпис («Daily Screenshot», «свій») рахуємо найстаршим, а не наймолодшим:
+    інакше він ліз у превью замість 1M."""
+    t = re.sub(r"[^A-Z0-9]", "", str(tf or "").upper())
+    if t in TF_WORDS:
+        return TF_WORDS[t]
+    m = re.fullmatch(r"(\d+)([MHDW])", t) or re.fullmatch(r"([MHDW])(\d+)", t)
+    if not m:
+        return 10 ** 9
+    a, b = m.groups()
+    n, u = (a, b) if a.isdigit() else (b, a)
+    return int(n) * TF_MIN[u]
+
+
 def tf_rank(tf):
-    t = str(tf or "").upper().replace(" ", "")
-    return TF_ORDER.index(t) if t in TF_ORDER else len(TF_ORDER)
+    """Більше — молодший таймфрейм (для max())."""
+    return -tf_minutes(tf)
 
 
 def share_preview_shot(rec):
