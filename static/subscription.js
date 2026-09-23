@@ -85,12 +85,16 @@ function card(plan){
   const bill = ({month: T.subBillM, quarter: T.subBillQ, year: T.subBillY}[plan] || "")
     .replace("%s", money(p.cents));
   const name = {month: T.subMonth, quarter: T.subQuarter, year: T.subYear}[plan];
-  const val = (per / 100).toFixed(2).replace(".", ",");
+  /* Копійки дрібнішим кеглем: у ціні головне ціле число, «,99» —
+     хвіст, який не має сперечатися з ним за увагу. */
+  const whole = Math.floor(per / 100);
+  const cents = String(per % 100).padStart(2, "0");
   return '<div class="sub-plan' + (best ? " best" : "") + '" data-p="' + plan + '">'
     + gift
     + '<div class="sub-bg" aria-hidden="true"><span class="sub-word">StatsAI</span></div>'
     + '<div class="sub-name">' + esc(name) + "</div>"
-    + '<div class="sub-cost"><span class="cur">€</span><span class="val">' + esc(val) + "</span>"
+    + '<div class="sub-cost"><span class="cur">€</span>'
+    +   '<span class="val">' + whole + '<span class="cc">,' + cents + "</span></span>"
     +   '<span class="cnt">' + esc(T.subPerMonth) + "</span></div>"
     + '<div class="sub-bill">' + esc(bill) + "</div>"
     + '<button type="button" class="sub-btn" data-buy="' + plan + '">' + esc(T.subBuy) + "</button>"
