@@ -102,10 +102,13 @@
 }
 .sub-tier.y{box-shadow:0 0 14px color-mix(in srgb,var(--accent) 22%,transparent)}
 .sub-tier:hover{border-color:color-mix(in srgb,var(--accent) 50%,transparent)}
-/* У плашці профілю значок трохи менший за аватарку — вона там головна. */
-.side-me-tier{display:flex; flex:none}
-.side-me-tier .sub-tier{width:26px; height:26px; border-radius:8px}
-.side-me-tier .sub-tier.on{font-size:11px}
+/* У плашці профілю значок трохи менший за аватарку — вона там головна.
+   «FREE» — чотири літери проти двох-трьох у «1М» чи «12М», тому кегль
+   у нього свій: інакше слово вилазить за квадратик. Відступ до аватарки
+   більший за звичайний проміжок плашки — значок не її частина. */
+.side-me-tier{display:flex; flex:none; margin-right:5px}
+.side-me-tier .sub-tier{width:26px; height:26px; border-radius:8px; font-size:7.5px; letter-spacing:0}
+.side-me-tier .sub-tier.on{font-size:11px; letter-spacing:-.02em}
 
 /* телефон: картки в стовпчик, річний першим — до нижніх можна й не долистати */
 @media (max-width:560px){
