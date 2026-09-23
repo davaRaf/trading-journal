@@ -160,7 +160,8 @@
   --text:#E4EDF9; --dim:#93A7C3; --faint:#62779A;
   --accent:#4F9BFF; --accent-ink:#F2F7FF;
   --up:#3DDC97; --down:#FF6B7A; --be:#A8BEDF;
-  --up-glow:rgba(61,220,151,.45); --down-glow:rgba(255,107,122,.4); --be-glow:rgba(168,190,223,.3);
+  /* лише легкий ореол навколо цифр: сильніший розпливався й заважав читати */
+  --up-glow:rgba(61,220,151,.16); --down-glow:rgba(255,107,122,.14); --be-glow:rgba(168,190,223,.1);
   --card:rgba(10,20,37,.72); --card-lip:inset 0 1px 0 rgba(180,215,255,.07);
   --side-bg:rgba(4,8,15,.92); --shell-bg:rgba(8,15,28,.6);
   --seg-bg:rgba(10,20,37,.8); --seg-on-bg:rgba(79,155,255,.16); --seg-on-line:rgba(120,180,255,.35);
@@ -209,7 +210,6 @@
   filter:drop-shadow(0 0 6px rgba(79,155,255,.7))}
 :root[data-skin="fxlab"] .ovw .flow > .shell:has(.sum)::before{left:0; top:0; border-right:0; border-bottom:0}
 :root[data-skin="fxlab"] .ovw .flow > .shell:has(.sum)::after{right:0; bottom:0; border-left:0; border-top:0}
-:root[data-skin="fxlab"] .ovw .sum .big{text-shadow:0 0 22px var(--up-glow)}
 
 /* ============================ своя ============================ */
 /* Людина обирає два кольори — тло й акцент. Решту виводимо:
