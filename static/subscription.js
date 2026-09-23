@@ -60,16 +60,21 @@ function planLabel(){
   return name + (d ? " · " + T.subTill + " " + d : "");
 }
 
-/* Значок біля ніка: FREE / 1М / 3М / 12М. Без слів і без дати —
-   дата живе у підказці й у самому розділі. */
+/* Значок тарифу: FREE / 1М / 3М / 12М. Без слів і без дати — дата живе
+   у підказці й у самому розділі.
+
+   Не кнопка, а span: значок стоїть усередині плашки профілю, а кнопка в
+   кнопці — розмітка, яку браузер розбирає як доведеться. Мишею він веде
+   в «Підписку», з клавіатури спрацьовує сама плашка. */
 function badge(){
   if (!st) return "";
   const sign = st.active ? {month: "1М", quarter: "3М", year: "12М"}[st.plan] : "FREE";
   if (!sign) return "";
   const cls = "sub-tier" + (st.active ? " on" : "") + (st.plan === "year" ? " y" : "");
-  return '<button type="button" class="' + cls + '" data-tip="' + esc(planLabel()) + '"'
-    + ' aria-label="' + esc(T.subTitle + " · " + planLabel()) + '"'
-    + ' onclick="__settings.open(&quot;subscription&quot;)">' + esc(sign) + "</button>";
+  return '<span class="' + cls + '" data-tip="' + esc(planLabel()) + '"'
+    + ' title="' + esc(T.subTitle + " · " + planLabel()) + '"'
+    + ' onclick="event.stopPropagation();__settings.open(&quot;subscription&quot;)">'
+    + esc(sign) + "</span>";
 }
 
 function card(plan){

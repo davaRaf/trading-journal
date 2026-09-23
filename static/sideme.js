@@ -52,18 +52,22 @@ async function load(){
   paint(u);
 }
 
-/* Значок тарифу праворуч від ніка: FREE / 1М / 3М / 12М. Малює його
-   subscription.js, тут лише місце під нього — і оновлення, коли стан
-   підписки приїхав пізніше за профіль. */
+/* Значок тарифу перед аватаркою, в тій самій плашці: FREE / 1М / 3М / 12М.
+   Малює його subscription.js, тут лише місце під нього — і оновлення,
+   коли стан підписки приїхав пізніше за профіль. */
 function tier(){
   if (!me || !window.__sub) return;
   const html = __sub.badge();
   if (!html) return;
+  const btn = document.getElementById("sideMeBtn");
+  if (!btn) return;
   let slot = document.getElementById("sideMeTier");
-  if (!slot){
+  if (!slot || slot.parentNode !== btn){
+    if (slot) slot.remove();
     slot = document.createElement("span");
     slot.id = "sideMeTier";
-    box.appendChild(slot);
+    slot.className = "side-me-tier";
+    btn.insertBefore(slot, btn.firstChild);
   }
   slot.innerHTML = html;
 }
