@@ -377,12 +377,8 @@ def chat_answer(user, chat_id, tg_id, text):
     сайті: з виписками з журналу, новинами й своєю ТС.
     """
     lang = user_lang(tg_id, text)
-    # Розмова — теж звернення до моделі, і порція спільна з сайтом:
-    # відповідає той самий помічник.
-    ok, why = billing.can_use_ai(user["id"])
-    if not ok:
-        return (botlang.t(lang, "subAiCap") if why == billing.AI_CAP
-                else botlang.t(lang, "subAi", SITE_URL))
+    # Дозвіл питають вище (on_text): відмова йде з кнопкою на тарифи, а
+    # кнопку до готового рядка вже не пришиєш.
     history = CHAT_MEMORY.get(chat_id) or []
     try:
         out = assistant.ask(user["id"], text, history, lang, brief=True)
@@ -454,6 +450,17 @@ def on_text(chat_id, tg_id, text):
         return
     pending = db.pending_emotion_trades(user["id"])
     if not pending:
+        # Вільна розмова — звернення до моделі, і порція спільна з сайтом.
+        ok, why = billing.can_use_ai(user["id"])
+        if not ok:
+            lang = user_lang(tg_id, text)
+            capped = why == billing.AI_CAP
+            tg_api.send_message(
+                chat_id,
+                botlang.t(lang, "subAiCap" if capped else "subAi"),
+                # Хто платить, той уже все купив — кликати його в тарифи ні до чого.
+                keyboard=None if capped else botlang.plans_kb(lang))
+            return
         tg_api.send_message(chat_id, chat_answer(user, chat_id, tg_id, text))
         return
     if len(pending) > 1:
@@ -505,6 +512,40 @@ def stats_table(stats):
         for name, s in stats.items())
 
 
+PLAN_NAME = {"month": "planMonth", "quarter": "planQuarter", "year": "planYear"}
+
+
+def on_plan(chat_id, tg_id):
+    """/plan — що зараз відкрито.
+
+    Лічильника тут немає й не буде (рішення власника 22.09.2026): кажемо
+    умови — скільки дається, — а не скільки з'їдено. Про вичерпання
+    людина дізнається з відмови, коли в неї впреться.
+    """
+    lang = user_lang(tg_id)
+    user = db.get_user_by_telegram(tg_id)
+    if not user:
+        tg_api.send_message(chat_id, botlang.t(lang, "needLink")
+                            + "\n\n" + link_short(lang))
+        return
+    st = billing.state(user["id"])
+    if st["active"]:
+        name = botlang.t(lang, PLAN_NAME.get(st["plan"], "planMonth"))
+        d = (st["paid_until"] or "")[:10]
+        day = "%s.%s.%s" % (d[8:10], d[5:7], d[:4]) if len(d) == 10 else d
+        tg_api.send_message(chat_id, botlang.t(lang, "planPaid", name, day)
+                            + "\n\n" + botlang.t(lang, "planPaidWhat"))
+        return
+    free = billing.free_terms(user["id"])
+    tg_api.send_message(
+        chat_id,
+        botlang.t(lang, "planFree") + "\n\n"
+        + botlang.t(lang, "planFreeWhat", free["trades"], free["bt"],
+                    free["imports"], free["import_days"], free["ai"])
+        + "\n\n" + botlang.t(lang, "planKeep"),
+        keyboard=botlang.plans_kb(lang))
+
+
 def on_report(chat_id, tg_id):
     user = db.get_user_by_telegram(tg_id)
     if not user:
@@ -525,9 +566,10 @@ def on_report(chat_id, tg_id):
     ok, why = billing.can_use_ai(user["id"])
     if not ok:
         lang = botlang.of(user)
+        capped = why == billing.AI_CAP
         tg_api.send_message(chat_id, "📊 Емоції та результат:\n%s\n\n%s"
-                            % (table, botlang.t(lang, "subAiCap") if why == billing.AI_CAP
-                               else botlang.t(lang, "subAi", SITE_URL)))
+                            % (table, botlang.t(lang, "subAiCap" if capped else "subAi")),
+                            keyboard=None if capped else botlang.plans_kb(lang))
         return
     billing.spend_ai(user["id"])
     text = llm.ask(
@@ -579,6 +621,8 @@ def handle_update(u):
         on_start(chat_id, tg_id, username, text[len("/start"):].strip())
     elif text.startswith("/report"):
         on_report(chat_id, tg_id)
+    elif text.startswith("/plan"):
+        on_plan(chat_id, tg_id)
     elif text.startswith("/trade"):
         user = db.get_user_by_telegram(tg_id)
         if user:

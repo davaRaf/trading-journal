@@ -77,7 +77,9 @@ def paid_out(user, chat_id):
     ok, _ = billing.can_add_trade(user["id"])
     if ok:
         return False
-    tg_api.send_message(chat_id, t(botlang.of(user), "subTrades", SITE_URL))
+    lang = botlang.of(user)
+    tg_api.send_message(chat_id, t(lang, "subTrades"),
+                        keyboard=botlang.plans_kb(lang))
     return True
 
 

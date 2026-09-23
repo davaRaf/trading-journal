@@ -2872,6 +2872,15 @@ function markDemo(){
     const sw=$("#modeSwitch"); if(sw) sw.hidden=true;
     S.mode="live"; markMode();
   }
+  /* #plan — коротке посилання на тарифи: його дає бот у відмові, і людина
+     має потрапити одразу в розділ підписки, а не шукати його в налаштуваннях.
+     Це не розділ журналу, тому прибираємо з адреси до звичайної розкладки. */
+  const wantPlan = location.hash === "#plan";
+  if(wantPlan){
+    history.replaceState(null, "", location.pathname + location.search);
+    /* щоб пропозиція перенесення не накрила тарифи — див. notion.js */
+    window.__wantPlan = true;
+  }
   S.view=location.hash.slice(1)||"dashboard";
   if(S.view==="monthly"){ S.view="journal"; location.hash="journal"; }
   /* Відкрили журнал за старою адресою розділу, якого в цьому режимі немає */
@@ -2883,4 +2892,12 @@ function markDemo(){
   if(window.__ts && __ts.ensure) __ts.ensure();
   /* Рахунки — теж джерело підказок для форми, і теж потрібні одразу. */
   if(window.__acc && __acc.preload) __acc.preload();
+  if(wantPlan && !DEMO && window.__settings){
+    /* Привітання при вході малюється поверх усього — чекаємо, поки воно
+       дограє, інакше тарифи відкриються під ним і людина їх не побачить. */
+    (async () => {
+      try{ if(window.__hello && __hello.done) await __hello.done; }catch(e){}
+      __settings.open("subscription");
+    })();
+  }
 })();
