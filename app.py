@@ -19,6 +19,7 @@ from http.server import BaseHTTPRequestHandler, HTTPServer
 import urllib.parse
 from urllib.parse import urlparse, unquote, parse_qs
 
+import antifraud
 import assistant
 import delete_ai
 import auth
@@ -680,6 +681,87 @@ def delete_user_fully(uid):
         conn.commit()
     delete_files(names)
     return len(names)
+
+
+def _billing_block(u, e, row, dt):
+    """Підписка в картці адмінки: що видно і чим це можна поправити.
+
+    Тут, на відміну від журналу, лічильники показуємо — адмін мусить
+    бачити, скільки людина витратила й де її межа. Заборона на «лишилось
+    N із 30» стосується самої людини, а не цієї сторінки.
+    """
+    st = billing.state(u["id"])
+    nb = antifraud.neighbours(u["id"])
+    n = lambda k, d=0: (u[k] if u[k] is not None else d)
+    pair = lambda used, cap, d: "%s из %s" % (n(used), n(cap, d))
+    who = lambda rows: ", ".join(
+        "<a href='/admin/u/%s'>%s</a>" % (e(r["nickname"]), e(r["nickname"]))
+        for r in rows) or "—"
+    nick_js = json.dumps(u["nickname"], ensure_ascii=False)
+    inp = ("padding:7px;border-radius:8px;border:1px solid #333;"
+           "background:#111;color:#eee;width:74px")
+    btn = ("padding:8px 12px;border-radius:8px;border:1px solid #333;"
+           "background:#161618;color:#eee;cursor:pointer")
+    return (
+        "<h2>Подписка</h2><table>"
+        + row("План", ("%s · до %s" % (st["plan"], dt(u["paid_until"])))
+              if st["active"] else "бесплатный")
+        + row("Сделки", pair("free_trades_used", "free_trades_cap", config.FREE_TRADES))
+        + row("Бэктест", pair("free_bt_used", "free_bt_cap", config.FREE_BT))
+        + row("Переносы", pair("imports_used", "imports_cap", config.FREE_IMPORTS))
+        + row("Обращения к модели", "%s из %s%s" % (
+            billing.ai_used(u), billing.ai_cap(u),
+            (" · окно до " + dt(u["ai_reset_at"])) if u["ai_reset_at"] else ""))
+        + row("Набор цен", "ранние" if (u["price_plan"] or "std") == "early" else "обычный")
+        + row("Своя цена", ("%.2f EUR" % (u["own_price_cents"] / 100.0))
+              if u["own_price_cents"] else "—")
+        + row("Заметка", u["billing_note"] or "—")
+        + "</table>"
+        + "<h2>Откуда пришёл</h2><table>"
+        + row("IP регистрации", (u["signup_ip"] or "—")
+              + (" · разрешён вручную" if nb["allowed"] else ""))
+        + row("Отпечаток устройства", (u["signup_device"] or "")[:12] or "—")
+        + row("Тот же IP", who(nb["ip"]))
+        + row("То же устройство", who(nb["device"]))
+        + row("Та же база Notion", who(nb["notion"]))
+        + "</table>"
+        + "<p><small>Совпал только IP — это ещё ничего не значит: у мобильных "
+          "операторов один выход на тысячи людей. Совпало устройство — почти "
+          "наверняка тот же человек.</small></p>"
+        + "<h2>Поправить</h2>"
+        + "<p><input id=bdays type=number min=1 placeholder='30' style=\"%s\"> "
+          "<button id=bgrant style=\"%s\">Дать подписку на N дней</button> "
+          "<button id=brevoke style=\"%s\">Снять подписку</button></p>" % (inp, btn, btn)
+        + "<p><small>Бонус к бесплатным лимитам (прибавляем к границе, "
+          "потраченное не трогаем):</small><br>"
+          "сделки <input id=btr type=number placeholder='0' style=\"%s\"> "
+          "бэктест <input id=bbt type=number placeholder='0' style=\"%s\"> "
+          "переносы <input id=bim type=number placeholder='0' style=\"%s\"> "
+          "обращения <input id=bai type=number placeholder='0' style=\"%s\"> "
+          "<button id=bbonus style=\"%s\">Добавить</button></p>" % (inp, inp, inp, inp, btn)
+        + "<p><button id=bearly style=\"%s\">Цены как ранним</button> "
+          "<button id=bstd style=\"%s\">Обычные цены</button> "
+          "<button id=ballow style=\"%s\">%s</button></p>" % (
+              btn, btn, btn,
+              "Убрать разрешение IP" if nb["allowed"] else "Разрешить этот IP")
+        + "<p id=bmsg></p>"
+        + "<script>const NICK=%s;"
+          "async function bill(act,data){bmsg.textContent='…';"
+          "const r=await fetch('/api/admin/billing/'+act,{method:'POST',"
+          "headers:{'Content-Type':'application/json'},"
+          "body:JSON.stringify(Object.assign({nick:NICK},data||{}))});"
+          "const d=await r.json().catch(()=>({}));"
+          "bmsg.textContent=r.ok?'готово':(d.error||('ошибка '+r.status));"
+          "if(r.ok)setTimeout(()=>location.reload(),700);}"
+          "bgrant.onclick=()=>bill('grant',{days:+bdays.value||0});"
+          "brevoke.onclick=()=>{if(confirm('Снять подписку? Оплаченные дни пропадут.'))"
+          "bill('revoke');};"
+          "bbonus.onclick=()=>bill('bonus',{trades:+btr.value||0,bt:+bbt.value||0,"
+          "imports:+bim.value||0,ai:+bai.value||0});"
+          "bearly.onclick=()=>bill('price',{price_plan:'early'});"
+          "bstd.onclick=()=>bill('price',{price_plan:'std'});"
+          "ballow.onclick=()=>bill('allow-ip',{off:%s});</script>" % (
+              nick_js, "true" if nb["allowed"] else "false"))
 
 
 def _is_admin(uid):
@@ -1475,6 +1557,13 @@ class H(BaseHTTPRequestHandler):
                 if not ext_id:
                     raise ValueError("сервіс не віддав профіль")
                 user = oauth.find_or_create_user(prov, ext_id, email, name)
+                # Вхід через Google чи Discord іде переадресацією, відбитка
+                # пристрою тут немає — тому й не блокуємо. Адресу все одно
+                # записуємо: в адмінці буде видно сусідів по ній.
+                try:
+                    antifraud.remember(user["id"], self._guest(), "")
+                except Exception as ex:
+                    print("antifraud oauth:", ex)
                 ref_claim(user["id"], self._cookie(REF_COOKIE))
             except Exception as ex:
                 print("oauth %s: %s" % (prov, ex))
@@ -1707,6 +1796,7 @@ class H(BaseHTTPRequestHandler):
                     + row("Инструменты", ", ".join("%s (%d)" % (r["pair"], r["n"]) for r in pairs) or "—")
                     + "</table>"
                     + "<h2>Торговая система</h2><table>" + row("ТС", ts_line) + "</table>"
+                    + _billing_block(u, e, row, dt)
                     + "<h2>Ссылки</h2><table>"
                     + row("Поделился", sh["n"]) + row("Переходов", sh["views"])
                     + row("Последняя", datetime.datetime.fromtimestamp(sh["last"]).strftime("%d.%m.%Y") if sh["last"] else "—")
@@ -2229,6 +2319,60 @@ class H(BaseHTTPRequestHandler):
 
         # ---- вход и регистрация ----
         # ---- поправити мітку руками: лише власникам ----
+        # ---- підписка руками: дати, зняти, підсипати бонус, поставити ціну ----
+        if p.startswith("/api/admin/billing/"):
+            who = self._uid()
+            if not who:
+                return self._json({"error": "auth required"}, 401)
+            if not _is_admin(who):
+                return self._json({"error": "forbidden"}, 403)
+            if not isinstance(body, dict):
+                return self._json({"error": "bad json"}, 400)
+            nick = str(body.get("nick") or "").strip()
+            try:
+                u = db.get_user_by_nick(nick) or db.get_user_by_email(nick)
+            except Exception:
+                u = None
+            if not u:
+                return self._json({"error": "такого пользователя нет"}, 404)
+            act = p[len("/api/admin/billing/"):].strip("/")
+            note = str(body.get("note") or "").strip() or None
+            num = lambda k: int(body.get(k) or 0)
+            print("admin: %s робить %r акаунту %s (id %s)" % (
+                who, act, u["nickname"], u["id"]), flush=True)
+            if act == "grant":
+                days = num("days")
+                if days <= 0:
+                    return self._json({"error": "нужно число дней"}, 400)
+                plan = str(body.get("plan") or "").strip()
+                return self._json(billing.grant(u["id"], days, plan))
+            if act == "revoke":
+                return self._json(billing.revoke(u["id"]))
+            if act == "bonus":
+                if not any(num(k) for k in ("trades", "bt", "imports", "ai")) and note is None:
+                    return self._json({"error": "нечего добавлять"}, 400)
+                return self._json(billing.bonus(u["id"], trades=num("trades"),
+                                                bt=num("bt"), imports=num("imports"),
+                                                ai=num("ai"), note=note))
+            if act == "price":
+                plan = str(body.get("price_plan") or "").strip()
+                own = body.get("own_cents")
+                return self._json(billing.set_price(
+                    u["id"], price_plan=plan if plan in ("std", "early") else None,
+                    own_cents=int(own) if str(own or "").strip() else None, note=note))
+            # «це інша людина» — адреса перестає бути заслоном для нових
+            # реєстрацій; саму людину це нікуди не пускає й не блокує.
+            if act == "allow-ip":
+                ip = (u["signup_ip"] or "").strip()
+                if not ip:
+                    return self._json({"error": "у этого аккаунта не записан IP"}, 400)
+                if body.get("off"):
+                    antifraud.forbid(ip)
+                else:
+                    antifraud.allow(ip, note or ("разрешено из карточки " + u["nickname"]))
+                return self._json({"ok": True, "ip": ip, "allowed": not body.get("off")})
+            return self._json({"error": "неизвестное действие"}, 400)
+
         if p == "/api/admin/set-ref":
             who = self._uid()
             if not who:
@@ -2301,6 +2445,14 @@ class H(BaseHTTPRequestHandler):
                                    "code": "need_fields"}, 400)
             if db.get_user_by_email(email):
                 return self._json({"error": "така пошта вже зайнята", "code": "taken"}, 409)
+            # Другий акаунт із тієї самої адреси І з того самого пристрою.
+            # Тільки разом: сам IP нічого не доводить — за одним виходом
+            # оператора сидить півміста (див. antifraud.py).
+            ip = self._guest()
+            device = antifraud.device_hash(body.get("device"))
+            if antifraud.blocked(ip, device):
+                return self._json({"error": "з цієї адреси вже є акаунт",
+                                   "code": "ip_taken"}, 409)
             pw_hash, pw_salt, iters = auth.hash_password(password)
             # Нікнейм робимо з пошти. Він може збігтися з чужим — тоді
             # пробуємо ще раз із хвостиком: людина про це навіть не знає,
@@ -2319,6 +2471,12 @@ class H(BaseHTTPRequestHandler):
                         raise
             if not user:
                 return self._json({"error": "така пошта вже зайнята", "code": "taken"}, 409)
+            # Звідки й з чого зайшли — щоб наступну таку реєстрацію було з
+            # чим порівняти, а в адмінці було видно сусідів.
+            try:
+                antifraud.remember(user["id"], ip, device)
+            except Exception as ex:
+                print("antifraud:", ex)     # заважати реєстрації це не має
             ref_claim(user["id"], self._cookie(REF_COOKIE))
             # У журнал — лише після коду з листа (рішення владельця
             # 15.09.2026): раніше пускали одразу, а підтвердження просили
