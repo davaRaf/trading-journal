@@ -1,0 +1,108 @@
+/* ============================================================
+   Розділ «Підписка» у вікні налаштувань. Макет — фаза 0,
+   артефакт від 22.09.2026, варіант «надпис залитий».
+
+   Кольори беремо токенами (--accent, --card, --line, --panel-2),
+   тому розділ живе в усіх десяти оформленнях, а не тільки в тому
+   тьмяному, в якому малювався макет.
+
+   Класи з префіксом sub-: у журналі вже є .plan (плани рахунків)
+   і .cost, і два набори стилів на одне ім'я рано чи пізно
+   зустрілись би.
+   ============================================================ */
+
+/* стан тарифу поруч із заголовком розділу */
+.sub-chip{
+  font-family:var(--mono); font-size:11px; font-weight:600; letter-spacing:.05em; text-transform:uppercase;
+  color:var(--dim); background:var(--panel-2); border:1px solid var(--line); border-radius:999px;
+  padding:3px 10px; white-space:nowrap; display:inline-flex; align-items:center; gap:6px;
+}
+.sub-chip.paid{color:var(--accent); background:var(--accent-soft); border-color:color-mix(in srgb,var(--accent) 32%,transparent)}
+.sub-chip.paid::before{
+  content:""; width:5px; height:5px; border-radius:50%; background:var(--accent); flex:none;
+  box-shadow:0 0 8px color-mix(in srgb,var(--accent) 60%,transparent);
+}
+.sub-chip .till{font-family:var(--sans); font-weight:400; text-transform:none; letter-spacing:0; color:var(--dim); font-size:11px}
+
+/* ——— картки тарифів ——— */
+/* Відступ згори — під ярлик «−4 місяці»: він сидить верхи на рамці
+   картки й без цього зрізався б краєм панелі. */
+.sub-plans{display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:11px;
+  align-items:stretch; padding-top:9px}
+.sub-plan{
+  border:1px solid var(--line); border-radius:var(--r); padding:22px 16px 16px; background:var(--panel-2);
+  display:flex; flex-direction:column; position:relative; isolation:isolate;
+}
+.sub-plan.best{
+  border-color:color-mix(in srgb,var(--accent) 45%,transparent);
+  background:linear-gradient(var(--accent-soft),var(--accent-soft)) var(--panel-2);
+}
+/* тло — великий напис StatsAI шрифтом цифр журналу, підрізаний краєм картки */
+.sub-plan .sub-bg{position:absolute; inset:0; z-index:-1; pointer-events:none;
+  overflow:hidden; border-radius:var(--r)}
+.sub-word{
+  position:absolute; left:-5px; bottom:-13px; white-space:nowrap; line-height:1;
+  font-family:var(--mono); font-weight:700; font-size:54px; letter-spacing:-.045em;
+  color:var(--text); opacity:.07;
+}
+.sub-plan.best .sub-word{color:var(--accent); opacity:.16}
+
+.sub-name{font-family:var(--mono); font-size:11px; font-weight:600; letter-spacing:.1em; text-transform:uppercase; color:var(--dim); margin-bottom:11px}
+.sub-plan.best .sub-name{color:var(--accent)}
+.sub-cost{display:flex; align-items:flex-start; gap:2px; line-height:1}
+.sub-cost .cur{font-family:var(--mono); font-size:15px; font-weight:600; color:var(--dim); margin-top:5px}
+.sub-cost .val{font-family:var(--mono); font-size:32px; font-weight:600; letter-spacing:-.025em; font-variant-numeric:tabular-nums}
+.sub-cost .cnt{font-size:12px; color:var(--faint); align-self:flex-end; margin-left:3px; margin-bottom:3px}
+.sub-was{font-size:12px; color:var(--faint); margin-top:7px; min-height:19px}
+.sub-was s{text-decoration-thickness:1px; text-underline-offset:2px}
+.sub-bill{font-size:11.5px; color:var(--dim); margin-top:2px}
+.sub-btn{
+  margin-top:15px; text-align:center; font-size:13px; font-weight:500; padding:9px 0; width:100%;
+  border-radius:var(--r-sm); border:1px solid var(--line); color:var(--text); background:var(--seg-on-bg);
+  cursor:pointer; font-family:inherit;
+}
+.sub-btn:hover{border-color:color-mix(in srgb,var(--accent) 45%,transparent)}
+.sub-plan.best .sub-btn{background:var(--accent); border-color:var(--accent); color:var(--accent-ink); font-weight:600}
+.sub-gift{
+  position:absolute; top:-8px; left:16px; font-family:var(--mono); font-size:10px; font-weight:700;
+  letter-spacing:.05em; background:var(--accent); color:var(--accent-ink); border-radius:6px; padding:3px 7px; z-index:1;
+  box-shadow:0 0 18px color-mix(in srgb,var(--accent) 35%,transparent);
+}
+
+/* ——— що відкриває підписка ——— */
+.sub-fhead{font-family:var(--mono); font-size:11px; font-weight:600; letter-spacing:.1em; text-transform:uppercase; color:var(--faint); margin:18px 0 10px}
+.sub-feats{display:grid; gap:7px; margin:0; padding:0; list-style:none}
+.sub-feats li{display:flex; gap:9px; align-items:flex-start; font-size:13px; color:var(--dim)}
+.sub-feats svg{flex:none; margin-top:4px; color:var(--accent)}
+.sub-feats b{color:var(--text); font-weight:500}
+
+/* рядок про звернення до моделі — єдиний залишок, який людині видно */
+.sub-ai{
+  margin-top:16px; border:1px solid var(--line); border-radius:var(--r-sm); background:var(--panel-2);
+  padding:11px 13px; font-size:12.5px; color:var(--dim); display:flex; flex-wrap:wrap; gap:4px 8px; align-items:baseline;
+}
+.sub-ai b{color:var(--text); font-family:var(--mono); font-variant-numeric:tabular-nums}
+.sub-ai small{color:var(--faint); font-size:11.5px}
+.sub-soon{margin-top:12px; font-size:12.5px; color:var(--faint); min-height:18px}
+
+/* ——— значок тарифу біля ніка у верхній смузі ——— */
+.sub-tier{
+  display:grid; place-items:center; width:30px; height:30px; flex:none;
+  border-radius:9px; background:var(--panel); border:1px solid var(--line);
+  color:var(--faint); font-family:var(--mono); font-size:10.5px; font-weight:600; letter-spacing:.04em;
+  cursor:pointer; padding:0;
+}
+.sub-tier.on{
+  border-color:color-mix(in srgb,var(--accent) 32%,transparent); background:var(--accent-soft);
+  color:var(--accent); font-size:12px; font-weight:700; letter-spacing:-.02em;
+}
+.sub-tier.y{box-shadow:0 0 14px color-mix(in srgb,var(--accent) 22%,transparent)}
+.sub-tier:hover{border-color:color-mix(in srgb,var(--accent) 50%,transparent)}
+
+/* телефон: картки в стовпчик, річний першим — до нижніх можна й не долистати */
+@media (max-width:560px){
+  .sub-plans{grid-template-columns:minmax(0,1fr)}
+  .sub-plan[data-p="year"]{order:-1}
+  .sub-gift{left:auto; right:16px}
+  .sub-btn{padding:11px 0; font-size:14px}
+}

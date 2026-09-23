@@ -32,6 +32,7 @@ function paint(u){
   if (nick) nick.textContent = u.nickname;
   const btn = document.getElementById("sideMeBtn");
   if (btn) btn.setAttribute("aria-label", u.nickname + " · " + (T.stProfile || ""));
+  tier();
 }
 
 /* Без акаунта: рядок зникає, «Налаштування» (там мова) з'являються
@@ -51,7 +52,23 @@ async function load(){
   paint(u);
 }
 
-window.__sideMe = {paint: paint, load: load, user: () => me};
+/* Значок тарифу праворуч від ніка: FREE / 1М / 3М / 12М. Малює його
+   subscription.js, тут лише місце під нього — і оновлення, коли стан
+   підписки приїхав пізніше за профіль. */
+function tier(){
+  if (!me || !window.__sub) return;
+  const html = __sub.badge();
+  if (!html) return;
+  let slot = document.getElementById("sideMeTier");
+  if (!slot){
+    slot = document.createElement("span");
+    slot.id = "sideMeTier";
+    box.appendChild(slot);
+  }
+  slot.innerHTML = html;
+}
+
+window.__sideMe = {paint: paint, load: load, tier: tier, user: () => me};
 load();
 
 })();

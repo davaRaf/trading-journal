@@ -32,6 +32,7 @@ const ICON = {
   shield: '<path d="M12 3 4.5 6v5.5c0 4.6 3.2 8.4 7.5 9.5 4.3-1.1 7.5-4.9 7.5-9.5V6L12 3z"/><path d="m9 12 2 2 4-4"/>',
   eye:    '<path d="M2.5 12S6 5.5 12 5.5 21.5 12 21.5 12 18 18.5 12 18.5 2.5 12 2.5 12z"/><circle cx="12" cy="12" r="3"/>',
   box:    '<path d="M3.5 7.5 12 3l8.5 4.5v9L12 21l-8.5-4.5z"/><path d="M3.5 7.5 12 12l8.5-4.5M12 12v9"/>',
+  star:   '<path d="M12 3.6l2.6 5.3 5.9.9-4.3 4.1 1 5.8-5.2-2.7-5.2 2.7 1-5.8L3.5 9.8l5.9-.9z"/>',
   paint:  '<circle cx="12" cy="12" r="9"/><path d="M12 3a4.5 4.5 0 000 9 4.5 4.5 0 010 9"/>',
   chev:   '<path d="m9 6 6 6-6 6"/>',
   back:   '<path d="m15 6-6 6 6 6"/>',
@@ -84,6 +85,11 @@ function sections(){
       todo: !!(me && !me.twofa),
       html: () => block(T.tfTitle, tf, "tf") + block(T.loTitle, lo, "tf"),
       wire: () => __twofa.wire()});
+    /* Підписка — свій розділ, а не рядок у профілі: там три картки
+       тарифів, і в профілі вони не вміщаються. */
+    const sub = window.__sub ? __sub.section() : "";
+    if (sub) list.push({id: "subscription", title: T.subTitle, icon: "star", sep: true,
+      html: () => block("", sub, "sub"), wire: () => __sub.wire()});
     const pp = window.__profile ? __profile.section() : "";
     if (pp) list.push({id: "open", title: T.ppTitle, icon: "eye", sep: true,
       html: () => block("", pp, "pp"), wire: () => __profile.wire()});
@@ -106,8 +112,12 @@ function navItem(s){
 }
 
 function paneHead(s){
+  /* Підпис у шапці профілю раніше був завжди «Зараз безкоштовно». Тепер
+     стан знає підписка, і в того, хто платить, там стоїть його тариф. */
+  const plan = (window.__sub && __sub.state()) ? __sub.state() : null;
+  const free = plan && plan.active ? "" : T.meFree;
   return '<div class="stx-pane-h"><h3>' + esc(s.title)
-    + (s.profile ? '<span class="stx-free">' + esc(T.meFree) + "</span>" : "") + "</h3></div>";
+    + (s.profile && free ? '<span class="stx-free">' + esc(free) + "</span>" : "") + "</h3></div>";
 }
 
 function closeBtn(){
@@ -183,6 +193,7 @@ async function open(where){
     window.__pwd ? __pwd.load() : null,
     window.__twofa ? __twofa.load() : null,
     window.__backup ? __backup.load() : null,
+    window.__sub ? __sub.load() : null,
   ]);
   /* Повернення з під-вікна (пароль, 2FA) — на той самий розділ; звичайне
      відкриття — з профілю, а на телефоні зі списку. */

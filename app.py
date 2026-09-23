@@ -23,6 +23,7 @@ import assistant
 import delete_ai
 import auth
 import backup
+import billing
 import http.cookies
 import config
 import db
@@ -1954,6 +1955,15 @@ class H(BaseHTTPRequestHandler):
                 print("backups:", ex)
                 have = []
             return self._json({"backups": have, "keep": backup.KEEP})
+
+        if p == "/api/billing/state":
+            # Стан підписки для браузера: тариф, дата, ціни саме цієї людини
+            # і скільки лишилось звернень до моделі. Залишку угод тут немає —
+            # лічильника ми не показуємо ніде (див. billing.public).
+            uid = self._uid()
+            if not uid:
+                return self._json({"error": "auth required"}, 401)
+            return self._json(billing.public(uid))
 
         if p == "/api/calendar":
             # Розділу «Новини» віддаємо рівно один робочий тиждень: усередині
