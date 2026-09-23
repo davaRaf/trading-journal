@@ -44,11 +44,13 @@ const SWAN = {
 /* FX LAB · «Лабораторія»: темна, як їхня заставка. Під вмістом — їхнє
    фото лабораторії під темним склом і міліметрівка (див. labBg). */
 const LAB = {
-  bg: "#04070D", panel: "rgba(12,24,44,.72)", line: "rgba(120,175,255,.18)",
+  /* Клітинки календаря й картки — щільні, без прозорості: крізь напівпрозорі
+     проступало фото, і календар губився на тлі. */
+  bg: "#04070D", panel: "#0B1526", line: "rgba(120,175,255,.18)",
   soft: "rgba(120,175,255,.12)",
   text: "#E4EDF9", dim: "#93A7C3", faint: "#6A80A3",
   up: "#3DDC97", down: "#FF6B7A", be: "#A8BEDF",
-  upBg: "rgba(61,220,151,.16)", downBg: "rgba(255,107,122,.15)", beBg: "rgba(168,190,223,.14)",
+  upBg: "#16413F", downBg: "#3C2637", beBg: "#243044",
   mark: "#40e094",
   partner: "fxlab",
 };
@@ -70,7 +72,7 @@ function labBg(ctx, w, h){
   if (ready(LAB_IMG)){
     const k = Math.max(w / LAB_IMG.naturalWidth, ph / LAB_IMG.naturalHeight);
     const iw = LAB_IMG.naturalWidth * k, ih = LAB_IMG.naturalHeight * k;
-    ctx.save(); ctx.globalAlpha = .55;
+    ctx.save(); ctx.globalAlpha = .4;
     ctx.drawImage(LAB_IMG, (w - iw) / 2, (ph - ih) / 2, iw, ih); ctx.restore();
   }
   let g = ctx.createLinearGradient(0, 0, 0, ph);

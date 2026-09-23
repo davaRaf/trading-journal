@@ -50,12 +50,13 @@
 /* Оформлення спільноти FX LAB — «Лабораторія»: темне скло, синє світло
    моніторів, міліметрівка. Кольори ті самі, що в журналі в їхній темі. */
 :root[data-skin="fxlab"]{
-  --bg:#060A12; --panel:rgba(12,22,40,.66); --panel-2:rgba(79,155,255,.08);
+  /* картки щільні: крізь напівпрозорі проступало фото, і знімок губився */
+  --bg:#060A12; --panel:#0B1526; --panel-2:#0E1A2E;
   --line:rgba(120,175,255,.16); --line-soft:rgba(120,175,255,.09);
   --text:#E4EDF9; --dim:#93A7C3; --faint:#62779A;
   --up:#3DDC97; --down:#FF6B7A; --be:#A8BEDF;
   --up-soft:rgba(61,220,151,.13); --down-soft:rgba(255,107,122,.13); --be-soft:rgba(168,190,223,.13);
-  --card:linear-gradient(180deg,rgba(79,155,255,.08),rgba(79,155,255,.02)); --g:#4F9BFF; --mark:#40e094;
+  --card:linear-gradient(180deg,#0F1D33,#0B1526); --g:#4F9BFF; --mark:#40e094;
   --mono:"Geist Mono","Cascadia Mono",Consolas,monospace;
 }
 /* поле навколо карти — їхня лабораторія під темним склом */

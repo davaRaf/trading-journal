@@ -104,6 +104,9 @@ function themeColors(){
     /* чия спільнота: за цим OgCal вибирає знак і тло */
     partner: skinNow === "blackswan" || skinNow === "fxlab" ? skinNow : "",
   };
+  /* На екрані картки FX LAB — скло, а на картинці під ними фото лабораторії:
+     напівпрозорі губились на тлі, тому тут вони щільні. */
+  if (out.partner === "fxlab"){ out.panel = "#0B1526"; out.panel2 = "#0E1A2E"; }
   if (swap){
     if (prevSkin) root.setAttribute("data-skin", prevSkin);
     else root.removeAttribute("data-skin");
@@ -477,11 +480,12 @@ async function buildDayImage(dk){
 
   for (const c of cards){
     const t = c.t, r = netR(t);
-    /* В оформленні спільноти картку не заливаємо: у цій темі її колір і
+    /* В оформленні Black Swan картку не заливаємо: у цій темі її колір і
        так дорівнює тлу, а без заливки крізь неї видно знак позаду. Межа
-       й смуга результату лишаються на місці. */
+       й смуга результату лишаються на місці. У FX LAB навпаки — заливаємо
+       щільно, інакше фото лабораторії перебиває угоду. */
     roundRect(ctx, PAD, y, inner, c.h, 18);
-    if (!brandH){ ctx.fillStyle = C.panel; ctx.fill(); }
+    if (!brandH || C.partner === "fxlab"){ ctx.fillStyle = C.panel; ctx.fill(); }
     ctx.strokeStyle = C.lineSoft; ctx.stroke();
 
     ctx.fillStyle = r > 0 ? C.up : r < 0 ? C.down : C.be;
@@ -661,7 +665,7 @@ async function buildReviewImage(data){
   for (const c of cards){
     const a = c.a;
     roundRect(ctx, PAD, y, inner, c.h, 18);
-    if (!brandH){ ctx.fillStyle = C.panel; ctx.fill(); }
+    if (!brandH || C.partner === "fxlab"){ ctx.fillStyle = C.panel; ctx.fill(); }
     ctx.strokeStyle = C.lineSoft; ctx.stroke();
 
     let iy = y + 22;
@@ -732,7 +736,7 @@ async function buildReviewImage(data){
 
   for (const n of notes){
     roundRect(ctx, PAD, y, inner, n.h, 18);
-    if (!brandH){ ctx.fillStyle = C.panel; ctx.fill(); }
+    if (!brandH || C.partner === "fxlab"){ ctx.fillStyle = C.panel; ctx.fill(); }
     ctx.strokeStyle = C.lineSoft; ctx.stroke();
     let iy = y + 20;
     ctx.font = "19px " + MONO; ctx.fillStyle = C.faint;
