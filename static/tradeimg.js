@@ -33,7 +33,7 @@ let forceSkin = "";
    і так у їхній темі. Від цього залежить підпис угорі картинки. */
 function collabMode(){
   const skin = forceSkin || document.documentElement.getAttribute("data-skin");
-  return skin === "blackswan";
+  return skin === "blackswan" || skin === "fxlab";
 }
 
 /* Підпис угорі: наш знак, назва, «×» і лебідь спільноти. Малює OgCal —
@@ -63,6 +63,16 @@ function drawAuthor(ctx, C, x, y){
   if (window.OgCal && typeof OgCal.author === "function") OgCal.author(ctx, authorInfo(), x, y, C);
 }
 
+/* Тло картинки. У «Лабораторії» FX LAB під вмістом — їхнє фото й
+   міліметрівка, малює OgCal, щоб тло було одне на всі картинки. */
+function paintBg(ctx, C, w, h){
+  if (C.partner === "fxlab" && window.OgCal && OgCal.labBg){ OgCal.labBg(ctx, w, h); return; }
+  ctx.fillStyle = C.bg; ctx.fillRect(0, 0, w, h);
+}
+function paintCorners(ctx, C, w, h){
+  if (C.partner === "fxlab" && window.OgCal && OgCal.labCorners) OgCal.labCorners(ctx, w, h);
+}
+
 function drawWatermark(ctx, C, w, h){
   if (window.OgCal && typeof OgCal.watermark === "function")
     OgCal.watermark(ctx, w, h, C);
@@ -78,8 +88,10 @@ function themeColors(){
   const swap = forceSkin && forceSkin !== prevSkin;
   if (swap){
     root.setAttribute("data-skin", forceSkin);
-    root.setAttribute("data-theme", "light");   /* тема спільноти світла */
+    /* Black Swan світла, FX LAB темна */
+    root.setAttribute("data-theme", forceSkin === "fxlab" ? "dark" : "light");
   }
+  const skinNow = root.getAttribute("data-skin");
   const cs = getComputedStyle(root);
   const g = n => cs.getPropertyValue(n).trim();
   const out = {
@@ -89,6 +101,8 @@ function themeColors(){
     accent:g("--accent"), up:g("--up"), down:g("--down"), be:g("--be"),
     /* наш фірмовий зелений — ним підписується «AI» в назві */
     mark:g("--logo-green") || "#40e094",
+    /* чия спільнота: за цим OgCal вибирає знак і тло */
+    partner: skinNow === "blackswan" || skinNow === "fxlab" ? skinNow : "",
   };
   if (swap){
     if (prevSkin) root.setAttribute("data-skin", prevSkin);
@@ -285,7 +299,7 @@ async function buildTradeImage(t){
   const ctx = cv.getContext("2d");
   ctx.scale(dpr, dpr);
 
-  ctx.fillStyle = C.bg; ctx.fillRect(0, 0, W, H);
+  paintBg(ctx, C, W, H);
   ctx.textBaseline = "alphabetic";
   ctx.fillStyle = C.panel;
   roundRect(ctx, PAD - 26, PAD - 26, W - (PAD - 26) * 2, H - (PAD - 26) * 2, 26);
@@ -390,6 +404,7 @@ async function buildTradeImage(t){
   ctx.fillText(T.tiMadeIn, PAD, H - PAD + 6);
   await prepAuthor();
   drawAuthor(ctx, C, W - PAD, H - PAD + 6);
+  paintCorners(ctx, C, W, H);
   return cv;
 }
 
@@ -430,7 +445,7 @@ async function buildDayImage(dk){
   const ctx = cv.getContext("2d");
   ctx.scale(dpr, dpr);
 
-  ctx.fillStyle = C.bg; ctx.fillRect(0, 0, W, H);
+  paintBg(ctx, C, W, H);
   if (brandH) drawWatermark(ctx, C, W, H);
   ctx.textBaseline = "alphabetic";
 
@@ -513,6 +528,7 @@ async function buildDayImage(dk){
   ctx.fillText(T.tiMadeIn, PAD, H - PAD + 6);
   await prepAuthor();
   drawAuthor(ctx, C, W - PAD, H - PAD + 6);
+  paintCorners(ctx, C, W, H);
   return cv;
 }
 
@@ -606,7 +622,7 @@ async function buildReviewImage(data){
   const ctx = cv.getContext("2d");
   ctx.scale(dpr, dpr);
 
-  ctx.fillStyle = C.bg; ctx.fillRect(0, 0, W, H);
+  paintBg(ctx, C, W, H);
   if (brandH) drawWatermark(ctx, C, W, H);
   ctx.textBaseline = "alphabetic";
   if (brandH) drawBrand(ctx, C, PAD, PAD - 4);
@@ -731,6 +747,7 @@ async function buildReviewImage(data){
   ctx.fillText(T.tiMadeIn, PAD, H - PAD + 6);
   await prepAuthor();
   drawAuthor(ctx, C, W - PAD, H - PAD + 6);
+  paintCorners(ctx, C, W, H);
   return cv;
 }
 

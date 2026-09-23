@@ -40,7 +40,19 @@ function THEMES(){ return [
      і синій. Назва бренду не перекладається, тому написана рядком. */
   {id:"blackswan", name:"Black Swan", base:"light", bg:"#ffffff", panel:"#ffffff",
    line:"#d7dade", accent:"#0066ff", up:"#0b7a42", down:"#c42b1c", be:"#8a6300",
-   collab:true},
+   collab:"blackswan"},
+
+  /* Колаборація з FX LAB: темна «Лабораторія» за їхньою заставкою. */
+  {id:"fxlab", name:"FX LAB", base:"dark", bg:"#04070D", panel:"#0B1526",
+   line:"#1d3558", accent:"#4F9BFF", up:"#3DDC97", down:"#FF6B7A", be:"#A8BEDF",
+   collab:"fxlab"},
+]; }
+
+/* Спільноти-партнери: у вікні тем кожна має свій блок зі своїм знаком.
+   Знак на білій плашці, тому тут чорнильна версія. */
+function COLLABS(){ return [
+  {id:"blackswan", img:"/static/swan.png?v=1",     title:T.thCollabGroup,   note:T.thCollabNote},
+  {id:"fxlab",     img:"/static/fxlab-ink.png?v=1", title:T.thCollabGroupFx, note:T.thCollabNoteFx},
 ]; }
 
 const DEFAULT_SEED = {base:"dark", bg:"#0b0f14", accent:"#7dd3fc"};
@@ -70,6 +82,9 @@ function apply(id){
     root.setAttribute("data-theme", t.base);
   }
   root.setAttribute("data-skin", id);
+  /* підказка на парі знаків — про ту спільноту, чия тема ввімкнена */
+  const cm = document.getElementById("collabMark");
+  if (cm && window.T) cm.setAttribute("data-tip", id === "fxlab" ? T.collabTipFx : T.collabTip);
   try{ localStorage.setItem(KEY, id); }catch(e){}
   if (window.Ticker && typeof render === "function") render();
 }
@@ -113,15 +128,16 @@ function section(){
   return '<div class="nt th-grp">'
     + group(T.thDarkGroup,  own.filter(t => t.base === "dark"))
     + group(T.thLightGroup, own.filter(t => t.base === "light"))
-    + (collab.length
-        ? '<div class="th-collab">'
+    + COLLABS().map(p => {
+        const list = collab.filter(t => t.collab === p.id);
+        return !list.length ? "" : '<div class="th-collab">'
           + '<div class="th-collab-head"><span class="th-collab-mark">'
-          +   '<img class="swan" src="/static/swan.png?v=1" alt="" aria-hidden="true"></span>'
-          +   '<span><b>'+T.thCollabGroup+'</b><i>'+T.thCollabNote+'</i></span></div>'
+          +   '<img class="swan" src="' + p.img + '" alt="" aria-hidden="true"></span>'
+          +   '<span><b>'+p.title+'</b><i>'+p.note+'</i></span></div>'
           + '<div class="th-grid">'
-          + collab.map(t => card(t, t.id === now)).join("")
-          + '</div></div>'
-        : "")
+          + list.map(t => card(t, t.id === now)).join("")
+          + '</div></div>';
+      }).join("")
     + '<div class="nt-sub">'+T.thCustom+'</div>'
     + '<div class="th-grid">' + customCard(now === "custom") + "</div>"
     + '<div class="th-custom">'

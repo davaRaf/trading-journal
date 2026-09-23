@@ -1495,6 +1495,32 @@ a.mini.on .ic{opacity:1;color:var(--accent)}
   border-radius:11px}
 :root[data-skin="blackswan"][data-nav="icons"] .brand .mark.swan .swan{height:21px}
 
+/* ---- тема колаборації FX LAB: та сама пара знаків ---- */
+/* Їхній знак — квадратна рамка з кутами, тому плашка така сама, як наша.
+   Під знаками лишається тільки «помічник трейдера»: назва StatsAI й так
+   стоїть поруч у нашому знаку, удруге її писати не треба. */
+.brand .mark.fx{display:none}
+:root[data-skin="fxlab"] .brand{flex-direction:column; align-items:flex-start; gap:12px}
+:root[data-skin="fxlab"] .brand .marks{gap:9px}
+:root[data-skin="fxlab"] .brand .marks .tie{display:block; font-style:normal;
+  font-family:var(--mono); font-size:13px; line-height:1; color:var(--faint);
+  flex:none; user-select:none}
+:root[data-skin="fxlab"] .brand .marks .mark{width:54px; height:54px; border-radius:12px}
+:root[data-skin="fxlab"] .brand .marks .mark .logo{height:33px}
+:root[data-skin="fxlab"] .brand .mark.fx{display:grid; place-items:center; background:#050911;
+  border-color:rgba(120,175,255,.3)}
+:root[data-skin="fxlab"] .brand .mark.fx .fx{height:36px; width:auto; display:block}
+:root[data-skin="fxlab"] .brand .nm{font-size:0}
+:root[data-skin="fxlab"] .brand .nm i{display:none}
+:root[data-skin="fxlab"] .brand .nm small{font-size:8.5px; letter-spacing:.10em;
+  white-space:nowrap; margin-top:0}
+:root[data-skin="fxlab"][data-nav="icons"] .brand .marks{flex-direction:column; gap:6px}
+:root[data-skin="fxlab"][data-nav="icons"] .brand .marks .tie{display:none}
+:root[data-skin="fxlab"][data-nav="icons"] .brand .marks .mark{width:36px; height:36px;
+  border-radius:10px}
+:root[data-skin="fxlab"][data-nav="icons"] .brand .marks .mark .logo{height:21px}
+:root[data-skin="fxlab"][data-nav="icons"] .brand .mark.fx .fx{height:24px}
+
 /* ---- Bklit UI · Profit/Loss Line ---- */
 .plwrap{position:relative;min-width:0}
 /* нулевая ось выделена, как Grid highlightRowValues={[0]} */

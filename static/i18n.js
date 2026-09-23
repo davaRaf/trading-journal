@@ -20,6 +20,7 @@ uk: {
   label: "УКР",
   tagline: "помічник трейдера",
   collabTip: "Колаборація зі спільнотою Black Swan",
+  collabTipFx: "Колаборація зі спільнотою FX LAB",
 
   // ---- спільне ----
   months: ["Січень","Лютий","Березень","Квітень","Травень","Червень","Липень","Серпень","Вересень","Жовтень","Листопад","Грудень"],
@@ -414,6 +415,8 @@ uk: {
   thDay: "День", thPaper: "Папір", thFog: "Туман", thSand: "Пісок",
   thCollabGroup: "Колаборація · Black Swan",
   thCollabNote: "Журнал у кольорах спільноти: білий, чорний і синій",
+  thCollabGroupFx: "Колаборація · FX LAB",
+  thCollabNoteFx: "Нічна лабораторія: скло, міліметрівка й синє світло моніторів",
   thSelected: "обрана", thCustom: "Своя", thModalTitle: "Оформлення",
   thDarkGroup: "Темні", thLightGroup: "Світлі",
   thBase: "Основа", thBaseDark: "Темна", thBaseLight: "Світла", thBg: "Тло", thAccent: "Акцент",
@@ -686,6 +689,7 @@ ru: {
   label: "РУС",
   tagline: "помощник трейдера",
   collabTip: "Коллаборация с сообществом Black Swan",
+  collabTipFx: "Коллаборация с сообществом FX LAB",
 
   months: ["Январь","Февраль","Март","Апрель","Май","Июнь","Июль","Август","Сентябрь","Октябрь","Ноябрь","Декабрь"],
   monShort: ["янв","фев","мар","апр","май","июн","июл","авг","сен","окт","ноя","дек"],
@@ -1058,6 +1062,8 @@ ru: {
   thDay: "День", thPaper: "Бумага", thFog: "Туман", thSand: "Песок",
   thCollabGroup: "Коллаборация · Black Swan",
   thCollabNote: "Журнал в цветах сообщества: белый, чёрный и синий",
+  thCollabGroupFx: "Коллаборация · FX LAB",
+  thCollabNoteFx: "Ночная лаборатория: стекло, миллиметровка и синий свет мониторов",
   thSelected: "выбрана", thCustom: "Своя", thModalTitle: "Оформление",
   thDarkGroup: "Тёмные", thLightGroup: "Светлые",
   thBase: "Основа", thBaseDark: "Тёмная", thBaseLight: "Светлая", thBg: "Фон", thAccent: "Акцент",
@@ -1327,6 +1333,7 @@ en: {
   label: "ENG",
   tagline: "trading assistant",
   collabTip: "In collaboration with the Black Swan community",
+  collabTipFx: "In collaboration with the FX LAB community",
 
   months: ["January","February","March","April","May","June","July","August","September","October","November","December"],
   monShort: ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"],
@@ -1699,6 +1706,8 @@ en: {
   thDay: "Day", thPaper: "Paper", thFog: "Fog", thSand: "Sand",
   thCollabGroup: "Collaboration · Black Swan",
   thCollabNote: "The journal in the community colours: white, black and blue",
+  thCollabGroupFx: "Collaboration · FX LAB",
+  thCollabNoteFx: "A night lab: glass, graph paper and the blue glow of monitors",
   thSelected: "selected", thCustom: "Custom", thModalTitle: "Appearance",
   thDarkGroup: "Dark", thLightGroup: "Light",
   thBase: "Base", thBaseDark: "Dark", thBaseLight: "Light", thBg: "Background", thAccent: "Accent",
@@ -1982,7 +1991,8 @@ function applyLang(code){
   const setTip  = (el, txt) => { if(el) el.setAttribute("data-tip", txt); };
 
   setText("brandTagline", T.tagline);
-  setTip(document.getElementById("collabMark"), T.collabTip);
+  setTip(document.getElementById("collabMark"),
+    document.documentElement.getAttribute("data-skin") === "fxlab" ? T.collabTipFx : T.collabTip);
 
   const ntb = document.getElementById("newTradeBtn");
   if(ntb){ setTip(ntb, T.sdNewTradeTip); const sp = ntb.querySelector("span"); if(sp) sp.textContent = T.fmNewTitle; }

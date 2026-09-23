@@ -8,7 +8,7 @@
 <link rel="apple-touch-icon" sizes="180x180" href="/static/apple-touch-icon.png?v=2">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Geist:wght@300;400;500;600;700&family=Archivo:wght@400;500;600&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Geist:wght@300;400;500;600;700&family=Geist+Mono:wght@400;500&family=Archivo:wght@400;500;600&display=swap">
 <style>
 /* Публічна сторінка: її бачить той, кому дали посилання.
    Ані журналу, ані акаунта в нього немає — лише цей знімок. */
@@ -47,6 +47,37 @@
   /* акцент синій — це їхній колір; марка лишається зеленою, вона наша */
   --card:#ffffff; --g:#0066ff; --mark:#0f9d58;
 }
+/* Оформлення спільноти FX LAB — «Лабораторія»: темне скло, синє світло
+   моніторів, міліметрівка. Кольори ті самі, що в журналі в їхній темі. */
+:root[data-skin="fxlab"]{
+  --bg:#060A12; --panel:rgba(12,22,40,.66); --panel-2:rgba(79,155,255,.08);
+  --line:rgba(120,175,255,.16); --line-soft:rgba(120,175,255,.09);
+  --text:#E4EDF9; --dim:#93A7C3; --faint:#62779A;
+  --up:#3DDC97; --down:#FF6B7A; --be:#A8BEDF;
+  --up-soft:rgba(61,220,151,.13); --down-soft:rgba(255,107,122,.13); --be-soft:rgba(168,190,223,.13);
+  --card:linear-gradient(180deg,rgba(79,155,255,.08),rgba(79,155,255,.02)); --g:#4F9BFF; --mark:#40e094;
+  --mono:"Geist Mono","Cascadia Mono",Consolas,monospace;
+}
+/* поле навколо карти — їхня лабораторія під темним склом */
+:root[data-skin="fxlab"] .stage{background:
+  linear-gradient(rgba(120,175,255,.05) 1px, transparent 1px) 0 0/24px 24px,
+  linear-gradient(90deg, rgba(120,175,255,.05) 1px, transparent 1px) 0 0/24px 24px,
+  linear-gradient(rgba(4,7,13,.72), rgba(4,7,13,.88)),
+  url("/static/fxlab-lab.jpg?v=1") center/cover}
+:root[data-skin="fxlab"] .sheet{
+  background:radial-gradient(70% 40% at 85% -5%, rgba(40,120,255,.2), transparent 70%),
+    linear-gradient(rgba(120,175,255,.045) 1px, transparent 1px) 0 0/24px 24px,
+    linear-gradient(90deg, rgba(120,175,255,.045) 1px, transparent 1px) 0 0/24px 24px, var(--bg);
+  border-color:rgba(120,180,255,.28);
+  box-shadow:0 40px 90px -30px rgba(0,0,0,.8), 0 0 50px -20px rgba(40,130,255,.45)}
+/* кути-видошукач — ті самі, що обрамляють їхній знак */
+.sheet .brk{position:absolute; width:20px; height:20px; border:2.5px solid #7FC4FF; z-index:3;
+  pointer-events:none; filter:drop-shadow(0 0 5px rgba(79,155,255,.7))}
+.sheet .brk.tl{left:7px; top:7px; border-right:0; border-bottom:0}
+.sheet .brk.br{right:7px; bottom:7px; border-left:0; border-top:0}
+.sheet-top .mk.fx{width:26px; height:26px; border-radius:7px; background:#050911;
+  border:1px solid rgba(120,175,255,.3)}
+.sheet-top .mk.fx img{height:17px; width:auto; display:block}
 *{box-sizing:border-box}
 /* Смуга прокрутки. Сторінку гортати можна як завжди, просто саму смугу не
    малюємо: коли розкриваєш угоду, вміст стає вищим за екран, смуга
@@ -182,6 +213,10 @@ h1{margin:0; font-size:clamp(22px,4vw,30px); font-weight:600; letter-spacing:-.0
   font-weight:500; color:var(--text); background:var(--panel)}
 .cta .b:hover{border-color:var(--dim)}
 .cta .b.pri{background:var(--g); border-color:var(--g); color:var(--bg)}
+/* у «Лабораторії» головна кнопка — їхній кобальт, як у журналі */
+:root[data-skin="fxlab"] .cta .b.pri{background:linear-gradient(180deg,#0A5BD6,#004BBB);
+  border-color:rgba(120,180,255,.35); color:#F2F7FF;
+  box-shadow:0 10px 28px -12px rgba(40,130,255,.75)}
 .foot{margin-top:16px; padding-top:18px; border-top:1px solid var(--line);
   display:flex; align-items:center; justify-content:space-between; gap:14px; flex-wrap:wrap;
   font-size:12.5px; color:var(--faint)}
@@ -810,6 +845,18 @@ function collab(){
   swans();
 }
 
+/* ---- оформлення спільноти FX LAB: їхній знак у шапці, кути по краях карти.
+   Лебедів на тлі тут немає: поле й так несе фото їхньої лабораторії. */
+let fxOn = false;
+function collabFx(){
+  if (fxOn) return;
+  fxOn = true;
+  document.getElementById("sheetWho").insertAdjacentHTML("afterend",
+    '<i class="tie" aria-hidden="true">×</i><span class="mk fx"><img src="/static/fxlab.png?v=1" alt=""></span>');
+  document.getElementById("sheet").insertAdjacentHTML("afterbegin",
+    '<i class="brk tl" aria-hidden="true"></i><i class="brk br" aria-hidden="true"></i>');
+}
+
 /* Лебеді проявляються парами в різних половинах поля і тануть; на
    вузькому екрані — по одному. У прихованій вкладці не малюємо. */
 function swans(){
@@ -955,6 +1002,10 @@ function render(rec){
     document.documentElement.setAttribute("data-skin", "blackswan");
     document.documentElement.setAttribute("data-theme", "light");
     collab();
+  } else if (d.skin === "fxlab"){
+    document.documentElement.setAttribute("data-skin", "fxlab");
+    document.documentElement.setAttribute("data-theme", "dark");
+    collabFx();
   }
   const owner = (rec.owner && rec.owner.nick) || "";
   const rows = (title, items) => !items || !items.length ? "" :

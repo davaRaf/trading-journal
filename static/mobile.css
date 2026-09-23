@@ -63,12 +63,17 @@
   /* ---- знак спільноти в мобільній шапці ---- */
   /* У власних темах його немає зовсім; у темі колаборації стоїть після
      назви, через «×» — той самий порядок, що й на широкому екрані. */
-  .mtop .mlogo .tie, .mtop .mlogo .mark.swan{display:none}
+  .mtop .mlogo .tie, .mtop .mlogo .mark.swan, .mtop .mlogo .mark.fx{display:none}
   :root[data-skin="blackswan"] .mtop .mlogo .tie{display:inline; font-family:var(--mono);
     font-size:11px; color:var(--faint)}
   :root[data-skin="blackswan"] .mtop .mlogo .mark.swan{display:grid; width:30px; height:30px;
     border-radius:9px}
   :root[data-skin="blackswan"] .mtop .mlogo .mark.swan .swan{height:20px; width:auto; display:block}
+  :root[data-skin="fxlab"] .mtop .mlogo .tie{display:inline; font-family:var(--mono);
+    font-size:11px; color:var(--faint)}
+  :root[data-skin="fxlab"] .mtop .mlogo .mark.fx{display:grid; place-items:center; width:30px; height:30px;
+    border-radius:9px; background:#050911; border:1px solid rgba(120,175,255,.3)}
+  :root[data-skin="fxlab"] .mtop .mlogo .mark.fx .fx{height:20px; width:auto; display:block}
   .mtop .sp{flex:1}
   /* на вузьких телефонах напис ламався на два рядки й кнопка розповзалась */
   .mtop .mnew{display:flex; align-items:center; gap:6px; background:var(--accent);

@@ -22,15 +22,17 @@ try{ lastTtl = localStorage.getItem("share_ttl") || "7d"; }catch(e){}
    Ділитись можна у своєму вигляді або в оформленні спільноти. Коли журнал
    і так у їхній темі, вибирати нічого: знімок іде в тому самому вигляді,
    що й екран, тому перемикач не показуємо. */
-const COLLAB = "blackswan";
+const COLLABS = [{id:"blackswan", name:"Black Swan"}, {id:"fxlab", name:"FX LAB"}];
+const isCollab = s => COLLABS.some(c => c.id === s);
 const curSkin = () => document.documentElement.getAttribute("data-skin") || "";
-const inCollab = () => curSkin() === COLLAB;
+const inCollab = () => isCollab(curSkin());
 
 let lastSkin = "";
 try{ lastSkin = localStorage.getItem("share_skin") || ""; }catch(e){}
+if (!isCollab(lastSkin)) lastSkin = "";
 
 /* стиль, у якому робимо знімок просто зараз */
-function shareSkin(){ return inCollab() ? COLLAB : lastSkin; }
+function shareSkin(){ return inCollab() ? curSkin() : lastSkin; }
 
 /* ---------- що саме показуємо ---------- */
 
@@ -437,8 +439,8 @@ function open(kind, arg){
         + '<div class="sh-skin" id="shSkin">'
         +   '<button class="sh-chip' + (lastSkin ? "" : " on") + '" data-s="">'
         +     esc(T.slStylePlain) + '</button>'
-        +   '<button class="sh-chip' + (lastSkin ? " on" : "") + '" data-s="' + COLLAB + '">'
-        +     'Black Swan</button>'
+        +   COLLABS.map(c => '<button class="sh-chip' + (lastSkin === c.id ? " on" : "")
+              + '" data-s="' + c.id + '">' + c.name + '</button>').join("")
         + '</div>')
     + '<div class="sh-lab">' + T.slDurationLabel + '</div>'
     + '<div class="sh-ttl">' + TTL().map(t =>
