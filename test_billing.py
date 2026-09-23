@@ -39,6 +39,7 @@ def person(**kw):
            "free_trades_used": 0, "free_trades_cap": 30,
            "free_bt_used": 0, "free_bt_cap": 30,
            "imports_used": 0, "imports_cap": 3,
+           "ai_used": 0, "ai_cap": 15, "ai_reset_at": None,
            "price_plan": "std", "own_price_cents": None,
            "created_at": NOW - datetime.timedelta(days=5)}
     row.update(kw)
@@ -106,10 +107,31 @@ def check_rules():
          billing.can_import(paid(created_at=NOW - datetime.timedelta(days=400))),
          (True, ""))
 
-    # Модель коштує грошей — тільки за підпискою.
-    case("ШІ без підписки закрито", billing.can_use_ai(person()),
-         (False, "ai_locked"))
-    case("ШІ з підпискою відкрито", billing.can_use_ai(paid()), (True, ""))
+    # Звернення до моделі: 15 на місяць без підписки. Розділи журналу при
+    # цьому відкриті всі — платимо ми саме за відповіді моделі.
+    case("новому ШІ відкрито", billing.can_use_ai(person()), (True, ""))
+    case("новому 15 звернень", billing.state(person())["ai_left"], 15)
+
+    live = NOW + datetime.timedelta(days=10)
+    spent = person(ai_used=15, ai_reset_at=live)
+    case("15 витрачено — відмова", billing.can_use_ai(spent), (False, "ai_limit"))
+    case("залишок звернень нуль", billing.state(spent)["ai_left"], 0)
+    case("чотирнадцяте ще проходить",
+         billing.can_use_ai(person(ai_used=14, ai_reset_at=live)), (True, ""))
+
+    fresh = person(ai_used=15, ai_reset_at=NOW - datetime.timedelta(days=1))
+    case("вікно минуло — знову можна", billing.can_use_ai(fresh), (True, ""))
+    case("вікно минуло — залишок повний", billing.state(fresh)["ai_left"], 15)
+    case("минуле вікно не показуємо", billing.state(fresh)["ai_reset_at"], None)
+
+    # Підписка не робить звернення безмежними — просто піднімає стелю.
+    case("підписці 15 замало не буде",
+         billing.can_use_ai(paid(ai_used=15, ai_reset_at=live)), (True, ""))
+    case("стеля підписки", billing.ai_cap(paid()), 300)
+    case("підписка впирається в стелю",
+         billing.can_use_ai(paid(ai_used=300, ai_reset_at=live)), (False, "ai_cap"))
+    case("свій ліміт від адміна більший за загальний",
+         billing.ai_cap(person(ai_cap=40)), 40)
 
     case("невідомої людини немає", billing.can_add_trade(None), (False, "no_user"))
 
@@ -146,6 +168,7 @@ def check_prices():
 
 COLUMNS = ("plan", "paid_until", "free_trades_used", "free_trades_cap",
            "free_bt_used", "free_bt_cap", "imports_used", "imports_cap",
+           "ai_used", "ai_cap", "ai_reset_at",
            "price_plan", "own_price_cents", "signup_ip", "signup_device",
            "billing_note")
 TABLES = ("payments", "signup_ips", "ip_allow")
@@ -187,6 +210,19 @@ def check_db():
         billing.spend_import(uid)
         case("перенесення витрачено", billing.state(uid)["imports_left"], 2)
 
+        # Звернення до моделі: 15 проходять, 16-те — ні.
+        for _ in range(15):
+            billing.spend_ai(uid)
+        s = billing.state(uid)
+        case("15 звернень витрачено", s["ai_left"], 0)
+        case("вікно звернень відкрилось", bool(s["ai_reset_at"]), True)
+        case("шістнадцяте не проходить", billing.can_use_ai(uid),
+             (False, "ai_limit"))
+
+        billing.bonus(uid, ai=5)
+        case("бонус на звернення", billing.state(uid)["ai_left"], 5)
+        case("з бонусом знову можна", billing.can_use_ai(uid), (True, ""))
+
         billing.grant(uid, 30)
         s = billing.state(uid)
         case("підписка стала активною", s["active"], True)
@@ -196,6 +232,9 @@ def check_db():
         billing.spend_trade(uid)
         case("з підпискою безкоштовне не витрачається",
              billing.state(uid)["trades_left"], 28)
+        case("підписка підняла стелю звернень", billing.state(uid)["ai_cap"], 300)
+        case("з підпискою помічник знову відповідає",
+             billing.can_use_ai(uid), (True, ""))
 
         before = db.get_user(uid)["paid_until"]
         billing.grant(uid, 30)

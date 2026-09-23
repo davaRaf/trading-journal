@@ -312,6 +312,17 @@ ALTER TABLE users ADD COLUMN IF NOT EXISTS signup_device TEXT;
 -- гадати, що це було.
 ALTER TABLE users ADD COLUMN IF NOT EXISTS billing_note TEXT;
 
+-- Звернення до моделі: скільки витрачено у поточному вікні й коли вікно
+-- закінчується. Розділи журналу відкриті всі, а платне — саме це: кожна
+-- відповідь помічника, розбору чи звірки коштує нам грошей.
+--
+-- Вікно рухається саме: перше звернення після ai_reset_at обнуляє
+-- лічильник і відсуває дату ще на місяць. Окремого прибирання за
+-- розкладом не треба — ніхто не ходить по базі вночі, щоб обнулити.
+ALTER TABLE users ADD COLUMN IF NOT EXISTS ai_used INTEGER NOT NULL DEFAULT 0;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS ai_cap INTEGER NOT NULL DEFAULT 15;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS ai_reset_at TIMESTAMPTZ;
+
 -- Події платіжки. Ключ — її власний id події: та сама подія приходить
 -- повторно (платіжки шлють вебхук, доки не отримають 200), і другий раз
 -- вона має нічого не змінити.

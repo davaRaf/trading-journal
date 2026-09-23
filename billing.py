@@ -17,9 +17,12 @@
 * ліміти несиметричні — скінчились прогони, закривається лише бектест;
   скінчились справжні угоди, закрито все, зокрема й бектест;
 * перенесення з Notion — 3 рази в перші 30 днів після реєстрації;
+* звернень до моделі — 15 на місяць без підписки (рішення власника
+  23.09.2026); розділи журналу при цьому відкриті всі, і «Аналітика»
+  теж — платимо ми тільки за відповіді моделі;
 * нічого не видаляється: читання, статистика й вивантаження працюють
-  завжди, закриваються тільки нові записи, перенесення й те, що коштує
-  грошей за модель.
+  завжди, закриваються тільки нові записи, перенесення й зайві звернення
+  до моделі.
 
 Лічильники монотонні: spend_* їх тільки збільшує. Рахувати COUNT(*) по
 угодах не можна — db.delete_trade прибирає рядок фізично, і людина ходила
@@ -31,8 +34,8 @@
 import datetime
 
 import db
-from config import (CURRENCY, FREE_BT, FREE_IMPORTS, FREE_TRADES,
-                    IMPORT_WINDOW_DAYS, PLAN_DAYS, PRICES)
+from config import (AI_WINDOW_DAYS, CURRENCY, FREE_AI, FREE_BT, FREE_IMPORTS,
+                    FREE_TRADES, IMPORT_WINDOW_DAYS, PAID_AI, PLAN_DAYS, PRICES)
 
 # Платні тарифи. 'free' — не тариф, а його відсутність.
 PLANS = ("month", "quarter", "year")
@@ -43,7 +46,11 @@ TRADES_LIMIT = "trades_limit"
 BT_LIMIT = "bt_limit"
 IMPORTS_LIMIT = "imports_limit"
 IMPORT_WINDOW = "import_window"
-AI_LOCKED = "ai_locked"
+# Безкоштовні звернення до моделі на місяць скінчились — тут пропонуємо
+# підписку. AI_CAP — інше: у стелю впирається вже той, хто платить, і
+# підписку йому пропонувати нема чого, йому кажемо зачекати.
+AI_LIMIT = "ai_limit"
+AI_CAP = "ai_cap"
 NO_USER = "no_user"
 
 
@@ -112,8 +119,10 @@ def state(u):
     if not row:
         return {"plan": "free", "active": False, "paid_until": None,
                 "trades_left": 0, "bt_left": 0, "imports_left": 0,
-                "import_days_left": 0, "price_plan": "std"}
+                "import_days_left": 0, "ai_left": 0, "ai_cap": 0,
+                "ai_reset_at": None, "price_plan": "std"}
     until = row.get("paid_until")
+    reset = row.get("ai_reset_at")
     return {
         "plan": plan_of(row),
         "active": active(row),
@@ -125,6 +134,12 @@ def state(u):
         "imports_left": max(0, _cap(row, "imports_cap", FREE_IMPORTS)
                             - _int(row, "imports_used")),
         "import_days_left": import_days_left(row),
+        # Звернення до моделі — єдине, що людині показати не гріх: вона має
+        # розуміти, чому помічник раптом відмовив. Скільки лишилось угод,
+        # як і раніше, не показуємо ніде.
+        "ai_left": max(0, ai_cap(row) - ai_used(row)),
+        "ai_cap": ai_cap(row),
+        "ai_reset_at": reset.isoformat() if reset and reset > db.now() else None,
         "price_plan": (row.get("price_plan") or "std"),
     }
 
@@ -179,13 +194,45 @@ def can_import(u):
     return True, ""
 
 
+def ai_cap(u):
+    """Скільки звернень до моделі належить людині за вікно.
+
+    Підписка не робить їх безмежними: стеля просто піднімається до PAID_AI.
+    Якщо адмін дав більше руками (ai_cap), беремо його число.
+    """
+    row = _user(u)
+    if not row:
+        return 0
+    own = _cap(row, "ai_cap", FREE_AI)
+    return max(own, PAID_AI) if active(row) else own
+
+
+def ai_used(u):
+    """Скільки витрачено в поточному вікні. Вікно минуло — нуль: лічильник
+    обнуляє перше ж звернення (див. spend_ai), окремого прибирання немає."""
+    row = _user(u)
+    if not row:
+        return 0
+    until = row.get("ai_reset_at")
+    if not until or until <= db.now():
+        return 0
+    return _int(row, "ai_used")
+
+
 def can_use_ai(u):
-    """Помічник, розбір дня, звірка «Моєї ТС» — тільки за підпискою: кожна
-    відповідь моделі коштує грошей."""
+    """Помічник, розбір дня, звірка «Моєї ТС», розмова з ботом.
+
+    Розділи журналу ми не закриваємо — платне саме це: кожна відповідь
+    моделі коштує нам грошей. Без підписки на місяць дається FREE_AI
+    звернень, з підпискою — стеля PAID_AI, щоб один акаунт не гнав запити
+    скриптом.
+    """
     row = _user(u)
     if not row:
         return False, NO_USER
-    return (True, "") if active(row) else (False, AI_LOCKED)
+    if ai_used(row) < ai_cap(row):
+        return True, ""
+    return False, (AI_CAP if active(row) else AI_LIMIT)
 
 
 def deny(u, reason):
@@ -221,6 +268,29 @@ def spend_import(u):
     if not row or active(row):
         return
     _bump(row["id"], "imports_used")
+
+
+def spend_ai(u):
+    """Звернення до моделі. Рахуємо і в тих, хто платить: стеля в них своя,
+    але вона теж стеля.
+
+    Вікно рухаємо тим самим запитом, що й лічильник: перше звернення після
+    ai_reset_at ставить одиницю й відсуває дату на місяць уперед. Двома
+    запитами тут не можна — два питання одночасно з двох вкладок розійшлися
+    б по різних вікнах.
+    """
+    row = _user(u)
+    if not row:
+        return
+    with db.connect() as conn:
+        conn.execute(
+            "UPDATE users SET "
+            " ai_used = CASE WHEN ai_reset_at IS NULL OR ai_reset_at <= now()"
+            "                THEN 1 ELSE ai_used + 1 END,"
+            " ai_reset_at = CASE WHEN ai_reset_at IS NULL OR ai_reset_at <= now()"
+            "                    THEN now() + %s * interval '1 day' ELSE ai_reset_at END"
+            " WHERE id=%s", (AI_WINDOW_DAYS, row["id"]))
+        conn.commit()
 
 
 # ------------------------------------------------------- підписка руками ----
@@ -270,7 +340,7 @@ def revoke(uid):
     return state(uid)
 
 
-def bonus(uid, trades=0, bt=0, imports=0, note=None):
+def bonus(uid, trades=0, bt=0, imports=0, ai=0, note=None):
     """Підняти безкоштовний ліміт саме цій людині (в адмінці).
 
     Піднімаємо межу, а не зменшуємо витрачене: так видно і скільки людина
@@ -278,7 +348,7 @@ def bonus(uid, trades=0, bt=0, imports=0, note=None):
     """
     sets, vals = [], []
     for col, n in (("free_trades_cap", trades), ("free_bt_cap", bt),
-                   ("imports_cap", imports)):
+                   ("imports_cap", imports), ("ai_cap", ai)):
         if n:
             sets.append("{0}={0}+%s".format(col))
             vals.append(int(n))
