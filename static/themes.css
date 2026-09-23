@@ -203,8 +203,10 @@
 :root[data-skin="fxlab"] .btn.primary,
 :root[data-skin="fxlab"] .mtop .mnew{background:var(--fx-cobalt); color:#F2F7FF;
   box-shadow:0 0 0 1px rgba(120,180,255,.35), 0 10px 28px -12px rgba(40,130,255,.75)}
+/* лише м'яка підсвітка; смужку активного розділу малює сам журнал (синя,
+   біля краю) — своєї другої, світлої, не додаємо */
 :root[data-skin="fxlab"] .nav a.on{background:linear-gradient(90deg,rgba(79,155,255,.18),rgba(79,155,255,.03));
-  box-shadow:inset 2px 0 0 var(--fx-brk)}
+  box-shadow:none}
 
 /* Картка підсумку періоду на «Огляді»: кобальтове скло й гострі кути-
    видошукач — ті самі, що обрамляють їхній знак. */
