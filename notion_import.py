@@ -85,6 +85,15 @@ def guess_mapping(props, values=None):
     значения: если в колонке лежит Win/Loss/BE — это результат, как бы она
     ни называлась. Так работает на любом языке и с любыми заголовками.
     """
+    # Формулу и rollup Notion считает на экране, а в опубликованной таблице
+    # их значений нет. Такая колонка приезжает пустой — и если занять ею
+    # результат («Profit» = формула), у всех сделок он пропадёт. Пустые
+    # вычисляемые колонки не берём вовсе: пусть поле достанется живой.
+    if values:
+        props = {n: t for n, t in props.items()
+                 if t not in ("formula", "rollup")
+                 or any(str(v if v is not None else "").strip()
+                        for v in values.get(n) or [])}
     scored = []
     for field in FIELDS:
         for name, ptype in props.items():
