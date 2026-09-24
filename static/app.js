@@ -249,7 +249,9 @@ async function api(method,url,body){
        сказали, і друге вікно «не вдалось зберегти» було б зайвим. */
     if(res.status===402 && code==="need_sub" && window.Paywall)
       throw Paywall.soft(info.reason||"");
-    throw new Error("API "+res.status);
+    /* Код відмови несемо далі: місцю виклику інколи треба сказати не
+       «щось пішло не так», а що саме — як полю промокоду. */
+    const err=new Error("API "+res.status); err.code=code; throw err;
   }
   return res.json();
 }

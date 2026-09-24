@@ -1279,3 +1279,24 @@ def record_notified(user_id, event_key, kind):
             "ON CONFLICT DO NOTHING", (user_id, event_key, kind))
         conn.commit()
     return cur.rowcount > 0
+
+
+def payment_once(event_id, user_id, event, amount_cents=None,
+                 currency="EUR", raw=None):
+    """Записати подію від платіжки. Повертає False, якщо таку вже бачили.
+
+    Платіжки доставляють повідомлення «хоча б один раз»: мережа моргнула,
+    ми не встигли відповісти — і те саме прилетить ще раз. Без цього
+    заслону повторна доставка продовжила б підписку двічі за одні гроші.
+
+    Ключ — id самої події, а не оплати: на одну оплату подій кілька.
+    """
+    import json as _json
+    with connect() as conn:
+        row = conn.execute(
+            "INSERT INTO payments (id, user_id, event, amount_cents, currency, raw) "
+            "VALUES (%s,%s,%s,%s,%s,%s) ON CONFLICT (id) DO NOTHING RETURNING id",
+            (str(event_id), user_id, event or "", amount_cents, currency or "EUR",
+             _json.dumps(raw or {}))).fetchone()
+        conn.commit()
+    return bool(row)

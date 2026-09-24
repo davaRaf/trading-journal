@@ -25,6 +25,7 @@ import delete_ai
 import auth
 import backup
 import billing
+import creem
 import http.cookies
 import config
 import db
@@ -1224,6 +1225,7 @@ class H(BaseHTTPRequestHandler):
 
     def _body(self):
         self._too_big = False
+        self._raw_body = b""
         try:
             n = int(self.headers.get("Content-Length") or 0)
         except ValueError:
@@ -1236,6 +1238,10 @@ class H(BaseHTTPRequestHandler):
             self._too_big = True
             return None
         raw = self.rfile.read(n)
+        # Сире тіло лишаємо: підпис вебхука рахується саме від байтів, а
+        # не від розібраного json — після розбору й складання назад
+        # порядок ключів і пробіли зміняться, і підпис не зійдеться.
+        self._raw_body = raw
         try:
             return json.loads(raw.decode("utf-8"))
         except Exception:
@@ -2319,6 +2325,108 @@ class H(BaseHTTPRequestHandler):
 
         # ---- вход и регистрация ----
         # ---- поправити мітку руками: лише власникам ----
+        # ---- каса ----
+        if p == "/api/billing/checkout":
+            # Створюємо оплату й віддаємо адресу, куди відправити людину.
+            # Разом з оплатою йде її номер у нашій базі — інакше, коли
+            # прийде підтвердження, ми знатимемо, що хтось заплатив, але
+            # не знатимемо хто.
+            uid = self._uid()
+            if not uid:
+                return self._json({"error": "auth required"}, 401)
+            if not creem.enabled():
+                return self._json({"error": "оплата ще не ввімкнена",
+                                   "code": "no_pay"}, 503)
+            if not isinstance(body, dict):
+                return self._json({"error": "bad json"}, 400)
+            plan = str(body.get("plan") or "").strip()
+            if plan not in billing.PLANS:
+                return self._json({"error": "невідомий тариф"}, 400)
+            try:
+                u = db.get_user(uid) or {}
+                url = creem.checkout(uid, plan,
+                                     price_set=(u.get("price_plan") or "std"),
+                                     email=u.get("email") or "")
+            except Exception as ex:
+                print("checkout:", ex, flush=True)
+                return self._json({"error": "не вдалося відкрити оплату",
+                                   "code": "pay_failed"}, 502)
+            return self._json({"url": url})
+
+        # ---- підтвердження оплати від Creem ----
+        if p == "/api/creem/webhook":
+            # Єдина точка, куди стукає платіжка. Статичних адрес у їхніх
+            # запитів немає, тому відсіяти чужих можна тільки підписом.
+            raw = getattr(self, "_raw_body", b"")
+            if not creem.verify(raw, self.headers.get("creem-signature") or ""):
+                print("webhook: підпис не зійшовся", flush=True)
+                return self._json({"error": "bad signature"}, 400)
+            if not isinstance(body, dict):
+                return self._json({"error": "bad json"}, 400)
+
+            ev = str(body.get("eventType") or body.get("type")
+                     or body.get("event") or "")
+            ev_id = str(body.get("id") or body.get("event_id") or "")
+            obj = body.get("object") or body.get("data") or {}
+            if not isinstance(obj, dict):
+                obj = {}
+            uid = creem.who(obj)
+
+            # Повторна доставка тієї самої події не має продовжити підписку
+            # вдруге. Ключ — id події; якщо такий уже лежить, просто мовчки
+            # погоджуємось, інакше Creem повторюватиме ще і ще.
+            if ev_id:
+                try:
+                    fresh = db.payment_once(
+                        ev_id, uid, ev,
+                        amount_cents=(obj.get("amount") or obj.get("total")),
+                        currency=(obj.get("currency") or "EUR"), raw=body)
+                except Exception as ex:
+                    print("webhook: не записав подію:", ex, flush=True)
+                    fresh = True
+                if not fresh:
+                    return self._json({"ok": True, "repeat": True})
+
+            print("webhook: %s для %s" % (ev, uid), flush=True)
+            if not uid:
+                # Без номера людини робити нічого не можемо, але відповідаємо
+                # згодою: подія записана, розберемо руками в адмінці.
+                return self._json({"ok": True, "unknown_user": True})
+
+            try:
+                if ev in ("subscription.active", "subscription.paid",
+                          "checkout.completed"):
+                    plan = creem.plan_of(obj) or "month"
+                    billing.apply_paid(uid, plan, creem.period_end(obj))
+                elif ev in ("refund.created", "dispute.created",
+                            "subscription.expired", "subscription.unpaid"):
+                    # Повернення й спір — гроші пішли назад, підписку знімаємо.
+                    # Строк скінчився без оплати — те саме по суті.
+                    billing.revoke(uid)
+                # Відмова від продовження (subscription.canceled,
+                # scheduled_cancel) дати не чіпає навмисно: оплачені дні
+                # людина дожити має, так написано в умовах.
+            except Exception as ex:
+                print("webhook: не застосував %s: %s" % (ev, ex), flush=True)
+            return self._json({"ok": True})
+
+        # ---- промокод ----
+        if p == "/api/billing/promo":
+            # Код не знижує ціну сам — він переводить акаунт на інший набір,
+            # і той лишається назавжди. Тому у відповідь віддаємо новий стан
+            # цілком: сторінка перемалює картки з уже новими сумами.
+            uid = self._uid()
+            if not uid:
+                return self._json({"error": "auth required"}, 401)
+            if not isinstance(body, dict):
+                return self._json({"error": "bad json"}, 400)
+            code = str(body.get("code") or "")[:64]
+            ok, why = billing.redeem(uid, code)
+            if not ok:
+                return self._json({"error": why, "code": why}, 400)
+            print("promo: %s ввів %r" % (uid, code.strip().upper()), flush=True)
+            return self._json(billing.public(uid))
+
         # ---- підписка руками: дати, зняти, підсипати бонус, поставити ціну ----
         if p.startswith("/api/admin/billing/"):
             who = self._uid()

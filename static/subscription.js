@@ -131,27 +131,156 @@ function feats(){
 
 /* Порожній рядок означає «показувати нема чого»: чужий журнал або
    сервер не відповів. */
+/* Промокод — під картками, бо міняє саме їх: людина дивиться на ціни, і
+   те, що їх змінює, має лежати поруч, а не в кінці розділу.
+
+   Поле відкрите завжди. Ховати його за посиланням означало б, що той, у
+   кого код є, мусить спершу здогадатися його шукати.
+
+   Показуємо тільки тим, у кого звичайні ціни: у решти вже знижений набір,
+   і поле нічого б не змінило. Після вдалого коду на його місці лишається
+   підтвердження — зникати мовчки не можна, людина не зрозуміє, спрацювало
+   чи ні.
+*/
+let promoDone = false;
+
+function promoRow(){
+  if (!st || !st.prices) return "";
+  if (promoDone)
+    return '<div class="sub-promo done">' + tick()
+      + '<span>' + esc(T.subPromoOk) + '</span></div>';
+  if (st.prices.set !== "std") return "";
+  return '<div class="sub-promo" id="subPromo">'
+    + '<label class="sub-promo-lbl" for="subPromoIn">' + esc(T.subPromoLbl) + '</label>'
+    + '<div class="sub-promo-row">'
+    +   '<input id="subPromoIn" class="sub-promo-in" type="text" autocomplete="off"'
+    +     ' spellcheck="false" maxlength="32" placeholder="' + esc(T.subPromoPh) + '">'
+    +   '<button type="button" class="sub-promo-go">' + esc(T.subPromoGo) + '</button>'
+    + '</div>'
+    + '<p class="sub-promo-msg" role="alert" hidden></p>'
+    + '</div>';
+}
+
 function section(){
   if (!st) return "";
   return '<div class="sub-state"><span class="sub-chip' + (st.active ? " paid" : "") + '">'
     +   esc(planLabel()) + "</span></div>"
     + '<div class="sub-plans">' + ORDER.map(card).join("") + "</div>"
+    + promoRow()
     + feats()
     + freeTerms()
-    + '<p class="sub-soon" id="subSoon"></p>';
+    + '<p class="sub-soon" id="subSoon"></p>'
+    /* Умови й повернення мають бути видно поруч із кнопкою оплати, а не
+       ховатись у підвалі: цього вимагає і платіжний сервіс, і здоровий глузд
+       — людина читає їх саме тоді, коли збирається платити. */
+    + '<p class="sub-legal">'
+    +   '<a href="/terms" target="_blank" rel="noopener">' + esc(T.subTerms) + '</a>'
+    +   '<span>·</span>'
+    +   '<a href="/refund" target="_blank" rel="noopener">' + esc(T.subRefund) + '</a>'
+    + '</p>';
+}
+
+/* Ціни змінились — перемальовуємо розділ на місці. Вікно налаштувань
+   бере розмітку один раз, при відкритті, тому оновити його інакше нема як. */
+function redraw(){
+  const host = document.querySelector(".st-sec.sub");
+  if (!host) return;
+  host.innerHTML = section();
+  wire();
+  if (window.__sub && __sub.badge) badge();
+}
+
+function wirePromo(){
+  const box = document.getElementById("subPromo");
+  if (!box) return;
+  const inp = box.querySelector(".sub-promo-in");
+  const go = box.querySelector(".sub-promo-go");
+  const msg = box.querySelector(".sub-promo-msg");
+
+  const send = async () => {
+    const code = inp.value.trim();
+    if (!code || go.disabled) return;
+    go.disabled = true;                /* видно, що запит пішов */
+    msg.hidden = true;
+    try{
+      st = await api("POST", "/api/billing/promo", {code: code});
+      promoDone = true;
+      redraw();                        /* картки вже з новими сумами */
+    }catch(e){
+      /* Сервер каже кодом, слова до нього лежать тут — трьома мовами. */
+      msg.textContent = T["subPromo_" + ((e && e.code) || "")] || T.subPromo_promo_bad;
+      msg.hidden = false;
+      go.disabled = false;
+      inp.focus();
+      inp.select();
+    }
+  };
+  go.addEventListener("click", send);
+  inp.addEventListener("keydown", e => { if (e.key === "Enter") send(); });
 }
 
 function wire(){
+  wirePromo();
   const box = document.querySelector(".sub-plans");
   if (!box) return;
-  box.addEventListener("click", e => {
+  box.addEventListener("click", async e => {
     const b = e.target.closest("[data-buy]");
-    if (!b) return;
-    /* Платіжки ще немає (фаза 6) — чесно про це й кажемо, а не робимо
-       кнопку, яка мовчки нічого не робить. */
+    if (!b || b.disabled) return;
     const note = document.getElementById("subSoon");
-    if (note) note.textContent = T.subSoon;
+    if (note) note.textContent = "";
+    /* Гасимо кнопку одразу: касу створює сервер, це пів секунди, і за цей
+       час нетерплячий устигає натиснути тричі й завести три оплати. */
+    b.disabled = true;
+    try{
+      const r = await api("POST", "/api/billing/checkout", {plan: b.dataset.buy});
+      if (!r || !r.url) throw new Error("no url");
+      location.href = r.url;            /* далі вже сторінка Creem */
+    }catch(err){
+      b.disabled = false;
+      if (note)
+        note.textContent = (err && err.code === "no_pay") ? T.subSoon : T.subPayFail;
+    }
   });
+}
+
+/* ============================================================
+   Повернення з каси.
+
+   Гроші й звістка про них приходять різними шляхами: людину Creem
+   повертає на сайт одразу, а підтвердження нам шле окремим запитом, і
+   воно може спізнитись на секунду-другу. Якщо просто відкрити журнал,
+   людина побачить, що підписки немає, і вирішить, що гроші пропали.
+
+   Тому: чекаємо й перепитуємо сервер, а на екрані тримаємо смужку, яка
+   чесно каже, що відбувається.
+   ============================================================ */
+const PAID_TRIES = 12;                 /* ~25 секунд, далі вже не наша швидкість */
+
+function paidNote(kind){
+  let el = document.querySelector(".sub-paid");
+  if (!el){
+    el = document.createElement("div");
+    el.className = "sub-paid";
+    document.body.appendChild(el);
+  }
+  el.dataset.kind = kind;
+  el.textContent = kind === "ok" ? T.subPaidOk
+                 : kind === "slow" ? T.subPaidSlow : T.subPaidWait;
+  if (kind !== "wait") setTimeout(() => el.remove(), 7000);
+}
+
+async function afterPay(){
+  paidNote("wait");
+  for (let i = 0; i < PAID_TRIES; i++){
+    await new Promise(r => setTimeout(r, 2000));
+    try{ await load(); }catch(e){ continue; }
+    if (st && st.active){
+      badge();
+      paidNote("ok");
+      return;
+    }
+  }
+  paidNote("slow");
 }
 
 window.__sub = {load: load, section: section, wire: wire, badge: badge,
@@ -160,5 +289,18 @@ window.__sub = {load: load, section: section, wire: wire, badge: badge,
 /* Стан читаємо одразу, не чекаючи, поки відкриють налаштування: значок
    тарифу стоїть у верхній смузі й має бути там з першої секунди. */
 load().then(() => { if (window.__sideMe) __sideMe.tier(); }).catch(() => {});
+
+
+/* Повернення з оплати: Creem додає наш хвостик ?paid=1. Прибираємо його
+   з адреси одразу, щоб оновлення сторінки не запускало перевірку знову. */
+(function(){
+  if (!/[?&]paid=1/.test(location.search)) return;
+  const clean = location.pathname
+    + location.search.replace(/([?&])paid=1&?/, "$1").replace(/[?&]$/, "")
+    + location.hash;
+  history.replaceState(null, "", clean);
+  if (window.Pub && Pub.on) return;
+  afterPay();
+})();
 
 })();

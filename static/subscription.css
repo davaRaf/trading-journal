@@ -110,6 +110,79 @@
 .side-me-tier .sub-tier{width:32px; height:32px; border-radius:10px; font-size:9.5px; letter-spacing:0}
 .side-me-tier .sub-tier.on{font-size:13.5px; letter-spacing:-.02em}
 
+/* Смужка після повернення з каси. Внизу по центру, поверх усього:
+   людина щойно заплатила й має бачити, що з грошима все гаразд, у якому
+   б розділі журналу вона не опинилась. */
+.sub-paid{
+  position:fixed; left:50%; bottom:22px; transform:translateX(-50%);
+  z-index:9500; max-width:min(92vw, 460px); padding:12px 18px;
+  border-radius:11px; border:1px solid var(--line); background:var(--panel-2);
+  box-shadow:0 12px 34px rgba(0,0,0,.45);
+  font-size:13.5px; line-height:1.45; color:var(--dim); text-align:center;
+  animation:subPaidIn .22s var(--ease, ease) both;
+}
+.sub-paid[data-kind="ok"]{color:var(--accent);
+  border-color:color-mix(in srgb, var(--accent) 45%, transparent)}
+@keyframes subPaidIn{from{opacity:0; transform:translate(-50%,10px)}
+  to{opacity:1; transform:translate(-50%,0)}}
+@media (prefers-reduced-motion:reduce){ .sub-paid{animation:none} }
+@media (max-width:560px){
+  .sub-paid{left:12px; right:12px; bottom:calc(12px + env(safe-area-inset-bottom));
+    transform:none; max-width:none}
+  @keyframes subPaidIn{from{opacity:0} to{opacity:1}}
+}
+
+/* Промокод. Стоїть одразу під картками й виглядає як ще одна картка:
+   те саме тло, та сама рамка, той самий радіус — щоб читалось як частина
+   вибору тарифу, а не як приблуда внизу сторінки.
+
+   Підпис видимий, а не тільки підказка в полі: підказка зникає з першою
+   літерою, і людина вже не бачить, що саме вона заповнює. */
+.sub-promo{
+  margin-top:11px; padding:14px 16px;
+  border:1px solid var(--line); border-radius:var(--r); background:var(--panel-2);
+}
+.sub-promo-lbl{
+  display:block; margin-bottom:8px; font-size:11.5px; letter-spacing:.06em;
+  text-transform:uppercase; color:var(--faint);
+}
+.sub-promo-row{display:flex; gap:9px}
+.sub-promo-in{
+  flex:1 1 auto; min-width:0; height:44px; padding:0 13px;
+  border-radius:calc(var(--r) - 4px); border:1px solid var(--line);
+  background:var(--panel); color:var(--text);
+  font-family:var(--mono); font-size:14px; letter-spacing:.08em;
+  text-transform:uppercase;
+  transition:border-color .18s var(--ease, ease);
+}
+.sub-promo-in::placeholder{color:var(--faint); text-transform:none; letter-spacing:.02em}
+.sub-promo-in:focus{outline:none; border-color:var(--accent)}
+.sub-promo-go{
+  flex:0 0 auto; height:44px; padding:0 18px;
+  border-radius:calc(var(--r) - 4px); border:1px solid var(--line);
+  background:none; color:var(--dim); font-size:13.5px; cursor:pointer;
+  transition:color .18s var(--ease, ease), border-color .18s var(--ease, ease);
+}
+.sub-promo-go:hover{color:var(--text); border-color:var(--accent)}
+.sub-promo-go:disabled{opacity:.45; cursor:default}
+.sub-promo-msg{margin:9px 0 0; font-size:12.5px; color:var(--neg, #e0574a)}
+
+/* Спрацювало. Галочка та сама, що в переліку можливостей підписки. */
+.sub-promo.done{display:flex; align-items:center; gap:8px;
+  color:var(--accent); font-size:13px}
+
+/* Телефон: кнопка під полем на всю ширину — поруч вони стають затісні. */
+@media (max-width:560px){
+  .sub-promo-row{flex-direction:column}
+  .sub-promo-go{width:100%}
+}
+
+/* Умови й повернення: тихо, дрібно, але на очах — під картками тарифів. */
+.sub-legal{display:flex; justify-content:center; gap:9px; margin:16px 0 0;
+  font-size:12px; color:var(--faint)}
+.sub-legal a{color:var(--faint); text-decoration:none; border-bottom:1px solid transparent}
+.sub-legal a:hover{color:var(--dim); border-bottom-color:var(--line)}
+
 /* телефон: картки в стовпчик, річний першим — до нижніх можна й не долистати */
 @media (max-width:560px){
   .sub-plans{grid-template-columns:minmax(0,1fr)}

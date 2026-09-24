@@ -162,8 +162,8 @@ def check_prices():
 
     early = billing.prices(person(price_plan="early"))
     case("ранні: місяць", early["month"]["cents"], 799)
-    case("ранні: квартал", early["quarter"]["cents"], 2299)
-    case("ранні: рік", early["year"]["cents"], 7599)
+    case("ранні: квартал", early["quarter"]["cents"], 2097)
+    case("ранні: рік", early["year"]["cents"], 7188)
     case("ранні бачать перекреслену звичайну", early["year"]["std_cents"], 9999)
     case("набір цін названо", early["set"], "early")
     case("своя ціна видно", billing.prices(person(own_price_cents=500))["own_cents"], 500)

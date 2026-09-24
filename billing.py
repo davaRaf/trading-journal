@@ -35,7 +35,8 @@ import datetime
 
 import db
 from config import (AI_WINDOW_DAYS, CURRENCY, FREE_AI, FREE_BT, FREE_IMPORTS,
-                    FREE_TRADES, IMPORT_WINDOW_DAYS, PAID_AI, PLAN_DAYS, PRICES)
+                    FREE_TRADES, IMPORT_WINDOW_DAYS, PAID_AI, PLAN_DAYS,
+                    PRICES, PROMOS)
 
 # Платні тарифи. 'free' — не тариф, а його відсутність.
 PLANS = ("month", "quarter", "year")
@@ -52,6 +53,12 @@ IMPORT_WINDOW = "import_window"
 AI_LIMIT = "ai_limit"
 AI_CAP = "ai_cap"
 NO_USER = "no_user"
+
+# Відповіді на промокод. Окремі коди, а не готові фрази: слова до них
+# лежать на сторінці, трьома мовами.
+PROMO_BAD = "promo_bad"        # такого коду немає
+PROMO_OVER = "promo_over"      # код відпрацював своє
+PROMO_SAME = "promo_same"      # у людини вже ця сама ціна
 
 
 def _user(u):
@@ -188,7 +195,12 @@ def prices(u=None):
     видно було, від чого рахується вигода.
     """
     row = _user(u) if u is not None else None
-    name = "early" if (row and row.get("price_plan") == "early") else "std"
+    # Набір беремо той, що записаний у людини, якщо він нам відомий.
+    # Невідомий (лишився від старого коду чи від руки в базі) — це 'std':
+    # краще показати звичайну ціну, ніж впасти.
+    name = (row or {}).get("price_plan") or "std"
+    if name not in PRICES:
+        name = "std"
     out = {"currency": CURRENCY, "set": name,
            "own_cents": (row or {}).get("own_price_cents")}
     for p in PLANS:
@@ -420,10 +432,10 @@ def bonus(uid, trades=0, bt=0, imports=0, ai=0, note=None):
 
 
 def set_price(uid, price_plan=None, own_cents=None, note=None):
-    """Набір цін ('std' / 'early') і разова своя ціна. Ціна в центах,
-    None лишає поле як було, 0 — прибирає її."""
+    """Набір цін і разова своя ціна. Ціна в центах, None лишає поле як
+    було, 0 — прибирає її. Набори перелічені в config.PRICES."""
     sets, vals = [], []
-    if price_plan in ("std", "early"):
+    if price_plan in PRICES:
         sets.append("price_plan=%s")
         vals.append(price_plan)
     if own_cents is not None:
@@ -437,5 +449,59 @@ def set_price(uid, price_plan=None, own_cents=None, note=None):
     with db.connect() as conn:
         conn.execute("UPDATE users SET %s WHERE id=%%s" % ", ".join(sets),
                      vals + [uid])
+        conn.commit()
+    return state(uid)
+def redeem(uid, code):
+    """Промокод → інший набір цін, назавжди. Повертає (ok, причина).
+
+    Знижку дає не сам код: він переводить акаунт на набір з нижчими
+    цінами, і далі все йде звичайним шляхом — на картках одразу видно нову
+    суму, а при продовженні підписка списує її ж. Вводити код удруге не
+    треба й не можна забути.
+
+    Набори порівнюємо по грошах, а не по назві. У перших користувачів ціна
+    така сама, як у FX LAB: переводити їх нікуди не треба, і сказати про це
+    прямо чесніше, ніж зробити вигляд, що щось сталося.
+    """
+    key = (code or "").strip().upper()
+    promo = PROMOS.get(key)
+    if not promo:
+        return False, PROMO_BAD
+    until = promo.get("until")
+    if until and datetime.date.today().isoformat() > until:
+        return False, PROMO_OVER
+    row = _user(uid)
+    if not row:
+        return False, NO_USER
+    have = (row.get("price_plan") or "std")
+    if have not in PRICES:
+        have = "std"
+    want = promo["plan"]
+    if PRICES[have]["month"] <= PRICES[want]["month"]:
+        return False, PROMO_SAME
+    set_price(uid, price_plan=want)
+    return True, ""
+
+
+
+
+def apply_paid(uid, plan, until=None):
+    """Підписку оплачено: ставимо тариф і дату кінця.
+
+    Дату беремо ту, яку назвала платіжка, а не рахуємо самі. Причина
+    проста: списувати вона буде за календарем — «те саме число наступного
+    місяця», — а в нас строк заданий днями. Лютий коротший за березень, і
+    вже за кілька продовжень наша дата поїхала б відносно їхньої, а людина
+    побачила б, що підписка скінчилась за день до списання.
+
+    Якщо дати немає (буває в окремих подіях) — відступаємо до своїх днів.
+    """
+    if plan not in PLANS:
+        plan = "month"
+    if until is None:
+        return grant(uid, PLAN_DAYS[plan], plan)
+    with db.connect() as conn:
+        conn.execute("UPDATE users SET plan=%s, paid_until=%s WHERE id=%s",
+                     (plan, until, uid))
         conn.commit()
     return state(uid)
