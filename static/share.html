@@ -469,6 +469,19 @@ html{interpolate-size:allow-keywords}
 .rvday .dh .sub.st-ok{color:var(--up)} .rvday .dh .sub.st-no{color:var(--down)} .rvday .dh .sub.st-part{color:var(--be)}
 .rvday .inner{padding-top:4px}
 #rvOpen .dayopen{animation:mcalIn .36s cubic-bezier(.16,1,.3,1) both}
+/* на телефоні клітинка вузька: слова не влазять — лишаємо число й колір,
+   значення кольорів пояснює підказка над сіткою */
+@media (max-width:560px){
+  .cal.rvm .dc{min-height:46px; padding:7px 6px}
+  .cal.rvm .dc .v, .cal.rvm .dc .c{display:none}
+  .cal.rvm .dc.has .n{font-weight:600}
+  .cal.rvm .dc.ok .n{color:var(--up)} .cal.rvm .dc.no .n{color:var(--down)}
+  .cal.rvm .dc.part .n{color:var(--be)} .cal.rvm .dc.open .n{color:var(--dim)}
+  .mrow{grid-template-columns:1fr auto; gap:4px 12px; padding:11px 12px}
+  .mrow .c{grid-column:1; font-size:11.5px}
+  .mrow .r{grid-row:1 / span 2; align-self:center}
+  .rvday .dh{flex-wrap:wrap; gap:4px 10px}
+}
 .cal .dc.rv .v{font-family:var(--sans); font-size:12px; font-weight:600; margin-top:auto; line-height:1.2}
 .cal .dc.rv .c{margin-top:3px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap}
 .cal .dc.rv.ok{background:color-mix(in srgb, var(--up) 11%, var(--bg))} .cal .dc.rv.ok .v{color:var(--up)}
