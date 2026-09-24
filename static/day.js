@@ -669,7 +669,8 @@ function statOf(v){
 let MONTH = null;                                 /* {ym, notes} — останній зібраний місяць */
 async function fetchMonth(ym){
   const pack = (date, n) => ({date: date, match: (n.marks || {}).match || "", hold: (n.marks || {}).hold || "",
-    assets: (n.assets || []).map(a => a.nm).filter(Boolean), closed: !!n.closed});
+    assets: (n.assets || []).map(a => a.nm).filter(Boolean), closed: !!n.closed,
+    data: n});                                      /* весь розбір: за посиланням день розкривається */
   if (demo()){
     const all = demoAll();
     return Object.keys(all).filter(k => k.slice(0, 7) === ym).sort().map(k => pack(k, all[k] || {}));

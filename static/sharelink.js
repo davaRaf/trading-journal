@@ -226,24 +226,11 @@ function tsSnapshot(){
    що з цього вийшло ввечері. Саме цим і цікаво ділитись: не результатом,
    а мисленням. Дані беремо з розділу «Аналіз дня» (day.js тримає їх у
    базі), а не з угод. */
-function reviewSnapshot(dk, pick){
-  const n = (window.__dv && typeof __dv.note === "function") ? __dv.note(dk) : null;
-  if (!n || !(n.assets || []).length) return null;
-  /* pick — які активи лишити. null означає «всі». */
-  const keep = (pick && pick.length)
-    ? n.assets.filter((a, i) => pick.indexOf(i) >= 0)
-    : n.assets;
-  if (!keep.length) return null;
-
+/* активи розбору у форму знімка; day — угоди того дня, щоб підписати
+   результат і показати їх під активом */
+function reviewAssets(keep, day){
   const norm = x => String(x || "").toUpperCase().replace(/[^A-Z0-9]/g, "");
-  const day = sortAsc(S.all.filter(t => dayKey(t) === dk));
-  /* цифри зверху — по тих активах, якими ділимось, а не по всьому дню */
-  const names = keep.map(a => norm(a.nm)).filter(Boolean);
-  const mineAll = names.length
-    ? day.filter(t => names.indexOf(norm(t.pair)) >= 0) : day;
-  const d = new Date(dk + "T00:00");
-
-  const assets = keep.map(a => {
+  return keep.map(a => {
     const mine = a.nm ? day.filter(t => norm(t.pair) === norm(a.nm)) : [];
     const st = mine.length ? calc(mine) : null;
     return {
@@ -264,6 +251,26 @@ function reviewSnapshot(dk, pick){
       trades: mine.map(tradeDetail),
     };
   });
+}
+
+function reviewSnapshot(dk, pick){
+  const n = (window.__dv && typeof __dv.note === "function") ? __dv.note(dk) : null;
+  if (!n || !(n.assets || []).length) return null;
+  /* pick — які активи лишити. null означає «всі». */
+  const keep = (pick && pick.length)
+    ? n.assets.filter((a, i) => pick.indexOf(i) >= 0)
+    : n.assets;
+  if (!keep.length) return null;
+
+  const norm = x => String(x || "").toUpperCase().replace(/[^A-Z0-9]/g, "");
+  const day = sortAsc(S.all.filter(t => dayKey(t) === dk));
+  /* цифри зверху — по тих активах, якими ділимось, а не по всьому дню */
+  const names = keep.map(a => norm(a.nm)).filter(Boolean);
+  const mineAll = names.length
+    ? day.filter(t => names.indexOf(norm(t.pair)) >= 0) : day;
+  const d = new Date(dk + "T00:00");
+
+  const assets = reviewAssets(keep, day);
 
   return {
     kind: T.slKindReview, kindFull: T.slOgReview,
@@ -299,11 +306,19 @@ function rvMonthSnapshot(ym){
     const key = ym + "-" + String(d).padStart(2, "0");
     const n = by[key];
     let st = "";
+    let review = null, net = null;
     if (n){
       st = __dv.stat(n.match) || "open";
       if (st === "ok") ok++; else if (st === "part") part++; else if (st === "no") no++; else open++;
+      /* сам розбір дня — щоб за посиланням його можна було розкрити */
+      const nd = n.data || {};
+      const dayTrades = sortAsc(S.all.filter(t => dayKey(t) === key));
+      const keep = (nd.assets || []).filter(a => a && (a.nm || (a.shots || []).length || a.why));
+      review = {closed: !!nd.closed, skip: nd.skip || "", lesson: (nd.fact || {}).lesson || "",
+                assets: reviewAssets(keep, dayTrades)};
+      net = dayTrades.length ? calc(dayTrades).net : null;
     }
-    days.push({date: key, st: st, assets: (n && n.assets) || []});
+    days.push({date: key, st: st, assets: (n && n.assets) || [], review: review, net: net});
   }
   const done = ok + part + no + open;
   return {
