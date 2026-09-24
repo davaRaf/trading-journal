@@ -127,6 +127,31 @@ def _post(path, body, space=None, tries=5):
             raise NotionError("немає зв'язку з Notion: %s" % ex)
 
 
+def _shot(url, dest_dir, base, tries=5):
+    """
+    Скриншот, загруженный в Notion, отдаёт картиночный прокси самого Notion —
+    а значит, он под тем же лимитом, что и страницы. Раньше картинки шли
+    мимо общего тормоза: карточки читали аккуратно, а снимки между ними
+    качали без пауз и этим же доводили Notion до «занадто часто».
+    Картинки с TradingView и других сайтов качаем как раньше.
+    """
+    host = urllib.parse.urlparse(url or "").netloc.lower()
+    ours = host.endswith("notion.so") or host.endswith("notion.site")
+    for attempt in range(tries):
+        if ours:
+            _throttle()
+        try:
+            name = download(url, dest_dir, base)
+        except urllib.error.HTTPError as e:
+            if ours and e.code == 429 and attempt < tries - 1:
+                _slower(e, attempt)
+                continue
+            raise
+        if ours:
+            _faster()
+        return name
+
+
 # ------------------------------------------------------------------- ссылка
 
 HEX32 = re.compile(r"([0-9a-fA-F]{32})")
@@ -761,7 +786,7 @@ def run_public_import(job, tables, mapping, opts, shots_dir, known_pairs, existi
                         base = "notion_%s_%s_%d" % (re.sub(r"[^0-9A-Za-z]", "", job.batch)[:12],
                                                     re.sub(r"[^0-9a-f]", "", bid)[:32], i)
                         shots.append({"tf": guess_tf(im.get("caption"), im["url"]),
-                                      "file": download(im["url"], shots_dir, base)})
+                                      "file": _shot(im["url"], shots_dir, base)})
                         job.shots += 1
                     except Exception:
                         lost += 1
