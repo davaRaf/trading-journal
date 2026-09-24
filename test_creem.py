@@ -62,6 +62,7 @@ def event(ev, uid, plan="year", end=None, eid=None):
             "metadata": {"user_id": str(uid), "plan": plan, "price_set": "std"},
             "current_period_end_date": end.isoformat(),
             "amount": 9999, "currency": "EUR",
+            "customer": {"id": "cust_test_%d" % uid},
         },
     }
 
@@ -72,6 +73,24 @@ def state(uid):
                                  headers={"Cookie": "%s=%s" % (auth.COOKIE, tok)})
     with urllib.request.urlopen(req, timeout=15) as r:
         return json.load(r)
+
+
+def as_user(path, uid, method="POST"):
+    """Запит від імені людини — з її пічкою, як із браузера."""
+    tok = auth.make_session(uid, gen=db.get_user(uid)["session_gen"])
+    req = urllib.request.Request(
+        HOST + path, data=b"{}", method=method,
+        headers={"Cookie": "%s=%s" % (auth.COOKIE, tok),
+                 "Content-Type": "application/json"})
+    try:
+        with urllib.request.urlopen(req, timeout=20) as r:
+            return r.status, json.load(r)
+    except urllib.error.HTTPError as ex:
+        body = ex.read().decode("utf-8", "replace")
+        try:
+            return ex.code, json.loads(body)
+        except ValueError:
+            return ex.code, body[:120]
 
 
 def main():
@@ -89,6 +108,20 @@ def main():
                        secret="wrong-secret")
         check("чужий підпис не пускаємо", code == 400, code)
         check("підписка досі не ввімкнена", not state(uid)["active"])
+
+        print("\nкабінет підписки до оплати")
+        check("кнопки немає", not state(uid).get("portal"))
+        code, res = as_user("/api/billing/portal", uid)
+        check("кабінет не відкривається — платежів не було", code == 404, code)
+        check("сказали чому", isinstance(res, dict)
+              and res.get("code") == "no_customer", res)
+        req = urllib.request.Request(HOST + "/api/billing/portal", data=b"{}",
+                                     method="POST")
+        try:
+            urllib.request.urlopen(req, timeout=15)
+            check("без входу не пускаємо", False, "пустило")
+        except urllib.error.HTTPError as ex:
+            check("без входу не пускаємо", ex.code == 401, ex.code)
 
         print("\nоплата")
         end = db.now() + datetime.timedelta(days=365)
@@ -130,6 +163,20 @@ def main():
         st = state(uid)
         check("підписку знято", not st["active"], st["paid_until"])
         check("тариф вільний", st["plan"] == "free", st["plan"])
+
+        print("\nкабінет підписки після оплати")
+        want = "cust_test_%d" % uid
+        check("номер покупця збережено",
+              (db.get_user(uid) or {}).get("creem_customer") == want,
+              (db.get_user(uid) or {}).get("creem_customer"))
+        check("кнопка з'явилась", state(uid).get("portal") is True)
+        code, res = as_user("/api/billing/portal", uid)
+        # Номер вигаданий, тому Creem його не впізнає — важливо, що ми
+        # доходимо до нього й віддаємо зрозумілу відмову, а не падаємо.
+        check("до платіжки достукались", code in (200, 502), code)
+        if code == 502:
+            check("відмову переклали по-людськи", isinstance(res, dict)
+                  and res.get("code") == "portal_failed", res)
 
         print("\nчужа людина")
         body = event("subscription.active", 10 ** 9, "year", end, eid="evt_nobody")

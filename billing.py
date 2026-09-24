@@ -185,6 +185,9 @@ def public(u):
         out.pop(k, None)
     out["prices"] = prices(u)
     out["free"] = free_terms(u)
+    # Чи є куди вести кнопку «керувати підпискою». Номер покупця з'являється
+    # після першої оплати, тому в того, хто ще не платив, кабінету немає.
+    out["portal"] = bool((_user(u) or {}).get("creem_customer"))
     return out
 
 

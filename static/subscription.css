@@ -24,6 +24,20 @@
 }
 .sub-chip .till{font-family:var(--sans); font-weight:400; text-transform:none; letter-spacing:0; color:var(--dim); font-size:11px}
 
+/* ——— керування підпискою ——— */
+/* Плашка тарифу ліворуч, кнопка кабінету праворуч: обидві про те, що вже
+   куплено, тому стоять в одному рядку над картками тарифів. Кнопка тиха —
+   головна дія в розділі одна, і це «оформити». */
+.sub-state{display:flex; align-items:center; justify-content:space-between; gap:10px; flex-wrap:wrap}
+.sub-manage{
+  font:inherit; font-size:12px; color:var(--dim);
+  background:transparent; border:1px solid var(--line); border-radius:999px;
+  padding:7px 13px; min-height:34px; cursor:pointer; white-space:nowrap;
+  transition:color .15s ease, border-color .15s ease, background .15s ease;
+}
+.sub-manage:hover:not(:disabled){color:var(--fg); border-color:var(--dim); background:var(--panel-2)}
+.sub-manage:disabled{opacity:.45; cursor:default}
+
 /* ——— картки тарифів ——— */
 /* Відступ згори — під ярлик «−4 місяці»: він сидить верхи на рамці
    картки й без цього зрізався б краєм панелі. */
@@ -127,6 +141,7 @@
   to{opacity:1; transform:translate(-50%,0)}}
 @media (prefers-reduced-motion:reduce){ .sub-paid{animation:none} }
 @media (max-width:560px){
+  .sub-manage{flex:1 1 100%; min-height:44px}
   .sub-paid{left:12px; right:12px; bottom:calc(12px + env(safe-area-inset-bottom));
     transform:none; max-width:none}
   @keyframes subPaidIn{from{opacity:0} to{opacity:1}}

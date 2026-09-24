@@ -161,10 +161,19 @@ function promoRow(){
     + '</div>';
 }
 
+/* Кнопка ведення підписки. Показуємо тільки тому, хто вже платив: до
+   першої оплати кабінету на боці Creem просто не існує. Саме тут людина
+   скасує продовження чи замінить картку — без листів у підтримку. */
+function manageBtn(){
+  if (!st || !st.portal) return "";
+  return '<button type="button" class="sub-manage" id="subManage">'
+    +   esc(T.subManage) + "</button>";
+}
+
 function section(){
   if (!st) return "";
   return '<div class="sub-state"><span class="sub-chip' + (st.active ? " paid" : "") + '">'
-    +   esc(planLabel()) + "</span></div>"
+    +   esc(planLabel()) + "</span>" + manageBtn() + "</div>"
     + '<div class="sub-plans">' + ORDER.map(card).join("") + "</div>"
     + promoRow()
     + feats()
@@ -219,8 +228,30 @@ function wirePromo(){
   inp.addEventListener("keydown", e => { if (e.key === "Enter") send(); });
 }
 
+function wireManage(){
+  const b = document.getElementById("subManage");
+  if (!b) return;
+  b.addEventListener("click", async () => {
+    const note = document.getElementById("subSoon");
+    if (note) note.textContent = "";
+    b.disabled = true;
+    try{
+      const r = await api("POST", "/api/billing/portal");
+      if (!r || !r.url) throw new Error("no url");
+      /* Кабінет чужий, тому окремою вкладкою: журнал лишається відкритим,
+         і повернутись у нього можна не втрачаючи місця. */
+      window.open(r.url, "_blank", "noopener");
+    }catch(err){
+      if (note) note.textContent = T.subManageFail;
+    }finally{
+      b.disabled = false;
+    }
+  });
+}
+
 function wire(){
   wirePromo();
+  wireManage();
   const box = document.querySelector(".sub-plans");
   if (!box) return;
   box.addEventListener("click", async e => {

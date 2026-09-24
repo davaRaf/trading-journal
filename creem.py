@@ -167,3 +167,40 @@ def period_end(obj):
                 dt = dt.replace(tzinfo=datetime.timezone.utc)
             return dt
     return None
+
+
+def customer_of(obj):
+    """Номер людини на боці Creem — те, чим відкривається її кабінет.
+
+    Лежить то рядком, то об'єктом з полем id, то на крок глибше — у
+    підписці всередині події. Шукаємо в тих самих місцях, що й номер
+    нашої людини, і першу знахідку віддаємо.
+    """
+    for src in (obj, obj.get("subscription") or {}, obj.get("order") or {},
+                obj.get("checkout") or {}):
+        if not isinstance(src, dict):
+            continue
+        cust = src.get("customer")
+        if isinstance(cust, dict):
+            cust = cust.get("id")
+        cust = str(cust or "").strip()
+        if cust:
+            return cust
+    return ""
+
+
+def portal(customer_id):
+    """Разове посилання в кабінет Creem: там людина сама скасує продовження
+    чи змінить картку.
+
+    Посилання одноразове й живе недовго, тому не зберігаємо його — беремо
+    нове щоразу, коли натиснули кнопку.
+    """
+    cid = str(customer_id or "").strip()
+    if not cid:
+        raise ValueError("немає номера покупця")
+    res = _post("/v1/customers/billing", {"customer_id": cid})
+    url = res.get("customer_portal_link") or res.get("url") or ""
+    if not url:
+        raise RuntimeError("Creem не дав посилання на кабінет: %r" % (res,))
+    return url

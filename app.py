@@ -2353,6 +2353,29 @@ class H(BaseHTTPRequestHandler):
                                    "code": "pay_failed"}, 502)
             return self._json({"url": url})
 
+        # ---- кабінет підписки ----
+        if p == "/api/billing/portal":
+            # Скасувати продовження чи змінити картку людина має вміти сама,
+            # без листів у підтримку. Робить це кабінет Creem — ми лише
+            # беремо разове посилання туди.
+            uid = self._uid()
+            if not uid:
+                return self._json({"error": "auth required"}, 401)
+            if not creem.enabled():
+                return self._json({"error": "оплата ще не ввімкнена",
+                                   "code": "no_pay"}, 503)
+            cid = (db.get_user(uid) or {}).get("creem_customer") or ""
+            if not cid:
+                # Людина ще не платила — кабінету в неї просто немає.
+                return self._json({"error": "немає оплат",
+                                   "code": "no_customer"}, 404)
+            try:
+                url = creem.portal(cid)
+            except Exception as ex:
+                print("portal:", ex, flush=True)
+                return self._json({"error": "не вдалося відкрити кабінет",
+                                   "code": "portal_failed"}, 502)
+            return self._json({"url": url})
         # ---- підтвердження оплати від Creem ----
         if p == "/api/creem/webhook":
             # Єдина точка, куди стукає платіжка. Статичних адрес у їхніх
@@ -2388,6 +2411,14 @@ class H(BaseHTTPRequestHandler):
                     return self._json({"ok": True, "repeat": True})
 
             print("webhook: %s для %s" % (ev, uid), flush=True)
+            # Номер покупця на боці Creem приходить з кожною подією, а
+            # потрібен, щоб відкрити людині її кабінет. Запам'ятовуємо мовчки:
+            # не вийшло — це не привід відмовляти в оплаті.
+            if uid:
+                try:
+                    db.set_creem_customer(uid, creem.customer_of(obj))
+                except Exception as ex:
+                    print("webhook: не записав покупця:", ex, flush=True)
             if not uid:
                 # Без номера людини робити нічого не можемо, але відповідаємо
                 # згодою: подія записана, розберемо руками в адмінці.

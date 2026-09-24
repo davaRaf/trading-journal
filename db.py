@@ -323,6 +323,11 @@ ALTER TABLE users ADD COLUMN IF NOT EXISTS ai_used INTEGER NOT NULL DEFAULT 0;
 ALTER TABLE users ADD COLUMN IF NOT EXISTS ai_cap INTEGER NOT NULL DEFAULT 15;
 ALTER TABLE users ADD COLUMN IF NOT EXISTS ai_reset_at TIMESTAMPTZ;
 
+-- Номер людини на боці платіжки. Треба рівно для одного: відкрити їй
+-- кабінет Creem, де вона сама скасує продовження чи змінить картку. Перший
+-- платіж його й приносить — до першого платежу кабінету нема чого показувати.
+ALTER TABLE users ADD COLUMN IF NOT EXISTS creem_customer TEXT NOT NULL DEFAULT '';
+
 -- Події платіжки. Ключ — її власний id події: та сама подія приходить
 -- повторно (платіжки шлють вебхук, доки не отримають 200), і другий раз
 -- вона має нічого не змінити.
@@ -1300,3 +1305,22 @@ def payment_once(event_id, user_id, event, amount_cents=None,
              _json.dumps(raw or {}))).fetchone()
         conn.commit()
     return bool(row)
+
+
+def set_creem_customer(user_id, customer_id):
+    """Запам'ятати номер людини на боці платіжки.
+
+    Пишемо тільки якщо номер новий: той самий приходить з кожною подією, і
+    зайвий UPDATE на кожне продовження ні до чого. Порожній номер не
+    затирає збережений — подія могла прийти без нього.
+    """
+    cid = str(customer_id or "").strip()[:128]
+    if not user_id or not cid:
+        return False
+    with connect() as conn:
+        cur = conn.execute(
+            "UPDATE users SET creem_customer=%s "
+            "WHERE id=%s AND creem_customer IS DISTINCT FROM %s",
+            (cid, user_id, cid))
+        conn.commit()
+    return cur.rowcount > 0
