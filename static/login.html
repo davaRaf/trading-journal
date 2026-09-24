@@ -185,6 +185,17 @@ body{
 .alt a{color:var(--dim); text-decoration:none; border-bottom:1px solid var(--hair)}
 .alt a:hover{color:var(--text)}
 
+/* Правові сторінки під карткою входу. Платіжний сервіс вимагає, щоб умови,
+   тарифи й повернення були видні з головної, а не тільки зсередини акаунта.
+   Людині вони теж потрібні саме до реєстрації, а не після неї. */
+.legal{display:flex; flex-wrap:wrap; justify-content:center; gap:5px 12px;
+  font-size:12px; color:var(--faint); text-align:center}
+.legal a{color:var(--faint); text-decoration:none; border-bottom:1px solid transparent}
+.legal a:hover{color:var(--dim); border-bottom-color:var(--hair)}
+/* На вузькому екрані пошта в рядок не влазить, а посилання важливіші:
+   адреса підтримки однаково стоїть на кожній з чотирьох сторінок. */
+@media (max-width:460px){ .legal .mail{display:none} }
+
 /* ---------- кнопка: покой → загрузка → успех ---------- */
 .go{position:relative; overflow:hidden}
 .go .lbl{transition:opacity .2s var(--ease), transform .25s var(--ease); display:inline-block}
@@ -544,6 +555,8 @@ body{
   </div>
 
  </div>
+
+ <div class="legal" id="legalLine"></div>
 </div>
 
 <script>
@@ -937,6 +950,12 @@ function setTab(t){
   document.getElementById("altLine").innerHTML =
     twofa ? T.altTf : mail ? T.altMc : (forgot || reset) ? T.altBack : reg ? T.altUp : T.altIn;
   document.getElementById("demoLine").innerHTML = '<a href="/demo">' + T.demoLink + "</a>";
+  document.getElementById("legalLine").innerHTML =
+      '<a href="/pricing">' + T.lgPricing + "</a>"
+    + '<a href="/terms">' + T.lgTerms + "</a>"
+    + '<a href="/refund">' + T.lgRefund + "</a>"
+    + '<a href="/privacy">' + T.lgPrivacy + "</a>"
+    + '<a class="mail" href="mailto:statsai.journal@gmail.com">statsai.journal@gmail.com</a>';
 
   // при регистрации и при новом пароле показываем надёжность
   const meterEl = document.getElementById("meter");
@@ -1014,6 +1033,7 @@ const I18N = {
     tagline: "помічник трейдера",
     quote: 'Твоя <b>статистика</b> знає про тебе <b>більше, ніж ти</b>',
     demoLink: "Подивитись демо без реєстрації",
+    lgPricing: "Тарифи", lgTerms: "Умови", lgRefund: "Повернення", lgPrivacy: "Приватність",
     tabIn: "Вхід", tabUp: "Реєстрація",
     contWith: "Продовжити з ", regWith: "Зареєструватися через ",
     orEmail: "або поштою",
@@ -1071,6 +1091,7 @@ const I18N = {
     tagline: "помощник трейдера",
     quote: 'Твоя <b>статистика</b> знает о тебе <b>больше, чем ты</b>',
     demoLink: "Посмотреть демо без регистрации",
+    lgPricing: "Тарифы", lgTerms: "Условия", lgRefund: "Возврат", lgPrivacy: "Приватность",
     tabIn: "Вход", tabUp: "Регистрация",
     contWith: "Продолжить с ", regWith: "Зарегистрироваться через ",
     orEmail: "или почтой",
@@ -1128,6 +1149,7 @@ const I18N = {
     tagline: "trading assistant",
     quote: 'Your <b>stats</b> know you <b>better than you do</b>',
     demoLink: "Look at the demo, no sign-up",
+    lgPricing: "Pricing", lgTerms: "Terms", lgRefund: "Refunds", lgPrivacy: "Privacy",
     tabIn: "Sign in", tabUp: "Sign up",
     contWith: "Continue with ", regWith: "Sign up with ",
     orEmail: "or with email",
