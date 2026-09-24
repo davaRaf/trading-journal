@@ -477,9 +477,11 @@ html{interpolate-size:allow-keywords}
   .cal.rvm .dc.has .n{font-weight:600}
   .cal.rvm .dc.ok .n{color:var(--up)} .cal.rvm .dc.no .n{color:var(--down)}
   .cal.rvm .dc.part .n{color:var(--be)} .cal.rvm .dc.open .n{color:var(--dim)}
-  .mrow{grid-template-columns:1fr auto; gap:4px 12px; padding:11px 12px}
-  .mrow .c{grid-column:1; font-size:11.5px}
-  .mrow .r{grid-row:1 / span 2; align-self:center}
+  .mrow{grid-template-columns:1fr auto; gap:3px 12px; padding:11px 12px}
+  .mrow .l{grid-column:1; grid-row:1}
+  .mrow .c{grid-column:1; grid-row:2; font-size:11.5px}
+  .mrow .r{grid-column:2; grid-row:1 / span 2; align-self:center}
+  .mcal .cal .dc{min-height:52px}
   .rvday .dh{flex-wrap:wrap; gap:4px 10px}
 }
 .cal .dc.rv .v{font-family:var(--sans); font-size:12px; font-weight:600; margin-top:auto; line-height:1.2}
