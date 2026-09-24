@@ -450,6 +450,15 @@ SESSION_SAME = {
     "LONDON OPEN": "LONDON", "ЛОНДОН": "LONDON", "ФРАНКФУРТ": "FRANKFURT",
     "FRANKFURT OPEN": "FRANKFURT", "ASIA": "ASIA", "АЗІЯ": "ASIA", "АЗИЯ": "ASIA",
     "POWER HOUR": "PH",
+    # Кілзона — та сама сесія: «LO KZ» і «LONDON» у статистиці мають бути одним
+    # рядком. Імена — ті, що в кнопках сесій на сайті (SESSIONS у static/app.js).
+    "LO": "LONDON", "LDN": "LONDON", "LO KZ": "LONDON", "LOKZ": "LONDON",
+    "LDN KZ": "LONDON", "LONDON KZ": "LONDON", "LONDON KILLZONE": "LONDON",
+    "LONDON KILL ZONE": "LONDON", "LONDON SESSION": "LONDON", "LO OPEN": "LONDON",
+    "NY KZ": "NY", "NYKZ": "NY", "NY KILLZONE": "NY", "NY KILL ZONE": "NY",
+    "NY OPEN": "NY", "NY SESSION": "NY", "NEW YORK KZ": "NY",
+    "NEW YORK KILLZONE": "NY", "NEW YORK KILL ZONE": "NY", "NEW YORK OPEN": "NY",
+    "NEW YORK SESSION": "NY",
 }
 
 

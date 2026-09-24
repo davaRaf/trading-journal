@@ -60,6 +60,11 @@ def check_values():
     check("одне ім'я — один рядок статистики",
           ni.norm_session("London Killzone") == ni.norm_session("london killzone"))
     check("New York = NY", ni.norm_session("New York") == "NY")
+    check("LO, LO KZ, London Killzone = LONDON",
+          {ni.norm_session(v) for v in ("LO", "lo kz", "London Killzone", "LONDON")}
+          == {"LONDON"})
+    check("NY KZ = NY", ni.norm_session("NY KZ") == "NY")
+    check("NY AM і NY PM не зливаємо", ni.norm_session("NY AM") == "NY AM")
 
 
 def check_fill():
