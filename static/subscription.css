@@ -71,12 +71,21 @@
 .sub-bill{font-size:11.5px; color:var(--dim); margin-top:9px; margin-bottom:15px}
 /* Кнопка притиснута до низу картки: підпис про списання у кварталі
    переноситься на два рядки, і без цього кнопки стояли б сходинкою. */
+/* Заливка рахується від кольору тексту, а не береться готовою змінною:
+   --seg-on-bg дорівнює тлу самої картки, і кнопка виходила безбарвною —
+   сама рамка, крізь яку просвічував великий напис StatsAI. */
 .sub-btn{
   margin-top:auto; text-align:center; font-size:13px; font-weight:500; padding:9px 0; width:100%;
-  border-radius:var(--r-sm); border:1px solid var(--line); color:var(--text); background:var(--seg-on-bg);
-  cursor:pointer; font-family:inherit;
+  border-radius:var(--r-sm); color:var(--text); cursor:pointer; font-family:inherit;
+  background:color-mix(in srgb,var(--text) 12%,var(--panel));
+  border:1px solid color-mix(in srgb,var(--text) 18%,var(--panel));
+  transition:background .15s ease, border-color .15s ease;
 }
-.sub-btn:hover{border-color:color-mix(in srgb,var(--accent) 45%,transparent)}
+.sub-btn:hover{
+  background:color-mix(in srgb,var(--text) 19%,var(--panel));
+  border-color:color-mix(in srgb,var(--accent) 45%,transparent);
+}
+.sub-btn:disabled{opacity:.5; cursor:default}
 .sub-plan.best .sub-btn{background:var(--accent); border-color:var(--accent); color:var(--accent-ink); font-weight:600}
 .sub-gift{
   position:absolute; top:-8px; left:16px; font-family:var(--mono); font-size:10px; font-weight:700;
