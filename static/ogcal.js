@@ -293,13 +293,16 @@ function grid(ctx, cal, wd, top, bottom){
     const y = gridTop + Math.floor(n / cols) * (ch + gapY);
     const has = d.n > 0;
     const t = has ? tone(d.net) : null;
+    const hollow = has && d.hollow;          /* запис є, оцінки нема — контур */
+    const lab = d.txt != null ? d.txt : pct(d.net);
+    const labCol = hollow ? C.dim : t === "up" ? C.up : t === "down" ? C.down : C.be;
 
-    ctx.fillStyle = !has ? C.panel
+    ctx.fillStyle = (!has || hollow) ? C.panel
       : t === "up" ? C.upBg : t === "down" ? C.downBg : C.beBg;
     roundRect(ctx, x, y, cw, ch, 12);
     ctx.fill();
-    if (!has){
-      ctx.strokeStyle = C.soft; ctx.lineWidth = 1;
+    if (!has || hollow){
+      ctx.strokeStyle = hollow ? C.faint : C.soft; ctx.lineWidth = hollow ? 1.5 : 1;
       roundRect(ctx, x, y, cw, ch, 12); ctx.stroke();
     }
 
@@ -310,10 +313,10 @@ function grid(ctx, cal, wd, top, bottom){
       ctx.fillStyle = has ? C.dim : C.faint;
       ctx.fillText(String(Number(d.date.slice(8))), x + 11, mid);
       if (has){
-        ctx.font = "500 21px " + MONO;
-        ctx.fillStyle = t === "up" ? C.up : t === "down" ? C.down : C.be;
+        ctx.font = "500 " + (d.txt != null ? 17 : 21) + "px " + MONO;
+        ctx.fillStyle = labCol;
         ctx.textAlign = "right";
-        ctx.fillText(pct(d.net), x + cw - 11, mid);
+        ctx.fillText(lab, x + cw - 11, mid);
         ctx.textAlign = "left";
       }
     } else {
@@ -321,9 +324,9 @@ function grid(ctx, cal, wd, top, bottom){
       ctx.fillStyle = has ? C.dim : C.faint;
       ctx.fillText(String(Number(d.date.slice(8))), x + 12, y + 28);
       if (has){
-        ctx.font = "500 " + (ch > 88 ? 30 : 24) + "px " + MONO;
-        ctx.fillStyle = t === "up" ? C.up : t === "down" ? C.down : C.be;
-        ctx.fillText(pct(d.net), x + 12, y + ch - 18);
+        ctx.font = "500 " + (d.txt != null ? 19 : ch > 88 ? 30 : 24) + "px " + MONO;
+        ctx.fillStyle = labCol;
+        ctx.fillText(lab, x + 12, y + ch - 18);
       }
     }
   });
@@ -643,6 +646,31 @@ function period(data){
   return cv.toDataURL("image/png");
 }
 
-window.OgCal = {period, system, day, reviewShot, brand, watermark, author, prepAuthor};
+/* Місяць розборів дня: сітка днів кольором оцінки (за планом / частково /
+   ні), контур — план без вечора. Цифри над сіткою — ті самі kpis. */
+function rvMonth(data){
+  pick(data);
+  const cv = document.createElement("canvas");
+  cv.width = W; cv.height = H;
+  const ctx = cv.getContext("2d");
+  ctx.fillStyle = C.bg; ctx.fillRect(0, 0, W, H);
+  header(ctx, data.kindFull || data.kind, data.title, null);
+  ctx.strokeStyle = C.line; ctx.lineWidth = 1;
+  ctx.beginPath(); ctx.moveTo(64, 164); ctx.lineTo(W - 64, 164); ctx.stroke();
+  const L = {ok: T.shRvmOk, part: T.shRvmPart, no: T.shRvmNo, open: T.shRvmOpen};
+  const days = ((data.rvMonth || {}).days || []).map(d => ({
+    date: d.date, n: d.st ? 1 : 0,
+    net: d.st === "ok" ? 1 : d.st === "no" ? -1 : 0,
+    hollow: d.st === "open",
+    txt: d.st ? String(L[d.st] || "") : "",
+  }));
+  grid(ctx, {days: days}, T.shCalWd || ["пн","вт","ср","чт","пт","сб","нд"], 182, H - 104);
+  ctx.beginPath(); ctx.moveTo(64, H - 90); ctx.lineTo(W - 64, H - 90); ctx.stroke();
+  kpiRow(ctx, data.kpis, H - 58);
+  author(ctx, data.author, W - 64, H - 34);
+  return cv.toDataURL("image/png");
+}
+
+window.OgCal = {period, system, day, rvMonth, reviewShot, brand, watermark, author, prepAuthor};
 
 })();

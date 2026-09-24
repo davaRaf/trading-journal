@@ -441,6 +441,14 @@ html{interpolate-size:allow-keywords}
 .cal .dc.neg .v{color:var(--down)}
 .cal .dc.zero .v{color:var(--be)}
 .cal .dc.on{box-shadow:inset 0 0 0 1.5px var(--g)}
+/* місяць розборів: колір клітинки — оцінка дня */
+.cal .dc.rv{cursor:default}
+.cal .dc.rv .v{font-family:var(--sans); font-size:12px; font-weight:600; margin-top:auto; line-height:1.2}
+.cal .dc.rv .c{margin-top:3px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap}
+.cal .dc.rv.ok{background:color-mix(in srgb, var(--up) 11%, var(--bg))} .cal .dc.rv.ok .v{color:var(--up)}
+.cal .dc.rv.part{background:color-mix(in srgb, var(--be) 12%, var(--bg))} .cal .dc.rv.part .v{color:var(--be)}
+.cal .dc.rv.no{background:color-mix(in srgb, var(--down) 11%, var(--bg))} .cal .dc.rv.no .v{color:var(--down)}
+.cal .dc.rv.open{box-shadow:inset 0 0 0 1.5px var(--faint)} .cal .dc.rv.open .v{color:var(--dim)}
 /* тиждень — сім клітинок у ряд, їм можна дати більше повітря */
 .cal.week .dc{min-height:92px}
 
@@ -745,6 +753,31 @@ function nTrades(n){
   return n + " " + w;
 }
 
+/* Місяць розборів дня: клітинка кольором оцінки, всередині — інструменти дня */
+function rvMonthHtml(rm){
+  if (!rm || !(rm.days || []).length) return "";
+  const first = new Date(rm.days[0].date + "T00:00");
+  const pad = (first.getDay() + 6) % 7;
+  const L = {ok: T.shRvmOk, part: T.shRvmPart, no: T.shRvmNo, open: T.shRvmOpen};
+  let cells = "";
+  for (let i = 0; i < pad; i++) cells += '<div class="dc pad"></div>';
+  rm.days.forEach(d => {
+    const st = d.st || "";
+    cells += '<div class="dc rv' + (st ? " has " + st : "") + '">'
+      + '<span class="n">' + Number(d.date.slice(8)) + "</span>"
+      + (st ? '<span class="v">' + esc(L[st] || "") + "</span>"
+            + ((d.assets || []).length ? '<span class="c">' + esc(d.assets.join(", ")) + "</span>" : "")
+          : "")
+      + "</div>";
+  });
+  const wd = (T.shCalWd || ["пн","вт","ср","чт","пт","сб","нд"])
+    .map(w => "<span>" + esc(w) + "</span>").join("");
+  return '<div class="sect">' + esc(T.shRvmTitle) + "</div>"
+    + '<p class="hintline">' + esc(T.shRvmHint) + "</p>"
+    + '<div class="cal rvm"><div class="wd">' + wd + "</div>"
+    + '<div class="grid">' + cells + "</div></div>";
+}
+
 function calHtml(cal){
   if (!cal || !(cal.days || []).length) return "";
   CAL = cal;
@@ -993,6 +1026,7 @@ function render(rec){
         ? '<div class="kpis">' + d.kpis.map(k => kpi(k.k, k.v, k.cls)).join("") + '</div>' : "")
     + tradesHtml(d.trades)
     + reviewHtml(d.review)
+    + rvMonthHtml(d.rvMonth)
     + tsHtml(d.ts)
     + calHtml(d.calendar)
     + (d.blocks || []).map(b => rows(b.title, b.items)).join("")

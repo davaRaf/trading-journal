@@ -53,7 +53,7 @@ def kind_of(payload):
     """Тип знімка. Нові кладуть data.type; для старих вгадуємо за вмістом."""
     p = payload or {}
     t = str(p.get("type") or "").strip().lower()
-    if t in ("trade", "day", "week", "month", "year", "ts", "review"):
+    if t in ("trade", "day", "week", "month", "year", "ts", "review", "reviewmonth"):
         return t
     if p.get("ts"):
         return "ts"

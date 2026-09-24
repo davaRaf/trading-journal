@@ -283,6 +283,45 @@ function reviewSnapshot(dk, pick){
   };
 }
 
+/* ---------- місяць розборів дня ----------
+   Не угоди, а дисципліна: в які дні план був, збігся з ринком чи ні. Дані
+   збирає day.js (shareMonth → monthNotes), тут лише розкладаємо по днях. */
+function rvMonthSnapshot(ym){
+  const notes = (window.__dv && __dv.monthNotes) ? __dv.monthNotes(ym) : null;
+  if (!notes) return null;
+  const by = {};
+  notes.forEach(n => { by[n.date] = n; });
+  const [y, m] = ym.split("-").map(Number);
+  const last = new Date(y, m, 0).getDate();
+  const days = [];
+  let ok = 0, part = 0, no = 0, open = 0;
+  for (let d = 1; d <= last; d++){
+    const key = ym + "-" + String(d).padStart(2, "0");
+    const n = by[key];
+    let st = "";
+    if (n){
+      st = __dv.stat(n.match) || "open";
+      if (st === "ok") ok++; else if (st === "part") part++; else if (st === "no") no++; else open++;
+    }
+    days.push({date: key, st: st, assets: (n && n.assets) || []});
+  }
+  const done = ok + part + no + open;
+  return {
+    type: "reviewmonth",
+    kind: T.slKindRvMonth, kindFull: T.slOgRvMonth,
+    title: T.months[m - 1] + " " + y,
+    total: null,
+    kpis: [
+      {k: T.shRvmDays, v: done + " / " + last},
+      {k: T.shRvmOk,   v: String(ok),   cls: ok ? "pos" : ""},
+      {k: T.shRvmPart, v: String(part)},
+      {k: T.shRvmNo,   v: String(no),   cls: no ? "neg" : ""},
+    ],
+    rvMonth: {ym: ym, days: days},
+    blocks: [],
+  };
+}
+
 function daySnapshot(dk){
   const list = sortAsc(S.all.filter(t => dayKey(t) === dk));
   const d = new Date(dk + "T00:00");
@@ -403,6 +442,7 @@ function open(kind, arg){
   const build = () => kind === "trade"  ? tradeSnapshot(arg)
              : kind === "ts"     ? tsSnapshot()
              : kind === "review" ? reviewSnapshot(arg, pick)
+             : kind === "reviewmonth" ? rvMonthSnapshot(arg)
              : kind === "day"    ? daySnapshot(arg)
              : kind === "week"  ? weekSnapshot(arg)
              : kind === "month" ? monthSnapshot(arg)
@@ -535,9 +575,10 @@ function open(kind, arg){
       /* Для тижня й місяця малюємо календар — він піде в превью посилання.
          Не вийшло намалювати чи покласти — не біда: посилання створиться
          й без картинки, просто в месенджері буде без неї. */
-      else if (window.OgCal && (data.calendar || data.ts || kind === "day")){
+      else if (window.OgCal && (data.calendar || data.ts || data.rvMonth || kind === "day")){
         try{
           const png = data.ts ? OgCal.system(data)
+                    : data.rvMonth ? OgCal.rvMonth(data)
                     : kind === "day" ? OgCal.day(data)
                     : OgCal.period(data);
           if (!png) throw new Error("no image");

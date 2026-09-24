@@ -762,7 +762,8 @@ async function build(kind, arg, data){
     return await buildReviewImage(data);
   }
   if (!window.OgCal || !data) throw new Error(T.tiFailNoData || "нема з чого малювати");
-  return await canvasOf(kind === "ts" ? OgCal.system(data) : OgCal.period(data));
+  return await canvasOf(kind === "ts" ? OgCal.system(data)
+                        : data.rvMonth ? OgCal.rvMonth(data) : OgCal.period(data));
 }
 
 function fileName(kind, arg, data){

@@ -652,7 +652,31 @@ function calendar(){
     + '<div class="grid">' + cells + "</div>"
     + '<div class="lg"><span><i class="ok"></i>' + esc(d.lgOk) + '</span><span><i class="part"></i>' + esc(d.lgPart)
     +   '</span><span><i class="no"></i>' + esc(d.lgNo) + '</span><span><i class="open"></i>' + esc(d.lgOpen) + "</span></div>"
+    + '<button type="button" class="dv-calshare" onclick="__dv.shareMonth()">'
+    +   '<svg width="13" height="13" viewBox="0 0 24 24" fill="none"><path d="M12 3v12M8 7l4-4 4 4" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/><path d="M5 14v4a2 2 0 002 2h10a2 2 0 002-2v-4" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>'
+    +   esc(d.shareMonth) + "</button>"
     + "</div>";
+}
+
+/* ---------------- місяць розборів для посилання ----------------
+   Оцінки лежать словами тією мовою, якою їх ставили, — зводимо до кодів.
+   Запис є, а оцінки нема — «open»: план написаний, вечір не закритий. */
+const MK_YES = ["так", "да", "yes"], MK_PART = ["частково", "частично", "partly"], MK_NO = ["ні", "нет", "no"];
+function statOf(v){
+  const s = String(v || "").trim().toLowerCase();
+  return MK_YES.indexOf(s) >= 0 ? "ok" : MK_PART.indexOf(s) >= 0 ? "part" : MK_NO.indexOf(s) >= 0 ? "no" : "";
+}
+let MONTH = null;                                 /* {ym, notes} — останній зібраний місяць */
+async function fetchMonth(ym){
+  const pack = (date, n) => ({date: date, match: (n.marks || {}).match || "", hold: (n.marks || {}).hold || "",
+    assets: (n.assets || []).map(a => a.nm).filter(Boolean), closed: !!n.closed});
+  if (demo()){
+    const all = demoAll();
+    return Object.keys(all).filter(k => k.slice(0, 7) === ym).sort().map(k => pack(k, all[k] || {}));
+  }
+  const r = await api("GET", "/api/day/stats?since=" + ym + "-01");
+  return (r.notes || []).filter(n => String(n.date).slice(0, 7) === ym)
+    .map(n => pack(String(n.date), Object.assign({}, n.data || {}, {marks: {match: n.match, hold: n.hold}})));
 }
 
 function human(dt){
@@ -1032,6 +1056,16 @@ window.__dv = {
   /* Запис дня назовні — з нього sharelink.js збирає знімок розбору.
      Віддаємо лише той день, який зараз відкритий: інші не завантажені. */
   note(date){ return (!date || date === DATE) ? N : null; },
+  /* місяць розборів для sharelink.js: збираємо наперед у shareMonth() */
+  monthNotes(ym){ return (MONTH && MONTH.ym === ym) ? MONTH.notes : null; },
+  stat: statOf,
+  async shareMonth(){
+    if (window.Guest && Guest.block(T.gsGateTitle)) return;
+    const ym = calMonth || DATE.slice(0, 7);
+    try{ MONTH = {ym: ym, notes: await fetchMonth(ym)}; }catch(e){ MONTH = {ym: ym, notes: []}; }
+    calOpen = false; render();
+    if (window.Share) Share.open("reviewmonth", ym);
+  },
   shareDay(){
     if (window.Guest && Guest.block(T.gsGateTitle)) return;
     if (window.Share) Share.open("review", DATE);
@@ -1149,7 +1183,7 @@ uk: {
   noTrades: "За цей день угод по цьому активу немає",
   byPlan: "за планом", offPlan: "поза планом", markIt: "позначити",
   shareTip: "Поділитись зведенням саме по цій угоді",
-  shareDay: "Поділитись", shareTip2: "Поділитись розбором дня за посиланням",
+  shareDay: "Поділитись", shareTip2: "Поділитись розбором дня за посиланням", shareMonth: "Поділитись місяцем",
   markMatch: "Ринок пішов за планом", markHold: "Тримався плану",
 
   sumTitle: "підсумок дня", sumAssets: "активи", sumTrades: "угоди",
@@ -1222,7 +1256,7 @@ ru: {
   noTrades: "За этот день сделок по этому активу нет",
   byPlan: "по плану", offPlan: "вне плана", markIt: "отметить",
   shareTip: "Поделиться сводкой именно по этой сделке",
-  shareDay: "Поделиться", shareTip2: "Поделиться разбором дня по ссылке",
+  shareDay: "Поделиться", shareTip2: "Поделиться разбором дня по ссылке", shareMonth: "Поделиться месяцем",
   markMatch: "Рынок пошёл по плану", markHold: "Держался плана",
 
   sumTitle: "итог дня", sumAssets: "актива", sumTrades: "сделки",
@@ -1295,7 +1329,7 @@ en: {
   noTrades: "No trades on this instrument for this day",
   byPlan: "by plan", offPlan: "off plan", markIt: "mark",
   shareTip: "Share a summary of this trade alone",
-  shareDay: "Share", shareTip2: "Share the day review by link",
+  shareDay: "Share", shareTip2: "Share the day review by link", shareMonth: "Share the month",
   markMatch: "Market went as planned", markHold: "Held to the plan",
 
   sumTitle: "day summary", sumAssets: "instruments", sumTrades: "trades",

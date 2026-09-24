@@ -610,6 +610,7 @@ def ref_short(ref):
             return short
     return ref
 KIND_RU = {"trade": "Сделка", "day": "День", "week": "Неделя", "month": "Месяц", "year": "Год",
+           "reviewmonth": "Анализ дня · месяц",
            "ts": "Торговая система", "review": "Анализ дня", "period": "Период (старые)",
            "other": "Другое"}
 
@@ -1857,7 +1858,10 @@ class H(BaseHTTPRequestHandler):
             if rest == "list":
                 return self._json({"days": day_store.days(uid)})
             if rest == "stats":
-                since = (datetime.date.today() - datetime.timedelta(days=30)).isoformat()
+                # ?since=YYYY-MM-DD — для знімка місяця; без нього останні 30 днів
+                want = urllib.parse.parse_qs(urlparse(self.path).query).get("since", [""])[0]
+                since = want if day_store.valid_date(want) else \
+                    (datetime.date.today() - datetime.timedelta(days=30)).isoformat()
                 return self._json({"notes": day_store.notes_since(uid, since), "since": since})
             if not day_store.valid_date(rest):
                 return self._json({"error": "bad date"}, 400)
