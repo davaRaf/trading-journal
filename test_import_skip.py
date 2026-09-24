@@ -201,7 +201,7 @@ def main():
     ok &= case("RR з мінусами — результат із RR, записаний не чіпаємо",
                ([t["result"] for t in got],
                 any("порахували з RR" in w for w in job.warnings)),
-               (["Win", "Loss", "BE+", "Loss"], True))
+               (["Win", "Loss", "BE", "Loss"], True))
     got, job = run_rr([rrow("EURUSD", "3"), rrow("GBPUSD", "2")])
     ok &= case("RR без мінусів — це план, результат не вигадуємо",
                [t["result"] for t in got], ["", ""])
@@ -213,6 +213,25 @@ def main():
                            "properties": {"p": [["EURUSD"]]}}, sch)
     ok &= case("Created time — дата з рядка", props,
                {"Pair": "EURUSD", "Created": "2023-02-08T09:00"})
+
+    # свінг — стиль угоди, а не сесія: із сесії переносимо в сетап
+    from notion_import import split_swing
+    ok &= case("свінг із сесії — у сетап, у будь-якому написанні",
+               [split_swing("SWING", ""), split_swing("LO, Swing trade", "OB"),
+                split_swing("свінг", "Swing"), split_swing("СВИНГ", ""),
+                split_swing("NY", "OB")],
+               [("", "Swing"), ("LO", "OB, Swing"), ("", "Swing"),
+                ("", "Swing"), ("NY", "OB")])
+
+    # скрін посиланням на TradingView: сторінка — це HTML, картинка лежить окремо
+    from notion_import import shot_url
+    ok &= case("посилання на TradingView — пряма картинка, без хвоста й з https",
+               [shot_url("https://www.tradingview.com/x/095ElZgk/ TradingView"),
+                shot_url("ttps://www.tradingview.com/x/FR8do30b/"),
+                shot_url("https://www.notion.so/image/abc?x=1")],
+               ["https://s3.tradingview.com/snapshots/0/095ElZgk.png",
+                "https://s3.tradingview.com/snapshots/f/FR8do30b.png",
+                "https://www.notion.so/image/abc?x=1"])
 
     print("\n" + ("усе добре" if ok else "є помилки"))
     return 0 if ok else 1

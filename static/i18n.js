@@ -56,6 +56,7 @@ uk: {
   calTpTip: "Тейк-профіт", calSlTip: "Стоп-лос", calRevSuffix: "вхід проти біасу",
   calBePlusTip: "Беззбиток, потім ціна дійшла б до цілі",
   calBeMinusTip: "Беззбиток, потім ціна пішла проти",
+  calBeTip: "Беззбиток",
 
   // ---- огляд ----
   ovTitle: "Огляд", ovEmptyTitle: "Журнал порожній",
@@ -159,6 +160,7 @@ uk: {
   calcStopMsg: "Стоп забирає ризик повністю",
   calcBePlusMsg: "Беззбиток, але ціна дійшла б до цілі",
   calcBeMinusMsg: "Беззбиток, далі пішло проти",
+  calcBeMsg: "Беззбиток",
   calcSkipMsg: "Скіп — угоду не відкривав, у статистику не йде",
   calcOpenMsg: "В роботі — у статистику піде, коли впишеш результат",
 
@@ -173,7 +175,7 @@ uk: {
   aMenu: "Меню", shotClip: "з буфера",
 
   alertNeedPair: "Вкажи інструмент", alertNeedDate: "Вкажи дату",
-  alertNeedResult: "Вкажи результат — TP / SL / BE− / BE+ або «В роботі»",
+  alertNeedResult: "Вкажи результат — TP / SL / BE / BE− / BE+ або «В роботі»",
   alertNeedRR: "Для TP потрібен RR — інакше результат порахується як 0R",
   alertSaveFail: "Не збереглося: ",
   errTooBig: "файл завеликий — зменш скріншот або додай менше за раз",
@@ -211,7 +213,7 @@ uk: {
   ntCancelImport: "Скасувати перенесення",
   ntAddMoreLead: "Журнал можна зібрати з кількох баз: встав посилання на другу — її угоди додадуться до тих, що вже є.",
   ntSourcesTitle: "Перенесені журнали",
-  ntSourcesHint: "Натисни на журнал, щоб прочитати його ще раз: нові угоди додадуться, старі не задвояться. «Відв'язати» спиняє оновлення й лишає угоди, «Прибрати угоди» стирає перенесене.",
+  ntSourcesHint: "Натисни на журнал, щоб прочитати його ще раз: нові угоди додадуться, старі не задвояться. «Відв'язати» спиняє оновлення й прибирає угоди, перенесені з цього журналу.",
   ntAutoEvery: "Та ми й самі перечитуємо ці журнали кожні %d год.",
   ntAutoDaily: "Та ми й самі перечитуємо ці журнали раз на добу.",
   ntAutoLast: "Востаннє —",
@@ -222,7 +224,7 @@ uk: {
   /* Дві різні дії біля кожної бази: відв'язати (обмін спиняється, угоди
      лишаються) і прибрати угоди цього перенесення. */
   ntSrcOff: "Відв'язати",
-  ntConfirmOff: "Відв'язати цей журнал? Угоди лишаться в журналі, а оновлення з Notion припиниться.",
+  ntConfirmOff: "Відв'язати цей журнал? Оновлення з Notion припиниться, а всі угоди, перенесені з нього, приберуться разом зі скріншотами.",
   ntOffDone: "Журнал відв'язано: оновлення з нього більше не приходять, угоди лишились на місці.",
   ntHaveAlready: "У журналі вже є",
   ntHaveWillAdd: "— перенесені додадуться до них. Якщо це чужі або демонстраційні, прибери їх до перенесення.",
@@ -694,6 +696,7 @@ ru: {
   calTpTip: "Тейк-профит", calSlTip: "Стоп-лосс", calRevSuffix: "вход против биаса",
   calBePlusTip: "Безубыток, потом цена дошла бы до цели",
   calBeMinusTip: "Безубыток, потом цена пошла против",
+  calBeTip: "Безубыток",
 
   ovTitle: "Обзор", ovEmptyTitle: "Журнал пуст",
   ovEmptyHint: "Добавь первую сделку — статистика соберётся сама.<br>Старые сделки можно загрузить через «Импорт» слева внизу.",
@@ -788,6 +791,7 @@ ru: {
   calcStopMsg: "Стоп забирает риск полностью",
   calcBePlusMsg: "Безубыток, но цена дошла бы до цели",
   calcBeMinusMsg: "Безубыток, дальше пошло против",
+  calcBeMsg: "Безубыток",
   calcSkipMsg: "Скип — сделку не открывал, в статистику не идёт",
   calcOpenMsg: "В работе — в статистику пойдёт, когда впишешь результат",
 
@@ -802,7 +806,7 @@ ru: {
   aMenu: "Меню", shotClip: "из буфера",
 
   alertNeedPair: "Укажи инструмент", alertNeedDate: "Укажи дату",
-  alertNeedResult: "Укажи результат — TP / SL / BE− / BE+ или «В работе»",
+  alertNeedResult: "Укажи результат — TP / SL / BE / BE− / BE+ или «В работе»",
   alertNeedRR: "Для TP нужен RR — иначе результат посчитается как 0R",
   alertSaveFail: "Не сохранилось: ",
   errTooBig: "файл слишком большой — уменьши скриншот или добавь меньше за раз",
@@ -839,7 +843,7 @@ ru: {
   ntCancelImport: "Отменить перенесение",
   ntAddMoreLead: "Журнал можно собрать из нескольких баз: вставь ссылку на вторую — её сделки добавятся к тем, что уже есть.",
   ntSourcesTitle: "Перенесённые журналы",
-  ntSourcesHint: "Нажми на журнал, чтобы прочитать его ещё раз: новые сделки добавятся, старые не задвоятся. «Отвязать» останавливает обновление и оставляет сделки, «Убрать сделки» стирает перенесённое.",
+  ntSourcesHint: "Нажми на журнал, чтобы прочитать его ещё раз: новые сделки добавятся, старые не задвоятся. «Отвязать» останавливает обновление и убирает сделки, перенесённые из этого журнала.",
   ntAutoEvery: "Да мы и сами перечитываем эти журналы каждые %d ч.",
   ntAutoDaily: "Да мы и сами перечитываем эти журналы раз в сутки.",
   ntAutoLast: "В последний раз —",
@@ -850,7 +854,7 @@ ru: {
   /* Два разных действия у каждой базы: отвязать (обмен прекращается, сделки
      остаются) и убрать сделки этого перенесения. */
   ntSrcOff: "Отвязать",
-  ntConfirmOff: "Отвязать этот журнал? Сделки останутся в журнале, а обновление из Notion прекратится.",
+  ntConfirmOff: "Отвязать этот журнал? Обновление из Notion прекратится, а все сделки, перенесённые из него, уберутся вместе со скриншотами.",
   ntOffDone: "Журнал отвязан: обновления из него больше не приходят, сделки остались на месте.",
   ntHaveAlready: "В журнале уже есть",
   ntHaveWillAdd: "— перенесённые добавятся к ним. Если это чужие или демонстрационные — убери их до перенесения.",
@@ -1311,6 +1315,7 @@ en: {
   calTpTip: "Take-profit", calSlTip: "Stop-loss", calRevSuffix: "entry against bias",
   calBePlusTip: "Breakeven, then price would have reached target",
   calBeMinusTip: "Breakeven, then price went against",
+  calBeTip: "Breakeven",
 
   ovTitle: "Overview", ovEmptyTitle: "Journal is empty",
   ovEmptyHint: "Add your first trade — the stats will build themselves.<br>Old trades can be loaded via «Import» in the bottom left.",
@@ -1405,6 +1410,7 @@ en: {
   calcStopMsg: "The stop takes the full risk",
   calcBePlusMsg: "Breakeven, but price would have reached target",
   calcBeMinusMsg: "Breakeven, then it went against you",
+  calcBeMsg: "Breakeven",
   calcSkipMsg: "Skip — no trade taken, not counted in stats",
   calcOpenMsg: "In progress — goes into stats once you add the result",
 
@@ -1419,7 +1425,7 @@ en: {
   aMenu: "Menu", shotClip: "from clipboard",
 
   alertNeedPair: "Enter an instrument", alertNeedDate: "Enter a date",
-  alertNeedResult: "Choose a result — TP / SL / BE− / BE+ or «In progress»",
+  alertNeedResult: "Choose a result — TP / SL / BE / BE− / BE+ or «In progress»",
   alertNeedRR: "TP needs an RR — otherwise the result will count as 0R",
   alertSaveFail: "Couldn't save: ",
   errTooBig: "file is too large — shrink the screenshot or add fewer at once",
@@ -1456,7 +1462,7 @@ en: {
   ntCancelImport: "Undo import",
   ntAddMoreLead: "A journal can be built from several databases: paste a link to the second one — its trades will be added to what's already here.",
   ntSourcesTitle: "Imported journals",
-  ntSourcesHint: "Click a journal to read it again: new trades will be added, old ones won't be duplicated. \"Disconnect\" stops updates and keeps the trades, \"Remove trades\" deletes what the import brought.",
+  ntSourcesHint: "Click a journal to read it again: new trades will be added, old ones won't be duplicated. \"Disconnect\" stops updates and removes the trades imported from this journal.",
   ntAutoEvery: "We also re-read these journals ourselves every %d h.",
   ntAutoDaily: "We also re-read these journals ourselves once a day.",
   ntAutoLast: "Last time —",
@@ -1467,7 +1473,7 @@ en: {
   /* Two separate actions per source: disconnect (updates stop, trades stay)
      and remove the trades this import brought. */
   ntSrcOff: "Disconnect",
-  ntConfirmOff: "Disconnect this journal? The trades stay in your journal, but updates from Notion will stop.",
+  ntConfirmOff: "Disconnect this journal? Updates from Notion will stop, and all trades imported from it will be removed along with their screenshots.",
   ntOffDone: "Journal disconnected: no more updates from it, the trades are still here.",
   ntHaveAlready: "Your journal already has",
   ntHaveWillAdd: "— the imported ones will be added to them. If those are someone else's or demo trades, remove them before importing.",
