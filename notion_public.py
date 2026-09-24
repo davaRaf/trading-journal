@@ -31,7 +31,7 @@ import urllib.request
 
 import tidy
 from notion_import import (NotionError, Job, guess_mapping, NORMALIZE, FIELDS,
-                           download, guess_tf, MAX_SHOT, NET_TIMEOUT)
+                           download, guess_tf, split_swing, MAX_SHOT, NET_TIMEOUT)
 
 BASE = "https://www.notion.so/api/v3/"
 IMG = "https://www.notion.so/image/"
@@ -371,7 +371,7 @@ def rr_is_outcome(blocks, ids, schema, mapping):
 
 
 def result_from_rr(rr):
-    return "Win" if rr > 0 else ("Loss" if rr < 0 else "BE+")
+    return "Win" if rr > 0 else ("Loss" if rr < 0 else "BE")
 
 
 def map_simple(props, mapping):
@@ -382,6 +382,7 @@ def map_simple(props, mapping):
         raw = props.get(col, "") if col else ""
         fn = NORMALIZE.get(field)
         t[field] = fn(raw) if fn else (str(raw).strip() if raw is not None else "")
+    t["session"], t["setup"] = split_swing(t.get("session", ""), t.get("setup", ""))
     return t
 
 
@@ -709,7 +710,11 @@ def run_public_import(job, tables, mapping, opts, shots_dir, known_pairs, existi
                 shots = []
                 for i, im in enumerate(images):
                     try:
-                        base = "notion_%s_%d" % (re.sub(r"[^0-9a-f]", "", bid)[:32], i)
+                        # Код перенесення в імені: браузер тримає скрін тиждень, і
+                        # при повторному перенесенні під старим іменем показував
+                        # стару (биту) копію замість нової.
+                        base = "notion_%s_%s_%d" % (re.sub(r"[^0-9A-Za-z]", "", job.batch)[:12],
+                                                    re.sub(r"[^0-9a-f]", "", bid)[:32], i)
                         shots.append({"tf": guess_tf(im.get("caption"), im["url"]),
                                       "file": download(im["url"], shots_dir, base)})
                         job.shots += 1

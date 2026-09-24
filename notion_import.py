@@ -330,7 +330,7 @@ SHORT = ("short", "шорт", "sell", "продажа", "продаж", "bear", 
 RESULTS = [
     (("be+", "be +", "беззбиток+", "безубыток+", "бу+"), "BE+"),
     (("be-", "be -", "беззбиток-", "безубыток-", "бу-"), "BE-"),
-    (("be", "breakeven", "break even", "беззбиток", "безубыток", "бу", "нуль", "ноль"), "BE+"),
+    (("be", "breakeven", "break even", "беззбиток", "безубыток", "бу", "нуль", "ноль"), "BE"),
     (("win", "tp", "take", "profit", "прибуток", "прибыль", "тейк", "плюс", "+"), "Win"),
     (("loss", "sl", "stop", "збиток", "убыток", "стоп", "мінус", "минус", "-"), "Loss"),
 ]
@@ -462,6 +462,22 @@ def norm_session(v):
     return SESSION_SAME.get(up, up if len(up) <= _SESSION_MAX else s)
 
 
+# Свінг — це стиль угоди, а не сесія, але в Notion його часто пишуть у колонку
+# сесій. Тоді в огляді серед LONDON і NY з'являється «SWING».
+_SWING_RE = re.compile(r"swing|св[иі]нг", re.I)
+
+
+def split_swing(session, setup):
+    """Свінг із сесії — у сетап. Решту сесії лишаємо як є («LO, Swing» → «LO»)."""
+    parts = [p.strip() for p in re.split(r"[,;/]", session or "") if p.strip()]
+    keep = [p for p in parts if not _SWING_RE.search(p)]
+    if len(keep) == len(parts):
+        return session, setup
+    if not _SWING_RE.search(setup or ""):
+        setup = (setup + ", Swing") if setup else "Swing"
+    return ", ".join(keep), setup
+
+
 NORMALIZE = {
     "pair": norm_pair,
     "session": norm_session,
@@ -486,9 +502,35 @@ def guess_tf(*parts):
     return ""
 
 
+_TV_PAGE = re.compile(r"tradingview\.com/x/([A-Za-z0-9]+)", re.I)
+
+
+def shot_url(url):
+    """Посилання на скрін, яке людина вставила руками, — до ладу.
+
+    У Notion картинку часто додають посиланням на TradingView, і воно буває
+    з хвостом («…/x/095ElZgk/ TradingView») або без першої літери («ttps://»).
+    А сторінка tradingview.com/x/ID — це HTML навколо картинки; сама
+    картинка лежить на s3.tradingview.com/snapshots/<перша літера>/<ID>.png."""
+    url = (str(url or "").strip().split() or [""])[0]
+    m = re.match(r"^h?t?tp(s?)://", url, re.I)
+    if m:
+        url = "http" + m.group(1).lower() + url[m.end() - 3:]
+    elif url.startswith("//"):
+        url = "https:" + url
+    elif url and "://" not in url and re.match(r"^[\w.-]+\.[a-z]{2,}/", url, re.I):
+        url = "https://" + url
+    m = _TV_PAGE.search(url)
+    if m:
+        sid = m.group(1)
+        url = "https://s3.tradingview.com/snapshots/%s/%s.png" % (sid[0].lower(), sid)
+    return url
+
+
 def download(url, dest_dir, base):
     """Тянем картинку к себе. Ссылки Notion живут около часа, поэтому
        откладывать загрузку нельзя — качаем прямо во время импорта."""
+    url = shot_url(url)
     req = urllib.request.Request(url)
     req.add_header("User-Agent", UA)
     with urllib.request.urlopen(req, timeout=NET_TIMEOUT) as r:
@@ -496,6 +538,9 @@ def download(url, dest_dir, base):
         data = r.read(MAX_SHOT + 1)
     if len(data) > MAX_SHOT:
         raise NotionError("картинка завелика")
+    # сторінку замість картинки не зберігаємо — у журналі був би битий скрін
+    if ctype.startswith("text/"):
+        raise NotionError("за посиланням сторінка, а не картинка: %s" % url[:80])
     ext = {"image/png": "png", "image/jpeg": "jpg", "image/webp": "webp",
            "image/gif": "gif"}.get(ctype)
     if not ext:

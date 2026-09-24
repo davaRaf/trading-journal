@@ -466,6 +466,7 @@ function calHtml(ym, clickFn, selDay){
           (t.result==="WinM"?T.calHandTip:T.calTpTip)+(rv?" · "+T.calRevSuffix:"")+'">TP</i>';
         if(t.result==="Loss") return '<i class="mk sl'+(rv?" rev":"")+'" data-tip="'+T.calSlTip+(rv?" · "+T.calRevSuffix:"")+'">SL</i>';
         if(t.result==="BE+")  return '<i class="mk beplus'+(rv?" rev":"")+'" data-tip="'+T.calBePlusTip+'">BE+</i>';
+        if(t.result==="BE")   return '<i class="mk be'+(rv?" rev":"")+'" data-tip="'+T.calBeTip+'">BE</i>';
         return '<i class="mk be'+(rv?" rev":"")+'" data-tip="'+T.calBeMinusTip+'">BE\u2212</i>';
       }).join("");
       body='<div class="marks">'+marks+'</div><div class="res '+clsR(net)+'">'+fmtR(net)+"</div>";
@@ -629,7 +630,7 @@ function uniqueVals(field){
   return [...set].sort();
 }
 function filterBar(){
-  const selects=[["result",T.fResult,["Win","WinM","Loss","BE-","BE+","Skip","Open"]],["position",T.fPosition,["Long","Short"]],
+  const selects=[["result",T.fResult,["Win","WinM","Loss","BE","BE-","BE+","Skip","Open"]],["position",T.fPosition,["Long","Short"]],
     ["account",T.fAccount,uniqueVals("account")],
     ["pair",T.fPair,uniqueVals("pair")],["session",T.fSession,uniqueVals("session")],
     ["setup",T.fSetup,uniqueVals("setup")],["entry_model",T.flModel,uniqueVals("entry_model")],
@@ -713,7 +714,7 @@ function applyFilters(list){
 
 /* ---------- Обзор: раскладка из макета (design/dash.html) ---------- */
 function OV_PERIODS(){ return [["month",T.ovPeriodMonth],["quarter",T.ovPeriodQuarter],["year",T.ovPeriodYear]]; }
-const RES_TAG = {"Win":"TP","WinM":"TP","Loss":"SL","BE-":"BE−","BE+":"BE+","Skip":"·","Open":"…"};
+const RES_TAG = {"Win":"TP","WinM":"TP","Loss":"SL","BE":"BE","BE-":"BE−","BE+":"BE+","Skip":"·","Open":"…"};
 
 function ovSetPeriod(p){ S.ovPeriod=p; render(); }
 function ovOpenDay(key){
@@ -2055,7 +2056,7 @@ function openForm(id, presetDay){
   '<section class="fcard accent"><h4>'+T.fmResultSection+'</h4><div class="fbody">'+
     '<div class="f"><label>'+T.fmFinishedAs+' <i>*</i></label>'+
       seg("result",[{v:"Win",t:"TP",cls:"win"},{v:"WinM",t:T.resHand,cls:"win"},
-                    {v:"Loss",t:"SL",cls:"loss"},
+                    {v:"Loss",t:"SL",cls:"loss"},{v:"BE",t:"BE",cls:"bek"},
                     {v:"BE-",t:"BE\u2212",cls:"bek"},{v:"BE+",t:"BE+",cls:"bepk"},
                     {v:"Skip",t:T.resSkip,cls:"skipk"},
                     {v:"Open",t:T.resOpen,cls:"openk"}],t?t.result:"","big res")+"</div>"+
@@ -2185,7 +2186,7 @@ function calcOutcome(){
     box.innerHTML='<span class="big">…</span><span class="txt">'+T.calcOpenMsg+"</span>";
     return;
   }
-  else { val=0; txt = res==="BE+" ? T.calcBePlusMsg : T.calcBeMinusMsg; }
+  else { val=0; txt = res==="BE+" ? T.calcBePlusMsg : res==="BE" ? T.calcBeMsg : T.calcBeMinusMsg; }
   box.className="outcome "+(val>0.0001?"pos":val<-0.0001?"neg":"be");
   box.innerHTML='<span class="big">'+fmtR(val)+'</span><span class="txt">'+txt+"</span>";
 }

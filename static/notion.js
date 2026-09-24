@@ -217,11 +217,8 @@ function sourcesHtml(){
     +   "<span>" + (s.count || 0) + " " + word(s.count || 0) + "</span>"
     +   "<i>" + esc([s.when, shortLink(s.url)].filter(Boolean).join(" · ")) + "</i>"
     + "</button>"
-    + '<button type="button" class="btn nt-src-x" onclick="__notion.off(\'' + esc(s.id) + '\')">'
-    +   T.ntSrcOff
-    + "</button>"
     + '<button type="button" class="btn nt-src-x" onclick="__notion.undo(\'' + esc(s.id) + '\')">'
-    +   T.ntSrcRemove
+    +   T.ntSrcOff
     + "</button></div>").join("");
 
   return '<div class="nt-srcs"><div class="nt-sub">' + T.ntSourcesTitle + "</div>"
@@ -564,20 +561,11 @@ function open(){
   tab("notion");
 }
 
-/* Відв'язати базу: оновлення з неї припиняється, угоди лишаються.
-   Окремо від «прибрати угоди» — людина, яка відключає Notion, майже
-   ніколи не хоче заразом стерти півтори сотні своїх записів. */
-async function off(id){
-  if (!await Ask.yes(T.ntConfirmOff, {ok:T.askYes, cancel:T.askNo})) return;
-  try{ await call("POST", "/api/notion/off/" + id, {}); }
-  catch(e){ return err(e.message); }
-  await refresh();
-  try{ await reload(); render(); }catch(e){}
-  stepLink(T.ntOffDone);
-}
-
+/* Відв'язати базу — разом з її угодами: оновлення припиняється, а все, що
+   з неї перенесли, прибирається зі скріншотами. Колись це були дві кнопки,
+   але відв'язаний журнал без угод людям і потрібен. */
 async function undo(id){
-  if (!await Ask.yes(T.ntConfirmUndo, {ok:T.askYes, cancel:T.askNo, danger:true})) return;
+  if (!await Ask.yes(T.ntConfirmOff, {ok:T.askYes, cancel:T.askNo, danger:true})) return;
   let r;
   try{ r = await call("POST", "/api/notion/undo/" + id, {}); }
   catch(e){ return err(e.message); }
@@ -590,7 +578,7 @@ async function undo(id){
 }
 
 window.__notion = {
-  open, tab, run, toMap, undo, off,
+  open, tab, run, toMap, undo,
   back: stepLink,
   toTables(){ stepTables([]); },
   /* Натиснули на вже перенесену базу — читаємо її ще раз: у Notion

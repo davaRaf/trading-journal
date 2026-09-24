@@ -523,29 +523,6 @@ def drop_import(user_id, batch):
     return removed
 
 
-def disconnect_source(user_id, batch):
-    """Відв'язує базу: оновлення з неї більше не ходить, угоди лишаються.
-
-    Це не те саме, що «прибрати угоди». Людина, яка відв'язує Notion, майже
-    завжди хоче зупинити обмін, а не викинути півтори сотні своїх записів —
-    раніше ці дві дії робила одна кнопка, і відв'язатись, не втративши
-    журнал, було нічим."""
-    batch = str(batch or "")[:32]
-    if not batch:
-        return False
-    conf = notion_conf(user_id)
-    left = [s for s in conf.get("sources") or [] if s["id"] != batch]
-    if len(left) == len(conf.get("sources") or []):
-        return False
-    conf["sources"] = left
-    if (conf.get("last") or {}).get("id") == batch:
-        conf.pop("last", None)
-    if not left:
-        _forget_notion(conf)
-    notion_save(user_id, conf)
-    return True
-
-
 def _forget_notion(conf):
     """Останню базу зняли — прибираємо й те, що її описувало. Інакше сайт
     вважав би Notion підключеним через саме лише посилання, яке людина
@@ -2880,13 +2857,13 @@ class H(BaseHTTPRequestHandler):
             n = drop_import(uid, p[len("/api/notion/undo/"):])
             return self._json({"removed": n})
 
-        # Відв'язати базу: оновлення з неї припиняється, угоди лишаються
-        # в журналі. Прибирання угод — сусідній маршрут, і це навмисно
-        # дві різні дії.
+        # Відв'язати базу — разом з її угодами, як і «undo» вище. Маршрут
+        # лишається для сторінок, що ще тримають старий notion.js у кеші.
         if p.startswith("/api/notion/off/"):
-            off = disconnect_source(uid, p[len("/api/notion/off/"):])
+            n = drop_import(uid, p[len("/api/notion/off/"):])
             conf = notion_conf(uid)
-            return self._json({"ok": off, "left": len(conf.get("sources") or [])})
+            return self._json({"ok": True, "removed": n,
+                               "left": len(conf.get("sources") or [])})
 
         if p == "/api/notion/forget":
             try:
