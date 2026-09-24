@@ -2040,8 +2040,11 @@ class H(BaseHTTPRequestHandler):
                 return self._json({"error": "завдання не знайдено"}, 404)
             return self._json(job.snapshot())
 
-        # публічні сторінки: їх вимагає Google для входу через акаунт
-        if p in ("/privacy", "/terms"):
+        # Публічні сторінки. Приватність і умови вимагає Google для входу
+        # через акаунт; умови, тарифи й повернення — платіжний сервіс під
+        # час перевірки сайту. Адреси без .html: так вони роздаються давно,
+        # і посилання на них уже розійшлись.
+        if p in ("/privacy", "/terms", "/refund", "/pricing"):
             return self._file(os.path.join(STATIC, p.strip("/") + ".html"), "text/html; charset=utf-8")
 
         # Ярлик на телефоні. Коли на сторінці немає посилання на іконку —
