@@ -385,11 +385,32 @@ function monthSnapshot(mk){
   };
 }
 
+/* Місяці періоду (рік, квартал): кожен зі своїм календарем днів, а в днях —
+   угоди. Сторінка за посиланням розкриває місяць у календар, день — в угоди.
+   Блок «по місяцях» лишаємо для превʼю (стовпчики в OgCal), на сторінці
+   його не показуємо — там ті ж місяці, але живі (og: true). */
+function periodMonths(list, keys){
+  const months = groupBy(list, monKey);
+  return keys.filter(mk => months.has(mk)).map(mk => {
+    const ml = months.get(mk);
+    const [y, m] = mk.split("-");
+    const last = new Date(+y, +m, 0).getDate();
+    const from = mk + "-01", to = mk + "-" + String(last).padStart(2, "0");
+    return { ym: mk, name: T.months[+m - 1] + " " + y, n: ml.length, net: calc(ml).net,
+             calendar: {span: "month", from: from, to: to, days: dayCells(ml, from, to)} };
+  });
+}
+function monthBlock(months){
+  return months.length
+    ? { title: T.slByMonths, og: true,
+        items: months.map(m => ({ name: T.months[+m.ym.slice(5, 7) - 1], value: m.net })) }
+    : null;
+}
+
 function yearSnapshot(y){
   const list = S.all.filter(t => (t.date||"").slice(0,4) === String(y));
-  const months = groupBy(list, monKey);
-  const byMonth = [...months.keys()].sort()
-    .map(mk => ({ name: T.months[+mk.slice(5,7) - 1], value: calc(months.get(mk)).net }));
+  const keys = [...groupBy(list, monKey).keys()].sort();
+  const months = periodMonths(list, keys);
   const bt = typeof btOn === "function" && btOn();
   return {
     kind: bt ? T.slKindBtYear : T.slKindYear,
@@ -398,10 +419,42 @@ function yearSnapshot(y){
     title: String(y),
     total: calc(list).net,
     kpis: statsOf(list),
+    months: months,
     blocks: [
-      byMonth.length ? { title:T.slByMonths, items: byMonth } : null,
+      monthBlock(months),
       sliceBlock(T.railSetups, list, "setup"),
       sliceBlock(T.railInstruments, list, "pair"),
+    ].filter(Boolean),
+  };
+}
+
+/* квартал: ключ «2026-Q3» */
+function quarterMonths(qk){
+  const [y, q] = qk.split("-Q").map(Number);
+  return [0, 1, 2].map(i => y + "-" + String((q - 1) * 3 + 1 + i).padStart(2, "0"));
+}
+function quarterOf(mk){
+  const [y, m] = mk.split("-").map(Number);
+  return y + "-Q" + (Math.floor((m - 1) / 3) + 1);
+}
+function quarterSnapshot(qk){
+  const keys = quarterMonths(qk);
+  const list = S.all.filter(t => keys.indexOf(monKey(t)) >= 0);
+  const months = periodMonths(list, keys);
+  const [y, q] = qk.split("-Q");
+  const bt = typeof btOn === "function" && btOn();
+  return {
+    kind: T.slKindQuarter, kindFull: T.slOgQuarter,
+    bt: bt || undefined,
+    title: "Q" + q + " " + y,
+    total: calc(list).net,
+    kpis: statsOf(list),
+    months: months,
+    blocks: [
+      monthBlock(months),
+      sliceBlock(T.railSetups, list, "setup"),
+      sliceBlock(T.railInstruments, list, "pair"),
+      sliceBlock(T.railSessions, list, "session"),
     ].filter(Boolean),
   };
 }
@@ -446,6 +499,7 @@ function open(kind, arg){
              : kind === "day"    ? daySnapshot(arg)
              : kind === "week"  ? weekSnapshot(arg)
              : kind === "month" ? monthSnapshot(arg)
+             : kind === "quarter" ? quarterSnapshot(arg)
              :                    yearSnapshot(arg);
   let data = build();
   if (!data) return;
@@ -575,7 +629,7 @@ function open(kind, arg){
       /* Для тижня й місяця малюємо календар — він піде в превью посилання.
          Не вийшло намалювати чи покласти — не біда: посилання створиться
          й без картинки, просто в месенджері буде без неї. */
-      else if (window.OgCal && (data.calendar || data.ts || data.rvMonth || kind === "day")){
+      else if (window.OgCal && (data.calendar || data.ts || data.rvMonth || data.months || kind === "day")){
         try{
           const png = data.ts ? OgCal.system(data)
                     : data.rvMonth ? OgCal.rvMonth(data)
@@ -677,6 +731,7 @@ function hasWeek(dk){
 }
 function hasMonth(mk){ return !!mk && S.all.some(t => monKey(t) === mk); }
 function hasYear(y){   return !!y  && S.all.some(t => monKey(t).slice(0,4) === y); }
+function hasQuarter(qk){ return !!qk && S.all.some(t => quarterOf(monKey(t)) === qk); }
 
 /* ---- смуга над розділом: одна кнопка «Поділитися» ----
    Раніше тут стояло по кнопці на кожен період — і поруч із підписом
@@ -698,6 +753,7 @@ function mountBar(){
   if (!bt && hasDay(d))  choices.push({ label:T.slDay,         kind:"day",   arg:d });
   if (!bt && hasWeek(d)) choices.push({ label:T.slWeek,        kind:"week",  arg:d });
   if (hasMonth(mk))      choices.push({ label:T.ovPeriodMonth, kind:"month", arg:mk });
+  if (mk && hasQuarter(quarterOf(mk))) choices.push({ label:T.ovPeriodQuarter, kind:"quarter", arg:quarterOf(mk) });
   if (hasYear(year))     choices.push({ label:T.ovPeriodYear,  kind:"year",  arg:year });
   if (!choices.length) return;
 

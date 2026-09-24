@@ -210,7 +210,7 @@ def clean_trade(body, tid):
 # У каждой ссылки свой срок жизни; просроченные удаляются при обращении.
 # ---------------------------------------------------------------------------
 SHARE_DIR = os.path.join(DATA, "shares")
-SHARE_MAX = 256 * 1024          # больше снимку не нужно
+SHARE_MAX = 1536 * 1024         # рік із календарями по місяцях і угодами всередині
 SHARE_TTL = share_store.TTL     # що можна вибрати в інтерфейсі; бот бере той самий список
 os.makedirs(SHARE_DIR, exist_ok=True)
 _share_lock = threading.Lock()
@@ -235,6 +235,11 @@ def share_trades(rec):
     for day in ((d.get("calendar") or {}).get("days") or []):
         for t in day.get("trades") or []:
             yield t
+    # рік і квартал: календарі лежать по місяцях
+    for m in d.get("months") or []:
+        for day in ((m.get("calendar") or {}).get("days") or []):
+            for t in day.get("trades") or []:
+                yield t
     for a in ((d.get("review") or {}).get("assets") or []):
         for t in a.get("trades") or []:
             yield t
@@ -610,6 +615,7 @@ def ref_short(ref):
             return short
     return ref
 KIND_RU = {"trade": "Сделка", "day": "День", "week": "Неделя", "month": "Месяц", "year": "Год",
+           "quarter": "Квартал",
            "reviewmonth": "Анализ дня · месяц",
            "ts": "Торговая система", "review": "Анализ дня", "period": "Период (старые)",
            "other": "Другое"}

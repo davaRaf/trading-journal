@@ -441,6 +441,18 @@ html{interpolate-size:allow-keywords}
 .cal .dc.neg .v{color:var(--down)}
 .cal .dc.zero .v{color:var(--be)}
 .cal .dc.on{box-shadow:inset 0 0 0 1.5px var(--g)}
+/* місяці року чи кварталу */
+.months{display:flex; flex-direction:column; gap:6px}
+.mrow{display:grid; grid-template-columns:1fr auto auto; gap:14px; align-items:center; padding:12px 14px;
+  border:1px solid var(--line-soft); border-radius:12px; background:var(--card); font:inherit; color:inherit;
+  cursor:pointer; text-align:left; transition:background .15s}
+.mrow:hover{background:var(--panel-2)}
+.mrow.on{box-shadow:inset 0 0 0 1.5px var(--g)}
+.mrow .l{font-weight:600; font-size:14.5px}
+.mrow .c{font-size:12px; color:var(--faint)}
+.mrow .r{font-family:var(--mono); font-size:15px; font-variant-numeric:tabular-nums}
+.mrow .r.pos{color:var(--up)} .mrow .r.neg{color:var(--down)} .mrow .r.zero{color:var(--be)}
+.mcal{margin:4px 0 12px}
 /* місяць розборів: колір клітинки — оцінка дня */
 .cal .dc.rv{cursor:default}
 .cal .dc.rv .v{font-family:var(--sans); font-size:12px; font-weight:600; margin-top:auto; line-height:1.2}
@@ -778,7 +790,40 @@ function rvMonthHtml(rm){
     + '<div class="grid">' + cells + "</div></div>";
 }
 
-function calHtml(cal){
+/* Місяці року чи кварталу: рядок — підсумок, клік розкриває календар
+   місяця, у календарі клік по дню відкриває угоди (calHtml/dayOpenHtml). */
+let MONTHS = null, MOPEN = null;
+function monthsInner(ms){
+  return ms.map(m =>
+    '<button type="button" class="mrow' + (MOPEN === m.ym ? " on" : "") + '" data-ym="' + esc(m.ym) + '">'
+    + '<span class="l">' + esc(m.name) + "</span>"
+    + '<span class="c">' + esc(nTrades(m.n)) + "</span>"
+    + '<span class="r ' + sign(m.net) + '">' + pct(m.net) + "</span></button>"
+    + (MOPEN === m.ym ? '<div class="mcal">' + calHtml(m.calendar, true) + "</div>" : "")
+  ).join("");
+}
+function monthsBlock(ms){
+  if (!ms || !ms.length) return "";
+  MONTHS = ms;
+  return '<div class="sect">' + esc(T.shMonthsTitle) + "</div>"
+    + '<p class="hintline">' + esc(T.shMonthsHint) + "</p>"
+    + '<div class="months" id="months">' + monthsInner(ms) + "</div>";
+}
+document.addEventListener("click", e => {
+  const row = e.target.closest && e.target.closest(".months .mrow");
+  if (!row || !MONTHS) return;
+  MOPEN = (MOPEN === row.dataset.ym) ? null : row.dataset.ym;
+  CALOPEN = null;
+  const box = document.getElementById("months");
+  if (box){
+    box.innerHTML = monthsInner(MONTHS);
+    const on = box.querySelector(".mrow.on");
+    if (on) on.scrollIntoView({behavior: "smooth", block: "start"});
+  }
+  fadeSoon();
+});
+
+function calHtml(cal, bare){
   if (!cal || !(cal.days || []).length) return "";
   CAL = cal;
   const first = new Date(cal.days[0].date + "T00:00");
@@ -798,8 +843,8 @@ function calHtml(cal){
   const wd = (T.shCalWd || ["пн","вт","ср","чт","пт","сб","нд"])
     .map(w => "<span>" + esc(w) + "</span>").join("");
   const open = CALOPEN ? dayOpenHtml(cal.days.find(d => d.date === CALOPEN)) : "";
-  return '<div class="sect">' + esc(T.shCalTitle) + "</div>"
-    + '<p class="hintline">' + esc(T.shCalHint) + "</p>"
+  return (bare ? "" : '<div class="sect">' + esc(T.shCalTitle) + "</div>"
+    + '<p class="hintline">' + esc(T.shCalHint) + "</p>")
     + '<div class="cal ' + esc(cal.span || "") + '"><div class="wd">' + wd + "</div>"
     + '<div class="grid">' + cells + "</div></div>"
     + '<div id="dayOpen">' + open + "</div>";
@@ -1029,7 +1074,8 @@ function render(rec){
     + rvMonthHtml(d.rvMonth)
     + tsHtml(d.ts)
     + calHtml(d.calendar)
-    + (d.blocks || []).map(b => rows(b.title, b.items)).join("")
+    + monthsBlock(d.months)
+    + (d.blocks || []).filter(b => !b.og).map(b => rows(b.title, b.items)).join("")
     /* Знімок подивились — далі показуємо, звідки він. Це єдине місце,
        де людина, яка про журнал ще не чула, сама вирішує зайти. */
     + '<div class="cta"><div class="t">'
