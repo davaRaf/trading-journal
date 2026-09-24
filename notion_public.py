@@ -20,6 +20,7 @@
   даты                         — [["‣", [["d", {"start_date": "...", ...}]]]]
 """
 
+import datetime
 import json
 import re
 import threading
@@ -332,7 +333,45 @@ def row_props(block, schema):
             out[name] = ", ".join(x for x in (_REL.get(i, "") for i in rel_ids(rich)) if x)
             continue
         out[name] = _plain(rich)
+    # «Created time» / «Last edited time» у ячейці не лежать — Notion бере їх
+    # із самого рядка. Без цього дата приїжджала порожньою в кожної угоди.
+    for pid, meta in (schema or {}).items():
+        ptype = (meta or {}).get("type") or ""
+        if ptype in ("created_time", "last_edited_time") and block.get(ptype):
+            out[meta.get("name") or pid] = _stamp(block[ptype])
     return out, files
+
+
+def _stamp(ms):
+    """Мітка часу Notion (мілісекунди, UTC) -> «2023-02-08T09:00»."""
+    try:
+        return datetime.datetime.fromtimestamp(int(ms) / 1000.0, datetime.timezone.utc) \
+            .strftime("%Y-%m-%dT%H:%M")
+    except (TypeError, ValueError, OverflowError, OSError):
+        return ""
+
+
+def rr_is_outcome(blocks, ids, schema, mapping):
+    """RR у таблиці — підсумок угоди, а не план.
+
+    Результат часто рахують формулою («Profit», «Win?»), а значень формул
+    опублікована таблиця не віддає — він приїжджає порожнім у кожної угоди.
+    Тоді виводимо його з RR. Але тільки якщо в колонці є мінуси: «-1» буває
+    лише в підсумку. Де RR завжди додатний, це плановий RR — з нього всі
+    угоди стали б Win."""
+    col = mapping.get("rr")
+    if not col:
+        return False
+    for bid in ids:
+        props, _f = row_props(_unwrap(blocks.get(bid) or {}), schema)
+        v = NORMALIZE["rr"](props.get(col, ""))
+        if isinstance(v, (int, float)) and v < 0:
+            return True
+    return False
+
+
+def result_from_rr(rr):
+    return "Win" if rr > 0 else ("Loss" if rr < 0 else "BE+")
 
 
 def map_simple(props, mapping):
@@ -593,13 +632,19 @@ def run_public_import(job, tables, mapping, opts, shots_dir, known_pairs, existi
         odd = []          # названия строк без даты и результата — покажем в конце
         blank = 0         # сколько таких строк пропустили
         nopair = 0        # угод, у которых инструмент не прочитался
+        from_rr = 0       # угод, чей результат вывели из RR
 
         for ids, rm, schema, use, tname in plans:
             blocks = rm.get("block") or {}
+            by_rr = rr_is_outcome(blocks, ids, schema, use)
             for bid in ids:
                 job.done += 1
                 props, files = row_props(_unwrap(blocks.get(bid) or {}), schema)
                 t = map_simple(props, use)
+                if by_rr and not (t.get("result") or "").strip() \
+                   and isinstance(t.get("rr"), (int, float)):
+                    t["result"] = result_from_rr(t["rr"])
+                    from_rr += 1
                 if skip_known and bid in existing_ids:
                     job.skipped += 1
                     # Колонку могли зіставити не з першого разу: сесія в Notion
@@ -701,6 +746,10 @@ def run_public_import(job, tables, mapping, opts, shots_dir, known_pairs, existi
         elif nopair:
             job.warnings.append("у %d угод не прочитався інструмент: колонка порожня"
                                 % nopair)
+        if from_rr:
+            job.warnings.append("у %d угод результат порахували з RR: колонки з "
+                                "результатом у таблиці немає або це формула, а Notion "
+                                "не публікує значень формул" % from_rr)
         job.step = "готово"
         job.state = "done"
     except NotionError as ex:

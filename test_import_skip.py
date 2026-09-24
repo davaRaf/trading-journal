@@ -13,6 +13,9 @@ import notion_public as npub
 import tidy
 from notion_import import Job
 
+# справжнє читання рядка — fake_source нижче його підміняє
+ROW_PROPS = npub.row_props
+
 SCHEMA = {"c1": {"name": "Інструмент", "type": "title"},
           "c2": {"name": "Дата", "type": "date"},
           "c3": {"name": "Напрямок", "type": "select"},
@@ -169,6 +172,47 @@ def main():
     ok &= case("хоч одна назва відкрилась — не закрито",
                npub.closed_relations(blk, ["b1", "b2"], sch, ["Pair", "Setup", "Result"]), [])
     npub._REL.clear()
+
+    # Результат — формула («Profit»): Notion її значень не публікує, колонка
+    # порожня. Займати нею результат не можна, а вивести його можна з RR.
+    from notion_import import guess_mapping
+    types = {"Pair": "title", "Date": "date", "Profit": "formula", "RR": "number"}
+    vals = {"Pair": ["EURUSD", "GBPUSD"], "Date": ["2023-02-08", "2023-02-09"],
+            "Profit": ["", ""], "RR": ["3", "-1"]}
+    ok &= case("порожня формула не стає результатом",
+               guess_mapping(types, vals).get("result"), None)
+    vals["Profit"] = ["Win", "Loss"]
+    ok &= case("формула зі значеннями — береться",
+               guess_mapping(types, vals).get("result"), "Profit")
+
+    rr_map = dict(MAPPING, rr="RR")
+
+    def run_rr(rows):
+        fake_source(rows, "r")
+        got, job = [], Job("t")
+        npub.run_public_import(job, TABLE, rr_map,
+                               {"notes": False, "shots": False, "skipSimilar": False},
+                               ".", set(), set(), lambda items: got.extend(items), {})
+        return got, job
+
+    rrow = lambda pair, rr, result="": dict(row(pair, "2023-02-08", result=result), RR=rr)
+    got, job = run_rr([rrow("EURUSD", "3"), rrow("GBPUSD", "-1"),
+                       rrow("XAUUSD", "0"), rrow("US30", "2", "Loss")])
+    ok &= case("RR з мінусами — результат із RR, записаний не чіпаємо",
+               ([t["result"] for t in got],
+                any("порахували з RR" in w for w in job.warnings)),
+               (["Win", "Loss", "BE+", "Loss"], True))
+    got, job = run_rr([rrow("EURUSD", "3"), rrow("GBPUSD", "2")])
+    ok &= case("RR без мінусів — це план, результат не вигадуємо",
+               [t["result"] for t in got], ["", ""])
+
+    # «Created time» у ячейці не лежить — Notion бере його з самого рядка
+    sch = {"t": {"name": "Created", "type": "created_time"},
+           "p": {"name": "Pair", "type": "title"}}
+    props, _f = ROW_PROPS({"created_time": 1675846800000,
+                           "properties": {"p": [["EURUSD"]]}}, sch)
+    ok &= case("Created time — дата з рядка", props,
+               {"Pair": "EURUSD", "Created": "2023-02-08T09:00"})
 
     print("\n" + ("усе добре" if ok else "є помилки"))
     return 0 if ok else 1
