@@ -307,18 +307,21 @@ function rvMonthSnapshot(ym){
     const n = by[key];
     let st = "";
     let review = null, net = null;
-    if (n){
+    /* Розбір є, лише коли є хоч один актив із вмістом. Порожній запис
+       (відкрили день і нічого не написали) — не аналіз: без ранку немає
+       й вечора, у календарі такий день лишається порожнім. */
+    const nd = (n && n.data) || {};
+    const keep = (nd.assets || []).filter(a => a && (a.nm || (a.shots || []).length || a.why));
+    if (n && keep.length){
       st = __dv.stat(n.match) || "open";
       if (st === "ok") ok++; else if (st === "part") part++; else if (st === "no") no++; else open++;
       /* сам розбір дня — щоб за посиланням його можна було розкрити */
-      const nd = n.data || {};
       const dayTrades = sortAsc(S.all.filter(t => dayKey(t) === key));
-      const keep = (nd.assets || []).filter(a => a && (a.nm || (a.shots || []).length || a.why));
       review = {closed: !!nd.closed, skip: nd.skip || "", lesson: (nd.fact || {}).lesson || "",
                 assets: reviewAssets(keep, dayTrades)};
       net = dayTrades.length ? calc(dayTrades).net : null;
     }
-    days.push({date: key, st: st, assets: (n && n.assets) || [], review: review, net: net});
+    days.push({date: key, st: st, assets: st ? keep.map(a => a.nm).filter(Boolean) : [], review: review, net: net});
   }
   const done = ok + part + no + open;
   return {
