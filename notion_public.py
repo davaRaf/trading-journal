@@ -38,7 +38,10 @@ IMG = "https://www.notion.so/image/"
 UA = ("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
       "(KHTML, like Gecko) Chrome/124.0 Safari/537.36")
 
-MIN_GAP = 0.30
+MIN_GAP = 0.30           # обычная пауза между запросами
+MAX_GAP = 4.0            # докуда растягиваем паузу, если Notion просит тише
+COOL = 20.0              # сколько ждём после первого отказа «занадто часто»
+COOL_CAP = 90.0          # дольше этого не ждём никогда
 PAGE_STEP = 200          # сколько строк просим за раз
 PROBE = 25               # столько читаем, чтобы понять, что лежит в колонках
 DRILL_ROWS = 25          # во столько страниц оглавления заглядываем
@@ -46,18 +49,46 @@ INDEX_MAX = 2            # если полей узнали не больше �
 PAGE_CAP = 5000          # предохранитель от бесконечной базы
 
 _last = [0.0]
+_pace = [MIN_GAP]        # текущая пауза: растёт, когда Notion ругается
+_calm = [0.0]            # до этого времени вообще не стучимся
 _gap = threading.Lock()
 
 
 def _throttle():
     with _gap:
-        wait = MIN_GAP - (time.time() - _last[0])
+        now = time.time()
+        wait = max(_pace[0] - (now - _last[0]), _calm[0] - now)
         if wait > 0:
             time.sleep(wait)
         _last[0] = time.time()
 
 
-def _post(path, body, space=None, tries=3):
+def _slower(err, attempt):
+    """
+    Notion ответил «занадто часто» (429). Это не про одну карточку: лимит
+    висит на всём переносе. Поэтому тормозим не текущий запрос, а вообще
+    все — иначе следующие карточки влетают в тот же запрет и перенос
+    сыплется пачкой одинаковых ошибок.
+    """
+    hint = 0.0
+    try:
+        hint = float((getattr(err, "headers", None) or {}).get("Retry-After") or 0)
+    except (TypeError, ValueError):
+        hint = 0.0
+    rest = hint if hint > 0 else COOL * (attempt + 1)
+    with _gap:
+        _pace[0] = min(_pace[0] * 2, MAX_GAP)
+        _calm[0] = max(_calm[0], time.time() + min(rest, COOL_CAP))
+
+
+def _faster():
+    """Отпустило — потихоньку возвращаем обычный темп."""
+    if _pace[0] > MIN_GAP:
+        with _gap:
+            _pace[0] = max(MIN_GAP, _pace[0] * 0.9)
+
+
+def _post(path, body, space=None, tries=5):
     data = json.dumps(body).encode("utf-8")
     for attempt in range(tries):
         _throttle()
@@ -68,14 +99,24 @@ def _post(path, body, space=None, tries=3):
             req.add_header("x-notion-space-id", space)
         try:
             with urllib.request.urlopen(req, timeout=NET_TIMEOUT) as r:
-                return json.loads(r.read().decode("utf-8"))
+                out = json.loads(r.read().decode("utf-8"))
+            _faster()
+            return out
         except urllib.error.HTTPError as e:
             if e.code in (401, 403):
                 raise NotionError("сторінка закрита. У Notion відкрий її: Share → "
                                   "Publish to web, і скопіюй посилання ще раз")
             if e.code == 404:
                 raise NotionError("Notion не знайшов таку сторінку — перевір посилання")
-            if e.code in (429, 502, 503) and attempt < tries - 1:
+            if e.code == 429:
+                # Пауза тут длинная и общая для всего переноса: Notion снимает
+                # запрет не за пару секунд, а за десятки.
+                _slower(e, attempt)
+                if attempt < tries - 1:
+                    continue
+                raise NotionError("Notion просить читати повільніше — зачекай "
+                                  "кілька хвилин і спробуй ще раз")
+            if e.code in (502, 503) and attempt < tries - 1:
                 time.sleep(2 + attempt * 2)
                 continue
             raise NotionError("Notion відповів помилкою %s" % e.code)
@@ -634,6 +675,8 @@ def run_public_import(job, tables, mapping, opts, shots_dir, known_pairs, existi
         blank = 0         # сколько таких строк пропустили
         nopair = 0        # угод, у которых инструмент не прочитался
         from_rr = 0       # угод, чей результат вывели из RR
+        unread = 0        # карточек, чьё содержимое не прочиталось
+        lost = 0          # скриншотов, которые не скачались
 
         for ids, rm, schema, use, tname in plans:
             blocks = rm.get("block") or {}
@@ -699,9 +742,11 @@ def run_public_import(job, tables, mapping, opts, shots_dir, known_pairs, existi
                 if want_notes or want_shots:
                     try:
                         text, inner = row_content(bid)
-                    except NotionError as ex:
+                    except NotionError:
+                        # Поштучно не пишем: когда Notion придержал темп, таких
+                        # карточек десятки, и отчёт превращается в простыню.
                         text, inner = "", []
-                        job.warnings.append("картку не прочитали: %s" % ex)
+                        unread += 1
                     if want_shots:
                         images += inner
                     if want_notes and text:
@@ -718,8 +763,8 @@ def run_public_import(job, tables, mapping, opts, shots_dir, known_pairs, existi
                         shots.append({"tf": guess_tf(im.get("caption"), im["url"]),
                                       "file": download(im["url"], shots_dir, base)})
                         job.shots += 1
-                    except Exception as ex:
-                        job.warnings.append("скрін не завантажився: %s" % ex)
+                    except Exception:
+                        lost += 1
                 t["screenshots"] = shots
 
                 pair = (t.get("pair") or "").strip()
@@ -737,6 +782,14 @@ def run_public_import(job, tables, mapping, opts, shots_dir, known_pairs, existi
 
         if batch:
             sink(batch)
+        if unread:
+            job.warnings.append("у %d угод не прочитали нотатки й картинки всередині "
+                                "картки: Notion придержав швидкість читання. Самі угоди "
+                                "на місці — перенеси ще раз за кілька хвилин, ми "
+                                "допишемо порожні місця" % unread)
+        if lost:
+            job.warnings.append("%d знімків не завантажилось — перенеси ще раз "
+                                "за кілька хвилин" % lost)
         if blank:
             shown = ", ".join("«%s»" % x for x in odd[:5])
             more = " та ще %d" % (len(odd) - 5) if len(odd) > 5 else ""
