@@ -504,6 +504,9 @@ function open(kind, arg){
   let data = build();
   if (!data) return;
 
+  /* квартали, де є угоди: у вікні можна вибрати, яким ділитись */
+  const quarters = kind === "quarter"
+    ? [...new Set(S.all.map(t => quarterOf(monKey(t))))].sort() : [];
   /* назви активів для перемикачів — беремо до того, як звузили вибір */
   const allAssets = kind === "review"
     ? ((((window.__dv && __dv.note && __dv.note(arg)) || {}).assets) || [])
@@ -524,6 +527,13 @@ function open(kind, arg){
           + '<button class="sh-chip on" data-a="all">' + esc(T.slAssetsAll) + '</button>'
           + allAssets.map(a => '<button class="sh-chip" data-a="' + a.i + '">'
               + esc(a.nm) + '</button>').join("")
+          + '</div>'
+        : "")
+    + (quarters.length > 1
+        ? '<div class="sh-lab">' + T.slQuarterLabel + '</div>'
+          + '<div class="sh-assets" id="shQ">'
+          + quarters.map(q => '<button class="sh-chip' + (q === arg ? " on" : "") + '" data-q="' + q + '">'
+              + "Q" + q.split("-Q")[1] + " " + q.slice(0, 4) + '</button>').join("")
           + '</div>'
         : "")
     + (inCollab() ? "" :
@@ -576,6 +586,23 @@ function open(kind, arg){
   });
 
   /* вибір активів: «усі» вимикає решту, і навпаки */
+  /* інший квартал — перезбираємо знімок під нього */
+  const qbox = document.getElementById("shQ");
+  if (qbox) qbox.querySelectorAll(".sh-chip").forEach(b => b.onclick = () => {
+    arg = b.dataset.q;
+    qbox.querySelectorAll(".sh-chip").forEach(x => x.classList.toggle("on", x === b));
+    const fresh = build();
+    if (fresh){
+      data = fresh;
+      const what = document.getElementById("shWhat");
+      if (what) what.innerHTML = '<b>' + esc(data.title) + '</b><span>' + esc(data.kind) + '</span>';
+    }
+    const out = document.getElementById("shOut");
+    if (out){ out.hidden = true; out.innerHTML = ""; }
+    const go = document.getElementById("shGo");
+    if (go){ go.disabled = false; go.textContent = T.slCreateBtn; }
+  });
+
   const box = document.getElementById("shAssets");
   if (box) box.querySelectorAll(".sh-chip").forEach(b => b.onclick = () => {
     const all = box.querySelector('[data-a="all"]');
