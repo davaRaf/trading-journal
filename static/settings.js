@@ -36,6 +36,7 @@ const ICON = {
   chev:   '<path d="m9 6 6 6-6 6"/>',
   back:   '<path d="m15 6-6 6 6 6"/>',
   x:      '<path d="M6 6l12 12M18 6 6 18"/>',
+  star:   '<path d="M12 3.6l2.6 5.3 5.9.9-4.3 4.1 1 5.8-5.2-2.7-5.2 2.7 1-5.8L3.5 9.8l5.9-.9z"/>',
 };
 const ic = (n, cls) => '<svg class="stx-ic' + (cls ? " " + cls : "") + '" viewBox="0 0 24 24" aria-hidden="true">' + ICON[n] + "</svg>";
 
@@ -84,6 +85,10 @@ function sections(){
       todo: !!(me && !me.twofa),
       html: () => block(T.tfTitle, tf, "tf") + block(T.loTitle, lo, "tf"),
       wire: () => __twofa.wire()});
+    /* Підписка — поки вітрина тарифів без оплати (static/plans.js) */
+    const sub = window.__plans ? __plans.section() : "";
+    if (sub) list.push({id: "subscription", title: __plans.title(), icon: "star", sep: true,
+      html: () => block("", sub, "sub")});
     const pp = window.__profile ? __profile.section() : "";
     if (pp) list.push({id: "open", title: T.ppTitle, icon: "eye", sep: true,
       html: () => block("", pp, "pp"), wire: () => __profile.wire()});
