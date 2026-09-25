@@ -1,0 +1,845 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="#050505">
+<title>StatsAI — весь трейдинг в одной вкладке</title>
+<meta name="description" content="Журнал сделок, новости, калькулятор риска и ИИ-помощник в одной вкладке. Перенос из Notion за пару минут.">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="StatsAI">
+<meta property="og:title" content="StatsAI — весь трейдинг в одной вкладке">
+<meta property="og:description" content="Журнал сделок, новости, калькулятор риска и ИИ-помощник вместе. 30 сделок бесплатно.">
+<meta property="og:image" content="/static/og-main.png">
+<meta name="twitter:card" content="summary_large_image">
+<link rel="icon" href="data:image/svg+xml,%3Csvg%20version%3D%221.1%22%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%22573%20366%20902%201315%22%3E%20%3Cpath%20transform%3D%22translate%280%2C0%29%22%20fill%3D%22rgb%2864%2C224%2C148%29%22%20d%3D%22M%201007.73%20417.867%20C%201012.96%20407.472%201022.43%20403.074%201033.28%20408.302%20C%201044.26%20413.587%201041.3%20436.645%201041.28%20447.276%20L%201041.16%20500.837%20C%201041.03%20559.942%201042.37%20622.699%201040.98%20681.397%20C%201041.86%20686.293%201067.84%20728.571%201072.19%20736.023%20L%201174.17%20909.911%20L%201090.84%20909.91%20C%201043.39%20909.921%201001.55%20904.752%20964.567%20941.347%20C%20943.67%20962.177%20931.992%20990.513%20932.146%201020.02%20C%20932.11%201049.34%20943.509%201078.75%20964.485%201099.42%20C%20980.427%201114.93%201000.76%201125.16%201022.72%201128.71%20C%201042.29%201131.77%201078.91%201127.86%201092.5%201131.48%20C%201105.78%201135.12%201114.96%201147.22%201114.88%201160.99%20C%201114.77%201199.93%201067.21%201191.64%201040.77%201191.58%20L%20946.808%201191.77%20C%20921.351%201165.65%20896.502%201138.93%20872.279%201111.66%20C%20860.111%201130.48%20848.698%201150.33%20837.098%201169.56%20C%20816.464%201203.51%20796.056%201237.59%20775.874%201271.81%20L%20993.674%201271.93%20L%201055.86%201271.88%20C%201100.21%201271.8%201134.64%201273.2%201168.73%201238.91%20C%201189.33%201217.81%201200.69%201189.37%201200.29%201159.89%20C%201200.15%201130.6%201190.28%201103.4%201169.26%201082.6%20C%201152.78%201066.48%201131.7%201055.89%201108.92%201052.3%20C%201086.87%201048.86%201057.05%201054.56%201036.53%201048.43%20C%201010.67%201040.71%201012.03%20992.508%201043.02%20990.261%20C%201063.65%20988.886%201084.63%20989.833%201105.32%20989.979%20L%201220.58%20989.922%20L%201434.91%201357.49%20L%201158.98%201357.8%20L%201079.96%201357.75%20C%201071.4%201357.73%201049.21%201357.11%201041.3%201358%20L%201041.14%201538.09%20L%201041.3%201594.17%20C%201041.34%201604.03%201041.86%201615.95%201041.16%201625.6%20C%201039.85%201643.54%201015.04%201647.32%201007.77%201629.23%20C%201006.7%201623.59%201007.04%201606.7%201007.06%201600.06%20L%201007.17%201551.24%20L%201007.07%201357.74%20L%20612.894%201357.86%20C%20654.064%201291.27%20693.944%201219.52%20733.687%201151.66%20L%201007.18%20683.395%20C%201006.3%20626.487%201007.22%20567.336%201007.12%20510.216%20L%201007.01%20452.565%20C%201006.99%20442.982%201006.55%20426.917%201007.73%20417.867%20z%22%2F%3E%20%3Cpath%20transform%3D%22translate%280%2C0%29%22%20fill%3D%22%23f2f2f3%22%20d%3D%22M%201007.77%201358.05%20L%201041.3%201358%20L%201041.14%201538.09%20L%201041.3%201594.17%20C%201041.34%201604.03%201041.86%201615.95%201041.16%201625.6%20C%201039.85%201643.54%201015.04%201647.32%201007.77%201629.23%20C%201009.05%201603.41%201007.95%201565.83%201007.96%201539.15%20L%201007.77%201358.05%20z%22%2F%3E%20%3Cpath%20transform%3D%22translate%280%2C0%29%22%20fill%3D%22%23f2f2f3%22%20d%3D%22M%201007.73%20417.867%20C%201012.96%20407.472%201022.43%20403.074%201033.28%20408.302%20C%201044.26%20413.587%201041.3%20436.645%201041.28%20447.276%20L%201041.16%20500.837%20C%201041.03%20559.942%201042.37%20622.699%201040.98%20681.397%20C%201035.71%20674.277%201029.82%20662.763%201024.31%20654.534%20C%201018.61%20663.506%201013.14%20672.625%201007.92%20681.882%20C%201007.27%20653.296%201008.22%20624.592%201008%20596%20C%201007.55%20536.664%201008.45%20477.184%201007.73%20417.867%20z%22%2F%3E%20%3C%2Fsvg%3E">
+<link rel="apple-touch-icon" sizes="180x180" href="/static/apple-touch-icon.png?v=2">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@500;600;700&family=Geist:wght@400;500;600;700;800&display=swap">
+<style>
+/* Токены один в один из тёмной темы журнала (static/style.css, :root[data-theme="dark"]) */
+:root{
+  color-scheme:dark;
+  --bg:#050505; --panel:#0d0d0e; --panel-2:#111112; --shell:#0a0a0b; --seg-on:#161617;
+  --line:rgba(255,255,255,.08); --line-soft:rgba(255,255,255,.045); --line-2:rgba(255,255,255,.14);
+  --text:#f2f2f3; --dim:#8c8c90; --faint:#5c5c61;
+  --accent:#40e094; --accent-ink:#06130d; --accent-soft:rgba(64,224,148,.12);
+  --up:#40e094; --down:#ff6e60; --be:#efc258;
+  --up-soft:rgba(64,224,148,.13); --down-soft:rgba(255,110,96,.13); --be-soft:rgba(239,194,88,.12);
+  --glow:radial-gradient(58% 44% at 16% -4%,rgba(64,224,148,.12),transparent 68%),
+        radial-gradient(48% 38% at 98% 6%,rgba(255,255,255,.07),transparent 72%);
+  --shadow:0 40px 90px -22px rgba(0,0,0,.55);
+  --r:14px; --r-sm:10px;
+  --sans:"Geist","Segoe UI",system-ui,sans-serif;
+  --label:"Archivo","Geist","Segoe UI",sans-serif;
+  --pix:"Geist","Segoe UI",system-ui,sans-serif;
+  --pix-k:1;
+  --logo-green:#40e094;            /* поправка размера под ширину пиксельного шрифта */
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--text);font-family:var(--sans);font-size:16px;line-height:1.55}
+.site{position:relative;background:var(--bg);overflow:hidden}
+.site::before{content:"";position:absolute;inset:0 0 auto;height:1400px;pointer-events:none;background:var(--glow)}
+.site>*{position:relative}
+a{color:inherit;text-decoration:none}
+:focus-visible{outline:2px solid var(--accent);outline-offset:3px;border-radius:6px}
+.wrap{max-width:1520px;margin:0 auto;padding-inline:clamp(20px,4vw,64px)}
+@media (max-width:640px){.wrap{padding-inline:16px}}
+.lbl{font-family:var(--label);font-size:11px;font-weight:600;letter-spacing:.14em;text-transform:uppercase;color:var(--faint)}
+.num{font-variant-numeric:tabular-nums}
+.up{color:var(--up)} .down{color:var(--down)}
+
+/* пиксельные заголовки */
+.pix{font-family:var(--pix);font-weight:800;text-transform:uppercase;line-height:.96;letter-spacing:-.045em;margin:0;text-align:center;text-wrap:balance}
+.pix span{display:block}
+.pix .g{color:var(--accent)} .pix .r{color:var(--down)}
+.pix-xl{font-size:clamp(40px,8.6vw,150px)}
+.pix-l{font-size:clamp(32px,5.6vw,96px)}
+
+/* ---------- полоса макета (не часть сайта) ---------- */
+.mock{position:sticky;top:env(safe-area-inset-top,0px);z-index:60;background:#0a0a0b;border-bottom:1px solid var(--line);font-size:13px}
+.mock .wrap{display:flex;gap:14px;align-items:center;flex-wrap:wrap;min-height:46px;padding-block:6px}
+.mock b{font-weight:600;color:var(--dim)}
+.seg{display:inline-flex;gap:2px;padding:3px;border-radius:12px;background:var(--panel-2);border:1px solid var(--line)}
+.seg button{font:500 13px/1 var(--sans);color:var(--dim);background:transparent;border:1px solid transparent;border-radius:9px;padding:9px 13px;cursor:pointer;min-height:34px}
+.seg button:hover{color:var(--text)}
+.seg button[aria-pressed="true"]{color:var(--text);background:var(--seg-on);border-color:var(--line)}
+.mock .note{margin-left:auto;color:var(--faint);font-size:12px}
+@media (max-width:760px){.mock .note{display:none}}
+
+/* ---------- шапка ---------- */
+.nav{display:grid;grid-template-columns:1fr auto 1fr;align-items:center;min-height:76px;gap:20px}
+.nav-l{display:flex;gap:26px;font-size:14px;color:var(--dim)}
+.nav-l a:hover,.nav-r .in:hover{color:var(--text)}
+.brand{display:flex;align-items:center;gap:11px}
+.brand .mk{width:38px;height:38px;border-radius:11px;background:var(--panel-2);border:1px solid var(--line);display:grid;place-items:center}
+.brand .mk svg{width:17px;height:24px;color:var(--text)}
+.brand .nm{display:grid;line-height:1.1}
+.brand .nm b{font-size:17px;font-weight:700;letter-spacing:-.01em}
+.brand .nm b i{font-style:normal;color:var(--accent)}
+.brand .nm small{font-family:var(--label);font-size:9px;font-weight:600;letter-spacing:.16em;text-transform:uppercase;color:var(--faint)}
+.nav-r{display:flex;gap:18px;align-items:center;justify-content:flex-end;font-size:14px}
+.nav-r .in{color:var(--dim)}
+.pill{display:inline-flex;align-items:center;gap:8px;min-height:44px;padding:0 20px;border-radius:999px;border:1px solid var(--line-2);font-size:14px;font-weight:500;transition:border-color .18s,background .18s}
+.pill:hover{border-color:rgba(255,255,255,.3);background:rgba(255,255,255,.03)}
+.pill small{color:var(--faint);font-size:13px;font-weight:400}
+@media (max-width:860px){.nav{grid-template-columns:auto 1fr}.nav-l{display:none}.nav .brand{order:-1}}
+@media (max-width:480px){.nav-r .in,.pill small{display:none}}
+
+/* ---------- hero ---------- */
+.hero{padding-top:56px}
+.hero-grid{display:grid;grid-template-columns:minmax(260px,330px) 1fr minmax(230px,290px);gap:24px;align-items:center;margin-top:-34px}
+.hero-cta{display:flex;gap:10px;flex-wrap:wrap}
+.hero-note{font-size:13px;color:var(--faint)}
+.hero-l{display:grid;gap:22px;align-self:center;position:relative;z-index:3}
+.dash{display:flex;gap:6px}.dash i{height:2px;width:46px;background:var(--accent)}.dash i+i{width:14px}
+.hero-l p{margin:0;color:var(--dim);font-size:15px;line-height:1.6}
+.how{display:inline-flex;align-items:center;gap:16px;justify-self:start;padding:8px 8px 8px 20px;border-radius:999px;background:var(--panel-2);border:1px solid var(--line);transition:border-color .18s}
+.how:hover{border-color:var(--line-2)}
+.how span{display:grid;line-height:1.25}.how b{font-size:14px;font-weight:600}.how small{font-size:12px;color:var(--faint)}
+.bot{width:44px;height:44px;border-radius:50%;background:var(--accent);color:var(--accent-ink);display:grid;place-items:center;flex:none;
+  box-shadow:0 6px 20px -6px rgba(64,224,148,.6)}
+.bot svg{width:24px;height:24px}
+.bot .eyes{transform-box:fill-box;transform-origin:center;animation:blink 4.2s ease-in-out infinite}
+@keyframes blink{0%,92%,100%{transform:scaleY(1)}95%{transform:scaleY(.1)}}
+
+/* стопка карточек */
+.stack{position:relative;height:470px;z-index:2}
+.cardx{position:absolute;left:50%;top:50%;width:250px;height:350px;border-radius:22px;padding:22px;display:flex;flex-direction:column;justify-content:space-between;
+  transform:translate(-50%,-50%) translate(var(--x),calc(var(--y) + var(--ly,0px) + var(--ry,0px))) rotate(calc(var(--rot) + var(--rs,0deg))) scale(var(--sc,1));
+  transition:transform .45s cubic-bezier(.16,1,.3,1),box-shadow .45s;cursor:default}
+.cardx:hover{--ly:-22px;--rs:6deg;--sc:1.04}
+.c-back{--x:-135px;--y:-28px;--rot:-26deg;background:var(--panel);border:1px solid var(--line-2);box-shadow:var(--shadow)}
+.c-mid{--x:0px;--y:-30px;--rot:-15deg;background:linear-gradient(145deg,rgba(255,255,255,.16),rgba(255,255,255,.04));border:1px solid rgba(255,255,255,.2);
+  -webkit-backdrop-filter:blur(16px);backdrop-filter:blur(16px);box-shadow:inset 0 1px 0 rgba(255,255,255,.18),var(--shadow)}
+.c-front{--x:135px;--y:44px;--rot:-4deg;background:var(--accent);color:var(--accent-ink);box-shadow:0 40px 80px -30px rgba(64,224,148,.55)}
+.cardx .lbl{color:inherit;opacity:.6}
+.c-back .kv{display:grid;gap:14px}
+.c-back .kv div{display:grid;gap:4px}
+.c-back .kv b{font-size:30px;font-weight:600;letter-spacing:-.01em}
+.c-back svg{width:100%;height:70px;display:block}
+.dots{display:grid;grid-template-columns:repeat(7,1fr);gap:9px;margin-top:6px}
+.dots i{width:14px;height:14px;border-radius:50%;background:rgba(255,255,255,.12)}
+.dots .u{background:var(--up)}.dots .d{background:var(--down)}.dots .b{background:var(--be)}
+.c-mid .foot{display:flex;justify-content:space-between;align-items:baseline;font-size:13px;color:rgba(255,255,255,.75)}
+.c-front .big{font-family:var(--pix);font-weight:700;font-size:calc(30px * var(--pix-k));line-height:1;letter-spacing:-.02em}
+.c-front .row{display:flex;justify-content:space-between;font-size:13px;font-weight:600}
+.c-front .top{display:flex;justify-content:space-between;align-items:flex-start}
+.c-front .top b{font-size:15px;font-weight:600}
+.chip{font-family:var(--label);font-size:10px;font-weight:700;letter-spacing:.06em;padding:4px 7px;border-radius:6px}
+.c-front .chip{background:rgba(6,19,13,.12)}
+.tl{display:grid;gap:5px;margin:14px 0 12px}
+.tr{display:grid;grid-template-columns:1fr auto 44px;align-items:center;gap:8px;padding:7px 9px;border-radius:9px;background:rgba(6,19,13,.08)}
+.tr span{display:grid;line-height:1.15}.tr b{font-size:12px;font-weight:700}.tr small{font-size:9.5px;opacity:.6}
+.tr em{font-style:normal;font-size:12px;font-weight:700;text-align:right;font-variant-numeric:tabular-nums}
+.rc{font-style:normal;font-family:var(--label);font-size:9px;font-weight:700;letter-spacing:.05em;padding:3px 6px;border-radius:5px}
+.rc.t{background:#06130d;color:#40e094}.rc.s{background:#ff6e60;color:#2a0906}.rc.b{background:#efc258;color:#2b1f02}
+@media (min-width:1400px){.tr{padding:9px 11px}.tr b{font-size:13.5px}.tr small{font-size:10.5px}.tr em{font-size:13.5px}}
+.mcal{display:grid;grid-template-columns:repeat(7,1fr);gap:4px;margin:14px 0 12px}
+.mcal .w{font-family:var(--label);font-size:8px;font-weight:700;letter-spacing:.06em;text-align:center;opacity:.55}
+.mcal .d{aspect-ratio:1;border-radius:6px;background:rgba(6,19,13,.08);display:flex;align-items:flex-start;justify-content:flex-start;padding:3px 4px;font-size:9px;font-weight:600;line-height:1;color:rgba(6,19,13,.55)}
+.mcal .d.x{background:transparent}
+.mcal .d.t{background:#06130d;color:#40e094}
+.mcal .d.s{background:#ff6e60;color:#2a0906}
+.mcal .d.b{background:#efc258;color:#2b1f02}
+.mcal .d.now{box-shadow:inset 0 0 0 1.5px #06130d;color:#06130d}
+.c-front .lg{display:flex;align-items:center;gap:5px;font-size:11px}
+.c-front .lg i{width:8px;height:8px;border-radius:2px;margin-left:4px}
+.c-front .lg .t{background:#06130d}.c-front .lg .s{background:#ff6e60}.c-front .lg .b{background:#efc258}
+.go{position:absolute;right:4%;top:56%;z-index:3;display:inline-flex;align-items:center;gap:10px;min-height:46px;padding:0 22px;border-radius:999px;
+  color:var(--accent);font-weight:600;font-size:15px;background:rgba(13,13,14,.72);border:1px solid rgba(64,224,148,.28);
+  -webkit-backdrop-filter:blur(12px);backdrop-filter:blur(12px);transition:background .18s}
+.go:hover{background:rgba(64,224,148,.12)}
+.go svg{width:16px;height:16px}
+
+.hero-r{display:grid;gap:14px;align-self:center;padding-top:40px}
+.stat{border:1px solid var(--line-2);border-radius:var(--r);padding:20px 22px;display:grid;gap:10px;background:rgba(13,13,14,.6)}
+.stat b{font-family:var(--pix);font-weight:700;letter-spacing:-.03em;font-size:calc(26px * var(--pix-k));line-height:1}
+.stat p{margin:0;font-size:13px;color:var(--dim);line-height:1.5}
+.stat.dim{border-color:var(--line);opacity:.55}
+.ntn{display:flex;align-items:center;gap:10px;font-weight:700;font-size:18px}
+.ntn svg{width:26px;height:26px;fill:var(--text)}
+.ntn i{font-style:normal;color:var(--accent)}
+.ntn .sa{font-family:var(--sans);font-size:18px;font-weight:700;letter-spacing:-.01em;color:var(--accent)}
+.band{height:120px;background:var(--shell);border-top:1px solid var(--line-soft);margin-top:-120px}
+@media (min-width:1400px){.stack{height:540px}.cardx{width:300px;height:420px;padding:26px}.c-back .kv b{font-size:36px}.dots i{width:17px;height:17px}}
+@media (max-width:1060px){
+  .hero-grid{grid-template-columns:1fr;margin-top:0}
+  .stack{grid-column:1/-1;order:-1;height:460px}
+  .hero-r{grid-column:1/-1}
+  
+  .band{display:none}
+}
+@media (max-width:640px){
+  .hero-grid{grid-template-columns:1fr}
+  .stack{height:380px}
+  .cardx{width:200px;height:290px;padding:18px}
+  .c-back{--x:-58px;--y:-24px}.c-mid{--x:4px;--y:-30px}.c-front{--x:62px;--y:40px}
+  .c-back .kv b{font-size:24px}
+  .dots{gap:6px}.dots i{width:11px;height:11px}
+  .go{right:0;top:auto;bottom:0}
+  .hero-r{grid-template-columns:1fr 1fr}
+}
+@media (prefers-reduced-motion:reduce){.bot .eyes{animation:none}.cardx{transition:none}}
+
+/* ---------- полоса подключений ---------- */
+.logos{border-block:1px solid var(--line);margin-top:0}
+.logos .wrap{display:flex;align-items:center;justify-content:space-between;gap:20px;min-height:92px;flex-wrap:wrap;padding-block:18px}
+.logos .it{display:flex;align-items:center;gap:10px;color:#b9b9bd;font-size:17px;font-weight:600;letter-spacing:-.01em}
+.logos .it svg{width:22px;height:22px;fill:currentColor}
+.logos .sep{width:1px;height:18px;background:var(--line-2)}
+.logos .cap{font-size:13px;color:var(--faint);font-weight:400}
+@media (max-width:760px){.logos .sep{display:none}.logos .wrap{justify-content:center;gap:18px 28px}.logos .cap{width:100%;text-align:center}}
+
+/* ---------- секции ---------- */
+.sec{padding-block:120px}
+@media (max-width:640px){.sec{padding-block:76px}}
+.lead{max-width:640px;margin:28px auto 0;text-align:center;color:var(--dim);font-size:17px;line-height:1.6}
+.shot{border:1px solid var(--line-2);border-radius:var(--r);overflow:hidden;background:var(--panel);box-shadow:var(--shadow)}
+.shot img{display:block;width:100%;height:auto}
+.combos{margin-top:56px;position:relative}
+.combos::before{content:"";position:absolute;inset:-60px 10% auto;height:300px;background:radial-gradient(50% 50% at 50% 50%,rgba(64,224,148,.14),transparent 70%);pointer-events:none}
+.combos .shot{position:relative}
+
+
+/* маскот из журнала (assistant.css): парит, моргает, водит глазами, корчит рожицы */
+.b-bot .face{--bot-ink:#06070a;position:relative}
+.as-fab-glow{position:absolute;width:68%;height:68%;left:50%;top:46%;transform:translate(-50%,-50%);border-radius:50%;pointer-events:none;
+  background:radial-gradient(circle at 50% 42%,color-mix(in srgb,var(--bot-ink) 95%,transparent) 0%,color-mix(in srgb,var(--bot-ink) 40%,transparent) 45%,transparent 72%);
+  animation:asBotFloat 2.6s ease-in-out infinite;opacity:.0}
+.as-fab-ic{position:relative;z-index:1;display:block;overflow:visible;color:var(--bot-ink);animation:asBotFloat 2.6s ease-in-out infinite}
+.as-fab-eyes{transform-box:fill-box;transform-origin:center;animation:asBotBlink 4.2s ease-in-out infinite}
+.as-fab-face{transition:transform .12s ease-out}
+.b-bot .face{animation:botHover 3.2s ease-in-out infinite}
+@keyframes botHover{0%,100%{transform:translateY(0)}50%{transform:translateY(-8px)}}
+@keyframes asBotFloat{0%,100%{transform:translateY(0)}50%{transform:translateY(-3px)}}
+@keyframes asBotBlink{0%,88%,100%{transform:scaleY(1)}92%{transform:scaleY(.15)}}
+.as-fab-mouth *{opacity:0;transition:opacity .18s}
+.as-fab-mouth .mouth-neutral{opacity:1}
+.eye-l-w,.eye-r-w,.eye-l-s,.eye-r-s{opacity:0;transition:opacity .18s}
+.as-fab[data-em="happy"] .mouth-neutral{opacity:0}.as-fab[data-em="happy"] .mouth-smile{opacity:1}
+.as-fab[data-em="wink"] .mouth-neutral{opacity:0}.as-fab[data-em="wink"] .mouth-smile{opacity:1}
+.as-fab[data-em="wink"] .eye-r-n{opacity:0}.as-fab[data-em="wink"] .eye-r-w{opacity:1}
+.as-fab[data-em="surprised"] .mouth-neutral{opacity:0}.as-fab[data-em="surprised"] .mouth-open{opacity:1}
+.as-fab[data-em="surprised"] .eye-l-n,.as-fab[data-em="surprised"] .eye-r-n{opacity:0}
+.as-fab[data-em="surprised"] .eye-l-s,.as-fab[data-em="surprised"] .eye-r-s{opacity:1}
+.as-fab[data-em="yawn"] .mouth-neutral{opacity:0}.as-fab[data-em="yawn"] .mouth-yawn{opacity:1}
+.as-fab[data-em="yawn"] .eye-l-n,.as-fab[data-em="yawn"] .eye-r-n{opacity:0}
+.as-fab[data-em="yawn"] .eye-l-w,.as-fab[data-em="yawn"] .eye-r-w{opacity:1}
+@media (prefers-reduced-motion:reduce){.as-fab-ic,.as-fab-eyes,.as-fab-glow,.b-bot .face{animation:none}}
+/* переписка с ботом */
+.b-tg .chat{display:grid;gap:10px;padding:0 28px 26px;margin-top:auto;font-size:14px;line-height:1.45}
+.b-tg .msg{max-width:88%;padding:11px 14px;border-radius:14px}
+.b-tg .msg.me{justify-self:end;background:var(--accent);color:var(--accent-ink);border-bottom-right-radius:4px;font-weight:500}
+.b-tg .msg.rep{justify-self:start;background:var(--panel-2);border:1px solid var(--line);border-bottom-left-radius:4px}
+.b-tg .msg small{display:block;font-size:11px;font-weight:600;color:var(--accent);margin-bottom:3px}
+.b-tg .res{display:grid;grid-template-columns:auto 1fr auto;margin-bottom:9px;gap:10px;align-items:center;margin-top:9px;padding:9px 11px;border-radius:10px;background:var(--panel);border:1px solid var(--line)}
+.b-tg .res span{color:var(--dim);font-size:13px}.b-tg .res em{font-style:normal;font-weight:700}
+.b-tg .kb{display:flex;gap:6px;flex-wrap:wrap;margin-top:9px}
+.b-tg .kb span{font-size:12px;border:1px solid var(--line-2);border-radius:8px;padding:6px 10px;color:var(--text)}
+/* после раздела про Notion — просторнее */
+#notion ~ .sec{padding-top:clamp(90px,12vw,190px)!important}
+/* сравнение с Notion */
+.vs{margin:56px auto 0;max-width:1100px;border:1px solid var(--line);border-radius:var(--r);background:var(--panel);overflow:hidden}
+@property --ang{syntax:"<angle>";inherits:false;initial-value:0deg}
+.vs{position:relative;isolation:isolate}
+.vs::before,.vs::after{content:"";position:absolute;inset:0;border-radius:inherit;pointer-events:none;z-index:3;padding:1.5px;
+  background:conic-gradient(from var(--ang),transparent 0 62%,rgba(64,224,148,.15) 72%,#40e094 86%,#d9ffe9 88%,transparent 90% 100%);
+  -webkit-mask:linear-gradient(#000 0 0) content-box,linear-gradient(#000 0 0);-webkit-mask-composite:xor;
+  mask:linear-gradient(#000 0 0) content-box exclude,linear-gradient(#000 0 0);
+  animation:vsrun 12s linear infinite}
+.vs::after{padding:4px;filter:blur(6px);opacity:.9}
+@keyframes vsrun{to{--ang:360deg}}
+@media (prefers-reduced-motion:reduce){.vs::before,.vs::after{animation:none;--ang:40deg}}
+.vs-h,.vs-r{display:grid;grid-template-columns:1fr 1.3fr 1.3fr;gap:20px;padding:18px 28px;align-items:center}
+.vs-h{background:var(--panel-2);border-bottom:1px solid var(--line);font-weight:600}
+.vs-n{display:flex;align-items:center;gap:9px;color:var(--dim)}.vs-n svg{width:20px;height:20px;fill:var(--dim)}
+.vs-s{color:var(--accent)}
+.vs-r+.vs-r{border-top:1px solid var(--line-soft)}
+.vs-r.vs-sum{padding:30px 28px;border-top:1px solid rgba(64,224,148,.35)!important;
+  background:linear-gradient(90deg,rgba(64,224,148,.03),rgba(64,224,148,.16))}
+.vs-r.vs-sum b{font-size:18px}
+.vs-r.vs-sum .svc{display:flex;flex-wrap:wrap;gap:6px}
+.vs-r.vs-sum .svc s{font-size:13px;color:var(--dim);text-decoration-color:rgba(255,110,96,.8);text-decoration-thickness:1.5px;
+  padding:5px 10px;border-radius:999px;border:1px solid var(--line);background:var(--panel)}
+.vs-r.vs-sum span.one{font-size:clamp(24px,2.4vw,34px);font-weight:800;letter-spacing:-.035em;text-transform:uppercase;color:var(--accent);line-height:1}
+.vs-r.vs-sum span.one::before{display:none}
+.vs-r.vs-sum .svc::before{display:none!important}
+.vs-r b{font-weight:600;font-size:15px}
+.vs-r span{font-size:15px;line-height:1.45}
+.vs-r span:nth-child(2){color:var(--faint)}
+.vs-r span:nth-child(3){color:var(--text);display:flex;gap:10px}
+.vs-r span:nth-child(3)::before{content:"";flex:none;width:6px;height:6px;margin-top:8px;background:var(--accent)}
+.move{max-width:1100px;margin:14px auto 0;display:flex;gap:24px;align-items:center;justify-content:space-between;padding:28px;border-radius:var(--r);
+  border:1px solid rgba(64,224,148,.3);background:linear-gradient(120deg,rgba(64,224,148,.10),transparent 60%),var(--panel)}
+.move h3{margin:0 0 6px;font-size:20px;font-weight:600}.move p{margin:0;color:var(--dim);max-width:70ch}
+@media (max-width:760px){.vs-h{display:none}.vs-r{grid-template-columns:1fr;gap:6px;padding:18px 20px}
+  .vs-r span:nth-child(2)::before{content:"Notion: ";color:var(--dim)}.move{flex-direction:column;align-items:flex-start}}
+
+/* шаги */
+.steps{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin-top:56px}
+.step{background:var(--panel);border:1px solid var(--line);border-radius:var(--r);padding:28px;display:grid;gap:12px;align-content:start}
+.step{position:relative;overflow:visible;background:radial-gradient(90% 70% at 0% 0%,rgba(64,224,148,.10),transparent 60%),var(--panel)}
+.step .n{font-family:var(--pix);font-weight:800;font-size:clamp(72px,7.5vw,112px);line-height:.85;letter-spacing:-.06em;margin:-4px 0 10px -4px;
+  background:linear-gradient(180deg,#40e094 0%,rgba(64,224,148,.55) 55%,rgba(64,224,148,.08) 100%);-webkit-background-clip:text;background-clip:text;color:transparent;
+  font-variant-numeric:tabular-nums}
+.step:not(:last-child)::after{content:"";position:absolute;right:-12px;top:62px;width:10px;height:10px;z-index:2;
+  border-top:2px solid var(--accent);border-right:2px solid var(--accent);transform:rotate(45deg);opacity:.7}
+@media (max-width:860px){.step:not(:last-child)::after{right:auto;left:50%;top:auto;bottom:-12px;transform:translateX(-50%) rotate(135deg)}}
+.step h3{margin:6px 0 0;font-size:19px;font-weight:600;letter-spacing:-.01em}
+.step p{margin:0;color:var(--dim);font-size:15px}
+.step .tags{display:flex;gap:6px;flex-wrap:wrap;margin-top:4px}
+.tag{font-size:12px;color:var(--dim);border:1px solid var(--line);border-radius:999px;padding:5px 11px;background:var(--panel-2)}
+@media (max-width:860px){.steps{grid-template-columns:1fr}}
+
+/* бенто */
+.bento{display:grid;grid-template-columns:repeat(12,1fr);gap:14px;margin-top:56px}
+.cell{background:var(--panel);border:1px solid var(--line);border-radius:var(--r);overflow:hidden;display:flex;flex-direction:column;min-width:0}
+.cell .tx{padding:26px 28px;display:grid;gap:8px}
+.cell h3{margin:0;font-size:20px;font-weight:600;letter-spacing:-.01em}
+.cell p{margin:0;color:var(--dim);font-size:15px;max-width:52ch}
+.cell .pic{margin-top:auto;padding:0 0 0 28px}
+.cell .pic img{display:block;width:100%;height:auto;border-top-left-radius:12px;border:1px solid var(--line);border-right:0;border-bottom:0}
+.b-cal{grid-column:span 7;grid-row:span 2}
+.b-bot{grid-column:span 5}
+.b-tg{grid-column:span 5}
+.b-ts{grid-column:span 7}
+.b-ov{grid-column:span 5}
+.b-ts .pic img,.b-ov .pic img{height:400px;object-fit:cover;object-position:left top}
+.b-ov .pic img{object-position:left bottom}
+.b-acc{grid-column:1/-1;flex-direction:row;align-items:center;gap:20px}
+.b-acc .tx{flex:1 1 340px}
+.firms{flex:1.4 1 460px;display:grid;grid-template-columns:repeat(3,1fr);gap:10px;padding:26px 28px 26px 0}
+.firms span{display:flex;align-items:center;gap:10px;padding:12px 14px;border-radius:var(--r-sm);background:var(--panel-2);border:1px solid var(--line);font-size:14px;font-weight:500}
+.firms img{width:28px;height:28px;border-radius:8px;object-fit:cover}
+.firms small{grid-column:1/-1;color:var(--faint);font-size:13px}
+@media (max-width:860px){.b-acc{flex-direction:column;align-items:stretch}.firms{padding:0 28px 26px;grid-template-columns:repeat(2,1fr)}}
+.insight{text-align:center;color:var(--dim);font-size:16px;margin:28px 0 0}
+.ctas{display:flex;gap:10px;justify-content:center;flex-wrap:wrap;margin-top:28px}
+.assure{margin:-8px 0 0;font-size:13px;color:var(--dim);text-align:center}
+.hero-h{font-size:clamp(30px,6.6vw,118px)}
+.b-bot{flex-direction:row;align-items:center;background:linear-gradient(135deg,rgba(64,224,148,.10),transparent 60%),var(--panel)}
+.b-bot .face{flex:none;width:112px;height:112px;margin-left:28px;border-radius:50%;background:var(--accent);color:var(--accent-ink);display:grid;place-items:center;box-shadow:0 20px 50px -18px rgba(64,224,148,.55)}
+.b-bot .face svg{width:62px;height:62px}
+@media (max-width:960px){.b-cal,.b-bot,.b-tg,.b-ts,.b-ov{grid-column:1/-1;grid-row:auto}}
+@media (max-width:520px){.b-bot{flex-direction:column;align-items:flex-start}.b-bot .face{margin:26px 0 0 28px;width:84px;height:84px}}
+
+/* цены */
+.price-top{display:flex;justify-content:center;margin-top:36px}
+.plans{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.25fr);gap:14px;max-width:1100px;margin:28px auto 0}
+.plan{background:var(--panel);border:1px solid var(--line);border-radius:var(--r);padding:30px;display:grid;gap:22px;align-content:start}
+.plan.pro{border-color:rgba(64,224,148,.35);background:linear-gradient(160deg,rgba(64,224,148,.09),transparent 55%),var(--panel)}
+.plan .hd{display:flex;justify-content:space-between;align-items:center}
+.plan .hd b{font-size:17px;font-weight:600}
+.save{font-size:12px;font-weight:600;color:var(--accent);background:var(--accent-soft);border-radius:999px;padding:5px 10px}
+.plan .p{display:grid;gap:6px}
+.plan .p b{font-family:var(--pix);font-weight:700;letter-spacing:-.03em;font-size:calc(34px * var(--pix-k));line-height:1}
+.plan .p small{color:var(--dim);font-size:14px;min-height:1.5em}
+.plan .p b{min-height:1em}
+.plan .hd{min-height:26px}
+.save.off{visibility:hidden}
+.plan ul{list-style:none;margin:0;padding:0;display:grid;gap:10px;font-size:15px;color:#c9c9cd}
+.plan li{display:flex;gap:10px;align-items:flex-start}
+.plan li::before{content:"";flex:none;width:6px;height:6px;margin-top:9px;background:var(--accent)}
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;min-height:48px;padding:0 22px;border-radius:12px;font-weight:600;font-size:15px;transition:filter .18s,transform .12s,border-color .18s}
+.btn:active{transform:scale(.98)}
+.btn-p{background:var(--accent);color:var(--accent-ink)}.btn-p:hover{filter:brightness(1.08)}
+.btn-g{border:1px solid var(--line-2);color:var(--text)}.btn-g:hover{border-color:rgba(255,255,255,.3)}
+.fine{text-align:center;color:var(--faint);font-size:13px;margin-top:20px}
+@media (max-width:760px){.plans{grid-template-columns:1fr}}
+
+/* вопросы */
+.faq{display:grid;grid-template-columns:1fr 1.5fr;gap:48px;align-items:start}
+.faq .pix{text-align:left}
+.faq details{border-bottom:1px solid var(--line)}
+.faq summary{list-style:none;cursor:pointer;display:flex;justify-content:space-between;gap:20px;align-items:center;padding:22px 0;font-size:17px;font-weight:500;min-height:44px}
+.faq summary::-webkit-details-marker{display:none}
+.faq summary::after{content:"+";font-family:var(--pix);font-size:14px;color:var(--accent);flex:none}
+.faq details[open] summary::after{content:"-"}
+.faq details p{margin:0;padding-bottom:22px;color:var(--dim);max-width:62ch}
+.faq .ans{overflow:hidden}
+.faq summary::after{transition:transform .3s}
+@media (max-width:860px){.faq{grid-template-columns:1fr;gap:20px}}
+
+/* финал */
+.final{text-align:center;display:grid;justify-items:center;gap:30px}
+.final .bot{width:76px;height:76px}.final .bot svg{width:40px;height:40px}
+.foot{border-top:1px solid var(--line);margin-top:40px}
+.foot .wrap{display:flex;gap:24px;flex-wrap:wrap;align-items:center;min-height:92px;padding-block:22px;font-size:14px;color:var(--dim)}
+.foot nav{display:flex;gap:20px;flex-wrap:wrap;margin-left:auto}
+.foot a:hover{color:var(--text)}
+
+/* появление при прокрутке: прячем только когда скрипт включил режим */
+.rv-on .rv{opacity:0;transform:translateY(38px);filter:blur(6px);
+  transition:opacity .9s cubic-bezier(.16,1,.3,1),transform 1s cubic-bezier(.16,1,.3,1),filter .9s cubic-bezier(.16,1,.3,1);
+  transition-delay:var(--d,0ms)}
+.rv-on .rv.in{opacity:1;transform:none;filter:none}
+.rv-on .pix .rv{transform:translateY(60%)}
+.rv-on .pix .rv.in{transform:none}
+.rv-on .cardx.rv-card{opacity:0;--ry:120px;transition:transform 1.1s cubic-bezier(.16,1,.3,1),opacity .9s ease,box-shadow .45s;transition-delay:var(--d,0ms)}
+.rv-on .cardx.rv-card.in{opacity:1;--ry:0px}
+@media (prefers-reduced-motion:reduce){.rv-on .rv,.rv-on .cardx.rv-card{opacity:1!important;transform:none!important;filter:none!important;--ry:0px!important}}
+
+/* ---------- язык сайта (выбор общий с журналом: statsai_lang) ---------- */
+.lang{position:relative}
+.lang-b{display:inline-flex;align-items:center;gap:6px;min-height:44px;padding:0 14px;border-radius:999px;border:1px solid var(--line);background:transparent;
+  color:var(--dim);font:700 11px/1 var(--label);letter-spacing:.12em;cursor:pointer;transition:color .18s,border-color .18s}
+.lang-b:hover,.lang.open .lang-b{color:var(--text);border-color:var(--line-2)}
+.lang-b svg{width:12px;height:12px;transition:transform .2s}
+.lang.open .lang-b svg{transform:rotate(180deg)}
+.lang-m{position:absolute;right:0;top:calc(100% + 8px);z-index:70;min-width:132px;display:grid;gap:2px;padding:4px;border-radius:12px;
+  background:var(--panel-2);border:1px solid var(--line-2);box-shadow:var(--shadow);
+  opacity:0;transform:translateY(-4px);pointer-events:none;transition:opacity .18s,transform .18s}
+.lang.open .lang-m{opacity:1;transform:none;pointer-events:auto}
+.lang-m button{display:flex;justify-content:space-between;align-items:center;gap:14px;min-height:40px;padding:0 12px;border:0;border-radius:9px;background:transparent;
+  color:var(--dim);font:500 14px/1 var(--sans);cursor:pointer;text-align:left}
+.lang-m button b{font:700 10px/1 var(--label);letter-spacing:.12em;color:var(--faint)}
+.lang-m button:hover{background:var(--seg-on);color:var(--text)}
+.lang-m button[aria-checked="true"]{color:var(--text)}
+.lang-m button[aria-checked="true"] b{color:var(--accent)}
+.nav-l a,.nav-r .in,.foot a{transition:color .18s}
+html{scroll-behavior:smooth;-webkit-text-size-adjust:100%}
+@media (prefers-reduced-motion:reduce){html{scroll-behavior:auto}}
+
+/* ---------- адаптив: ноутбук, планшет, телефон ---------- */
+.pill,.lang-b,.btn{white-space:nowrap}
+.combos .shot-r{display:none}
+@media (max-width:1180px){.pill small{display:none}.nav-r{gap:14px}}
+@media (max-width:640px){
+  /* шапка в одну строку */
+  .nav{min-height:64px;gap:10px}
+  .nav-r{gap:8px}
+  .brand{gap:9px}.brand .mk{width:34px;height:34px;border-radius:10px}.brand .nm small{display:none}
+  .lang-b{padding:0 11px}
+  .nav-r .pill{padding:0 14px;font-size:13px}
+  /* карточки в hero: всё содержимое помещается */
+  .c-front{padding:14px 13px}
+  .c-front .top b{font-size:13px;white-space:nowrap}
+  .tl{gap:4px;margin:10px 0 8px}
+  .tr{grid-template-columns:1fr auto 34px;gap:6px;padding:5px 7px;border-radius:7px}
+  .tr b{font-size:11px}.tr small{font-size:8.5px;white-space:nowrap}.tr em{font-size:11px}
+  .rc{font-size:8px;padding:2px 5px}
+  .c-front .row{font-size:11.5px}
+  .c-mid .foot{font-size:11.5px}
+  /* колонка Notion → StatsAI на всю ширину */
+  .hero-r{grid-template-columns:1fr;padding-top:24px}
+  .hero-cta .btn{flex:1 1 auto}
+  /* «Связки» на телефоне: две половины друг под другом, чтобы читалось */
+  .combos{display:grid;gap:12px}
+  .combos .shot{aspect-ratio:584/383}
+  .combos .shot img{width:200%;max-width:none;height:100%}
+  .combos .shot-r{display:block}
+  .combos .shot-r img{transform:translateX(-50%)}
+  /* календарь в бенто — крупнее, обрезкой */
+  .b-cal .pic img{height:300px;object-fit:cover;object-position:left top}
+  .b-ts .pic img,.b-ov .pic img{height:300px}
+  .cell .tx{padding:22px 20px}
+  .cell .pic{padding-left:20px}
+  .b-tg .chat{padding:0 16px 20px}
+  .b-tg .msg{max-width:94%}
+  .b-tg .res{grid-template-columns:1fr auto;row-gap:2px}
+  .b-tg .res span{grid-row:2}
+  .b-tg .res em{grid-row:1/3;grid-column:2}
+  .plan{padding:24px 20px}
+  .step{padding:24px 20px}
+  .foot nav{margin-left:0}
+}
+@media (max-width:360px){.nav-r .in{display:none}.brand .nm b{font-size:15px}}
+
+/* ---------- подвал: поддержка, соцсети, документы ---------- */
+.foot .wrap{align-items:flex-start;padding-block:48px 44px;gap:32px}
+.fcols{margin-left:auto;display:grid;grid-template-columns:repeat(3,auto);gap:28px 72px}
+.fcol{display:grid;gap:12px;align-content:start;justify-items:start;font-size:14px}
+.fcol h4{margin:0 0 4px;font:600 11px/1 var(--label);letter-spacing:.14em;text-transform:uppercase;color:var(--faint)}
+.fcol a{display:inline-flex;align-items:center;gap:9px;min-height:24px;color:var(--dim)}
+.fcol a svg{width:15px;height:15px;flex:none}
+.fcol a:hover{color:var(--text)}
+@media (max-width:860px){.fcols{margin-left:0;width:100%;grid-template-columns:repeat(3,minmax(0,1fr));gap:28px 24px}}
+@media (max-width:600px){.fcols{grid-template-columns:1fr 1fr}.fcol:first-child{grid-column:1/-1}}
+
+/* кнопка «Контакты» в шапке: на широком экране — ссылка слева, на узком — значок */
+.ct{display:none;place-items:center;width:44px;height:44px;border-radius:50%;border:1px solid var(--line);color:var(--dim);transition:color .18s,border-color .18s}
+.ct:hover{color:var(--text);border-color:var(--line-2)}
+.ct svg{width:18px;height:18px}
+#contacts{scroll-margin-top:24px}
+@media (max-width:860px){.ct{display:grid}}
+@media (max-width:640px){.ct{width:40px;height:40px}.lang-b{min-height:40px}.nav-r .pill{min-height:40px}}
+@media (max-width:430px){.brand .nm{display:none}}
+</style>
+</head>
+<body>
+
+<svg width="0" height="0" style="position:absolute" aria-hidden="true"><defs>
+  <symbol id="logomark" viewBox="573 366 902 1315"><path transform="translate(0,0)" fill="var(--logo-green)" d="M 1007.73 417.867 C 1012.96 407.472 1022.43 403.074 1033.28 408.302 C 1044.26 413.587 1041.3 436.645 1041.28 447.276 L 1041.16 500.837 C 1041.03 559.942 1042.37 622.699 1040.98 681.397 C 1041.86 686.293 1067.84 728.571 1072.19 736.023 L 1174.17 909.911 L 1090.84 909.91 C 1043.39 909.921 1001.55 904.752 964.567 941.347 C 943.67 962.177 931.992 990.513 932.146 1020.02 C 932.11 1049.34 943.509 1078.75 964.485 1099.42 C 980.427 1114.93 1000.76 1125.16 1022.72 1128.71 C 1042.29 1131.77 1078.91 1127.86 1092.5 1131.48 C 1105.78 1135.12 1114.96 1147.22 1114.88 1160.99 C 1114.77 1199.93 1067.21 1191.64 1040.77 1191.58 L 946.808 1191.77 C 921.351 1165.65 896.502 1138.93 872.279 1111.66 C 860.111 1130.48 848.698 1150.33 837.098 1169.56 C 816.464 1203.51 796.056 1237.59 775.874 1271.81 L 993.674 1271.93 L 1055.86 1271.88 C 1100.21 1271.8 1134.64 1273.2 1168.73 1238.91 C 1189.33 1217.81 1200.69 1189.37 1200.29 1159.89 C 1200.15 1130.6 1190.28 1103.4 1169.26 1082.6 C 1152.78 1066.48 1131.7 1055.89 1108.92 1052.3 C 1086.87 1048.86 1057.05 1054.56 1036.53 1048.43 C 1010.67 1040.71 1012.03 992.508 1043.02 990.261 C 1063.65 988.886 1084.63 989.833 1105.32 989.979 L 1220.58 989.922 L 1434.91 1357.49 L 1158.98 1357.8 L 1079.96 1357.75 C 1071.4 1357.73 1049.21 1357.11 1041.3 1358 L 1041.14 1538.09 L 1041.3 1594.17 C 1041.34 1604.03 1041.86 1615.95 1041.16 1625.6 C 1039.85 1643.54 1015.04 1647.32 1007.77 1629.23 C 1006.7 1623.59 1007.04 1606.7 1007.06 1600.06 L 1007.17 1551.24 L 1007.07 1357.74 L 612.894 1357.86 C 654.064 1291.27 693.944 1219.52 733.687 1151.66 L 1007.18 683.395 C 1006.3 626.487 1007.22 567.336 1007.12 510.216 L 1007.01 452.565 C 1006.99 442.982 1006.55 426.917 1007.73 417.867 z"/>
+<path transform="translate(0,0)" fill="currentColor" d="M 1007.77 1358.05 L 1041.3 1358 L 1041.14 1538.09 L 1041.3 1594.17 C 1041.34 1604.03 1041.86 1615.95 1041.16 1625.6 C 1039.85 1643.54 1015.04 1647.32 1007.77 1629.23 C 1009.05 1603.41 1007.95 1565.83 1007.96 1539.15 L 1007.77 1358.05 z"/>
+<path transform="translate(0,0)" fill="currentColor" d="M 1007.73 417.867 C 1012.96 407.472 1022.43 403.074 1033.28 408.302 C 1044.26 413.587 1041.3 436.645 1041.28 447.276 L 1041.16 500.837 C 1041.03 559.942 1042.37 622.699 1040.98 681.397 C 1035.71 674.277 1029.82 662.763 1024.31 654.534 C 1018.61 663.506 1013.14 672.625 1007.92 681.882 C 1007.27 653.296 1008.22 624.592 1008 596 C 1007.55 536.664 1008.45 477.184 1007.73 417.867 z"/></symbol>
+  <symbol id="botface" viewBox="0 0 40 40">
+    <g class="eyes"><ellipse cx="11" cy="20" rx="5" ry="7.5" fill="currentColor" transform="rotate(-8 11 20)"/><ellipse cx="29" cy="20" rx="5" ry="7.5" fill="currentColor" transform="rotate(8 29 20)"/></g>
+    <path d="M13 33 Q20 38.5 27 33" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" fill="none"/>
+  </symbol>
+</defs></svg>
+
+<div class="site" id="site">
+
+<header class="wrap nav">
+  <nav class="nav-l" aria-label="Разделы" data-ia="a0">
+    <a href="#pricing" data-i="t0">Цены</a><a href="#faq" data-i="t1">Вопросы</a><a href="#contacts" data-i="t124">Контакты</a>
+  </nav>
+  <a class="brand" href="#top" aria-label="StatsAI">
+    <span class="mk"><svg><use href="#logomark"/></svg></span>
+    <span class="nm"><b>Stats<i>AI</i></b><small data-i="t2">помощник трейдера</small></span>
+  </a>
+  <div class="nav-r">
+    <div class="lang" id="lang"><button type="button" class="lang-b" id="langBtn" aria-haspopup="true" aria-expanded="false" data-ia="langAria" aria-label="Язык сайта"><span id="langCur">РУС</span><svg viewBox="0 0 12 12" aria-hidden="true"><path d="M3 4.5 6 7.5 9 4.5" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg></button><div class="lang-m" id="langMenu" role="menu"></div></div>
+    <a class="in" href="/login" data-i="t3">Войти</a>
+    <a class="ct" href="#contacts" aria-label="Контакты" data-ia="a9"><svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M4 12a8 8 0 0116 0v5.5a2.5 2.5 0 01-2.5 2.5H13" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/><rect x="2.6" y="11" width="4.4" height="6.4" rx="2.2" stroke="currentColor" stroke-width="1.7"/><rect x="17" y="11" width="4.4" height="6.4" rx="2.2" stroke="currentColor" stroke-width="1.7"/></svg></a>
+    <a class="pill" href="/login#signup" data-i="t4">Завести журнал <small>· бесплатно</small></a>
+  </div>
+</header>
+
+<section class="hero" id="top">
+  <div class="wrap">
+    <h1 class="pix pix-xl hero-h"><span data-i="t5">Весь трейдинг</span><span class="g" data-i="t6">в одной вкладке.</span></h1>
+    <div class="hero-grid">
+      <div class="hero-l">
+        <p data-i="t7">Журнал сделок, новости, калькулятор риска и ИИ-помощник вместе. Переезжай из Notion за пару минут и записывай сделки одним сообщением в Telegram.</p>
+        <div class="hero-cta"><a class="btn btn-p" href="/login#signup" data-i="t8">Завести журнал бесплатно</a><a class="btn btn-g" href="/demo" data-i="t9">Открыть демо</a></div>
+      </div>
+      <div class="stack" aria-label="Карточки с показателями из демо-журнала" data-ia="a1">
+        <div class="cardx c-back" aria-hidden="true">
+          <div class="kv">
+            <div><span class="lbl">Profit factor</span><b class="num">1.94</b></div>
+            <div><span class="lbl" data-i="t10">Средний RR</span><b class="num">1.88</b></div>
+          </div>
+          <svg viewBox="0 0 200 70" preserveAspectRatio="none"><path d="M0 50 L22 42 L40 42 L58 50 L80 58 L96 62 L112 48 L130 36 L150 36 L166 24 L182 18 L200 22" fill="none" stroke="#40e094" stroke-width="2" vector-effect="non-scaling-stroke" stroke-linejoin="round"/></svg>
+        </div>
+        <div class="cardx c-mid" aria-hidden="true">
+          <span class="lbl" style="opacity:.75" data-i="t11">III квартал</span>
+          <div class="dots" id="dots"></div>
+          <div class="foot"><span data-i="t12">Июль · Сентябрь</span><b class="num up">+3.0%</b></div>
+        </div>
+        <div class="cardx c-front">
+          <div class="top"><b data-i="t13">Сентябрь 2026</b><span class="chip num">+4.70%</span></div>
+          <div class="tl" aria-label="Последние сделки из журнала" data-ia="a2">
+            <div class="tr"><span><b>US100</b><small>Short · NY</small></span><i class="rc t">TP</i><em>+2.1%</em></div>
+            <div class="tr"><span><b>GER40</b><small>Long · London</small></span><i class="rc t">TP</i><em>+1.6%</em></div>
+            <div class="tr"><span><b>EUR/USD</b><small>Long · London</small></span><i class="rc b">BE</i><em>0%</em></div>
+            <div class="tr"><span><b>US100</b><small>Long · NY</small></span><i class="rc t">TP</i><em>+2.0%</em></div>
+            <div class="tr"><span><b>ES500</b><small>Short · NY</small></span><i class="rc s">SL</i><em>−1%</em></div>
+          </div>
+          <div class="row"><span data-i="t14">5 сделок</span><span>Win rate 60%</span></div>
+        </div>
+      </div>
+      <div class="hero-r">
+        <div class="stat"><span class="ntn"><svg aria-hidden="true" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M4.459 4.208c.746.606 1.026.56 2.428.466l13.215-.793c.28 0 .047-.28-.046-.326L17.86 1.968c-.42-.326-.981-.7-2.055-.607L3.01 2.295c-.466.046-.56.28-.374.466zm.793 3.08v13.904c0 .747.373 1.027 1.214.98l14.523-.84c.841-.046.935-.56.935-1.167V6.354c0-.606-.233-.933-.748-.887l-15.177.887c-.56.047-.747.327-.747.933zm14.337.745c.093.42 0 .84-.42.888l-.7.14v10.264c-.608.327-1.168.514-1.635.514-.748 0-.935-.234-1.495-.933l-4.577-7.186v6.952L12.21 19s0 .84-1.168.84l-3.222.186c-.093-.186 0-.653.327-.746l.84-.233V9.854L7.822 9.76c-.094-.42.14-1.026.793-1.073l3.456-.233 4.764 7.279v-6.44l-1.215-.139c-.093-.514.28-.887.747-.933zM1.936 1.035l13.31-.98c1.634-.14 2.055-.047 3.082.7l4.249 2.986c.7.513.934.653.934 1.213v16.378c0 1.026-.373 1.634-1.68 1.726l-15.458.934c-.98.047-1.448-.093-1.962-.747l-3.129-4.06c-.56-.747-.793-1.306-.793-1.96V2.667c0-.839.374-1.54 1.447-1.632z"/></svg><i>→</i><b class="sa">StatsAI</b></span><p data-i="t15">Сделки, поля и скриншоты переезжают из Notion по одной ссылке</p></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<div class="logos">
+  <div class="wrap">
+    <span class="cap" data-i="t16">Вход и подключения</span>
+    <span class="it"><svg aria-hidden="true" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M4.459 4.208c.746.606 1.026.56 2.428.466l13.215-.793c.28 0 .047-.28-.046-.326L17.86 1.968c-.42-.326-.981-.7-2.055-.607L3.01 2.295c-.466.046-.56.28-.374.466zm.793 3.08v13.904c0 .747.373 1.027 1.214.98l14.523-.84c.841-.046.935-.56.935-1.167V6.354c0-.606-.233-.933-.748-.887l-15.177.887c-.56.047-.747.327-.747.933zm14.337.745c.093.42 0 .84-.42.888l-.7.14v10.264c-.608.327-1.168.514-1.635.514-.748 0-.935-.234-1.495-.933l-4.577-7.186v6.952L12.21 19s0 .84-1.168.84l-3.222.186c-.093-.186 0-.653.327-.746l.84-.233V9.854L7.822 9.76c-.094-.42.14-1.026.793-1.073l3.456-.233 4.764 7.279v-6.44l-1.215-.139c-.093-.514.28-.887.747-.933zM1.936 1.035l13.31-.98c1.634-.14 2.055-.047 3.082.7l4.249 2.986c.7.513.934.653.934 1.213v16.378c0 1.026-.373 1.634-1.68 1.726l-15.458.934c-.98.047-1.448-.093-1.962-.747l-3.129-4.06c-.56-.747-.793-1.306-.793-1.96V2.667c0-.839.374-1.54 1.447-1.632z"/></svg>Notion</span><span class="sep"></span>
+    <span class="it"><svg aria-hidden="true" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M11.944 0A12 12 0 0 0 0 12a12 12 0 0 0 12 12 12 12 0 0 0 12-12A12 12 0 0 0 12 0a12 12 0 0 0-.056 0zm4.962 7.224c.1-.002.321.023.465.14a.506.506 0 0 1 .171.325c.016.093.036.306.02.472-.18 1.898-.962 6.502-1.36 8.627-.168.9-.499 1.201-.82 1.23-.696.065-1.225-.46-1.9-.902-1.056-.693-1.653-1.124-2.678-1.8-1.185-.78-.417-1.21.258-1.91.177-.184 3.247-2.977 3.307-3.23.007-.032.014-.15-.056-.212s-.174-.041-.249-.024c-.106.024-1.793 1.14-5.061 3.345-.48.33-.913.49-1.302.48-.428-.008-1.252-.241-1.865-.44-.752-.245-1.349-.374-1.297-.789.027-.216.325-.437.893-.663 3.498-1.524 5.83-2.529 6.998-3.014 3.332-1.386 4.025-1.627 4.476-1.635z"/></svg>Telegram</span><span class="sep"></span>
+    <span class="it"><svg aria-hidden="true" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M12.48 10.92v3.28h7.84c-.24 1.84-.853 3.187-1.787 4.133-1.147 1.147-2.933 2.4-6.053 2.4-4.827 0-8.6-3.893-8.6-8.72s3.773-8.72 8.6-8.72c2.6 0 4.507 1.027 5.907 2.347l2.307-2.307C18.747 1.44 16.133 0 12.48 0 5.867 0 .307 5.387.307 12s5.56 12 12.173 12c3.573 0 6.267-1.173 8.373-3.36 2.16-2.16 2.84-5.213 2.84-7.667 0-.76-.053-1.467-.173-2.053H12.48z"/></svg>Google</span><span class="sep"></span>
+    <span class="it"><svg aria-hidden="true" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M20.317 4.3698a19.7913 19.7913 0 00-4.8851-1.5152.0741.0741 0 00-.0785.0371c-.211.3753-.4447.8648-.6083 1.2495-1.8447-.2762-3.68-.2762-5.4868 0-.1636-.3933-.4058-.8742-.6177-1.2495a.077.077 0 00-.0785-.037 19.7363 19.7363 0 00-4.8852 1.515.0699.0699 0 00-.0321.0277C.5334 9.0458-.319 13.5799.0992 18.0578a.0824.0824 0 00.0312.0561c2.0528 1.5076 4.0413 2.4228 5.9929 3.0294a.0777.0777 0 00.0842-.0276c.4616-.6304.8731-1.2952 1.226-1.9942a.076.076 0 00-.0416-.1057c-.6528-.2476-1.2743-.5495-1.8722-.8923a.077.077 0 01-.0076-.1277c.1258-.0943.2517-.1923.3718-.2914a.0743.0743 0 01.0776-.0105c3.9278 1.7933 8.18 1.7933 12.0614 0a.0739.0739 0 01.0785.0095c.1202.099.246.1981.3728.2924a.077.077 0 01-.0066.1276 12.2986 12.2986 0 01-1.873.8914.0766.0766 0 00-.0407.1067c.3604.698.7719 1.3628 1.225 1.9932a.076.076 0 00.0842.0286c1.961-.6067 3.9495-1.5219 6.0023-3.0294a.077.077 0 00.0313-.0552c.5004-5.177-.8382-9.6739-3.5485-13.6604a.061.061 0 00-.0312-.0286zM8.02 15.3312c-1.1825 0-2.1569-1.0857-2.1569-2.419 0-1.3332.9555-2.4189 2.157-2.4189 1.2108 0 2.1757 1.0952 2.1568 2.419 0 1.3332-.9555 2.4189-2.1569 2.4189zm7.9748 0c-1.1825 0-2.1569-1.0857-2.1569-2.419 0-1.3332.9554-2.4189 2.1569-2.4189 1.2108 0 2.1757 1.0952 2.1568 2.419 0 1.3332-.946 2.4189-2.1568 2.4189Z"/></svg>Discord</span>
+  </div>
+</div>
+
+<section class="sec wrap" id="notion">
+  <h2 class="pix pix-l"><span data-i="t17">Notion для заметок.</span><span class="g" data-i="t18">StatsAI для сделок.</span></h2>
+  <p class="lead" data-i="t19">В Notion журнал собираешь сам, а за новостями, расчётом лота и разбором ходишь в другие сервисы. Здесь всё в одном журнале.</p>
+  <div class="vs" role="table" aria-label="Сравнение журнала в Notion и StatsAI" data-ia="a3">
+    <div class="vs-h" role="row"><span role="columnheader"></span><span role="columnheader" class="vs-n"><svg aria-hidden="true" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M4.459 4.208c.746.606 1.026.56 2.428.466l13.215-.793c.28 0 .047-.28-.046-.326L17.86 1.968c-.42-.326-.981-.7-2.055-.607L3.01 2.295c-.466.046-.56.28-.374.466zm.793 3.08v13.904c0 .747.373 1.027 1.214.98l14.523-.84c.841-.046.935-.56.935-1.167V6.354c0-.606-.233-.933-.748-.887l-15.177.887c-.56.047-.747.327-.747.933zm14.337.745c.093.42 0 .84-.42.888l-.7.14v10.264c-.608.327-1.168.514-1.635.514-.748 0-.935-.234-1.495-.933l-4.577-7.186v6.952L12.21 19s0 .84-1.168.84l-3.222.186c-.093-.186 0-.653.327-.746l.84-.233V9.854L7.822 9.76c-.094-.42.14-1.026.793-1.073l3.456-.233 4.764 7.279v-6.44l-1.215-.139c-.093-.514.28-.887.747-.933zM1.936 1.035l13.31-.98c1.634-.14 2.055-.047 3.082.7l4.249 2.986c.7.513.934.653.934 1.213v16.378c0 1.026-.373 1.634-1.68 1.726l-15.458.934c-.98.047-1.448-.093-1.962-.747l-3.129-4.06c-.56-.747-.793-1.306-.793-1.96V2.667c0-.839.374-1.54 1.447-1.632z"/></svg>Notion</span><span role="columnheader" class="vs-s">StatsAI</span></div>
+    <div class="vs-r" role="row"><b role="rowheader" data-i="t20">Начало</b><span role="cell" data-i="t21">Ищешь шаблон, настраиваешь поля и формулы</span><span role="cell" data-i="t22">Регистрируешься и сразу пишешь сделки</span></div>
+    <div class="vs-r" role="row"><b role="rowheader" data-i="t23">Запись сделки</b><span role="cell" data-i="t24">Открыть базу, заполнить десяток полей</span><span role="cell" data-i="t25">Одно сообщение или скрин боту в Telegram</span></div>
+    <div class="vs-r" role="row"><b role="rowheader" data-i="t26">Статистика</b><span role="cell" data-i="t27">Формулы и сводки собираешь сам</span><span role="cell" data-i="t28">Винрейт, профит-фактор, RR и просадка считаются сами</span></div>
+    <div class="vs-r" role="row"><b role="rowheader" data-i="t29">Что сливает депозит</b><span role="cell" data-i="t30">Не видно, пока не построишь сводку</span><span role="cell" data-i="t31">Связки сессий, моделей и сетапов уже разобраны</span></div>
+    <div class="vs-r" role="row"><b role="rowheader" data-i="t32">Правила ТС</b><span role="cell" data-i="t33">Лежат отдельной страницей</span><span role="cell" data-i="t34">Каждая сделка сверяется с твоими правилами</span></div>
+    <div class="vs-r" role="row"><b role="rowheader" data-i="t35">Разбор сделок</b><span role="cell" data-i="t36">Выгружаешь сделки и закидываешь в ChatGPT</span><span role="cell" data-i="t37">Помощник уже видит все сделки, копировать никуда не нужно</span></div>
+    <div class="vs-r" role="row"><b role="rowheader" data-i="t38">Новости</b><span role="cell" data-i="t39">Экономический календарь на другом сайте</span><span role="cell" data-i="t40">Календарь новостей на неделю прямо в журнале</span></div>
+    <div class="vs-r" role="row"><b role="rowheader" data-i="t41">Расчёт лота</b><span role="cell" data-i="t42">Отдельный калькулятор в другой вкладке</span><span role="cell" data-i="t43">Калькулятор риска встроен в журнал</span></div>
+    <div class="vs-r vs-sum" role="row"><b role="rowheader" data-i="t44">В итоге</b><span role="cell" class="svc"><s>Notion</s><s data-i="t45">Календарь новостей</s><s data-i="t46">Калькулятор</s><s>ChatGPT</s></span><span role="cell" class="one" data-i="t47">Одна вкладка</span></div>
+  </div>
+  <div class="move">
+    <div><h3 data-i="t48">Всё из Notion переезжает</h3><p data-i="t49">Даёшь ссылку на базу, и сделки переносятся вместе с полями и скриншотами. Торговую систему тоже можно подтянуть из Notion. А если не хочешь уходить совсем, подписка держит журнал в синхроне с Notion.</p></div>
+    <a class="btn btn-p" href="/login#signup" data-i="t50">Перенести из Notion</a>
+  </div>
+</section>
+
+<section class="sec wrap" id="features" style="padding-top:0">
+  <h2 class="pix pix-l"><span data-i="t51">Что работает,</span><span class="r" data-i="t52">что съедает.</span></h2>
+  <p class="lead" data-i="t53">Журнал сам перебирает сочетания сессии, модели, биаса и сетапа. Сразу видно, что приносит проценты, а что их забирает.</p>
+  <div class="combos"><div class="shot"><img src="/static/landing/ru/combos.webp" data-img="combos" width="1169" height="383" alt="Раздел «Аналитика», блок «Связки»: слева сочетания, которые работают, справа те, что съедают результат" data-ialt="a5"></div><div class="shot shot-r" aria-hidden="true"><img src="/static/landing/ru/combos.webp" data-img="combos" width="1169" height="383" alt="" loading="lazy"></div></div>
+  <p class="insight" data-i="t54">Например, London + bos за 16 сделок съел <b class="down num">−8.4%</b>. Без журнала этого не видно.</p>
+  <div class="ctas"><a class="btn btn-p" href="/login#signup" data-i="t8">Завести журнал бесплатно</a><a class="btn btn-g" href="/demo" data-i="t9">Открыть демо</a></div>
+</section>
+
+<section class="sec wrap" id="how" style="padding-top:0">
+  <h2 class="pix pix-l"><span data-i="t55">Три шага</span><span class="g" data-i="t56">до статистики.</span></h2>
+  <div class="steps">
+    <article class="step"><span class="n">01</span><h3 data-i="t57">Регистрация</h3><p data-i="t58">Почта, Google или Discord. Меньше минуты, ничего не нужно устанавливать.</p><div class="tags"><span class="tag">Email</span><span class="tag">Google</span><span class="tag">Discord</span></div></article>
+    <article class="step"><span class="n">02</span><h3 data-i="t59">Переезд и запись</h3><p data-i="t60">Перенеси историю из Notion по ссылке, а новые сделки пиши боту в Telegram или прямо в журнале.</p><div class="tags"><span class="tag" data-i="t61">Журнал</span><span class="tag">Telegram</span><span class="tag">Notion</span></div></article>
+    <article class="step"><span class="n">03</span><h3 data-i="t62">Разбор</h3><p data-i="t63">Аналитика по всем полям, сверка с твоей ТС и помощник, который отвечает по сделкам.</p><div class="tags"><span class="tag" data-i="t64">Аналитика</span><span class="tag" data-i="t65">Моя ТС</span></div></article>
+  </div>
+</section>
+
+<section class="sec wrap" style="padding-top:0">
+  <h2 class="pix pix-l"><span data-i="t66">Всё в одном</span><span class="g" data-i="t67">журнале.</span></h2>
+  <div class="bento">
+    <article class="cell b-cal">
+      <div class="tx"><h3 data-i="t68">Каждый день виден по цвету</h3><p data-i="t69">TP, SL и безубыток прямо в календаре. Сверху итог месяца: винрейт, профит-фактор, средний риск.</p></div>
+      <div class="pic"><img src="/static/landing/ru/calendar.webp" data-img="calendar" width="1180" height="740" alt="Раздел «Журнал»: календарь сентября с днями TP, SL и BE" data-ialt="a6" loading="lazy"></div>
+    </article>
+    <article class="cell b-bot">
+      <span class="face as-fab" id="landBot" aria-hidden="true"><span class="as-fab-glow"></span><svg class="as-fab-ic" width="62" height="62" viewBox="0 0 40 40" fill="none" aria-hidden="true">
+    <g class="as-fab-face">
+      <g class="as-fab-eyes">
+        <ellipse class="eye-l-n" cx="11" cy="20" rx="5" ry="7.5" fill="currentColor" transform="rotate(-8 11 20)"/>
+        <ellipse class="eye-r-n" cx="29" cy="20" rx="5" ry="7.5" fill="currentColor" transform="rotate(8 29 20)"/>
+        <ellipse class="eye-l-s" cx="11" cy="20" rx="6" ry="9.5" fill="currentColor" transform="rotate(-8 11 20)"/>
+        <ellipse class="eye-r-s" cx="29" cy="20" rx="6" ry="9.5" fill="currentColor" transform="rotate(8 29 20)"/>
+        <path class="eye-l-w" d="M6 20.5 Q11 24.5 16 20.5" stroke="currentColor" stroke-width="2.8" stroke-linecap="round" fill="none"/>
+        <path class="eye-r-w" d="M24 20.5 Q29 24.5 34 20.5" stroke="currentColor" stroke-width="2.8" stroke-linecap="round" fill="none"/>
+      </g>
+      <g class="as-fab-mouth">
+        <path class="mouth-neutral" d="M14 34 Q20 37 26 34" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" fill="none"/>
+        <path class="mouth-smile" d="M13 33 Q20 38.5 27 33" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" fill="none"/>
+        <ellipse class="mouth-open" cx="20" cy="34.5" rx="3.6" ry="4.2" fill="currentColor"/>
+        <ellipse class="mouth-yawn" cx="20" cy="34.5" rx="4.6" ry="5.2" fill="currentColor"/>
+      </g>
+    </g>
+  </svg></span>
+      <div class="tx"><h3 data-i="t70">Помощник</h3><p data-i="t71">Отвечает по твоим сделкам: где просадка, какой сетап слабее, что поменялось за месяц.</p></div>
+    </article>
+    <article class="cell b-tg">
+      <div class="tx"><h3 data-i="t72">Спроси, почему стоп</h3></div>
+      <div class="chat">
+        <div class="msg me" data-i="t73">Почему у меня столько стопов в Лондоне?</div>
+        <div class="msg rep" data-i="t74"><small data-i="t70">Помощник</small>Смотрю твои сделки за сентябрь. Связка <b>London · bos</b> дала 16 сделок с винрейтом 13% и итогом <b class="down">−8.4%</b>. Почти все эти входы были против биаса дня.
+          <div class="res"><b>US100 · Continuation</b><span>63 сделки</span><em class="up">+29.4%</em></div>
+          А вот продолжение по US100 держит тебя в плюсе. В Лондоне попробуй входить только по биасу.</div>
+      </div>
+    </article>
+    <article class="cell b-ts">
+      <div class="tx"><h3 data-i="t75">Новости рядом со сделками</h3><p data-i="t76">Экономический календарь на день и неделю со временем выхода, прогнозом и фактом. Не нужно открывать другой сайт.</p></div>
+      <div class="pic"><img src="/static/landing/ru/news.webp" data-img="news" width="1160" height="556" alt="Раздел «Новости»: экономический календарь на сегодня" data-ialt="a7" loading="lazy"></div>
+    </article>
+    <article class="cell b-ov">
+      <div class="tx"><h3 data-i="t77">Месяц, квартал, год</h3><p data-i="t78">Итог периода, винрейт, профит-фактор и кривая доходности с просадкой.</p></div>
+      <div class="pic pic-b"><img src="/static/landing/ru/month.webp" data-img="month" width="758" height="675" alt="Раздел «Обзор»: итог сентября и кривая прибыли" data-ialt="a8" loading="lazy"></div>
+    </article>
+  </div>
+</section>
+
+<section class="sec wrap" id="pricing" style="padding-top:0">
+  <h2 class="pix pix-l"><span data-i="t79">30 сделок</span><span class="g" data-i="t80">бесплатно.</span></h2>
+  <p class="lead" data-i="t81">Все разделы открыты на любом тарифе. Подписка снимает лимиты.</p>
+  <div class="price-top">
+    <div class="seg" role="group" aria-label="Период оплаты" data-ia="a4">
+      <button type="button" data-per="m" aria-pressed="false" data-i="t82">Месяц</button>
+      <button type="button" data-per="q" aria-pressed="false" data-i="t83">Квартал</button>
+      <button type="button" data-per="y" aria-pressed="true" data-i="t84">Год</button>
+    </div>
+  </div>
+  <div class="plans">
+    <article class="plan">
+      <div class="hd"><b data-i="t85">Бесплатно</b></div>
+      <div class="p"><b class="num">€0</b><small data-i="t86">навсегда</small></div>
+      <ul><li data-i="t79">30 сделок</li><li data-i="t87">30 прогонов бэктеста</li><li data-i="t88">15 вопросов помощнику в месяц</li><li data-i="t89">Аналитика, обзор и экспорт</li></ul>
+      <a class="btn btn-g" href="/login#signup" data-i="t8">Завести журнал бесплатно</a>
+    </article>
+    <article class="plan pro">
+      <div class="hd"><b data-i="t90">Подписка</b><span class="save" id="save"></span></div>
+      <div class="p"><b class="num" id="price">€99,99</b><small id="per">за год, €8,33 в месяц</small></div>
+      <ul><li data-i="t91">Сделки и бэктест без лимита</li><li data-i="t92">Расширенный доступ к помощнику</li><li data-i="t93">Автосинхронизация с Notion</li><li data-i="t94">Всё, что есть в бесплатном</li></ul>
+      <a class="btn btn-p" href="/login#signup" data-i="t95">Оформить</a>
+      <p class="assure" data-i="t96">Отмена в пару кликов. Возврат в течение 14 дней.</p>
+    </article>
+  </div>
+  <p class="fine" data-i="t97">Цены с налогом. Продление можно отменить в любой момент, оплаченные дни остаются.</p>
+</section>
+
+<section class="sec wrap" id="faq" style="padding-top:0">
+  <div class="faq">
+    <h2 class="pix pix-l"><span data-i="t1">Вопросы</span></h2>
+    <div>
+      <details><summary data-i="t98">Чем это лучше Notion или таблицы?</summary><div class="ans"><p data-i="t99">В Notion журнал собираешь и считаешь сам. Здесь статистика, связки и сверка с ТС готовы сразу, а сделку можно записать одним сообщением боту. Историю из Notion переносишь по ссылке, вместе с полями и скриншотами.</p></div></details>
+      <details><summary data-i="t100">Подойдёт под мой стиль торговли?</summary><div class="ans"><p data-i="t101">Сессии London, NY и Frankfurt, биас, модели, сетапы, продолжение и разворот уже есть в форме сделки. Проп-счета ведутся рядом с личным депозитом.</p></div></details>
+      <details><summary data-i="t102">На каком языке журнал?</summary><div class="ans"><p data-i="t103">Русский, украинский и английский. Язык меняется в настройках.</p></div></details>
+      <details><summary data-i="t104">Что будет, когда закончатся 30 сделок?</summary><div class="ans"><p data-i="t105">Всё записанное остаётся на месте и видно в аналитике. Новые сделки можно добавлять после оформления подписки.</p></div></details>
+      <details><summary data-i="t106">Можно перенести сделки из Notion?</summary><div class="ans"><p data-i="t107">Да. Подключаешь базу Notion, выбираешь, какое поле куда идёт, и сделки переезжают вместе со скриншотами.</p></div></details>
+      <details><summary data-i="t108">Нужно что-то устанавливать?</summary><div class="ans"><p data-i="t109">Нет. Журнал работает в браузере на компьютере и телефоне, бот живёт в Telegram.</p></div></details>
+      <details><summary data-i="t110">Кто видит мои сделки?</summary><div class="ans"><p data-i="t111">Только ты. Поделиться можно отдельной картинкой или ссылкой. Для входа есть двухфакторная защита.</p></div></details>
+      <details><summary data-i="t112">Как отменить подписку?</summary><div class="ans"><p data-i="t113">В настройках, раздел «Подписка». Продление отключится, оплаченные дни останутся до конца периода.</p></div></details>
+    </div>
+  </div>
+</section>
+
+<section class="sec wrap final" style="padding-top:0">
+  <h2 class="pix pix-xl"><span data-i="t114">Начни</span><span class="g" data-i="t115">сегодня.</span></h2>
+  <div class="ctas" style="margin-top:0"><a class="btn btn-p" href="/login#signup" data-i="t8">Завести журнал бесплатно</a><a class="btn btn-g" href="/demo" data-i="t9">Открыть демо</a></div>
+</section>
+
+<footer class="foot" id="contacts">
+  <div class="wrap">
+    <a class="brand" href="#top"><span class="mk"><svg><use href="#logomark"/></svg></span><span class="nm"><b>Stats<i>AI</i></b><small data-i="t2">помощник трейдера</small></span></a>
+    <div class="fcols">
+      <div class="fcol"><h4 data-i="t119">Поддержка</h4>
+        <a href="https://mail.google.com/mail/?view=cm&amp;fs=1&amp;to=statsai.journal@gmail.com" target="_blank" rel="noopener"><svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><rect x="3" y="5" width="18" height="14" rx="3" stroke="currentColor" stroke-width="1.7"/><path d="M4 8l7.1 5a1.6 1.6 0 001.8 0L20 8" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></svg><span>statsai.journal@gmail.com</span></a>
+        <a href="https://t.me/danylo_mf" target="_blank" rel="noopener"><svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M21 4L3 11l6 2.2L19 6.5l-7.5 8.3.4 5.2 2.6-3.6 4.2 3.1L21 4z" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/></svg><span data-i="t122">Telegram · Данило</span></a>
+        <a href="https://t.me/david_rafaelian" target="_blank" rel="noopener"><svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M21 4L3 11l6 2.2L19 6.5l-7.5 8.3.4 5.2 2.6-3.6 4.2 3.1L21 4z" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/></svg><span data-i="t123">Telegram · Давид</span></a>
+      </div>
+      <div class="fcol"><h4 data-i="t120">Соцсети</h4>
+        <a href="https://www.instagram.com/statsai_trading_journal" target="_blank" rel="noopener"><svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="5" stroke="currentColor" stroke-width="1.7"/><circle cx="12" cy="12" r="4" stroke="currentColor" stroke-width="1.7"/><circle cx="17.2" cy="6.8" r="1.1" fill="currentColor"/></svg><span>Instagram</span></a>
+        <a href="https://www.tiktok.com/@statsai_trading_journal" target="_blank" rel="noopener"><svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M14 3v11.2a3.3 3.3 0 11-2.6-3.22" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/><path d="M14 3.4c.5 2.4 2.3 4 4.7 4.2" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg><span>TikTok</span></a>
+        <a href="https://t.me/+S6zavvDDHABkMDIy" target="_blank" rel="noopener"><svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M21 4L3 11l6 2.2L19 6.5l-7.5 8.3.4 5.2 2.6-3.6 4.2 3.1L21 4z" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/></svg><span data-i="t125">Telegram-канал</span></a>
+      </div>
+      <div class="fcol"><h4 data-i="t121">Документы</h4><a href="/terms" data-i="t116">Условия</a><a href="/refund" data-i="t117">Возврат</a><a href="/privacy" data-i="t118">Конфиденциальность</a></div>
+    </div>
+  </div>
+</footer>
+</div>
+
+<script>
+(function(){
+  var site=document.getElementById('site');
+
+  /* III квартал точками, как на экране «Обзор» */
+  var pat='uddbuu.udubdu.bduudd.uubd.du.bud.ud.dubu..'.split(''),h='';
+  for(var i=0;i<35;i++){var c=pat[i%pat.length];h+='<i'+(c==='.'?'':' class="'+c+'"')+'></i>'}
+  document.getElementById('dots').innerHTML=h;
+
+  /* цены: утверждённые, €11,99 / €27,99 / €99,99 */
+  var P=window.__PR={m:['€11,99','в месяц',''],q:['€27,99','за 3 месяца, €9,33 в месяц','−22%'],y:['€99,99','за год, €8,33 в месяц','−30%']};
+  var pb=[].slice.call(document.querySelectorAll('[data-per]'));
+  function setPer(k){pb.forEach(function(b){b.setAttribute('aria-pressed',String(b.dataset.per===k))});
+    document.getElementById('price').textContent=P[k][0];document.getElementById('per').textContent=P[k][1];
+    var s=document.getElementById('save');s.textContent=P[k][2]||'−00%';s.classList.toggle('off',!P[k][2])}
+  pb.forEach(function(b){b.addEventListener('click',function(){setPer(b.dataset.per)})});
+  setPer('y');window.__setPer=setPer;
+  var reduce=window.matchMedia&&matchMedia('(prefers-reduced-motion: reduce)').matches;
+  /* появление снизу по очереди */
+  var reduce2=window.matchMedia&&matchMedia('(prefers-reduced-motion: reduce)').matches;
+  if('IntersectionObserver' in window && !reduce2){
+    var sel=['.pix span','.hero-l > *','.hero-r .stat','.logos .it','.lead','.vs-h','.vs-r','.move','.combos','.insight','.ctas',
+      '.step','.cell','.price-top','.plan','.fine','.faq details','.foot .wrap > *'];
+    var els=[].slice.call(document.querySelectorAll(sel.join(',')));
+    var cards=[].slice.call(document.querySelectorAll('.cardx'));
+    els.forEach(function(e){e.classList.add('rv')});
+    cards.forEach(function(e){e.classList.add('rv-card')});
+    document.documentElement.classList.add('rv-on');
+    var all=els.concat(cards);
+    var io=new IntersectionObserver(function(ents){
+      var hit=ents.filter(function(e){return e.isIntersecting}).map(function(e){return e.target});
+      hit.sort(function(a,b){return a.compareDocumentPosition(b)&2?1:-1});
+      hit.forEach(function(el,i){
+        var d=Math.min(i*90,900);
+        el.style.setProperty('--d',d+'ms');
+        el.classList.add('in');io.unobserve(el);
+        /* после появления убираем задержку, чтобы не мешала наведению */
+        setTimeout(function(){el.style.setProperty('--d','0ms')},d+1200);
+      });
+    },{rootMargin:'0px 0px -8% 0px',threshold:0.12});
+    all.forEach(function(e){io.observe(e)});
+    /* страховка: при быстрой прокрутке (или прыжке по «Контактам») наблюдатель может пропустить блок —
+       всё, что уже выше нижнего края экрана, показываем; в самом низу — всё оставшееся */
+    var sweepT=0;function sweep(){var end=innerHeight+scrollY>=document.documentElement.scrollHeight-4,left=0;
+      all.forEach(function(e){if(e.classList.contains('in'))return;
+        if(end||e.getBoundingClientRect().top<innerHeight){e.classList.add('in');io.unobserve(e)}else left++});
+      if(!left)removeEventListener('scroll',onSweep)}
+    function onSweep(){clearTimeout(sweepT);sweepT=setTimeout(sweep,120)}
+    addEventListener('scroll',onSweep,{passive:true});
+  }
+
+  /* маскот следит глазами за курсором и иногда корчит рожицы — как в журнале */
+  (function(){
+    var bot=document.getElementById('landBot');if(!bot||reduce)return;
+    var face=bot.querySelector('.as-fab-face'),mx=null,my=null,raf=null,MAX=5,REACH=260;
+    function apply(){raf=null;if(mx==null)return;var r=bot.getBoundingClientRect(),dx=mx-(r.left+r.width/2),dy=my-(r.top+r.height/2),
+      len=Math.hypot(dx,dy)||1,k=Math.min(1,len/REACH);face.style.transform='translate('+(dx/len*MAX*k).toFixed(2)+'px,'+(dy/len*MAX*k).toFixed(2)+'px)'}
+    document.addEventListener('mousemove',function(e){mx=e.clientX;my=e.clientY;if(!raf)raf=requestAnimationFrame(apply)},{passive:true});
+    var HOLD={happy:1100,wink:1100,surprised:1100,yawn:2100},EM=Object.keys(HOLD);
+    (function tick(){setTimeout(function(){var em=EM[Math.floor(Math.random()*EM.length)];bot.dataset.em=em;
+      setTimeout(function(){delete bot.dataset.em},HOLD[em]);tick()},4000+Math.random()*6000)})();
+  })();
+  /* вопросы раскрываются плавно */
+  [].slice.call(document.querySelectorAll('.faq details')).forEach(function(d){
+    var sm=d.querySelector('summary'),a=d.querySelector('.ans'),busy=null;
+    sm.addEventListener('click',function(e){
+      if(reduce||!a.animate)return;
+      e.preventDefault();if(busy)busy.cancel();
+      var opening=!d.open;
+      if(opening)d.open=true;
+      var h=a.scrollHeight;
+      busy=a.animate(opening?[{height:'0px',opacity:0},{height:h+'px',opacity:1}]:[{height:h+'px',opacity:1},{height:'0px',opacity:0}],
+        {duration:opening?380:280,easing:'cubic-bezier(.16,1,.3,1)'});
+      busy.onfinish=function(){busy=null;if(!opening)d.open=false};
+    });
+  });
+})();
+</script>
+<script>
+/* Перевод лендинга: ru — то, что написано в разметке; uk и en — из словаря.
+   Язык общий с журналом и страницей входа: localStorage statsai_lang. */
+(function(){
+  var K={"t4": {"uk": "Завести журнал <small>· безкоштовно</small>", "en": "Start a journal <small>· free</small>"}, "t54": {"uk": "Наприклад, London + bos за 16 угод з'їв <b class=\"down num\">−8.4%</b>. Без журналу цього не видно.", "en": "For example, London + bos cost <b class=\"down num\">−8.4%</b> over 16 trades. Without a journal you'd never see it."}, "t74": {"uk": "<small>Помічник</small>Дивлюсь твої угоди за вересень. Зв'язка <b>London · bos</b> дала 16 угод із вінрейтом 13% і підсумком <b class=\"down\">−8.4%</b>. Майже всі ці входи були проти біасу дня.\n          <div class=\"res\"><b>US100 · Continuation</b><span>63 угоди</span><em class=\"up\">+29.4%</em></div>\n          А от продовження по US100 тримає тебе в плюсі. У Лондоні спробуй входити лише за біасом.", "en": "<small>Assistant</small>Looking at your September trades. The <b>London · bos</b> combo gave 16 trades with a 13% win rate and a total of <b class=\"down\">−8.4%</b>. Almost all of those entries were against the daily bias.\n          <div class=\"res\"><b>US100 · Continuation</b><span>63 trades</span><em class=\"up\">+29.4%</em></div>\n          Continuation on US100, on the other hand, keeps you in profit. In London, try entering only with the bias."}, "t0": {"uk": "Ціни", "en": "Pricing"}, "t1": {"uk": "Питання", "en": "FAQ"}, "t2": {"uk": "помічник трейдера", "en": "trading assistant"}, "t3": {"uk": "Увійти", "en": "Log in"}, "t5": {"uk": "Весь трейдинг", "en": "All your trading"}, "t6": {"uk": "в одній вкладці.", "en": "in one tab."}, "t7": {"uk": "Журнал угод, новини, калькулятор ризику та ШІ-помічник разом. Переїжджай з Notion за пару хвилин і записуй угоди одним повідомленням у Telegram.", "en": "Trade journal, news, risk calculator and an AI assistant together. Move over from Notion in a couple of minutes and log trades with a single Telegram message."}, "t8": {"uk": "Завести журнал безкоштовно", "en": "Start a free journal"}, "t9": {"uk": "Відкрити демо", "en": "Open the demo"}, "t10": {"uk": "Середній RR", "en": "Average RR"}, "t11": {"uk": "III квартал", "en": "Q3"}, "t12": {"uk": "Липень · Вересень", "en": "July · September"}, "t13": {"uk": "Вересень 2026", "en": "September 2026"}, "t14": {"uk": "5 угод", "en": "5 trades"}, "t15": {"uk": "Угоди, поля й скриншоти переїжджають з Notion за одним посиланням", "en": "Trades, fields and screenshots move over from Notion with one link"}, "t16": {"uk": "Вхід і підключення", "en": "Sign-in and connections"}, "t17": {"uk": "Notion для нотаток.", "en": "Notion for notes."}, "t18": {"uk": "StatsAI для угод.", "en": "StatsAI for trades."}, "t19": {"uk": "У Notion журнал збираєш сам, а по новини, розрахунок лота й розбір ходиш в інші сервіси. Тут усе в одному журналі.", "en": "In Notion you build the journal yourself and go to other services for news, lot size and trade reviews. Here it's all in one journal."}, "t20": {"uk": "Початок", "en": "Getting started"}, "t21": {"uk": "Шукаєш шаблон, налаштовуєш поля й формули", "en": "Find a template, set up fields and formulas"}, "t22": {"uk": "Реєструєшся й одразу пишеш угоди", "en": "Sign up and start logging trades right away"}, "t23": {"uk": "Запис угоди", "en": "Logging a trade"}, "t24": {"uk": "Відкрити базу, заповнити десяток полів", "en": "Open the database, fill in a dozen fields"}, "t25": {"uk": "Одне повідомлення або скрин боту в Telegram", "en": "One message or screenshot to the Telegram bot"}, "t26": {"uk": "Статистика", "en": "Stats"}, "t27": {"uk": "Формули й зведення збираєш сам", "en": "You build formulas and summaries yourself"}, "t28": {"uk": "Вінрейт, профіт-фактор, RR і просадка рахуються самі", "en": "Win rate, profit factor, RR and drawdown are calculated for you"}, "t29": {"uk": "Що зливає депозит", "en": "What drains your account"}, "t30": {"uk": "Не видно, доки не побудуєш зведення", "en": "Invisible until you build a summary"}, "t31": {"uk": "Зв'язки сесій, моделей і сетапів уже розібрані", "en": "Session, model and setup combinations are already broken down"}, "t32": {"uk": "Правила ТС", "en": "Trading rules"}, "t33": {"uk": "Лежать окремою сторінкою", "en": "Sit on a separate page"}, "t34": {"uk": "Кожна угода звіряється з твоїми правилами", "en": "Every trade is checked against your rules"}, "t35": {"uk": "Розбір угод", "en": "Trade reviews"}, "t36": {"uk": "Вивантажуєш угоди й закидаєш у ChatGPT", "en": "Export trades and paste them into ChatGPT"}, "t37": {"uk": "Помічник уже бачить усі угоди, копіювати нікуди не треба", "en": "The assistant already sees every trade, nothing to copy"}, "t38": {"uk": "Новини", "en": "News"}, "t39": {"uk": "Економічний календар на іншому сайті", "en": "Economic calendar on another site"}, "t40": {"uk": "Календар новин на тиждень просто в журналі", "en": "The week's news calendar right in the journal"}, "t41": {"uk": "Розрахунок лота", "en": "Lot size"}, "t42": {"uk": "Окремий калькулятор в іншій вкладці", "en": "A separate calculator in another tab"}, "t43": {"uk": "Калькулятор ризику вбудований у журнал", "en": "The risk calculator is built into the journal"}, "t44": {"uk": "У підсумку", "en": "Bottom line"}, "t45": {"uk": "Календар новин", "en": "News calendar"}, "t46": {"uk": "Калькулятор", "en": "Calculator"}, "t47": {"uk": "Одна вкладка", "en": "One tab"}, "t48": {"uk": "Усе з Notion переїжджає", "en": "Everything moves over from Notion"}, "t49": {"uk": "Даєш посилання на базу, і угоди переносяться разом із полями та скриншотами. Торгову систему теж можна підтягнути з Notion. А якщо не хочеш іти зовсім, підписка тримає журнал у синхроні з Notion.", "en": "Share a link to your database and trades move over with their fields and screenshots. Your trading system can come from Notion too. And if you don't want to leave completely, the subscription keeps the journal in sync with Notion."}, "t50": {"uk": "Перенести з Notion", "en": "Move from Notion"}, "t51": {"uk": "Що працює,", "en": "What works,"}, "t52": {"uk": "що з'їдає.", "en": "what costs you."}, "t53": {"uk": "Журнал сам перебирає поєднання сесії, моделі, біасу й сетапу. Одразу видно, що приносить відсотки, а що їх забирає.", "en": "The journal goes through every combination of session, model, bias and setup. You see at once what earns you percent and what takes it away."}, "t55": {"uk": "Три кроки", "en": "Three steps"}, "t56": {"uk": "до статистики.", "en": "to your stats."}, "t57": {"uk": "Реєстрація", "en": "Sign up"}, "t58": {"uk": "Пошта, Google або Discord. Менше хвилини, нічого не треба встановлювати.", "en": "Email, Google or Discord. Under a minute, nothing to install."}, "t59": {"uk": "Переїзд і запис", "en": "Move and log"}, "t60": {"uk": "Перенеси історію з Notion за посиланням, а нові угоди пиши боту в Telegram або просто в журналі.", "en": "Bring your history over from Notion with a link, and log new trades via the Telegram bot or right in the journal."}, "t61": {"uk": "Журнал", "en": "Journal"}, "t62": {"uk": "Розбір", "en": "Review"}, "t63": {"uk": "Аналітика за всіма полями, звірка з твоєю ТС і помічник, який відповідає по угодах.", "en": "Analytics across every field, checks against your trading system and an assistant that answers about your trades."}, "t64": {"uk": "Аналітика", "en": "Analytics"}, "t65": {"uk": "Моя ТС", "en": "My system"}, "t66": {"uk": "Усе в одному", "en": "Everything in"}, "t67": {"uk": "журналі.", "en": "one journal."}, "t68": {"uk": "Кожен день видно за кольором", "en": "Every day shows by colour"}, "t69": {"uk": "TP, SL і беззбиток просто в календарі. Згори підсумок місяця: вінрейт, профіт-фактор, середній ризик.", "en": "TP, SL and breakeven right in the calendar. The month's totals on top: win rate, profit factor, average risk."}, "t70": {"uk": "Помічник", "en": "Assistant"}, "t71": {"uk": "Відповідає по твоїх угодах: де просадка, який сетап слабший, що змінилось за місяць.", "en": "Answers about your trades: where the drawdown is, which setup is weaker, what changed this month."}, "t72": {"uk": "Спитай, чому стоп", "en": "Ask why it hit the stop"}, "t73": {"uk": "Чому в мене стільки стопів у Лондоні?", "en": "Why do I get so many stops in London?"}, "t75": {"uk": "Новини поруч з угодами", "en": "News next to your trades"}, "t76": {"uk": "Економічний календар на день і тиждень із часом виходу, прогнозом і фактом. Не треба відкривати інший сайт.", "en": "An economic calendar for the day and week with release time, forecast and actual. No need to open another site."}, "t77": {"uk": "Місяць, квартал, рік", "en": "Month, quarter, year"}, "t78": {"uk": "Підсумок періоду, вінрейт, профіт-фактор і крива дохідності з просадкою.", "en": "Period total, win rate, profit factor and the equity curve with drawdown."}, "t79": {"uk": "30 угод", "en": "30 trades"}, "t80": {"uk": "безкоштовно.", "en": "free."}, "t81": {"uk": "Усі розділи відкриті на будь-якому тарифі. Підписка знімає ліміти.", "en": "Every section is open on any plan. The subscription removes the limits."}, "t82": {"uk": "Місяць", "en": "Month"}, "t83": {"uk": "Квартал", "en": "Quarter"}, "t84": {"uk": "Рік", "en": "Year"}, "t85": {"uk": "Безкоштовно", "en": "Free"}, "t86": {"uk": "назавжди", "en": "forever"}, "t87": {"uk": "30 прогонів бектесту", "en": "30 backtest runs"}, "t88": {"uk": "15 питань помічнику на місяць", "en": "15 assistant questions a month"}, "t89": {"uk": "Аналітика, огляд і експорт", "en": "Analytics, overview and export"}, "t90": {"uk": "Підписка", "en": "Subscription"}, "t91": {"uk": "Угоди й бектест без ліміту", "en": "Unlimited trades and backtests"}, "t92": {"uk": "Розширений доступ до помічника", "en": "Extended assistant access"}, "t93": {"uk": "Автосинхронізація з Notion", "en": "Auto-sync with Notion"}, "t94": {"uk": "Усе, що є в безкоштовному", "en": "Everything in the free plan"}, "t95": {"uk": "Оформити", "en": "Subscribe"}, "t96": {"uk": "Скасування за пару кліків. Повернення протягом 14 днів.", "en": "Cancel in a couple of clicks. Refunds within 14 days."}, "t97": {"uk": "Ціни з податком. Продовження можна скасувати будь-коли, оплачені дні лишаються.", "en": "Prices include tax. You can cancel renewal at any time and keep the days you paid for."}, "t98": {"uk": "Чим це краще за Notion чи таблицю?", "en": "How is this better than Notion or a spreadsheet?"}, "t99": {"uk": "У Notion журнал збираєш і рахуєш сам. Тут статистика, зв'язки та звірка з ТС готові одразу, а угоду можна записати одним повідомленням боту. Історію з Notion переносиш за посиланням, разом із полями та скриншотами.", "en": "In Notion you build and calculate the journal yourself. Here stats, combinations and trading-system checks are ready from the start, and you can log a trade with one message to the bot. Your Notion history moves over with a link, fields and screenshots included."}, "t100": {"uk": "Підійде під мій стиль торгівлі?", "en": "Will it fit my trading style?"}, "t101": {"uk": "Сесії London, NY і Frankfurt, біас, моделі, сетапи, продовження й розворот уже є у формі угоди. Проп-рахунки ведуться поруч з особистим депозитом.", "en": "London, NY and Frankfurt sessions, bias, models, setups, continuation and reversal are already in the trade form. Prop accounts are tracked alongside your personal account."}, "t102": {"uk": "Якою мовою журнал?", "en": "What language is the journal in?"}, "t103": {"uk": "Українська, російська та англійська. Мова змінюється в налаштуваннях.", "en": "English, Ukrainian and Russian. You can switch the language in settings."}, "t104": {"uk": "Що буде, коли закінчаться 30 угод?", "en": "What happens after 30 trades?"}, "t105": {"uk": "Усе записане лишається на місці й видно в аналітиці. Нові угоди можна додавати після оформлення підписки.", "en": "Everything you logged stays in place and shows in analytics. You can add new trades once you subscribe."}, "t106": {"uk": "Можна перенести угоди з Notion?", "en": "Can I move my trades from Notion?"}, "t107": {"uk": "Так. Підключаєш базу Notion, обираєш, яке поле куди йде, і угоди переїжджають разом зі скриншотами.", "en": "Yes. Connect your Notion database, choose which field goes where, and your trades move over with their screenshots."}, "t108": {"uk": "Треба щось встановлювати?", "en": "Do I need to install anything?"}, "t109": {"uk": "Ні. Журнал працює в браузері на комп'ютері й телефоні, бот живе в Telegram.", "en": "No. The journal runs in the browser on desktop and phone, and the bot lives in Telegram."}, "t110": {"uk": "Хто бачить мої угоди?", "en": "Who can see my trades?"}, "t111": {"uk": "Тільки ти. Поділитися можна окремою картинкою або посиланням. Для входу є двофакторний захист.", "en": "Only you. You can share a single image or a link. Sign-in supports two-factor protection."}, "t112": {"uk": "Як скасувати підписку?", "en": "How do I cancel the subscription?"}, "t113": {"uk": "У налаштуваннях, розділ «Підписка». Продовження вимкнеться, оплачені дні лишаться до кінця періоду.", "en": "In settings, under “Subscription”. Renewal turns off and the paid days last until the end of the period."}, "t114": {"uk": "Почни", "en": "Start"}, "t115": {"uk": "сьогодні.", "en": "today."}, "t116": {"uk": "Умови", "en": "Terms"}, "t117": {"uk": "Повернення", "en": "Refunds"}, "t118": {"uk": "Конфіденційність", "en": "Privacy"}, "t119": {"uk": "Підтримка", "en": "Support"}, "t120": {"uk": "Соцмережі", "en": "Social"}, "t121": {"uk": "Документи", "en": "Legal"}, "t122": {"uk": "Telegram · Данило", "en": "Telegram · Danylo"}, "t123": {"uk": "Telegram · Давид", "en": "Telegram · David"}, "t124": {"uk": "Контакти", "en": "Contacts"}, "t125": {"uk": "Telegram-канал", "en": "Telegram channel"}}, A={"a0": {"uk": "Розділи", "en": "Sections"}, "a1": {"uk": "Картки з показниками з демо-журналу", "en": "Cards with figures from the demo journal"}, "a2": {"uk": "Останні угоди з журналу", "en": "Latest trades from the journal"}, "a3": {"uk": "Порівняння журналу в Notion і StatsAI", "en": "Comparing a Notion journal with StatsAI"}, "a4": {"uk": "Період оплати", "en": "Billing period"}, "a5": {"uk": "Розділ «Аналітика», блок «Зв'язки»: зліва поєднання, що працюють, справа ті, що з'їдають результат", "en": "Analytics, the Links block: combinations that work on the left, ones that eat your result on the right"}, "a6": {"uk": "Розділ «Журнал»: календар вересня з днями TP, SL і BE", "en": "Journal: the September calendar with TP, SL and BE days"}, "a7": {"uk": "Розділ «Новини»: економічний календар на сьогодні", "en": "News: today's economic calendar"}, "a8": {"uk": "Розділ «Огляд»: підсумок вересня й крива прибутку", "en": "Overview: September total and profit curve"}, "a9": {"uk": "Контакти", "en": "Contacts"}, "langAria": {"uk": "Мова сайту", "en": "Site language"}}, META={"ru": {"title": "StatsAI — весь трейдинг в одной вкладке", "desc": "Журнал сделок, новости, калькулятор риска и ИИ-помощник в одной вкладке. Перенос из Notion за пару минут."}, "uk": {"title": "StatsAI — весь трейдинг в одній вкладці", "desc": "Журнал угод, новини, калькулятор ризику та ШІ-помічник в одній вкладці. Перенесення з Notion за пару хвилин."}, "en": {"title": "StatsAI — all your trading in one tab", "desc": "Trade journal, news, risk calculator and an AI assistant in one tab. Move over from Notion in a couple of minutes."}};
+  var LABEL={uk:'УКР',ru:'РУС',en:'ENG'}, NAME={uk:'Українська',ru:'Русский',en:'English'}, ORDER=['uk','ru','en'];
+  var PR={
+    ru:{m:['€11,99','в месяц',''],q:['€27,99','за 3 месяца, €9,33 в месяц','−22%'],y:['€99,99','за год, €8,33 в месяц','−30%']},
+    uk:{m:['€11,99','на місяць',''],q:['€27,99','за 3 місяці, €9,33 на місяць','−22%'],y:['€99,99','за рік, €8,33 на місяць','−30%']},
+    en:{m:['€11.99','per month',''],q:['€27.99','for 3 months, €9.33 a month','−22%'],y:['€99.99','per year, €8.33 a month','−30%']}
+  };
+  var txt=[].slice.call(document.querySelectorAll('[data-i]')),
+      ari=[].slice.call(document.querySelectorAll('[data-ia]')),
+      alt=[].slice.call(document.querySelectorAll('[data-ialt]')),
+      img=[].slice.call(document.querySelectorAll('img[data-img]'));
+  /* русский оригинал запоминаем прямо из разметки */
+  var RU={},RUA={};
+  txt.forEach(function(e){if(!(e.dataset.i in RU))RU[e.dataset.i]=e.innerHTML});
+  ari.forEach(function(e){RUA[e.dataset.ia]=e.getAttribute('aria-label')});
+  alt.forEach(function(e){RUA[e.dataset.ialt]=e.getAttribute('alt')});
+
+  var cur=null;
+  function apply(l){
+    if(!PR[l])l='ru';
+    if(l===cur)return;cur=l;
+    document.documentElement.lang=l;
+    txt.forEach(function(e){var k=e.dataset.i;e.innerHTML=l==='ru'?RU[k]:K[k][l]});
+    ari.forEach(function(e){var k=e.dataset.ia;e.setAttribute('aria-label',l==='ru'?RUA[k]:A[k][l])});
+    alt.forEach(function(e){var k=e.dataset.ialt;e.setAttribute('alt',l==='ru'?RUA[k]:A[k][l])});
+    img.forEach(function(e){e.src='/static/landing/'+l+'/'+e.dataset.img+'.webp'});
+    document.title=META[l].title;
+    var md=document.querySelector('meta[name="description"]');if(md)md.setAttribute('content',META[l].desc);
+    /* цены и подпись периода */
+    if(window.__PR&&window.__setPer){
+      ['m','q','y'].forEach(function(p){window.__PR[p]=PR[l][p]});
+      var on=document.querySelector('[data-per][aria-pressed="true"]');window.__setPer(on?on.dataset.per:'y');
+    }
+    document.getElementById('langCur').textContent=LABEL[l];
+    [].forEach.call(menu.children,function(b){b.setAttribute('aria-checked',String(b.dataset.l===l))});
+    try{localStorage.setItem('statsai_lang',l)}catch(e){}
+  }
+
+  /* переключатель в шапке */
+  var box=document.getElementById('lang'),btn=document.getElementById('langBtn'),menu=document.getElementById('langMenu');
+  ORDER.forEach(function(l){
+    var b=document.createElement('button');b.type='button';b.dataset.l=l;b.setAttribute('role','menuitemradio');b.lang=l;
+    b.innerHTML=NAME[l]+'<b>'+LABEL[l]+'</b>';
+    b.addEventListener('click',function(){apply(l);toggle(false);btn.focus()});
+    menu.appendChild(b);
+  });
+  function toggle(open){box.classList.toggle('open',open);btn.setAttribute('aria-expanded',String(open))}
+  btn.addEventListener('click',function(e){e.stopPropagation();toggle(!box.classList.contains('open'))});
+  document.addEventListener('click',function(e){if(!box.contains(e.target))toggle(false)});
+  document.addEventListener('keydown',function(e){if(e.key==='Escape'&&box.classList.contains('open')){toggle(false);btn.focus()}});
+
+  var saved='ru';
+  try{saved=localStorage.getItem('statsai_lang')||'ru'}catch(e){}
+  apply(saved);
+})();
+</script>
+</body>
+</html>
