@@ -6,7 +6,13 @@ body{margin:0;background:#050505;color:#f2f2f3;font:15px/1.65 "Geist","Segoe UI"
 .w{max-width:720px;margin:0 auto;padding:48px 22px 80px}
 h1{font-size:26px;letter-spacing:-.02em;margin:0 0 6px} .d{color:#8c8c90;font-size:13px;margin-bottom:28px}
 h2{font-size:16px;margin:26px 0 8px} p,li{color:#c9c9cd} a{color:#40e094}
+.lg{display:flex;gap:4px;justify-content:flex-end;margin-bottom:18px}
+.lg a{font:600 11px/1 "Geist","Segoe UI",sans-serif;letter-spacing:.1em;color:#8c8c90;text-decoration:none;padding:8px 11px;border:1px solid #1c1c1f;border-radius:999px}
+.lg a[aria-current="true"]{color:#f2f2f3;border-color:#3a3a3f}
+[data-l][hidden]{display:none}
 </style></head><body><div class="w">
+<nav class="lg" aria-label="Language"><a href="?lang=uk" data-set="uk" lang="uk">УКР</a><a href="?lang=en" data-set="en" lang="en">ENG</a></nav>
+<div data-l="uk" lang="uk">
 <h1>Повернення коштів</h1><div class="d">StatsAI · оновлено 24 вересня 2026</div>
 
 <p>Коротко: <b>14 днів після оплати — повертаємо всю суму без пояснень.</b> Нижче подробиці.</p>
@@ -56,4 +62,75 @@ h2{font-size:16px;margin:26px 0 8px} p,li{color:#c9c9cd} a{color:#40e094}
 буде його назва.</p>
 
 <p style="margin-top:36px"><a href="/terms">умови використання</a> · <a href="/">← на сайт</a></p>
-</div></body></html>
+</div>
+<div data-l="en" lang="en" hidden>
+<h1>Refund Policy</h1><div class="d">StatsAI · updated 24 September 2026</div>
+
+<p>In short: <b>within 14 days of payment we refund the full amount, no questions asked.</b> Details below.</p>
+
+<h2>14 days</h2>
+<p>If no more than 14 days have passed since payment, write to us and we will refund the full amount.
+You don’t need to give a reason, and we won’t try to talk you into staying. This applies to every plan:
+monthly, quarterly and yearly.</p>
+<p>Whatever you recorded in the journal during that time stays: your account remains,
+your data remains, the subscription simply stops and the usual free limits return.</p>
+
+<h2>How to request</h2>
+<p>Email <a href="mailto:statsai.journal@gmail.com">statsai.journal@gmail.com</a> from the address
+your account is registered to. One line is enough: “please refund my payment”.
+We reply within two business days.</p>
+<p>The money is returned to the same payment method you used. How long it takes to reach your account
+depends on your bank, usually 5–10 business days.</p>
+
+<h2>After 14 days</h2>
+<p>The paid term is not lost: you keep the subscription until the last paid day,
+and you can turn off auto-renewal at any time, in the “Subscription” section or by emailing us.
+There are no charges after cancellation.</p>
+<p>We do not refund months of the subscription already used. But if your situation is special,
+write to us and we will sort it out fairly.</p>
+
+<h2>When we refund regardless</h2>
+<p>The 14-day limit does not apply if the fault is ours:</p>
+<ul>
+<li>the journal was unavailable for a long time;</li>
+<li>you were charged twice or charged after cancelling;</li>
+<li>the subscription did not activate after payment.</li>
+</ul>
+<p>In these cases we refund the money or extend the subscription, whichever you prefer, no matter
+how much time has passed.</p>
+
+<h2>If something is wrong, write to us</h2>
+<p>Before opening a dispute with your bank, please write to us. A dispute takes weeks and automatically locks the account,
+while an email resolves the same issue in a day or two. We don’t argue about the 14-day refund, we simply return the money.</p>
+
+<h2>Right of withdrawal</h2>
+<p>Customers in the EU have a statutory right to withdraw from the contract within 14 days.
+Our policy above gives exactly that, with no extra conditions.</p>
+
+<h2>Who takes the payment</h2>
+<p>Payments and refunds are technically processed by <b>Creem</b>, the merchant of record.
+We decide on the refund and Creem sends the money, so your bank statement
+will show its name.</p>
+
+<p style="margin-top:36px"><a href="/terms">terms of use</a> · <a href="/">← back to the site</a></p>
+</div>
+</div>
+<script>
+/* Мова сторінки: ?lang=en|uk, інакше вибір на сайті (statsai_lang), інакше мова браузера.
+   Російської версії немає — російськомовним показуємо українську, як і раніше. */
+(function(){
+  var q=(location.search.match(/[?&]lang=(en|uk)/)||[])[1], s=null;
+  try{s=localStorage.getItem("statsai_lang")}catch(e){}
+  var nav=(navigator.language||"").slice(0,2);
+  var l=q||(s==="en"?"en":s?"uk":(nav==="uk"||nav==="ru"?"uk":"en"));
+  function set(x){
+    document.documentElement.lang=x;
+    [].forEach.call(document.querySelectorAll("[data-l]"),function(e){e.hidden=e.getAttribute("data-l")!==x});
+    [].forEach.call(document.querySelectorAll(".lg a"),function(a){a.setAttribute("aria-current",String(a.getAttribute("data-set")===x))});
+    var t=document.querySelector('[data-l="'+x+'"] h1');if(t)document.title=t.textContent+" · StatsAI";
+  }
+  [].forEach.call(document.querySelectorAll(".lg a"),function(a){a.addEventListener("click",function(e){e.preventDefault();set(a.getAttribute("data-set"))})});
+  set(l);
+})();
+</script>
+</body></html>

@@ -6,8 +6,14 @@ body{margin:0;background:#050505;color:#f2f2f3;font:15px/1.65 "Geist","Segoe UI"
 .w{max-width:720px;margin:0 auto;padding:48px 22px 80px}
 h1{font-size:26px;letter-spacing:-.02em;margin:0 0 6px} .d{color:#8c8c90;font-size:13px;margin-bottom:28px}
 h2{font-size:16px;margin:26px 0 8px} p,li{color:#c9c9cd} a{color:#40e094}
+.lg{display:flex;gap:4px;justify-content:flex-end;margin-bottom:18px}
+.lg a{font:600 11px/1 "Geist","Segoe UI",sans-serif;letter-spacing:.1em;color:#8c8c90;text-decoration:none;padding:8px 11px;border:1px solid #1c1c1f;border-radius:999px}
+.lg a[aria-current="true"]{color:#f2f2f3;border-color:#3a3a3f}
+[data-l][hidden]{display:none}
 </style></head><body><div class="w">
-<h1>Політика конфіденційності</h1><div class="d">StatsAI · оновлено 2 вересня 2026</div>
+<nav class="lg" aria-label="Language"><a href="?lang=uk" data-set="uk" lang="uk">УКР</a><a href="?lang=en" data-set="en" lang="en">ENG</a></nav>
+<div data-l="uk" lang="uk">
+<h1>Політика конфіденційності</h1><div class="d">StatsAI · оновлено 25 вересня 2026</div>
 
 <h2>Що ми зберігаємо</h2>
 <p>Твій акаунт (пошта або ім'я з Google, Discord чи Telegram), угоди, нотатки, скріншоти й налаштування,
@@ -16,10 +22,53 @@ h2{font-size:16px;margin:26px 0 8px} p,li{color:#c9c9cd} a{color:#40e094}
 <p>Під час входу через Google, Discord або Telegram ми отримуємо лише ідентифікатор, ім'я та (де є) пошту.
 Паролів від цих сервісів ми не бачимо і нічого від твого імені там не робимо.</p>
 <h2>Кому передаємо</h2>
-<p>Нікому. Дані лежать у нашій базі й не продаються та не передаються третім сторонам.
-Помічник у журналі відправляє на обробку лише текст твого запиту.</p>
+<p>Ми не продаємо дані й не передаємо їх для реклами. Вони лежать у нашій базі. Частину отримують лише два сервіси — і тільки для своєї роботи:</p>
+<ul>
+<li><b>Creem</b> (оплата, продавець запису) — те, що потрібно для списання й повернення підписки: пошту й обраний тариф. Дані картки вводяться на сторінці Creem, ми їх не бачимо й не зберігаємо.</li>
+<li><b>Модель ШІ</b>, на якій працює помічник (DeepSeek), — текст твого запиту й дані журналу, потрібні для відповіді (угоди, статистика). Пошту й ім'я не передаємо.</li>
+</ul>
 <h2>Видалення</h2>
 <p>Напишіть на <a href="mailto:statsai.journal@gmail.com">statsai.journal@gmail.com</a> — акаунт і всі дані буде видалено.</p>
 
 <p style="margin-top:36px"><a href="/">← на сайт</a></p>
-</div></body></html>
+</div>
+<div data-l="en" lang="en" hidden>
+<h1>Privacy Policy</h1><div class="d">StatsAI · updated 25 September 2026</div>
+
+<h2>What we store</h2>
+<p>Your account (email, or the name from Google, Discord or Telegram), trades, notes, screenshots and settings
+that you enter into the journal yourself. This is needed for the journal to work and show your statistics.</p>
+<h2>Signing in with other services</h2>
+<p>When you sign in with Google, Discord or Telegram, we receive only an identifier, a name and (where available) an email.
+We never see your passwords for those services and do nothing on your behalf there.</p>
+<h2>Who we share data with</h2>
+<p>We do not sell your data or hand it over for advertising. It is stored in our own database. Only two services receive part of it, and only to do their job:</p>
+<ul>
+<li><b>Creem</b> (payments, merchant of record) receives what is needed to charge and refund a subscription: your email and the plan you choose. Card details are entered on Creem’s page; we never see or store them.</li>
+<li><b>The AI model</b> behind the assistant (DeepSeek) receives the text of your request and the journal data needed to answer it (trades, statistics). Your email and name are not sent.</li>
+</ul>
+<h2>Deletion</h2>
+<p>Write to <a href="mailto:statsai.journal@gmail.com">statsai.journal@gmail.com</a> and your account and all its data will be deleted.</p>
+
+<p style="margin-top:36px"><a href="/">← back to the site</a></p>
+</div>
+</div>
+<script>
+/* Мова сторінки: ?lang=en|uk, інакше вибір на сайті (statsai_lang), інакше мова браузера.
+   Російської версії немає — російськомовним показуємо українську, як і раніше. */
+(function(){
+  var q=(location.search.match(/[?&]lang=(en|uk)/)||[])[1], s=null;
+  try{s=localStorage.getItem("statsai_lang")}catch(e){}
+  var nav=(navigator.language||"").slice(0,2);
+  var l=q||(s==="en"?"en":s?"uk":(nav==="uk"||nav==="ru"?"uk":"en"));
+  function set(x){
+    document.documentElement.lang=x;
+    [].forEach.call(document.querySelectorAll("[data-l]"),function(e){e.hidden=e.getAttribute("data-l")!==x});
+    [].forEach.call(document.querySelectorAll(".lg a"),function(a){a.setAttribute("aria-current",String(a.getAttribute("data-set")===x))});
+    var t=document.querySelector('[data-l="'+x+'"] h1');if(t)document.title=t.textContent+" · StatsAI";
+  }
+  [].forEach.call(document.querySelectorAll(".lg a"),function(a){a.addEventListener("click",function(e){e.preventDefault();set(a.getAttribute("data-set"))})});
+  set(l);
+})();
+</script>
+</body></html>
