@@ -1138,6 +1138,35 @@ class H(BaseHTTPRequestHandler):
         self.send_header("Location", where)
         self.end_headers()
 
+    def _landing(self):
+        """Стартова сторінка. Як і в /login: месенджерам потрібна повна адреса
+        картинки прев'ю, а у файлі вона відносна — дописуємо базу на віддачі."""
+        try:
+            with open(os.path.join(STATIC, "landing.html"), "r", encoding="utf-8") as f:
+                html = f.read()
+        except OSError:
+            self.send_response(404); self.end_headers(); return
+        main_og = os.path.join(STATIC, "og-main.png")
+        if os.path.exists(main_og):
+            html = html.replace('"/static/og-main.png"',
+                                '"/static/og-main.png?v=%d"' % int(os.path.getmtime(main_og)))
+        html = html.replace('content="/static/', 'content="%s/static/' % self._base())
+        html = html.replace("</title>",
+                            '</title>\n<meta property="og:url" content="%s/">' % self._base(), 1)
+        body = html.encode("utf-8")
+        enc = self._squeeze(body)
+        if enc is not None:
+            body = enc
+        self.send_response(200)
+        self.send_header("Content-Type", "text/html; charset=utf-8")
+        if enc is not None:
+            self.send_header("Content-Encoding", "gzip")
+            self.send_header("Vary", "Accept-Encoding")
+        self.send_header("Content-Length", str(len(body)))
+        self.send_header("Cache-Control", "no-store")
+        self.end_headers()
+        self.wfile.write(body)
+
     # Найбільше тіло запиту. Угода з кількома скрінами в base64 — кілька
     # мегабайт; без межі будь-хто міг змусити сервер читати в пам'ять
     # скільки завгодно.
@@ -2187,8 +2216,15 @@ class H(BaseHTTPRequestHandler):
                 # ?ref=партнер лишаємо в адресі: месенджер іде за редіректом і
                 # бере прев'ю вже зі сторінки входу — там воно в стилі партнера
                 q = urlparse(self.path).query
-                return self._redirect("/login" + ("?" + q if q else ""))
+                if q:
+                    return self._redirect("/login?" + q)
+                # гість без позначок бачить стартову сторінку
+                return self._landing()
             return self._file(os.path.join(STATIC, "index.html"), "text/html; charset=utf-8")
+
+        if p == "/landing":
+            # стартова сторінка й для того, хто вже увійшов, — подивитись, як її бачать гості
+            return self._landing()
 
         if p == "/demo":
             # Журнал без акаунта, на демонстраційних даних. Сюди ведуть
@@ -2210,7 +2246,8 @@ class H(BaseHTTPRequestHandler):
                 self.send_response(404); self.end_headers(); return
             ext = name.rsplit(".", 1)[-1].lower()
             ctype = {"css":"text/css; charset=utf-8","js":"application/javascript; charset=utf-8",
-                     "html":"text/html; charset=utf-8","png":"image/png","svg":"image/svg+xml"}.get(ext,"application/octet-stream")
+                     "html":"text/html; charset=utf-8","png":"image/png","svg":"image/svg+xml",
+                     "webp":"image/webp"}.get(ext,"application/octet-stream")
             # у файлів є версія в адресі (?v=5), тому кешуємо назавжди:
             # правка версії сама змусить браузер піти за новим
             versioned = "v=" in urlparse(self.path).query
