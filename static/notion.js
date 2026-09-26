@@ -20,7 +20,6 @@ let link = "";         // посилання на базу
 let title = "";        // як база зветься в Notion
 let mapping = {};      // наше поле -> колонка Notion
 let columns = [];      // колонки бази
-let sample = [];       // перші рядки для перегляду
 let total = 0;
 let poll = 0;
 let tables = [];       // усі таблиці, які знайшли за посиланням
@@ -114,8 +113,12 @@ function box(){ return document.getElementById("modalBox"); }
 
 function paint(bodyHtml, footHtml){
   const b = box(); if (!b) return;
+  /* відкрита шторка жила в <body> — після перемальовування її кнопки
+     вже немає, тож прибираємо самі (static/selmenu.js) */
+  if (window.SelMenu) SelMenu.closeAll();
   b.querySelector(".m-body").innerHTML = bodyHtml;
   b.querySelector(".m-foot").innerHTML = footHtml;
+  if (window.SelMenu) SelMenu.upgrade(b);
 }
 
 function err(msg){
@@ -150,6 +153,10 @@ function stepLink(info){
     + '<li>' + T.ntStep1Li1 + '</li>'
     + '<li>' + T.ntStep1Li2 + '</li>'
     + '</ol>'
+    + '<button type="button" class="nt-vid-btn" onclick="__notion.video()">'
+    +   '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 7.5v9l7-4.5-7-4.5z" fill="currentColor"/></svg>'
+    +   '<span>' + T.ntVideoBtn + '</span>'
+    + '</button>'
     + '<label class="nt-lab">' + T.ntLinkLabel + '</label>'
     + '<input id="ntUrl" class="nt-inp" type="url" autocomplete="off" spellcheck="false"'
     +   ' value="' + esc(again ? "" : link) + '" placeholder="https://…notion.site/…">'
@@ -194,7 +201,6 @@ function soak(r){
   title = r.title || "";
   mapping = r.mapping || {};
   columns = r.columns || [];
-  sample = r.rows || [];
   total = r.total || 0;
   chosen = r.chosen || chosen;
   if (r.fields) state = Object.assign(state || {}, {fields: r.fields});
@@ -217,7 +223,9 @@ function sourcesHtml(){
     +   "<span>" + (s.count || 0) + " " + word(s.count || 0) + "</span>"
     +   "<i>" + esc([s.when, shortLink(s.url)].filter(Boolean).join(" · ")) + "</i>"
     + "</button>"
-    + '<button type="button" class="btn nt-src-x" onclick="__notion.undo(\'' + esc(s.id) + '\')">'
+    + '<button type="button" class="btn nt-src-x"'
+    +   ' title="' + esc(T.ntSrcOffHint || "") + '"'
+    +   ' onclick="__notion.undo(\'' + esc(s.id) + '\')">'
     +   T.ntSrcOff
     + "</button></div>").join("");
 
@@ -309,28 +317,29 @@ async function toMap(){
 /* ---------- крок 2: звірка колонок ---------- */
 function drawMap(){
   const fields = (state && state.fields) || [];
+  /* Тип колонки (date, select, relation…) їде окремим атрибутом: шторка
+     показує його монопростором збоку, а системний список — без нього. */
   const opts = (cur) => '<option value="">' + T.ntDontTransfer + '</option>'
     + columns.map(c => '<option value="' + esc(c.name) + '"'
+        + ' data-type="' + esc(c.type) + '"'
         + (c.name === cur ? " selected" : "") + ">" + esc(c.name)
-        + " · " + esc(c.type) + "</option>").join("");
+        + "</option>").join("");
 
+  /* Інструмент — єдине, без чого перенести не вийде (run() на цьому
+     спиняється), тож він позначений і підсвічується, поки порожній. */
   const rowsHtml = fields.map(f =>
-    '<div class="nt-row"><span>' + esc(fieldLab(f)) + "</span>"
-    + '<select data-f="' + f.k + '" onchange="__notion.setMap(this)">' + opts(mapping[f.k]) + "</select></div>"
+    '<div class="nt-row' + (mapping[f.k] ? " on" : "")
+    + (f.k === "pair" ? " req" : "") + '">'
+    + "<span>" + esc(fieldLab(f))
+    + (f.k === "pair" ? '<i title="' + esc(T.ntFieldRequired) + '">*</i>' : "")
+    + "</span>"
+    + '<select class="js-sel" data-f="' + f.k + '" onchange="__notion.setMap(this)">'
+    + opts(mapping[f.k]) + "</select></div>"
   ).join("");
 
   const found = fields.filter(f => mapping[f.k]).length;
   const what = (title ? "«" + esc(title) + "»" : T.ntTableWord)
              + (total ? ", " + T.ntRowsWord + ": " + total : "");
-
-  /* Показуємо, що лишилось поза журналом — щоб було видно, що нічого
-     не загубилось, і за потреби можна це кудись покласти. */
-  const taken = new Set(fields.map(f => mapping[f.k]).filter(Boolean));
-  const left = columns.filter(c => !taken.has(c.name)).map(c => c.name);
-  const leftHtml = left.length
-    ? '<p class="nt-note">' + T.ntNotIncluded + ' ' + left.map(esc).join(", ")
-      + ". " + T.ntNotIncludedHint + "</p>"
-    : "";
 
   const many = picked.length > 1
     ? '<p class="nt-note">' + T.ntTransferFromPrefix + ' ' + picked.length
@@ -340,13 +349,11 @@ function drawMap(){
 
   paint(
     '<div class="nt">'
-    + '<p class="nt-lead">' + what + ". " + T.ntColumnsAutoMatched + " <b>" + found + " " + T.ntOfWord + " "
+    + '<p class="nt-lead">' + what + ". " + T.ntColumnsAutoMatched
+    + ' <b class="nt-num">' + found + " " + T.ntOfWord + " "
     + fields.length + "</b>. " + T.ntCheckAndFix + "</p>"
     + many
     + '<div class="nt-map">' + rowsHtml + "</div>"
-    + leftHtml
-    + '<div class="nt-sub">' + T.ntPreviewTitle + '</div>'
-    + '<div class="nt-prev">' + preview() + "</div>"
     + haveHtml()
     + safeHtml()
     + '<div class="nt-opts">'
@@ -389,19 +396,6 @@ function optChk(id, label, on){
        + (on ? " checked" : "") + "><span>" + esc(label) + "</span></label>";
 }
 
-function preview(){
-  if (!sample.length) return '<div class="nt-empty">' + T.ntNoRowsInTable + '</div>';
-  const cell = v => esc(v === null || v === undefined || v === "" ? "—" : String(v));
-  return '<table class="nt-tbl"><thead><tr>'
-    + "<th>" + T.fDate + "</th><th>" + T.fPair + "</th><th>" + T.fPosition + "</th><th>" + T.fResult + "</th><th>RR</th><th>" + T.fRisk + "</th>"
-    + "</tr></thead><tbody>"
-    + sample.map(t => "<tr><td>" + cell((t.date || "").replace("T", " "))
-        + "</td><td>" + cell(t.pair) + "</td><td>" + cell(t.position)
-        + "</td><td>" + cell(t.result) + "</td><td>" + cell(t.rr)
-        + "</td><td>" + cell(t.risk) + "</td></tr>").join("")
-    + "</tbody></table>";
-}
-
 /* ---------- крок 3: перенесення ---------- */
 async function run(){
   if (!mapping.pair) return err(T.ntNeedPairColumn);
@@ -416,7 +410,12 @@ async function run(){
   try{
     job = await call("POST", "/api/notion/import",
       {url: link, title, mapping, tables: picked, options: opts});
-  }catch(e){ return err(e.message); }
+  }catch(e){
+    /* Плашка відмови вже все сказала — вертаємо кнопку й мовчимо. */
+    const b = document.querySelector("#ntRun");
+    if (b){ b.disabled = false; b.textContent = T.ntTransferAll; }
+    return e.soft ? undefined : err(e.message);
+  }
   batch = job.batch || job.id;
   watch(job.id);
 }
@@ -577,8 +576,55 @@ async function undo(id){
   stepLink(T.ntUndoneCount + " " + (r.removed || 0) + ". " + T.ntUndoneHint);
 }
 
+/* ---------- відео-підказка ---------- */
+/* Найчастіша заминка при перенесенні: опублікували саму таблицю, а бази,
+   на які вона посилається (сесії, сетапи), лишились закриті — колонки
+   приїжджають порожні. Описувати це текстом довго, тож у вікні стоїть
+   кнопка, а сорокасекундний ролик відкривається шаром згори — окремо від
+   #modal, щоб не перемальовувати уже введене посилання. */
+let vidBox = null;
+
+function closeVideo(){
+  if (!vidBox) return;
+  const v = vidBox.querySelector("video");
+  if (v) v.pause();
+  vidBox.remove();
+  vidBox = null;
+  document.removeEventListener("keydown", onVideoKey, true);
+}
+
+/* Escape тут свій: спільний обробник у app.js закрив би заразом і вікно
+   перенесення. Перехоплюємо подію до нього. */
+function onVideoKey(e){
+  if (e.key !== "Escape") return;
+  e.stopPropagation();
+  e.preventDefault();
+  closeVideo();
+}
+
+function openVideo(){
+  closeVideo();
+  vidBox = document.createElement("div");
+  vidBox.className = "nt-vid";
+  vidBox.style.zIndex = window.nextTop ? nextTop() : 9000;
+  vidBox.innerHTML =
+    '<div class="nt-vid-in">'
+    + '<div class="nt-vid-top"><b>' + esc(T.ntVideoTitle) + '</b>'
+    +   '<button type="button" class="nt-vid-x" aria-label="close">&times;</button></div>'
+    + '<video src="/static/help/notion-publish.mp4?v=1" controls autoplay playsinline'
+    +   ' controlslist="nodownload"></video>'
+    + '</div>';
+  /* клік повз ролик і хрестик закривають, клік по самому ролику — ні */
+  vidBox.addEventListener("click", e => {
+    if (e.target === vidBox || e.target.closest(".nt-vid-x")) closeVideo();
+  });
+  document.body.appendChild(vidBox);
+  document.addEventListener("keydown", onVideoKey, true);
+}
+
 window.__notion = {
   open, tab, run, toMap, undo,
+  video: openVideo,
   back: stepLink,
   toTables(){ stepTables([]); },
   /* Натиснули на вже перенесену базу — читаємо її ще раз: у Notion
@@ -596,7 +642,12 @@ window.__notion = {
     if (on) picked.push(t);
   },
   allTables(){ picked = tables.slice(); stepTables([]); },
-  setMap(sel){ const f = sel.dataset.f; if (sel.value) mapping[f] = sel.value; else delete mapping[f]; },
+  setMap(sel){
+    const f = sel.dataset.f;
+    if (sel.value) mapping[f] = sel.value; else delete mapping[f];
+    const row = sel.closest(".nt-row");
+    if (row) row.classList.toggle("on", !!sel.value);
+  },
   refreshBtn: paintBtn,
   refreshState: checkState,
 };

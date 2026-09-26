@@ -1133,6 +1133,56 @@ class H(BaseHTTPRequestHandler):
         self.end_headers()
         self.wfile.write(data)
 
+    def _media(self, path, ctype, cache=None):
+        """Відео — частинами, за заголовком Range.
+
+        Ролик-підказку в перенесенні з Notion не можна віддавати одним
+        шматком, як решту файлів: Safari спершу просить перші два байти й
+        без відповіді «206» взагалі не починає грати, а решті браузерів
+        частини дають перемотування.
+        """
+        try:
+            size = os.path.getsize(path)
+            f = open(path, "rb")
+        except Exception:
+            self.send_response(404); self.end_headers(); return
+        with f:
+            start, end, partial = 0, size - 1, False
+            m = re.match(r"bytes=(\d*)-(\d*)\s*$",
+                         (self.headers.get("Range") or "").strip())
+            if m and (m.group(1) or m.group(2)):
+                if m.group(1):
+                    start = int(m.group(1))
+                    if m.group(2):
+                        end = min(int(m.group(2)), end)
+                else:                       # bytes=-N — хвіст файлу
+                    start = max(0, size - int(m.group(2)))
+                if start > end:
+                    self.send_response(416)
+                    self.send_header("Content-Range", "bytes */%d" % size)
+                    self.end_headers(); return
+                partial = True
+            self.send_response(206 if partial else 200)
+            self.send_header("Content-Type", ctype)
+            self.send_header("Accept-Ranges", "bytes")
+            if partial:
+                self.send_header("Content-Range",
+                                 "bytes %d-%d/%d" % (start, end, size))
+            self.send_header("Content-Length", str(end - start + 1))
+            self.send_header("Cache-Control", cache or "no-store")
+            self.end_headers()
+            f.seek(start)
+            left = end - start + 1
+            try:
+                while left > 0:
+                    chunk = f.read(min(262144, left))
+                    if not chunk:
+                        break
+                    self.wfile.write(chunk)
+                    left -= len(chunk)
+            except (BrokenPipeError, ConnectionResetError):
+                pass            # закрили вікно посеред ролика — це не помилка
+
     def _redirect(self, where):
         self.send_response(302)
         self.send_header("Location", where)
@@ -2247,12 +2297,14 @@ class H(BaseHTTPRequestHandler):
             ext = name.rsplit(".", 1)[-1].lower()
             ctype = {"css":"text/css; charset=utf-8","js":"application/javascript; charset=utf-8",
                      "html":"text/html; charset=utf-8","png":"image/png","svg":"image/svg+xml",
-                     "webp":"image/webp"}.get(ext,"application/octet-stream")
+                     "webp":"image/webp","mp4":"video/mp4"}.get(ext,"application/octet-stream")
             # у файлів є версія в адресі (?v=5), тому кешуємо назавжди:
             # правка версії сама змусить браузер піти за новим
             versioned = "v=" in urlparse(self.path).query
-            return self._file(os.path.join(STATIC, name), ctype,
-                              self.FOREVER if versioned else None)
+            cache = self.FOREVER if versioned else None
+            if ctype.startswith("video/"):
+                return self._media(os.path.join(STATIC, name), ctype, cache)
+            return self._file(os.path.join(STATIC, name), ctype, cache)
 
         self.send_response(404); self.end_headers()
 
