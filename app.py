@@ -29,6 +29,7 @@ import db
 import emotions
 import filestore
 import share_store
+import admin_page
 import llm
 from psycopg.types.json import Jsonb
 
@@ -1593,100 +1594,9 @@ class H(BaseHTTPRequestHandler):
                 return self._redirect("/login")
             if not _is_admin(uid):
                 self.send_response(403); self.end_headers(); return
-            with db.connect() as conn:
-                q = lambda sql, *a: conn.execute(sql, a).fetchone()
-                u = q("""SELECT count(*) AS n,
-                                count(*) FILTER (WHERE created_at >= now() - interval '7 days') AS d7,
-                                count(*) FILTER (WHERE created_at >= now() - interval '30 days') AS d30,
-                                count(*) FILTER (WHERE telegram_id IS NOT NULL) AS tg,
-                                count(*) FILTER (WHERE email_confirmed_at IS NOT NULL) AS mail
-                         FROM users""")
-                t = q("""SELECT count(*) AS n,
-                                count(*) FILTER (WHERE created_at >= now() - interval '7 days') AS d7,
-                                count(DISTINCT user_id) AS users,
-                                count(DISTINCT user_id) FILTER (WHERE created_at >= now() - interval '7 days') AS act7,
-                                count(DISTINCT user_id) FILTER (WHERE created_at >= now() - interval '30 days') AS act30
-                         FROM trades""")
-                refs = conn.execute("""SELECT coalesce(ref_source,'') AS ref, count(*) AS n,
-                                              count(*) FILTER (WHERE ref_at >= now() - interval '30 days') AS d30
-                                       FROM users GROUP BY 1 ORDER BY n DESC""").fetchall()
-                share_store.init()
-                sh = q("""SELECT count(*) AS n,
-                                 count(*) FILTER (WHERE created >= extract(epoch from now()) - 7*86400) AS d7,
-                                 count(*) FILTER (WHERE created >= extract(epoch from now()) - 30*86400) AS d30,
-                                 coalesce(sum(views),0) AS views,
-                                 count(DISTINCT user_id) AS people
-                          FROM share_stats""")
-                sh_kind = conn.execute("""SELECT kind, count(*) AS n, coalesce(sum(views),0) AS views
-                                          FROM share_stats GROUP BY kind ORDER BY n DESC""").fetchall()
-                sh_top = conn.execute("""SELECT u.nickname, count(*) AS n, coalesce(sum(s.views),0) AS views,
-                                                max(s.created) AS last
-                                         FROM share_stats s LEFT JOIN users u ON u.id = s.user_id
-                                         GROUP BY u.nickname ORDER BY n DESC LIMIT 20""").fetchall()
-                last = conn.execute("""SELECT u.nickname, u.created_at, coalesce(u.ref_source,'') AS ref,
-                                              (SELECT count(*) FROM trades t WHERE t.user_id=u.id) AS trades
-                                       FROM users u ORDER BY u.created_at DESC LIMIT 20""").fetchall()
-                # пошук людини за ніком або поштою: частина рядка, без регістру
-                query = urllib.parse.parse_qs(urlparse(self.path).query).get("q", [""])[0].strip()
-                found = []
-                if query:
-                    like = "%" + query.lower() + "%"
-                    found = conn.execute("""SELECT u.nickname, coalesce(u.email,'') AS email, u.created_at,
-                                                   coalesce(u.ref_source,'') AS ref,
-                                                   (SELECT count(*) FROM trades t WHERE t.user_id=u.id) AS trades
-                                            FROM users u
-                                            WHERE lower(u.nickname) LIKE %s OR lower(coalesce(u.email,'')) LIKE %s
-                                            ORDER BY u.created_at DESC LIMIT 30""", (like, like)).fetchall()
-            e = lambda x: str(x).replace("&","&amp;").replace("<","&lt;")
-            row = lambda k, v: "<tr><td>%s</td><td><b>%s</b></td></tr>" % (e(k), e(v))
-            html = ("<!doctype html><html lang=ru><meta charset=utf-8>"
-                    "<meta name=viewport content='width=device-width,initial-scale=1'>"
-                    "<title>StatsAI · цифры</title>"
-                    "<style>body{font:15px/1.5 -apple-system,Segoe UI,sans-serif;background:#0b0b0d;color:#eee;"
-                    "margin:0;padding:20px;max-width:640px}h1{font-size:18px;margin:0 0 16px}h2{font-size:12px;"
-                    "letter-spacing:.12em;text-transform:uppercase;color:#8a8a90;margin:22px 0 8px}table{width:100%;"
-                    "border-collapse:collapse}td{padding:7px 0;border-top:1px solid #222}td+td{text-align:right}"
-                    "small{color:#8a8a90}a{color:#40e094}"
-                    "form{display:flex;gap:8px;margin:0 0 6px}input{flex:1;font:inherit;padding:9px 12px;border-radius:9px;"
-                    "border:1px solid #2a2a2e;background:#141416;color:#eee}button{font:inherit;padding:9px 14px;"
-                    "border-radius:9px;border:1px solid #2a2a2e;background:#1b1b1e;color:#eee;cursor:pointer}</style>"
-                    "<h1>StatsAI · цифры <small>" + e(datetime.datetime.now().strftime("%d.%m.%Y %H:%M")) + "</small></h1>"
-                    "<h2>Найти человека</h2>"
-                    "<form method=get action='/admin'><input name=q placeholder='Ник или почта' value='"
-                    + e(query).replace("'", "&#39;") + "' autofocus><button>Найти</button></form>"
-                    + (("<table>" + "".join(
-                        "<tr><td><a href='/admin/u/%s'>%s</a> <small>%s · %s%s</small></td><td>%s сд.</td></tr>" % (
-                            e(r["nickname"]), e(r["nickname"]), e(r["email"]) or "без почты",
-                            r["created_at"].strftime("%d.%m.%Y"), (" · " + e(r["ref"])) if r["ref"] else "",
-                            r["trades"]) for r in found) + "</table>")
-                       if found else ("<p><small>Никого не нашёл по «%s».</small></p>" % e(query) if query else ""))
-                    + 
-                    "<h2>Аккаунты</h2><table>"
-                    + row("Всего", u["n"]) + row("За 7 дней", u["d7"]) + row("За 30 дней", u["d30"])
-                    + row("С Telegram", u["tg"]) + row("С подтверждённой почтой", u["mail"]) + "</table>"
-                    "<h2>Активность</h2><table>"
-                    + row("Сделок всего", t["n"]) + row("Сделок за 7 дней", t["d7"])
-                    + row("Людей хотя бы с одной сделкой", t["users"])
-                    + row("Писали сделки за 7 дней", t["act7"]) + row("Писали сделки за 30 дней", t["act30"]) + "</table>"
-                    "<h2>Откуда пришли (метки)</h2><table>"
-                    + "".join(row((REF_TITLES.get(r["ref"], r["ref"]) or "без метки")
-                                  + (" · за 30 дн. +%d" % r["d30"] if r["d30"] else ""), r["n"]) for r in refs) + "</table>"
-                    "<h2>Ссылки (поделились)</h2><table>"
-                    + row("Всего ссылок", sh["n"]) + row("За 7 дней", sh["d7"]) + row("За 30 дней", sh["d30"])
-                    + row("Людей делились", sh["people"]) + row("Переходов по ссылкам (без превью)", sh["views"]) + "</table>"
-                    "<h2>Ссылки по типу</h2><table>"
-                    + "".join(row(KIND_RU.get(r["kind"], r["kind"] or "—") + " · переходов " + str(r["views"]), r["n"]) for r in sh_kind) + "</table>"
-                    "<h2>Кто делится</h2><table>"
-                    + "".join("<tr><td><a href='/admin/u/%s'>%s</a> <small>%s · переходов %s</small></td><td>%s</td></tr>" % (
-                        e(r["nickname"] or ""), e(r["nickname"] or "—"),
-                        datetime.datetime.fromtimestamp(r["last"]).strftime("%d.%m") if r["last"] else "",
-                        r["views"], r["n"]) for r in sh_top) + "</table>"
-                    "<h2>Последние регистрации</h2><table>"
-                    + "".join("<tr><td><a href='/admin/u/%s'>%s</a> <small>%s%s</small></td><td>%s сд.</td></tr>" % (
-                        e(r["nickname"]), e(r["nickname"]), r["created_at"].strftime("%d.%m %H:%M"),
-                        (" · " + e(r["ref"])) if r["ref"] else "", r["trades"]) for r in last)
-                    + "</table></html>")
-            data = html.encode("utf-8")
+            # панель цифр малює admin_page.py; ?q= — підставити пошук
+            query = urllib.parse.parse_qs(urlparse(self.path).query).get("q", [""])[0].strip()
+            data = admin_page.dashboard(query, REF_TITLES, KIND_RU).encode("utf-8")
             self.send_response(200)
             self.send_header("Content-Type", "text/html; charset=utf-8")
             self.send_header("Content-Length", str(len(data)))
@@ -1709,113 +1619,11 @@ class H(BaseHTTPRequestHandler):
                 u = db.get_user_by_nick(nick) or db.get_user_by_email(nick)
             except Exception:
                 u = None
-            e = lambda x: str(x if x is not None else "").replace("&", "&amp;").replace("<", "&lt;")
-            row = lambda k, v: "<tr><td>%s</td><td><b>%s</b></td></tr>" % (e(k), e(v))
-            head = ("<!doctype html><html lang=ru><meta charset=utf-8>"
-                    "<meta name=viewport content='width=device-width,initial-scale=1'>"
-                    "<title>StatsAI · %s</title>"
-                    "<style>body{font:15px/1.5 -apple-system,Segoe UI,sans-serif;background:#0b0b0d;color:#eee;"
-                    "margin:0;padding:20px;max-width:640px}h1{font-size:18px;margin:0 0 16px}h2{font-size:12px;"
-                    "letter-spacing:.12em;text-transform:uppercase;color:#8a8a90;margin:22px 0 8px}table{width:100%%;"
-                    "border-collapse:collapse}td{padding:7px 0;border-top:1px solid #222}td+td{text-align:right}"
-                    "a{color:#8ab4ff}small{color:#8a8a90}</style>" % e(nick))
             if not u:
-                data = (head + "<h1>%s</h1><p>Такого пользователя нет.</p><p><a href='/admin'>← все цифры</a></p></html>" % e(nick)).encode("utf-8")
+                data = admin_page.not_found(nick).encode("utf-8")
                 self.send_response(404)
             else:
-                dt = lambda v: v.strftime("%d.%m.%Y %H:%M") if v else "—"
-                with db.connect() as conn:
-                    t = conn.execute("""SELECT count(*) AS n,
-                                               count(*) FILTER (WHERE result='Skip') AS skips,
-                                               min("date") AS first, max("date") AS last,
-                                               max(created_at) AS last_at,
-                                               count(*) FILTER (WHERE created_at >= now() - interval '7 days') AS d7,
-                                               count(*) FILTER (WHERE created_at >= now() - interval '30 days') AS d30,
-                                               count(DISTINCT left("date", 10)) AS days
-                                        FROM trades WHERE user_id=%s""", (u["id"],)).fetchone()
-                    pairs = conn.execute("""SELECT "pair", count(*) AS n FROM trades WHERE user_id=%s AND "pair"<>''
-                                            GROUP BY 1 ORDER BY n DESC LIMIT 5""", (u["id"],)).fetchall()
-                    share_store.init()
-                    sh = conn.execute("""SELECT count(*) AS n, coalesce(sum(views),0) AS views, max(created) AS last
-                                         FROM share_stats WHERE user_id=%s""", (u["id"],)).fetchone()
-                    kinds = conn.execute("""SELECT kind, count(*) AS n FROM share_stats WHERE user_id=%s
-                                            GROUP BY kind ORDER BY n DESC""", (u["id"],)).fetchall()
-                    _prefs_init()
-                    pr = conn.execute("SELECT data FROM user_prefs WHERE user_id=%s", (u["id"],)).fetchone()
-                try:
-                    ts = ts_store.get(u["id"])
-                except Exception:
-                    ts = None
-                prefs = (pr or {}).get("data") or {}
-                ts_line = "нет"
-                if ts:
-                    bits = []
-                    if ts.get("assets"): bits.append("активы: " + ", ".join(str(x) for x in ts["assets"][:6]))
-                    if ts.get("models"): bits.append("моделей: %d" % len(ts["models"]))
-                    if ts.get("updated"): bits.append("обновлена " + str(ts["updated"]))
-                    ts_line = "есть · " + " · ".join(bits) if bits else "есть"
-                html = (head + "<h1>%s <small>id %s</small></h1>" % (e(u["nickname"]), u["id"])
-                    + "<h2>Аккаунт</h2><table>"
-                    + row("Почта", u["email"]) + row("Почта подтверждена", dt(u["email_confirmed_at"]))
-                    + row("Зарегистрирован", dt(u["created_at"]))
-                    + row("Telegram", ("@" + u["telegram_username"]) if u["telegram_username"] else ("да" if u["telegram_id"] else "нет"))
-                    + row("Открытый журнал", "да · /u/%s" % e(u["nickname"]) if u["public_journal"] else "нет")
-                    + row("Метка партнёра",
-                          (REF_TITLES.get(u["ref_source"], u["ref_source"]) + " · с " + dt(u["ref_at"]))
-                          if u["ref_source"] else "нет")
-                    + "</table>"
-                    # мітку іноді треба поправити руками: людина перейшла не
-                    # за тим посиланням, а далі її посилання рахуються чужому
-                    + "<p><small>Сменить метку:</small> "
-                    + " ".join(
-                        "<button class=refb data-r='%s' style=\"padding:6px 11px;margin-right:6px;"
-                        "border-radius:8px;border:1px solid #333;background:#161618;color:#eee;"
-                        "cursor:pointer\">%s</button>" % (k, e(v))
-                        for k, v in [("", "без метки")] + [(r, REF_TITLES.get(r, r)) for r in ref_all()])
-                    + " <span id=refmsg></span></p>"
-                    + "<script>document.querySelectorAll('.refb').forEach(b=>b.onclick=async()=>{"
-                      "refmsg.textContent='…';"
-                      "const r=await fetch('/api/admin/set-ref',{method:'POST',"
-                      "headers:{'Content-Type':'application/json'},"
-                      "body:JSON.stringify({nick:%s,ref:b.dataset.r})});"
-                      "const d=await r.json().catch(()=>({}));"
-                      "refmsg.textContent=r.ok?'готово':(d.error||('ошибка '+r.status));"
-                      "if(r.ok)setTimeout(()=>location.reload(),600);});</script>"
-                      % json.dumps(u["nickname"], ensure_ascii=False)
-                    + "<h2>Сделки</h2><table>"
-                    + row("Всего", t["n"]) + row("Из них скипов", t["skips"]) + row("Торговых дней", t["days"])
-                    + row("Первая · последняя", "%s · %s" % (str(t["first"] or "—")[:10], str(t["last"] or "—")[:10]))
-                    + row("Последняя запись", dt(t["last_at"])) + row("За 7 дней", t["d7"]) + row("За 30 дней", t["d30"])
-                    + row("Инструменты", ", ".join("%s (%d)" % (r["pair"], r["n"]) for r in pairs) or "—")
-                    + "</table>"
-                    + "<h2>Торговая система</h2><table>" + row("ТС", ts_line) + "</table>"
-                    + "<h2>Ссылки</h2><table>"
-                    + row("Поделился", sh["n"]) + row("Переходов", sh["views"])
-                    + row("Последняя", datetime.datetime.fromtimestamp(sh["last"]).strftime("%d.%m.%Y") if sh["last"] else "—")
-                    + "".join(row("· " + KIND_RU.get(r["kind"], r["kind"]), r["n"]) for r in kinds)
-                    + "</table>"
-                    + "<h2>Опасная зона</h2>"
-                      "<p><small>Удаляет аккаунт и всё, что в нём: сделки, ТС, анализ дня, "
-                      "настройки, ссылки и скриншоты. Отменить нельзя. Чтобы подтвердить, "
-                      "впишите ник точно так: <b>%s</b></small></p>"
-                      "<p><input id=cf placeholder='%s' style=\"padding:8px;border-radius:8px;"
-                      "border:1px solid #333;background:#111;color:#eee;width:60%%\">"
-                      "<button id=go style=\"margin-left:8px;padding:9px 14px;border-radius:8px;"
-                      "border:0;background:#7a1f1f;color:#fff;cursor:pointer\">Удалить аккаунт</button></p>"
-                      "<p id=msg></p>"
-                      "<script>go.onclick=async()=>{if(!confirm('Удалить аккаунт %s? Отменить нельзя.'))return;"
-                      "go.disabled=true;msg.textContent='Удаляю…';"
-                      "const r=await fetch('/api/admin/delete-user',{method:'POST',"
-                      "headers:{'Content-Type':'application/json'},"
-                      "body:JSON.stringify({nick:%s,confirm:cf.value})});"
-                      "const d=await r.json().catch(()=>({}));"
-                      "if(r.ok){msg.textContent='Удалён. Файлов убрано: '+d.files;"
-                      "setTimeout(()=>location.href='/admin',1200);}"
-                      "else{go.disabled=false;msg.textContent=d.error||('Ошибка '+r.status);}};</script>"
-                      % (e(u["nickname"]), e(u["nickname"]), e(u["nickname"]),
-                         json.dumps(u["nickname"], ensure_ascii=False))
-                    + "<p><a href='/admin'>← все цифры</a></p></html>")
-                data = html.encode("utf-8")
+                data = admin_page.user_card(u, REF_TITLES, KIND_RU, list(ref_all())).encode("utf-8")
                 self.send_response(200)
             self.send_header("Content-Type", "text/html; charset=utf-8")
             self.send_header("Content-Length", str(len(data)))
