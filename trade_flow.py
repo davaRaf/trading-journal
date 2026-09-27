@@ -385,7 +385,7 @@ def on_text(user, chat_id, text):
         return True
     if step["kind"] == "emotion":
         # Свої слова зводимо до категорії — так само, як після угоди з сайту.
-        label = emotions.classify(raw[:200]) or raw[:200]
+        label = emotions.classify(raw[:200]) or emotions.OTHER_CODE
         _set(user, chat_id, draft, label)
         return True
     _set(user, chat_id, draft, raw[:200])

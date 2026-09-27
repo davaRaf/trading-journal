@@ -621,6 +621,36 @@ def _emo_init():
         print("емоції не зведено:", ex)
 
 
+def _emo_init2():
+    """Одноразово: відповіді «своїми словами» з бота, які не звелись до
+    категорії (у розрізі стояло «Розфокус» серед російських назв), —
+    пробуємо звести ще раз, не вийшло — «Інше». Слова лишаються в
+    emotion_raw. Свої категорії з сайту (emotion_raw порожній) не чіпаємо.
+    У фоні: для кожного рядка може знадобитись модель."""
+    def run():
+        try:
+            if db.meta_get("emotions_raw_v2", ""):
+                return
+            with db.connect() as conn:
+                rows = conn.execute('SELECT id, "emotion", emotion_raw FROM trades '
+                                    'WHERE emotion_raw IS NOT NULL AND "emotion" <> ''').fetchall()
+            n = 0
+            for r in rows:
+                parts = [p.strip() for p in r["emotion"].split(",") if p.strip()]
+                if all(emotions.code_of(p) for p in parts):
+                    continue
+                code = emotions.classify(r["emotion_raw"] or r["emotion"]) or emotions.OTHER_CODE
+                with db.connect() as conn:
+                    conn.execute('UPDATE trades SET "emotion"=%s WHERE id=%s', (code, r["id"]))
+                    conn.commit()
+                n += 1
+            db.meta_set("emotions_raw_v2", "1")
+            print("свої слова → категорії: %d угод" % n)
+        except Exception as ex:
+            print("свої слова не зведено:", ex)
+    threading.Thread(target=run, daemon=True).start()
+
+
 def ref_visit(ref, ua):
     """Перехід за коротким посиланням (/bs, /soc): скільки людей натиснуло,
     ще до реєстрації. Боти месенджерів, що тягнуть прев'ю, не рахуються."""
@@ -3141,6 +3171,7 @@ if __name__ == "__main__":
     db.init()
     _ref_init()
     _emo_init()
+    _emo_init2()
     # календар гріємо одразу: помічник підкладає новини до кожного питання,
     # а поки кеш порожній, перше питання після перезапуску летить до моделі
     # без них — і вона чесно відповідає, що новин немає

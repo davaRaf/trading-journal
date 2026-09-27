@@ -1574,12 +1574,15 @@ function vAnalytics(){
       :[fieldVal(t,S.dim)];
     for(const k of ks){ if(!gm.has(k)) gm.set(k,[]); gm.get(k).push(t); }
   }
+  /* угоди без значення — окремим рядком «Не вказано», і завжди останнім:
+     це не категорія, а пропуск */
   const groups=[...gm.entries()].map(([name,arr])=>{
     const st=calc(arr); return {name,st};
-  }).sort((a,b)=>b.st.net-a.st.net);
+  }).sort((a,b)=>(!a.name)-(!b.name) || b.st.net-a.st.net);
+  const noVal=S.dim==="emotion"?T.anNoEmo:T.anNoVal;
   const rows=groups.map(g=>{
     const wr=g.st.wr;
-    return '<div class="arow"><span class="nm">'+esc(g.name)+'</span><span class="n">'+g.st.n+"</span>"+
+    return '<div class="arow'+(g.name?"":" none")+'"><span class="nm">'+esc(g.name||noVal)+'</span><span class="n">'+g.st.n+"</span>"+
       '<span class="wrbar"><span class="track"><i style="width:'+(wr||0)+'%"></i></span><b>'+fmtPct(wr)+"</b></span>"+
       '<span class="rr">'+(g.st.avgRR!=null?r1(g.st.avgRR):"—")+"</span>"+
       '<span class="netr '+clsR(g.st.net)+'">'+fmtR(g.st.net)+"</span></div>";

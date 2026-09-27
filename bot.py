@@ -455,8 +455,12 @@ def on_text(chat_id, tg_id, text):
     raw = text.strip()[:200]
     code = emotions.classify(raw)         # свои слова сводим к категории для статистики
     label = emotions.label(code, botlang.of(user)) if code else ""
-    shown = "%s (%s)" % (label, raw) if label and label.lower() != raw.lower() else raw
-    if db.set_trade_emotion(trade["id"], code or raw, raw):
+    # не звели до категорії — «Інше»: у розрізі не з'являється слово чужою
+    # мовою, а самі слова лишаються в emotion_raw
+    code = code or emotions.OTHER_CODE
+    label = label or emotions.label(code, botlang.of(user))
+    shown = "%s (%s)" % (label, raw) if label.lower() != raw.lower() else raw
+    if db.set_trade_emotion(trade["id"], code, raw):
         if trade["emotion_prompt_msg_id"]:
             try:
                 tg_api.edit_message_text(chat_id, trade["emotion_prompt_msg_id"],
