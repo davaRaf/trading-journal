@@ -68,7 +68,9 @@ font:inherit;font-size:12.5px;cursor:pointer}
 th.s{cursor:pointer;user-select:none}th.s:hover{color:var(--dim)}th.s.on{color:var(--text)}
 .mute{color:var(--faint)}
 .list{display:flex;flex-direction:column}
-.list a{display:grid;grid-template-columns:1fr auto;gap:10px;padding:8px 0;border-top:1px solid var(--soft);font-size:13px}
+.list a{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:10px;padding:8px 0;border-top:1px solid var(--soft);font-size:13px}
+.list a>span:first-child{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.grid>*{min-width:0}
 .list a:first-child{border-top:0}
 .list a:hover .nm{color:var(--acc)}
 .list small{color:var(--faint)}
