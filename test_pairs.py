@@ -77,6 +77,21 @@ def main():
     ok &= case("сесія не підмішується в інструменти",
                canon("NEW YORK", (("NY", 3),)), "NEW YORK")
     ok &= case("порожнє поле не чіпаємо", canon("", had), "")
+    ok &= case("Nasdaq (NQ) — це US100",
+               canon("Nasdaq ( NQ)", (("US100", 89),)), "US100")
+    ok &= case("SPX 500 (ES) — це ES500",
+               canon("SPX 500 (ES)", (("ES500", 7),)), "ES500")
+    ok &= case("ES500 і SPX500 — один актив",
+               canon("SPX500", (("ES500", 7),)), "ES500")
+    ok &= case("XAU — золото", canon("XAU", (("XAUUSD", 4),)), "XAUUSD")
+    ok &= case("US100.cash — US100", canon("US100.cash", (("US100", 3),)), "US100")
+    ok &= case("US30 (Dow) — US30", canon("US30 (Dow)", (("US30", 3),)), "US30")
+    ok &= case("спір у назві не зводимо",
+               canon("US30/US100", (("US100", 3),)), "US30/US100")
+    ok &= case("валютні пари не чіпаємо",
+               canon("EUR/USD", (("EURUSD", 3), ("GBPUSD", 2))), "EURUSD")
+    ok &= case("GBP/USD не зводиться до EUR/USD",
+               canon("GBP/USD", (("EUR/USD", 3),)), "GBP/USD")
 
     # --- як обирається еталон ---
     ok &= case("беремо частіше написання",

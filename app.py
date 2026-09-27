@@ -651,6 +651,43 @@ def _emo_init2():
     threading.Thread(target=run, daemon=True).start()
 
 
+def _pairs_init():
+    """Разово для кожної версії списку синонімів (tidy.SAME_VERSION): у
+    кожного журналу один актив — одне написання. Беремо те, що трапляється
+    найчастіше; «Nasdaq (NQ)» стає «US100», якщо US100 у журналі більше.
+    Нові угоди й так сводяться при записі (db._one_spelling), тут — старі."""
+    def run():
+        flag = "pairs_same_v" + tidy.SAME_VERSION
+        try:
+            if db.meta_get(flag, ""):
+                return
+            with db.connect() as conn:
+                rows = conn.execute('SELECT id, user_id, "pair" FROM trades WHERE "pair" <> \'\'').fetchall()
+            by = {}
+            for r in rows:
+                by.setdefault((r["user_id"], tidy.pair_key(r["pair"])), []).append(r)
+            n = 0
+            with db.connect() as conn:
+                for (_u, _k), rs in by.items():
+                    cnt = {}
+                    for r in rs:
+                        p = r["pair"].strip()
+                        cnt[p] = cnt.get(p, 0) + 1
+                    if len(cnt) < 2:
+                        continue
+                    best = sorted(cnt.items(), key=lambda kv: (-kv[1], kv[0]))[0][0]
+                    for r in rs:
+                        if r["pair"].strip() != best:
+                            conn.execute('UPDATE trades SET "pair"=%s WHERE id=%s', (best, r["id"]))
+                            n += 1
+                conn.commit()
+            db.meta_set(flag, "1")
+            print("інструменти зведено: %d угод" % n)
+        except Exception as ex:
+            print("інструменти не зведено:", ex)
+    threading.Thread(target=run, daemon=True).start()
+
+
 def ref_visit(ref, ua):
     """Перехід за коротким посиланням (/bs, /soc): скільки людей натиснуло,
     ще до реєстрації. Боти месенджерів, що тягнуть прев'ю, не рахуються."""
@@ -3172,6 +3209,7 @@ if __name__ == "__main__":
     _ref_init()
     _emo_init()
     _emo_init2()
+    _pairs_init()
     # календар гріємо одразу: помічник підкладає новини до кожного питання,
     # а поки кеш порожній, перше питання після перезапуску летить до моделі
     # без них — і вона чесно відповідає, що новин немає

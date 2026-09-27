@@ -79,21 +79,36 @@ function plainName(v){
    зводить їх при записі: «US100», «Nasdaq» і «NQ» — один інструмент. Тут
    потрібно, щоб після запису «NQ» поруч з «US100» не з'являлась кнопка-двійник. */
 const PAIR_SAME = [
-  ["US100","NAS100","NASDAQ","NASDAQ100","USTEC","NDX","NQ"],
-  ["US30","DJI","DOW","DOWJONES","US30CASH","YM"],
-  ["US500","SPX","SP500","SPX500","ES"],
-  ["GER40","GER30","DAX","DAX40"],
-  ["XAUUSD","GOLD","ЗОЛОТО","ЗОЛОТА"],
-  ["XAGUSD","SILVER","СРІБЛО"],
+  ["US100","NAS100","NASDAQ","NASDAQ100","USTEC","NDX","NQ","MNQ","NAS","US100CASH","NAS100USD","USTECH","USTECH100"],
+  ["US30","DJI","DOW","DOWJONES","US30CASH","YM","MYM","DJ30","WS30"],
+  ["US500","SPX","SP500","SPX500","ES","ES500","MES","US500CASH","SPX500USD","SNP500","SANDP500"],
+  ["GER40","GER30","DAX","DAX40","DE40","DE30","GER40CASH","FDAX"],
+  ["XAUUSD","XAU","GOLD","ЗОЛОТО","ЗОЛОТА","GC","MGC"],
+  ["XAGUSD","XAG","SILVER","СРІБЛО","СЕРЕБРО"],
   ["UK100","FTSE","FTSE100"],
-  ["JP225","NIKKEI","NIKKEI225"],
-  ["BTCUSD","BTCUSDT","BITCOIN","XBTUSD"],
-  ["ETHUSD","ETHUSDT","ETHEREUM"],
-  ["USOIL","WTI","CRUDE","CL"],
+  ["JP225","NIKKEI","NIKKEI225","JPN225"],
+  ["US2000","RUSSELL","RUSSELL2000","RTY","M2K"],
+  ["BTCUSD","BTCUSDT","BITCOIN","XBTUSD","BTC"],
+  ["ETHUSD","ETHUSDT","ETHEREUM","ETH"],
+  ["USOIL","WTI","CRUDE","CL","XTIUSD"],
 ];
 const PAIR_SYN = {};
 PAIR_SAME.forEach(g=>{ const c=g.slice().sort()[0]; g.forEach(w=>{ PAIR_SYN[plainName(w)]=c; }); });
-function pairKey(v){ const k=plainName(v); return PAIR_SYN[k]||k; }
+/* «Nasdaq (NQ)», «SPX 500 (ES)»: цілком назва незнайома — дивимось на
+   шматки (до дужок, у дужках, слова, пари сусідніх слів). Зводимо, лише якщо
+   всі впізнані шматки кажуть про одну групу. Те саме, що tidy.pair_key. */
+function pairKey(v){
+  const k=plainName(v); if(!k) return "";
+  if(PAIR_SYN[k]) return PAIR_SYN[k];
+  const s=(v==null?"":v).toString();
+  const chunks=[s.replace(/\(.*?\)/g," ")].concat((s.match(/\((.*?)\)/g)||[]).map(x=>x.slice(1,-1)));
+  const hits=new Set();
+  chunks.forEach(c=>{
+    const toks=c.split(/[^0-9A-Za-zА-Яа-яЁёІіЇїЄєҐґ]+/).filter(Boolean).map(x=>x.toUpperCase());
+    [toks.join("")].concat(toks, toks.slice(1).map((x,i)=>toks[i]+x)).forEach(p=>{ if(PAIR_SYN[p]) hits.add(PAIR_SYN[p]); });
+  });
+  return hits.size===1 ? [...hits][0] : k;
+}
 function num(v){ const x=parseFloat(v); return isNaN(x)?null:x; }
 /* в интерфейсе результат называется TP / SL / BE, внутри хранится Win / Loss / BE.
    WinM — тот же тейк, но закрытый рукой: для денег это TP, метка нужна,
@@ -1568,8 +1583,18 @@ function vAnalytics(){
      угода з «Спокій, Страх» рахується і там, і там. Сума рядків тоді
      більша за кількість угод, зате кожна емоція видна чесно. */
   const gm=new Map();
+  /* інструмент — за ключем активу: «Nasdaq (NQ)» і «US100» один рядок,
+     підпис — те написання, що трапляється найчастіше */
+  const pairName={};
+  if(S.dim==="pair"){
+    const cnt={};
+    for(const t of list){ const p=(t.pair||"").trim(); if(!p) continue; const k=pairKey(p);
+      cnt[k]=cnt[k]||{}; cnt[k][p]=(cnt[k][p]||0)+1; }
+    Object.keys(cnt).forEach(k=>{ pairName[k]=Object.entries(cnt[k]).sort((a,b)=>b[1]-a[1]||(a[0]<b[0]?-1:1))[0][0]; });
+  }
   for(const t of list){
-    const ks=S.dim==="result"?[resLabel(t.result)]
+    const ks=S.dim==="pair"?[(t.pair||"").trim()?pairName[pairKey(t.pair)]:""]
+      :S.dim==="result"?[resLabel(t.result)]
       :isMulti(S.dim)?(fieldVals(t,S.dim).length?fieldVals(t,S.dim):[""])
       :[fieldVal(t,S.dim)];
     for(const k of ks){ if(!gm.has(k)) gm.set(k,[]); gm.get(k).push(t); }
