@@ -282,12 +282,12 @@ def on_callback(cq):
 
     if data.startswith("emo:"):
         _, trade_id, code = data.split(":", 2)
-        label = emotions.LABELS.get(code)
+        label = emotions.label(code, botlang.of(user)) if code in emotions.LABELS else None
         trade = db.get_trade(trade_id, user["id"])
         if not trade or not label:
             tg_api.answer_callback(cq["id"], botlang.t(botlang.of(user), "emNoTrade"))
             return
-        if db.set_trade_emotion(trade_id, label):
+        if db.set_trade_emotion(trade_id, code):
             tg_api.edit_message_text(chat_id, msg_id,
                                      botlang.t(botlang.of(user), "emSaved", label))
             tg_api.answer_callback(cq["id"])
@@ -453,9 +453,10 @@ def on_text(chat_id, tg_id, text):
         return
     trade = pending[0]
     raw = text.strip()[:200]
-    label = emotions.classify(raw)        # свои слова сводим к категории для статистики
+    code = emotions.classify(raw)         # свои слова сводим к категории для статистики
+    label = emotions.label(code, botlang.of(user)) if code else ""
     shown = "%s (%s)" % (label, raw) if label and label.lower() != raw.lower() else raw
-    if db.set_trade_emotion(trade["id"], label or raw, raw):
+    if db.set_trade_emotion(trade["id"], code or raw, raw):
         if trade["emotion_prompt_msg_id"]:
             try:
                 tg_api.edit_message_text(chat_id, trade["emotion_prompt_msg_id"],
@@ -480,11 +481,15 @@ def emotion_stats(rows):
         rr = r["rr"] if r["rr"] is not None else 0.0
         res = r["result"]
         val = risk * rr if res == "Win" else (-risk if res == "Loss" else 0.0)
-        s = by.setdefault(r["emotion"], {"n": 0, "win": 0, "loss": 0, "net": 0.0})
-        s["n"] += 1
-        s["net"] += val
-        if res == "Win": s["win"] += 1
-        elif res == "Loss": s["loss"] += 1
+        # кілька емоцій в угоді — угода рахується в кожній
+        for name in emotions.label(r["emotion"], "uk").split(", "):
+            if not name:
+                continue
+            s = by.setdefault(name, {"n": 0, "win": 0, "loss": 0, "net": 0.0})
+            s["n"] += 1
+            s["net"] += val
+            if res == "Win": s["win"] += 1
+            elif res == "Loss": s["loss"] += 1
     for s in by.values():
         s["wr"] = 100.0 * s["win"] / s["n"] if s["n"] else 0.0
     return dict(sorted(by.items(), key=lambda kv: kv[1]["net"]))

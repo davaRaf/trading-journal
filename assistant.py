@@ -16,6 +16,7 @@ from zoneinfo import ZoneInfo
 
 import calendar_feed
 import db
+import emotions
 import llm
 import news_msg
 import ts_store
@@ -82,9 +83,12 @@ def stats(all_trades):
 def by_field(trades, field):
     groups = {}
     for t in trades:
-        key = (t.get(field) or "").strip()
-        if key:
-            groups.setdefault(key, []).append(t)
+        raw = (t.get(field) or "").strip()
+        # кілька емоцій в угоді — угода рахується в кожній, а не сочетанням
+        keys = [k.strip() for k in raw.split(",") if k.strip()] if field == "emotion" else [raw]
+        for key in keys:
+            if key:
+                groups.setdefault(key, []).append(t)
     return {k: stats(v) for k, v in sorted(groups.items(),
                                            key=lambda kv: stats(kv[1])["net"])}
 
@@ -692,7 +696,7 @@ def ask(user_id, question, history=None, lang=None, brief=False, kind=""):
     # мову визначаємо до виписки: нею ж підписані й дані, інакше з російської
     # відповіді стирчали українські «нотатка» та «помилка»
     code = detect_lang(question) or _lang_from(history) or lang or "uk"
-    trades = db.list_trades(user_id, kind)
+    trades = emotions.localize(db.list_trades(user_id, kind), code)
     l = lab(code)
     book = digest(trades, code)
     if trades:
@@ -746,7 +750,7 @@ def nudge(user_id, lang="uk", kind=""):
     (трьома мовами), text — те саме, але вже словами моделі. Немає ключа
     до моделі — лишається code, і помічник усе одно не мовчить.
     """
-    trades = [t for t in db.list_trades(user_id, kind) if not t.get("hidden")]
+    trades = emotions.localize([t for t in db.list_trades(user_id, kind) if not t.get("hidden")], lang)
     if len(trades) < 3:
         return {}                       # у порожньому журналі підказки й так на видноті
 
@@ -794,8 +798,9 @@ def review(user_id, history=None, lang=None, kind=""):
     `kind` тримає помічника у своєму журналі: у бектесті він розбирає
     прогони на історії, а не реальну торгівлю.
     """
-    trades = db.list_trades(user_id, kind)
-    facts = observations(trades, _lang_from(history) or lang or "uk")
+    code = _lang_from(history) or lang or "uk"
+    trades = emotions.localize(db.list_trades(user_id, kind), code)
+    facts = observations(trades, code)
     if not facts:
         return {"facts": [], "text": ""}
     text = llm.ask(

@@ -55,7 +55,7 @@ function tradeDetail(t){
     [T.fSession, t.session], [T.fPosition, t.position], [T.fBias, t.bias],
     [T.fmEntryTypeLabel, dirType(t)], [T.flModel, t.entry_model], [T.fSetup, t.setup],
     [T.fRisk, t.risk == null ? "" : t.risk + "%"], ["RR", t.rr == null ? "" : String(t.rr)],
-    [T.fEmotion, t.emotion],
+    [T.fEmotion, fieldVal(t, "emotion")],
   ].filter(([, v]) => v).map(([k, v]) => ({k: k, v: String(v)}));
 
   const texts = [[T.slEntryBlock, t.entry_details], [T.tiNotes, t.notes],

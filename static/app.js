@@ -160,7 +160,24 @@ function dirType(t){
   if(!p || !b) return "";
   return p===b ? "Continuation" : "Reversal";
 }
-function fieldVal(t,k){ return k==="direction_type" ? dirType(t) : (t[k]||""); }
+/* Емоції в базі — кодами (emotions.py), показуємо словами мови інтерфейсу.
+   Старі записи бувають словами будь-якої мови — теж зводимо до коду. */
+const EMO_CODES=["sp","vp","zh","st","az","pm","nd","fm"];
+const EMO_ALIAS=(()=>{
+  const m={other:"other"}; EMO_CODES.forEach(c=>{ m[c]=c; });
+  const D=typeof I18N!=="undefined"?I18N:{};
+  ["uk","ru","en"].forEach(l=>((D[l]||{}).emotions||[]).forEach((w,i)=>{ if(EMO_CODES[i]) m[w.toLowerCase()]=EMO_CODES[i]; }));
+  Object.assign(m,{"thrill":"az","жадність":"zh","інше":"other","другое":"other","иное":"other"});
+  return m;
+})();
+function emoCode(w){ const s=String(w||"").trim(); return EMO_ALIAS[s.toLowerCase()]||s; }
+function emoLabel(c){ const i=EMO_CODES.indexOf(c); return i>=0?(T.emotions[i]||c):c==="other"?(T.emoOther||"Другое"):c; }
+function emoText(v){
+  const out=[]; String(v==null?"":v).split(",").map(x=>x.trim()).filter(Boolean)
+    .forEach(x=>{ const l=emoLabel(emoCode(x)); if(out.indexOf(l)<0) out.push(l); });
+  return out.join(", ");
+}
+function fieldVal(t,k){ return k==="direction_type" ? dirType(t) : k==="emotion" ? emoText(t.emotion) : (t[k]||""); }
 /* Помилок і емоцій в угоді може бути кілька: лежать одним рядком через «, ».
    Схема не міняється, а в аналітиці така угода рахується в кожній групі. */
 const MULTI_FIELDS=["mistakes","emotion"];
@@ -1547,7 +1564,17 @@ function vAnalytics(){
     '<button class="dimbtn" onclick="togDim(this)"><span class="k">'+T.mDim+'</span>'+
     '<b>'+esc(DIMS().find(d=>d.k===S.dim).label)+'</b>'+CHEV_D+'</button>'+
     '<div class="dimbody"><div class="dims">'+DIMS().map(d=>'<button class="pill '+(S.dim===d.k?"on":"")+'" onclick="S.dim=\''+d.k+'\';S.mDim=false;render()">'+d.label+"</button>").join("")+"</div></div></div>";
-  const groups=[...groupBy(list,t=>S.dim==="result"?resLabel(t.result):fieldVal(t,S.dim)).entries()].map(([name,arr])=>{
+  /* Поля, де значень кілька (емоції, помилки), — кожне окремим рядком:
+     угода з «Спокій, Страх» рахується і там, і там. Сума рядків тоді
+     більша за кількість угод, зате кожна емоція видна чесно. */
+  const gm=new Map();
+  for(const t of list){
+    const ks=S.dim==="result"?[resLabel(t.result)]
+      :isMulti(S.dim)?(fieldVals(t,S.dim).length?fieldVals(t,S.dim):[""])
+      :[fieldVal(t,S.dim)];
+    for(const k of ks){ if(!gm.has(k)) gm.set(k,[]); gm.get(k).push(t); }
+  }
+  const groups=[...gm.entries()].map(([name,arr])=>{
     const st=calc(arr); return {name,st};
   }).sort((a,b)=>b.st.net-a.st.net);
   const rows=groups.map(g=>{
@@ -2090,7 +2117,7 @@ function openForm(id, presetDay){
     /* Емоції в бектесті немає: входу не було, і питати нема про що */
     (btOn() ? "" :
       '<div class="f"><label>'+T.fmEmotionLabel+' <span class="autotag">'+T.fmEmotionAutotag+'</span></label>'+
-        pick("emotion",T.emotions,t?t.emotion:"",T.fmEmotionPh)+"</div>")+
+        pick("emotion",T.emotions,t?emoText(t.emotion):"",T.fmEmotionPh)+"</div>")+
   "</div></section>"+
 
   "</div>";

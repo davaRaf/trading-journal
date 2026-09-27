@@ -188,10 +188,10 @@ def _options(user_id, step, trade, lang):
             return [], []
         return [t(lang, "asLastTime", _num(last))], [str(last)]
     if kind == "emotion":
-        # Підпис — мовою людини, а в журнал іде українське написання:
+        # Підпис — мовою людини, а в журнал іде код (emotions.norm):
         # інакше розріз по емоціях розсиплеться на мовні варіанти.
         return ([t(lang, "em" + code.capitalize()) for code, _l in emotions.OPTIONS],
-                [label for _c, label in emotions.OPTIONS])
+                [code for code, _l in emotions.OPTIONS])
     if not step["field"]:
         # Крок без поля журналу — скрін. Пропонувати нічого, там чекають
         # картинку, а не вибір; лишається сама навігація.
@@ -260,6 +260,8 @@ def card(trade, lang=botlang.DEFAULT):
             v = t(lang, label) if label in botlang.PHRASES else label
         elif key in ("rr", "risk"):
             v = _num(v)
+        elif key == "emotion":
+            v = emotions.label(v, lang)
         lines.append("%s: %s" % (t(lang, title), v))
     shots = len(trade.get("screenshots") or [])
     if shots:

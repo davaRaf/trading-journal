@@ -599,6 +599,28 @@ KIND_RU = {"trade": "Сделка", "day": "День", "week": "Неделя", "
            "other": "Другое"}
 
 
+def _emo_init():
+    """Одноразово: емоції в уже записаних угодах — кодами (emotions.norm).
+    Старі записи лежали словами різних мов — «Спокій» від бота,
+    «Спокойствие» з сайту — і в розрізі стояли окремими рядками."""
+    try:
+        if db.meta_get("emotions_codes_v1", ""):
+            return
+        n = 0
+        with db.connect() as conn:
+            rows = conn.execute('SELECT id, "emotion" FROM trades WHERE "emotion" <> \'\'').fetchall()
+            for r in rows:
+                v = emotions.norm(r["emotion"])
+                if v != r["emotion"]:
+                    conn.execute('UPDATE trades SET "emotion"=%s WHERE id=%s', (v, r["id"]))
+                    n += 1
+            conn.commit()
+        db.meta_set("emotions_codes_v1", "1")
+        print("емоції → коди: %d угод" % n)
+    except Exception as ex:
+        print("емоції не зведено:", ex)
+
+
 def _ref_init():
     with db.connect() as conn:
         conn.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS ref_source TEXT")
@@ -3098,6 +3120,7 @@ class Server(HTTPServer):
 if __name__ == "__main__":
     db.init()
     _ref_init()
+    _emo_init()
     # календар гріємо одразу: помічник підкладає новини до кожного питання,
     # а поки кеш порожній, перше питання після перезапуску летить до моделі
     # без них — і вона чесно відповідає, що новин немає
