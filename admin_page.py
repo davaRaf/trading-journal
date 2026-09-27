@@ -469,24 +469,33 @@ def _cohorts(D):
             + ("".join(body) or '<tr><td class=empty colspan=9>Пока пусто</td></tr>') + "</table></div></div>")
 
 
-def _partners(D, titles):
+def _partners(D, titles, refs=()):
     P = D["people"]
     today = D["today"]
-    groups = {}
+    # усі мітки, навіть без людей: інакше нове посилання (соцмережі) не
+    # видно зовсім, поки за ним хтось не зареєструється
+    groups = {r: [] for r in refs}
     for p in P:
         groups.setdefault(p["ref"], []).append(p)
+    vis = {r["ref"]: r for r in _q("""SELECT ref, sum(n) AS n,
+                                             sum(n) FILTER (WHERE day >= (now() AT TIME ZONE 'Europe/Kyiv')::date - 29) AS d30
+                                      FROM ref_visits GROUP BY ref""")}
     rows = []
-    for ref, ps in sorted(groups.items(), key=lambda kv: -len(kv[1])):
+    for ref, ps in sorted(groups.items(), key=lambda kv: (kv[0] == "", -len(kv[1]))):
+        v = vis.get(ref) or {}
+        clicks = ("%d <span class=mute>· +%d</span>" % (v.get("n") or 0, v.get("d30") or 0)) if ref else "<span class=mute>—</span>"
         n30 = sum(1 for p in ps if p["_ref_at"] and (today - _kdate(p["_ref_at"])).days < 30) if ref else \
             sum(1 for p in ps if p["regd"] < 30)
-        rows.append("<tr><td>%s</td><td class=num>%d</td><td class=num>%s</td><td class=num>%d</td>"
+        rows.append("<tr><td>%s</td><td class=num>%s</td><td class=num>%d</td><td class=num>%s</td><td class=num>%d</td>"
                     "<td class=num>%d</td><td class=num>%d</td></tr>" % (
-                        e(titles.get(ref, ref) if ref else "Без метки"), len(ps), ("+%d" % n30) if n30 else "0",
+                        e(titles.get(ref, ref) if ref else "Без метки"), clicks, len(ps), ("+%d" % n30) if n30 else "0",
                         sum(1 for p in ps if p["n"]), sum(1 for p in ps if p["st"] == "active"),
                         sum(1 for p in ps if p["manual"] >= FREE_LIMIT)))
     return ('<div class=card><h2>Партнёры и метки</h2><div class=tw><table>'
-            "<tr><th>Метка</th><th class=num>Людей</th><th class=num>30 дн.</th><th class=num>Со сделками</th>"
-            "<th class=num>Активны</th><th class=num>Лимит 30+</th></tr>" + "".join(rows) + "</table></div></div>")
+            "<tr><th>Метка</th><th class=num>Переходов · 30 дн.</th><th class=num>Людей</th><th class=num>30 дн.</th>"
+            "<th class=num>Со сделками</th><th class=num>Активны</th><th class=num>Лимит 30+</th></tr>" + "".join(rows)
+            + "</table></div><p class=mute style=\"margin:10px 0 0;font-size:12px\">Переходы — нажатия на короткие "
+              "ссылки /bs, /soc, считаются с 27.09.2026. Люди — кто зарегистрировался с этой меткой.</p></div>")
 
 
 def _links(D, kind_ru):
@@ -574,7 +583,7 @@ chips();draw();
 """
 
 
-def dashboard(query, titles, kind_ru):
+def dashboard(query, titles, kind_ru, refs=()):
     D = _collect()
     stamp = datetime.datetime.now(KYIV).strftime("%d.%m.%Y %H:%M")
     return (head("StatsAI · админка")
@@ -586,7 +595,7 @@ def dashboard(query, titles, kind_ru):
             + _kpis(D) + _charts(D)
             + '<div class="grid three">' + _funnel(D) + _features(D) + _status(D) + "</div>"
             + _cohorts(D) + _watch(D)
-            + '<div class="grid two">' + _partners(D, titles) + _links(D, kind_ru) + "</div>"
+            + '<div class="grid two">' + _partners(D, titles, refs) + _links(D, kind_ru) + "</div>"
             + _people(D, titles, query)
             + "</div></body></html>")
 

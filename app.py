@@ -621,6 +621,23 @@ def _emo_init():
         print("емоції не зведено:", ex)
 
 
+def ref_visit(ref, ua):
+    """Перехід за коротким посиланням (/bs, /soc): скільки людей натиснуло,
+    ще до реєстрації. Боти месенджерів, що тягнуть прев'ю, не рахуються."""
+    if not ref or share_store.BOT_UA.search(ua or ""):
+        return
+    try:
+        with db.connect() as conn:
+            conn.execute("""CREATE TABLE IF NOT EXISTS ref_visits (
+                               ref TEXT NOT NULL, day DATE NOT NULL, n INTEGER NOT NULL DEFAULT 0,
+                               PRIMARY KEY (ref, day))""")
+            conn.execute("""INSERT INTO ref_visits (ref, day, n) VALUES (%s, (now() AT TIME ZONE 'Europe/Kyiv')::date, 1)
+                            ON CONFLICT (ref, day) DO UPDATE SET n = ref_visits.n + 1""", (ref,))
+            conn.commit()
+    except Exception as ex:
+        print("ref_visit:", ex)
+
+
 def _ref_init():
     with db.connect() as conn:
         conn.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS ref_source TEXT")
@@ -1618,7 +1635,7 @@ class H(BaseHTTPRequestHandler):
                 self.send_response(403); self.end_headers(); return
             # панель цифр малює admin_page.py; ?q= — підставити пошук
             query = urllib.parse.parse_qs(urlparse(self.path).query).get("q", [""])[0].strip()
-            data = admin_page.dashboard(query, REF_TITLES, KIND_RU).encode("utf-8")
+            data = admin_page.dashboard(query, REF_TITLES, KIND_RU, list(ref_all())).encode("utf-8")
             self.send_response(200)
             self.send_header("Content-Type", "text/html; charset=utf-8")
             self.send_header("Content-Length", str(len(data)))
@@ -2084,6 +2101,9 @@ class H(BaseHTTPRequestHandler):
         if m:
             ref = ref_norm(m.group(1))
             if ref:
+                uid0 = self._uid()
+                if not (uid0 and _is_admin(uid0)):      # свої переходи не рахуємо
+                    ref_visit(ref, self.headers.get("User-Agent") or "")
                 self._ref_touch(ref)
                 if self._uid():
                     return self._redirect("/")
