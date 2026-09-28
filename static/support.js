@@ -40,6 +40,11 @@ const CONTACTS = [
   {kind: "telegram", key: "suTelegram2", value: "@david_rafaelian",
    link: "https://t.me/david_rafaelian"},
 
+  /* Наш Telegram-канал — окремою групою перед соцмережами: там оновлення
+     журналу, і це головне місце, де про них пишемо (власник, 28.09.2026). */
+  {kind: "telegram", key: "suTgChannel", value: "@journalStatsAI",
+   link: "https://t.me/journalStatsAI", sep: "suChannel", cta: "suOpen"},
+
   /* Соцмережі йдуть окремою групою: це не підтримка, а «де нас читати».
      sep — підпис-роздільник перед рядком, cta — своя назва кнопки
      (у мережу не «пишуть», її відкривають). */
