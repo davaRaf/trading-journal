@@ -189,6 +189,76 @@ def owns_shot(user_id, name):
     return bool(m) and m.group(1) == str(user_id)
 
 
+def copy_for(user_id, data):
+    """Чужа ТС як своя: та сама структура, але кожен скрін — нова копія з
+    іменем нового власника (ts<його id>_…). Інакше картинки лишились би
+    чужими: їх не віддасть перевірка власника і прибере sweep автора."""
+    n = [0]
+
+    def dup(name):
+        got = filestore.get(os.path.basename(name)) if name else None
+        if not got:
+            return ""
+        mime, blob = got
+        ext = name.rsplit(".", 1)[-1].lower()
+        n[0] += 1
+        new = "ts%d_%x%02d.%s" % (int(user_id), int(time.time() * 1000), n[0] % 100, ext)
+        filestore.put(new, bytes(blob), mime)
+        return new
+
+    def walk(x):
+        if isinstance(x, dict):
+            out = {}
+            for k, v in x.items():
+                if k in ("shot", "file") and isinstance(v, str):
+                    out[k] = dup(v)
+                elif k == "shots" and isinstance(v, list):
+                    out[k] = [s for s in (dup(i) if isinstance(i, str) else walk(i) for i in v) if s]
+                else:
+                    out[k] = walk(v)
+            return out
+        if isinstance(x, list):
+            return [walk(v) for v in x]
+        return x
+
+    return walk(data or {})
+
+
+def copy_for(user_id, data):
+    """Чужа ТС як своя: та сама структура, але кожен скрін — нова копія з
+    іменем нового власника (ts<його id>_…). Інакше картинки лишились би
+    чужими: їх не віддасть перевірка власника і прибере sweep автора."""
+    n = [0]
+
+    def dup(name):
+        got = filestore.get(os.path.basename(name)) if name else None
+        if not got:
+            return ""
+        mime, blob = got
+        ext = name.rsplit(".", 1)[-1].lower()
+        n[0] += 1
+        new = "ts%d_%x%02d.%s" % (int(user_id), int(time.time() * 1000), n[0] % 100, ext)
+        filestore.put(new, bytes(blob), mime)
+        return new
+
+    def walk(x):
+        if isinstance(x, dict):
+            out = {}
+            for k, v in x.items():
+                if k in ("shot", "file") and isinstance(v, str):
+                    out[k] = dup(v)
+                elif k == "shots" and isinstance(v, list):
+                    out[k] = [s for s in (dup(i) if isinstance(i, str) else walk(i) for i in v) if s]
+                else:
+                    out[k] = walk(v)
+            return out
+        if isinstance(x, list):
+            return [walk(v) for v in x]
+        return x
+
+    return walk(data or {})
+
+
 def used_files(data):
     """Усі імена файлів, на які посилається стратегія."""
     out = set()
