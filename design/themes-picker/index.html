@@ -1,0 +1,250 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>StatsAI · выбор оформления</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&family=Geist+Mono:wght@400;500;600&display=swap">
+<style>
+/* ============================================================
+   Пробник: как красивее выбирать оформление.
+   Четыре варианта одного и того же раздела настроек. Цвета тем —
+   те же, что в static/themes.js. Ничего из приложения не тянем.
+   ============================================================ */
+:root{--bg:#050505;--panel:#0d0d0e;--card:#111113;--line:rgba(255,255,255,.08);--soft:rgba(255,255,255,.045);
+--text:#f2f2f3;--dim:#8f8f95;--faint:#5e5e64;--acc:#40e094;
+--sans:"Geist","Segoe UI",system-ui,sans-serif;--mono:"Geist Mono",Consolas,monospace}
+*{box-sizing:border-box;scrollbar-width:thin;scrollbar-color:rgba(255,255,255,.14) transparent}
+::-webkit-scrollbar{width:8px;height:8px}::-webkit-scrollbar-button{display:none}
+::-webkit-scrollbar-thumb{background:rgba(255,255,255,.14);border-radius:6px}::-webkit-scrollbar-track{background:transparent}
+body{margin:0;background:var(--bg);color:var(--text);font:14px/1.5 var(--sans);-webkit-font-smoothing:antialiased;
+  transition:background .35s,color .35s}
+.wrap{max-width:1040px;margin:0 auto;padding:22px 18px 80px}
+h1{margin:0 0 4px;font-size:19px;letter-spacing:-.02em}
+.lead{margin:0 0 14px;color:var(--dim);font-size:13.5px;max-width:640px}
+.tabs{display:flex;gap:8px;flex-wrap:wrap;position:sticky;top:0;z-index:5;padding:12px 0;
+  background:linear-gradient(var(--bg) 75%,transparent)}
+.tab{font:inherit;font-size:13px;padding:9px 14px;border-radius:11px;cursor:pointer;border:1px solid var(--line);
+  background:var(--panel);color:var(--dim)}
+.tab.on{color:var(--text);border-color:color-mix(in srgb,var(--acc) 55%,transparent);background:color-mix(in srgb,var(--acc) 10%,transparent)}
+.note{color:var(--faint);font-size:12.5px;margin:4px 0 16px}
+.sheet{border:1px solid var(--line);border-radius:18px;background:var(--panel);padding:18px}
+.gh{font-family:var(--mono);font-size:10.5px;letter-spacing:.16em;text-transform:uppercase;color:var(--faint);margin:18px 0 10px}
+.gh:first-child{margin-top:0}
+[hidden]{display:none!important}
+
+/* ---------- мини-экран журнала в цветах темы ---------- */
+.mini{position:relative;border-radius:10px;overflow:hidden;background:var(--t-bg);border:1px solid var(--t-line);
+  display:grid;grid-template-columns:22% 1fr;aspect-ratio:16/10}
+.mini .sb{background:var(--t-panel);border-right:1px solid var(--t-line);padding:8% 10%;display:flex;flex-direction:column;gap:7%}
+.mini .sb i{display:block;height:5%;min-height:3px;border-radius:3px;background:var(--t-line)}
+.mini .sb i.a{background:var(--t-accent);width:80%}
+.mini .mn{padding:6%;display:flex;flex-direction:column;gap:6%}
+.mini .kp{display:grid;grid-template-columns:repeat(3,1fr);gap:6%}
+.mini .kp b{display:block;height:15px;border-radius:4px;background:var(--t-panel);border:1px solid var(--t-line);position:relative}
+.mini .kp b::after{content:"";position:absolute;left:14%;top:38%;width:50%;height:26%;border-radius:2px;background:var(--c)}
+.mini .ch{flex:1;border-radius:5px;background:var(--t-panel);border:1px solid var(--t-line);position:relative;overflow:hidden}
+.mini .ch svg{position:absolute;inset:0;width:100%;height:100%}
+.mini .cal{display:grid;grid-template-columns:repeat(7,1fr);gap:3px}
+.mini .cal s{height:7px;border-radius:2px;background:var(--t-line)}
+.mini .cal s.u{background:color-mix(in srgb,var(--t-up) 70%,transparent)}
+.mini .cal s.d{background:color-mix(in srgb,var(--t-down) 70%,transparent)}
+.mini .cal s.b{background:color-mix(in srgb,var(--t-be) 70%,transparent)}
+
+/* ---------- A: мини-экраны ---------- */
+.ga{display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:12px}
+.ca{border:1px solid var(--line);border-radius:14px;background:var(--card);padding:9px;cursor:pointer;text-align:left;
+  font:inherit;color:inherit;transition:transform .18s,border-color .18s,box-shadow .18s}
+.ca:hover{transform:translateY(-2px);border-color:rgba(255,255,255,.18)}
+.ca.on{border-color:var(--acc);box-shadow:0 0 0 3px color-mix(in srgb,var(--acc) 22%,transparent)}
+.ca .nm{display:flex;align-items:center;justify-content:space-between;margin-top:9px;font-size:13px;font-weight:600;padding:0 3px}
+.ca .nm small{font-family:var(--mono);font-size:10px;color:var(--faint);font-weight:400;letter-spacing:.06em}
+.ca.on .nm small{color:var(--acc)}
+.ca .dots{display:flex;gap:4px}
+.ca .dots i{width:9px;height:9px;border-radius:50%}
+
+/* ---------- B: список + большое превью ---------- */
+.gb{display:grid;grid-template-columns:260px 1fr;gap:16px;align-items:start}
+.lb{display:flex;flex-direction:column;gap:4px;max-height:560px;overflow:auto;padding-right:4px}
+.lb .gh{margin:12px 0 6px 6px}
+.rb{display:flex;align-items:center;gap:10px;padding:9px 10px;border-radius:10px;cursor:pointer;border:1px solid transparent;
+  background:transparent;font:inherit;color:var(--dim);text-align:left}
+.rb:hover{background:var(--soft);color:var(--text)}
+.rb.on{background:color-mix(in srgb,var(--acc) 10%,transparent);border-color:color-mix(in srgb,var(--acc) 40%,transparent);color:var(--text)}
+.rb .sw{width:30px;height:22px;border-radius:6px;flex:none;border:1px solid rgba(255,255,255,.12);
+  background:linear-gradient(135deg,var(--t-bg) 0 50%,var(--t-accent) 50% 100%)}
+.rb b{font-weight:500;font-size:13.5px}
+.pb{position:sticky;top:64px}
+.pb .mini{aspect-ratio:16/9.5}
+.pb .cap{display:flex;align-items:center;justify-content:space-between;margin-top:12px}
+.pb .cap b{font-size:16px}
+.pb .cap span{color:var(--dim);font-size:12.5px}
+.apply{font:inherit;font-weight:600;padding:10px 16px;border-radius:10px;border:0;background:var(--acc);color:#06130d;cursor:pointer}
+
+/* ---------- C: палитры полосами ---------- */
+.gc{display:flex;flex-direction:column;gap:8px}
+.rc{display:grid;grid-template-columns:1fr 150px;gap:14px;align-items:center;padding:10px;border-radius:14px;cursor:pointer;
+  border:1px solid var(--line);background:var(--card);font:inherit;color:inherit;text-align:left;transition:border-color .18s}
+.rc:hover{border-color:rgba(255,255,255,.18)}
+.rc.on{border-color:var(--acc);box-shadow:0 0 0 3px color-mix(in srgb,var(--acc) 18%,transparent)}
+.strip{display:flex;height:46px;border-radius:9px;overflow:hidden;border:1px solid rgba(255,255,255,.1)}
+.strip i{flex:1}
+.strip i.w{flex:3}
+.rc .t b{display:block;font-size:14px}
+.rc .t span{font-size:12px;color:var(--dim)}
+
+/* ---------- D: живое применение ---------- */
+.gd .seg{display:inline-flex;gap:4px;padding:4px;border-radius:12px;background:var(--soft);margin-bottom:14px;flex-wrap:wrap}
+.gd .seg button{font:inherit;font-size:13px;padding:7px 12px;border-radius:9px;border:0;background:transparent;color:var(--dim);cursor:pointer}
+.gd .seg button.on{background:var(--panel);color:var(--text);box-shadow:0 1px 0 rgba(255,255,255,.06)}
+.chips{display:flex;gap:8px;flex-wrap:wrap}
+.chip{display:flex;align-items:center;gap:9px;padding:7px 12px 7px 7px;border-radius:999px;cursor:pointer;
+  border:1px solid var(--line);background:var(--card);font:inherit;color:var(--text);transition:border-color .18s}
+.chip .ring{width:26px;height:26px;border-radius:50%;background:conic-gradient(var(--t-accent) 0 25%,var(--t-up) 0 50%,var(--t-down) 0 75%,var(--t-bg) 0);
+  border:2px solid var(--t-panel);box-shadow:0 0 0 1px rgba(255,255,255,.15)}
+.chip.on{border-color:var(--acc);box-shadow:0 0 0 3px color-mix(in srgb,var(--acc) 20%,transparent)}
+.stage{margin-top:16px;border-radius:14px;overflow:hidden;border:1px solid var(--line)}
+.stage .mini{aspect-ratio:16/8;border:0;border-radius:0}
+
+@media(max-width:760px){.gb{grid-template-columns:1fr}.pb{position:static}.lb{max-height:none}
+  .rc{grid-template-columns:1fr}.ga{grid-template-columns:repeat(2,1fr)}}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>Выбор оформления · пробник</h1>
+  <p class="lead">Четыре способа выбрать тему в настройках. Нажимай темы внутри каждого варианта — это только пробник, в журнале ничего не меняется.</p>
+  <div class="tabs" id="tabs">
+    <button class="tab on" data-v="a">А · Мини-экраны</button>
+    <button class="tab" data-v="b">Б · Список и большое превью</button>
+    <button class="tab" data-v="c">В · Палитры полосами</button>
+    <button class="tab" data-v="d">Г · Живое применение</button>
+  </div>
+
+  <section data-v="a">
+    <p class="note">Каждая тема — маленький экран журнала в её цветах: меню, цифры, график, календарь. Сразу видно, как будет выглядеть.</p>
+    <div class="sheet" id="va"></div>
+  </section>
+  <section data-v="b" hidden>
+    <p class="note">Слева короткий список, справа большое превью. Наводишь — превью меняется, нажимаешь «Применить».</p>
+    <div class="sheet"><div class="gb"><div class="lb" id="vb-list"></div><div class="pb" id="vb-prev"></div></div></div>
+  </section>
+  <section data-v="c" hidden>
+    <p class="note">Компактно: одна строка на тему, палитра полосой и пара слов о характере.</p>
+    <div class="sheet" id="vc"></div>
+  </section>
+  <section data-v="d" hidden>
+    <p class="note">Группы вкладками сверху, темы — кружками. Нажал — и вся страница пробника перекрашивается, как это будет в журнале.</p>
+    <div class="sheet gd" id="vd"></div>
+  </section>
+</div>
+
+<script>
+/* цвета — как в static/themes.js */
+const THEMES = [
+  {id:"night",name:"Ночь",g:"Тёмные",bg:"#050505",panel:"#0d0d0e",line:"#26262a",accent:"#40e094",up:"#40e094",down:"#ff6e60",be:"#efc258",mood:"Графит и мятный акцент"},
+  {id:"graphite",name:"Графит",g:"Тёмные",bg:"#101012",panel:"#17171a",line:"#2c2c31",accent:"#f0a13c",up:"#59c98a",down:"#ef6a5e",be:"#e0b352",mood:"Тёплый янтарь"},
+  {id:"midnight",name:"Полночь",g:"Тёмные",bg:"#070b14",panel:"#0d1421",line:"#22304a",accent:"#38bdf8",up:"#34d399",down:"#fb7185",be:"#fbbf24",mood:"Ночное небо"},
+  {id:"wine",name:"Вино",g:"Тёмные",bg:"#120a12",panel:"#1b101c",line:"#352036",accent:"#f472b6",up:"#6ee7b7",down:"#fb7185",be:"#fcd34d",mood:"Глубокий бордо"},
+  {id:"pine",name:"Хвоя",g:"Тёмные",bg:"#06110d",panel:"#0c1a14",line:"#1b3328",accent:"#a3e635",up:"#4ade80",down:"#f87171",be:"#facc15",mood:"Лесная тишина"},
+  {id:"day",name:"День",g:"Светлые",bg:"#f2f4f8",panel:"#ffffff",line:"#dde3ec",accent:"#2b62e3",up:"#128a53",down:"#c94430",be:"#9c7514",mood:"Чистый офис"},
+  {id:"paper",name:"Бумага",g:"Светлые",bg:"#f6f2ea",panel:"#fffdf8",line:"#e3dbcc",accent:"#c2410c",up:"#15803d",down:"#b91c1c",be:"#a16207",mood:"Тёплый блокнот"},
+  {id:"fog",name:"Туман",g:"Светлые",bg:"#eef1f5",panel:"#ffffff",line:"#d9dfe7",accent:"#475569",up:"#0f766e",down:"#be123c",be:"#a16207",mood:"Спокойный серый"},
+  {id:"sand",name:"Песок",g:"Светлые",bg:"#f4f1e8",panel:"#fffefa",line:"#ded8c6",accent:"#4d7c0f",up:"#3f6212",down:"#9f1239",be:"#92400e",mood:"Пляж и оливка"},
+  {id:"fxlab",name:"FX LAB",g:"Коллаборации",bg:"#04070D",panel:"#0B1526",line:"#1d3558",accent:"#4F9BFF",up:"#3DDC97",down:"#FF6B7A",be:"#A8BEDF",mood:"Ночная лаборатория"},
+  {id:"blackswan",name:"Black Swan",g:"Коллаборации",bg:"#ffffff",panel:"#ffffff",line:"#d7dade",accent:"#0066ff",up:"#0b7a42",down:"#c42b1c",be:"#8a6300",mood:"Белый, чёрный и синий"},
+];
+const GROUPS = ["Тёмные","Светлые","Коллаборации"];
+const vars = t => `--t-bg:${t.bg};--t-panel:${t.panel};--t-line:${t.line};--t-accent:${t.accent};--t-up:${t.up};--t-down:${t.down};--t-be:${t.be}`;
+const CAL = "uubduduubdduuuubdbuduuudbuu".split("");
+function mini(t){
+  const pts = [8,14,11,20,17,26,23,31,28,36,34,40];
+  const d = pts.map((y,i)=>(i?"L":"M")+(i*9.1)+","+(46-y)).join(" ");
+  return `<div class="mini" style="${vars(t)}">
+    <div class="sb"><i class="a"></i><i></i><i></i><i></i><i style="width:60%"></i></div>
+    <div class="mn">
+      <div class="kp"><b style="--c:${t.up}"></b><b style="--c:${t.accent}"></b><b style="--c:${t.down}"></b></div>
+      <div class="ch"><svg viewBox="0 0 100 50" preserveAspectRatio="none">
+        <path d="${d} L100,50 L0,50 Z" fill="${t.up}" opacity=".16"/>
+        <path d="${d}" fill="none" stroke="${t.up}" stroke-width="1.6" vector-effect="non-scaling-stroke"/></svg></div>
+      <div class="cal">${CAL.slice(0,14).map(c=>`<s class="${c==="u"?"u":c==="d"?"d":c==="b"?"b":""}"></s>`).join("")}</div>
+    </div></div>`;
+}
+let cur = "night";
+
+/* ---- A ---- */
+function drawA(){
+  document.getElementById("va").innerHTML = GROUPS.map(g =>
+    `<div class="gh">${g}</div><div class="ga">` + THEMES.filter(t=>t.g===g).map(t =>
+      `<button class="ca${t.id===cur?" on":""}" data-id="${t.id}">${mini(t)}
+        <div class="nm"><span>${t.name}</span>${t.id===cur?"<small>ВЫБРАНА</small>":`<span class="dots"><i style="background:${t.accent}"></i><i style="background:${t.up}"></i><i style="background:${t.down}"></i></span>`}</div></button>`
+    ).join("") + "</div>").join("");
+}
+document.getElementById("va").addEventListener("click", e=>{ const b=e.target.closest(".ca"); if(b){ cur=b.dataset.id; drawA(); } });
+
+/* ---- B ---- */
+let prevB = cur;
+function drawB(){
+  document.getElementById("vb-list").innerHTML = GROUPS.map(g =>
+    `<div class="gh">${g}</div>` + THEMES.filter(t=>t.g===g).map(t =>
+      `<button class="rb${t.id===cur?" on":""}" data-id="${t.id}" style="${vars(t)}"><span class="sw"></span><b>${t.name}</b></button>`).join("")
+  ).join("");
+  paintB(prevB);
+}
+function paintB(id){
+  const t = THEMES.find(x=>x.id===id);
+  document.getElementById("vb-prev").innerHTML = mini(t)
+    + `<div class="cap"><div><b>${t.name}</b><br><span>${t.mood}</span></div>`
+    + (id===cur ? `<span style="color:var(--acc)">Выбрана</span>` : `<button class="apply" data-id="${id}">Применить</button>`) + "</div>";
+}
+document.getElementById("vb-list").addEventListener("mouseover", e=>{ const b=e.target.closest(".rb"); if(b){ prevB=b.dataset.id; paintB(prevB); } });
+document.getElementById("vb-list").addEventListener("click", e=>{ const b=e.target.closest(".rb"); if(b){ prevB=b.dataset.id; paintB(prevB); } });
+document.getElementById("vb-prev").addEventListener("click", e=>{ const b=e.target.closest(".apply"); if(b){ cur=b.dataset.id; drawB(); } });
+
+/* ---- C ---- */
+function drawC(){
+  document.getElementById("vc").innerHTML = GROUPS.map(g =>
+    `<div class="gh">${g}</div><div class="gc">` + THEMES.filter(t=>t.g===g).map(t =>
+      `<button class="rc${t.id===cur?" on":""}" data-id="${t.id}">
+        <span class="strip"><i class="w" style="background:${t.bg}"></i><i class="w" style="background:${t.panel}"></i><i style="background:${t.accent}"></i><i style="background:${t.up}"></i><i style="background:${t.down}"></i><i style="background:${t.be}"></i></span>
+        <span class="t"><b>${t.name}</b><span>${t.id===cur?"выбрана":t.mood}</span></span></button>`
+    ).join("") + "</div>").join("");
+}
+document.getElementById("vc").addEventListener("click", e=>{ const b=e.target.closest(".rc"); if(b){ cur=b.dataset.id; drawC(); } });
+
+/* ---- D ---- */
+let grpD = "Тёмные";
+function drawD(){
+  const t = THEMES.find(x=>x.id===cur);
+  document.getElementById("vd").innerHTML =
+    `<div class="seg">${GROUPS.map(g=>`<button class="${g===grpD?"on":""}" data-g="${g}">${g}</button>`).join("")}</div>`
+    + `<div class="chips">${THEMES.filter(x=>x.g===grpD).map(x=>`<button class="chip${x.id===cur?" on":""}" data-id="${x.id}" style="${vars(x)}"><span class="ring"></span>${x.name}</button>`).join("")}</div>`
+    + `<div class="stage">${mini(t)}</div>`;
+}
+document.getElementById("vd").addEventListener("click", e=>{
+  const g=e.target.closest("[data-g]"); if(g){ grpD=g.dataset.g; drawD(); return; }
+  const c=e.target.closest(".chip"); if(!c) return;
+  cur=c.dataset.id; drawD();
+  /* вся страница — в цвета темы, как в журнале */
+  const t=THEMES.find(x=>x.id===cur), dark = !["day","paper","fog","sand","blackswan"].includes(t.id);
+  const r=document.documentElement.style;
+  r.setProperty("--bg",t.bg); r.setProperty("--panel",t.panel); r.setProperty("--card",t.panel);
+  r.setProperty("--acc",t.accent); r.setProperty("--line",t.line);
+  r.setProperty("--text",dark?"#f2f2f3":"#171b24"); r.setProperty("--dim",dark?"#8f8f95":"#5a6373"); r.setProperty("--faint",dark?"#5e5e64":"#99a2b3");
+  r.setProperty("--soft",dark?"rgba(255,255,255,.045)":"rgba(0,0,0,.04)");
+});
+
+/* ---- вкладки ---- */
+document.getElementById("tabs").addEventListener("click", e=>{
+  const b=e.target.closest(".tab"); if(!b) return;
+  document.querySelectorAll(".tab").forEach(x=>x.classList.toggle("on",x===b));
+  document.querySelectorAll("section[data-v]").forEach(s=>s.hidden = s.dataset.v!==b.dataset.v);
+  if(b.dataset.v!=="d") document.documentElement.removeAttribute("style");
+  ({a:drawA,b:drawB,c:drawC,d:drawD})[b.dataset.v]();
+});
+drawA();
+</script>
+</body>
+</html>
