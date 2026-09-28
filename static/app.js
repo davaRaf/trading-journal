@@ -2019,6 +2019,9 @@ function openForm(id, presetDay){
      скріни з порожніми полями, і написане зникало на першому ж збереженні */
   S.formShots=(t&&t.screenshots?t.screenshots.map(s=>({tf:s.tf,file:s.file,note:s.note||""})):[]);
   S.entryTf=null;
+  /* Ключ цієї нової угоди: повторне «Зберегти» після збою мережі (угода
+     вже записалась, а відповідь загубилась) сервер впізнає й не задвоїть. */
+  S.formKey=t?"":"w"+Date.now().toString(36)+Math.random().toString(36).slice(2,12);
   const v=k=>esc(t?(t[k]!=null?t[k]:""):"");
   const nowT=pad(new Date().getHours())+":"+pad(new Date().getMinutes());
   const dt=t&&t.date?t.date:(presetDay||isoDay(new Date()))+"T"+nowT;
@@ -2534,6 +2537,7 @@ async function saveTrade(id){
     /* Куди записуємо: у реальний журнал чи в бектест. Сервер бере тільки
        "bt", решту вважає торгівлею. */
     bt_run:g("bt_run"), kind: btOn()?"bt":"",
+    cid:S.formKey||"",
   };
   if(!t.pair){ formErr("pair", T.alertNeedPair); return; }
   /* «1 Месяц» колись приїхало сюди з чужої колонки Notion. Не забороняємо —

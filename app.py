@@ -3063,7 +3063,16 @@ class H(BaseHTTPRequestHandler):
         if p == "/api/trades":
             if not isinstance(body, dict) or not str(body.get("pair", "")).strip():
                 return self._json({"error": "bad json or empty pair"}, 400)
-            t = clean_trade(body, new_id())
+            # Ключ від форми: та сама угода, надіслана вдруге (відповідь на
+            # перше збереження загубилась у мережі), — віддаємо записану, а
+            # не робимо двійника.
+            cid = str(body.get("cid") or "")
+            tid = cid if re.fullmatch(r"w[0-9a-z]{12,32}", cid) else new_id()
+            if tid == cid:
+                old = db.get_trade(tid, uid)
+                if old:
+                    return self._json(old, 201)
+            t = clean_trade(body, tid)
             try:
                 save_screenshots(t, uid)
             except filestore.ShotError as e:
