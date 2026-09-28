@@ -102,12 +102,9 @@ function swatch(t){
 }
 
 function card(t, on){
-  const p = t.collab ? COLLABS().find(c => c.id === t.collab) : null;
   return '<button class="th-card' + (on ? " on" : "") + '" onclick="__skin.set(\'' + t.id + '\')">'
     + swatch(t)
-    + '<div class="nm">'
-    + (p ? '<span class="th-logo"><img src="' + p.img + '" alt="" aria-hidden="true"></span>' : "")
-    + esc(t.name) + (on ? "<i>"+T.thSelected+"</i>" : "") + "</div></button>";
+    + '<div class="nm">' + esc(t.name) + (on ? "<i>"+T.thSelected+"</i>" : "") + "</div></button>";
 }
 
 function customCard(on){

@@ -413,10 +413,6 @@
   font:inherit; font-size:12.5px; padding:7px 13px; border-radius:99px; cursor:pointer;
   transition:color .18s, background .18s, border-color .18s}
 .sh-chip:hover{color:var(--text)}
-/* оформлення спільноти в «Поділитися»: знак замість назви, на білій плашці */
-.sh-chip.sh-chip-logo{padding:5px 8px; display:inline-grid; place-items:center}
-.sh-chip-logo .sh-logo{width:36px; height:26px; display:grid; place-items:center; border-radius:6px; background:#fff}
-.sh-chip-logo .sh-logo img{height:19px; width:auto; display:block}
 .sh-chip.on{background:var(--panel-2); color:var(--text);
   border-color:color-mix(in srgb, var(--text) 26%, transparent)}
 .sh-out{display:flex; gap:8px; flex-wrap:wrap; align-items:center;

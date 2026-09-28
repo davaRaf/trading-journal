@@ -22,7 +22,7 @@ try{ lastTtl = localStorage.getItem("share_ttl") || "7d"; }catch(e){}
    Ділитись можна у своєму вигляді або в оформленні спільноти. Коли журнал
    і так у їхній темі, вибирати нічого: знімок іде в тому самому вигляді,
    що й екран, тому перемикач не показуємо. */
-/* порядок — як у вікні «Оформлення»: FX LAB першим; у кнопці знак спільноти */
+/* порядок — як у вікні «Оформлення»: FX LAB першим, Black Swan другим */
 const COLLABS = [{id:"fxlab", name:"FX LAB", img:"/static/fxlab-ink.png?v=1"},
                  {id:"blackswan", name:"Black Swan", img:"/static/swan.png?v=1"}];
 const isCollab = s => COLLABS.some(c => c.id === s);
@@ -441,9 +441,8 @@ function open(kind, arg){
         + '<div class="sh-skin" id="shSkin">'
         +   '<button class="sh-chip' + (lastSkin ? "" : " on") + '" data-s="">'
         +     esc(T.slStylePlain) + '</button>'
-        +   COLLABS.map(c => '<button class="sh-chip sh-chip-logo' + (lastSkin === c.id ? " on" : "")
-              + '" data-s="' + c.id + '" title="' + esc(c.name) + '" aria-label="' + esc(c.name) + '">'
-              + '<span class="sh-logo"><img src="' + c.img + '" alt=""></span></button>').join("")
+        +   COLLABS.map(c => '<button class="sh-chip' + (lastSkin === c.id ? " on" : "")
+              + '" data-s="' + c.id + '">' + c.name + '</button>').join("")
         + '</div>')
     + '<div class="sh-lab">' + T.slDurationLabel + '</div>'
     + '<div class="sh-ttl">' + TTL().map(t =>
