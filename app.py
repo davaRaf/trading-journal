@@ -705,7 +705,8 @@ def _billing_block(u, e, row, dt):
            "background:#161618;color:#eee;cursor:pointer")
     return (
         "<h2>Подписка</h2><table>"
-        + row("План", "навсегда (выдана вручную)" if st["plan"] == billing.LIFE
+        + row("План", ("Special · с %s (выдан вручную)" % dt(u.get("special_since")))
+              if st["plan"] == billing.LIFE
               else (("%s · до %s" % (st["plan"], dt(u["paid_until"])))
                     if st["active"] else "бесплатный"))
         + row("Сделки", pair("free_trades_used", "free_trades_cap", config.FREE_TRADES))
@@ -735,7 +736,7 @@ def _billing_block(u, e, row, dt):
         + "<h2>Поправить</h2>"
         + "<p><input id=bdays type=number min=1 placeholder='30' style=\"%s\"> "
           "<button id=bgrant style=\"%s\">Дать подписку на N дней</button> "
-          "<button id=blife style=\"%s\">Подписка навсегда</button> "
+          "<button id=blife style=\"%s\">Сделать Special</button> "
           "<button id=brevoke style=\"%s\">Снять подписку</button></p>" % (
               inp, btn, btn, btn)
         + "<p><small>Бонус к бесплатным лимитам (прибавляем к границе, "
@@ -760,7 +761,7 @@ def _billing_block(u, e, row, dt):
           "bmsg.textContent=r.ok?'готово':(d.error||('ошибка '+r.status));"
           "if(r.ok)setTimeout(()=>location.reload(),700);}"
           "bgrant.onclick=()=>bill('grant',{days:+bdays.value||0});"
-          "blife.onclick=()=>{if(confirm('Дать подписку навсегда? Срока у неё не будет.'))"
+          "blife.onclick=()=>{if(confirm('Сделать Special? Журнал откроется целиком, без срока и оплаты.'))"
           "bill('grant',{life:1});};"
           "brevoke.onclick=()=>{if(confirm('Снять подписку? Оплаченные дни пропадут.'))"
           "bill('revoke');};"

@@ -316,6 +316,8 @@ ALTER TABLE users ADD COLUMN IF NOT EXISTS signup_device TEXT;
 -- Чому саме цій людині дали бонус чи свою ціну: щоб через місяць не
 -- гадати, що це було.
 ALTER TABLE users ADD COLUMN IF NOT EXISTS billing_note TEXT;
+-- коли людині дали Special (довічну): в адмінці видно, кому й відколи
+ALTER TABLE users ADD COLUMN IF NOT EXISTS special_since TIMESTAMPTZ;
 
 -- Звернення до моделі: скільки витрачено у поточному вікні й коли вікно
 -- закінчується. Розділи журналу відкриті всі, а платне — саме це: кожна

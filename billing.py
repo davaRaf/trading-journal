@@ -403,7 +403,7 @@ def grant(uid, days, plan=""):
     if plan not in PLANS:
         plan = _plan_by_days(days)
     with db.connect() as conn:
-        conn.execute("UPDATE users SET plan=%s, paid_until=%s WHERE id=%s",
+        conn.execute("UPDATE users SET plan=%s, paid_until=%s, special_since=NULL WHERE id=%s",
                      (plan, until, uid))
         conn.commit()
     return state(uid)
@@ -418,7 +418,9 @@ def grant_life(uid):
     а active() це знає.
     """
     with db.connect() as conn:
-        conn.execute("UPDATE users SET plan=%s, paid_until=NULL WHERE id=%s",
+        # дату першої видачі не перебиваємо повторним натисканням
+        conn.execute("UPDATE users SET plan=%s, paid_until=NULL, "
+                     "special_since=COALESCE(special_since, now()) WHERE id=%s",
                      (LIFE, uid))
         conn.commit()
     return state(uid)
@@ -440,7 +442,7 @@ def revoke(uid):
     повернення грошей, а не для «людина відмовилась продовжувати»: відмова
     від продовження просто не рухає paid_until."""
     with db.connect() as conn:
-        conn.execute("UPDATE users SET plan='free', paid_until=NULL WHERE id=%s",
+        conn.execute("UPDATE users SET plan='free', paid_until=NULL, special_since=NULL WHERE id=%s",
                      (uid,))
         conn.commit()
     return state(uid)
@@ -540,7 +542,7 @@ def apply_paid(uid, plan, until=None):
     if until is None:
         return grant(uid, PLAN_DAYS[plan], plan)
     with db.connect() as conn:
-        conn.execute("UPDATE users SET plan=%s, paid_until=%s WHERE id=%s",
+        conn.execute("UPDATE users SET plan=%s, paid_until=%s, special_since=NULL WHERE id=%s",
                      (plan, until, uid))
         conn.commit()
     return state(uid)
