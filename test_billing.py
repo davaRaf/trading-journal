@@ -41,6 +41,7 @@ def person(**kw):
            "imports_used": 0, "imports_cap": 3,
            "ai_used": 0, "ai_cap": 15, "ai_reset_at": None,
            "price_plan": "std", "own_price_cents": None,
+           "imports_until": None,
            "created_at": NOW - datetime.timedelta(days=5)}
     row.update(kw)
     return row
@@ -95,6 +96,22 @@ def check_rules():
     case("після прострочення ліміт знову діє", billing.can_add_trade(old),
          (False, "trades_limit"))
 
+    # Довічна підписка: дата кінця порожня, а відкрито все.
+    life = person(plan="life", paid_until=None, free_trades_used=99)
+    case("довічна діє", billing.active(life), True)
+    case("довічна називається life", billing.plan_of(life), "life")
+    case("з довічною угоди пишуться", billing.can_add_trade(life), (True, ""))
+    case("з довічною бектест пишеться", billing.can_add_trade(life, "bt"), (True, ""))
+    case("з довічною переносити можна",
+         billing.can_import(person(plan="life", paid_until=None, imports_used=9,
+                                   created_at=NOW - datetime.timedelta(days=400))),
+         (True, ""))
+    case("довічна підіймає стелю звернень", billing.ai_cap(life), 300)
+    case("довічна без дати кінця", billing.state(life)["paid_until"], None)
+    case("прострочений тариф — не довічна",
+         billing.plan_of(person(plan="year",
+                                paid_until=NOW - datetime.timedelta(days=1))), "free")
+
     # Перенесення з Notion: три рази і тільки в перші 30 днів.
     case("перенести можна", billing.can_import(person()), (True, ""))
     case("три перенесення витрачено",
@@ -106,6 +123,25 @@ def check_rules():
     case("з підпискою переносити можна завжди",
          billing.can_import(paid(created_at=NOW - datetime.timedelta(days=400))),
          (True, ""))
+    # «Ранній»: зареєструвався рік тому, але міграція відкрила йому вікно
+    # наново — від created_at воно давно б минуло.
+    early_imp = person(price_plan="early",
+                       created_at=NOW - datetime.timedelta(days=400),
+                       imports_until=NOW + datetime.timedelta(days=30))
+    case("ранньому вікно відкрито наново",
+         billing.can_import(early_imp), (True, ""))
+    case("ранньому лишилось 30 днів",
+         billing.import_days_left(early_imp), 30)
+    case("ранньому й нічне оновлення дозволено",
+         billing.can_autosync(early_imp), (True, ""))
+    gone = person(imports_until=NOW - datetime.timedelta(hours=1))
+    case("задане вікно теж закінчується",
+         billing.can_import(gone), (False, "import_window"))
+    case("задане вікно минуло — днів нуль",
+         billing.import_days_left(gone), 0)
+    case("останній день вікна — ще день",
+         billing.import_days_left(person(
+             imports_until=NOW + datetime.timedelta(hours=5))), 1)
 
     # Нічне оновлення: воно з тих самих баз, тому лічильник перенесень не
     # чіпає — дивиться тільки на вікно й на підписку.
@@ -168,6 +204,23 @@ def check_prices():
     case("набір цін названо", early["set"], "early")
     case("своя ціна видно", billing.prices(person(own_price_cents=500))["own_cents"], 500)
 
+    # Промокод FXLAB «раннім» ні до чого: у них та сама ціна, і код мусить
+    # відбитись, а не переводити їх у партнерський набір — інакше в обліку FX LAB
+    # опинились би люди, які прийшли самі.
+    case("ранньому FXLAB не потрібен",
+         billing.redeem(person(price_plan="early"), "FXLAB"),
+         (False, "promo_same"))
+    case("двічі той самий код не проходить",
+         billing.redeem(person(price_plan="fxlab"), "FXLAB"),
+         (False, "promo_same"))
+    case("вигаданий код", billing.redeem(person(), "ХАЛЯВА"),
+         (False, "promo_bad"))
+    case("ранньому й вигаданий код не допоможе",
+         billing.redeem(person(price_plan="early"), "ХАЛЯВА"),
+         (False, "promo_bad"))
+    case("поле промокоду ранньому не показуємо",
+         billing.prices(person(price_plan="early"))["set"] == "std", False)
+
     case("30 днів — місячний", billing._plan_by_days(30), "month")
     case("45 днів — усе ще місячний", billing._plan_by_days(45), "month")
     case("90 днів — квартал", billing._plan_by_days(90), "quarter")
@@ -181,7 +234,7 @@ COLUMNS = ("plan", "paid_until", "free_trades_used", "free_trades_cap",
            "free_bt_used", "free_bt_cap", "imports_used", "imports_cap",
            "ai_used", "ai_cap", "ai_reset_at",
            "price_plan", "own_price_cents", "signup_ip", "signup_device",
-           "billing_note")
+           "billing_note", "imports_until")
 TABLES = ("payments", "signup_ips", "ip_allow")
 
 
@@ -259,8 +312,72 @@ def check_db():
         case("бонус на прогони", s["bt_left"], 31)
         case("бонус на перенесення", s["imports_left"], 3)
 
+        # Міграція «ранніх». База тут жива й боєва, тому пробуємо не саму
+        # функцію, а її запит — у власній транзакції, яку одразу
+        # відкочуємо: роздати знижку всім за дні до викладки означало б
+        # зіпсувати саму акцію.
+        if config.EARLY_MIGRATION:
+            print("  ПРОПУЩЕНО  міграцію ранніх: EARLY_MIGRATION=1")
+        else:
+            db._grandfather_early()
+            case("без вимикача міграція не чіпає базу",
+                 db.meta_get("early_marked"), None)
+            conn = db.psycopg.connect(config.DATABASE_URL,
+                                      row_factory=db.dict_row)
+            try:
+                conn.execute(db.EARLY_SQL, (config.IMPORT_WINDOW_DAYS,))
+                r = conn.execute(
+                    "SELECT price_plan, free_trades_used, free_bt_used, "
+                    "imports_used, ai_used, ai_reset_at, imports_until, "
+                    "plan, paid_until FROM users WHERE id=%s",
+                    (uid,)).fetchone()
+                case("міграція робить ранніми", r["price_plan"], "early")
+                case("міграція обнуляє справжні", r["free_trades_used"], 0)
+                case("міграція обнуляє прогони", r["free_bt_used"], 0)
+                case("міграція обнуляє перенесення", r["imports_used"], 0)
+                case("міграція обнуляє звернення", r["ai_used"], 0)
+                case("міграція скидає вікно звернень", r["ai_reset_at"], None)
+                # Годинник бази й наш розходяться на секунди, тому не
+                # рівність, а межі: вікно щойно відкрите на 30 днів.
+                left = billing.import_days_left(r)
+                case("міграція відкриває вікно перенесення",
+                     config.IMPORT_WINDOW_DAYS <= left
+                     <= config.IMPORT_WINDOW_DAYS + 1, True)
+                case("міграція не чіпає оплачене", r["plan"], "month")
+                case("міграція не чіпає дату оплати", bool(r["paid_until"]), True)
+            finally:
+                conn.rollback()
+                conn.close()
+            case("відкат повернув звичайні ціни",
+                 db.get_user(uid)["price_plan"], "std")
+
+        # Промокод на живому акаунті: звичайному він знижує ціну, а тому,
+        # хто вже «ранній», — відбивається.
+        billing.set_price(uid, price_plan="std")
+        case("код переводить у набір FX LAB",
+             billing.redeem(uid, "fxlab"), (True, ""))
+        case("після коду ціна знижена", billing.prices(uid)["month"]["cents"], 799)
+        case("набір записано", db.get_user(uid)["price_plan"], "fxlab")
+        case("удруге код не проходить", billing.redeem(uid, "FXLAB"),
+             (False, "promo_same"))
+
+        # Довічна з адмінки: тариф life, дати кінця немає, підписка діє.
+        billing.grant_life(uid)
+        s2 = billing.state(uid)
+        case("довічну видано", s2["plan"], "life")
+        case("довічна активна", s2["active"], True)
+        case("у довічної немає дати", s2["paid_until"], None)
+        case("довічну видно в базі", db.get_user(uid)["plan"], "life")
+        billing.revoke(uid)
+        case("довічну можна зняти", billing.state(uid)["active"], False)
+        billing.grant(uid, 30)
+
         billing.set_price(uid, price_plan="early")
         case("ранні ціни ввімкнено", billing.prices(uid)["month"]["cents"], 799)
+        case("ранньому код відбивається", billing.redeem(uid, "FXLAB"),
+             (False, "promo_same"))
+        case("набір раннього код не змінив",
+             db.get_user(uid)["price_plan"], "early")
 
         billing.revoke(uid)
         s = billing.state(uid)

@@ -32,6 +32,7 @@
 все, а якщо вона скінчиться, людина повернеться рівно туди, де зупинилась.
 """
 import datetime
+import math
 
 import db
 from config import (AI_WINDOW_DAYS, CURRENCY, FREE_AI, FREE_BT, FREE_IMPORTS,
@@ -40,6 +41,12 @@ from config import (AI_WINDOW_DAYS, CURRENCY, FREE_AI, FREE_BT, FREE_IMPORTS,
 
 # Платні тарифи. 'free' — не тариф, а його відсутність.
 PLANS = ("month", "quarter", "year")
+# Довічна підписка. Її не купують — ми даємо її руками (друзям журналу,
+# партнерам, першим тестувальникам), тому в PLANS її немає: там лежить те,
+# що продається й має ціну та товар у Creem. Дати її можна лише з адмінки,
+# і дати назавжди означає саме назавжди — дати кінця в такої підписки немає,
+# у базі paid_until лишається порожнім.
+LIFE = "life"
 
 # Причини відмови. Одні й ті самі рядки бачать сайт і бот, текст кожен
 # підставляє свій — звідси йде тільки привід.
@@ -87,6 +94,9 @@ def active(u):
     row = _user(u)
     if not row:
         return False
+    # Довічна не має дати кінця, тому питати paid_until у неї нема сенсу.
+    if (row.get("plan") or "") == LIFE:
+        return True
     until = row.get("paid_until")
     return bool(until and until > db.now())
 
@@ -98,16 +108,27 @@ def plan_of(u):
     if not row:
         return "free"
     p = (row.get("plan") or "free").strip()
+    if p == LIFE:
+        return LIFE
     if not active(row) or p not in PLANS:
         return "free"
     return p
 
 
 def import_days_left(u):
-    """Скільки днів ще триває вікно перенесення з Notion (0 — минуло)."""
+    """Скільки днів ще триває вікно перенесення з Notion (0 — минуло).
+
+    Звичайно рахуємо від реєстрації. Але в «ранніх» вона була задовго до
+    платних підписок, і вікно в них минуло б ще до першого запуску — тому
+    міграція ставить їм дату в users.imports_until, і тоді вважаємо по ній.
+    """
     row = _user(u)
     if not row:
         return 0
+    until = row.get("imports_until")
+    if until:
+        # Пів дня — це ще день: рахуємо вгору, щоб останній день не став нулем.
+        return max(0, math.ceil((until - db.now()).total_seconds() / 86400))
     born = row.get("created_at")
     if not born:
         return IMPORT_WINDOW_DAYS
@@ -384,6 +405,21 @@ def grant(uid, days, plan=""):
     with db.connect() as conn:
         conn.execute("UPDATE users SET plan=%s, paid_until=%s WHERE id=%s",
                      (plan, until, uid))
+        conn.commit()
+    return state(uid)
+
+
+def grant_life(uid):
+    """Підписка назавжди — з адмінки, без оплати й без дати кінця.
+
+    Дати кінця не ставимо зовсім (paid_until лишається порожнім): будь-яка
+    «дуже далека» дата рано чи пізно стала б брехнею в інтерфейсі — людині
+    показували б «до 01.01.2999». Замість неї сам тариф каже, що строку немає,
+    а active() це знає.
+    """
+    with db.connect() as conn:
+        conn.execute("UPDATE users SET plan=%s, paid_until=NULL WHERE id=%s",
+                     (LIFE, uid))
         conn.commit()
     return state(uid)
 

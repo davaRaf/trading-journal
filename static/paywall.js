@@ -50,10 +50,9 @@ function show(reason){
   back.style.zIndex = window.nextTop ? nextTop() : 9000;
   back.innerHTML =
     '<div class="pw-w" role="dialog" aria-modal="true">'
-    + '<div class="pw-brand">'
-    +   '<svg class="logo" aria-hidden="true"><use href="#logomark"/></svg>'
-    +   '<span class="nm">Stats<i>AI</i></span>'
-    + '</div>'
+    /* Логотипа й напису StatsAI тут немає (рішення власника 27.09.2026):
+       людина вже в журналі, називати себе ще раз ні до чого — вікно має
+       бути чисте, з одним заголовком і однією дією. */
     + '<h3>' + esc(T[keys[0]] || "") + '</h3>'
     + '<p>' + esc(T[keys[1]] || "") + '</p>'
     + (sell ? '<button type="button" class="pw-go">' + esc(T.pwPlans) + '</button>' : '')

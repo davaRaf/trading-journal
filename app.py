@@ -705,15 +705,18 @@ def _billing_block(u, e, row, dt):
            "background:#161618;color:#eee;cursor:pointer")
     return (
         "<h2>Подписка</h2><table>"
-        + row("План", ("%s · до %s" % (st["plan"], dt(u["paid_until"])))
-              if st["active"] else "бесплатный")
+        + row("План", "навсегда (выдана вручную)" if st["plan"] == billing.LIFE
+              else (("%s · до %s" % (st["plan"], dt(u["paid_until"])))
+                    if st["active"] else "бесплатный"))
         + row("Сделки", pair("free_trades_used", "free_trades_cap", config.FREE_TRADES))
         + row("Бэктест", pair("free_bt_used", "free_bt_cap", config.FREE_BT))
         + row("Переносы", pair("imports_used", "imports_cap", config.FREE_IMPORTS))
         + row("Обращения к модели", "%s из %s%s" % (
             billing.ai_used(u), billing.ai_cap(u),
             (" · окно до " + dt(u["ai_reset_at"])) if u["ai_reset_at"] else ""))
-        + row("Набор цен", "ранние" if (u["price_plan"] or "std") == "early" else "обычный")
+        + row("Набор цен", {"early": "ранние (скидка навсегда)",
+                            "fxlab": "FX LAB (по промокоду)"}.get(
+                                u["price_plan"] or "std", "обычный"))
         + row("Своя цена", ("%.2f EUR" % (u["own_price_cents"] / 100.0))
               if u["own_price_cents"] else "—")
         + row("Заметка", u["billing_note"] or "—")
@@ -732,7 +735,9 @@ def _billing_block(u, e, row, dt):
         + "<h2>Поправить</h2>"
         + "<p><input id=bdays type=number min=1 placeholder='30' style=\"%s\"> "
           "<button id=bgrant style=\"%s\">Дать подписку на N дней</button> "
-          "<button id=brevoke style=\"%s\">Снять подписку</button></p>" % (inp, btn, btn)
+          "<button id=blife style=\"%s\">Подписка навсегда</button> "
+          "<button id=brevoke style=\"%s\">Снять подписку</button></p>" % (
+              inp, btn, btn, btn)
         + "<p><small>Бонус к бесплатным лимитам (прибавляем к границе, "
           "потраченное не трогаем):</small><br>"
           "сделки <input id=btr type=number placeholder='0' style=\"%s\"> "
@@ -755,6 +760,8 @@ def _billing_block(u, e, row, dt):
           "bmsg.textContent=r.ok?'готово':(d.error||('ошибка '+r.status));"
           "if(r.ok)setTimeout(()=>location.reload(),700);}"
           "bgrant.onclick=()=>bill('grant',{days:+bdays.value||0});"
+          "blife.onclick=()=>{if(confirm('Дать подписку навсегда? Срока у неё не будет.'))"
+          "bill('grant',{life:1});};"
           "brevoke.onclick=()=>{if(confirm('Снять подписку? Оплаченные дни пропадут.'))"
           "bill('revoke');};"
           "bbonus.onclick=()=>bill('bonus',{trades:+btr.value||0,bt:+bbt.value||0,"
@@ -2480,6 +2487,10 @@ class H(BaseHTTPRequestHandler):
             print("admin: %s робить %r акаунту %s (id %s)" % (
                 who, act, u["nickname"], u["id"]), flush=True)
             if act == "grant":
+                # Назавжди — окремим прапорцем, а не «99999 днів»: інакше
+                # в базі лежала б вигадана дата, а людині показували б строк.
+                if body.get("life"):
+                    return self._json(billing.grant_life(u["id"]))
                 days = num("days")
                 if days <= 0:
                     return self._json({"error": "нужно число дней"}, 400)

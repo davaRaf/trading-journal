@@ -12,15 +12,13 @@
    ============================================================ */
 
 /* стан тарифу поруч із заголовком розділу */
+/* Тільки надпис: ні рамки, ні тла, ні кружка (рішення власника 27.09.2026).
+   З ними рядок виглядав кнопкою, на яку хочеться натиснути, — а натискати
+   нема на що, це просто підпис «зараз безкоштовно». */
 .sub-chip{
   font-family:var(--mono); font-size:11px; font-weight:600; letter-spacing:.05em; text-transform:uppercase;
-  color:var(--dim); background:var(--panel-2); border:1px solid var(--line); border-radius:999px;
-  padding:3px 10px; white-space:nowrap; display:inline-flex; align-items:center; gap:6px;
-}
-.sub-chip.paid{color:var(--accent); background:var(--accent-soft); border-color:color-mix(in srgb,var(--accent) 32%,transparent)}
-.sub-chip.paid::before{
-  content:""; width:5px; height:5px; border-radius:50%; background:var(--accent); flex:none;
-  box-shadow:0 0 8px color-mix(in srgb,var(--accent) 60%,transparent);
+  color:var(--dim); background:none; border:0; padding:0;
+  white-space:nowrap; display:inline-flex; align-items:center; gap:6px;
 }
 .sub-chip .till{font-family:var(--sans); font-weight:400; text-transform:none; letter-spacing:0; color:var(--dim); font-size:11px}
 
@@ -68,7 +66,22 @@
 .sub-cost .val{font-family:var(--mono); font-size:32px; font-weight:600; letter-spacing:-.025em; font-variant-numeric:tabular-nums}
 .sub-cost .cc{font-size:19px; letter-spacing:-.01em}
 .sub-cost .cnt{font-size:12px; color:var(--faint); align-self:flex-end; margin-left:3px; margin-bottom:3px}
+/* «Було» і відсоток знижки — рядком під ціною. Показуємо тільки там, де
+   знижка справді є (набір 'early' або 'fxlab'): у звичайних цінах
+   перекреслювати нічого. */
+.sub-wasrow{display:flex; align-items:center; gap:7px; margin-top:7px}
+.sub-was{font-family:var(--mono); font-size:13px; color:var(--faint);
+  text-decoration-thickness:1px; font-variant-numeric:tabular-nums}
+.sub-off{
+  font-family:var(--mono); font-size:10.5px; font-weight:700; letter-spacing:.03em;
+  color:var(--accent); background:var(--accent-soft);
+  border:1px solid color-mix(in srgb,var(--accent) 28%,transparent);
+  border-radius:999px; padding:2px 6px; line-height:1.5;
+}
 .sub-bill{font-size:11.5px; color:var(--dim); margin-top:9px; margin-bottom:15px}
+/* Під перекресленим рядком підпис про списання стоїть щільніше — інакше
+   в картці утворюється дірка. */
+.sub-wasrow + .sub-bill{margin-top:7px}
 /* Кнопка притиснута до низу картки: підпис про списання у кварталі
    переноситься на два рядки, і без цього кнопки стояли б сходинкою. */
 /* Заливка рахується від кольору тексту, а не береться готовою змінною:
@@ -93,6 +106,25 @@
   box-shadow:0 0 18px color-mix(in srgb,var(--accent) 35%,transparent);
 }
 
+/* ——— смужка «ранніх» ——— */
+/* Стоїть над картками й пояснює, чому суми в них нижчі за ті, що людина
+   могла бачити на сторінці тарифів. Кольори — акцентні: це єдина добра
+   новина в розділі, куди людина приходить із відмови. */
+.sub-early{
+  display:flex; gap:11px; align-items:flex-start;
+  border:1px solid color-mix(in srgb,var(--accent) 30%,transparent);
+  background:var(--accent-soft); border-radius:var(--r);
+  padding:12px 14px; margin-bottom:5px;
+}
+.sub-early-tag{
+  flex:none; margin-top:1px; font-family:var(--mono); font-size:10px; font-weight:700;
+  letter-spacing:.06em; background:var(--accent); color:var(--accent-ink);
+  border-radius:6px; padding:3px 7px;
+}
+.sub-early-txt b{display:block; font-size:13.5px; font-weight:600; color:var(--text); margin-bottom:3px}
+.sub-early-txt p{margin:0; font-size:12.5px; line-height:1.5; color:var(--dim)}
+.sub-early-txt s{color:var(--faint); text-decoration-thickness:1px}
+
 /* ——— що відкриває підписка ——— */
 .sub-fhead{font-family:var(--mono); font-size:11px; font-weight:600; letter-spacing:.1em; text-transform:uppercase; color:var(--faint); margin:18px 0 10px}
 .sub-feats{display:grid; gap:7px; margin:0; padding:0; list-style:none}
@@ -112,26 +144,44 @@
 
 .sub-soon{margin-top:12px; font-size:12.5px; color:var(--faint); min-height:18px}
 
+/* ——— обідок навколо аватарки, поки підписка діє ——— */
+/* Колір — акцент оформлення, тому в кожній темі свій. Світіння окремим
+   шаром: одна рамка виглядала б як просто товста обводка. */
+.side-me-av.sub-live, .side-me-av.sub-life{border-radius:50%}
+.side-me-av.sub-live{
+  box-shadow:0 0 0 2px var(--accent),
+             0 0 12px color-mix(in srgb,var(--accent) 55%,transparent);
+}
+/* Довічна — тепла, не акцентна: цей статус не купують, і сплутувати його
+   зі звичайною підпискою не варто. Колір заданий тут, а не в темах: він
+   однаковий в усіх оформленнях саме тому, що особливий. */
+.side-me-av.sub-life{
+  --life:#e3b341;
+  box-shadow:0 0 0 2px var(--life),
+             0 0 13px color-mix(in srgb,var(--life) 60%,transparent);
+}
+
+/* Довічна в розділі: без днів і без дати, тільки рядок пояснення. */
+.sub-live.life .sub-live-till{margin-top:6px}
+
 /* ——— значок тарифу біля ніка у верхній смузі ——— */
+/* Тільки надпис: ні квадратика, ні рамки, ні тла, ні кліку (рішення
+   власника 27.09.2026). Це підпис поруч із ніком, а не кнопка: про
+   підписку каже обідок навколо аватарки, а відкрити розділ можна з
+   налаштувань. Курсор звичайний — рука обіцяла б дію, якої немає. */
 .sub-tier{
-  display:grid; place-items:center; width:30px; height:30px; flex:none;
-  border-radius:9px; background:var(--panel); border:1px solid var(--line);
+  display:inline-flex; align-items:center; flex:none;
+  background:none; border:0; padding:0;
   color:var(--faint); font-family:var(--mono); font-size:10.5px; font-weight:600; letter-spacing:.04em;
-  cursor:pointer; padding:0;
+  cursor:default; user-select:none;
 }
-.sub-tier.on{
-  border-color:color-mix(in srgb,var(--accent) 32%,transparent); background:var(--accent-soft);
-  color:var(--accent); font-size:12px; font-weight:700; letter-spacing:-.02em;
-}
-.sub-tier.y{box-shadow:0 0 14px color-mix(in srgb,var(--accent) 22%,transparent)}
-.sub-tier:hover{border-color:color-mix(in srgb,var(--accent) 50%,transparent)}
-/* У плашці профілю значок трохи менший за аватарку — вона там головна.
-   «FREE» — чотири літери проти двох-трьох у «1М» чи «12М», тому кегль
-   у нього свій: інакше слово вилазить за квадратик. Відступ до аватарки
-   більший за звичайний проміжок плашки — значок не її частина. */
-.side-me-tier{display:flex; flex:none; margin-right:5px}
-.side-me-tier .sub-tier{width:32px; height:32px; border-radius:10px; font-size:9.5px; letter-spacing:0}
-.side-me-tier .sub-tier.on{font-size:13.5px; letter-spacing:-.02em}
+.sub-tier.life{--life:#e3b341; color:var(--life); font-size:14px; font-weight:700; letter-spacing:0}
+.sub-tier.on{color:var(--accent); font-size:12px; font-weight:700; letter-spacing:-.02em}
+/* Відступ до аватарки більший за звичайний проміжок плашки — значок не
+   її частина. */
+.side-me-tier{display:flex; align-items:center; flex:none; margin-right:7px}
+.side-me-tier .sub-tier{font-size:10px; letter-spacing:0}
+.side-me-tier .sub-tier.on{font-size:13px; letter-spacing:-.02em}
 
 /* Смужка після повернення з каси. Внизу по центру, поверх усього:
    людина щойно заплатила й має бачити, що з грошима все гаразд, у якому
@@ -213,4 +263,70 @@
   .sub-plan[data-p="year"]{order:-1}
   .sub-gift{left:auto; right:16px}
   .sub-btn{padding:11px 0; font-size:14px}
+}
+
+/* ——— оплачена підписка ——— */
+/* Вітрину тарифів тому, хто вже платить, не показуємо: він прийшов
+   подивитись строк і відкрити кабінет. Картки лишаються в розмітці, але
+   згорнуті — «Змінити тариф» розгортає їх на місці. */
+.sub-shop.tucked{display:none}
+
+/* Коробки тут навмисно немає. Вікно налаштувань усе плоске — рядок стану
+   з крапкою, підпис під ним, кнопка збоку, — і підфарбована картка
+   з рамкою в ньому виглядала б наклейкою з іншого застосунку. Лишається
+   те саме, чим написані сусідні розділи: крапка, текст, тонка риска. */
+.sub-live{
+  display:flex; align-items:flex-end; justify-content:space-between;
+  gap:16px 20px; flex-wrap:wrap;
+  padding-bottom:17px; border-bottom:1px solid var(--line);
+}
+.sub-live-info{min-width:0}
+/* Крапка стану — та сама, що в «двоетапному вході»: колір прибутку
+   означає «працює», і в журналі він уже читається саме так. */
+.sub-live-head{display:flex; align-items:center; gap:9px; font-size:13.5px; color:var(--text)}
+.sub-live-head b{font-weight:600}
+.sub-live-head em{font-style:normal; color:var(--dim)}
+.sub-live-dot{width:9px; height:9px; border-radius:50%; flex:none; background:var(--up)}
+
+/* Дні — цифрою журналу: моноширинний, табличні знаки. Кегль менший за
+   ціну на картці тарифу: там число продає, тут просто повідомляє. */
+.sub-live-left{display:flex; align-items:baseline; gap:7px; margin-top:12px}
+.sub-live-left b{
+  font-family:var(--mono); font-size:25px; font-weight:600;
+  letter-spacing:-.02em; font-variant-numeric:tabular-nums; line-height:1;
+  color:var(--text);
+}
+.sub-live-left span{font-size:13.5px; color:var(--text)}
+.sub-live-left i{font-style:normal; font-size:13px; color:var(--dim)}
+.sub-live-left.last{font-size:14px; color:var(--text); margin-top:11px}
+.sub-live-till{font-size:12.5px; color:var(--dim); margin-top:6px}
+
+.sub-live-act{display:flex; align-items:center; gap:14px; flex-wrap:wrap}
+/* Зміна тарифу — не кнопка: це другорядна дія, і поруч із «Керувати
+   підпискою» дві однакові кнопки змагались би за увагу.
+
+   Два підписи лежать в одній клітинці сітки: видно один, а ширину задає
+   довший, тож при перемиканні нічого не зсувається. */
+.sub-change{
+  font:inherit; font-size:12.5px; color:var(--dim);
+  background:none; border:0; padding:4px 2px; cursor:pointer;
+  display:inline-grid; text-align:center;
+  text-decoration:underline; text-underline-offset:3px;
+  text-decoration-color:color-mix(in srgb,var(--dim) 45%,transparent);
+  transition:color .15s ease;
+}
+.sub-change > span{grid-area:1 / 1}
+.sub-change > span:nth-child(2){visibility:hidden}
+.sub-change.open > span:nth-child(1){visibility:hidden}
+.sub-change.open > span:nth-child(2){visibility:visible}
+.sub-change:hover{color:var(--text)}
+
+/* Картки під згортком починаються одразу під рискою — власний відступ
+   зверху в них уже є, під ярлик «−4 місяці». */
+.sub-shop{margin-top:3px}
+
+@media (max-width:560px){
+  .sub-live{align-items:stretch; padding-bottom:15px}
+  .sub-live-act{gap:12px; width:100%; margin-top:2px}
+  .sub-live-act .sub-manage{flex:1 1 auto; text-align:center}
 }

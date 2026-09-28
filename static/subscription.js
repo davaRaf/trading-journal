@@ -55,6 +55,7 @@ function till(iso){
 /* Підпис тарифу: «Безкоштовно» або «Рік · до 22.09.2027». */
 function planLabel(){
   if (!st || !st.active) return T.subFree;
+  if (st.plan === "life") return T.subLife;      /* строку немає — і дати немає */
   const name = {month: T.subMonth, quarter: T.subQuarter, year: T.subYear}[st.plan] || "";
   const d = st.paid_until ? till(st.paid_until) : "";
   return name + (d ? " · " + T.subTill + " " + d : "");
@@ -68,13 +69,32 @@ function planLabel(){
    в «Підписку», з клавіатури спрацьовує сама плашка. */
 function badge(){
   if (!st) return "";
-  const sign = st.active ? {month: "1М", quarter: "3М", year: "12М"}[st.plan] : "FREE";
+  ring();
+  const sign = st.active
+    ? {month: "1М", quarter: "3М", year: "12М", life: "∞"}[st.plan]
+    : "FREE";
   if (!sign) return "";
-  const cls = "sub-tier" + (st.active ? " on" : "") + (st.plan === "year" ? " y" : "");
-  return '<span class="' + cls + '" data-tip="' + esc(planLabel()) + '"'
-    + ' title="' + esc(T.subTitle + " · " + planLabel()) + '"'
-    + ' onclick="event.stopPropagation();__settings.open(&quot;subscription&quot;)">'
-    + esc(sign) + "</span>";
+  const cls = "sub-tier" + (st.active ? " on" : "")
+    + (st.plan === "year" ? " y" : "") + (st.plan === "life" ? " life" : "");
+  /* Ні кліку, ні підказки (рішення власника 27.09.2026): це підпис, а не
+     кнопка. У «Підписку» ведуть налаштування й плашка відмови — окремий
+     вхід звідси не потрібен, а виглядав він натискним. */
+  return '<span class="' + cls + '">' + esc(sign) + "</span>";
+}
+
+/* Обідок навколо аватарки — знак того, що підписка діє (рішення власника
+   27.09.2026). Колір беремо з оформлення, тому він свій у кожній темі;
+   у довічної обідок окремий, теплий — статус, якого не купують.
+
+   Клас чіпляємо на місце аватарки, а не малюємо обідок у sideme.js: там
+   профіль, а хто платить — знає тільки цей файл. Стан підписки приїжджає
+   пізніше за профіль, тому дзвонимо звідси щоразу, коли малюємо значок. */
+function ring(){
+  const av = document.getElementById("sideMeAv");
+  if (!av) return;
+  const life = !!(st && st.active && st.plan === "life");
+  av.classList.toggle("sub-live", !!(st && st.active) && !life);
+  av.classList.toggle("sub-life", life);
 }
 
 function card(plan){
@@ -82,11 +102,27 @@ function card(plan){
   if (!p) return "";
   const per = Math.round(p.cents / MONTHS[plan]);
   const best = plan === "year";
+  /* Чи є що показувати перекресленим. Знижка живе не в картці, а в наборі
+     цін людини: 'early' у тих, хто був до платних підписок, 'fxlab' — у тих,
+     хто ввів промокод. У звичайному наборі перекреслювати нічого. */
+  const cut = st.prices.set !== "std" && p.std_cents > p.cents;
   const gift = best
-    ? '<span class="sub-gift">' + esc(st.prices.set === "early" ? T.subYourPrice : T.subGift) + "</span>"
+    ? '<span class="sub-gift">' + esc(cut ? T.subYourPrice : T.subGift) + "</span>"
     : "";
-  /* Під ціною — сума, яку справді спишуть. Перекреслених «було/стало»
-     тут немає: власник прибрав їх 23.09.2026, лишається тільки ціна. */
+  /* Скільки коштує місяць без знижки — і скільки відсотків вона знімає.
+     Рахуємо від сум, які прийшли з сервера: інакше зміна ціни в config.py
+     лишила б тут неправду.
+
+     Перекреслене стоїть під ціною, а не поруч із нею: у картці головне
+     число — своя ціна, а «було» тільки пояснює, від чого рахується вигода.
+     У звичайному наборі цього рядка немає зовсім (власник прибрав «було/
+     стало» 23.09.2026) — там перекреслювати нічого. */
+  const was = cut
+    ? '<div class="sub-wasrow"><s class="sub-was">'
+      + money(Math.round(p.std_cents / MONTHS[plan])) + "</s>"
+      + '<span class="sub-off">−'
+      + Math.round((1 - p.cents / p.std_cents) * 100) + "%</span></div>"
+    : "";
   const bill = ({month: T.subBillM, quarter: T.subBillQ, year: T.subBillY}[plan] || "")
     .replace("%s", money(p.cents));
   const name = {month: T.subMonth, quarter: T.subQuarter, year: T.subYear}[plan];
@@ -101,9 +137,32 @@ function card(plan){
     + '<div class="sub-cost"><span class="cur">€</span>'
     +   '<span class="val">' + whole + '<span class="cc">,' + cents + "</span></span>"
     +   '<span class="cnt">' + esc(T.subPerMonth) + "</span></div>"
+    + was
     + '<div class="sub-bill">' + esc(bill) + "</div>"
     + '<button type="button" class="sub-btn" data-buy="' + plan + '">' + esc(T.subBuy) + "</button>"
     + "</div>";
+}
+
+/* Смужка «ранніх» — над картками.
+
+   Окремого вітального вікна на вході немає (рішення власника 27.09.2026):
+   людина приходить сюди з відмови, коли безкоштовне скінчилось, і саме тут
+   має прочитати, що ціни в неї знижені. Сказати це раніше, коли вона ще
+   нічого не збиралась купувати, означало б продавати тому, хто не питав.
+
+   Сум тут немає: перекреслене «було» і відсоток знижки стоять на самих
+   картках (власник, 27.09.2026), а смужка відповідає тільки на питання
+   «чому мені дешевше».
+*/
+function earlyNote(){
+  if (!st || !st.prices || st.prices.set !== "early") return "";
+  const text = esc(T.subEarlyText);
+  return '<div class="sub-early">'
+    + '<span class="sub-early-tag">' + esc(T.subEarlyTag) + "</span>"
+    + '<div class="sub-early-txt">'
+    +   "<b>" + esc(T.subEarlyHead) + "</b>"
+    +   "<p>" + text + "</p>"
+    + "</div></div>";
 }
 
 /* Що дається без підписки. Це умови, а не лічильник: числа беремо
@@ -161,6 +220,76 @@ function promoRow(){
     + '</div>';
 }
 
+/* Скільки днів лишилось. Рахуємо вгору: пів дня — це ще день, і людина
+   має побачити «1 день», а не «0». Нижче нуля не опускаємось — прострочене
+   сюди просто не потрапляє, підписка вже не active. */
+function daysLeft(){
+  if (!st || !st.paid_until) return null;
+  const end = new Date(st.paid_until);
+  if (isNaN(end)) return null;
+  return Math.max(0, Math.ceil((end - Date.now()) / 86400000));
+}
+
+/* «день / дні / днів» — за правилом слов'янських мов. В англійській усі
+   три однакові, тому окремої гілки не треба. */
+function dayWord(n){
+  const t1 = n % 10, t100 = n % 100;
+  if (t1 === 1 && t100 !== 11) return T.subDay1;
+  if (t1 >= 2 && t1 <= 4 && (t100 < 12 || t100 > 14)) return T.subDay2;
+  return T.subDay5;
+}
+
+/* Стан оплаченої підписки.
+
+   Тому, хто вже платить, вітрина тарифів ні до чого: він прийшов сюди
+   подивитись, доки оплачено, і скасувати чи змінити картку. Тому зверху
+   — строк і кнопка кабінету, а картки ховаються за посиланням: шлях до
+   довшого тарифу лишається, але не лізе в очі першим (рішення власника
+   25.09.2026).
+
+   Головне число тут — дні, а не дата: «залишилось 62 дні» читається
+   з першого погляду, а «до 25.12.2026» вимагає порахувати в голові.
+   Дату лишаємо поруч, дрібнішим — вона потрібна, коли дні на межі. */
+function liveBox(){
+  /* Довічна: ні днів, ні дати, ні «змінити тариф» — міняти нема на що,
+     і будь-яке число тут було б вигадкою. */
+  if (st.plan === "life")
+    return '<div class="sub-live life">'
+      + '<div class="sub-live-info">'
+      +   '<div class="sub-live-head"><span class="sub-live-dot" aria-hidden="true"></span>'
+      +     "<b>" + esc(T.subLifeHead) + "</b></div>"
+      +   '<div class="sub-live-till">' + esc(T.subLifeX) + "</div>"
+      + "</div>"
+      + '<div class="sub-live-act">' + manageBtn() + "</div>"
+      + "</div>";
+  const n = daysLeft();
+  const name = {month: T.subMonth, quarter: T.subQuarter, year: T.subYear}[st.plan] || "";
+  const date = st.paid_until ? till(st.paid_until) : "";
+  const left = (n === null) ? ""
+    : (n === 0
+        ? '<div class="sub-live-left last">' + esc(T.subLastDay) + "</div>"
+        : '<div class="sub-live-left"><b>' + n + "</b>"
+          + '<span>' + esc(dayWord(n)) + "</span>"
+          + '<i>' + esc(T.subLeft) + "</i></div>");
+  return '<div class="sub-live">'
+    + '<div class="sub-live-info">'
+    +   '<div class="sub-live-head"><span class="sub-live-dot" aria-hidden="true"></span>'
+    +     '<b>' + esc(T.subLiveHead) + "</b>"
+    +     '<em>· ' + esc(name) + "</em></div>"
+    +   left
+    +   (date ? '<div class="sub-live-till">'
+                + esc(T.subValid.replace("%s", date)) + "</div>" : "")
+    + "</div>"
+    + '<div class="sub-live-act">' + manageBtn()
+    /* Обидва підписи в кнопці одразу: видно завжди один, але ширину
+       задає довший — інакше при перемиканні кнопка росте й зсуває
+       сусідню. */
+    +   '<button type="button" class="sub-change" id="subChange">'
+    +     '<span>' + esc(T.subChange) + "</span>"
+    +     '<span>' + esc(T.subChangeBack) + "</span></button></div>"
+    + "</div>";
+}
+
 /* Кнопка ведення підписки. Показуємо тільки тому, хто вже платив: до
    першої оплати кабінету на боці Creem просто не існує. Саме тут людина
    скасує продовження чи замінить картку — без листів у підтримку. */
@@ -172,21 +301,37 @@ function manageBtn(){
 
 function section(){
   if (!st) return "";
-  return '<div class="sub-state"><span class="sub-chip' + (st.active ? " paid" : "") + '">'
-    +   esc(planLabel()) + "</span>" + manageBtn() + "</div>"
-    + '<div class="sub-plans">' + ORDER.map(card).join("") + "</div>"
-    + promoRow()
-    + feats()
-    + freeTerms()
-    + '<p class="sub-soon" id="subSoon"></p>'
-    /* Умови й повернення мають бути видно поруч із кнопкою оплати, а не
-       ховатись у підвалі: цього вимагає і платіжний сервіс, і здоровий глузд
-       — людина читає їх саме тоді, коли збирається платити. */
-    + '<p class="sub-legal">'
-    +   '<a href="/terms" target="_blank" rel="noopener">' + esc(T.subTerms) + '</a>'
-    +   '<span>·</span>'
-    +   '<a href="/refund" target="_blank" rel="noopener">' + esc(T.subRefund) + '</a>'
+  const live = !!st.active;
+  /* Умови й повернення мають бути видно поруч із кнопкою оплати, а не
+     ховатись у підвалі: цього вимагає і платіжний сервіс, і здоровий глузд
+     — людина читає їх саме тоді, коли збирається платити. */
+  const legal = '<p class="sub-legal">'
+    + '<a href="/terms" target="_blank" rel="noopener">' + esc(T.subTerms) + '</a>'
+    + '<span>·</span>'
+    + '<a href="/refund" target="_blank" rel="noopener">' + esc(T.subRefund) + '</a>'
     + '</p>';
+  /* Довічній вітрина ні до чого: купувати нічого, і кнопки «розгорнути
+     тарифи» в неї теж немає — картки лишились би прихованими назавжди. */
+  if (live && st.plan === "life") return liveBox() + legal;
+  /* Що відкриває підписка й що дається без неї — доводи для того, хто ще
+     не платить. Тому, хто вже платить, вони нічого не кажуть, тільки
+     розтягують розділ, тому в оплаченому стані їх немає. */
+  return (live
+      ? liveBox()
+      /* Тільки надпис, без кнопок (рішення власника 27.09.2026): у того, хто
+         зараз не платить, керувати нічим — кабінет платіжки потрібен
+         підписці, а не її відсутності. Хто платив колись і хоче туди
+         повернутись, знайде кнопку там же, коли підписка діє. */
+      : '<div class="sub-state"><span class="sub-chip">'
+        + esc(planLabel()) + "</span></div>")
+    + '<div class="sub-shop' + (live ? " tucked" : "") + '">'
+    +   earlyNote()
+    +   '<div class="sub-plans">' + ORDER.map(card).join("") + "</div>"
+    +   promoRow()
+    + "</div>"
+    + (live ? "" : feats() + freeTerms())
+    + '<p class="sub-soon" id="subSoon"></p>'
+    + legal;
 }
 
 /* Ціни змінились — перемальовуємо розділ на місці. Вікно налаштувань
@@ -249,9 +394,25 @@ function wireManage(){
   });
 }
 
+/* «Змінити тариф» — картки лежать у розмітці завжди, ховає їх лише клас.
+   Так перемикач працює без перемальовування розділу, і місце, на якому
+   людина зупинилась, нікуди не стрибає. */
+function wireChange(){
+  const b = document.getElementById("subChange");
+  const box = document.querySelector(".sub-shop");
+  if (!b || !box) return;
+  b.addEventListener("click", () => {
+    const shown = !box.classList.toggle("tucked");
+    b.classList.toggle("open", shown);
+    b.setAttribute("aria-expanded", shown ? "true" : "false");
+    if (shown) box.scrollIntoView({block: "nearest", behavior: "smooth"});
+  });
+}
+
 function wire(){
   wirePromo();
   wireManage();
+  wireChange();
   const box = document.querySelector(".sub-plans");
   if (!box) return;
   box.addEventListener("click", async e => {

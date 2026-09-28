@@ -12,7 +12,8 @@ from psycopg.rows import dict_row
 from psycopg.types.json import Jsonb
 
 import tidy
-from config import DATABASE_URL, DB_POOL_MAX
+from config import (DATABASE_URL, DB_POOL_MAX, EARLY_MIGRATION,
+                    IMPORT_WINDOW_DAYS)
 
 # Текстовые поля сделки. Порядок важен: по нему строятся INSERT/UPDATE.
 TEXT_FIELDS = ["pair", "date", "session", "position", "entry_model", "bias", "setup",
@@ -302,6 +303,10 @@ ALTER TABLE users ADD COLUMN IF NOT EXISTS imports_cap INTEGER NOT NULL DEFAULT 
 -- (NULL — рахуємо за набором).
 ALTER TABLE users ADD COLUMN IF NOT EXISTS price_plan TEXT NOT NULL DEFAULT 'std';
 ALTER TABLE users ADD COLUMN IF NOT EXISTS own_price_cents INTEGER;
+-- Доки триває вікно перенесення з Notion. NULL — рахуємо звичайно, 30 днів від
+-- реєстрації. Дата тут потрібна «раннім»: вони зареєструвались місяці тому, і
+-- від created_at вікно в них було б зачинене ще до першого запуску підписок.
+ALTER TABLE users ADD COLUMN IF NOT EXISTS imports_until TIMESTAMPTZ;
 -- Звідки реєструвались: за парою «адреса + відбиток пристрою» ловимо другий
 -- безкоштовний акаунт того самого автора. Сам по собі збіг адреси нічого не
 -- означає (мобільні оператори дають одну адресу тисячам людей) — він лише
@@ -370,6 +375,7 @@ def init():
         conn.execute(SCHEMA)
         conn.commit()
     _grandfather_emails()
+    _grandfather_early()
 
 
 def _grandfather_emails():
@@ -385,6 +391,45 @@ def _grandfather_emails():
                      "WHERE email_confirmed_at IS NULL")
         conn.commit()
     meta_set("emails_grandfathered", "1")
+
+
+# Сама міграція «ранніх» одним запитом — щоб перевірка ганяла саме той
+# текст, який піде на бій, а не схожий на нього.
+EARLY_SQL = """
+UPDATE users SET price_plan='early',
+       free_trades_used=0, free_bt_used=0, imports_used=0,
+       ai_used=0, ai_reset_at=NULL,
+       imports_until=now() + (%s || ' days')::interval
+ WHERE price_plan='std'
+"""
+
+
+def _grandfather_early():
+    """Хто був у журналі до платних підписок — той «ранній»: знижка назавжди.
+
+    Спрацьовує рівно один раз (позначка в meta), інакше кожен перезапуск
+    роздавав би знижку й тим, хто прийшов уже на платне.
+
+    Не при першому запуску, а за вимикачем EARLY_MIGRATION: робоча копія
+    ходить у ту саму базу, що й бій, і без вимикача знижку роздав би
+    місцевий прогін — за дні до самої викладки.
+
+    Лічильники цим людям обнуляємо тут же: у них за плечима сотні угод, і
+    ліміт має відрахувати з нуля від цієї хвилини, а не від першого запису
+    в журналі. Вікно перенесення з Notion відкриваємо наново — від
+    created_at воно в них давно минуло.
+
+    Оплачене не чіпаємо: plan і paid_until лишаються як є. Партнерський
+    набір теж: WHERE price_plan='std' обходить тих, кого перевів промокод
+    FX LAB, — ціна в них та сама, а от в обліку партнера вони мусять
+    лишитись своїми.
+    """
+    if not EARLY_MIGRATION or meta_get("early_marked"):
+        return
+    with connect() as conn:
+        conn.execute(EARLY_SQL, (IMPORT_WINDOW_DAYS,))
+        conn.commit()
+    meta_set("early_marked", now().isoformat())
 
 
 # ----------------------------------------------------------------- meta ----

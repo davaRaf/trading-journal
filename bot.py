@@ -530,6 +530,11 @@ def on_plan(chat_id, tg_id):
         return
     st = billing.state(user["id"])
     if st["active"]:
+        # Довічна: дати кінця немає, і підставляти її в «до %s» нема чим.
+        if st["plan"] == billing.LIFE:
+            tg_api.send_message(chat_id, botlang.t(lang, "planLife")
+                                + "\n\n" + botlang.t(lang, "planPaidWhat"))
+            return
         name = botlang.t(lang, PLAN_NAME.get(st["plan"], "planMonth"))
         d = (st["paid_until"] or "")[:10]
         day = "%s.%s.%s" % (d[8:10], d[5:7], d[:4]) if len(d) == 10 else d
