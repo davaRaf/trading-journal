@@ -97,17 +97,25 @@ PAIR_SAME.forEach(g=>{ const c=g.slice().sort()[0]; g.forEach(w=>{ PAIR_SYN[plai
 /* «Nasdaq (NQ)», «SPX 500 (ES)»: цілком назва незнайома — дивимось на
    шматки (до дужок, у дужках, слова, пари сусідніх слів). Зводимо, лише якщо
    всі впізнані шматки кажуть про одну групу. Те саме, що tidy.pair_key. */
+/* приписки брокера, що актив не міняють (tidy.NOISE) */
+const PAIR_NOISE=new Set(["CASH","SPOT","CFD","FUT","FUTURES","INDEX","IDX","ECN","RAW","M","C","PRO","PLUS"]);
 function pairKey(v){
   const k=plainName(v); if(!k) return "";
   if(PAIR_SYN[k]) return PAIR_SYN[k];
   const s=(v==null?"":v).toString();
   const chunks=[s.replace(/\(.*?\)/g," ")].concat((s.match(/\((.*?)\)/g)||[]).map(x=>x.slice(1,-1)));
   const hits=new Set();
+  let own=false;
   chunks.forEach(c=>{
     const toks=c.split(/[^0-9A-Za-zА-Яа-яЁёІіЇїЄєҐґ]+/).filter(Boolean).map(x=>x.toUpperCase());
+    /* незнайоме слово — людина так назвала свій інструмент («XAU MSNR»),
+       не зводимо до «XAU» (так само в tidy._by_pieces) */
+    if(!PAIR_SYN[toks.join("")]) toks.forEach((t,i)=>{
+      if(!(PAIR_SYN[t] || PAIR_NOISE.has(t) || (i && PAIR_SYN[toks[i-1]+t]) || PAIR_SYN[t+(toks[i+1]||"")])) own=true;
+    });
     [toks.join("")].concat(toks, toks.slice(1).map((x,i)=>toks[i]+x)).forEach(p=>{ if(PAIR_SYN[p]) hits.add(PAIR_SYN[p]); });
   });
-  return hits.size===1 ? [...hits][0] : k;
+  return !own && hits.size===1 ? [...hits][0] : k;
 }
 function num(v){ const x=parseFloat(v); return isNaN(x)?null:x; }
 /* в интерфейсе результат называется TP / SL / BE, внутри хранится Win / Loss / BE.

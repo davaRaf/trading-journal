@@ -91,9 +91,29 @@ def _pieces(value):
     return [o for o in out if o]
 
 
+# Приписки брокера, которые актив не меняют: «US100.cash», «XAU spot».
+NOISE = {"CASH", "SPOT", "CFD", "FUT", "FUTURES", "INDEX", "IDX", "ECN", "RAW",
+         "M", "C", "PRO", "PLUS"}
+
+
 def _by_pieces(value, table):
     """Имя группы по кускам — только если все узнанные куски указывают на
-    одну и ту же группу. «US30 (Dow)» → US30; «US30/US100» — спор, не сводим."""
+    одну и ту же группу. «US30 (Dow)» → US30; «US30/US100» — спор, не сводим.
+
+    И только если незнакомых слов нет: «XAU MSNR» — это человек так назвал
+    свой инструмент (актив + модель), а не просто золото. Раньше такое
+    сводилось в «XAU», и своё название у человека пропадало."""
+    s = "".join(LOOKALIKE.get(ch, ch) for ch in str(value if value is not None else ""))
+    chunks = [re.sub(r"\(.*?\)", " ", s)] + re.findall(r"\((.*?)\)", s)
+    for c in chunks:
+        toks = [t.upper() for t in _JUNK.split(c) if t]
+        if "".join(toks) in table:
+            continue
+        for i, t in enumerate(toks):
+            near = toks[i - 1] + t if i else ""
+            nxt = t + toks[i + 1] if i + 1 < len(toks) else ""
+            if not (t in table or t in NOISE or near in table or nxt in table):
+                return None
     hits = {table[p] for p in _pieces(value) if p in table}
     return hits.pop() if len(hits) == 1 else None
 

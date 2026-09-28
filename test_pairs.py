@@ -79,6 +79,10 @@ def main():
     ok &= case("порожнє поле не чіпаємо", canon("", had), "")
     ok &= case("Nasdaq (NQ) — це US100",
                canon("Nasdaq ( NQ)", (("US100", 89),)), "US100")
+    ok &= case("своя назва «XAU MSNR» не зводиться до XAU",
+               canon("XAU MSNR", (("XAU", 12),)), "XAU MSNR")
+    ok &= case("приписка брокера не заважає: XAUUSD.m — це XAU",
+               canon("XAUUSD.m", (("XAU", 12),)), "XAU")
     ok &= case("SPX 500 (ES) — це ES500",
                canon("SPX 500 (ES)", (("ES500", 7),)), "ES500")
     ok &= case("ES500 і SPX500 — один актив",
