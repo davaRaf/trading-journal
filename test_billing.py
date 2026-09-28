@@ -223,9 +223,9 @@ def check_prices():
          billing.redeem(paid(plan="month", price_plan="std"), "FXLAB"),
          (False, "promo_active"))
     pr = billing.prices(person(promo_code="FXLAB"))
-    case("введений код: місяць −30%", (pr["set"], pr["month"]["cents"]), ("promo", 839))
-    case("введений код: квартал −30%", pr["quarter"]["cents"], 1959)
-    case("введений код: рік −30%", pr["year"]["cents"], 6999)
+    case("введений код: місяць як у ранніх", (pr["set"], pr["month"]["cents"]), ("promo", 799))
+    case("введений код: квартал як у ранніх", pr["quarter"]["cents"], 2097)
+    case("введений код: рік як у ранніх", pr["year"]["cents"], 7188)
     case("після оплати по коду — звичайні ціни",
          billing.prices(person(promo_code="FXLAB", promo_used_at=NOW))["month"]["cents"], 1199)
     case("ранньому й вигаданий код не допоможе",
@@ -372,7 +372,7 @@ def check_db():
             conn.execute("UPDATE users SET promo_code=NULL, promo_used_at=NULL WHERE id=%s", (uid,))
             conn.commit()
         case("код приймається", billing.redeem(uid, "fxlab"), (True, ""))
-        case("після коду перший платіж знижено", billing.prices(uid)["month"]["cents"], 839)
+        case("після коду перший платіж знижено", billing.prices(uid)["month"]["cents"], 799)
         case("набір цін не змінився", db.get_user(uid)["price_plan"], "std")
         case("до оплати код можна ввести ще раз", billing.redeem(uid, "FXLAB"), (True, ""))
         billing.promo_paid(uid)

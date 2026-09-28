@@ -2365,7 +2365,8 @@ class H(BaseHTTPRequestHandler):
                 url = creem.checkout(uid, plan,
                                      price_set=(u.get("price_plan") or "std"),
                                      email=u.get("email") or "",
-                                     discount=promo)
+                                     discount=(billing.PROMOS[promo]["creem"][plan]
+                                               if promo else ""))
             except Exception as ex:
                 print("checkout:", ex, flush=True)
                 return self._json({"error": "не вдалося відкрити оплату",

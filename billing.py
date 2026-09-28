@@ -232,15 +232,13 @@ def prices(u=None):
     for p in PLANS:
         out[p] = {"cents": PRICES[name][p], "std_cents": PRICES["std"][p],
                   "days": PLAN_DAYS[p]}
-    # Введений і ще не оплачений промокод: на картках — ціна першого
-    # платежу. Округлення як у Creem: до цента, половина — вгору.
+    # Введений і ще не оплачений промокод: на картках — ціна першого платежу
     code = promo_pending(row)
     if code and name == "std":
-        pct = PROMOS[code]["pct"]
         out["set"] = "promo"
         out["promo"] = code
         for p in PLANS:
-            out[p]["cents"] = (PRICES["std"][p] * (100 - pct) + 50) // 100
+            out[p]["cents"] = PRICES[PROMOS[code]["prices"]][p]
     return out
 
 
