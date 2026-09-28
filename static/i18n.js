@@ -707,6 +707,8 @@ uk: {
   suWrite: "Написати",
   suCopy: "Скопіювати", suCopied: "Скопійовано",
   suSocial: "Ми в мережах",
+  suChannel: "Наш канал з оновленнями", suTgChannel: "Telegram-канал",
+  socTgTip: "Telegram — усі оновлення журналу",
   suOpen: "Відкрити",
 
   // ---- соцмережі (підвал бічної панелі + вікно «Підтримка») ----
@@ -1388,6 +1390,8 @@ ru: {
   suWrite: "Написать",
   suCopy: "Скопировать", suCopied: "Скопировано",
   suSocial: "Мы в соцсетях",
+  suChannel: "Наш канал с обновлениями", suTgChannel: "Telegram-канал",
+  socTgTip: "Telegram — все обновления журнала",
   suOpen: "Открыть",
 
   // ---- соцсети (подвал боковой панели + окно «Поддержка») ----
@@ -2069,6 +2073,8 @@ en: {
   suWrite: "Write",
   suCopy: "Copy", suCopied: "Copied",
   suSocial: "Follow us",
+  suChannel: "Our updates channel", suTgChannel: "Telegram channel",
+  socTgTip: "Telegram — all journal updates",
   suOpen: "Open",
 
   // ---- socials (sidebar footer + Support window) ----
@@ -2144,6 +2150,7 @@ function applyLang(code){
   setText("socLab", T.socHere);
   const ig = document.getElementById("socIg"); if(ig) setTip(ig, T.socIgTip);
   const tt = document.getElementById("socTt"); if(tt) setTip(tt, T.socTtTip);
+  const tg = document.getElementById("socTg"); if(tg) setTip(tg, T.socTgTip);
 
   const st = document.getElementById("settingsBtn");
   if(st){ setTip(st, T.stTip); st.setAttribute("aria-label", T.stTitle); const sp = st.querySelector("span"); if(sp) sp.textContent = T.stTitle; }
