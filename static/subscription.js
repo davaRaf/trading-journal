@@ -24,12 +24,44 @@ const MONTHS = {month: 1, quarter: 3, year: 12};
 const ORDER = ["month", "quarter", "year"];
 
 let st = null;                     /* останній стан із сервера */
+let real = null;                   /* той самий стан без перегляду «як у іншого» */
+
+/* Перегляд для власників: подивитись журнал очима людини з іншим тарифом.
+   Лише показ у цьому браузері — сервер права не змінює, ліміти рахує як є. */
+const PREVIEW_KEY = "sub_preview";
+const PREVIEWS = ["", "free", "month", "quarter", "year", "life"];
+function previewOf(){ try{ return localStorage.getItem(PREVIEW_KEY) || ""; }catch(e){ return ""; } }
+function withPreview(s){
+  const p = s && s.admin ? previewOf() : "";
+  if (!p) return s;
+  const soon = new Date(Date.now() + ({month: 30, quarter: 91, year: 365}[p] || 0) * 864e5).toISOString();
+  return Object.assign({}, s, p === "free" ? {plan: "free", active: false, paid_until: null}
+    : p === "life" ? {plan: "life", active: true, paid_until: null}
+    : {plan: p, active: true, paid_until: soon}, {preview: p});
+}
 
 async function load(){
   if (inPub()){ st = null; return null; }
-  try{ st = await api("GET", "/api/billing/state"); }
+  try{ real = await api("GET", "/api/billing/state"); st = withPreview(real); }
   catch(e){ st = null; }           /* не відповіло — розділ просто не малюємо */
   return st;
+}
+
+function setPreview(p){
+  try{ p ? localStorage.setItem(PREVIEW_KEY, p) : localStorage.removeItem(PREVIEW_KEY); }catch(e){}
+  st = withPreview(real);
+  redraw();
+  if (window.__sideMe) __sideMe.tier();
+}
+
+function previewBox(){
+  if (!real || !real.admin) return "";
+  const cur = previewOf();
+  const name = p => p === "" ? T.subPrevReal : p === "free" ? T.subFree
+    : p === "life" ? "Special" : {month: T.subMonth, quarter: T.subQuarter, year: T.subYear}[p];
+  return '<div class="sub-prev"><span>' + esc(T.subPrevLab) + "</span><div>"
+    + PREVIEWS.map(p => '<button type="button" class="' + (p === cur ? "on" : "") + '" data-prev="' + p + '">'
+      + esc(name(p)) + "</button>").join("") + "</div></div>";
 }
 
 /* €11,99 — кома, як у решті журналу, і без зайвого нуля в кінці. */
@@ -70,16 +102,18 @@ function planLabel(){
 function badge(){
   if (!st) return "";
   ring();
-  const sign = st.active
-    ? {month: "1М", quarter: "3М", year: "12М", life: "∞"}[st.plan]
-    : "FREE";
-  if (!sign) return "";
-  const cls = "sub-tier" + (st.active ? " on" : "")
-    + (st.plan === "year" ? " y" : "") + (st.plan === "life" ? " life" : "");
-  /* Ні кліку, ні підказки (рішення власника 27.09.2026): це підпис, а не
-     кнопка. У «Підписку» ведуть налаштування й плашка відмови — окремий
-     вхід звідси не потрібен, а виглядав він натискним. */
-  return '<span class="' + cls + '">' + esc(sign) + "</span>";
+  /* Варіант «Б» (рішення власника 28.09.2026): окремого значка перед
+     аватаркою немає — тариф тихо підписаний під ніком замість слова
+     «Профіль». Special (довічна, яку ми даємо руками) — золотом. */
+  const sub = document.getElementById("sideMeSub");
+  if (sub){
+    const life = st.active && st.plan === "life";
+    sub.textContent = !st.active ? T.subTagFree
+      : life ? "Special"
+      : "Pro · " + ({month: T.subMonth, quarter: T.subQuarter, year: T.subYear}[st.plan] || "").toLowerCase();
+    sub.classList.toggle("sub-special", life);
+  }
+  return "";
 }
 
 /* Обідок навколо аватарки — знак того, що підписка діє (рішення власника
@@ -301,6 +335,9 @@ function manageBtn(){
 
 function section(){
   if (!st) return "";
+  return previewBox() + sectionBody();
+}
+function sectionBody(){
   const live = !!st.active;
   /* Умови й повернення мають бути видно поруч із кнопкою оплати, а не
      ховатись у підвалі: цього вимагає і платіжний сервіс, і здоровий глузд
@@ -409,7 +446,13 @@ function wireChange(){
   });
 }
 
+function wirePreview(){
+  document.querySelectorAll(".sub-prev [data-prev]").forEach(b =>
+    b.addEventListener("click", () => setPreview(b.dataset.prev)));
+}
+
 function wire(){
+  wirePreview();
   wirePromo();
   wireManage();
   wireChange();

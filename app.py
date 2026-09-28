@@ -2066,7 +2066,12 @@ class H(BaseHTTPRequestHandler):
             uid = self._uid()
             if not uid:
                 return self._json({"error": "auth required"}, 401)
-            return self._json(billing.public(uid))
+            out = billing.public(uid)
+            # Власникам — перемикач «подивитись як» у розділі «Підписка»: він
+            # лише перефарбовує показ у їхньому браузері, права не змінює.
+            if _is_admin(uid):
+                out = dict(out, admin=True)
+            return self._json(out)
 
         if p == "/api/calendar":
             # Розділу «Новини» віддаємо рівно один робочий тиждень: усередині

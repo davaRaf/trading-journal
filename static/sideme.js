@@ -57,8 +57,8 @@ async function load(){
    коли стан підписки приїхав пізніше за профіль. */
 function tier(){
   if (!me || !window.__sub) return;
-  const html = __sub.badge();
-  if (!html) return;
+  const html = __sub.badge();      /* підпис під ніком ставить сам badge() */
+  if (!html){ const old = document.getElementById("sideMeTier"); if (old) old.remove(); return; }
   const btn = document.getElementById("sideMeBtn");
   if (!btn) return;
   let slot = document.getElementById("sideMeTier");
