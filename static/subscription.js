@@ -165,8 +165,12 @@ function card(plan){
       + '<span class="sub-off">−'
       + Math.round((1 - p.cents / p.std_cents) * 100) + "%</span></div>"
     : "";
-  const bill = ({month: T.subBillM, quarter: T.subBillQ, year: T.subBillY}[plan] || "")
-    .replace("%s", money(p.cents));
+  const tpl = {month: T.subBillM, quarter: T.subBillQ, year: T.subBillY}[plan] || "";
+  /* промокод знижує тільки перший платіж — так і пишемо, щоб потім
+     повна ціна не стала несподіванкою */
+  const bill = st.prices.set === "promo"
+    ? T.subBillFirst.replace("%s", money(p.cents)) + " " + tpl.replace("%s", money(p.std_cents)).toLowerCase()
+    : tpl.replace("%s", money(p.cents));
   const name = {month: T.subMonth, quarter: T.subQuarter, year: T.subYear}[plan];
   /* Копійки дрібнішим кеглем: у ціні головне ціле число, «,99» —
      хвіст, який не має сперечатися з ним за увагу. */
@@ -247,7 +251,7 @@ let promoDone = false;
 
 function promoRow(){
   if (!st || !st.prices) return "";
-  if (promoDone)
+  if (promoDone || st.prices.set === "promo")
     return '<div class="sub-promo done">' + tick()
       + '<span>' + esc(T.subPromoOk) + '</span></div>';
   if (st.prices.set !== "std") return "";

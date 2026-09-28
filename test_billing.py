@@ -215,6 +215,19 @@ def check_prices():
          (False, "promo_same"))
     case("вигаданий код", billing.redeem(person(), "ХАЛЯВА"),
          (False, "promo_bad"))
+    # Промокод — один раз: після оплати по ньому вдруге не приймається
+    case("по коду вже платили — вдруге ні",
+         billing.redeem(person(promo_code="FXLAB", promo_used_at=NOW), "FXLAB"),
+         (False, "promo_used"))
+    case("підписка вже йде — код тільки на першу оплату",
+         billing.redeem(paid(plan="month", price_plan="std"), "FXLAB"),
+         (False, "promo_active"))
+    pr = billing.prices(person(promo_code="FXLAB"))
+    case("введений код: місяць −30%", (pr["set"], pr["month"]["cents"]), ("promo", 839))
+    case("введений код: квартал −30%", pr["quarter"]["cents"], 1959)
+    case("введений код: рік −30%", pr["year"]["cents"], 6999)
+    case("після оплати по коду — звичайні ціни",
+         billing.prices(person(promo_code="FXLAB", promo_used_at=NOW))["month"]["cents"], 1199)
     case("ранньому й вигаданий код не допоможе",
          billing.redeem(person(price_plan="early"), "ХАЛЯВА"),
          (False, "promo_bad"))
@@ -354,12 +367,19 @@ def check_db():
         # Промокод на живому акаунті: звичайному він знижує ціну, а тому,
         # хто вже «ранній», — відбивається.
         billing.set_price(uid, price_plan="std")
-        case("код переводить у набір FX LAB",
-             billing.redeem(uid, "fxlab"), (True, ""))
-        case("після коду ціна знижена", billing.prices(uid)["month"]["cents"], 799)
-        case("набір записано", db.get_user(uid)["price_plan"], "fxlab")
-        case("удруге код не проходить", billing.redeem(uid, "FXLAB"),
-             (False, "promo_same"))
+        billing.revoke(uid)
+        with db.connect() as conn:
+            conn.execute("UPDATE users SET promo_code=NULL, promo_used_at=NULL WHERE id=%s", (uid,))
+            conn.commit()
+        case("код приймається", billing.redeem(uid, "fxlab"), (True, ""))
+        case("після коду перший платіж знижено", billing.prices(uid)["month"]["cents"], 839)
+        case("набір цін не змінився", db.get_user(uid)["price_plan"], "std")
+        case("до оплати код можна ввести ще раз", billing.redeem(uid, "FXLAB"), (True, ""))
+        billing.promo_paid(uid)
+        case("після оплати — звичайна ціна", billing.prices(uid)["month"]["cents"], 1199)
+        case("після оплати код удруге не проходить", billing.redeem(uid, "FXLAB"),
+             (False, "promo_used"))
+        case("код лишився в картці", db.get_user(uid)["promo_code"], "FXLAB")
 
         # Довічна з адмінки: тариф life, дати кінця немає, підписка діє.
         billing.grant_life(uid)

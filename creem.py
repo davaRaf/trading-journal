@@ -52,7 +52,7 @@ def _post(path, body):
         return json.load(r)
 
 
-def checkout(user_id, plan, price_set="std", email="", return_url=""):
+def checkout(user_id, plan, price_set="std", email="", return_url="", discount=""):
     """Створити касу. Повертає адресу, куди відправити людину.
 
     request_id і metadata дублюють одне й те саме навмисно: перший
@@ -71,6 +71,10 @@ def checkout(user_id, plan, price_set="std", email="", return_url=""):
     }
     if email:
         body["customer"] = {"email": email}
+    # промокод: знижку «once» рахує Creem — лише перший платіж
+    if discount:
+        body["discount_code"] = discount
+        body["metadata"]["promo"] = discount
     res = _post("/v1/checkouts", body)
     url = res.get("checkout_url") or res.get("url")
     if not url:

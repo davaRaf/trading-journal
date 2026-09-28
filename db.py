@@ -318,6 +318,10 @@ ALTER TABLE users ADD COLUMN IF NOT EXISTS signup_device TEXT;
 ALTER TABLE users ADD COLUMN IF NOT EXISTS billing_note TEXT;
 -- коли людині дали Special (довічну): в адмінці видно, кому й відколи
 ALTER TABLE users ADD COLUMN IF NOT EXISTS special_since TIMESTAMPTZ;
+-- промокод: який ввели (лишається й після оплати — видно, хто прийшов від
+-- партнера) і коли по ньому заплатили; після оплати вдруге не приймається
+ALTER TABLE users ADD COLUMN IF NOT EXISTS promo_code TEXT;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS promo_used_at TIMESTAMPTZ;
 
 -- Звернення до моделі: скільки витрачено у поточному вікні й коли вікно
 -- закінчується. Розділи журналу відкриті всі, а платне — саме це: кожна

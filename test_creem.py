@@ -124,6 +124,9 @@ def main():
             check("без входу не пускаємо", ex.code == 401, ex.code)
 
         print("\nоплата")
+        # людина ввела промокод до оплати — після оплати він має згоріти
+        import billing
+        check("промокод прийнято до оплати", billing.redeem(uid, "FXLAB") == (True, ""))
         end = db.now() + datetime.timedelta(days=365)
         code, res = post("/api/creem/webhook",
                          event("subscription.active", uid, "year", end))
@@ -134,6 +137,9 @@ def main():
         check("дата взята з платіжки, а не порахована нами",
               st["paid_until"][:10] == end.date().isoformat(),
               st["paid_until"][:10])
+        check("після оплати промокод використано",
+              bool(db.get_user(uid).get("promo_used_at")))
+        check("вдруге не приймається", billing.redeem(uid, "FXLAB")[1] == "promo_used")
 
         print("\nповторна доставка")
         code, res = post("/api/creem/webhook",

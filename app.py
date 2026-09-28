@@ -718,6 +718,9 @@ def _billing_block(u, e, row, dt):
         + row("Набор цен", {"early": "ранние (скидка навсегда)",
                             "fxlab": "FX LAB (по промокоду)"}.get(
                                 u["price_plan"] or "std", "обычный"))
+        + row("Промокод", "—" if not u.get("promo_code") else
+              "%s · %s" % (e(u["promo_code"]), ("оплачен " + dt(u["promo_used_at"]))
+                           if u.get("promo_used_at") else "введён, ждёт оплаты"))
         + row("Своя цена", ("%.2f EUR" % (u["own_price_cents"] / 100.0))
               if u["own_price_cents"] else "—")
         + row("Заметка", u["billing_note"] or "—")
@@ -2358,9 +2361,11 @@ class H(BaseHTTPRequestHandler):
                 return self._json({"error": "невідомий тариф"}, 400)
             try:
                 u = db.get_user(uid) or {}
+                promo = billing.promo_pending(u)
                 url = creem.checkout(uid, plan,
                                      price_set=(u.get("price_plan") or "std"),
-                                     email=u.get("email") or "")
+                                     email=u.get("email") or "",
+                                     discount=promo)
             except Exception as ex:
                 print("checkout:", ex, flush=True)
                 return self._json({"error": "не вдалося відкрити оплату",
@@ -2443,6 +2448,7 @@ class H(BaseHTTPRequestHandler):
                           "checkout.completed"):
                     plan = creem.plan_of(obj) or "month"
                     billing.apply_paid(uid, plan, creem.period_end(obj))
+                    billing.promo_paid(uid)   # перша оплата — код відпрацював
                 elif ev in ("refund.created", "dispute.created",
                             "subscription.expired", "subscription.unpaid"):
                     # Повернення й спір — гроші пішли назад, підписку знімаємо.

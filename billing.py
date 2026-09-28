@@ -66,6 +66,8 @@ NO_USER = "no_user"
 PROMO_BAD = "promo_bad"        # такого коду немає
 PROMO_OVER = "promo_over"      # код відпрацював своє
 PROMO_SAME = "promo_same"      # у людини вже ця сама ціна
+PROMO_USED = "promo_used"      # по коду вже заплатили — вдруге не можна
+PROMO_ACTIVE = "promo_active"  # підписка вже йде — знижка тільки на першу оплату
 
 
 def _user(u):
@@ -230,7 +232,33 @@ def prices(u=None):
     for p in PLANS:
         out[p] = {"cents": PRICES[name][p], "std_cents": PRICES["std"][p],
                   "days": PLAN_DAYS[p]}
+    # Введений і ще не оплачений промокод: на картках — ціна першого
+    # платежу. Округлення як у Creem: до цента, половина — вгору.
+    code = promo_pending(row)
+    if code and name == "std":
+        pct = PROMOS[code]["pct"]
+        out["set"] = "promo"
+        out["promo"] = code
+        for p in PLANS:
+            out[p]["cents"] = (PRICES["std"][p] * (100 - pct) + 50) // 100
     return out
+
+
+def promo_pending(u):
+    """Код, який людина ввела і по якому ще не платила, або ''."""
+    row = _user(u) if u is not None else None
+    code = (row or {}).get("promo_code") or ""
+    if not code or (row or {}).get("promo_used_at") or code not in PROMOS:
+        return ""
+    return code
+
+
+def promo_paid(uid):
+    """Оплата пройшла — код використано, вдруге не прийметься."""
+    with db.connect() as conn:
+        conn.execute("UPDATE users SET promo_used_at=now() WHERE id=%s "
+                     "AND promo_code IS NOT NULL AND promo_used_at IS NULL", (uid,))
+        conn.commit()
 
 
 # --------------------------------------------------------------- дозволи ----
@@ -493,34 +521,30 @@ def set_price(uid, price_plan=None, own_cents=None, note=None):
         conn.commit()
     return state(uid)
 def redeem(uid, code):
-    """Промокод → інший набір цін, назавжди. Повертає (ok, причина).
+    """Промокод → знижка на перший платіж. Повертає (ok, причина).
 
-    Знижку дає не сам код: він переводить акаунт на набір з нижчими
-    цінами, і далі все йде звичайним шляхом — на картках одразу видно нову
-    суму, а при продовженні підписка списує її ж. Вводити код удруге не
-    треба й не можна забути.
+    Один раз на людину: код запам'ятовуємо одразу, а використаним він стає
+    тільки після оплати (promo_paid) — закрив касу, не заплативши, знижка
+    лишається за ним. Далі підписка продовжується за звичайною ціною.
 
-    Набори порівнюємо по грошах, а не по назві. У перших користувачів ціна
-    така сама, як у FX LAB: переводити їх нікуди не треба, і сказати про це
-    прямо чесніше, ніж зробити вигляд, що щось сталося.
+    Раннім код ні до чого: їхня ціна й так нижча і назавжди.
     """
     key = (code or "").strip().upper()
-    promo = PROMOS.get(key)
-    if not promo:
+    if key not in PROMOS:
         return False, PROMO_BAD
-    until = promo.get("until")
-    if until and datetime.date.today().isoformat() > until:
-        return False, PROMO_OVER
     row = _user(uid)
     if not row:
         return False, NO_USER
     have = (row.get("price_plan") or "std")
-    if have not in PRICES:
-        have = "std"
-    want = promo["plan"]
-    if PRICES[have]["month"] <= PRICES[want]["month"]:
+    if have in PRICES and have != "std" or row.get("own_price_cents"):
         return False, PROMO_SAME
-    set_price(uid, price_plan=want)
+    if row.get("promo_used_at"):
+        return False, PROMO_USED
+    if active(row):
+        return False, PROMO_ACTIVE
+    with db.connect() as conn:
+        conn.execute("UPDATE users SET promo_code=%s WHERE id=%s", (key, row["id"]))
+        conn.commit()
     return True, ""
 
 
