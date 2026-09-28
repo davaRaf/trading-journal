@@ -248,6 +248,10 @@
   border-radius:10px; background:#fff; border:1px solid var(--line); color:var(--text)}
 /* малюнок ручкою: чорнило на білій плашці, щоб читалось і в темних темах */
 .th-collab-mark .swan{height:22px; width:auto; display:block}
+/* знак спільноти в картці теми: чорнило на білій плашці — читається в будь-якій темі */
+.th-card .nm .th-logo{width:20px; height:20px; flex:none; display:grid; place-items:center;
+  border-radius:6px; background:#fff; border:1px solid var(--line)}
+.th-card .nm .th-logo img{height:13px; width:auto; display:block}
 .th-collab-head b{display:block; font-size:13px; font-weight:600}
 .th-collab-head i{display:block; font-style:normal; font-size:11.5px; color:var(--dim);
   margin-top:2px}
