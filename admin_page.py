@@ -25,6 +25,24 @@ KYIV = ZoneInfo("Europe/Kyiv")
 FREE_LIMIT = 30          # безкоштовних ручних угод до підписки
 
 
+def billing_start():
+    """З якого дня рахуються безкоштовні 30 угод: з запуску оплати, а не з
+    реєстрації. Дату ставить запуск оплати в meta «billing_start»
+    (РРРР-ММ-ДД), запасний шлях — змінна оточення BILLING_START. Поки її
+    немає — ліміт не запущено і нікому не зараховано жодної угоди."""
+    import os
+    raw = ""
+    try:
+        raw = (db.meta_get("billing_start", "") or "").strip()
+    except Exception:
+        pass
+    raw = raw or os.environ.get("BILLING_START", "").strip()
+    try:
+        return datetime.date.fromisoformat(raw[:10]) if raw else None
+    except ValueError:
+        return None
+
+
 # ------------------------------------------------------------ дрібниці ----
 
 def e(x):
@@ -260,13 +278,17 @@ def _collect():
                          telegram_id IS NOT NULL AS tg, public_journal AS pub,
                          email_confirmed_at IS NOT NULL AS mailok
                   FROM users ORDER BY created_at DESC""")
+    bstart = billing_start()
     tr = {r["user_id"]: r for r in _q("""
         SELECT user_id, count(*) AS n,
                count(*) FILTER (WHERE import_id = '' AND notion_id = '') AS manual,
+               count(*) FILTER (WHERE import_id = '' AND notion_id = ''
+                                  AND %s::date IS NOT NULL
+                                  AND (created_at AT TIME ZONE 'Europe/Kyiv')::date >= %s::date) AS paid_n,
                count(*) FILTER (WHERE "kind" = 'bt') AS bt,
                count(*) FILTER (WHERE created_at >= now() - interval '7 days') AS d7,
                max(created_at) AS last_at
-        FROM trades GROUP BY user_id""")}
+        FROM trades GROUP BY user_id""", (bstart, bstart))}
     notes = {r["user_id"]: r for r in _q("""
         SELECT user_id,
                count(*) FILTER (WHERE CASE WHEN jsonb_typeof(data->'assets') = 'array'
@@ -321,6 +343,8 @@ def _collect():
             "reg": created.isoformat() if created else "", "regd": (today - created).days if created else 999,
             "ref": u["ref"], "tg": bool(u["tg"]), "pub": bool(u["pub"]), "mail": bool(u["mailok"]),
             "n": n, "manual": t.get("manual") or 0, "bt": t.get("bt") or 0, "d7": t.get("d7") or 0,
+            # до ліміту йдуть лише ручні угоди з дня запуску оплати
+            "free": t.get("paid_n") or 0,
             "notes": nt.get("n") or 0, "ts": u["id"] in has_ts,
             "sh": (shares.get(u["id"]) or {}).get("n") or 0, "views": (shares.get(u["id"]) or {}).get("views") or 0,
             "idp": idents.get(u["id"]) or "", "acc": accs.get(u["id"]) or 0,
@@ -328,7 +352,7 @@ def _collect():
             "days7": sum(1 for d in days if (today - d).days < 7),
             "_days": days, "_ref_at": u["ref_at"],
         })
-    return {"today": today, "now": now, "people": people, "tday": tday, "kinds": kinds}
+    return {"today": today, "now": now, "people": people, "tday": tday, "kinds": kinds, "bstart": bstart}
 
 
 # ----------------------------------------------------------- розділи ----
@@ -346,8 +370,9 @@ def _kpis(D):
     sh7 = sum(r["d7"] for r in D["kinds"])
     sh7p = sum(r["p7"] for r in D["kinds"])
     views = sum(r["views"] for r in D["kinds"])
-    lim = sum(1 for p in P if p["manual"] >= FREE_LIMIT)
-    near = sum(1 for p in P if 20 <= p["manual"] < FREE_LIMIT)
+    lim = sum(1 for p in P if p["free"] >= FREE_LIMIT)
+    near = sum(1 for p in P if 20 <= p["free"] < FREE_LIMIT)
+    bs = D.get("bstart")
     return ('<div class="grid kpis">'
             + _kpi("Аккаунтов", str(len(P)),
                    '<div class=d><span class=up>+%d</span> за 7 дней · неделей раньше +%d</div>' % (new7, new_p))
@@ -355,8 +380,11 @@ def _kpis(D):
             + _kpi("Активны 30 дней", str(a30), '<div class=d>%d%% от всех</div>' % (round(a30 * 100 / len(P)) if P else 0))
             + _kpi("Сделок вручную за 7 дн.", str(tm7), _delta(tm7, tm7p))
             + _kpi("Ссылок за 7 дней", str(sh7), _delta(sh7, sh7p).replace("</div>", " · %d переходов всего</div>" % views, 1))
-            + _kpi("Упёрлись в лимит 30", '<span class=up>%d</span>' % lim,
-                   '<div class=d>ещё %d на подходе (20–29)</div>' % near)
+            + (_kpi("Упёрлись в лимит 30", '<span class=up>%d</span>' % lim,
+                    '<div class=d>ещё %d на подходе (20–29) · счёт с %s</div>' % (near, bs.strftime("%d.%m")))
+               if bs else
+               _kpi("Лимит 30 сделок", '<span class=mute>—</span>',
+                    '<div class=d>не запущен: считается с запуска оплаты</div>'))
             + "</div>")
 
 
@@ -391,7 +419,7 @@ def _funnel(D):
         ("Зарегистрировались", len(P)),
         ("Записали 1+ сделку", sum(1 for p in P if p["n"] >= 1)),
         ("10+ сделок", sum(1 for p in P if p["n"] >= 10)),
-        ("30+ вручную (лимит)", sum(1 for p in P if p["manual"] >= FREE_LIMIT)),
+        ("Дошли до лимита 30", sum(1 for p in P if p["free"] >= FREE_LIMIT)),
         ("Активны 7 дней", sum(1 for p in P if p["st"] == "active")),
     ]
     rows = []
@@ -490,7 +518,7 @@ def _partners(D, titles, refs=()):
                     "<td class=num>%d</td><td class=num>%d</td></tr>" % (
                         e(titles.get(ref, ref) if ref else "Без метки"), clicks, len(ps), ("+%d" % n30) if n30 else "0",
                         sum(1 for p in ps if p["n"]), sum(1 for p in ps if p["st"] == "active"),
-                        sum(1 for p in ps if p["manual"] >= FREE_LIMIT)))
+                        sum(1 for p in ps if p["free"] >= FREE_LIMIT)))
     return ('<div class=card><h2>Партнёры и метки</h2><div class=tw><table>'
             "<tr><th>Метка</th><th class=num>Переходов · 30 дн.</th><th class=num>Людей</th><th class=num>30 дн.</th>"
             "<th class=num>Со сделками</th><th class=num>Активны</th><th class=num>Лимит 30+</th></tr>" + "".join(rows)
@@ -517,7 +545,7 @@ def _watch(D):
     P = D["people"]
     top = sorted([p for p in P if p["days7"]], key=lambda p: (-p["days7"], -p["d7"]))[:8]
     idle = [p for p in P if p["st"] == "new" and p["regd"] <= 14][:10]
-    lim = sorted([p for p in P if p["manual"] >= 20], key=lambda p: -p["manual"])[:10]
+    lim = sorted([p for p in P if p["free"] >= 20], key=lambda p: -p["free"])[:10]
     li = lambda p, right: '<a href="/admin/u/%s"><span class=nm>%s <small>%s</small></span><span class=mute>%s</span></a>' % (
         e(p["nick"]), e(p["nick"]), e(p["email"]), right)
     return ('<div class="grid three">'
@@ -528,8 +556,10 @@ def _watch(D):
             + ("".join(li(p, _ago(p["regd"])) for p in idle) or '<div class=empty>Все новенькие что-то записали</div>')
             + "</div></div>"
             '<div class=card><h2>Ближе всех к подписке</h2><div class=list>'
-            + ("".join(li(p, '<span class="%s">%d / %d</span>' % ("up" if p["manual"] >= FREE_LIMIT else "be", p["manual"], FREE_LIMIT)) for p in lim)
-               or '<div class=empty>Пока никто не набрал 20 сделок вручную</div>') + "</div></div>"
+            + ("".join(li(p, '<span class="%s">%d / %d</span>' % ("up" if p["free"] >= FREE_LIMIT else "be", p["free"], FREE_LIMIT)) for p in lim)
+               or '<div class=empty>%s</div>' % ("Пока никто не набрал 20 сделок с запуска оплаты" if D.get("bstart")
+                                                 else "Оплата ещё не запущена — лимит пока никому не считается"))
+            + "</div></div>"
             "</div>")
 
 
@@ -552,7 +582,7 @@ PEOPLE_JS = r"""
 const ST={active:['Активный','p-active'],cool:['Остывает','p-cool'],sleep:['Спит','p-sleep'],new:['Не начал','p-new']};
 const F=[['all','Все',()=>true],['active','Активные',p=>p.st==='active'],['cool','Остывают',p=>p.st==='cool'],
 ['sleep','Спят',p=>p.st==='sleep'],['new','Не начали',p=>p.st==='new'],['fresh','Новые 7 дн.',p=>p.regd<=6],
-['limit','Лимит 30+',p=>p.manual>=30],['tg','С Telegram',p=>p.tg]];
+['limit','Лимит 30+',p=>p.free>=30],['tg','С Telegram',p=>p.tg]];
 let f='all',k='regd',dir=1,q=(Q||'').toLowerCase();
 const s=document.getElementById('q');if(s){s.value=Q||'';s.addEventListener('input',()=>{q=s.value.trim().toLowerCase();draw();});}
 const esc=x=>String(x==null?'':x).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
@@ -607,14 +637,18 @@ def user_card(u, titles, kind_ru, refs):
     today = _today()
     uid = u["id"]
     one = lambda sql: (_q(sql, (uid,)) or [{}])[0]
-    t = one("""SELECT count(*) AS n, count(*) FILTER (WHERE result='Skip') AS skips,
+    bstart = billing_start()
+    t = (_q("""SELECT count(*) AS n, count(*) FILTER (WHERE result='Skip') AS skips,
+                      count(*) FILTER (WHERE import_id = '' AND notion_id = ''
+                                         AND %s::date IS NOT NULL
+                                         AND (created_at AT TIME ZONE 'Europe/Kyiv')::date >= %s::date) AS free,
                       count(*) FILTER (WHERE import_id = '' AND notion_id = '') AS manual,
                       count(*) FILTER (WHERE "kind" = 'bt') AS bt,
                       min("date") AS first, max("date") AS last, max(created_at) AS last_at,
                       count(*) FILTER (WHERE created_at >= now() - interval '7 days') AS d7,
                       count(*) FILTER (WHERE created_at >= now() - interval '30 days') AS d30,
                       count(DISTINCT left("date", 10)) AS days
-               FROM trades WHERE user_id=%s""")
+               FROM trades WHERE user_id=%s""", (bstart, bstart, uid)) or [{}])[0]
     pairs = _q("""SELECT "pair", count(*) AS n FROM trades WHERE user_id=%s AND "pair"<>''
                   GROUP BY 1 ORDER BY n DESC LIMIT 6""", (uid,))
     weeks = {r["w"]: r for r in _q("""
@@ -663,6 +697,7 @@ def user_card(u, titles, kind_ru, refs):
             bits.append("обновлена " + str(ts["updated"]))
         ts_line = " · ".join(bits) or "есть"
     manual = t.get("manual") or 0
+    free = t.get("free") or 0
     nick_js = json.dumps(u["nickname"], ensure_ascii=False)
     kv = lambda k, v: "<span>%s</span><span>%s</span>" % (e(k), v)
 
@@ -675,8 +710,11 @@ def user_card(u, titles, kind_ru, refs):
           '<span class=mute>' + e(u["email"]) + "</span></div>"
         + '<div class="grid kpis">'
         + _kpi("Сделок всего", str(t.get("n") or 0), '<div class=d>%d вручную · %d скипов</div>' % (manual, t.get("skips") or 0))
-        + _kpi("До лимита 30", '<span class="%s">%d / %d</span>' % ("up" if manual >= FREE_LIMIT else "be" if manual >= 20 else "", min(manual, 999), FREE_LIMIT),
-               '<div class=d>%s</div>' % ("упёрся в бесплатный лимит" if manual >= FREE_LIMIT else "ещё %d бесплатных" % (FREE_LIMIT - manual)))
+        + (_kpi("До лимита 30", '<span class="%s">%d / %d</span>' % ("up" if free >= FREE_LIMIT else "be" if free >= 20 else "", min(free, 999), FREE_LIMIT),
+                '<div class=d>%s · с %s</div>' % ("упёрся в бесплатный лимит" if free >= FREE_LIMIT else "ещё %d бесплатных" % (FREE_LIMIT - free),
+                                                bstart.strftime("%d.%m.%Y")))
+           if bstart else
+           _kpi("Лимит 30 сделок", '<span class=mute>не запущен</span>', '<div class=d>считается с запуска оплаты</div>'))
         + _kpi("Торговых дней", str(t.get("days") or 0), '<div class=d>%s — %s</div>' % (str(t.get("first") or "—")[:10], str(t.get("last") or "—")[:10]))
         + _kpi("Сделок за 7 / 30 дн.", "%d / %d" % (t.get("d7") or 0, t.get("d30") or 0), "")
         + _kpi("Анализов дня", str(nt.get("n") or 0), '<div class=d>последний %s</div>' % dt(nt.get("last_at")))
