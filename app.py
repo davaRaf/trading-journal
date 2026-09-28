@@ -32,6 +32,7 @@ import db
 import emotions
 import filestore
 import share_store
+import admin_page
 import llm
 from psycopg.types.json import Jsonb
 
@@ -213,7 +214,7 @@ def clean_trade(body, tid):
 # У каждой ссылки свой срок жизни; просроченные удаляются при обращении.
 # ---------------------------------------------------------------------------
 SHARE_DIR = os.path.join(DATA, "shares")
-SHARE_MAX = 256 * 1024          # больше снимку не нужно
+SHARE_MAX = 1536 * 1024         # рік із календарями по місяцях і угодами всередині
 SHARE_TTL = share_store.TTL     # що можна вибрати в інтерфейсі; бот бере той самий список
 os.makedirs(SHARE_DIR, exist_ok=True)
 _share_lock = threading.Lock()
@@ -238,6 +239,11 @@ def share_trades(rec):
     for day in ((d.get("calendar") or {}).get("days") or []):
         for t in day.get("trades") or []:
             yield t
+    # рік і квартал: календарі лежать по місяцях
+    for m in d.get("months") or []:
+        for day in ((m.get("calendar") or {}).get("days") or []):
+            for t in day.get("trades") or []:
+                yield t
     for a in ((d.get("review") or {}).get("assets") or []):
         for t in a.get("trades") or []:
             yield t
@@ -276,9 +282,29 @@ def share_shot_ok(rec, name):
 TF_ORDER = ["1W", "1D", "4H", "2H", "1H", "30M", "15M", "5M", "3M", "1M"]
 
 
+TF_MIN = {"M": 1, "H": 60, "D": 1440, "W": 10080}
+TF_WORDS = {"DAILY": 1440, "DAY": 1440, "D": 1440, "WEEKLY": 10080, "WEEK": 10080, "W": 10080,
+            "MONTHLY": 43200, "MONTH": 43200, "MN": 43200}
+
+
+def tf_minutes(tf):
+    """Таймфрейм у хвилинах: 15M, M15, 1H, H1, D, Daily, W… Незрозумілий
+    підпис («Daily Screenshot», «свій») рахуємо найстаршим, а не наймолодшим:
+    інакше він ліз у превью замість 1M."""
+    t = re.sub(r"[^A-Z0-9]", "", str(tf or "").upper())
+    if t in TF_WORDS:
+        return TF_WORDS[t]
+    m = re.fullmatch(r"(\d+)([MHDW])", t) or re.fullmatch(r"([MHDW])(\d+)", t)
+    if not m:
+        return 10 ** 9
+    a, b = m.groups()
+    n, u = (a, b) if a.isdigit() else (b, a)
+    return int(n) * TF_MIN[u]
+
+
 def tf_rank(tf):
-    t = str(tf or "").upper().replace(" ", "")
-    return TF_ORDER.index(t) if t in TF_ORDER else len(TF_ORDER)
+    """Більше — молодший таймфрейм (для max())."""
+    return -tf_minutes(tf)
 
 
 def share_preview_shot(rec):
@@ -501,29 +527,6 @@ def drop_import(user_id, batch):
     return removed
 
 
-def disconnect_source(user_id, batch):
-    """Відв'язує базу: оновлення з неї більше не ходить, угоди лишаються.
-
-    Це не те саме, що «прибрати угоди». Людина, яка відв'язує Notion, майже
-    завжди хоче зупинити обмін, а не викинути півтори сотні своїх записів —
-    раніше ці дві дії робила одна кнопка, і відв'язатись, не втративши
-    журнал, було нічим."""
-    batch = str(batch or "")[:32]
-    if not batch:
-        return False
-    conf = notion_conf(user_id)
-    left = [s for s in conf.get("sources") or [] if s["id"] != batch]
-    if len(left) == len(conf.get("sources") or []):
-        return False
-    conf["sources"] = left
-    if (conf.get("last") or {}).get("id") == batch:
-        conf.pop("last", None)
-    if not left:
-        _forget_notion(conf)
-    notion_save(user_id, conf)
-    return True
-
-
 def _forget_notion(conf):
     """Останню базу зняли — прибираємо й те, що її описувало. Інакше сайт
     вважав би Notion підключеним через саме лише посилання, яке людина
@@ -593,8 +596,116 @@ def ref_short(ref):
             return short
     return ref
 KIND_RU = {"trade": "Сделка", "day": "День", "week": "Неделя", "month": "Месяц", "year": "Год",
+           "quarter": "Квартал",
+           "reviewmonth": "Анализ дня · месяц",
            "ts": "Торговая система", "review": "Анализ дня", "period": "Период (старые)",
            "other": "Другое"}
+
+
+def _emo_init():
+    """Одноразово: емоції в уже записаних угодах — кодами (emotions.norm).
+    Старі записи лежали словами різних мов — «Спокій» від бота,
+    «Спокойствие» з сайту — і в розрізі стояли окремими рядками."""
+    try:
+        if db.meta_get("emotions_codes_v1", ""):
+            return
+        n = 0
+        with db.connect() as conn:
+            rows = conn.execute('SELECT id, "emotion" FROM trades WHERE "emotion" <> \'\'').fetchall()
+            for r in rows:
+                v = emotions.norm(r["emotion"])
+                if v != r["emotion"]:
+                    conn.execute('UPDATE trades SET "emotion"=%s WHERE id=%s', (v, r["id"]))
+                    n += 1
+            conn.commit()
+        db.meta_set("emotions_codes_v1", "1")
+        print("емоції → коди: %d угод" % n)
+    except Exception as ex:
+        print("емоції не зведено:", ex)
+
+
+def _emo_init2():
+    """Одноразово: відповіді «своїми словами» з бота, які не звелись до
+    категорії (у розрізі стояло «Розфокус» серед російських назв), —
+    пробуємо звести ще раз, не вийшло — «Інше». Слова лишаються в
+    emotion_raw. Свої категорії з сайту (emotion_raw порожній) не чіпаємо.
+    У фоні: для кожного рядка може знадобитись модель."""
+    def run():
+        try:
+            if db.meta_get("emotions_raw_v2", ""):
+                return
+            with db.connect() as conn:
+                rows = conn.execute('SELECT id, "emotion", emotion_raw FROM trades '
+                                    'WHERE emotion_raw IS NOT NULL AND "emotion" <> ''').fetchall()
+            n = 0
+            for r in rows:
+                parts = [p.strip() for p in r["emotion"].split(",") if p.strip()]
+                if all(emotions.code_of(p) for p in parts):
+                    continue
+                code = emotions.classify(r["emotion_raw"] or r["emotion"]) or emotions.OTHER_CODE
+                with db.connect() as conn:
+                    conn.execute('UPDATE trades SET "emotion"=%s WHERE id=%s', (code, r["id"]))
+                    conn.commit()
+                n += 1
+            db.meta_set("emotions_raw_v2", "1")
+            print("свої слова → категорії: %d угод" % n)
+        except Exception as ex:
+            print("свої слова не зведено:", ex)
+    threading.Thread(target=run, daemon=True).start()
+
+
+def _pairs_init():
+    """Разово для кожної версії списку синонімів (tidy.SAME_VERSION): у
+    кожного журналу один актив — одне написання. Беремо те, що трапляється
+    найчастіше; «Nasdaq (NQ)» стає «US100», якщо US100 у журналі більше.
+    Нові угоди й так сводяться при записі (db._one_spelling), тут — старі."""
+    def run():
+        flag = "pairs_same_v" + tidy.SAME_VERSION
+        try:
+            if db.meta_get(flag, ""):
+                return
+            with db.connect() as conn:
+                rows = conn.execute('SELECT id, user_id, "pair" FROM trades WHERE "pair" <> \'\'').fetchall()
+            by = {}
+            for r in rows:
+                by.setdefault((r["user_id"], tidy.pair_key(r["pair"])), []).append(r)
+            n = 0
+            with db.connect() as conn:
+                for (_u, _k), rs in by.items():
+                    cnt = {}
+                    for r in rs:
+                        p = r["pair"].strip()
+                        cnt[p] = cnt.get(p, 0) + 1
+                    if len(cnt) < 2:
+                        continue
+                    best = sorted(cnt.items(), key=lambda kv: (-kv[1], kv[0]))[0][0]
+                    for r in rs:
+                        if r["pair"].strip() != best:
+                            conn.execute('UPDATE trades SET "pair"=%s WHERE id=%s', (best, r["id"]))
+                            n += 1
+                conn.commit()
+            db.meta_set(flag, "1")
+            print("інструменти зведено: %d угод" % n)
+        except Exception as ex:
+            print("інструменти не зведено:", ex)
+    threading.Thread(target=run, daemon=True).start()
+
+
+def ref_visit(ref, ua):
+    """Перехід за коротким посиланням (/bs, /soc): скільки людей натиснуло,
+    ще до реєстрації. Боти месенджерів, що тягнуть прев'ю, не рахуються."""
+    if not ref or share_store.BOT_UA.search(ua or ""):
+        return
+    try:
+        with db.connect() as conn:
+            conn.execute("""CREATE TABLE IF NOT EXISTS ref_visits (
+                               ref TEXT NOT NULL, day DATE NOT NULL, n INTEGER NOT NULL DEFAULT 0,
+                               PRIMARY KEY (ref, day))""")
+            conn.execute("""INSERT INTO ref_visits (ref, day, n) VALUES (%s, (now() AT TIME ZONE 'Europe/Kyiv')::date, 1)
+                            ON CONFLICT (ref, day) DO UPDATE SET n = ref_visits.n + 1""", (ref,))
+            conn.commit()
+    except Exception as ex:
+        print("ref_visit:", ex)
 
 
 def _ref_init():
@@ -1224,10 +1335,89 @@ class H(BaseHTTPRequestHandler):
         self.end_headers()
         self.wfile.write(data)
 
+    def _media(self, path, ctype, cache=None):
+        """Відео — частинами, за заголовком Range.
+
+        Ролик-підказку в перенесенні з Notion не можна віддавати одним
+        шматком, як решту файлів: Safari спершу просить перші два байти й
+        без відповіді «206» взагалі не починає грати, а решті браузерів
+        частини дають перемотування.
+        """
+        try:
+            size = os.path.getsize(path)
+            f = open(path, "rb")
+        except Exception:
+            self.send_response(404); self.end_headers(); return
+        with f:
+            start, end, partial = 0, size - 1, False
+            m = re.match(r"bytes=(\d*)-(\d*)\s*$",
+                         (self.headers.get("Range") or "").strip())
+            if m and (m.group(1) or m.group(2)):
+                if m.group(1):
+                    start = int(m.group(1))
+                    if m.group(2):
+                        end = min(int(m.group(2)), end)
+                else:                       # bytes=-N — хвіст файлу
+                    start = max(0, size - int(m.group(2)))
+                if start > end:
+                    self.send_response(416)
+                    self.send_header("Content-Range", "bytes */%d" % size)
+                    self.end_headers(); return
+                partial = True
+            self.send_response(206 if partial else 200)
+            self.send_header("Content-Type", ctype)
+            self.send_header("Accept-Ranges", "bytes")
+            if partial:
+                self.send_header("Content-Range",
+                                 "bytes %d-%d/%d" % (start, end, size))
+            self.send_header("Content-Length", str(end - start + 1))
+            self.send_header("Cache-Control", cache or "no-store")
+            self.end_headers()
+            f.seek(start)
+            left = end - start + 1
+            try:
+                while left > 0:
+                    chunk = f.read(min(262144, left))
+                    if not chunk:
+                        break
+                    self.wfile.write(chunk)
+                    left -= len(chunk)
+            except (BrokenPipeError, ConnectionResetError):
+                pass            # закрили вікно посеред ролика — це не помилка
+
     def _redirect(self, where):
         self.send_response(302)
         self.send_header("Location", where)
         self.end_headers()
+
+    def _landing(self):
+        """Стартова сторінка. Як і в /login: месенджерам потрібна повна адреса
+        картинки прев'ю, а у файлі вона відносна — дописуємо базу на віддачі."""
+        try:
+            with open(os.path.join(STATIC, "landing.html"), "r", encoding="utf-8") as f:
+                html = f.read()
+        except OSError:
+            self.send_response(404); self.end_headers(); return
+        main_og = os.path.join(STATIC, "og-main.png")
+        if os.path.exists(main_og):
+            html = html.replace('"/static/og-main.png"',
+                                '"/static/og-main.png?v=%d"' % int(os.path.getmtime(main_og)))
+        html = html.replace('content="/static/', 'content="%s/static/' % self._base())
+        html = html.replace("</title>",
+                            '</title>\n<meta property="og:url" content="%s/">' % self._base(), 1)
+        body = html.encode("utf-8")
+        enc = self._squeeze(body)
+        if enc is not None:
+            body = enc
+        self.send_response(200)
+        self.send_header("Content-Type", "text/html; charset=utf-8")
+        if enc is not None:
+            self.send_header("Content-Encoding", "gzip")
+            self.send_header("Vary", "Accept-Encoding")
+        self.send_header("Content-Length", str(len(body)))
+        self.send_header("Cache-Control", "no-store")
+        self.end_headers()
+        self.wfile.write(body)
 
     # Найбільше тіло запиту. Угода з кількома скрінами в base64 — кілька
     # мегабайт; без межі будь-хто міг змусити сервер читати в пам'ять
@@ -1617,100 +1807,9 @@ class H(BaseHTTPRequestHandler):
                 return self._redirect("/login")
             if not _is_admin(uid):
                 self.send_response(403); self.end_headers(); return
-            with db.connect() as conn:
-                q = lambda sql, *a: conn.execute(sql, a).fetchone()
-                u = q("""SELECT count(*) AS n,
-                                count(*) FILTER (WHERE created_at >= now() - interval '7 days') AS d7,
-                                count(*) FILTER (WHERE created_at >= now() - interval '30 days') AS d30,
-                                count(*) FILTER (WHERE telegram_id IS NOT NULL) AS tg,
-                                count(*) FILTER (WHERE email_confirmed_at IS NOT NULL) AS mail
-                         FROM users""")
-                t = q("""SELECT count(*) AS n,
-                                count(*) FILTER (WHERE created_at >= now() - interval '7 days') AS d7,
-                                count(DISTINCT user_id) AS users,
-                                count(DISTINCT user_id) FILTER (WHERE created_at >= now() - interval '7 days') AS act7,
-                                count(DISTINCT user_id) FILTER (WHERE created_at >= now() - interval '30 days') AS act30
-                         FROM trades""")
-                refs = conn.execute("""SELECT coalesce(ref_source,'') AS ref, count(*) AS n,
-                                              count(*) FILTER (WHERE ref_at >= now() - interval '30 days') AS d30
-                                       FROM users GROUP BY 1 ORDER BY n DESC""").fetchall()
-                share_store.init()
-                sh = q("""SELECT count(*) AS n,
-                                 count(*) FILTER (WHERE created >= extract(epoch from now()) - 7*86400) AS d7,
-                                 count(*) FILTER (WHERE created >= extract(epoch from now()) - 30*86400) AS d30,
-                                 coalesce(sum(views),0) AS views,
-                                 count(DISTINCT user_id) AS people
-                          FROM share_stats""")
-                sh_kind = conn.execute("""SELECT kind, count(*) AS n, coalesce(sum(views),0) AS views
-                                          FROM share_stats GROUP BY kind ORDER BY n DESC""").fetchall()
-                sh_top = conn.execute("""SELECT u.nickname, count(*) AS n, coalesce(sum(s.views),0) AS views,
-                                                max(s.created) AS last
-                                         FROM share_stats s LEFT JOIN users u ON u.id = s.user_id
-                                         GROUP BY u.nickname ORDER BY n DESC LIMIT 20""").fetchall()
-                last = conn.execute("""SELECT u.nickname, u.created_at, coalesce(u.ref_source,'') AS ref,
-                                              (SELECT count(*) FROM trades t WHERE t.user_id=u.id) AS trades
-                                       FROM users u ORDER BY u.created_at DESC LIMIT 20""").fetchall()
-                # пошук людини за ніком або поштою: частина рядка, без регістру
-                query = urllib.parse.parse_qs(urlparse(self.path).query).get("q", [""])[0].strip()
-                found = []
-                if query:
-                    like = "%" + query.lower() + "%"
-                    found = conn.execute("""SELECT u.nickname, coalesce(u.email,'') AS email, u.created_at,
-                                                   coalesce(u.ref_source,'') AS ref,
-                                                   (SELECT count(*) FROM trades t WHERE t.user_id=u.id) AS trades
-                                            FROM users u
-                                            WHERE lower(u.nickname) LIKE %s OR lower(coalesce(u.email,'')) LIKE %s
-                                            ORDER BY u.created_at DESC LIMIT 30""", (like, like)).fetchall()
-            e = lambda x: str(x).replace("&","&amp;").replace("<","&lt;")
-            row = lambda k, v: "<tr><td>%s</td><td><b>%s</b></td></tr>" % (e(k), e(v))
-            html = ("<!doctype html><html lang=ru><meta charset=utf-8>"
-                    "<meta name=viewport content='width=device-width,initial-scale=1'>"
-                    "<title>StatsAI · цифры</title>"
-                    "<style>body{font:15px/1.5 -apple-system,Segoe UI,sans-serif;background:#0b0b0d;color:#eee;"
-                    "margin:0;padding:20px;max-width:640px}h1{font-size:18px;margin:0 0 16px}h2{font-size:12px;"
-                    "letter-spacing:.12em;text-transform:uppercase;color:#8a8a90;margin:22px 0 8px}table{width:100%;"
-                    "border-collapse:collapse}td{padding:7px 0;border-top:1px solid #222}td+td{text-align:right}"
-                    "small{color:#8a8a90}a{color:#40e094}"
-                    "form{display:flex;gap:8px;margin:0 0 6px}input{flex:1;font:inherit;padding:9px 12px;border-radius:9px;"
-                    "border:1px solid #2a2a2e;background:#141416;color:#eee}button{font:inherit;padding:9px 14px;"
-                    "border-radius:9px;border:1px solid #2a2a2e;background:#1b1b1e;color:#eee;cursor:pointer}</style>"
-                    "<h1>StatsAI · цифры <small>" + e(datetime.datetime.now().strftime("%d.%m.%Y %H:%M")) + "</small></h1>"
-                    "<h2>Найти человека</h2>"
-                    "<form method=get action='/admin'><input name=q placeholder='Ник или почта' value='"
-                    + e(query).replace("'", "&#39;") + "' autofocus><button>Найти</button></form>"
-                    + (("<table>" + "".join(
-                        "<tr><td><a href='/admin/u/%s'>%s</a> <small>%s · %s%s</small></td><td>%s сд.</td></tr>" % (
-                            e(r["nickname"]), e(r["nickname"]), e(r["email"]) or "без почты",
-                            r["created_at"].strftime("%d.%m.%Y"), (" · " + e(r["ref"])) if r["ref"] else "",
-                            r["trades"]) for r in found) + "</table>")
-                       if found else ("<p><small>Никого не нашёл по «%s».</small></p>" % e(query) if query else ""))
-                    + 
-                    "<h2>Аккаунты</h2><table>"
-                    + row("Всего", u["n"]) + row("За 7 дней", u["d7"]) + row("За 30 дней", u["d30"])
-                    + row("С Telegram", u["tg"]) + row("С подтверждённой почтой", u["mail"]) + "</table>"
-                    "<h2>Активность</h2><table>"
-                    + row("Сделок всего", t["n"]) + row("Сделок за 7 дней", t["d7"])
-                    + row("Людей хотя бы с одной сделкой", t["users"])
-                    + row("Писали сделки за 7 дней", t["act7"]) + row("Писали сделки за 30 дней", t["act30"]) + "</table>"
-                    "<h2>Откуда пришли (метки)</h2><table>"
-                    + "".join(row((REF_TITLES.get(r["ref"], r["ref"]) or "без метки")
-                                  + (" · за 30 дн. +%d" % r["d30"] if r["d30"] else ""), r["n"]) for r in refs) + "</table>"
-                    "<h2>Ссылки (поделились)</h2><table>"
-                    + row("Всего ссылок", sh["n"]) + row("За 7 дней", sh["d7"]) + row("За 30 дней", sh["d30"])
-                    + row("Людей делились", sh["people"]) + row("Переходов по ссылкам (без превью)", sh["views"]) + "</table>"
-                    "<h2>Ссылки по типу</h2><table>"
-                    + "".join(row(KIND_RU.get(r["kind"], r["kind"] or "—") + " · переходов " + str(r["views"]), r["n"]) for r in sh_kind) + "</table>"
-                    "<h2>Кто делится</h2><table>"
-                    + "".join("<tr><td><a href='/admin/u/%s'>%s</a> <small>%s · переходов %s</small></td><td>%s</td></tr>" % (
-                        e(r["nickname"] or ""), e(r["nickname"] or "—"),
-                        datetime.datetime.fromtimestamp(r["last"]).strftime("%d.%m") if r["last"] else "",
-                        r["views"], r["n"]) for r in sh_top) + "</table>"
-                    "<h2>Последние регистрации</h2><table>"
-                    + "".join("<tr><td><a href='/admin/u/%s'>%s</a> <small>%s%s</small></td><td>%s сд.</td></tr>" % (
-                        e(r["nickname"]), e(r["nickname"]), r["created_at"].strftime("%d.%m %H:%M"),
-                        (" · " + e(r["ref"])) if r["ref"] else "", r["trades"]) for r in last)
-                    + "</table></html>")
-            data = html.encode("utf-8")
+            # панель цифр малює admin_page.py; ?q= — підставити пошук
+            query = urllib.parse.parse_qs(urlparse(self.path).query).get("q", [""])[0].strip()
+            data = admin_page.dashboard(query, REF_TITLES, KIND_RU, list(ref_all())).encode("utf-8")
             self.send_response(200)
             self.send_header("Content-Type", "text/html; charset=utf-8")
             self.send_header("Content-Length", str(len(data)))
@@ -1733,114 +1832,18 @@ class H(BaseHTTPRequestHandler):
                 u = db.get_user_by_nick(nick) or db.get_user_by_email(nick)
             except Exception:
                 u = None
-            e = lambda x: str(x if x is not None else "").replace("&", "&amp;").replace("<", "&lt;")
-            row = lambda k, v: "<tr><td>%s</td><td><b>%s</b></td></tr>" % (e(k), e(v))
-            head = ("<!doctype html><html lang=ru><meta charset=utf-8>"
-                    "<meta name=viewport content='width=device-width,initial-scale=1'>"
-                    "<title>StatsAI · %s</title>"
-                    "<style>body{font:15px/1.5 -apple-system,Segoe UI,sans-serif;background:#0b0b0d;color:#eee;"
-                    "margin:0;padding:20px;max-width:640px}h1{font-size:18px;margin:0 0 16px}h2{font-size:12px;"
-                    "letter-spacing:.12em;text-transform:uppercase;color:#8a8a90;margin:22px 0 8px}table{width:100%%;"
-                    "border-collapse:collapse}td{padding:7px 0;border-top:1px solid #222}td+td{text-align:right}"
-                    "a{color:#8ab4ff}small{color:#8a8a90}</style>" % e(nick))
             if not u:
-                data = (head + "<h1>%s</h1><p>Такого пользователя нет.</p><p><a href='/admin'>← все цифры</a></p></html>" % e(nick)).encode("utf-8")
+                data = admin_page.not_found(nick).encode("utf-8")
                 self.send_response(404)
             else:
+                card = admin_page.user_card(u, REF_TITLES, KIND_RU, list(ref_all()))
+                # підписка — блоком перед «Опасной зоной»
+                row = lambda k, v: "<tr><td>%s</td><td>%s</td></tr>" % (k, v)
                 dt = lambda v: v.strftime("%d.%m.%Y %H:%M") if v else "—"
-                with db.connect() as conn:
-                    t = conn.execute("""SELECT count(*) AS n,
-                                               count(*) FILTER (WHERE result='Skip') AS skips,
-                                               min("date") AS first, max("date") AS last,
-                                               max(created_at) AS last_at,
-                                               count(*) FILTER (WHERE created_at >= now() - interval '7 days') AS d7,
-                                               count(*) FILTER (WHERE created_at >= now() - interval '30 days') AS d30,
-                                               count(DISTINCT left("date", 10)) AS days
-                                        FROM trades WHERE user_id=%s""", (u["id"],)).fetchone()
-                    pairs = conn.execute("""SELECT "pair", count(*) AS n FROM trades WHERE user_id=%s AND "pair"<>''
-                                            GROUP BY 1 ORDER BY n DESC LIMIT 5""", (u["id"],)).fetchall()
-                    share_store.init()
-                    sh = conn.execute("""SELECT count(*) AS n, coalesce(sum(views),0) AS views, max(created) AS last
-                                         FROM share_stats WHERE user_id=%s""", (u["id"],)).fetchone()
-                    kinds = conn.execute("""SELECT kind, count(*) AS n FROM share_stats WHERE user_id=%s
-                                            GROUP BY kind ORDER BY n DESC""", (u["id"],)).fetchall()
-                    _prefs_init()
-                    pr = conn.execute("SELECT data FROM user_prefs WHERE user_id=%s", (u["id"],)).fetchone()
-                try:
-                    ts = ts_store.get(u["id"])
-                except Exception:
-                    ts = None
-                prefs = (pr or {}).get("data") or {}
-                ts_line = "нет"
-                if ts:
-                    bits = []
-                    if ts.get("assets"): bits.append("активы: " + ", ".join(str(x) for x in ts["assets"][:6]))
-                    if ts.get("models"): bits.append("моделей: %d" % len(ts["models"]))
-                    if ts.get("updated"): bits.append("обновлена " + str(ts["updated"]))
-                    ts_line = "есть · " + " · ".join(bits) if bits else "есть"
-                html = (head + "<h1>%s <small>id %s</small></h1>" % (e(u["nickname"]), u["id"])
-                    + "<h2>Аккаунт</h2><table>"
-                    + row("Почта", u["email"]) + row("Почта подтверждена", dt(u["email_confirmed_at"]))
-                    + row("Зарегистрирован", dt(u["created_at"]))
-                    + row("Telegram", ("@" + u["telegram_username"]) if u["telegram_username"] else ("да" if u["telegram_id"] else "нет"))
-                    + row("Открытый журнал", "да · /u/%s" % e(u["nickname"]) if u["public_journal"] else "нет")
-                    + row("Метка партнёра",
-                          (REF_TITLES.get(u["ref_source"], u["ref_source"]) + " · с " + dt(u["ref_at"]))
-                          if u["ref_source"] else "нет")
-                    + "</table>"
-                    # мітку іноді треба поправити руками: людина перейшла не
-                    # за тим посиланням, а далі її посилання рахуються чужому
-                    + "<p><small>Сменить метку:</small> "
-                    + " ".join(
-                        "<button class=refb data-r='%s' style=\"padding:6px 11px;margin-right:6px;"
-                        "border-radius:8px;border:1px solid #333;background:#161618;color:#eee;"
-                        "cursor:pointer\">%s</button>" % (k, e(v))
-                        for k, v in [("", "без метки")] + [(r, REF_TITLES.get(r, r)) for r in ref_all()])
-                    + " <span id=refmsg></span></p>"
-                    + "<script>document.querySelectorAll('.refb').forEach(b=>b.onclick=async()=>{"
-                      "refmsg.textContent='…';"
-                      "const r=await fetch('/api/admin/set-ref',{method:'POST',"
-                      "headers:{'Content-Type':'application/json'},"
-                      "body:JSON.stringify({nick:%s,ref:b.dataset.r})});"
-                      "const d=await r.json().catch(()=>({}));"
-                      "refmsg.textContent=r.ok?'готово':(d.error||('ошибка '+r.status));"
-                      "if(r.ok)setTimeout(()=>location.reload(),600);});</script>"
-                      % json.dumps(u["nickname"], ensure_ascii=False)
-                    + "<h2>Сделки</h2><table>"
-                    + row("Всего", t["n"]) + row("Из них скипов", t["skips"]) + row("Торговых дней", t["days"])
-                    + row("Первая · последняя", "%s · %s" % (str(t["first"] or "—")[:10], str(t["last"] or "—")[:10]))
-                    + row("Последняя запись", dt(t["last_at"])) + row("За 7 дней", t["d7"]) + row("За 30 дней", t["d30"])
-                    + row("Инструменты", ", ".join("%s (%d)" % (r["pair"], r["n"]) for r in pairs) or "—")
-                    + "</table>"
-                    + "<h2>Торговая система</h2><table>" + row("ТС", ts_line) + "</table>"
-                    + _billing_block(u, e, row, dt)
-                    + "<h2>Ссылки</h2><table>"
-                    + row("Поделился", sh["n"]) + row("Переходов", sh["views"])
-                    + row("Последняя", datetime.datetime.fromtimestamp(sh["last"]).strftime("%d.%m.%Y") if sh["last"] else "—")
-                    + "".join(row("· " + KIND_RU.get(r["kind"], r["kind"]), r["n"]) for r in kinds)
-                    + "</table>"
-                    + "<h2>Опасная зона</h2>"
-                      "<p><small>Удаляет аккаунт и всё, что в нём: сделки, ТС, анализ дня, "
-                      "настройки, ссылки и скриншоты. Отменить нельзя. Чтобы подтвердить, "
-                      "впишите ник точно так: <b>%s</b></small></p>"
-                      "<p><input id=cf placeholder='%s' style=\"padding:8px;border-radius:8px;"
-                      "border:1px solid #333;background:#111;color:#eee;width:60%%\">"
-                      "<button id=go style=\"margin-left:8px;padding:9px 14px;border-radius:8px;"
-                      "border:0;background:#7a1f1f;color:#fff;cursor:pointer\">Удалить аккаунт</button></p>"
-                      "<p id=msg></p>"
-                      "<script>go.onclick=async()=>{if(!confirm('Удалить аккаунт %s? Отменить нельзя.'))return;"
-                      "go.disabled=true;msg.textContent='Удаляю…';"
-                      "const r=await fetch('/api/admin/delete-user',{method:'POST',"
-                      "headers:{'Content-Type':'application/json'},"
-                      "body:JSON.stringify({nick:%s,confirm:cf.value})});"
-                      "const d=await r.json().catch(()=>({}));"
-                      "if(r.ok){msg.textContent='Удалён. Файлов убрано: '+d.files;"
-                      "setTimeout(()=>location.href='/admin',1200);}"
-                      "else{go.disabled=false;msg.textContent=d.error||('Ошибка '+r.status);}};</script>"
-                      % (e(u["nickname"]), e(u["nickname"]), e(u["nickname"]),
-                         json.dumps(u["nickname"], ensure_ascii=False))
-                    + "<p><a href='/admin'>← все цифры</a></p></html>")
-                data = html.encode("utf-8")
+                bill = ('<div class="card" style="margin-top:12px">'
+                        + _billing_block(u, admin_page.e, row, dt) + "</div>")
+                card = card.replace('<div class="card danger"', bill + '<div class="card danger"', 1)
+                data = card.encode("utf-8")
                 self.send_response(200)
             self.send_header("Content-Type", "text/html; charset=utf-8")
             self.send_header("Content-Length", str(len(data)))
@@ -1945,7 +1948,10 @@ class H(BaseHTTPRequestHandler):
             if rest == "list":
                 return self._json({"days": day_store.days(uid)})
             if rest == "stats":
-                since = (datetime.date.today() - datetime.timedelta(days=30)).isoformat()
+                # ?since=YYYY-MM-DD — для знімка місяця; без нього останні 30 днів
+                want = urllib.parse.parse_qs(urlparse(self.path).query).get("since", [""])[0]
+                since = want if day_store.valid_date(want) else \
+                    (datetime.date.today() - datetime.timedelta(days=30)).isoformat()
                 return self._json({"notes": day_store.notes_since(uid, since), "since": since})
             if not day_store.valid_date(rest):
                 return self._json({"error": "bad date"}, 400)
@@ -2156,8 +2162,11 @@ class H(BaseHTTPRequestHandler):
                 return self._json({"error": "завдання не знайдено"}, 404)
             return self._json(job.snapshot())
 
-        # публічні сторінки: їх вимагає Google для входу через акаунт
-        if p in ("/privacy", "/terms"):
+        # Публічні сторінки. Приватність і умови вимагає Google для входу
+        # через акаунт; умови, тарифи й повернення — платіжний сервіс під
+        # час перевірки сайту. Адреси без .html: так вони роздаються давно,
+        # і посилання на них уже розійшлись.
+        if p in ("/privacy", "/terms", "/refund", "/pricing"):
             return self._file(os.path.join(STATIC, p.strip("/") + ".html"), "text/html; charset=utf-8")
 
         # Ярлик на телефоні. Коли на сторінці немає посилання на іконку —
@@ -2288,6 +2297,9 @@ class H(BaseHTTPRequestHandler):
         if m:
             ref = ref_norm(m.group(1))
             if ref:
+                uid0 = self._uid()
+                if not (uid0 and _is_admin(uid0)):      # свої переходи не рахуємо
+                    ref_visit(ref, self.headers.get("User-Agent") or "")
                 self._ref_touch(ref)
                 if self._uid():
                     return self._redirect("/")
@@ -2300,8 +2312,15 @@ class H(BaseHTTPRequestHandler):
                 # ?ref=партнер лишаємо в адресі: месенджер іде за редіректом і
                 # бере прев'ю вже зі сторінки входу — там воно в стилі партнера
                 q = urlparse(self.path).query
-                return self._redirect("/login" + ("?" + q if q else ""))
+                if q:
+                    return self._redirect("/login?" + q)
+                # гість без позначок бачить стартову сторінку
+                return self._landing()
             return self._file(os.path.join(STATIC, "index.html"), "text/html; charset=utf-8")
+
+        if p == "/landing":
+            # стартова сторінка й для того, хто вже увійшов, — подивитись, як її бачать гості
+            return self._landing()
 
         if p == "/demo":
             # Журнал без акаунта, на демонстраційних даних. Сюди ведуть
@@ -2323,12 +2342,15 @@ class H(BaseHTTPRequestHandler):
                 self.send_response(404); self.end_headers(); return
             ext = name.rsplit(".", 1)[-1].lower()
             ctype = {"css":"text/css; charset=utf-8","js":"application/javascript; charset=utf-8",
-                     "html":"text/html; charset=utf-8","png":"image/png","svg":"image/svg+xml"}.get(ext,"application/octet-stream")
+                     "html":"text/html; charset=utf-8","png":"image/png","svg":"image/svg+xml",
+                     "webp":"image/webp","mp4":"video/mp4"}.get(ext,"application/octet-stream")
             # у файлів є версія в адресі (?v=5), тому кешуємо назавжди:
             # правка версії сама змусить браузер піти за новим
             versioned = "v=" in urlparse(self.path).query
-            return self._file(os.path.join(STATIC, name), ctype,
-                              self.FOREVER if versioned else None)
+            cache = self.FOREVER if versioned else None
+            if ctype.startswith("video/"):
+                return self._media(os.path.join(STATIC, name), ctype, cache)
+            return self._file(os.path.join(STATIC, name), ctype, cache)
 
         self.send_response(404); self.end_headers()
 
@@ -3198,13 +3220,13 @@ class H(BaseHTTPRequestHandler):
             n = drop_import(uid, p[len("/api/notion/undo/"):])
             return self._json({"removed": n})
 
-        # Відв'язати базу: оновлення з неї припиняється, угоди лишаються
-        # в журналі. Прибирання угод — сусідній маршрут, і це навмисно
-        # дві різні дії.
+        # Відв'язати базу — разом з її угодами, як і «undo» вище. Маршрут
+        # лишається для сторінок, що ще тримають старий notion.js у кеші.
         if p.startswith("/api/notion/off/"):
-            off = disconnect_source(uid, p[len("/api/notion/off/"):])
+            n = drop_import(uid, p[len("/api/notion/off/"):])
             conf = notion_conf(uid)
-            return self._json({"ok": off, "left": len(conf.get("sources") or [])})
+            return self._json({"ok": True, "removed": n,
+                               "left": len(conf.get("sources") or [])})
 
         if p == "/api/notion/forget":
             try:
@@ -3409,7 +3431,16 @@ class H(BaseHTTPRequestHandler):
         if p == "/api/trades":
             if not isinstance(body, dict) or not str(body.get("pair", "")).strip():
                 return self._json({"error": "bad json or empty pair"}, 400)
-            t = clean_trade(body, new_id())
+            # Ключ від форми: та сама угода, надіслана вдруге (відповідь на
+            # перше збереження загубилась у мережі), — віддаємо записану, а
+            # не робимо двійника.
+            cid = str(body.get("cid") or "")
+            tid = cid if re.fullmatch(r"w[0-9a-z]{12,32}", cid) else new_id()
+            if tid == cid:
+                old = db.get_trade(tid, uid)
+                if old:
+                    return self._json(old, 201)
+            t = clean_trade(body, tid)
             user = db.get_user(uid)
             # Спершу дозвіл, і лише потім робота: скріни важкі, а відмова
             # їх однаково викине.
@@ -3568,6 +3599,9 @@ class Server(HTTPServer):
 if __name__ == "__main__":
     db.init()
     _ref_init()
+    _emo_init()
+    _emo_init2()
+    _pairs_init()
     # календар гріємо одразу: помічник підкладає новини до кожного питання,
     # а поки кеш порожній, перше питання після перезапуску летить до моделі
     # без них — і вона чесно відповідає, що новин немає

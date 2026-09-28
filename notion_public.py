@@ -20,6 +20,7 @@
   даты                         — [["‣", [["d", {"start_date": "...", ...}]]]]
 """
 
+import datetime
 import json
 import re
 import threading
@@ -30,14 +31,17 @@ import urllib.request
 
 import tidy
 from notion_import import (NotionError, Job, guess_mapping, NORMALIZE, FIELDS,
-                           download, guess_tf, MAX_SHOT, NET_TIMEOUT)
+                           download, guess_tf, split_swing, MAX_SHOT, NET_TIMEOUT)
 
 BASE = "https://www.notion.so/api/v3/"
 IMG = "https://www.notion.so/image/"
 UA = ("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
       "(KHTML, like Gecko) Chrome/124.0 Safari/537.36")
 
-MIN_GAP = 0.30
+MIN_GAP = 0.30           # обычная пауза между запросами
+MAX_GAP = 4.0            # докуда растягиваем паузу, если Notion просит тише
+COOL = 20.0              # сколько ждём после первого отказа «занадто часто»
+COOL_CAP = 90.0          # дольше этого не ждём никогда
 PAGE_STEP = 200          # сколько строк просим за раз
 PROBE = 25               # столько читаем, чтобы понять, что лежит в колонках
 DRILL_ROWS = 25          # во столько страниц оглавления заглядываем
@@ -45,18 +49,46 @@ INDEX_MAX = 2            # если полей узнали не больше �
 PAGE_CAP = 5000          # предохранитель от бесконечной базы
 
 _last = [0.0]
+_pace = [MIN_GAP]        # текущая пауза: растёт, когда Notion ругается
+_calm = [0.0]            # до этого времени вообще не стучимся
 _gap = threading.Lock()
 
 
 def _throttle():
     with _gap:
-        wait = MIN_GAP - (time.time() - _last[0])
+        now = time.time()
+        wait = max(_pace[0] - (now - _last[0]), _calm[0] - now)
         if wait > 0:
             time.sleep(wait)
         _last[0] = time.time()
 
 
-def _post(path, body, space=None, tries=3):
+def _slower(err, attempt):
+    """
+    Notion ответил «занадто часто» (429). Это не про одну карточку: лимит
+    висит на всём переносе. Поэтому тормозим не текущий запрос, а вообще
+    все — иначе следующие карточки влетают в тот же запрет и перенос
+    сыплется пачкой одинаковых ошибок.
+    """
+    hint = 0.0
+    try:
+        hint = float((getattr(err, "headers", None) or {}).get("Retry-After") or 0)
+    except (TypeError, ValueError):
+        hint = 0.0
+    rest = hint if hint > 0 else COOL * (attempt + 1)
+    with _gap:
+        _pace[0] = min(_pace[0] * 2, MAX_GAP)
+        _calm[0] = max(_calm[0], time.time() + min(rest, COOL_CAP))
+
+
+def _faster():
+    """Отпустило — потихоньку возвращаем обычный темп."""
+    if _pace[0] > MIN_GAP:
+        with _gap:
+            _pace[0] = max(MIN_GAP, _pace[0] * 0.9)
+
+
+def _post(path, body, space=None, tries=5):
     data = json.dumps(body).encode("utf-8")
     for attempt in range(tries):
         _throttle()
@@ -67,14 +99,24 @@ def _post(path, body, space=None, tries=3):
             req.add_header("x-notion-space-id", space)
         try:
             with urllib.request.urlopen(req, timeout=NET_TIMEOUT) as r:
-                return json.loads(r.read().decode("utf-8"))
+                out = json.loads(r.read().decode("utf-8"))
+            _faster()
+            return out
         except urllib.error.HTTPError as e:
             if e.code in (401, 403):
                 raise NotionError("сторінка закрита. У Notion відкрий її: Share → "
                                   "Publish to web, і скопіюй посилання ще раз")
             if e.code == 404:
                 raise NotionError("Notion не знайшов таку сторінку — перевір посилання")
-            if e.code in (429, 502, 503) and attempt < tries - 1:
+            if e.code == 429:
+                # Пауза тут длинная и общая для всего переноса: Notion снимает
+                # запрет не за пару секунд, а за десятки.
+                _slower(e, attempt)
+                if attempt < tries - 1:
+                    continue
+                raise NotionError("Notion просить читати повільніше — зачекай "
+                                  "кілька хвилин і спробуй ще раз")
+            if e.code in (502, 503) and attempt < tries - 1:
                 time.sleep(2 + attempt * 2)
                 continue
             raise NotionError("Notion відповів помилкою %s" % e.code)
@@ -83,6 +125,31 @@ def _post(path, body, space=None, tries=3):
                 time.sleep(1.5)
                 continue
             raise NotionError("немає зв'язку з Notion: %s" % ex)
+
+
+def _shot(url, dest_dir, base, tries=5):
+    """
+    Скриншот, загруженный в Notion, отдаёт картиночный прокси самого Notion —
+    а значит, он под тем же лимитом, что и страницы. Раньше картинки шли
+    мимо общего тормоза: карточки читали аккуратно, а снимки между ними
+    качали без пауз и этим же доводили Notion до «занадто часто».
+    Картинки с TradingView и других сайтов качаем как раньше.
+    """
+    host = urllib.parse.urlparse(url or "").netloc.lower()
+    ours = host.endswith("notion.so") or host.endswith("notion.site")
+    for attempt in range(tries):
+        if ours:
+            _throttle()
+        try:
+            name = download(url, dest_dir, base)
+        except urllib.error.HTTPError as e:
+            if ours and e.code == 429 and attempt < tries - 1:
+                _slower(e, attempt)
+                continue
+            raise
+        if ours:
+            _faster()
+        return name
 
 
 # ------------------------------------------------------------------- ссылка
@@ -332,7 +399,45 @@ def row_props(block, schema):
             out[name] = ", ".join(x for x in (_REL.get(i, "") for i in rel_ids(rich)) if x)
             continue
         out[name] = _plain(rich)
+    # «Created time» / «Last edited time» у ячейці не лежать — Notion бере їх
+    # із самого рядка. Без цього дата приїжджала порожньою в кожної угоди.
+    for pid, meta in (schema or {}).items():
+        ptype = (meta or {}).get("type") or ""
+        if ptype in ("created_time", "last_edited_time") and block.get(ptype):
+            out[meta.get("name") or pid] = _stamp(block[ptype])
     return out, files
+
+
+def _stamp(ms):
+    """Мітка часу Notion (мілісекунди, UTC) -> «2023-02-08T09:00»."""
+    try:
+        return datetime.datetime.fromtimestamp(int(ms) / 1000.0, datetime.timezone.utc) \
+            .strftime("%Y-%m-%dT%H:%M")
+    except (TypeError, ValueError, OverflowError, OSError):
+        return ""
+
+
+def rr_is_outcome(blocks, ids, schema, mapping):
+    """RR у таблиці — підсумок угоди, а не план.
+
+    Результат часто рахують формулою («Profit», «Win?»), а значень формул
+    опублікована таблиця не віддає — він приїжджає порожнім у кожної угоди.
+    Тоді виводимо його з RR. Але тільки якщо в колонці є мінуси: «-1» буває
+    лише в підсумку. Де RR завжди додатний, це плановий RR — з нього всі
+    угоди стали б Win."""
+    col = mapping.get("rr")
+    if not col:
+        return False
+    for bid in ids:
+        props, _f = row_props(_unwrap(blocks.get(bid) or {}), schema)
+        v = NORMALIZE["rr"](props.get(col, ""))
+        if isinstance(v, (int, float)) and v < 0:
+            return True
+    return False
+
+
+def result_from_rr(rr):
+    return "Win" if rr > 0 else ("Loss" if rr < 0 else "BE")
 
 
 def map_simple(props, mapping):
@@ -343,6 +448,7 @@ def map_simple(props, mapping):
         raw = props.get(col, "") if col else ""
         fn = NORMALIZE.get(field)
         t[field] = fn(raw) if fn else (str(raw).strip() if raw is not None else "")
+    t["session"], t["setup"] = split_swing(t.get("session", ""), t.get("setup", ""))
     return t
 
 
@@ -593,13 +699,21 @@ def run_public_import(job, tables, mapping, opts, shots_dir, known_pairs, existi
         odd = []          # названия строк без даты и результата — покажем в конце
         blank = 0         # сколько таких строк пропустили
         nopair = 0        # угод, у которых инструмент не прочитался
+        from_rr = 0       # угод, чей результат вывели из RR
+        unread = 0        # карточек, чьё содержимое не прочиталось
+        lost = 0          # скриншотов, которые не скачались
 
         for ids, rm, schema, use, tname in plans:
             blocks = rm.get("block") or {}
+            by_rr = rr_is_outcome(blocks, ids, schema, use)
             for bid in ids:
                 job.done += 1
                 props, files = row_props(_unwrap(blocks.get(bid) or {}), schema)
                 t = map_simple(props, use)
+                if by_rr and not (t.get("result") or "").strip() \
+                   and isinstance(t.get("rr"), (int, float)):
+                    t["result"] = result_from_rr(t["rr"])
+                    from_rr += 1
                 if skip_known and bid in existing_ids:
                     job.skipped += 1
                     # Колонку могли зіставити не з першого разу: сесія в Notion
@@ -653,9 +767,11 @@ def run_public_import(job, tables, mapping, opts, shots_dir, known_pairs, existi
                 if want_notes or want_shots:
                     try:
                         text, inner = row_content(bid)
-                    except NotionError as ex:
+                    except NotionError:
+                        # Поштучно не пишем: когда Notion придержал темп, таких
+                        # карточек десятки, и отчёт превращается в простыню.
                         text, inner = "", []
-                        job.warnings.append("картку не прочитали: %s" % ex)
+                        unread += 1
                     if want_shots:
                         images += inner
                     if want_notes and text:
@@ -664,12 +780,16 @@ def run_public_import(job, tables, mapping, opts, shots_dir, known_pairs, existi
                 shots = []
                 for i, im in enumerate(images):
                     try:
-                        base = "notion_%s_%d" % (re.sub(r"[^0-9a-f]", "", bid)[:32], i)
+                        # Код перенесення в імені: браузер тримає скрін тиждень, і
+                        # при повторному перенесенні під старим іменем показував
+                        # стару (биту) копію замість нової.
+                        base = "notion_%s_%s_%d" % (re.sub(r"[^0-9A-Za-z]", "", job.batch)[:12],
+                                                    re.sub(r"[^0-9a-f]", "", bid)[:32], i)
                         shots.append({"tf": guess_tf(im.get("caption"), im["url"]),
-                                      "file": download(im["url"], shots_dir, base)})
+                                      "file": _shot(im["url"], shots_dir, base)})
                         job.shots += 1
-                    except Exception as ex:
-                        job.warnings.append("скрін не завантажився: %s" % ex)
+                    except Exception:
+                        lost += 1
                 t["screenshots"] = shots
 
                 pair = (t.get("pair") or "").strip()
@@ -687,6 +807,14 @@ def run_public_import(job, tables, mapping, opts, shots_dir, known_pairs, existi
 
         if batch:
             sink(batch)
+        if unread:
+            job.warnings.append("у %d угод не прочитали нотатки й картинки всередині "
+                                "картки: Notion придержав швидкість читання. Самі угоди "
+                                "на місці — перенеси ще раз за кілька хвилин, ми "
+                                "допишемо порожні місця" % unread)
+        if lost:
+            job.warnings.append("%d знімків не завантажилось — перенеси ще раз "
+                                "за кілька хвилин" % lost)
         if blank:
             shown = ", ".join("«%s»" % x for x in odd[:5])
             more = " та ще %d" % (len(odd) - 5) if len(odd) > 5 else ""
@@ -701,6 +829,10 @@ def run_public_import(job, tables, mapping, opts, shots_dir, known_pairs, existi
         elif nopair:
             job.warnings.append("у %d угод не прочитався інструмент: колонка порожня"
                                 % nopair)
+        if from_rr:
+            job.warnings.append("у %d угод результат порахували з RR: колонки з "
+                                "результатом у таблиці немає або це формула, а Notion "
+                                "не публікує значень формул" % from_rr)
         job.step = "готово"
         job.state = "done"
     except NotionError as ex:

@@ -46,7 +46,7 @@ TOP = 6
 # код, людина бачить підпис: TP/SL/BE зрозумілі всім, а «рукою» і «скіп»
 # перекладаємо.
 RESULTS = [("Win", "TP"), ("WinM", "resHand"), ("Loss", "SL"),
-           ("BE-", "BE−"), ("BE+", "BE+"), ("Skip", "resSkip")]
+           ("BE", "BE"), ("BE-", "BE−"), ("BE+", "BE+"), ("Skip", "resSkip")]
 
 # RR має сенс лише там, де угода щось принесла. За стопом рахується сам
 # ризик (див. netR у static/app.js), тому питати там нічого.
@@ -212,10 +212,10 @@ def _options(user_id, step, trade, lang):
             return [], []
         return [t(lang, "asLastTime", _num(last))], [str(last)]
     if kind == "emotion":
-        # Підпис — мовою людини, а в журнал іде українське написання:
+        # Підпис — мовою людини, а в журнал іде код (emotions.norm):
         # інакше розріз по емоціях розсиплеться на мовні варіанти.
         return ([t(lang, "em" + code.capitalize()) for code, _l in emotions.OPTIONS],
-                [label for _c, label in emotions.OPTIONS])
+                [code for code, _l in emotions.OPTIONS])
     if not step["field"]:
         # Крок без поля журналу — скрін. Пропонувати нічого, там чекають
         # картинку, а не вибір; лишається сама навігація.
@@ -284,6 +284,8 @@ def card(trade, lang=botlang.DEFAULT):
             v = t(lang, label) if label in botlang.PHRASES else label
         elif key in ("rr", "risk"):
             v = _num(v)
+        elif key == "emotion":
+            v = emotions.label(v, lang)
         lines.append("%s: %s" % (t(lang, title), v))
     shots = len(trade.get("screenshots") or [])
     if shots:
@@ -409,7 +411,7 @@ def on_text(user, chat_id, text):
         return True
     if step["kind"] == "emotion":
         # Свої слова зводимо до категорії — так само, як після угоди з сайту.
-        label = emotions.classify(raw[:200]) or raw[:200]
+        label = emotions.classify(raw[:200]) or emotions.OTHER_CODE
         _set(user, chat_id, draft, label)
         return True
     _set(user, chat_id, draft, raw[:200])

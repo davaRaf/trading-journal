@@ -43,6 +43,10 @@ def main():
 
     ok &= case("чужий інструмент",
                codes(TS, dict(GOOD, pair="XAUUSD")), ["asset"])
+    ok &= case("US100 при «Nasdaq (NQ)» у ТС — той самий актив",
+               codes(dict(TS, assets=["Nasdaq ( NQ)", "SPX 500 (ES)", "Ger40"]), dict(GOOD, pair="US100")), [])
+    ok &= case("ES500 при «SPX 500 (ES)» у ТС — той самий актив",
+               codes(dict(TS, assets=["SPX 500 (ES)"]), dict(GOOD, pair="ES500")), [])
     ok &= case("пара іншим написанням — свій",
                codes(TS, dict(GOOD, pair="us 100")), [])
     ok &= case("чужа модель входу",

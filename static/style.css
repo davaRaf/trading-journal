@@ -1966,3 +1966,6 @@ body::after{
 .sr-bar{grid-column:1 / -1;height:3px;border-radius:2px;background:var(--line-soft);overflow:hidden}
 .sr-bar i{display:block;height:100%;border-radius:2px;background:var(--accent);opacity:.75}
 .sr-row.none .sr-bar i{background:var(--faint)}
+
+/* рядок «Не вказано» в розрізі аналітики — приглушено, це пропуск */
+.arow.none .nm{color:var(--faint);font-style:italic}

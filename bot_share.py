@@ -15,6 +15,7 @@
 """
 import botlang
 import config
+import emotions
 import db
 import share_store
 import tg_api
@@ -97,7 +98,7 @@ def trade_detail(tr, lang):
         (t(lang, "fSetup"), tr.get("setup")),
         (t(lang, "fRiskPlain"), (_num(tr.get("risk")) + "%") if tr.get("risk") is not None else ""),
         ("RR", _num(tr.get("rr"))),
-        (t(lang, "fEmotion"), tr.get("emotion")),
+        (t(lang, "fEmotion"), emotions.label(tr.get("emotion"), lang)),
     ]
     texts = [
         (t(lang, "shEntryBlock"), tr.get("entry_details")),

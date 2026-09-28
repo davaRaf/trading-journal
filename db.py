@@ -1017,6 +1017,11 @@ def public_screenshot(user_id, filename):
 
 
 def _trade_values(t):
+    # емоцію — кодом, хоч би звідки прийшла угода (сайт, бот, Notion, файл):
+    # тоді в розрізі кожна емоція одним рядком на будь-якій мові
+    if t.get("emotion"):
+        import emotions
+        t = dict(t, emotion=emotions.norm(t["emotion"]))
     vals = [t.get(f) or "" for f in TEXT_FIELDS]
     vals += [t.get(f) for f in NUM_FIELDS]
     vals += [Jsonb(t.get("screenshots") or []), bool(t.get("hidden"))]
@@ -1195,6 +1200,8 @@ def set_emotion_prompt_msg(tid, msg_id):
 
 def set_trade_emotion(tid, emotion, raw=None):
     """Пишем ответ только если промпт всё ещё ждёт — защита от второго нажатия."""
+    import emotions
+    emotion = emotions.norm(emotion)
     with connect() as conn:
         cur = conn.execute(
             "UPDATE trades SET \"emotion\"=%s, emotion_raw=%s, emotion_prompt_status='answered' "

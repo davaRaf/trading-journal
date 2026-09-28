@@ -85,6 +85,15 @@ def guess_mapping(props, values=None):
     значения: если в колонке лежит Win/Loss/BE — это результат, как бы она
     ни называлась. Так работает на любом языке и с любыми заголовками.
     """
+    # Формулу и rollup Notion считает на экране, а в опубликованной таблице
+    # их значений нет. Такая колонка приезжает пустой — и если занять ею
+    # результат («Profit» = формула), у всех сделок он пропадёт. Пустые
+    # вычисляемые колонки не берём вовсе: пусть поле достанется живой.
+    if values:
+        props = {n: t for n, t in props.items()
+                 if t not in ("formula", "rollup")
+                 or any(str(v if v is not None else "").strip()
+                        for v in values.get(n) or [])}
     scored = []
     for field in FIELDS:
         for name, ptype in props.items():
@@ -321,7 +330,7 @@ SHORT = ("short", "шорт", "sell", "продажа", "продаж", "bear", 
 RESULTS = [
     (("be+", "be +", "беззбиток+", "безубыток+", "бу+"), "BE+"),
     (("be-", "be -", "беззбиток-", "безубыток-", "бу-"), "BE-"),
-    (("be", "breakeven", "break even", "беззбиток", "безубыток", "бу", "нуль", "ноль"), "BE+"),
+    (("be", "breakeven", "break even", "беззбиток", "безубыток", "бу", "нуль", "ноль"), "BE"),
     (("win", "tp", "take", "profit", "прибуток", "прибыль", "тейк", "плюс", "+"), "Win"),
     (("loss", "sl", "stop", "збиток", "убыток", "стоп", "мінус", "минус", "-"), "Loss"),
 ]
@@ -441,6 +450,15 @@ SESSION_SAME = {
     "LONDON OPEN": "LONDON", "ЛОНДОН": "LONDON", "ФРАНКФУРТ": "FRANKFURT",
     "FRANKFURT OPEN": "FRANKFURT", "ASIA": "ASIA", "АЗІЯ": "ASIA", "АЗИЯ": "ASIA",
     "POWER HOUR": "PH",
+    # Кілзона — та сама сесія: «LO KZ» і «LONDON» у статистиці мають бути одним
+    # рядком. Імена — ті, що в кнопках сесій на сайті (SESSIONS у static/app.js).
+    "LO": "LONDON", "LDN": "LONDON", "LO KZ": "LONDON", "LOKZ": "LONDON",
+    "LDN KZ": "LONDON", "LONDON KZ": "LONDON", "LONDON KILLZONE": "LONDON",
+    "LONDON KILL ZONE": "LONDON", "LONDON SESSION": "LONDON", "LO OPEN": "LONDON",
+    "NY KZ": "NY", "NYKZ": "NY", "NY KILLZONE": "NY", "NY KILL ZONE": "NY",
+    "NY OPEN": "NY", "NY SESSION": "NY", "NEW YORK KZ": "NY",
+    "NEW YORK KILLZONE": "NY", "NEW YORK KILL ZONE": "NY", "NEW YORK OPEN": "NY",
+    "NEW YORK SESSION": "NY",
 }
 
 
@@ -451,6 +469,22 @@ def norm_session(v):
         return ""
     up = s.upper()
     return SESSION_SAME.get(up, up if len(up) <= _SESSION_MAX else s)
+
+
+# Свінг — це стиль угоди, а не сесія, але в Notion його часто пишуть у колонку
+# сесій. Тоді в огляді серед LONDON і NY з'являється «SWING».
+_SWING_RE = re.compile(r"swing|св[иі]нг", re.I)
+
+
+def split_swing(session, setup):
+    """Свінг із сесії — у сетап. Решту сесії лишаємо як є («LO, Swing» → «LO»)."""
+    parts = [p.strip() for p in re.split(r"[,;/]", session or "") if p.strip()]
+    keep = [p for p in parts if not _SWING_RE.search(p)]
+    if len(keep) == len(parts):
+        return session, setup
+    if not _SWING_RE.search(setup or ""):
+        setup = (setup + ", Swing") if setup else "Swing"
+    return ", ".join(keep), setup
 
 
 NORMALIZE = {
@@ -477,9 +511,35 @@ def guess_tf(*parts):
     return ""
 
 
+_TV_PAGE = re.compile(r"tradingview\.com/x/([A-Za-z0-9]+)", re.I)
+
+
+def shot_url(url):
+    """Посилання на скрін, яке людина вставила руками, — до ладу.
+
+    У Notion картинку часто додають посиланням на TradingView, і воно буває
+    з хвостом («…/x/095ElZgk/ TradingView») або без першої літери («ttps://»).
+    А сторінка tradingview.com/x/ID — це HTML навколо картинки; сама
+    картинка лежить на s3.tradingview.com/snapshots/<перша літера>/<ID>.png."""
+    url = (str(url or "").strip().split() or [""])[0]
+    m = re.match(r"^h?t?tp(s?)://", url, re.I)
+    if m:
+        url = "http" + m.group(1).lower() + url[m.end() - 3:]
+    elif url.startswith("//"):
+        url = "https:" + url
+    elif url and "://" not in url and re.match(r"^[\w.-]+\.[a-z]{2,}/", url, re.I):
+        url = "https://" + url
+    m = _TV_PAGE.search(url)
+    if m:
+        sid = m.group(1)
+        url = "https://s3.tradingview.com/snapshots/%s/%s.png" % (sid[0].lower(), sid)
+    return url
+
+
 def download(url, dest_dir, base):
     """Тянем картинку к себе. Ссылки Notion живут около часа, поэтому
        откладывать загрузку нельзя — качаем прямо во время импорта."""
+    url = shot_url(url)
     req = urllib.request.Request(url)
     req.add_header("User-Agent", UA)
     with urllib.request.urlopen(req, timeout=NET_TIMEOUT) as r:
@@ -487,6 +547,9 @@ def download(url, dest_dir, base):
         data = r.read(MAX_SHOT + 1)
     if len(data) > MAX_SHOT:
         raise NotionError("картинка завелика")
+    # сторінку замість картинки не зберігаємо — у журналі був би битий скрін
+    if ctype.startswith("text/"):
+        raise NotionError("за посиланням сторінка, а не картинка: %s" % url[:80])
     ext = {"image/png": "png", "image/jpeg": "jpg", "image/webp": "webp",
            "image/gif": "gif"}.get(ctype)
     if not ext:

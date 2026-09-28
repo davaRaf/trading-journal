@@ -47,7 +47,8 @@ fake_store.put = lambda name, raw, mime=None: PUT.append(name)
 fake_emotions = types.ModuleType("emotions")
 fake_emotions.OPTIONS = [("sp", "Спокій"), ("st", "Страх")]
 fake_emotions.LABELS = dict(fake_emotions.OPTIONS)
-fake_emotions.classify = lambda text: "Страх" if "страш" in text.lower() else None
+fake_emotions.classify = lambda text: "st" if "страш" in text.lower() else None   # код, як справжній
+fake_emotions.label = lambda v, lang="uk": fake_emotions.LABELS.get(v, v or "")
 
 # Підписка: сценарій питає в неї дозволу перед записом. Тут підміняємо
 # її тумблером — правила самої підписки перевіряє test_billing.py.
@@ -174,7 +175,7 @@ def check_text_answers():
 
     STORE["draft"]["step"] = "emotion"
     tf.on_text(USER, CHAT, "було страшно")
-    check("емоцію звели до категорії", trade()["emotion"] == "Страх")
+    check("емоцію звели до категорії (кодом)", trade()["emotion"] == "st")
 
 
 def check_back():
@@ -288,15 +289,15 @@ def check_language():
         check("вибір способу російською",
               "Пошагово" in [b["text"] for row in tf.mode_kb("ru") for b in row])
 
-        # Емоція: підпис російський, а в журнал іде українське написання —
+        # Емоція: підпис російський, а в журнал іде код —
         # інакше розріз по емоціях розсиплеться на мовні варіанти.
         STORE["draft"] = {"chat_id": CHAT, "step": "emotion",
                           "data": {"trade": {"id": "tl", "pair": "NQ"}, "opts": []}}
         tf._ask(ru, CHAT, STORE["draft"])
         labels = [b["text"] for row in last()["kb"] for b in row]
         check("емоції показані російською", "Спокойствие" in labels)
-        check("у журнал іде українське написання",
-              STORE["draft"]["data"]["opts"][0] == "Спокій")
+        check("у журнал іде код емоції",
+              STORE["draft"]["data"]["opts"][0] == "sp")
     finally:
         LANG["value"] = ""
 

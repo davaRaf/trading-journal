@@ -30,7 +30,7 @@ import llm
 KYIV = ZoneInfo("Europe/Kyiv")
 
 # Коди результату — рівно ті, що в журналі (static/app.js).
-RESULTS = ("Win", "WinM", "Loss", "BE-", "BE+", "Skip")
+RESULTS = ("Win", "WinM", "Loss", "BE", "BE-", "BE+", "Skip")
 POSITIONS = ("Long", "Short")
 
 # Поля, які модель має право заповнити. rr_plan і службові сюди не входять.
@@ -89,12 +89,13 @@ def _prompt(user_id, text):
         "Поверни JSON із такими ключами:",
         '{"is_trade": true|false, "pair": "", "date": "РРРР-ММ-ДД", "session": "",',
         ' "position": "Long|Short|", "bias": "", "setup": "", "entry_model": "",',
-        ' "account": "", "result": "Win|WinM|Loss|BE-|BE+|Skip|", "rr": null,',
+        ' "account": "", "result": "Win|WinM|Loss|BE|BE-|BE+|Skip|", "rr": null,',
         ' "risk": null, "emotion": "", "notes": ""}',
         "",
         "is_trade — чи це справді опис угоди, а не питання чи балачка.",
         "result: Win — узяв тейк, WinM — вийшов у плюс рукою, Loss — стоп,",
-        "BE- — беззбиток замість збитку, BE+ — беззбиток замість плюса,",
+        "BE — просто беззбиток, BE- — беззбиток замість збитку,",
+        "BE+ — беззбиток замість плюса,",
         "Skip — угоду пропустив.",
         "rr — скільки R принесла угода, risk — ризик у відсотках.",
         "date — сьогоднішня, якщо про день нічого не сказано.",
