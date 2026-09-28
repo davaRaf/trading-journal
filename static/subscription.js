@@ -35,10 +35,12 @@ function withPreview(s){
   const p = s && s.admin ? previewOf() : "";
   if (!p) return s;
   const soon = new Date(Date.now() + ({month: 30, quarter: 91, year: 365}[p] || 0) * 864e5).toISOString();
-  /* «Ранні»: безкоштовний, але з цінами перших клієнтів — як їм виглядатиме магазин */
-  if (p === "early" && s.early && s.prices){
-    const pr = Object.assign({}, s.prices, {set: "early"});
-    for (const k in s.early) if (pr[k]) pr[k] = Object.assign({}, pr[k], {cents: s.early[k]});
+  /* «Безкоштовно» — новенький без знижок і промокоду (звичайні ціни),
+     «Перші клієнти» — безкоштовний з їхніми цінами: як виглядатиме магазин */
+  if ((p === "free" || p === "early") && s.prices){
+    const pr = Object.assign({}, s.prices, {set: p === "early" ? "early" : "std"});
+    for (const k in pr) if (pr[k] && pr[k].std_cents)
+      pr[k] = Object.assign({}, pr[k], {cents: p === "early" && s.early ? s.early[k] : pr[k].std_cents});
     return Object.assign({}, s, {plan: "free", active: false, paid_until: null, prices: pr, preview: p});
   }
   return Object.assign({}, s, p === "free" ? {plan: "free", active: false, paid_until: null}
