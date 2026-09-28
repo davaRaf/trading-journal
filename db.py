@@ -172,6 +172,10 @@ ALTER TABLE trades ADD COLUMN IF NOT EXISTS rr_plan DOUBLE PRECISION;
 -- Журнал можно открыть другим: тогда его смотрят по ссылке /u/<ник>.
 -- По умолчанию закрыт: открытость человек включает сам.
 ALTER TABLE users ADD COLUMN IF NOT EXISTS public_journal BOOLEAN NOT NULL DEFAULT FALSE;
+-- дозвіл забрати свою ТС за посиланням на неї (кнопка «Скопіювати до себе»)
+ALTER TABLE users ADD COLUMN IF NOT EXISTS ts_copy BOOLEAN NOT NULL DEFAULT FALSE;
+-- дозвіл забрати свою ТС за посиланням на неї (кнопка «Скопіювати до себе»)
+ALTER TABLE users ADD COLUMN IF NOT EXISTS ts_copy BOOLEAN NOT NULL DEFAULT FALSE;
 
 -- Опитування «звідки дізнався» жило один день і прибране — колонку теж.
 ALTER TABLE users DROP COLUMN IF EXISTS heard_from;
@@ -520,6 +524,18 @@ def profile_stats(user_id, today, weeks=12, tz=None):
         "pairs": [[r["pair"], r["n"]] for r in pairs],
         "log": log, "log_from": log_from, "today": today.isoformat(),
     }
+
+
+def set_ts_copy(user_id, on):
+    with connect() as conn:
+        conn.execute("UPDATE users SET ts_copy=%s WHERE id=%s", (bool(on), user_id))
+        conn.commit()
+
+
+def set_ts_copy(user_id, on):
+    with connect() as conn:
+        conn.execute("UPDATE users SET ts_copy=%s WHERE id=%s", (bool(on), user_id))
+        conn.commit()
 
 
 def set_public(user_id, on):

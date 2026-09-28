@@ -34,7 +34,12 @@ function inner(){
     +     '<span class="n-off">' + esc(T.ppClosedNote) + "</span></div>"
     + "</div>"
     + '<ul class="pp-what"><li class="yes">' + esc(T.ppShow) + "</li>"
-    +   '<li class="no">' + esc(T.ppHide) + "</li></ul>";
+    +   '<li class="no">' + esc(T.ppHide) + "</li></ul>"
+    /* Окремо від відкритого журналу: ТС дають забрати й тоді, коли сам
+       журнал закритий — посилання на неї людина розсилає сама. */
+    + '<label class="pp-sw" style="margin-top:18px"><input type="checkbox" id="ppTsCopy"'
+    +   (user.ts_copy ? " checked" : "") + "><b>" + esc(T.ppTsCopy) + "</b></label>"
+    + '<p class="pp-lead" style="margin-top:6px">' + esc(T.ppTsCopyNote) + "</p>";
 }
 
 function body(){
@@ -72,6 +77,17 @@ function wire(){
     }
     sw.disabled = false;
     paint();
+  };
+  const tc = document.getElementById("ppTsCopy");
+  if (tc) tc.onchange = async () => {
+    tc.disabled = true;
+    try{
+      const r = await api("POST", "/api/me/ts-copy", {on: tc.checked});
+      user.ts_copy = !!r.ts_copy;
+    }catch(e){
+      tc.checked = !!user.ts_copy;
+    }
+    tc.disabled = false;
   };
   const copy = document.getElementById("ppCopy");
   if (copy) copy.onclick = async () => {

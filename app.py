@@ -355,6 +355,17 @@ def share_og(rec, sid, base):
     return "\n".join(tags)
 
 
+def ts_copy_ok(rec):
+    """Посилання на ТС, і автор дозволив її забирати."""
+    if not rec or share_store.kind_of(rec.get("data")) != "ts" or not rec.get("user_id"):
+        return False
+    try:
+        u = db.get_user(rec["user_id"])
+    except Exception:
+        return False
+    return bool(u and u.get("ts_copy"))
+
+
 def share_read(sid):
     """Отдаёт снимок или None, если его нет либо срок вышел.
 
@@ -1045,6 +1056,7 @@ def user_public(user):
             "digest_hour": user["digest_hour"], "digest_minute": user["digest_minute"],
             "digest_enabled": user["digest_enabled"],
             "public_journal": bool(user["public_journal"]),
+            "ts_copy": bool(user.get("ts_copy")),
             "tz": user["tz"] or "Europe/Kyiv",
             "email_confirmed": user["email_confirmed_at"] is not None,
             "avatar": avatar_url(user.get("avatar")),
@@ -1597,6 +1609,8 @@ class H(BaseHTTPRequestHandler):
             nick = public_owner(rec.get("user_id"))
             if nick:
                 out["owner"] = {"nick": nick}
+            if ts_copy_ok(rec):
+                out["ts_copy"] = True
             author = share_author(rec.get("user_id"))
             if author:
                 out["author"] = author
@@ -2540,6 +2554,31 @@ class H(BaseHTTPRequestHandler):
 
         if p.startswith("/api/") and not uid:
             return self._json({"error": "auth required"}, 401)
+
+        if p == "/api/me/ts-copy":
+            on = bool((body or {}).get("on"))
+            db.set_ts_copy(uid, on)
+            return self._json({"ts_copy": on})
+
+        # Забрати чужу ТС до себе за посиланням на неї — якщо автор дозволив
+        m = re.match(r"^/api/share/([A-Za-z0-9_-]{6,32})/copy-ts$", p)
+        if m:
+            rec = share_read(m.group(1))
+            if not ts_copy_ok(rec):
+                return self._json({"error": "копіювати не можна", "code": "no_copy"}, 404)
+            owner = rec["user_id"]
+            if owner == uid:
+                return self._json({"error": "це ваша ТС", "code": "own"}, 400)
+            src = ts_store.get(owner, "", seed=False)
+            if not src:
+                return self._json({"error": "ТС уже немає", "code": "no_copy"}, 404)
+            if ts_store.get(uid, "", seed=False) and not (body or {}).get("replace"):
+                return self._json({"error": "у вас уже є ТС", "code": "has_ts"}, 409)
+            data = ts_store.copy_for(uid, src)
+            ts_store.put(uid, data, "")
+            ts_store.sweep(uid, data, SHOTS, "")   # старі скріни своєї ТС
+            print("ts-copy: %s забрав ТС у %s" % (uid, owner), flush=True)
+            return self._json({"ok": True})
 
         if p == "/api/me/public":
             on = bool((body or {}).get("on"))
