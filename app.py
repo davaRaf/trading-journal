@@ -2071,7 +2071,8 @@ class H(BaseHTTPRequestHandler):
             # Власникам — перемикач «подивитись як» у розділі «Підписка»: він
             # лише перефарбовує показ у їхньому браузері, права не змінює.
             if _is_admin(uid):
-                out = dict(out, admin=True)
+                # early — щоб перемикач показав і ціни перших клієнтів
+                out = dict(out, admin=True, early=config.PRICES["early"])
             return self._json(out)
 
         if p == "/api/calendar":

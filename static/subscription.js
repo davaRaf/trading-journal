@@ -29,12 +29,18 @@ let real = null;                   /* той самий стан без пере
 /* Перегляд для власників: подивитись журнал очима людини з іншим тарифом.
    Лише показ у цьому браузері — сервер права не змінює, ліміти рахує як є. */
 const PREVIEW_KEY = "sub_preview";
-const PREVIEWS = ["", "free", "month", "quarter", "year", "life"];
+const PREVIEWS = ["", "free", "early", "month", "quarter", "year", "life"];
 function previewOf(){ try{ return localStorage.getItem(PREVIEW_KEY) || ""; }catch(e){ return ""; } }
 function withPreview(s){
   const p = s && s.admin ? previewOf() : "";
   if (!p) return s;
   const soon = new Date(Date.now() + ({month: 30, quarter: 91, year: 365}[p] || 0) * 864e5).toISOString();
+  /* «Ранні»: безкоштовний, але з цінами перших клієнтів — як їм виглядатиме магазин */
+  if (p === "early" && s.early && s.prices){
+    const pr = Object.assign({}, s.prices, {set: "early"});
+    for (const k in s.early) if (pr[k]) pr[k] = Object.assign({}, pr[k], {cents: s.early[k]});
+    return Object.assign({}, s, {plan: "free", active: false, paid_until: null, prices: pr, preview: p});
+  }
   return Object.assign({}, s, p === "free" ? {plan: "free", active: false, paid_until: null}
     : p === "life" ? {plan: "life", active: true, paid_until: null}
     : {plan: p, active: true, paid_until: soon}, {preview: p});
@@ -57,7 +63,7 @@ function setPreview(p){
 function previewBox(){
   if (!real || !real.admin) return "";
   const cur = previewOf();
-  const name = p => p === "" ? T.subPrevReal : p === "free" ? T.subFree
+  const name = p => p === "" ? T.subPrevReal : p === "free" ? T.subFree : p === "early" ? T.subPrevEarly
     : p === "life" ? "Special" : {month: T.subMonth, quarter: T.subQuarter, year: T.subYear}[p];
   return '<div class="sub-prev"><span>' + esc(T.subPrevLab) + "</span><div>"
     + PREVIEWS.map(p => '<button type="button" class="' + (p === cur ? "on" : "") + '" data-prev="' + p + '">'
