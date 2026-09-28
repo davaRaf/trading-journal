@@ -161,8 +161,17 @@
              0 0 13px color-mix(in srgb,var(--life) 60%,transparent);
 }
 
-/* Довічна в розділі: без днів і без дати, тільки рядок пояснення. */
-.sub-live.life .sub-live-till{margin-top:6px}
+/* Довічна в розділі: без днів і без дати — подяка й прохання. Тексту
+   більше, ніж в інших станів, тож крупніше й окремою золотистою карткою. */
+.sub-live.life{
+  padding:20px 22px; border:1px solid color-mix(in srgb,#e3b341 35%,var(--line));
+  border-radius:14px; background:color-mix(in srgb,#e3b341 7%,transparent);
+}
+.sub-live.life .sub-live-head{font-size:18px; gap:11px}
+.sub-live.life .sub-live-dot{width:10px; height:10px}
+.sub-live.life .sub-live-till{margin-top:12px; font-size:14.5px; line-height:1.65;
+  color:var(--text); max-width:60ch; white-space:pre-line}
+@media (max-width:560px){ .sub-live.life{padding:16px} .sub-live.life .sub-live-till{font-size:14px} }
 
 /* ——— значок тарифу біля ніка у верхній смузі ——— */
 /* Тільки надпис: ні квадратика, ні рамки, ні тла, ні кліку (рішення
