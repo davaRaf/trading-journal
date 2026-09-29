@@ -567,6 +567,12 @@ def _prefs_init():
 # ---------------------------------------------------------------------------
 REF_COOKIE = "ref"
 REF_TTL = 30 * 24 * 3600
+# Відбиток пристрою для входу через Google чи Discord. Звичайна реєстрація
+# шле його в тілі запиту, а тут дорога йде через чужий сайт і назад, і
+# нічого, крім кук, не переживає цю подорож. Живе хвилини — рівно щоб
+# дійти до сервісу й повернутись.
+DEV_COOKIE = "devm"
+DEV_TTL = 15 * 60
 PARTNER_TITLES = {"blackswan": "Black Swan"}      # як партнера звуть у прев'ю
 # Коротке посилання: statsai.xyz/bs замість statsai.xyz/?ref=blackswan.
 # Довге теж лишається робочим — його вже роздали.
@@ -1587,6 +1593,18 @@ class H(BaseHTTPRequestHandler):
         except Exception:
             return ""
 
+    def _dev_cookie(self, mark):
+        """Кука з відбитком пристрою на час походу в Google чи Discord.
+
+        HttpOnly тут ні до чого — відбиток однаково рахує браузер, і
+        приховувати від нього нічого. А от SameSite=Lax обов'язковий:
+        повернення з сервісу — це перехід з чужого сайту, і при Strict
+        кука до нас просто не доїхала б.
+        """
+        return ("%s=%s; Path=/; Max-Age=%d; SameSite=Lax"
+                % (DEV_COOKIE, urllib.parse.quote(mark, safe=""), DEV_TTL)
+                + ("; Secure" if auth.is_https(self) else ""))
+
     def _ref_query(self):
         """?ref=<партнер> у адресі — або нічого."""
         q = parse_qs(urlparse(self.path).query)
@@ -1796,6 +1814,12 @@ class H(BaseHTTPRequestHandler):
             self.send_response(302)
             self.send_header("Location", url)
             self.send_header("Set-Cookie", oauth.state_cookie(state, auth.is_https(self)))
+            # Відбиток пристрою кладемо кукою по дорозі в сервіс: назад
+            # людина повернеться вже з чужого сайту, і в тому запиті від нас
+            # лишаться самі куки. Сторінка входу додає його до адреси.
+            dev = (parse_qs(urlparse(self.path).query).get("dev", [""])[0] or "")[:512]
+            if dev:
+                self.send_header("Set-Cookie", self._dev_cookie(dev))
             self.end_headers()
             return
 
@@ -1815,15 +1839,28 @@ class H(BaseHTTPRequestHandler):
                 ext_id, email, name = oauth.fetch_profile(prov, q.get("code", ""), self._base())
                 if not ext_id:
                     raise ValueError("сервіс не віддав профіль")
-                user = oauth.find_or_create_user(prov, ext_id, email, name)
-                # Вхід через Google чи Discord іде переадресацією, відбитка
-                # пристрою тут немає — тому й не блокуємо. Адресу все одно
-                # записуємо: в адмінці буде видно сусідів по ній.
+                # Відбиток пристрою на переадресації взятися нізвідки — його
+                # кладе кукою сама сторінка входу, перед тим як відправити
+                # людину в сервіс. Без цього вхід через Google був широкою
+                # хвірткою повз заслон: новий акаунт там робиться за хвилину.
+                ip = self._guest()
+                device = antifraud.device_hash(
+                    urllib.parse.unquote(self._cookie(DEV_COOKIE)))
+                user = oauth.find_or_create_user(
+                    prov, ext_id, email, name,
+                    guard=lambda: bool(antifraud.blocked(ip, device)))
                 try:
-                    antifraud.remember(user["id"], self._guest(), "")
+                    antifraud.remember(user["id"], ip, device)
                 except Exception as ex:
                     print("antifraud oauth:", ex)
                 ref_claim(user["id"], self._cookie(REF_COOKIE))
+            except oauth.Blocked:
+                print("oauth %s: другий безкоштовний акаунт" % prov)
+                self.send_response(302)
+                self.send_header("Location", "/login?err=ip_taken")
+                self.send_header("Set-Cookie", oauth.clear_state_cookie(auth.is_https(self)))
+                self.end_headers()
+                return
             except Exception as ex:
                 print("oauth %s: %s" % (prov, ex))
                 self.send_response(302)
@@ -2683,8 +2720,13 @@ class H(BaseHTTPRequestHandler):
             if not EMAIL_RE.match(email) or len(password) < 6:
                 return self._json({"error": "потрібні пошта і пароль від 6 символів",
                                    "code": "need_fields"}, 400)
-            if db.get_user_by_email(email):
+            if db.get_user_by_email(email) or db.user_by_email_key(email):
+                # Друга умова — та сама скринька з іншим хвостиком:
+                # «ivan+2@gmail» це той самий ящик, що й «ivan@gmail».
                 return self._json({"error": "така пошта вже зайнята", "code": "taken"}, 409)
+            if antifraud.throwaway_mail(email):
+                return self._json({"error": "потрібна постійна пошта",
+                                   "code": "temp_mail"}, 409)
             # Другий акаунт із тієї самої адреси І з того самого пристрою.
             # Тільки разом: сам IP нічого не доводить — за одним виходом
             # оператора сидить півміста (див. antifraud.py).

@@ -32,6 +32,31 @@ import db
 NEIGHBOURS = 8
 
 
+# Служби одноразової пошти: ящик живе хвилину, і безкоштовних журналів з
+# нього можна наробити стільки, скільки не ліньки оновлювати сторінку.
+# Список навмисно короткий — тут ті, що з'являються першими в пошуку
+# «temp mail»; ганятися за всіма безглуздо, а ці закривають більшість.
+# Рахуємо й піддомени: у cock.li їх десятки.
+THROWAWAY = (
+    "mailinator.com", "guerrillamail.com", "guerrillamail.info", "sharklasers.com",
+    "10minutemail.com", "10minutemail.net", "tempmail.com", "temp-mail.org",
+    "tempmailo.com", "trashmail.com", "throwawaymail.com", "yopmail.com",
+    "getnada.com", "nada.email", "dispostable.com", "fakeinbox.com",
+    "maildrop.cc", "mailnesia.com", "mohmal.com", "emailondeck.com",
+    "spamgourmet.com", "mytemp.email", "moakt.com", "tempr.email",
+    "discard.email", "mailcatch.com", "inboxkitten.com", "harakirimail.com",
+    "byom.de", "cock.li", "vomoto.com", "grr.la", "spam4.me",
+)
+
+
+def throwaway_mail(email):
+    """Чи це одноразова скринька. Піддомени теж рахуються."""
+    dom = (email or "").strip().lower().rsplit("@", 1)[-1]
+    if not dom:
+        return False
+    return any(dom == d or dom.endswith("." + d) for d in THROWAWAY)
+
+
 def device_hash(raw):
     """Відбиток пристрою → короткий хеш. Порожньо лишається порожнім:
     «не знаємо» не має злипатися в один пристрій на всіх."""

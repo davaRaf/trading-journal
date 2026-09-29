@@ -327,6 +327,15 @@ ALTER TABLE users ADD COLUMN IF NOT EXISTS special_since TIMESTAMPTZ;
 -- партнера) і коли по ньому заплатили; після оплати вдруге не приймається
 ALTER TABLE users ADD COLUMN IF NOT EXISTS promo_code TEXT;
 ALTER TABLE users ADD COLUMN IF NOT EXISTS promo_used_at TIMESTAMPTZ;
+-- Пошта, зведена до однієї скриньки (див. email_key): без хвоста після
+-- «+», а в gmail ще й без крапок. За email_norm людина заводила скільки
+-- завгодно безкоштовних журналів на той самий ящик.
+--
+-- Індекс навмисно не унікальний: у базі вже лежать такі пари, заведені до
+-- цієї перевірки, і UNIQUE не дав би застосувати схему. Нових не буде —
+-- реєстрація дивиться сюди перед створенням.
+ALTER TABLE users ADD COLUMN IF NOT EXISTS email_key TEXT NOT NULL DEFAULT '';
+CREATE INDEX IF NOT EXISTS users_email_key ON users (email_key);
 
 -- Звернення до моделі: скільки витрачено у поточному вікні й коли вікно
 -- закінчується. Розділи журналу відкриті всі, а платне — саме це: кожна
@@ -386,8 +395,27 @@ def init():
         conn.execute(SCHEMA)
         conn.commit()
     _grandfather_emails()
+    _fill_email_keys()
     _start_limits()
     _grandfather_early()
+
+
+def _fill_email_keys():
+    """Проставити email_key тим, хто заведений до появи колонки.
+
+    Без вимикача й без позначки: тут не роздається нічого й нічого не
+    втрачається — рядок рахується з пошти, яка вже лежить у базі. Порожні
+    добираємо на кожному запуску, бо так само доводиться чинити рядки,
+    що приїхали в базу руками.
+    """
+    with connect() as conn:
+        rows = conn.execute("SELECT id, email FROM users WHERE email_key=''").fetchall()
+        for r in rows:
+            conn.execute("UPDATE users SET email_key=%s WHERE id=%s",
+                         (email_key(r["email"]), r["id"]))
+        if rows:
+            conn.commit()
+            print("пошта зведена до скриньки: %d рядків" % len(rows), flush=True)
 
 
 # Запуск лімітів одним запитом — щоб перевірка ганяла саме той текст, який
@@ -506,12 +534,56 @@ def meta_set(key, value):
 
 # ------------------------------------------------------------ пользователи ----
 
+# Поштові служби, де крапки в імені скриньки нічого не означають: у них
+# «i.van@» і «ivan@» — той самий ящик.
+DOTLESS_MAIL = ("gmail.com", "googlemail.com")
+
+
+def email_key(email):
+    """Пошта, зведена до однієї скриньки.
+
+    email_norm — це просто нижній регістр, і для входу цього досить. Але
+    для «один безкоштовний журнал на людину» цього мало: «ivan+1@gmail»,
+    «ivan+2@gmail» і «i.v.a.n@gmail» — три різні рядки й один живий ящик.
+    Двадцятка множилась на стільки, скільки людині не ліньки придумати
+    хвостиків.
+
+    Що робимо: хвіст після «+» відкидаємо скрізь (так домовились усі
+    великі служби), крапки прибираємо тільки там, де вони справді нічого
+    не значать — інакше зіпсуємо чужі адреси, де крапка є частиною імені.
+    """
+    e = (email or "").strip().lower()
+    if "@" not in e:
+        return e
+    box, dom = e.rsplit("@", 1)
+    box = box.split("+", 1)[0]
+    if dom in DOTLESS_MAIL:
+        box = box.replace(".", "")
+    return (box + "@" + dom) if box else e
+
+
+def user_by_email_key(email):
+    """Чи є вже журнал на цю саму скриньку — з будь-якими хвостиками.
+
+    Дивимось у email_key, а не в email_norm: саме тут ловиться той, хто
+    заводить другий безкоштовний акаунт на ту саму пошту.
+    """
+    key = email_key(email)
+    if not key:
+        return None
+    with connect() as conn:
+        return conn.execute(
+            "SELECT * FROM users WHERE email_key=%s LIMIT 1", (key,)).fetchone()
+
+
 def create_user(email, nickname, pw_hash, pw_salt, pw_iters):
     with connect() as conn:
         row = conn.execute(
-            "INSERT INTO users (email, nickname, email_norm, pw_hash, pw_salt, pw_iters) "
-            "VALUES (%s, %s, %s, %s, %s, %s) RETURNING *",
-            (email, nickname, email.strip().lower(), pw_hash, pw_salt, pw_iters)).fetchone()
+            "INSERT INTO users (email, nickname, email_norm, email_key, "
+            "pw_hash, pw_salt, pw_iters) "
+            "VALUES (%s, %s, %s, %s, %s, %s, %s) RETURNING *",
+            (email, nickname, email.strip().lower(), email_key(email),
+             pw_hash, pw_salt, pw_iters)).fetchone()
         conn.commit()
     return row
 

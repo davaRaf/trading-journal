@@ -16,6 +16,7 @@ import sys
 
 import config
 import db
+import antifraud
 import billing
 
 UTC = datetime.timezone.utc
@@ -197,6 +198,27 @@ def check_rules():
              config.nick_reserved(nick.upper()), True)
     case("службовий нік теж зайнятий", config.nick_reserved("admin"), True)
     case("звичайний нік вільний", config.nick_reserved("trader7"), False)
+
+    # Одна скринька — один безкоштовний журнал. Хвіст після «+» і крапки в
+    # gmail нічого не змінюють, а чужі домени з крапками не чіпаємо.
+    print("\nодна пошта — один журнал")
+    same = [("ivan@gmail.com", "ivan+1@gmail.com"),
+            ("ivan@gmail.com", "i.v.a.n@gmail.com"),
+            ("ivan@gmail.com", "IVAN+хвіст@Gmail.com"),
+            ("ivan@googlemail.com", "i.van+2@googlemail.com"),
+            ("ivan@mail.com", "ivan+7@mail.com")]
+    for a, b in same:
+        case("%s = %s" % (a, b), db.email_key(a) == db.email_key(b), True)
+    case("крапки поза gmail значать своє",
+         db.email_key("i.van@mail.com") == db.email_key("ivan@mail.com"), False)
+    case("різні люди лишаються різними",
+         db.email_key("ivan@gmail.com") == db.email_key("petro@gmail.com"), False)
+
+    print("\nодноразова пошта")
+    for bad in ("kto@mailinator.com", "kto@temp-mail.org", "kto@sub.yopmail.com"):
+        case("не приймаємо %s" % bad, antifraud.throwaway_mail(bad), True)
+    for good in ("kto@gmail.com", "kto@ukr.net", "kto@company.co.uk"):
+        case("приймаємо %s" % good, antifraud.throwaway_mail(good), False)
 
 
 def check_prices():

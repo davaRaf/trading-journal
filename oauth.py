@@ -201,9 +201,21 @@ def _nickname_from(name, email, provider, ext_id):
     return (base + "1") if config.nick_reserved(base) else base
 
 
-def find_or_create_user(provider, ext_id, email, name):
+class Blocked(Exception):
+    """Новий акаунт не заводимо: сторож сказав, що це другий безкоштовний."""
+
+
+def find_or_create_user(provider, ext_id, email, name, guard=None):
     """Повертає рядок users. Спершу шукаємо прив'язку, потім людину з такою
-    поштою (щоб не плодити другий акаунт), і лише тоді створюємо нового."""
+    поштою (щоб не плодити другий акаунт), і лише тоді створюємо нового.
+
+    guard — перевірка перед створенням нового акаунта: вхід через сервіс
+    раніше обходив заслон від других журналів зовсім, бо відбитка пристрою
+    на переадресації немає. Тепер відбиток приїжджає кукою зі сторінки
+    входу, а сторож вирішує, пускати чи ні. На тих, хто просто заходить
+    своїм акаунтом, це не поширюється — guard питають лише перед
+    створенням нового.
+    """
     init()
     with db.connect() as conn:
         row = conn.execute("SELECT user_id FROM identities WHERE provider=%s AND ext_id=%s",
@@ -215,13 +227,18 @@ def find_or_create_user(provider, ext_id, email, name):
 
     user = None
     if email:
-        with db.connect() as conn:
-            u = conn.execute("SELECT id FROM users WHERE email_norm=%s",
-                             (email.strip().lower(),)).fetchone()
-        if u:
-            user = db.get_user(u["id"])
+        # Та сама скринька з іншим хвостиком — теж та сама людина.
+        user = db.user_by_email_key(email)
+        if not user:
+            with db.connect() as conn:
+                u = conn.execute("SELECT id FROM users WHERE email_norm=%s",
+                                 (email.strip().lower(),)).fetchone()
+            if u:
+                user = db.get_user(u["id"])
 
     if not user:
+        if guard and guard():
+            raise Blocked("другий безкоштовний акаунт")
         use_email = email or "%s_%s@login.statsai" % (provider, ext_id)
         pw_hash, pw_salt, iters = auth.hash_password(secrets.token_urlsafe(24))
         nick = _nickname_from(name, email, provider, ext_id)
