@@ -62,9 +62,15 @@
   flex:none; width:40px; height:40px; display:grid; place-items:center; border-radius:11px;
   background:var(--accent-soft); color:var(--accent);
 }
-.cpay-way b{display:block; font-size:14px; font-weight:600}
-.cpay-way span{display:block; margin-top:3px; font-size:12.5px; color:var(--dim)}
-.cpay-way-go{margin-left:auto; flex:none; color:var(--faint)}
+/* Підписи — тільки всередині своєї колонки. Селектор «.cpay-way span»
+   був би сильніший за «.cpay-way-ico», і плитка зі значком отримала б
+   display:block замість grid — значок сповзав би в куток. */
+.cpay-way-t b{display:block; font-size:14px; font-weight:600}
+.cpay-way-t span{display:block; margin-top:3px; font-size:12.5px; color:var(--dim)}
+.cpay-way-go{margin-left:auto; flex:none; display:grid; place-items:center; color:var(--faint)}
+/* Значки — блоками: інлайновим svg браузер лишає місце під хвостик
+   літери, і все, що поруч, стоїть на пів пікселя вище, ніж треба. */
+.cpay svg{display:block}
 
 /* ——— три кроки ——— */
 /* Не прикраса: людина має бачити, що переказ — це ще не кінець, і що

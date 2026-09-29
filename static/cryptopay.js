@@ -120,7 +120,7 @@ function pickBody(){
   const way = (kind, ico, t, x) =>
     '<button type="button" class="cpay-way" data-way="' + kind + '">'
     + '<span class="cpay-way-ico">' + ico + "</span>"
-    + "<span><b>" + esc(t) + "</b><span>" + esc(x) + "</span></span>"
+    + '<span class="cpay-way-t"><b>' + esc(t) + "</b><span>" + esc(x) + "</span></span>"
     + '<span class="cpay-way-go">' + icoNext() + "</span></button>";
   return head(T.cpPickT, sub)
     + '<div class="cpay-body"><div class="cpay-ways">'
