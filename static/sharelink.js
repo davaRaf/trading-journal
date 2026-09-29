@@ -350,6 +350,44 @@ function monthSnapshot(mk){
   };
 }
 
+/* Квартал — три місяці одним підсумком.
+
+   Календарної сітки тут навмисно немає. Вона рахує відступ від першого
+   дня й далі кладе дні поспіль: на тридцяти днях це збігається з
+   тижнями, а на дев'яноста місяці поїдуть один відносно одного й сітка
+   перестане читатись. Тому розклад по місяцях — той самий, що в році.
+
+   Номер кварталу римський: так він підписаний в огляді, і людина, яка
+   бачила «III квартал» у себе, має побачити те саме в посиланні. */
+function quarterSnapshot(qk){
+  const y = qk.slice(0, 4), q = +qk.slice(6);
+  const from = q * 3 - 2, to = q * 3;
+  const list = S.all.filter(t => {
+    const k = monKey(t);
+    if (k.slice(0, 4) !== y) return false;
+    const m = +k.slice(5, 7);
+    return m >= from && m <= to;
+  });
+  const months = groupBy(list, monKey);
+  const byMonth = [...months.keys()].sort()
+    .map(mk => ({ name: T.months[+mk.slice(5, 7) - 1], value: calc(months.get(mk)).net }));
+  const bt = typeof btOn === "function" && btOn();
+  return {
+    kind: bt ? T.slKindBtQuarter : T.slKindQuarter,
+    kindFull: bt ? T.slOgBtQuarter : T.slOgQuarter,
+    bt: bt || undefined,
+    title: ["I", "II", "III", "IV"][q - 1] + " " + T.ovQuarterWord + " " + y,
+    total: calc(list).net,
+    kpis: statsOf(list),
+    blocks: [
+      byMonth.length ? { title: T.slByMonths, items: byMonth } : null,
+      sliceBlock(T.railSetups, list, "setup"),
+      sliceBlock(T.railInstruments, list, "pair"),
+      sliceBlock(T.railSessions, list, "session"),
+    ].filter(Boolean),
+  };
+}
+
 function yearSnapshot(y){
   const list = S.all.filter(t => (t.date||"").slice(0,4) === String(y));
   const months = groupBy(list, monKey);
@@ -410,6 +448,7 @@ function open(kind, arg){
              : kind === "day"    ? daySnapshot(arg)
              : kind === "week"  ? weekSnapshot(arg)
              : kind === "month" ? monthSnapshot(arg)
+             : kind === "quarter" ? quarterSnapshot(arg)
              :                    yearSnapshot(arg);
   let data = build();
   if (!data) return;
@@ -593,12 +632,6 @@ function icon(){
     + ' stroke-width="1.8" stroke-linecap="round"/></svg>';
 }
 
-function caret(){
-  return '<svg class="sh-caret" width="9" height="9" viewBox="0 0 24 24" fill="none">'
-    + '<path d="M6 9l6 6 6-6" stroke="currentColor" stroke-width="2"'
-    + ' stroke-linecap="round" stroke-linejoin="round"/></svg>';
-}
-
 function mkBtn(label, kind, arg, extra){
   const b = document.createElement("button");
   b.className = "btn sh-btn" + (extra ? " " + extra : "");
@@ -641,6 +674,24 @@ function hasWeek(dk){
 function hasMonth(mk){ return !!mk && S.all.some(t => monKey(t) === mk); }
 function hasYear(y){   return !!y  && S.all.some(t => monKey(t).slice(0,4) === y); }
 
+/* Квартал беремо не поточний, а той, у якому лежить відкритий місяць:
+   дивишся березень — ділишся першим кварталом, а не тим, що надворі. */
+function curQuarter(){
+  const mk = curMonth();
+  if (!mk) return "";
+  return mk.slice(0, 4) + "-Q" + (Math.floor((+mk.slice(5, 7) - 1) / 3) + 1);
+}
+function hasQuarter(qk){
+  if (!qk) return false;
+  const y = qk.slice(0, 4), q = +qk.slice(6);
+  return S.all.some(t => {
+    const k = monKey(t);
+    if (k.slice(0, 4) !== y) return false;
+    const m = +k.slice(5, 7);
+    return m >= q * 3 - 2 && m <= q * 3;
+  });
+}
+
 /* ---- смуга над розділом: одна кнопка «Поділитися» ----
    Раніше тут стояло по кнопці на кожен період — і поруч із підписом
    «Поділитися» виходило до пʼяти елементів у рядок. Тепер кнопка одна:
@@ -660,8 +711,10 @@ function mountBar(){
   const choices = [];
   if (!bt && hasDay(d))  choices.push({ label:T.slDay,         kind:"day",   arg:d });
   if (!bt && hasWeek(d)) choices.push({ label:T.slWeek,        kind:"week",  arg:d });
-  if (hasMonth(mk))      choices.push({ label:T.ovPeriodMonth, kind:"month", arg:mk });
-  if (hasYear(year))     choices.push({ label:T.ovPeriodYear,  kind:"year",  arg:year });
+  const qk = curQuarter();
+  if (hasMonth(mk))      choices.push({ label:T.ovPeriodMonth,   kind:"month",   arg:mk });
+  if (hasQuarter(qk))    choices.push({ label:T.ovPeriodQuarter, kind:"quarter", arg:qk });
+  if (hasYear(year))     choices.push({ label:T.ovPeriodYear,    kind:"year",    arg:year });
   if (!choices.length) return;
 
   const bar = document.createElement("div");
@@ -670,7 +723,14 @@ function mountBar(){
   const btn = document.createElement("button");
   btn.type = "button";
   btn.className = "btn sh-btn sh-toggle";
-  btn.innerHTML = icon() + " <span>" + T.slShareCap + "</span>" + (choices.length > 1 ? caret() : "");
+  /* Пташки збоку немає навмисно: кнопка й без неї розгортає список,
+     а поруч із підписом вона читалась як ще один предмет у кутку. */
+  btn.innerHTML = icon() + " <span>" + T.slShareCap + "</span>";
+  /* В огляді кнопка лишається без підпису, самим значком, тож ім'я для
+     озвучки й підказки задаємо окремо. Там, де підпис видно, вони просто
+     повторюють його — шкоди з того немає. */
+  btn.title = T.slShareCap;
+  btn.setAttribute("aria-label", T.slShareCap);
   bar.appendChild(btn);
 
   if (choices.length === 1){
@@ -705,8 +765,8 @@ function mountBar(){
     return;
   }
 
-  /* на огляді — праворуч, одразу за перемикачем періоду: місяць і рік
-     віддаються назовні тим самим рухом, яким їх обирають */
+  /* на огляді — у кутку шапки, праворуч від заголовка. Перемикач періоду
+     живе в картці, тож у шапці ця кнопка лишається сама. */
   const ohead = root.querySelector(".ovw .ohead");
   if (ohead){
     bar.classList.add("sh-inline");

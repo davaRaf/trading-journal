@@ -501,29 +501,6 @@ def drop_import(user_id, batch):
     return removed
 
 
-def disconnect_source(user_id, batch):
-    """Відв'язує базу: оновлення з неї більше не ходить, угоди лишаються.
-
-    Це не те саме, що «прибрати угоди». Людина, яка відв'язує Notion, майже
-    завжди хоче зупинити обмін, а не викинути півтори сотні своїх записів —
-    раніше ці дві дії робила одна кнопка, і відв'язатись, не втративши
-    журнал, було нічим."""
-    batch = str(batch or "")[:32]
-    if not batch:
-        return False
-    conf = notion_conf(user_id)
-    left = [s for s in conf.get("sources") or [] if s["id"] != batch]
-    if len(left) == len(conf.get("sources") or []):
-        return False
-    conf["sources"] = left
-    if (conf.get("last") or {}).get("id") == batch:
-        conf.pop("last", None)
-    if not left:
-        _forget_notion(conf)
-    notion_save(user_id, conf)
-    return True
-
-
 def _forget_notion(conf):
     """Останню базу зняли — прибираємо й те, що її описувало. Інакше сайт
     вважав би Notion підключеним через саме лише посилання, яке людина
@@ -1224,10 +1201,89 @@ class H(BaseHTTPRequestHandler):
         self.end_headers()
         self.wfile.write(data)
 
+    def _media(self, path, ctype, cache=None):
+        """Відео — частинами, за заголовком Range.
+
+        Ролик-підказку в перенесенні з Notion не можна віддавати одним
+        шматком, як решту файлів: Safari спершу просить перші два байти й
+        без відповіді «206» взагалі не починає грати, а решті браузерів
+        частини дають перемотування.
+        """
+        try:
+            size = os.path.getsize(path)
+            f = open(path, "rb")
+        except Exception:
+            self.send_response(404); self.end_headers(); return
+        with f:
+            start, end, partial = 0, size - 1, False
+            m = re.match(r"bytes=(\d*)-(\d*)\s*$",
+                         (self.headers.get("Range") or "").strip())
+            if m and (m.group(1) or m.group(2)):
+                if m.group(1):
+                    start = int(m.group(1))
+                    if m.group(2):
+                        end = min(int(m.group(2)), end)
+                else:                       # bytes=-N — хвіст файлу
+                    start = max(0, size - int(m.group(2)))
+                if start > end:
+                    self.send_response(416)
+                    self.send_header("Content-Range", "bytes */%d" % size)
+                    self.end_headers(); return
+                partial = True
+            self.send_response(206 if partial else 200)
+            self.send_header("Content-Type", ctype)
+            self.send_header("Accept-Ranges", "bytes")
+            if partial:
+                self.send_header("Content-Range",
+                                 "bytes %d-%d/%d" % (start, end, size))
+            self.send_header("Content-Length", str(end - start + 1))
+            self.send_header("Cache-Control", cache or "no-store")
+            self.end_headers()
+            f.seek(start)
+            left = end - start + 1
+            try:
+                while left > 0:
+                    chunk = f.read(min(262144, left))
+                    if not chunk:
+                        break
+                    self.wfile.write(chunk)
+                    left -= len(chunk)
+            except (BrokenPipeError, ConnectionResetError):
+                pass            # закрили вікно посеред ролика — це не помилка
+
     def _redirect(self, where):
         self.send_response(302)
         self.send_header("Location", where)
         self.end_headers()
+
+    def _landing(self):
+        """Стартова сторінка. Як і в /login: месенджерам потрібна повна адреса
+        картинки прев'ю, а у файлі вона відносна — дописуємо базу на віддачі."""
+        try:
+            with open(os.path.join(STATIC, "landing.html"), "r", encoding="utf-8") as f:
+                html = f.read()
+        except OSError:
+            self.send_response(404); self.end_headers(); return
+        main_og = os.path.join(STATIC, "og-main.png")
+        if os.path.exists(main_og):
+            html = html.replace('"/static/og-main.png"',
+                                '"/static/og-main.png?v=%d"' % int(os.path.getmtime(main_og)))
+        html = html.replace('content="/static/', 'content="%s/static/' % self._base())
+        html = html.replace("</title>",
+                            '</title>\n<meta property="og:url" content="%s/">' % self._base(), 1)
+        body = html.encode("utf-8")
+        enc = self._squeeze(body)
+        if enc is not None:
+            body = enc
+        self.send_response(200)
+        self.send_header("Content-Type", "text/html; charset=utf-8")
+        if enc is not None:
+            self.send_header("Content-Encoding", "gzip")
+            self.send_header("Vary", "Accept-Encoding")
+        self.send_header("Content-Length", str(len(body)))
+        self.send_header("Cache-Control", "no-store")
+        self.end_headers()
+        self.wfile.write(body)
 
     # Найбільше тіло запиту. Угода з кількома скрінами в base64 — кілька
     # мегабайт; без межі будь-хто міг змусити сервер читати в пам'ять
@@ -1319,6 +1375,56 @@ class H(BaseHTTPRequestHandler):
                         "code": "too_many", "wait": wait}, 429)
             return None
         return keys
+
+    def _settle_return(self):
+        """Людина повернулась із каси: вмикаємо оплачене, не чекаючи вебхука.
+
+        Порядок тут навмисний. Підпис в адресі доводить лише те, що назад
+        її відправив Creem, а не те, що гроші дійшли: платіж міг лишитись
+        в обробці. Тому підпис каже тільки, **у кого питати**, а вмикаємо
+        за відповіддю їхнього API. Не підтвердив — не вмикаємо нічого,
+        дочекається вебхука.
+
+        Помилка тут не має ламати вхід у журнал: не змогли спитати —
+        мовчки пропускаємо, підписку донесе вебхук.
+        """
+        q = {k: v[0] for k, v in parse_qs(urlparse(self.path).query).items()}
+        if not creem.verify_return(q):
+            print("повернення: підпис не зійшовся", flush=True)
+            return
+        uid = creem.who({"request_id": q.get("request_id", "")})
+        sid = q.get("subscription_id", "")
+        if not uid or not sid:
+            return
+        try:
+            sub = creem.subscription(sid)
+        except Exception as ex:
+            print("повернення: не спитали Creem:", ex, flush=True)
+            return
+        status = str(sub.get("status") or "")
+        if status not in creem.LIVE_STATUSES:
+            print("повернення: підписка %s поки %r" % (sid, status), flush=True)
+            return
+        # Підпис міг бути справжній, але від іншої людини — звіряємо, що
+        # підписка справді та, про яку йшлося в адресі.
+        if creem.who(sub) not in (None, uid):
+            print("повернення: підписка не тієї людини", flush=True)
+            return
+        try:
+            db.set_creem_customer(uid, creem.customer_of(sub))
+        except Exception as ex:
+            print("повернення: не записав покупця:", ex, flush=True)
+        try:
+            billing.apply_paid(uid, creem.plan_of(sub) or "month",
+                               creem.period_end(sub))
+            # Номер підписки в журнал — без нього потім не скажеш, яку
+            # саме оплату вмикали, а скасувати її на боці Creem можна
+            # тільки за точним номером: списку за покупцем вони не дають.
+            print("повернення: увімкнули оплачене для %s: %s, %s, до %s"
+                  % (uid, sid, creem.plan_of(sub) or "month",
+                     creem.period_end(sub)), flush=True)
+        except Exception as ex:
+            print("повернення: не застосував оплату:", ex, flush=True)
 
     def _uid(self):
         return auth.current_user_id(self)
@@ -2156,8 +2262,10 @@ class H(BaseHTTPRequestHandler):
                 return self._json({"error": "завдання не знайдено"}, 404)
             return self._json(job.snapshot())
 
-        # публічні сторінки: їх вимагає Google для входу через акаунт
-        if p in ("/privacy", "/terms"):
+        # публічні сторінки: приватність і умови вимагає Google для входу
+        # через акаунт, умови й повернення — платіжний сервіс під час
+        # перевірки домену. Адреси без .html: так вони вже роздаються рік.
+        if p in ("/privacy", "/terms", "/refund"):
             return self._file(os.path.join(STATIC, p.strip("/") + ".html"), "text/html; charset=utf-8")
 
         # Ярлик на телефоні. Коли на сторінці немає посилання на іконку —
@@ -2296,12 +2404,27 @@ class H(BaseHTTPRequestHandler):
                 return self._redirect("/login?ref=" + ref)
 
         if p in ("/", "/index.html"):
+            # Повернення з каси: ?paid=1 з їхнім підписом. Робимо це до
+            # входу — людина могла повернутись у браузер без сесії, а
+            # оплата від цього не менш справжня.
+            if "paid=1" in (urlparse(self.path).query or ""):
+                try:
+                    self._settle_return()
+                except Exception as ex:
+                    print("повернення:", ex, flush=True)
             if not self._uid():
                 # ?ref=партнер лишаємо в адресі: месенджер іде за редіректом і
                 # бере прев'ю вже зі сторінки входу — там воно в стилі партнера
                 q = urlparse(self.path).query
-                return self._redirect("/login" + ("?" + q if q else ""))
+                if q:
+                    return self._redirect("/login?" + q)
+                # гість без позначок бачить стартову сторінку
+                return self._landing()
             return self._file(os.path.join(STATIC, "index.html"), "text/html; charset=utf-8")
+
+        if p == "/landing":
+            # стартова сторінка й для того, хто вже увійшов, — подивитись, як її бачать гості
+            return self._landing()
 
         if p == "/demo":
             # Журнал без акаунта, на демонстраційних даних. Сюди ведуть
@@ -2323,12 +2446,15 @@ class H(BaseHTTPRequestHandler):
                 self.send_response(404); self.end_headers(); return
             ext = name.rsplit(".", 1)[-1].lower()
             ctype = {"css":"text/css; charset=utf-8","js":"application/javascript; charset=utf-8",
-                     "html":"text/html; charset=utf-8","png":"image/png","svg":"image/svg+xml"}.get(ext,"application/octet-stream")
+                     "html":"text/html; charset=utf-8","png":"image/png","svg":"image/svg+xml",
+                     "webp":"image/webp","mp4":"video/mp4"}.get(ext,"application/octet-stream")
             # у файлів є версія в адресі (?v=5), тому кешуємо назавжди:
             # правка версії сама змусить браузер піти за новим
             versioned = "v=" in urlparse(self.path).query
-            return self._file(os.path.join(STATIC, name), ctype,
-                              self.FOREVER if versioned else None)
+            cache = self.FOREVER if versioned else None
+            if ctype.startswith("video/"):
+                return self._media(os.path.join(STATIC, name), ctype, cache)
+            return self._file(os.path.join(STATIC, name), ctype, cache)
 
         self.send_response(404); self.end_headers()
 
@@ -3198,13 +3324,13 @@ class H(BaseHTTPRequestHandler):
             n = drop_import(uid, p[len("/api/notion/undo/"):])
             return self._json({"removed": n})
 
-        # Відв'язати базу: оновлення з неї припиняється, угоди лишаються
-        # в журналі. Прибирання угод — сусідній маршрут, і це навмисно
-        # дві різні дії.
+        # Відв'язати базу — разом з її угодами, як і «undo» вище. Маршрут
+        # лишається для сторінок, що ще тримають старий notion.js у кеші.
         if p.startswith("/api/notion/off/"):
-            off = disconnect_source(uid, p[len("/api/notion/off/"):])
+            n = drop_import(uid, p[len("/api/notion/off/"):])
             conf = notion_conf(uid)
-            return self._json({"ok": off, "left": len(conf.get("sources") or [])})
+            return self._json({"ok": True, "removed": n,
+                               "left": len(conf.get("sources") or [])})
 
         if p == "/api/notion/forget":
             try:

@@ -138,7 +138,7 @@ html:has(.pnl-wrap){overflow-y:hidden}
      низу сторінки панель підстрибувала. Fixed від прокрутки не залежить.
      Місце під неї в потоці тримає margin-left у сусіда (нижче). */
   position:fixed;top:0;left:0;bottom:0;z-index:10}
-/* Сусід панелі: сама робоча область або колонка зі смужкою новин (tgnews.js).
+/* Сусід панелі — робоча область.
    Ширина — змінною: кожен варіант меню задає її тим самим селектором, що й
    ширину .side, тож відступ завжди збігається з панеллю. Де панель не fixed
    (смуга зверху, вузький екран) — відступ знімаємо з !important, бо правила
@@ -151,7 +151,7 @@ html:has(.pnl-wrap){overflow-y:hidden}
 /* Зверху робочої області стоїть смуга (.topbar нижче), тож сусід панелі
    відступає не лише вліво, а й униз. Відступ саме margin, а не padding:
    у .main свій padding коротким записом, і padding-top тут з ним сперечався б. */
-body > .main, body > .tgn-col{margin-left:var(--side-w);margin-top:var(--tb-h)}
+body > .main{margin-left:var(--side-w);margin-top:var(--tb-h)}
 /* смуга прокрутки в лівому меню не потрібна: воно коротке, а на низькому
    екрані докручується колесом. Разом зі смугою прибрано й місце під неї
    (scrollbar-gutter) — інакше праворуч лишалась порожня колонка. */
@@ -741,7 +741,7 @@ table.simple tr.click:hover td{background:var(--panel-2)}
   body{flex-direction:column}
   .side{width:100%;height:auto;position:static;flex-direction:row;flex-wrap:wrap;align-items:center;gap:10px;
     border-right:none;border-bottom:1px solid var(--line);padding:12px 14px}
-  body > .main, body > .tgn-col{margin-left:0!important}
+  body > .main{margin-left:0!important}
   .nav{flex-direction:row;flex-wrap:wrap;order:3;width:100%}
   .nav a{padding:6px 10px;font-size:13px}
   .nav a.on{box-shadow:inset 0 -2px 0 var(--accent)}
@@ -784,6 +784,9 @@ table.simple tr.click:hover td{background:var(--panel-2)}
 .tfslot.filled .tfl{color:var(--accent)}
 .tfslot.active{border-color:var(--accent);border-style:solid}
 .tfhint{grid-column:1/-1;font-family:var(--mono);font-size:11px;color:var(--faint);letter-spacing:.04em}
+/* Порожній — місця не займає: підказки там більше немає,
+   а рядок стоїть під короткі повідомлення форми. */
+.tfhint:empty{display:none}
 
 /* ---------- метки секций дашборда ---------- */
 .seclab{display:flex;align-items:flex-end;gap:16px;margin:0 0 16px;
@@ -804,6 +807,18 @@ table.simple tr.click:hover td{background:var(--panel-2)}
   border:1px dashed var(--accent);border-radius:4px;padding:3px 8px}
 .tfslot.active{background:var(--accent-soft)}
 .tfhint b{color:var(--text)}
+
+/* Кнопка порядку таймфреймів стоїть у шапці картки зі скрінами, праворуч
+   від назви. Шапка через це стає рядком — у решти карток там сам заголовок,
+   тож вигляд не міняється. */
+.fcard>h4{display:flex;align-items:center;justify-content:space-between;gap:10px}
+.tfsort{font-family:var(--mono);font-size:9.5px;letter-spacing:.08em;color:var(--faint);
+  border:1px solid var(--line);border-radius:4px;padding:3px 8px;min-height:24px;
+  text-transform:none;cursor:pointer;background:none;white-space:nowrap;
+  transition:color .12s,border-color .12s}
+.tfsort:hover{color:var(--accent);border-color:var(--accent)}
+.tfsort:empty{display:none}
+@media(max-width:660px){ .tfsort{min-height:32px;padding:6px 11px;font-size:10.5px} }
 
 /* ---------- разбор месяца ---------- */
 .m-body.rep{max-height:none}
@@ -1111,7 +1126,7 @@ table.simple.mini td:last-child{white-space:nowrap;font-weight:600}
    вкладки одного розділу, і поки це правило висіло на сторінці, розмір
    шрифта всього застосунку (бічне меню, вікна, панель угоди) мінявся
    при кожному переході між ними. */
-.ovw{--ease:cubic-bezier(.16,1,.3,1);display:grid;grid-template-columns:minmax(0,1fr) 320px;
+.ovw{--ease:cubic-bezier(.16,1,.3,1);display:grid;grid-template-columns:minmax(0,1fr) 360px;
   column-gap:44px;align-items:start;font-size:14px;line-height:1.6;font-weight:300}
 /* Порожній журнал малює «Огляд» іншою гілкою — без .ovw, самими картками.
    Набір там мусить бути той самий, інакше перехід на «Рахунки» міняв би
@@ -1219,8 +1234,15 @@ h1.ovh a.on::after{content:"";position:absolute;left:0;right:0;bottom:0;height:2
 .ovw .sum .lab{font-family:var(--mono);font-size:9px;letter-spacing:.20em;text-transform:uppercase;color:var(--faint)}
 .ovw .sum .big{font-family:var(--mono);font-size:54px;font-weight:400;letter-spacing:-.045em;line-height:1;margin-top:14px}
 .ovw .sum .when{font-size:22px;color:var(--dim);margin-bottom:6px}
-.ovw .sum .right{margin-left:auto;text-align:right}
-.ovw .sum .right .v{font-family:var(--mono);font-size:15px;color:var(--dim)}
+/* Перемикач періоду стоїть у правому верхньому куті картки — на рівні
+   підпису «місяць (поточний)», а не внизу біля дати. Дрібніший, ніж був
+   у шапці: там він стояв поруч із заголовком розділу, а тут — підпис до
+   картки, і сперечатися з числом «+59.10%» за увагу йому нема чого. */
+.ovw .sum .per{margin-left:auto;align-self:flex-start;padding:3px;border-radius:11px}
+.ovw .sum .per button{padding:5px 12px;border-radius:8px;font-size:11.5px}
+/* У шапці лишилась одна кнопка — тепер праворуч її тримає вона сама,
+   а не перемикач, що стояв перед нею. */
+.ovw .ohead .sh-bar.sh-inline{margin-left:auto}
 
 /* показатели: только hairline-сетка, никаких карточек внутри карточек */
 .ovw .stats{display:grid;grid-template-columns:repeat(4,1fr);border-top:1px solid var(--line-soft)}
@@ -1254,7 +1276,10 @@ h1.ovh a.on::after{content:"";position:absolute;left:0;right:0;bottom:0;height:2
    друга відлітала в самий низ і між ними зяяла діра на пів екрана
    (20.09.2026, прохання власника). Тепер рядки йдуть підряд одразу під
    своїм заголовком, а вільне місце лишається під ними. */
-.ovw .rail{align-self:stretch;display:flex;flex-direction:column;border:1px solid var(--line-soft);
+/* Картка стоїть угорі й закінчується разом зі своїм вмістом: раніше
+   вона тяглась на всю висоту лівої колонки, і нижній квартал заходив
+   під круглу кнопку помічника в кутку екрана. */
+.ovw .rail{align-self:start;display:flex;flex-direction:column;border:1px solid var(--line-soft);
   border-radius:22px;padding:6px;background:var(--shell-bg)}
 .ovw .rail .inner{flex:1;background:var(--card);border:1px solid var(--line-soft);border-radius:17px;
   padding:22px 22px 20px;display:flex;flex-direction:column;box-shadow:var(--shadow)}
@@ -1277,6 +1302,40 @@ h1.ovh a.on::after{content:"";position:absolute;left:0;right:0;bottom:0;height:2
 .ovw .rail.in .bar .ln i{transform:scaleX(1)}
 .ovw .bar.pos .ln i{background:color-mix(in srgb,var(--up) 55%,transparent)}
 .ovw .bar.neg .ln i{background:color-mix(in srgb,var(--down) 50%,transparent)}
+
+/* ---------- права колонка «Огляду»: рік чотирма кварталами ----------
+   Крапка — день. Сітка по днях тижня, як у календарі: понеділок перший,
+   порожні клітинки на початку місяця тримають зсув. Сама крапка мала,
+   а ловить її клітинка вдвічі більша — інакше в неї не влучити мишею. */
+.ovq h3{margin-bottom:16px}
+.ovq .q{flex:0 0 auto;justify-content:flex-start}
+/* Квартали стоять тісніше, ніж звичайні розділи колонки: так картка
+   цілком лишається вище кнопки помічника. */
+.ovq .q + .q{margin-top:14px;padding-top:14px}
+.ovq .qh{display:flex;align-items:baseline;gap:8px;margin:0 0 10px}
+.ovq .qh b{font-family:var(--mono);font-size:10px;letter-spacing:.14em;text-transform:uppercase;
+  color:var(--dim);font-weight:500}
+.ovq .q.now .qh b{color:var(--accent)}
+.ovq .qh em{margin-left:auto;font-style:normal;font-family:var(--mono);font-size:11px}
+.ovq .ms{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
+.ovq .mn{display:block;font-family:var(--mono);font-size:9.5px;letter-spacing:.08em;text-transform:uppercase;
+  color:var(--ghost-2);margin-bottom:7px}
+/* Клітинка тягнеться за шириною колонки, а крапка — частка клітинки:
+   на телефоні вона виходить більшою, і в неї можна влучити пальцем. */
+.ovq .g{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:1px;max-width:150px}
+.ovq .od{aspect-ratio:1;position:relative;display:block}
+.ovq .od::after{content:"";position:absolute;inset:22%;border-radius:50%;background:var(--bar-track);
+  transition:transform .12s ease}
+.ovq .od.gap::after{background:none}
+.ovq .od.up::after{background:var(--up)}
+.ovq .od.down::after{background:var(--down)}
+.ovq .od.flat::after{background:var(--be)}
+.ovq .od.today::after{box-shadow:0 0 0 1.5px var(--ghost-2)}
+/* в картці з кварталами поля вужчі: місце йде крапкам */
+.ovw .rail .inner.ovi{padding:20px 16px 18px}
+.ovq .od[data-tip]{cursor:pointer}
+.ovq .od[data-tip]:hover::after{transform:scale(1.7)}
+@media (prefers-reduced-motion:reduce){ .ovq .od::after{transition:none} }
 
 /* тихий вход блоков */
 .rise{opacity:0;transform:translateY(12px);transition:opacity .7s var(--ease),transform .7s var(--ease)}
@@ -1409,7 +1468,7 @@ h1.ovh a.on::after{content:"";position:absolute;left:0;right:0;bottom:0;height:2
    їдуть на нове місце цілими шматками, стара сторінка швидко гасне, нова
    проявляється з легким підйомом, а капсула режиму стоїть на місці. */
 .side{view-transition-name:side}
-body > .tgn-col, body > .main{view-transition-name:page}
+body > .main{view-transition-name:page}
 .bt-flag{view-transition-name:btflag}
 @media (min-width:901px){ :root:not([data-layout="top"]) .side .mode-sw{view-transition-name:modesw} }
 ::view-transition-group(*){animation-duration:.3s;animation-timing-function:cubic-bezier(.2,.7,.2,1)}
@@ -1678,7 +1737,6 @@ button[data-tip],a[data-tip],.mk[data-tip]{cursor:pointer}
   color:var(--faint);font-size:12.5px;text-align:center;transition:border-color .15s,background .15s,color .15s}
 .attach:hover{color:var(--dim);border-color:var(--faint)}
 .attach svg{opacity:.55;flex:none}
-.attach b{color:var(--dim);font-weight:500}
 
 /* активная пилюля — как вкладка на экране входа: графит с волоском, а не белая заливка */
 :root[data-theme="dark"] .pill.on{background:var(--seg-on-bg);color:var(--text);
@@ -1753,7 +1811,7 @@ body::after{
   width:100%;height:auto;flex-direction:row;align-items:center;gap:12px;
   padding:9px 20px;border-right:none;border-bottom:1px solid var(--side-line);
   position:sticky;top:0;left:auto;bottom:auto;z-index:20;overflow:visible;background:var(--panel)}
-:root[data-layout="top"] body > .main, :root[data-layout="top"] body > .tgn-col{margin-left:0!important}
+:root[data-layout="top"] body > .main{margin-left:0!important}
 :root[data-layout="top"] .brand{padding:0;gap:9px}
 :root[data-layout="top"] .brand .nm small{display:none}
 :root[data-layout="top"] .side .nav{flex-direction:row;gap:4px;margin-left:14px}
@@ -1781,7 +1839,7 @@ body::after{
 :root[data-layout="bento"] .ovw .ohead{grid-column:1 / -1}
 :root[data-layout="bento"] .ovw .flow{display:contents}
 :root[data-layout="bento"] .ovw .week{grid-column:1 / 9;grid-row:2;margin-bottom:0}
-:root[data-layout="bento"] .ovw .rail{grid-column:9 / 13;grid-row:2 / 4}
+:root[data-layout="bento"] .ovw .rail{grid-column:9 / 13;grid-row:2 / 4;align-self:stretch}
 :root[data-layout="bento"] .ovw .flow > .shell:nth-child(2){grid-column:1 / 5;grid-row:3;margin-bottom:0}
 :root[data-layout="bento"] .ovw .flow > .shell:nth-child(3){grid-column:5 / 9;grid-row:3;margin-bottom:0}
 :root[data-layout="bento"] .ovw .flow > .shell,

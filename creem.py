@@ -19,6 +19,7 @@ import hashlib
 import hmac
 import json
 import urllib.error
+import urllib.parse
 import urllib.request
 
 from config import (CREEM_API, CREEM_API_KEY, CREEM_PRODUCTS, CREEM_RETURN,
@@ -208,3 +209,56 @@ def portal(customer_id):
     if not url:
         raise RuntimeError("Creem не дав посилання на кабінет: %r" % (res,))
     return url
+
+
+# ------------------------------------------------------- повернення з каси ----
+# Після оплати Creem відправляє людину назад і додає до адреси свої
+# опізнавачі й підпис. Порядок полів у підписі саме такий — вони
+# склеюються через «|» у тому ж порядку, в якому Creem їх перелічує,
+# а сіллю служить наш API-ключ. Міняти порядок не можна: підпис не зійдеться.
+RETURN_KEYS = ("request_id", "checkout_id", "order_id", "customer_id",
+               "subscription_id", "product_id")
+
+
+def return_signature(params):
+    """Порахувати підпис адреси повернення так, як його рахує Creem."""
+    parts = ["%s=%s" % (k, params[k]) for k in RETURN_KEYS if params.get(k)]
+    parts.append("salt=" + CREEM_API_KEY)
+    return hashlib.sha256("|".join(parts).encode("utf-8")).hexdigest()
+
+
+def verify_return(params):
+    """Чи справді ця адреса від Creem.
+
+    Підпис доводить одне: людину повернув Creem, а не хтось підставив
+    адресу руками. Він **не** доводить, що гроші дійшли — платіж міг
+    лишитись в обробці. Тому на самому підписі рішення не ухвалюємо:
+    далі питаємо в Creem, що з підпискою насправді.
+    """
+    got = str(params.get("signature") or "")
+    if not got or not CREEM_API_KEY:
+        return False
+    return hmac.compare_digest(got, return_signature(params))
+
+
+def _get(path):
+    req = urllib.request.Request(
+        CREEM_API + path,
+        headers={"x-api-key": CREEM_API_KEY,
+                 "Accept": "application/json",
+                 "User-Agent": UA})
+    with urllib.request.urlopen(req, timeout=TIMEOUT) as r:
+        return json.load(r)
+
+
+def subscription(sub_id):
+    """Спитати Creem, що з підпискою зараз. Джерело правди — тут."""
+    sid = str(sub_id or "").strip()
+    if not sid:
+        raise ValueError("немає номера підписки")
+    return _get("/v1/subscriptions?subscription_id=" + urllib.parse.quote(sid))
+
+
+# Стани, за яких підписка справді працює. Решта — очікування, борг або
+# кінець; вмикати за ними не можна.
+LIVE_STATUSES = ("active", "trialing")
