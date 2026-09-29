@@ -2511,6 +2511,14 @@ class H(BaseHTTPRequestHandler):
             plan = str(body.get("plan") or "").strip()
             if plan not in billing.PLANS:
                 return self._json({"error": "невідомий тариф"}, 400)
+            # Кожен рахунок — рядок у базі й зайнята сума. Передумувати
+            # можна скільки завгодно, але не сто разів на хвилину.
+            keys = ["cinv:%s" % uid]
+            wait = ratelimit.check(keys, limit=20)
+            if wait:
+                return self._json({"error": "зачекай %d с" % wait,
+                                   "code": "too_many", "wait": wait}, 429)
+            ratelimit.miss(keys, limit=20)
             inv = crypto_pay.create(uid, plan)
             if not inv:
                 return self._json({"error": "не вдалося виставити рахунок",

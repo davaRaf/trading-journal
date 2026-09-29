@@ -162,6 +162,73 @@ def check_flow():
         case("підписка в другого діє", billing.state(u2["id"])["active"], True)
         case("скасовувати вдруге нема чого", crypto_pay.cancel(u2["id"]), False)
 
+        # ---- «я оплатив, ось номер»: чужий переказ не привласнити ----
+        # Номер переказу видно в блокчейні кожному, тож перевіряємо не
+        # слова, а те, чий це переказ насправді.
+        real = tron.by_hash
+        try:
+            inv4 = crypto_pay.create(uid, "month")        # рахунок першого
+            thief = crypto_pay.create(u2["id"], "month")  # і рахунок другого
+            case("обом виставили рахунки", bool(inv4 and thief), True)
+
+            tx3 = "e" * 64
+            seen.append(tx3)
+            tron.by_hash = lambda t: {"tx": tx3, "from": "T" + "q" * 33,
+                                      "units": inv4["units"],
+                                      "at": int(db.now().timestamp() * 1000)}
+            # Другий називає номер переказу першого своїм.
+            ok, why = crypto_pay.claim(u2["id"], tx3)
+            case("чужий переказ за номером не забрати", (ok, why), (False, "used"))
+            case("гроші пішли тому, хто їх чекав",
+                 billing.state(uid)["active"], True)
+            case("чужий рахунок так і лишився відкритим",
+                 (crypto_pay.current(u2["id"]) or {}).get("id"), thief["id"])
+
+            # Переказ, зроблений до того, як виставлено рахунок, не наш.
+            tx4 = "f" * 64
+            seen.append(tx4)
+            old_ms = int(db.now().timestamp() * 1000) - 6 * 60 * 60 * 1000
+            tron.by_hash = lambda t: {"tx": tx4, "from": "T" + "r" * 33,
+                                      "units": thief["units"] + 700_000,
+                                      "at": old_ms}
+            case("переказ, старший за рахунок, не приймаємо",
+                 crypto_pay.claim(u2["id"], tx4), (False, "too_old"))
+
+            # Переплата в межах округлення — приймаємо.
+            tx5 = "1" * 64
+            seen.append(tx5)
+            tron.by_hash = lambda t: {"tx": tx5, "from": "T" + "s" * 33,
+                                      "units": thief["units"] + 700_000,
+                                      "at": int(db.now().timestamp() * 1000)}
+            case("округлення вгору проходить",
+                 crypto_pay.claim(u2["id"], tx5), (True, ""))
+
+            # А переплата в кілька монет — це вже чужі гроші.
+            inv5 = crypto_pay.create(u2["id"], "month")
+            tx6 = "2" * 64
+            seen.append(tx6)
+            tron.by_hash = lambda t: {"tx": tx6, "from": "T" + "u" * 33,
+                                      "units": inv5["units"] + 50_000_000,
+                                      "at": int(db.now().timestamp() * 1000)}
+            case("переказ на вчетверо більшу суму не приймаємо",
+                 crypto_pay.claim(u2["id"], tx6), (False, "too_big"))
+
+            # Нічийний переказ свій власник забирає за номером.
+            tx7 = "3" * 64
+            seen.append(tx7)
+            crypto_pay._orphan({"tx": tx7, "from": "T" + "t" * 33,
+                                "units": inv5["units"] + 700_000,
+                                "at": int(db.now().timestamp() * 1000)})
+            tron.by_hash = lambda t: {"tx": tx7, "from": "T" + "t" * 33,
+                                      "units": inv5["units"] + 700_000,
+                                      "at": int(db.now().timestamp() * 1000)}
+            case("нічийний переказ можна зарахувати за номером",
+                 crypto_pay.claim(u2["id"], tx7), (True, ""))
+            case("і серед нічийних він більше не лежить",
+                 _orphans(tx7), 0)
+        finally:
+            tron.by_hash = real
+
         # Переказ, що не збігся ні з чим, не губимо.
         orphan = {"tx": "c" * 64, "from": "T" + "w" * 33,
                   "units": 999_000_000, "at": 1700000000000}

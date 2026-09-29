@@ -222,16 +222,51 @@ function freeTerms(){
     T.subFreeImports.replace("%d", f.imports).replace("%d", f.import_days),
     T.subFreeAi.replace("%d", f.ai),
   ];
-  return '<div class="sub-fhead">' + esc(T.subFreeHead) + "</div>"
-    + '<ul class="sub-free">' + rows.map(r => "<li>" + r + "</li>").join("") + "</ul>";
+  return fold("free", T.subFreeHead,
+              '<ul class="sub-free">' + rows.map(r => "<li>" + r + "</li>").join("") + "</ul>");
+}
+
+/* Шторка: заголовок-кнопка, під нею перелік.
+
+   Обидва переліки — доводи, а не дії: людина читає їх один раз, коли
+   вирішує платити, а потім вони просто розтягують розділ на два екрани.
+   Тому згорнуті за замовчуванням, а розгортає їх сама людина.
+
+   Висоту анімуємо через grid-template-rows 0fr → 1fr: це єдиний спосіб
+   плавно розкрити вміст, висоти якого ми не знаємо наперед, не міряючи
+   його руками щоразу. */
+function chev(){
+  return '<svg class="sub-chev" width="14" height="14" viewBox="0 0 24 24" fill="none"'
+    + ' stroke="currentColor" stroke-width="2" stroke-linecap="round"'
+    + ' stroke-linejoin="round" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg>';
+}
+
+function fold(id, head, inner){
+  return '<div class="sub-fold" data-fold="' + id + '">'
+    + '<button type="button" class="sub-fold-btn" aria-expanded="false"'
+    +   ' aria-controls="subFold-' + id + '">'
+    +   "<span>" + esc(head) + "</span>" + chev()
+    + "</button>"
+    + '<div class="sub-fold-body" id="subFold-' + id + '">'
+    +   '<div class="sub-fold-in">' + inner + "</div></div>"
+    + "</div>";
+}
+
+function wireFold(){
+  document.querySelectorAll(".sub-fold-btn").forEach(b =>
+    b.addEventListener("click", () => {
+      const box = b.closest(".sub-fold");
+      const open = box.classList.toggle("open");
+      b.setAttribute("aria-expanded", open ? "true" : "false");
+    }));
 }
 
 function feats(){
   const rows = [T.subF1, T.subF2, T.subF3, T.subF4];
-  return '<div class="sub-fhead">' + esc(T.subOpens) + "</div>"
-    + '<ul class="sub-feats">'
-    + rows.map(r => "<li>" + tick() + "<span>" + r + "</span></li>").join("")
-    + "</ul>";
+  return fold("opens", T.subOpens,
+              '<ul class="sub-feats">'
+              + rows.map(r => "<li>" + tick() + "<span>" + r + "</span></li>").join("")
+              + "</ul>");
 }
 
 /* Порожній рядок означає «показувати нема чого»: чужий журнал або
@@ -543,6 +578,7 @@ function wire(){
   wireManage();
   wireChange();
   wireInv();
+  wireFold();
   const box = document.querySelector(".sub-plans");
   if (!box) return;
   box.addEventListener("click", e => {

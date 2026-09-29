@@ -45,6 +45,13 @@ TAIL = 100                    # 0 … 0,099 USDT надбавки
 # між двома різними номерами. Хто округлив — має запасний шлях «я
 # оплатив, ось номер переказу», там шукаємо не за сумою.
 SLACK_UNITS = 400             # 0,0004 USDT
+# Скільки зайвого приймаємо в запасному шляху «я оплатив, ось номер».
+# Округлення вгору буває: 79,071 → 80. А от перевищення на кілька монет
+# — це вже не округлення, а чужий переказ, підібраний у блокчейні.
+CLAIM_OVER = 2_000_000        # 2 USDT
+# Наскільки переказ може виявитись «старшим» за рахунок. Годинники в
+# мережі й у нас розходяться на секунди; п'ять хвилин — із запасом.
+CLAIM_SKEW_MS = 5 * 60 * 1000
 
 
 def enabled():
@@ -248,6 +255,32 @@ def _orphan(row):
         conn.commit()
 
 
+def _credited(tx):
+    """Чи закрили цим переказом якийсь рахунок.
+
+    Не те саме, що «бачили». Переказ може лежати серед нічийних — тоді
+    гроші прийшли, а підписки ніхто не отримав, і зарахувати його за
+    номером ще можна й потрібно.
+    """
+    with db.connect() as conn:
+        return bool(conn.execute("SELECT 1 FROM crypto_invoices WHERE tx=%s",
+                                 (tx,)).fetchone())
+
+
+def _drop_orphan(tx):
+    """Переказ знайшов свій рахунок — серед нічийних йому більше не місце."""
+    with db.connect() as conn:
+        conn.execute("DELETE FROM crypto_orphans WHERE tx=%s", (tx,))
+        conn.commit()
+
+
+def _ms(when):
+    try:
+        return int(when.timestamp() * 1000)
+    except Exception:
+        return 0
+
+
 def _seen(tx):
     with db.connect() as conn:
         a = conn.execute("SELECT 1 FROM crypto_invoices WHERE tx=%s", (tx,)).fetchone()
@@ -310,6 +343,19 @@ def claim(uid, txid):
     а за номером — можна. Перевіряємо в блокчейні, що переказ справді
     наш, справді USDT і справді на нашу адресу; на слово не віримо.
 
+    І перевіряємо, що він саме цієї людини. Номер переказу — річ
+    прилюдна: у блокчейні видно всі перекази на наш гаманець, і назвати
+    чужий своїм може будь-хто. Тому три правила:
+
+    * переказ, який збігається за сумою з чиїмось рахунком, належить
+      власникові того рахунку — його й закриваємо, хто б не назвав
+      номер;
+    * переказ, зроблений раніше, ніж виставлено рахунок, не приймаємо:
+      свій рахунок людина відкриває до того, як платить, а не після
+      того, як побачила в мережі чужі гроші;
+    * переплату приймаємо в межах округлення, а не будь-яку — інакше
+      рахунок на місяць закривався б чужим переказом за рік.
+
     Повертає (ок, причина).
     """
     if not enabled():
@@ -317,18 +363,38 @@ def claim(uid, txid):
     got = tron.by_hash(txid)
     if not got:
         return False, "not_found"
-    if _seen(got["tx"]):
+    if _credited(got["tx"]):
         return False, "used"
+
+    # Сума — це номер рахунку. Якщо вона з чимось збігається, питання
+    # «чий переказ» вирішене, і назвати його своїм не вийде.
+    owner = _match(got["units"])
+    if owner:
+        ok = _settle(owner, got["tx"], got.get("from"), got.get("at"))
+        if ok:
+            _drop_orphan(got["tx"])
+        if owner["user_id"] != uid:
+            return False, "used"
+        return (True, "") if ok else (False, "used")
+
     inv = current(uid) or _last_new(uid)
     if not inv:
         return False, "no_invoice"
+    when = got.get("at") or 0
+    if when and when + CLAIM_SKEW_MS < _ms(inv["created_at"]):
+        return False, "too_old"
     if got["units"] + SLACK_UNITS < inv["units"]:
         # Заплатили менше, ніж коштує тариф: підписку не вмикаємо, але й
         # гроші не ховаємо — переказ лишається видним в адмінці.
         _orphan(got)
         return False, "too_small"
-    return (True, "") if _settle(inv, got["tx"], got.get("from"),
-                                 got.get("at")) else (False, "used")
+    if got["units"] > inv["units"] + CLAIM_OVER:
+        _orphan(got)
+        return False, "too_big"
+    ok = _settle(inv, got["tx"], got.get("from"), got.get("at"))
+    if ok:
+        _drop_orphan(got["tx"])
+    return (True, "") if ok else (False, "used")
 
 
 # --------------------------------------------------------- фоновий обхід ----
