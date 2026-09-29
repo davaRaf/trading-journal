@@ -29,14 +29,22 @@ import tron
 from config import (CRYPTO_TTL_MIN, EUR_USDT, PLAN_DAYS, PRICES,
                     TRON_WALLET)
 
-# Скільки різних «хвостиків» у суми. Три знаки — тисяча варіантів на
-# кожен тариф; одночасно відкритих рахунків у нас на порядки менше, тож
-# вільний знайдеться завжди, а людина бачить звичні на вигляд копійки.
-TAIL = 1000
-# Наскільки дозволяємо переказу не дотягнути до суми рахунку. Дрібниця
-# на кшталт зайвих часток монети не повинна лишати людину без підписки,
-# а от округлення до цілого — це вже інша сума, і воно сюди не пролізе.
-SLACK_UNITS = 10_000          # 0,01 USDT
+# Крок між сусідніми «хвостиками» суми і скільки їх усього. Сто
+# варіантів на тариф, найбільша надбавка — дев'ять копійок; одночасно
+# відкритих рахунків у нас на порядки менше, тож вільний знайдеться
+# завжди.
+#
+# Крок обов'язково більший за подвоєний допуск нижче. Інакше вікна двох
+# рахунків накладаються, і переказ однієї людини закриває рахунок іншої:
+# саме так і було, поки крок вимірювався частками монети, а допуск —
+# цілою копійкою.
+STEP = 1_000                  # 0,001 USDT між сусідніми сумами
+TAIL = 100                    # 0 … 0,099 USDT надбавки
+# Наскільки дозволяємо переказу не дотягнути до суми рахунку. Тільки
+# зовсім дрібниця: сума — це номер рахунку, і допуск не має з'їдати крок
+# між двома різними номерами. Хто округлив — має запасний шлях «я
+# оплатив, ось номер переказу», там шукаємо не за сумою.
+SLACK_UNITS = 400             # 0,0004 USDT
 
 
 def enabled():
@@ -66,12 +74,20 @@ def _free_units(base):
 
     Хвостик беремо випадковий, а не по черзі: підряд ідучі суми видали б
     сторонньому, скільки в нас оплат за день.
+
+    Зайнятою вважається не тільки сама сума, а й усе поруч із нею на
+    відстані допуску: дві суми, чиї вікна дотикаються, — це вже не два
+    різні номери рахунку.
     """
+    span = (TAIL - 1) * STEP
     with db.connect() as conn:
         taken = {r["units"] for r in conn.execute(
             "SELECT units FROM crypto_invoices WHERE status='new' "
-            "AND units BETWEEN %s AND %s", (base, base + TAIL - 1)).fetchall()}
-    free = [base + i for i in range(TAIL) if base + i not in taken]
+            "AND units BETWEEN %s AND %s",
+            (base - STEP, base + span + STEP)).fetchall()}
+    gap = 2 * SLACK_UNITS
+    free = [base + i * STEP for i in range(TAIL)
+            if all(abs(base + i * STEP - t) > gap for t in taken)]
     return random.choice(free) if free else 0
 
 
@@ -137,6 +153,22 @@ def expire_old(uid=None):
         conn.commit()
 
 
+def cancel(uid):
+    """Людина передумала: гасимо її відкритий рахунок.
+
+    Рядок не видаляємо. «Скасувати» тут означає «більше не чекаємо», а
+    не «грошей не було»: переказ міг піти за секунду до натискання, і
+    він так само має ввімкнути підписку — його впіймає _match серед
+    згаслих. Видалений рахунок не впіймав би нічого.
+    """
+    with db.connect() as conn:
+        got = conn.execute("UPDATE crypto_invoices SET status='expired' "
+                           "WHERE user_id=%s AND status='new' RETURNING id",
+                           (uid,)).fetchall()
+        conn.commit()
+    return bool(got)
+
+
 def current(uid):
     """Рахунок, який людина зараз оплачує, або None."""
     with db.connect() as conn:
@@ -157,12 +189,29 @@ def _match(units):
 
     Береться й трохи більша сума: людина могла накинути зайвого, і
     відмовляти їй за це безглуздо. Менша — тільки в межах дрібниці.
+
+    Дивимось і на згаслі рахунки за останню добу. Гроші в блокчейні
+    не питають, чи ми ще чекаємо: людина могла переказувати довше за
+    годину або натиснути «скасувати», коли переказ уже пішов. Такий
+    переказ має вмикати підписку сам, без листування з підтримкою.
+
+    Але згаслий беремо тільки тоді, коли він на цю суму один. Серед
+    згаслих однакові суми вже можливі — місце за ними не тримається, —
+    і вмикати підписку навмання, коли претендентів двоє, не можна: це
+    чужі гроші й чужа підписка. Такий переказ іде в «нічийні», і його
+    розбирають руками.
     """
     with db.connect() as conn:
-        return conn.execute(
-            "SELECT * FROM crypto_invoices WHERE status='new' "
-            "AND units BETWEEN %s AND %s ORDER BY id LIMIT 1",
-            (units - SLACK_UNITS, units + SLACK_UNITS)).fetchone()
+        rows = conn.execute(
+            "SELECT * FROM crypto_invoices "
+            "WHERE (status='new' OR (status='expired' "
+            "       AND created_at > now() - interval '1 day')) "
+            "AND units BETWEEN %s AND %s ORDER BY id",
+            (units - SLACK_UNITS, units + SLACK_UNITS)).fetchall()
+    live = [r for r in rows if r["status"] == "new"]
+    if live:
+        return live[0]
+    return rows[0] if len(rows) == 1 else None
 
 
 def _settle(inv, tx, payer, when_ms=0):

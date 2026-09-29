@@ -81,6 +81,7 @@ def check_flow():
     u = db.create_user(tag + "@example.com", tag, "h", "s", 1)
     uid = u["id"]
     seen = []
+    u2 = None
     try:
         inv = crypto_pay.create(uid, "month")
         case("рахунок виставлено", bool(inv), True)
@@ -88,8 +89,15 @@ def check_flow():
         case("рахунок чекає оплати", inv["status"], "new")
 
         base = crypto_pay.price_units(uid, "month")
+        span = crypto_pay.TAIL * crypto_pay.STEP
         case("сума близька до ціни",
-             base <= inv["units"] < base + crypto_pay.TAIL, True)
+             base <= inv["units"] < base + span, True)
+        case("надбавка непомітна для гаманця",
+             crypto_pay.TAIL * crypto_pay.STEP <= 100_000, True)
+        # Крок між сумами має перекривати допуск з обох боків, інакше два
+        # рахунки ловлять той самий переказ.
+        case("крок більший за подвійний допуск",
+             crypto_pay.STEP > 2 * crypto_pay.SLACK_UNITS, True)
 
         pub = crypto_pay.public(inv)
         case("сторінці віддали адресу", pub["wallet"], tron.TRON_WALLET)
@@ -122,11 +130,37 @@ def check_flow():
         inv3 = crypto_pay.create(uid, "month")
         case("рахунок під дрібницю виставлено", bool(inv3), True)
         case("невелика переплата підходить",
-             (crypto_pay._match(inv3["units"] + 5000) or {}).get("id"), inv3["id"])
+             (crypto_pay._match(inv3["units"] + 300) or {}).get("id"), inv3["id"])
         case("недобір у межах дрібниці підходить",
-             (crypto_pay._match(inv3["units"] - 5000) or {}).get("id"), inv3["id"])
+             (crypto_pay._match(inv3["units"] - 300) or {}).get("id"), inv3["id"])
         case("округлена сума вже не підходить",
              crypto_pay._match(inv3["units"] + 1_000_000), None)
+
+        # Два відкритих рахунки на той самий тариф: суми мають розходитись
+        # більше, ніж на допуск, інакше переказ одного закриє рахунок іншого.
+        tag2 = tag + "_b"
+        u2 = db.create_user(tag2 + "@example.com", tag2, "h", "s", 1)  # noqa: F841
+        other = crypto_pay.create(u2["id"], "month")
+        case("другому дали іншу суму", other["units"] == inv3["units"], False)
+        case("суми розійшлись більше за допуск",
+             abs(other["units"] - inv3["units"]) > 2 * crypto_pay.SLACK_UNITS, True)
+        case("кожен переказ знаходить свій рахунок",
+             (crypto_pay._match(other["units"]) or {}).get("id"), other["id"])
+        case("і навпаки", (crypto_pay._match(inv3["units"]) or {}).get("id"), inv3["id"])
+
+        # «Скасувати рахунок»: чекати перестали, але гроші, що вже пішли,
+        # мають дійти самі.
+        case("рахунок скасовано", crypto_pay.cancel(u2["id"]), True)
+        case("більше його не чекаємо", crypto_pay.current(u2["id"]), None)
+        late = crypto_pay._match(other["units"])
+        case("переказ навздогін усе одно знайшов рахунок",
+             (late or {}).get("id"), other["id"])
+        tx2 = "d" * 64
+        seen.append(tx2)
+        case("підписку ввімкнули й після скасування",
+             crypto_pay._settle(late, tx2, "T" + "v" * 33), True)
+        case("підписка в другого діє", billing.state(u2["id"])["active"], True)
+        case("скасовувати вдруге нема чого", crypto_pay.cancel(u2["id"]), False)
 
         # Переказ, що не збігся ні з чим, не губимо.
         orphan = {"tx": "c" * 64, "from": "T" + "w" * 33,
@@ -141,8 +175,9 @@ def check_flow():
         with db.connect() as conn:
             for tx in seen:
                 conn.execute("DELETE FROM crypto_orphans WHERE tx=%s", (tx,))
-            conn.execute("DELETE FROM crypto_invoices WHERE user_id=%s", (uid,))
-            conn.execute("DELETE FROM users WHERE id=%s", (uid,))
+            for who in [uid] + ([u2["id"]] if u2 else []):
+                conn.execute("DELETE FROM crypto_invoices WHERE user_id=%s", (who,))
+                conn.execute("DELETE FROM users WHERE id=%s", (who,))
             conn.commit()
         print("  тимчасовий акаунт прибрано")
 

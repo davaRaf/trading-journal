@@ -148,6 +148,21 @@ function fld(cls, label, value, copy, hint){
     + "</div>";
 }
 
+/* «Скасувати рахунок?» — питаємо на місці, у тому ж вікні. Окреме
+   віконце поверх цього стало б другим шаром поверх налаштувань, а
+   питання тут маленьке й стосується того, на що людина дивиться. */
+function askBody(){
+  return '<div class="cpay-body">'
+    + '<div class="cpay-state"><span class="cpay-dot"></span><div><b>'
+    + esc(T.cpCancelQ) + "</b><p>" + esc(T.cpCancelX) + "</p></div></div>"
+    + '<div class="cpay-act">'
+    +   '<button type="button" class="cpay-btn ghost" data-keep>'
+    +     esc(T.cpCancelNo) + "</button>"
+    +   '<button type="button" class="cpay-btn" data-cancel-yes>'
+    +     esc(T.cpCancelYes) + "</button>"
+    + "</div></div>";
+}
+
 function okBody(){
   return '<div class="cpay-body">' + steps()
     + '<div class="cpay-ok"><div class="cpay-ok-ring">' + icoDone() + "</div>"
@@ -189,6 +204,7 @@ function payBody(){
     + (S.priceText ? ' · <span class="cpay-sum">' + esc(S.priceText) + "</span>" : "");
   const body = S.state === "done" ? okBody()
              : S.state === "dead" ? deadBody()
+             : S.asking ? askBody()
              : liveBody();
   return head(T.cpT, sub) + body + (S.state === "done" || S.state === "dead" ? "" : foot());
 }
@@ -214,6 +230,10 @@ function liveBody(){
     +   esc(checking ? T.cpCheck : T.cpWait) + "</b><p>"
     +   esc(checking ? T.cpCheckX : T.cpWaitX) + "</p></div></div>"
     + claimBox(false)
+    /* Вихід із очікування. Тихо й унизу: передумати можна, але це не те,
+       заради чого сюди прийшли. */
+    + '<div class="cpay-off"><button type="button" class="cpay-claim-go" data-cancel>'
+    +   esc(T.cpCancel) + "</button></div>"
     + "</div>";
 }
 
@@ -332,6 +352,18 @@ function bind(){
   if (again) again.addEventListener("click", () =>
     start(S.plan, S.planName, S.priceText));
 
+  const off = box.querySelector("[data-cancel]");
+  if (off) off.addEventListener("click", () => { S.asking = true; render(); });
+
+  const keep = box.querySelector("[data-keep]");
+  if (keep) keep.addEventListener("click", () => { S.asking = false; render(); });
+
+  const yes = box.querySelector("[data-cancel-yes]");
+  if (yes) yes.addEventListener("click", () => {
+    yes.disabled = true;
+    drop();
+  });
+
   const opener = box.querySelector("[data-open-claim]");
   if (opener) opener.addEventListener("click", () => { S.claim = true; render(); });
 
@@ -341,6 +373,17 @@ function bind(){
     go.addEventListener("click", () => claim(go, inp));
     inp.addEventListener("keydown", e => { if (e.key === "Enter") claim(go, inp); });
   }
+}
+
+/* Погасити рахунок. Гроші, які вже пішли, від цього не пропадають:
+   сервер тримає скасований рахунок ще добу й закриє його переказом,
+   коли той дійде. */
+async function drop(){
+  try{ await api("POST", "/api/billing/crypto/cancel"); }
+  catch(e){}
+  close();
+  if (window.__sub && __sub.load)
+    __sub.load().then(() => { if (__sub.redraw) __sub.redraw(); }).catch(() => {});
 }
 
 /* Копіювання: сучасний спосіб із запасним на випадок відмови — адресу

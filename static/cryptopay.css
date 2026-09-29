@@ -219,6 +219,9 @@
 }
 .cpay-claim-go:hover{color:var(--text)}
 .cpay-claim-go:focus-visible{outline:2px solid var(--accent); outline-offset:2px}
+/* «Скасувати рахунок» — під усім і по центру: дія рідкісна, і місце
+   в неї відповідне. */
+.cpay-off{margin-top:12px; text-align:center}
 .cpay-tx{display:flex; gap:9px; margin-top:10px}
 .cpay-tx input{
   flex:1 1 auto; min-width:0; height:44px; padding:0 13px;
@@ -267,6 +270,13 @@
   font:inherit; font-size:12.5px; font-weight:500; cursor:pointer;
 }
 .sub-inv button:focus-visible{outline:2px solid var(--accent); outline-offset:2px}
+/* Відмова — тихою кнопкою поруч: передумати можна, але головна тут та,
+   що веде назад до оплати. */
+.sub-inv button.sub-inv-off{
+  border-color:color-mix(in srgb,var(--dim) 40%,transparent);
+  background:none; color:var(--dim); font-weight:400;
+}
+.sub-inv button.sub-inv-off:hover{color:var(--text); border-color:var(--dim)}
 
 /* ——— телефон ——— */
 @media (max-width:560px){

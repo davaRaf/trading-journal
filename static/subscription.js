@@ -497,12 +497,28 @@ function invRow(){
   return '<div class="sub-inv"><div class="sub-inv-t"><b>' + esc(T.cpOpenT) + "</b> "
     + esc(T.cpOpenX.replace("%s", i.amount_text + " " + i.coin))
     + ' <span class="sub-inv-left">' + esc(T.cpOpenLeft.replace("%d", mins)) + "</span></div>"
+    + '<button type="button" class="sub-inv-off" id="subInvOff">' + esc(T.cpCancel) + "</button>"
     + '<button type="button" id="subInvGo">' + esc(T.cpOpenGo) + "</button></div>";
 }
 
 /* Повернення до відкритого рахунку. Стан перепитуємо: у смужці лежить
    час на момент завантаження сторінки, а людина могла піти обідати. */
 function wireInv(){
+  /* Передумав: рахунок гасне, але гроші, які вже пішли, не пропадають —
+     сервер тримає його ще добу й закриє переказом, коли той дійде.
+     Саме це й написано в питанні: без цього «скасувати» виглядає як
+     «втратити переказ». */
+  const off = document.getElementById("subInvOff");
+  if (off) off.addEventListener("click", async () => {
+    const ok = await Ask.yes(T.cpCancelQ + " " + T.cpCancelX,
+                             {ok: T.cpCancelYes, cancel: T.cpCancelNo});
+    if (!ok) return;
+    off.disabled = true;
+    try{ await api("POST", "/api/billing/crypto/cancel"); }catch(e){}
+    await load();
+    redraw();
+  });
+
   const b = document.getElementById("subInvGo");
   if (!b || !window.__cpay) return;
   b.addEventListener("click", async () => {

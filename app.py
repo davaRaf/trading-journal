@@ -2517,6 +2517,15 @@ class H(BaseHTTPRequestHandler):
                                    "code": "pay_failed"}, 502)
             return self._json(crypto_pay.public(inv))
 
+        if p == "/api/billing/crypto/cancel":
+            # «Передумав». Рахунок гасне, але не зникає: переказ, який уже
+            # пішов, усе одно знайде його й увімкне підписку.
+            uid = self._uid()
+            if not uid:
+                return self._json({"error": "auth required"}, 401)
+            crypto_pay.cancel(uid)
+            return self._json({"ok": True, "state": billing.public(uid)})
+
         if p == "/api/billing/crypto/claim":
             # «Я оплатив, ось номер переказу» — запасний шлях для того, хто
             # округлив суму: за сумою такий переказ не знайти, за номером —
