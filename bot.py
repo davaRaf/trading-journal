@@ -577,7 +577,7 @@ def on_report(chat_id, tg_id):
         return
     # Таблицю рахує код — її віддаємо завжди. Платний тут тільки висновок
     # моделі під нею, тому без порції звернень лишається сама таблиця.
-    ok, why = billing.can_use_ai(user["id"])
+    ok, why = billing.take_ai(user["id"])
     if not ok:
         lang = botlang.of(user)
         capped = why == billing.AI_CAP
@@ -585,7 +585,6 @@ def on_report(chat_id, tg_id):
                             % (table, botlang.t(lang, "subAiCap" if capped else "subAi")),
                             keyboard=None if capped else botlang.plans_kb(lang))
         return
-    billing.spend_ai(user["id"])
     text = llm.ask(
         "<<<СТАТИСТИКА>>>\n%s\n<<<//СТАТИСТИКА>>>\n\n"
         "Українською, до 5 речень: назви емоцію, яка коштує найдорожче, емоцію, з якою "

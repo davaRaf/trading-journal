@@ -187,6 +187,17 @@ def check_rules():
     case("відмова каже привід", no["reason"], "trades_limit")
     case("відмова несе стан", no["state"]["trades_left"], 0)
 
+    # Нік власника — це права адміна, тому його не можна ні взяти в
+    # профілі, ні привезти іменем з Google чи Discord (там пробіли
+    # дозволені, і саме цим шляхом ім'я власника проходило як своє).
+    print("\nніки власників")
+    for nick in config.ADMIN_NICKS:
+        case("не віддаємо нік %r" % nick, config.nick_reserved(nick), True)
+        case("не віддаємо його ж іншим регістром",
+             config.nick_reserved(nick.upper()), True)
+    case("службовий нік теж зайнятий", config.nick_reserved("admin"), True)
+    case("звичайний нік вільний", config.nick_reserved("trader7"), False)
+
 
 def check_prices():
     print("\nціни")
@@ -286,6 +297,55 @@ def check_db():
 
         billing.spend_import(uid)
         case("перенесення витрачено", billing.state(uid)["imports_left"], 2)
+
+        # Межа тримається самою базою, а не парою «спитали → списали».
+        # Перевіряємо саме те, чим її обходили: сервер відповідає в багато
+        # потоків, і пачка одночасних запитів проходила перевірку всі
+        # разом, поки лічильник ще не встиг вирости.
+        #
+        # Лічильники тут крутимо як хочемо, тому спершу запам'ятовуємо їх:
+        # перевірки нижче рахують від того, що було до цього місця.
+        SPENT = ("free_trades_used", "free_bt_used", "imports_used",
+                 "ai_used", "ai_reset_at")
+        spent_was = {k: db.get_user(uid)[k] for k in SPENT}
+        with db.connect() as c2:
+            c2.execute("UPDATE users SET free_trades_used=0, free_bt_used=0, "
+                       "imports_used=0 WHERE id=%s", (uid,))
+            c2.commit()
+        took = [billing.take_trade(uid)[0] for _ in range(25)]
+        case("зайняти вдалось рівно двадцять", sum(took), 20)
+        case("двадцять перших пройшли", all(took[:20]), True)
+        case("решті відмовили", any(took[20:]), False)
+        case("лічильник рівно на межі",
+             db.get_user(uid)["free_trades_used"], 20)
+        case("за межею причина зрозуміла", billing.take_trade(uid),
+             (False, "trades_limit"))
+
+        # Повернення місця: угоду зайняли, а записати не вийшло.
+        billing.release_trade(uid)
+        case("місце повернулось", db.get_user(uid)["free_trades_used"], 19)
+        case("і його можна зайняти знову", billing.take_trade(uid), (True, ""))
+
+        # Те саме для перенесень.
+        with db.connect() as c2:
+            c2.execute("UPDATE users SET imports_used=0 WHERE id=%s", (uid,))
+            c2.commit()
+        took = [billing.take_import(uid)[0] for _ in range(6)]
+        case("перенесень зайнято рівно три", sum(took), 3)
+        case("четверте перенесення відбито", billing.take_import(uid),
+             (False, "imports_limit"))
+
+        # Порція звернень до моделі — так само однією дією.
+        with db.connect() as c2:
+            c2.execute("UPDATE users SET ai_used=0, ai_reset_at=NULL WHERE id=%s", (uid,))
+            c2.commit()
+        took = [billing.take_ai(uid)[0] for _ in range(20)]
+        case("звернень зайнято рівно п'ятнадцять", sum(took), 15)
+        case("шістнадцяте відбито", billing.take_ai(uid), (False, "ai_limit"))
+        with db.connect() as c2:
+            c2.execute("UPDATE users SET " + ", ".join(k + "=%s" for k in SPENT)
+                       + " WHERE id=%s", tuple(spent_was[k] for k in SPENT) + (uid,))
+            c2.commit()
 
         # Звернення до моделі: 15 проходять, 16-те — ні.
         for _ in range(15):

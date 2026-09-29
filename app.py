@@ -1050,13 +1050,17 @@ def nick_from_email(email):
     """
     base = (email or "").split("@")[0]
     base = "".join(ch for ch in base if ch.isalnum() or ch in "_-.").strip("._-")[:24]
-    return base or "trader"
+    base = base or "trader"
+    # Нік із пошти ніхто не вводить руками, тому заборонені імена треба
+    # відсіювати саме тут: пошта виду «davaraf@…» інакше зробила б власника
+    # з випадкової людини (див. nick_taken_by_us).
+    return (base + "1") if nick_taken_by_us(base) else base
 
 
 NICK_RE = re.compile(r"^[A-Za-z0-9_.-]{3,24}$")
-# Ніки, які читаються як частина сайту або як його голос.
-NICK_RESERVED = {"admin", "api", "static", "login", "logout", "reset", "confirm", "demo",
-                 "u", "auth", "support", "help", "statsai", "system", "root", "moderator"}
+# Службові й власницькі ніки лежать у config: їх перевіряє не лише ця
+# сторінка, а й вхід через Google чи Discord (oauth.py).
+nick_taken_by_us = config.nick_reserved
 AVATAR_MAX = 2 * 1024 * 1024
 
 
@@ -1068,7 +1072,7 @@ def nick_problem(want, uid):
     me = db.get_user(uid)
     if me and (me["nickname"] or "") == want:
         return "same"
-    if want.lower() in NICK_RESERVED:
+    if nick_taken_by_us(want):
         return "taken"
     other = db.get_user_by_nick(want)
     if other and other["id"] != uid:
@@ -3135,10 +3139,11 @@ class H(BaseHTTPRequestHandler):
             # Місячна порція звернень до моделі. Списуємо одразу й одне на
             # питання, навіть якщо всередині модель смикають двічі (правка
             # «Моєї ТС», добір угод на видалення): людина спитала раз.
-            ok, why = billing.can_use_ai(uid)
+            # Дозвіл і списання одним запитом: пачка одночасних питань
+            # інакше проходила перевірку всі разом (див. billing.take_ai).
+            ok, why = billing.take_ai(uid)
             if not ok:
                 return self._json(billing.deny(uid, why), 402)
-            billing.spend_ai(uid)
             # історія розмови приходить з браузера — беремо тільки останні репліки
             raw = (body or {}).get("history")
             history = [m for m in raw if isinstance(m, dict)][-16:] if isinstance(raw, list) else []
@@ -3191,10 +3196,11 @@ class H(BaseHTTPRequestHandler):
             ratelimit.miss(keys, limit=ASK_LIMIT)
             if not llm.enabled():
                 return self._json({"error": "помічник вимкнений — немає DEEPSEEK_API_KEY"}, 503)
-            ok, why = billing.can_use_ai(uid)
+            # Дозвіл і списання одним запитом: пачка одночасних питань
+            # інакше проходила перевірку всі разом (див. billing.take_ai).
+            ok, why = billing.take_ai(uid)
             if not ok:
                 return self._json(billing.deny(uid, why), 402)
-            billing.spend_ai(uid)
             raw = (body or {}).get("history")
             history = [m for m in raw if isinstance(m, dict)][-16:] if isinstance(raw, list) else []
             # мова журналу: факти під відповіддю показуються як є, і в
@@ -3466,10 +3472,11 @@ class H(BaseHTTPRequestHandler):
             # розділах — контекст окремо, моделі входу окремо. Старий виклик
             # з одним "url" лишається робочим.
             b = body or {}
-            ok, why = billing.can_use_ai(uid)
+            # Дозвіл і списання одним запитом: пачка одночасних питань
+            # інакше проходила перевірку всі разом (див. billing.take_ai).
+            ok, why = billing.take_ai(uid)
             if not ok:
                 return self._json(billing.deny(uid, why), 402)
-            billing.spend_ai(uid)
             links = b.get("urls") if isinstance(b.get("urls"), list) else None
             try:
                 draft = ts_notion.read(links if links else (b.get("url") or ""),
@@ -3494,7 +3501,8 @@ class H(BaseHTTPRequestHandler):
             t = clean_trade(body, tid)
             user = db.get_user(uid)
             # Спершу дозвіл, і лише потім робота: скріни важкі, а відмова
-            # їх однаково викине.
+            # їх однаково викине. Це швидка відмова, а не застава — межу
+            # тримає take_trade нижче, вже разом зі списанням.
             ok, why = billing.can_add_trade(user, t.get("kind"))
             if not ok:
                 return self._json(billing.deny(user, why), 402)
@@ -3502,12 +3510,22 @@ class H(BaseHTTPRequestHandler):
                 save_screenshots(t, uid)
             except filestore.ShotError as e:
                 return self._shot_reply(e)
+            # Місце займаємо до запису: інакше пачка одночасних запитів
+            # проходить перевірку всі разом і кладе більше, ніж дозволено.
+            ok, why = billing.take_trade(user, t.get("kind"))
+            if not ok:
+                return self._json(billing.deny(user, why), 402)
             # У бэктеста эмоции нет: входа не было, спрашивать не о чем.
             ask = (t.get("kind") != "bt"
                    and not str(t.get("emotion") or "").strip()
                    and user["telegram_id"] is not None)
-            db.insert_trade(uid, t, "pending" if ask else "na")
-            billing.spend_trade(user, t.get("kind"))
+            try:
+                db.insert_trade(uid, t, "pending" if ask else "na")
+            except Exception:
+                # Записати не вийшло — місце віддаємо назад, інакше воно
+                # згорить ні за що.
+                billing.release_trade(user, t.get("kind"))
+                raise
             if ask:
                 ask_emotion_later(user, t)
             return self._json(t, 201)
@@ -3518,7 +3536,7 @@ class H(BaseHTTPRequestHandler):
             # Перенесення файлом — те саме перенесення, що й з Notion, і
             # ліміт у них спільний: три рази в перші 30 днів. Інакше повз
             # заслон на 20 угод можна було б завезти хоч тисячу таблицею.
-            ok, why = billing.can_import(uid)
+            ok, why = billing.take_import(uid)
             if not ok:
                 return self._json(billing.deny(uid, why), 402)
             items = body if isinstance(body, list) else body.get("trades") or []
@@ -3532,9 +3550,12 @@ class H(BaseHTTPRequestHandler):
                 except filestore.ShotError:
                     t["screenshots"] = []   # угоду з файлу беремо, битий скрін — ні
                 batch.append(t)
+            # Перенесення вже зайнято вище (take_import), тому тут рахувати
+            # нема чого. Порожній файл — окремий випадок: людині не додали
+            # нічого, і з'їдати за це одне з трьох було б несправедливо.
             added = db.insert_trades(uid, batch)
-            if added:
-                billing.spend_import(uid)
+            if not added:
+                billing.release_import(uid)
             return self._json({"ok": True, "added": added})
 
         self.send_response(404); self.end_headers()

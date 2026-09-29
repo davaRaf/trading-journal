@@ -39,8 +39,11 @@ billing.free_terms = lambda u: {"trades": 20, "bt": 20, "imports": 3,
                                 "import_days": 30, "ai": 15}
 billing.can_use_ai = lambda u: (True, "") if STATE["free_ai"] is True else (
     False, STATE["free_ai"])
+# Звернення бот теж займає одним рухом — дозвіл і списання разом.
+billing.take_ai = billing.can_use_ai
 billing.can_add_trade = lambda u, kind="": (True, "") if STATE["free_trade"] else (
     False, billing.TRADES_LIMIT)
+billing.take_trade = billing.can_add_trade
 
 
 def check(name, cond):

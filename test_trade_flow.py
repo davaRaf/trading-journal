@@ -58,6 +58,13 @@ SPENT = []
 fake_billing.can_add_trade = lambda u, kind="": (
     (True, "") if PAID["open"] else (False, "trades_limit"))
 fake_billing.spend_trade = lambda u, kind="": SPENT.append((u, kind))
+# Місце під угоду сценарій займає одним рухом: питає дозвіл і списує
+# разом (справжній take_trade робить це одним запитом у базу).
+fake_billing.take_trade = lambda u, kind="": (
+    (SPENT.append((u, kind)), (True, ""))[1] if PAID["open"]
+    else (False, "trades_limit"))
+fake_billing.release_trade = lambda u, kind="": (
+    SPENT.remove((u, kind)) if (u, kind) in SPENT else None)
 
 sys.modules["billing"] = fake_billing
 sys.modules["db"] = fake_db

@@ -45,6 +45,25 @@ SITE_URL      = os.environ.get("SITE_URL", "https://statsai.xyz/")
 ADMIN_NICKS   = [x.strip().lower() for x in os.environ.get("ADMIN_NICKS", "davaraf,dania cripto").split(",") if x.strip()]
 # Власників можна назвати і поштою — коли нік у журналі інший.
 ADMIN_EMAILS  = [x.strip().lower() for x in os.environ.get("ADMIN_EMAILS", "agencydrave009@gmail.com").split(",") if x.strip()]
+# Ніки, які читаються як частина сайту або як його голос.
+NICK_RESERVED = {"admin", "api", "static", "login", "logout", "reset", "confirm",
+                 "demo", "u", "auth", "support", "help", "statsai", "system",
+                 "root", "moderator"}
+
+
+def nick_reserved(nick):
+    """Чи це ім'я сайту або власника — таке не віддаємо нікому.
+
+    Ніки власників тут не менш важливі за службові: права адміна дає саме
+    збіг ніка, і варто комусь із нас перейменуватись, як старий нік
+    звільнився б — а з ним і адмінка тому, хто його візьме.
+
+    Лежить у config, а не в app: нік роблять три різні місця — реєстрація
+    поштою, вхід через Google чи Discord і зміна ніка в профілі. Перевірка
+    в одному з них означала б дірку в двох інших.
+    """
+    key = (nick or "").strip().lower()
+    return key in NICK_RESERVED or key in ADMIN_NICKS
 # Партнери-спільноти: мітка в адресі (?ref=blackswan) → рахунок партнера.
 # Мітка стає полем users.ref_source. Новий партнер — ще одне слово тут.
 PARTNERS      = [x.strip().lower() for x in os.environ.get("PARTNERS", "blackswan").split(",") if x.strip()]
