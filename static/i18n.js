@@ -757,6 +757,8 @@ uk: {
 
   // ---- соцмережі (підвал бічної панелі + вікно «Підтримка») ----
   socHere: "Ми тут",
+  socTg: "Telegram · Канал", socTgVal: "Анонси оновлень журналу",
+  socTgTip: "Telegram-канал — усі анонси оновлень журналу",
   socIgTip: "Instagram — розбори й новини журналу",
   socTtTip: "TikTok — короткі відео про торгівлю",
 },
@@ -1478,6 +1480,8 @@ ru: {
 
   // ---- соцсети (подвал боковой панели + окно «Поддержка») ----
   socHere: "Мы тут",
+  socTg: "Telegram · Канал", socTgVal: "Анонсы обновлений журнала",
+  socTgTip: "Telegram-канал — все анонсы обновлений журнала",
   socIgTip: "Instagram — разборы и новости журнала",
   socTtTip: "TikTok — короткие видео о торговле",
 },
@@ -2199,6 +2203,8 @@ en: {
 
   // ---- socials (sidebar footer + Support window) ----
   socHere: "Follow",
+  socTg: "Telegram · Channel", socTgVal: "Journal update announcements",
+  socTgTip: "Telegram channel — every journal update announced",
   socIgTip: "Instagram — journal breakdowns and news",
   socTtTip: "TikTok — short videos about trading",
 },
@@ -2262,6 +2268,7 @@ function applyLang(code){
   if(su){ setTip(su, T.suTip); const sp = su.querySelector("span"); if(sp) sp.textContent = T.suTitle; }
 
   setText("socLab", T.socHere);
+  const tg = document.getElementById("socTg"); if(tg) setTip(tg, T.socTgTip);
   const ig = document.getElementById("socIg"); if(ig) setTip(ig, T.socIgTip);
   const tt = document.getElementById("socTt"); if(tt) setTip(tt, T.socTtTip);
 
