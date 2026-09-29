@@ -22,6 +22,7 @@
 import re
 
 import llm
+import tidy
 from assistant import LANG_ORDER, net_pct, when
 
 # Скільки відхилень має сенс показати за раз: більше — це вже не підказка,
@@ -74,7 +75,10 @@ def _asset(ts, t):
     pair = (t.get("pair") or "").strip()
     if not lst or not pair:
         return None
-    if any(_same(pair, a) for a in lst):
+    # Один актив під різними іменами — не розбіжність: «Nasdaq (NQ)» у ТС і
+    # «US100» в угоді — той самий індекс (tidy.pair_key, як у журналі).
+    k = tidy.pair_key(pair)
+    if any(_same(pair, a) or (k and tidy.pair_key(a) == k) for a in lst):
         return None
     return {"code": "asset", "want": ", ".join(str(a) for a in lst), "got": pair}
 

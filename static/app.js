@@ -79,21 +79,44 @@ function plainName(v){
    зводить їх при записі: «US100», «Nasdaq» і «NQ» — один інструмент. Тут
    потрібно, щоб після запису «NQ» поруч з «US100» не з'являлась кнопка-двійник. */
 const PAIR_SAME = [
-  ["US100","NAS100","NASDAQ","NASDAQ100","USTEC","NDX","NQ"],
-  ["US30","DJI","DOW","DOWJONES","US30CASH","YM"],
-  ["US500","SPX","SP500","SPX500","ES"],
-  ["GER40","GER30","DAX","DAX40"],
-  ["XAUUSD","GOLD","ЗОЛОТО","ЗОЛОТА"],
-  ["XAGUSD","SILVER","СРІБЛО"],
+  ["US100","NAS100","NASDAQ","NASDAQ100","USTEC","NDX","NQ","MNQ","NAS","US100CASH","NAS100USD","USTECH","USTECH100"],
+  ["US30","DJI","DOW","DOWJONES","US30CASH","YM","MYM","DJ30","WS30"],
+  ["US500","SPX","SP500","SPX500","ES","ES500","MES","US500CASH","SPX500USD","SNP500","SANDP500"],
+  ["GER40","GER30","DAX","DAX40","DE40","DE30","GER40CASH","FDAX"],
+  ["XAUUSD","XAU","GOLD","ЗОЛОТО","ЗОЛОТА","GC","MGC"],
+  ["XAGUSD","XAG","SILVER","СРІБЛО","СЕРЕБРО"],
   ["UK100","FTSE","FTSE100"],
-  ["JP225","NIKKEI","NIKKEI225"],
-  ["BTCUSD","BTCUSDT","BITCOIN","XBTUSD"],
-  ["ETHUSD","ETHUSDT","ETHEREUM"],
-  ["USOIL","WTI","CRUDE","CL"],
+  ["JP225","NIKKEI","NIKKEI225","JPN225"],
+  ["US2000","RUSSELL","RUSSELL2000","RTY","M2K"],
+  ["BTCUSD","BTCUSDT","BITCOIN","XBTUSD","BTC"],
+  ["ETHUSD","ETHUSDT","ETHEREUM","ETH"],
+  ["USOIL","WTI","CRUDE","CL","XTIUSD"],
 ];
 const PAIR_SYN = {};
 PAIR_SAME.forEach(g=>{ const c=g.slice().sort()[0]; g.forEach(w=>{ PAIR_SYN[plainName(w)]=c; }); });
-function pairKey(v){ const k=plainName(v); return PAIR_SYN[k]||k; }
+/* «Nasdaq (NQ)», «SPX 500 (ES)»: цілком назва незнайома — дивимось на
+   шматки (до дужок, у дужках, слова, пари сусідніх слів). Зводимо, лише якщо
+   всі впізнані шматки кажуть про одну групу. Те саме, що tidy.pair_key. */
+/* приписки брокера, що актив не міняють (tidy.NOISE) */
+const PAIR_NOISE=new Set(["CASH","SPOT","CFD","FUT","FUTURES","INDEX","IDX","ECN","RAW","M","C","PRO","PLUS"]);
+function pairKey(v){
+  const k=plainName(v); if(!k) return "";
+  if(PAIR_SYN[k]) return PAIR_SYN[k];
+  const s=(v==null?"":v).toString();
+  const chunks=[s.replace(/\(.*?\)/g," ")].concat((s.match(/\((.*?)\)/g)||[]).map(x=>x.slice(1,-1)));
+  const hits=new Set();
+  let own=false;
+  chunks.forEach(c=>{
+    const toks=c.split(/[^0-9A-Za-zА-Яа-яЁёІіЇїЄєҐґ]+/).filter(Boolean).map(x=>x.toUpperCase());
+    /* незнайоме слово — людина так назвала свій інструмент («XAU MSNR»),
+       не зводимо до «XAU» (так само в tidy._by_pieces) */
+    if(!PAIR_SYN[toks.join("")]) toks.forEach((t,i)=>{
+      if(!(PAIR_SYN[t] || PAIR_NOISE.has(t) || (i && PAIR_SYN[toks[i-1]+t]) || PAIR_SYN[t+(toks[i+1]||"")])) own=true;
+    });
+    [toks.join("")].concat(toks, toks.slice(1).map((x,i)=>toks[i]+x)).forEach(p=>{ if(PAIR_SYN[p]) hits.add(PAIR_SYN[p]); });
+  });
+  return !own && hits.size===1 ? [...hits][0] : k;
+}
 function num(v){ const x=parseFloat(v); return isNaN(x)?null:x; }
 /* в интерфейсе результат называется TP / SL / BE, внутри хранится Win / Loss / BE.
    WinM — тот же тейк, но закрытый рукой: для денег это TP, метка нужна,
@@ -160,7 +183,24 @@ function dirType(t){
   if(!p || !b) return "";
   return p===b ? "Continuation" : "Reversal";
 }
-function fieldVal(t,k){ return k==="direction_type" ? dirType(t) : (t[k]||""); }
+/* Емоції в базі — кодами (emotions.py), показуємо словами мови інтерфейсу.
+   Старі записи бувають словами будь-якої мови — теж зводимо до коду. */
+const EMO_CODES=["sp","vp","zh","st","az","pm","nd","fm"];
+const EMO_ALIAS=(()=>{
+  const m={other:"other"}; EMO_CODES.forEach(c=>{ m[c]=c; });
+  const D=typeof I18N!=="undefined"?I18N:{};
+  ["uk","ru","en"].forEach(l=>((D[l]||{}).emotions||[]).forEach((w,i)=>{ if(EMO_CODES[i]) m[w.toLowerCase()]=EMO_CODES[i]; }));
+  Object.assign(m,{"thrill":"az","жадність":"zh","інше":"other","другое":"other","иное":"other"});
+  return m;
+})();
+function emoCode(w){ const s=String(w||"").trim(); return EMO_ALIAS[s.toLowerCase()]||s; }
+function emoLabel(c){ const i=EMO_CODES.indexOf(c); return i>=0?(T.emotions[i]||c):c==="other"?(T.emoOther||"Другое"):c; }
+function emoText(v){
+  const out=[]; String(v==null?"":v).split(",").map(x=>x.trim()).filter(Boolean)
+    .forEach(x=>{ const l=emoLabel(emoCode(x)); if(out.indexOf(l)<0) out.push(l); });
+  return out.join(", ");
+}
+function fieldVal(t,k){ return k==="direction_type" ? dirType(t) : k==="emotion" ? emoText(t.emotion) : (t[k]||""); }
 /* Помилок і емоцій в угоді може бути кілька: лежать одним рядком через «, ».
    Схема не міняється, а в аналітиці така угода рахується в кожній групі. */
 const MULTI_FIELDS=["mistakes","emotion"];
@@ -1589,12 +1629,35 @@ function vAnalytics(){
     '<button class="dimbtn" onclick="togDim(this)"><span class="k">'+T.mDim+'</span>'+
     '<b>'+esc(DIMS().find(d=>d.k===S.dim).label)+'</b>'+CHEV_D+'</button>'+
     '<div class="dimbody"><div class="dims">'+DIMS().map(d=>'<button class="pill '+(S.dim===d.k?"on":"")+'" onclick="S.dim=\''+d.k+'\';S.mDim=false;render()">'+d.label+"</button>").join("")+"</div></div></div>";
-  const groups=[...groupBy(list,t=>S.dim==="result"?resLabel(t.result):fieldVal(t,S.dim)).entries()].map(([name,arr])=>{
+  /* Поля, де значень кілька (емоції, помилки), — кожне окремим рядком:
+     угода з «Спокій, Страх» рахується і там, і там. Сума рядків тоді
+     більша за кількість угод, зате кожна емоція видна чесно. */
+  const gm=new Map();
+  /* інструмент — за ключем активу: «Nasdaq (NQ)» і «US100» один рядок,
+     підпис — те написання, що трапляється найчастіше */
+  const pairName={};
+  if(S.dim==="pair"){
+    const cnt={};
+    for(const t of list){ const p=(t.pair||"").trim(); if(!p) continue; const k=pairKey(p);
+      cnt[k]=cnt[k]||{}; cnt[k][p]=(cnt[k][p]||0)+1; }
+    Object.keys(cnt).forEach(k=>{ pairName[k]=Object.entries(cnt[k]).sort((a,b)=>b[1]-a[1]||(a[0]<b[0]?-1:1))[0][0]; });
+  }
+  for(const t of list){
+    const ks=S.dim==="pair"?[(t.pair||"").trim()?pairName[pairKey(t.pair)]:""]
+      :S.dim==="result"?[resLabel(t.result)]
+      :isMulti(S.dim)?(fieldVals(t,S.dim).length?fieldVals(t,S.dim):[""])
+      :[fieldVal(t,S.dim)];
+    for(const k of ks){ if(!gm.has(k)) gm.set(k,[]); gm.get(k).push(t); }
+  }
+  /* угоди без значення — окремим рядком «Не вказано», і завжди останнім:
+     це не категорія, а пропуск */
+  const groups=[...gm.entries()].map(([name,arr])=>{
     const st=calc(arr); return {name,st};
-  }).sort((a,b)=>b.st.net-a.st.net);
+  }).sort((a,b)=>(!a.name)-(!b.name) || b.st.net-a.st.net);
+  const noVal=S.dim==="emotion"?T.anNoEmo:T.anNoVal;
   const rows=groups.map(g=>{
     const wr=g.st.wr;
-    return '<div class="arow"><span class="nm">'+esc(g.name)+'</span><span class="n">'+g.st.n+"</span>"+
+    return '<div class="arow'+(g.name?"":" none")+'"><span class="nm">'+esc(g.name||noVal)+'</span><span class="n">'+g.st.n+"</span>"+
       '<span class="wrbar"><span class="track"><i style="width:'+(wr||0)+'%"></i></span><b>'+fmtPct(wr)+"</b></span>"+
       '<span class="rr">'+(g.st.avgRR!=null?r1(g.st.avgRR):"—")+"</span>"+
       '<span class="netr '+clsR(g.st.net)+'">'+fmtR(g.st.net)+"</span></div>";
@@ -2006,6 +2069,9 @@ function openForm(id, presetDay){
      скріни з порожніми полями, і написане зникало на першому ж збереженні */
   S.formShots=(t&&t.screenshots?t.screenshots.map(s=>({tf:s.tf,file:s.file,note:s.note||""})):[]);
   S.entryTf=null;
+  /* Ключ цієї нової угоди: повторне «Зберегти» після збою мережі (угода
+     вже записалась, а відповідь загубилась) сервер впізнає й не задвоїть. */
+  S.formKey=t?"":"w"+Date.now().toString(36)+Math.random().toString(36).slice(2,12);
   const v=k=>esc(t?(t[k]!=null?t[k]:""):"");
   const nowT=pad(new Date().getHours())+":"+pad(new Date().getMinutes());
   const dt=t&&t.date?t.date:(presetDay||isoDay(new Date()))+"T"+nowT;
@@ -2132,8 +2198,8 @@ function openForm(id, presetDay){
       pick("mistakes",mistakes,t?t.mistakes:"",T.fmMistakeEmptyPh)+"</div>"+
     /* Емоції в бектесті немає: входу не було, і питати нема про що */
     (btOn() ? "" :
-      '<div class="f"><label>'+T.fmEmotionLabel+'</label>'+
-        pick("emotion",T.emotions,t?t.emotion:"",T.fmEmotionPh)+"</div>")+
+      '<div class="f"><label>'+T.fmEmotionLabel+' <span class="autotag">'+T.fmEmotionAutotag+'</span></label>'+
+        pick("emotion",T.emotions,t?emoText(t.emotion):"",T.fmEmotionPh)+"</div>")+
   "</div></section>"+
 
   "</div>";
@@ -2525,6 +2591,7 @@ async function saveTrade(id){
     /* Куди записуємо: у реальний журнал чи в бектест. Сервер бере тільки
        "bt", решту вважає торгівлею. */
     bt_run:g("bt_run"), kind: btOn()?"bt":"",
+    cid:S.formKey||"",
   };
   if(!t.pair){ formErr("pair", T.alertNeedPair); return; }
   /* «1 Месяц» колись приїхало сюди з чужої колонки Notion. Не забороняємо —

@@ -22,19 +22,15 @@ try{ lastTtl = localStorage.getItem("share_ttl") || "7d"; }catch(e){}
    Ділитись можна у своєму вигляді або в оформленні спільноти. Коли журнал
    і так у їхній темі, вибирати нічого: знімок іде в тому самому вигляді,
    що й екран, тому перемикач не показуємо. */
-/* порядок — як у вікні «Оформлення»: FX LAB першим, Black Swan другим */
-const COLLABS = [{id:"fxlab", name:"FX LAB", img:"/static/fxlab-ink.png?v=1"},
-                 {id:"blackswan", name:"Black Swan", img:"/static/swan.png?v=1"}];
-const isCollab = s => COLLABS.some(c => c.id === s);
+const COLLAB = "blackswan";
 const curSkin = () => document.documentElement.getAttribute("data-skin") || "";
-const inCollab = () => isCollab(curSkin());
+const inCollab = () => curSkin() === COLLAB;
 
 let lastSkin = "";
 try{ lastSkin = localStorage.getItem("share_skin") || ""; }catch(e){}
-if (!isCollab(lastSkin)) lastSkin = "";
 
 /* стиль, у якому робимо знімок просто зараз */
-function shareSkin(){ return inCollab() ? curSkin() : lastSkin; }
+function shareSkin(){ return inCollab() ? COLLAB : lastSkin; }
 
 /* ---------- що саме показуємо ---------- */
 
@@ -59,7 +55,7 @@ function tradeDetail(t){
     [T.fSession, t.session], [T.fPosition, t.position], [T.fBias, t.bias],
     [T.fmEntryTypeLabel, dirType(t)], [T.flModel, t.entry_model], [T.fSetup, t.setup],
     [T.fRisk, t.risk == null ? "" : t.risk + "%"], ["RR", t.rr == null ? "" : String(t.rr)],
-    [T.fEmotion, t.emotion],
+    [T.fEmotion, fieldVal(t, "emotion")],
   ].filter(([, v]) => v).map(([k, v]) => ({k: k, v: String(v)}));
 
   const texts = [[T.slEntryBlock, t.entry_details], [T.tiNotes, t.notes],
@@ -230,24 +226,11 @@ function tsSnapshot(){
    що з цього вийшло ввечері. Саме цим і цікаво ділитись: не результатом,
    а мисленням. Дані беремо з розділу «Аналіз дня» (day.js тримає їх у
    базі), а не з угод. */
-function reviewSnapshot(dk, pick){
-  const n = (window.__dv && typeof __dv.note === "function") ? __dv.note(dk) : null;
-  if (!n || !(n.assets || []).length) return null;
-  /* pick — які активи лишити. null означає «всі». */
-  const keep = (pick && pick.length)
-    ? n.assets.filter((a, i) => pick.indexOf(i) >= 0)
-    : n.assets;
-  if (!keep.length) return null;
-
+/* активи розбору у форму знімка; day — угоди того дня, щоб підписати
+   результат і показати їх під активом */
+function reviewAssets(keep, day){
   const norm = x => String(x || "").toUpperCase().replace(/[^A-Z0-9]/g, "");
-  const day = sortAsc(S.all.filter(t => dayKey(t) === dk));
-  /* цифри зверху — по тих активах, якими ділимось, а не по всьому дню */
-  const names = keep.map(a => norm(a.nm)).filter(Boolean);
-  const mineAll = names.length
-    ? day.filter(t => names.indexOf(norm(t.pair)) >= 0) : day;
-  const d = new Date(dk + "T00:00");
-
-  const assets = keep.map(a => {
+  return keep.map(a => {
     const mine = a.nm ? day.filter(t => norm(t.pair) === norm(a.nm)) : [];
     const st = mine.length ? calc(mine) : null;
     return {
@@ -268,6 +251,26 @@ function reviewSnapshot(dk, pick){
       trades: mine.map(tradeDetail),
     };
   });
+}
+
+function reviewSnapshot(dk, pick){
+  const n = (window.__dv && typeof __dv.note === "function") ? __dv.note(dk) : null;
+  if (!n || !(n.assets || []).length) return null;
+  /* pick — які активи лишити. null означає «всі». */
+  const keep = (pick && pick.length)
+    ? n.assets.filter((a, i) => pick.indexOf(i) >= 0)
+    : n.assets;
+  if (!keep.length) return null;
+
+  const norm = x => String(x || "").toUpperCase().replace(/[^A-Z0-9]/g, "");
+  const day = sortAsc(S.all.filter(t => dayKey(t) === dk));
+  /* цифри зверху — по тих активах, якими ділимось, а не по всьому дню */
+  const names = keep.map(a => norm(a.nm)).filter(Boolean);
+  const mineAll = names.length
+    ? day.filter(t => names.indexOf(norm(t.pair)) >= 0) : day;
+  const d = new Date(dk + "T00:00");
+
+  const assets = reviewAssets(keep, day);
 
   return {
     kind: T.slKindReview, kindFull: T.slOgReview,
@@ -283,6 +286,56 @@ function reviewSnapshot(dk, pick){
       lesson: (n.fact || {}).lesson || "",
       assets: assets,
     },
+    blocks: [],
+  };
+}
+
+/* ---------- місяць розборів дня ----------
+   Не угоди, а дисципліна: в які дні план був, збігся з ринком чи ні. Дані
+   збирає day.js (shareMonth → monthNotes), тут лише розкладаємо по днях. */
+function rvMonthSnapshot(ym){
+  const notes = (window.__dv && __dv.monthNotes) ? __dv.monthNotes(ym) : null;
+  if (!notes) return null;
+  const by = {};
+  notes.forEach(n => { by[n.date] = n; });
+  const [y, m] = ym.split("-").map(Number);
+  const last = new Date(y, m, 0).getDate();
+  const days = [];
+  let ok = 0, part = 0, no = 0, open = 0;
+  for (let d = 1; d <= last; d++){
+    const key = ym + "-" + String(d).padStart(2, "0");
+    const n = by[key];
+    let st = "";
+    let review = null, net = null;
+    /* Розбір є, лише коли є хоч один актив із вмістом. Порожній запис
+       (відкрили день і нічого не написали) — не аналіз: без ранку немає
+       й вечора, у календарі такий день лишається порожнім. */
+    const nd = (n && n.data) || {};
+    const keep = (nd.assets || []).filter(a => a && (a.nm || (a.shots || []).length || a.why));
+    if (n && keep.length){
+      st = __dv.stat(n.match) || "open";
+      if (st === "ok") ok++; else if (st === "part") part++; else if (st === "no") no++; else open++;
+      /* сам розбір дня — щоб за посиланням його можна було розкрити */
+      const dayTrades = sortAsc(S.all.filter(t => dayKey(t) === key));
+      review = {closed: !!nd.closed, skip: nd.skip || "", lesson: (nd.fact || {}).lesson || "",
+                assets: reviewAssets(keep, dayTrades)};
+      net = dayTrades.length ? calc(dayTrades).net : null;
+    }
+    days.push({date: key, st: st, assets: st ? keep.map(a => a.nm).filter(Boolean) : [], review: review, net: net});
+  }
+  const done = ok + part + no + open;
+  return {
+    type: "reviewmonth",
+    kind: T.slKindRvMonth, kindFull: T.slOgRvMonth,
+    title: T.months[m - 1] + " " + y,
+    total: null,
+    kpis: [
+      {k: T.shRvmDays, v: done + " / " + last},
+      {k: T.shRvmOk,   v: String(ok),   cls: ok ? "pos" : ""},
+      {k: T.shRvmPart, v: String(part)},
+      {k: T.shRvmNo,   v: String(no),   cls: no ? "neg" : ""},
+    ],
+    rvMonth: {ym: ym, days: days},
     blocks: [],
   };
 }
@@ -350,49 +403,32 @@ function monthSnapshot(mk){
   };
 }
 
-/* Квартал — три місяці одним підсумком.
-
-   Календарної сітки тут навмисно немає. Вона рахує відступ від першого
-   дня й далі кладе дні поспіль: на тридцяти днях це збігається з
-   тижнями, а на дев'яноста місяці поїдуть один відносно одного й сітка
-   перестане читатись. Тому розклад по місяцях — той самий, що в році.
-
-   Номер кварталу римський: так він підписаний в огляді, і людина, яка
-   бачила «III квартал» у себе, має побачити те саме в посиланні. */
-function quarterSnapshot(qk){
-  const y = qk.slice(0, 4), q = +qk.slice(6);
-  const from = q * 3 - 2, to = q * 3;
-  const list = S.all.filter(t => {
-    const k = monKey(t);
-    if (k.slice(0, 4) !== y) return false;
-    const m = +k.slice(5, 7);
-    return m >= from && m <= to;
-  });
+/* Місяці періоду (рік, квартал): кожен зі своїм календарем днів, а в днях —
+   угоди. Сторінка за посиланням розкриває місяць у календар, день — в угоди.
+   Блок «по місяцях» лишаємо для превʼю (стовпчики в OgCal), на сторінці
+   його не показуємо — там ті ж місяці, але живі (og: true). */
+function periodMonths(list, keys){
   const months = groupBy(list, monKey);
-  const byMonth = [...months.keys()].sort()
-    .map(mk => ({ name: T.months[+mk.slice(5, 7) - 1], value: calc(months.get(mk)).net }));
-  const bt = typeof btOn === "function" && btOn();
-  return {
-    kind: bt ? T.slKindBtQuarter : T.slKindQuarter,
-    kindFull: bt ? T.slOgBtQuarter : T.slOgQuarter,
-    bt: bt || undefined,
-    title: ["I", "II", "III", "IV"][q - 1] + " " + T.ovQuarterWord + " " + y,
-    total: calc(list).net,
-    kpis: statsOf(list),
-    blocks: [
-      byMonth.length ? { title: T.slByMonths, items: byMonth } : null,
-      sliceBlock(T.railSetups, list, "setup"),
-      sliceBlock(T.railInstruments, list, "pair"),
-      sliceBlock(T.railSessions, list, "session"),
-    ].filter(Boolean),
-  };
+  return keys.filter(mk => months.has(mk)).map(mk => {
+    const ml = months.get(mk);
+    const [y, m] = mk.split("-");
+    const last = new Date(+y, +m, 0).getDate();
+    const from = mk + "-01", to = mk + "-" + String(last).padStart(2, "0");
+    return { ym: mk, name: T.months[+m - 1] + " " + y, n: ml.length, net: calc(ml).net,
+             calendar: {span: "month", from: from, to: to, days: dayCells(ml, from, to)} };
+  });
+}
+function monthBlock(months){
+  return months.length
+    ? { title: T.slByMonths, og: true,
+        items: months.map(m => ({ name: T.months[+m.ym.slice(5, 7) - 1], value: m.net })) }
+    : null;
 }
 
 function yearSnapshot(y){
   const list = S.all.filter(t => (t.date||"").slice(0,4) === String(y));
-  const months = groupBy(list, monKey);
-  const byMonth = [...months.keys()].sort()
-    .map(mk => ({ name: T.months[+mk.slice(5,7) - 1], value: calc(months.get(mk)).net }));
+  const keys = [...groupBy(list, monKey).keys()].sort();
+  const months = periodMonths(list, keys);
   const bt = typeof btOn === "function" && btOn();
   return {
     kind: bt ? T.slKindBtYear : T.slKindYear,
@@ -401,10 +437,42 @@ function yearSnapshot(y){
     title: String(y),
     total: calc(list).net,
     kpis: statsOf(list),
+    months: months,
     blocks: [
-      byMonth.length ? { title:T.slByMonths, items: byMonth } : null,
+      monthBlock(months),
       sliceBlock(T.railSetups, list, "setup"),
       sliceBlock(T.railInstruments, list, "pair"),
+    ].filter(Boolean),
+  };
+}
+
+/* квартал: ключ «2026-Q3» */
+function quarterMonths(qk){
+  const [y, q] = qk.split("-Q").map(Number);
+  return [0, 1, 2].map(i => y + "-" + String((q - 1) * 3 + 1 + i).padStart(2, "0"));
+}
+function quarterOf(mk){
+  const [y, m] = mk.split("-").map(Number);
+  return y + "-Q" + (Math.floor((m - 1) / 3) + 1);
+}
+function quarterSnapshot(qk){
+  const keys = quarterMonths(qk);
+  const list = S.all.filter(t => keys.indexOf(monKey(t)) >= 0);
+  const months = periodMonths(list, keys);
+  const [y, q] = qk.split("-Q");
+  const bt = typeof btOn === "function" && btOn();
+  return {
+    kind: T.slKindQuarter, kindFull: T.slOgQuarter,
+    bt: bt || undefined,
+    title: "Q" + q + " " + y,
+    total: calc(list).net,
+    kpis: statsOf(list),
+    months: months,
+    blocks: [
+      monthBlock(months),
+      sliceBlock(T.railSetups, list, "setup"),
+      sliceBlock(T.railInstruments, list, "pair"),
+      sliceBlock(T.railSessions, list, "session"),
     ].filter(Boolean),
   };
 }
@@ -445,6 +513,7 @@ function open(kind, arg){
   const build = () => kind === "trade"  ? tradeSnapshot(arg)
              : kind === "ts"     ? tsSnapshot()
              : kind === "review" ? reviewSnapshot(arg, pick)
+             : kind === "reviewmonth" ? rvMonthSnapshot(arg)
              : kind === "day"    ? daySnapshot(arg)
              : kind === "week"  ? weekSnapshot(arg)
              : kind === "month" ? monthSnapshot(arg)
@@ -453,6 +522,9 @@ function open(kind, arg){
   let data = build();
   if (!data) return;
 
+  /* квартали, де є угоди: у вікні можна вибрати, яким ділитись */
+  const quarters = kind === "quarter"
+    ? [...new Set(S.all.map(t => quarterOf(monKey(t))))].sort() : [];
   /* назви активів для перемикачів — беремо до того, як звузили вибір */
   const allAssets = kind === "review"
     ? ((((window.__dv && __dv.note && __dv.note(arg)) || {}).assets) || [])
@@ -475,13 +547,20 @@ function open(kind, arg){
               + esc(a.nm) + '</button>').join("")
           + '</div>'
         : "")
+    + (quarters.length > 1
+        ? '<div class="sh-lab">' + T.slQuarterLabel + '</div>'
+          + '<div class="sh-assets" id="shQ">'
+          + quarters.map(q => '<button class="sh-chip' + (q === arg ? " on" : "") + '" data-q="' + q + '">'
+              + "Q" + q.split("-Q")[1] + " " + q.slice(0, 4) + '</button>').join("")
+          + '</div>'
+        : "")
     + (inCollab() ? "" :
         '<div class="sh-lab">' + T.slStyleLabel + '</div>'
         + '<div class="sh-skin" id="shSkin">'
         +   '<button class="sh-chip' + (lastSkin ? "" : " on") + '" data-s="">'
         +     esc(T.slStylePlain) + '</button>'
-        +   COLLABS.map(c => '<button class="sh-chip' + (lastSkin === c.id ? " on" : "")
-              + '" data-s="' + c.id + '">' + c.name + '</button>').join("")
+        +   '<button class="sh-chip' + (lastSkin ? " on" : "") + '" data-s="' + COLLAB + '">'
+        +     'Black Swan</button>'
         + '</div>')
     + '<div class="sh-lab">' + T.slDurationLabel + '</div>'
     + '<div class="sh-ttl">' + TTL().map(t =>
@@ -525,6 +604,23 @@ function open(kind, arg){
   });
 
   /* вибір активів: «усі» вимикає решту, і навпаки */
+  /* інший квартал — перезбираємо знімок під нього */
+  const qbox = document.getElementById("shQ");
+  if (qbox) qbox.querySelectorAll(".sh-chip").forEach(b => b.onclick = () => {
+    arg = b.dataset.q;
+    qbox.querySelectorAll(".sh-chip").forEach(x => x.classList.toggle("on", x === b));
+    const fresh = build();
+    if (fresh){
+      data = fresh;
+      const what = document.getElementById("shWhat");
+      if (what) what.innerHTML = '<b>' + esc(data.title) + '</b><span>' + esc(data.kind) + '</span>';
+    }
+    const out = document.getElementById("shOut");
+    if (out){ out.hidden = true; out.innerHTML = ""; }
+    const go = document.getElementById("shGo");
+    if (go){ go.disabled = false; go.textContent = T.slCreateBtn; }
+  });
+
   const box = document.getElementById("shAssets");
   if (box) box.querySelectorAll(".sh-chip").forEach(b => b.onclick = () => {
     const all = box.querySelector('[data-a="all"]');
@@ -578,9 +674,10 @@ function open(kind, arg){
       /* Для тижня й місяця малюємо календар — він піде в превью посилання.
          Не вийшло намалювати чи покласти — не біда: посилання створиться
          й без картинки, просто в месенджері буде без неї. */
-      else if (window.OgCal && (data.calendar || data.ts || kind === "day")){
+      else if (window.OgCal && (data.calendar || data.ts || data.rvMonth || data.months || kind === "day")){
         try{
           const png = data.ts ? OgCal.system(data)
+                    : data.rvMonth ? OgCal.rvMonth(data)
                     : kind === "day" ? OgCal.day(data)
                     : OgCal.period(data);
           if (!png) throw new Error("no image");
@@ -632,6 +729,12 @@ function icon(){
     + ' stroke-width="1.8" stroke-linecap="round"/></svg>';
 }
 
+function caret(){
+  return '<svg class="sh-caret" width="9" height="9" viewBox="0 0 24 24" fill="none">'
+    + '<path d="M6 9l6 6 6-6" stroke="currentColor" stroke-width="2"'
+    + ' stroke-linecap="round" stroke-linejoin="round"/></svg>';
+}
+
 function mkBtn(label, kind, arg, extra){
   const b = document.createElement("button");
   b.className = "btn sh-btn" + (extra ? " " + extra : "");
@@ -673,24 +776,7 @@ function hasWeek(dk){
 }
 function hasMonth(mk){ return !!mk && S.all.some(t => monKey(t) === mk); }
 function hasYear(y){   return !!y  && S.all.some(t => monKey(t).slice(0,4) === y); }
-
-/* Квартал беремо не поточний, а той, у якому лежить відкритий місяць:
-   дивишся березень — ділишся першим кварталом, а не тим, що надворі. */
-function curQuarter(){
-  const mk = curMonth();
-  if (!mk) return "";
-  return mk.slice(0, 4) + "-Q" + (Math.floor((+mk.slice(5, 7) - 1) / 3) + 1);
-}
-function hasQuarter(qk){
-  if (!qk) return false;
-  const y = qk.slice(0, 4), q = +qk.slice(6);
-  return S.all.some(t => {
-    const k = monKey(t);
-    if (k.slice(0, 4) !== y) return false;
-    const m = +k.slice(5, 7);
-    return m >= q * 3 - 2 && m <= q * 3;
-  });
-}
+function hasQuarter(qk){ return !!qk && S.all.some(t => quarterOf(monKey(t)) === qk); }
 
 /* ---- смуга над розділом: одна кнопка «Поділитися» ----
    Раніше тут стояло по кнопці на кожен період — і поруч із підписом
@@ -711,10 +797,9 @@ function mountBar(){
   const choices = [];
   if (!bt && hasDay(d))  choices.push({ label:T.slDay,         kind:"day",   arg:d });
   if (!bt && hasWeek(d)) choices.push({ label:T.slWeek,        kind:"week",  arg:d });
-  const qk = curQuarter();
-  if (hasMonth(mk))      choices.push({ label:T.ovPeriodMonth,   kind:"month",   arg:mk });
-  if (hasQuarter(qk))    choices.push({ label:T.ovPeriodQuarter, kind:"quarter", arg:qk });
-  if (hasYear(year))     choices.push({ label:T.ovPeriodYear,    kind:"year",    arg:year });
+  if (hasMonth(mk))      choices.push({ label:T.ovPeriodMonth, kind:"month", arg:mk });
+  if (mk && hasQuarter(quarterOf(mk))) choices.push({ label:T.ovPeriodQuarter, kind:"quarter", arg:quarterOf(mk) });
+  if (hasYear(year))     choices.push({ label:T.ovPeriodYear,  kind:"year",  arg:year });
   if (!choices.length) return;
 
   const bar = document.createElement("div");
@@ -723,14 +808,7 @@ function mountBar(){
   const btn = document.createElement("button");
   btn.type = "button";
   btn.className = "btn sh-btn sh-toggle";
-  /* Пташки збоку немає навмисно: кнопка й без неї розгортає список,
-     а поруч із підписом вона читалась як ще один предмет у кутку. */
-  btn.innerHTML = icon() + " <span>" + T.slShareCap + "</span>";
-  /* В огляді кнопка лишається без підпису, самим значком, тож ім'я для
-     озвучки й підказки задаємо окремо. Там, де підпис видно, вони просто
-     повторюють його — шкоди з того немає. */
-  btn.title = T.slShareCap;
-  btn.setAttribute("aria-label", T.slShareCap);
+  btn.innerHTML = icon() + " <span>" + T.slShareCap + "</span>" + (choices.length > 1 ? caret() : "");
   bar.appendChild(btn);
 
   if (choices.length === 1){
@@ -765,8 +843,8 @@ function mountBar(){
     return;
   }
 
-  /* на огляді — у кутку шапки, праворуч від заголовка. Перемикач періоду
-     живе в картці, тож у шапці ця кнопка лишається сама. */
+  /* на огляді — праворуч, одразу за перемикачем періоду: місяць і рік
+     віддаються назовні тим самим рухом, яким їх обирають */
   const ohead = root.querySelector(".ovw .ohead");
   if (ohead){
     bar.classList.add("sh-inline");

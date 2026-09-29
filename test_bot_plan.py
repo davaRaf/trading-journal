@@ -5,7 +5,7 @@
 самі ліміти (це test_billing.py), а що бот каже людині, коли безкоштовне
 скінчилось, і чи веде кнопка в тарифи.
 
-Головне, що ловимо: лічильник «лишилось N із 30» не має з'явитися ніде
+Головне, що ловимо: лічильник «лишилось N із 20» не має з'явитися ніде
 (рішення власника 22.09.2026), а відмова без кнопки — це глухий кут.
 """
 import billing
@@ -35,7 +35,7 @@ bot.db.meta_set = lambda key, value: None
 
 billing.state = lambda u: STATE["plan"] or {
     "plan": "free", "active": False, "paid_until": None}
-billing.free_terms = lambda u: {"trades": 30, "bt": 30, "imports": 3,
+billing.free_terms = lambda u: {"trades": 20, "bt": 20, "imports": 3,
                                 "import_days": 30, "ai": 15}
 billing.can_use_ai = lambda u: (True, "") if STATE["free_ai"] is True else (
     False, STATE["free_ai"])
@@ -74,7 +74,7 @@ def check_plan_free():
     bot.on_plan(100, 500)
     text = last()["text"]
     check("сказали, що безкоштовно", "Зараз безкоштовно" in text)
-    check("назвали умови", "30 угод" in text and "15 звернень" in text)
+    check("назвали умови", "20 угод" in text and "15 звернень" in text)
     check("сказали, що записане лишається", "лишається назавжди" in text)
     check("кнопка веде в тарифи", button() == "Подивитись тарифи")
     check("посилання на розділ підписки", link().endswith("/#plan"))

@@ -1,0 +1,91 @@
+/* ============================================================
+   Вітрина тарифів у налаштуваннях (static/plans.js): ті самі картки,
+   що й у справжній підписці (subscription.css у гілці billing-core),
+   поки без оплати — кнопки неактивні.
+   ============================================================ */
+
+/* ——— картки тарифів ——— */
+/* Відступ згори — під ярлик «−4 місяці»: він сидить верхи на рамці
+   картки й без цього зрізався б краєм панелі. */
+.sub-plans{display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:11px;
+  align-items:stretch; padding-top:9px}
+.sub-plan{
+  border:1px solid var(--line); border-radius:var(--r); padding:22px 16px 16px; background:var(--panel-2);
+  display:flex; flex-direction:column; position:relative; isolation:isolate;
+}
+.sub-plan.best{
+  border-color:color-mix(in srgb,var(--accent) 45%,transparent);
+  background:linear-gradient(var(--accent-soft),var(--accent-soft)) var(--panel-2);
+}
+/* тло — великий напис StatsAI шрифтом цифр журналу, підрізаний краєм картки */
+.sub-plan .sub-bg{position:absolute; inset:0; z-index:-1; pointer-events:none;
+  overflow:hidden; border-radius:var(--r)}
+.sub-word{
+  position:absolute; left:-5px; bottom:-13px; white-space:nowrap; line-height:1;
+  font-family:var(--mono); font-weight:700; font-size:54px; letter-spacing:-.045em;
+  color:var(--text); opacity:.07;
+}
+.sub-plan.best .sub-word{color:var(--accent); opacity:.16}
+
+.sub-name{font-family:var(--mono); font-size:11px; font-weight:600; letter-spacing:.1em; text-transform:uppercase; color:var(--dim); margin-bottom:11px}
+.sub-plan.best .sub-name{color:var(--accent)}
+.sub-cost{display:flex; align-items:flex-start; gap:2px; line-height:1}
+.sub-cost .cur{font-family:var(--mono); font-size:15px; font-weight:600; color:var(--dim); margin-top:5px}
+.sub-cost .val{font-family:var(--mono); font-size:32px; font-weight:600; letter-spacing:-.025em; font-variant-numeric:tabular-nums}
+.sub-cost .cc{font-size:19px; letter-spacing:-.01em}
+.sub-cost .cnt{font-size:12px; color:var(--faint); align-self:flex-end; margin-left:3px; margin-bottom:3px}
+.sub-bill{font-size:11.5px; color:var(--dim); margin-top:9px; margin-bottom:15px}
+/* Кнопка притиснута до низу картки: підпис про списання у кварталі
+   переноситься на два рядки, і без цього кнопки стояли б сходинкою. */
+/* Заливка рахується від кольору тексту, а не береться готовою змінною:
+   --seg-on-bg дорівнює тлу самої картки, і кнопка виходила безбарвною —
+   сама рамка, крізь яку просвічував великий напис StatsAI. */
+.sub-btn{
+  margin-top:auto; text-align:center; font-size:13px; font-weight:500; padding:9px 0; width:100%;
+  border-radius:var(--r-sm); color:var(--text); cursor:pointer; font-family:inherit;
+  background:color-mix(in srgb,var(--text) 12%,var(--panel));
+  border:1px solid color-mix(in srgb,var(--text) 18%,var(--panel));
+  transition:background .15s ease, border-color .15s ease;
+}
+.sub-btn:hover{
+  background:color-mix(in srgb,var(--text) 19%,var(--panel));
+  border-color:color-mix(in srgb,var(--accent) 45%,transparent);
+}
+.sub-btn:disabled{opacity:.5; cursor:default}
+.sub-plan.best .sub-btn{background:var(--accent); border-color:var(--accent); color:var(--accent-ink); font-weight:600}
+.sub-gift{
+  position:absolute; top:-8px; left:16px; font-family:var(--mono); font-size:10px; font-weight:700;
+  letter-spacing:.05em; background:var(--accent); color:var(--accent-ink); border-radius:6px; padding:3px 7px; z-index:1;
+  box-shadow:0 0 18px color-mix(in srgb,var(--accent) 35%,transparent);
+}
+
+/* ——— що відкриває підписка ——— */
+.sub-fhead{font-family:var(--mono); font-size:11px; font-weight:600; letter-spacing:.1em; text-transform:uppercase; color:var(--faint); margin:18px 0 10px}
+.sub-feats{display:grid; gap:7px; margin:0; padding:0; list-style:none}
+.sub-feats li{display:flex; gap:9px; align-items:flex-start; font-size:13px; color:var(--dim)}
+.sub-feats svg{flex:none; margin-top:4px; color:var(--accent)}
+.sub-feats b{color:var(--text); font-weight:500}
+
+/* Умови безкоштовного: не галочки, а перелік — це не те, що людина
+   купує, а те, що в неї вже є. */
+.sub-free{display:grid; gap:6px; margin:0; padding:0; list-style:none}
+.sub-free li{position:relative; padding-left:15px; font-size:13px; color:var(--dim)}
+.sub-free li::before{
+  content:""; position:absolute; left:3px; top:9px; width:4px; height:4px;
+  border-radius:50%; background:var(--faint);
+}
+.sub-free b{color:var(--text); font-weight:600; font-family:var(--mono); font-variant-numeric:tabular-nums}
+
+
+.sub-legal{display:flex; justify-content:center; gap:9px; margin:16px 0 0;
+  font-size:12px; color:var(--faint)}
+.sub-legal a{color:var(--faint); text-decoration:none; border-bottom:1px solid transparent}
+.sub-legal a:hover{color:var(--dim); border-bottom-color:var(--line)}
+
+/* телефон: картки в стовпчик, річний першим — до нижніх можна й не долистати */
+@media (max-width:560px){
+  .sub-plans{grid-template-columns:minmax(0,1fr)}
+  .sub-plan[data-p="year"]{order:-1}
+  .sub-gift{left:auto; right:16px}
+  .sub-btn{padding:11px 0; font-size:14px}
+}

@@ -29,17 +29,19 @@ FIELDS = ["pair", "session", "entry_model", "setup", "account"]
 # (pair_key → db._one_spelling): «US100», «Nasdaq» и «NQ» — один актив.
 # Копия этого списка для подсказок в браузере — PAIR_SAME в static/app.js.
 SAME = [
-    {"US100", "NAS100", "NASDAQ", "NASDAQ100", "USTEC", "NDX", "NQ"},
-    {"US30", "DJI", "DOW", "DOWJONES", "US30CASH", "YM"},
-    {"US500", "SPX", "SP500", "SPX500", "ES"},
-    {"GER40", "GER30", "DAX", "DAX40"},
-    {"XAUUSD", "GOLD", "ЗОЛОТО", "ЗОЛОТА"},
-    {"XAGUSD", "SILVER", "СРІБЛО"},
+    {"US100", "NAS100", "NASDAQ", "NASDAQ100", "USTEC", "NDX", "NQ", "MNQ", "NAS", "US100CASH",
+     "NAS100USD", "USTECH", "USTECH100"},
+    {"US30", "DJI", "DOW", "DOWJONES", "US30CASH", "YM", "MYM", "DJ30", "WS30"},
+    {"US500", "SPX", "SP500", "SPX500", "ES", "ES500", "MES", "US500CASH", "SPX500USD", "SNP500", "SANDP500"},
+    {"GER40", "GER30", "DAX", "DAX40", "DE40", "DE30", "GER40CASH", "FDAX"},
+    {"XAUUSD", "XAU", "GOLD", "ЗОЛОТО", "ЗОЛОТА", "GC", "MGC"},
+    {"XAGUSD", "XAG", "SILVER", "СРІБЛО", "СЕРЕБРО"},
     {"UK100", "FTSE", "FTSE100"},
-    {"JP225", "NIKKEI", "NIKKEI225"},
-    {"BTCUSD", "BTCUSDT", "BITCOIN", "XBTUSD"},
-    {"ETHUSD", "ETHUSDT", "ETHEREUM"},
-    {"USOIL", "WTI", "CRUDE", "CL"},
+    {"JP225", "NIKKEI", "NIKKEI225", "JPN225"},
+    {"US2000", "RUSSELL", "RUSSELL2000", "RTY", "M2K"},
+    {"BTCUSD", "BTCUSDT", "BITCOIN", "XBTUSD", "BTC"},
+    {"ETHUSD", "ETHUSDT", "ETHEREUM", "ETH"},
+    {"USOIL", "WTI", "CRUDE", "CL", "XTIUSD"},
 ]
 
 _JUNK = re.compile(r"[^0-9A-Za-zА-Яа-яЁёІіЇїЄєҐґ]+")
@@ -68,6 +70,54 @@ for _bad, _good in SESSION_SAME.items():
     SYN[_plain(_bad)] = _plain(_good)
 
 
+# Версия списка: сменилась — старые сделки при старте сводятся заново
+# (app.py: _pairs_init).
+SAME_VERSION = "2"
+
+
+def _pieces(value):
+    """Куски названия, по которым можно узнать актив, если целиком оно
+    незнакомо: «Nasdaq (NQ)» → NASDAQ, NQ; «SPX 500 (ES)» → SPX, 500,
+    SPX500, ES. Отдельно текст до скобок, в скобках, слова и пары
+    соседних слов."""
+    s = "".join(LOOKALIKE.get(ch, ch) for ch in str(value if value is not None else ""))
+    chunks = [re.sub(r"\(.*?\)", " ", s)] + re.findall(r"\((.*?)\)", s)
+    out = []
+    for c in chunks:
+        toks = [t.upper() for t in _JUNK.split(c) if t]
+        out.append("".join(toks))
+        out += toks
+        out += [a + b for a, b in zip(toks, toks[1:])]
+    return [o for o in out if o]
+
+
+# Приписки брокера, которые актив не меняют: «US100.cash», «XAU spot».
+NOISE = {"CASH", "SPOT", "CFD", "FUT", "FUTURES", "INDEX", "IDX", "ECN", "RAW",
+         "M", "C", "PRO", "PLUS"}
+
+
+def _by_pieces(value, table):
+    """Имя группы по кускам — только если все узнанные куски указывают на
+    одну и ту же группу. «US30 (Dow)» → US30; «US30/US100» — спор, не сводим.
+
+    И только если незнакомых слов нет: «XAU MSNR» — это человек так назвал
+    свой инструмент (актив + модель), а не просто золото. Раньше такое
+    сводилось в «XAU», и своё название у человека пропадало."""
+    s = "".join(LOOKALIKE.get(ch, ch) for ch in str(value if value is not None else ""))
+    chunks = [re.sub(r"\(.*?\)", " ", s)] + re.findall(r"\((.*?)\)", s)
+    for c in chunks:
+        toks = [t.upper() for t in _JUNK.split(c) if t]
+        if "".join(toks) in table:
+            continue
+        for i, t in enumerate(toks):
+            near = toks[i - 1] + t if i else ""
+            nxt = t + toks[i + 1] if i + 1 < len(toks) else ""
+            if not (t in table or t in NOISE or near in table or nxt in table):
+                return None
+    hits = {table[p] for p in _pieces(value) if p in table}
+    return hits.pop() if len(hits) == 1 else None
+
+
 def plain(value):
     """Ключ написания: регистр, пробелы и знаки. Без сведения синонимов.
 
@@ -87,7 +137,9 @@ def pair_key(value):
     подсказывались в окне сведения, и новые сделки продолжали расползаться.
     """
     k = _plain(value)
-    return PAIR_SYN.get(k, k) if k else ""
+    if not k:
+        return ""
+    return PAIR_SYN.get(k) or _by_pieces(value, PAIR_SYN) or k
 
 
 def key(value):
@@ -116,7 +168,7 @@ def same_trade_key(t):
     day, _, time = date.partition("T")
     if not day or not str(t.get("pair") or "").strip():
         return ""
-    return "|".join([day, key(t.get("pair")),
+    return "|".join([day, pair_key(t.get("pair")),
                      _plain(t.get("position")), _plain(t.get("result")),
                      time[:5] if time[:5] not in ("", "00:00") else ""])
 

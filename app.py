@@ -32,6 +32,7 @@ import db
 import emotions
 import filestore
 import share_store
+import admin_page
 import llm
 from psycopg.types.json import Jsonb
 
@@ -213,7 +214,7 @@ def clean_trade(body, tid):
 # У каждой ссылки свой срок жизни; просроченные удаляются при обращении.
 # ---------------------------------------------------------------------------
 SHARE_DIR = os.path.join(DATA, "shares")
-SHARE_MAX = 256 * 1024          # больше снимку не нужно
+SHARE_MAX = 1536 * 1024         # рік із календарями по місяцях і угодами всередині
 SHARE_TTL = share_store.TTL     # що можна вибрати в інтерфейсі; бот бере той самий список
 os.makedirs(SHARE_DIR, exist_ok=True)
 _share_lock = threading.Lock()
@@ -238,6 +239,11 @@ def share_trades(rec):
     for day in ((d.get("calendar") or {}).get("days") or []):
         for t in day.get("trades") or []:
             yield t
+    # рік і квартал: календарі лежать по місяцях
+    for m in d.get("months") or []:
+        for day in ((m.get("calendar") or {}).get("days") or []):
+            for t in day.get("trades") or []:
+                yield t
     for a in ((d.get("review") or {}).get("assets") or []):
         for t in a.get("trades") or []:
             yield t
@@ -276,9 +282,29 @@ def share_shot_ok(rec, name):
 TF_ORDER = ["1W", "1D", "4H", "2H", "1H", "30M", "15M", "5M", "3M", "1M"]
 
 
+TF_MIN = {"M": 1, "H": 60, "D": 1440, "W": 10080}
+TF_WORDS = {"DAILY": 1440, "DAY": 1440, "D": 1440, "WEEKLY": 10080, "WEEK": 10080, "W": 10080,
+            "MONTHLY": 43200, "MONTH": 43200, "MN": 43200}
+
+
+def tf_minutes(tf):
+    """Таймфрейм у хвилинах: 15M, M15, 1H, H1, D, Daily, W… Незрозумілий
+    підпис («Daily Screenshot», «свій») рахуємо найстаршим, а не наймолодшим:
+    інакше він ліз у превью замість 1M."""
+    t = re.sub(r"[^A-Z0-9]", "", str(tf or "").upper())
+    if t in TF_WORDS:
+        return TF_WORDS[t]
+    m = re.fullmatch(r"(\d+)([MHDW])", t) or re.fullmatch(r"([MHDW])(\d+)", t)
+    if not m:
+        return 10 ** 9
+    a, b = m.groups()
+    n, u = (a, b) if a.isdigit() else (b, a)
+    return int(n) * TF_MIN[u]
+
+
 def tf_rank(tf):
-    t = str(tf or "").upper().replace(" ", "")
-    return TF_ORDER.index(t) if t in TF_ORDER else len(TF_ORDER)
+    """Більше — молодший таймфрейм (для max())."""
+    return -tf_minutes(tf)
 
 
 def share_preview_shot(rec):
@@ -570,8 +596,116 @@ def ref_short(ref):
             return short
     return ref
 KIND_RU = {"trade": "Сделка", "day": "День", "week": "Неделя", "month": "Месяц", "year": "Год",
+           "quarter": "Квартал",
+           "reviewmonth": "Анализ дня · месяц",
            "ts": "Торговая система", "review": "Анализ дня", "period": "Период (старые)",
            "other": "Другое"}
+
+
+def _emo_init():
+    """Одноразово: емоції в уже записаних угодах — кодами (emotions.norm).
+    Старі записи лежали словами різних мов — «Спокій» від бота,
+    «Спокойствие» з сайту — і в розрізі стояли окремими рядками."""
+    try:
+        if db.meta_get("emotions_codes_v1", ""):
+            return
+        n = 0
+        with db.connect() as conn:
+            rows = conn.execute('SELECT id, "emotion" FROM trades WHERE "emotion" <> \'\'').fetchall()
+            for r in rows:
+                v = emotions.norm(r["emotion"])
+                if v != r["emotion"]:
+                    conn.execute('UPDATE trades SET "emotion"=%s WHERE id=%s', (v, r["id"]))
+                    n += 1
+            conn.commit()
+        db.meta_set("emotions_codes_v1", "1")
+        print("емоції → коди: %d угод" % n)
+    except Exception as ex:
+        print("емоції не зведено:", ex)
+
+
+def _emo_init2():
+    """Одноразово: відповіді «своїми словами» з бота, які не звелись до
+    категорії (у розрізі стояло «Розфокус» серед російських назв), —
+    пробуємо звести ще раз, не вийшло — «Інше». Слова лишаються в
+    emotion_raw. Свої категорії з сайту (emotion_raw порожній) не чіпаємо.
+    У фоні: для кожного рядка може знадобитись модель."""
+    def run():
+        try:
+            if db.meta_get("emotions_raw_v2", ""):
+                return
+            with db.connect() as conn:
+                rows = conn.execute('SELECT id, "emotion", emotion_raw FROM trades '
+                                    'WHERE emotion_raw IS NOT NULL AND "emotion" <> ''').fetchall()
+            n = 0
+            for r in rows:
+                parts = [p.strip() for p in r["emotion"].split(",") if p.strip()]
+                if all(emotions.code_of(p) for p in parts):
+                    continue
+                code = emotions.classify(r["emotion_raw"] or r["emotion"]) or emotions.OTHER_CODE
+                with db.connect() as conn:
+                    conn.execute('UPDATE trades SET "emotion"=%s WHERE id=%s', (code, r["id"]))
+                    conn.commit()
+                n += 1
+            db.meta_set("emotions_raw_v2", "1")
+            print("свої слова → категорії: %d угод" % n)
+        except Exception as ex:
+            print("свої слова не зведено:", ex)
+    threading.Thread(target=run, daemon=True).start()
+
+
+def _pairs_init():
+    """Разово для кожної версії списку синонімів (tidy.SAME_VERSION): у
+    кожного журналу один актив — одне написання. Беремо те, що трапляється
+    найчастіше; «Nasdaq (NQ)» стає «US100», якщо US100 у журналі більше.
+    Нові угоди й так сводяться при записі (db._one_spelling), тут — старі."""
+    def run():
+        flag = "pairs_same_v" + tidy.SAME_VERSION
+        try:
+            if db.meta_get(flag, ""):
+                return
+            with db.connect() as conn:
+                rows = conn.execute('SELECT id, user_id, "pair" FROM trades WHERE "pair" <> \'\'').fetchall()
+            by = {}
+            for r in rows:
+                by.setdefault((r["user_id"], tidy.pair_key(r["pair"])), []).append(r)
+            n = 0
+            with db.connect() as conn:
+                for (_u, _k), rs in by.items():
+                    cnt = {}
+                    for r in rs:
+                        p = r["pair"].strip()
+                        cnt[p] = cnt.get(p, 0) + 1
+                    if len(cnt) < 2:
+                        continue
+                    best = sorted(cnt.items(), key=lambda kv: (-kv[1], kv[0]))[0][0]
+                    for r in rs:
+                        if r["pair"].strip() != best:
+                            conn.execute('UPDATE trades SET "pair"=%s WHERE id=%s', (best, r["id"]))
+                            n += 1
+                conn.commit()
+            db.meta_set(flag, "1")
+            print("інструменти зведено: %d угод" % n)
+        except Exception as ex:
+            print("інструменти не зведено:", ex)
+    threading.Thread(target=run, daemon=True).start()
+
+
+def ref_visit(ref, ua):
+    """Перехід за коротким посиланням (/bs, /soc): скільки людей натиснуло,
+    ще до реєстрації. Боти месенджерів, що тягнуть прев'ю, не рахуються."""
+    if not ref or share_store.BOT_UA.search(ua or ""):
+        return
+    try:
+        with db.connect() as conn:
+            conn.execute("""CREATE TABLE IF NOT EXISTS ref_visits (
+                               ref TEXT NOT NULL, day DATE NOT NULL, n INTEGER NOT NULL DEFAULT 0,
+                               PRIMARY KEY (ref, day))""")
+            conn.execute("""INSERT INTO ref_visits (ref, day, n) VALUES (%s, (now() AT TIME ZONE 'Europe/Kyiv')::date, 1)
+                            ON CONFLICT (ref, day) DO UPDATE SET n = ref_visits.n + 1""", (ref,))
+            conn.commit()
+    except Exception as ex:
+        print("ref_visit:", ex)
 
 
 def _ref_init():
@@ -661,77 +795,75 @@ def delete_user_fully(uid):
     return len(names)
 
 
-def _billing_block(u, e, row, dt):
+def _billing_block(u):
     """Підписка в картці адмінки: що видно і чим це можна поправити.
 
     Тут, на відміну від журналу, лічильники показуємо — адмін мусить
     бачити, скільки людина витратила й де її межа. Заборона на «лишилось
-    N із 30» стосується самої людини, а не цієї сторінки.
+    N із 20» стосується самої людини, а не цієї сторінки.
     """
+    e = admin_page.e
+    dt = lambda v: v.strftime("%d.%m.%Y") if hasattr(v, "strftime") else (str(v)[:10] if v else "—")
     st = billing.state(u["id"])
     nb = antifraud.neighbours(u["id"])
     n = lambda k, d=0: (u[k] if u[k] is not None else d)
     pair = lambda used, cap, d: "%s из %s" % (n(used), n(cap, d))
+    kv = lambda k, v: "<span>%s</span><span>%s</span>" % (e(k), v)
     who = lambda rows: ", ".join(
-        "<a href='/admin/u/%s'>%s</a>" % (e(r["nickname"]), e(r["nickname"]))
+        '<a href="/admin/u/%s" style="color:var(--acc)">%s</a>' % (e(r["nickname"]), e(r["nickname"]))
         for r in rows) or "—"
     nick_js = json.dumps(u["nickname"], ensure_ascii=False)
-    inp = ("padding:7px;border-radius:8px;border:1px solid #333;"
-           "background:#111;color:#eee;width:74px")
-    btn = ("padding:8px 12px;border-radius:8px;border:1px solid #333;"
-           "background:#161618;color:#eee;cursor:pointer")
+    inp = ('padding:8px 10px;border-radius:9px;border:1px solid var(--line);'
+           'background:var(--card);color:var(--text);font:inherit;width:82px')
     return (
-        "<h2>Подписка</h2><table>"
-        + row("План", ("Special · с %s (выдан вручную)" % dt(u.get("special_since")))
-              if st["plan"] == billing.LIFE
-              else (("%s · до %s" % (st["plan"], dt(u["paid_until"])))
-                    if st["active"] else "бесплатный"))
-        + row("Сделки", pair("free_trades_used", "free_trades_cap", config.FREE_TRADES))
-        + row("Бэктест", pair("free_bt_used", "free_bt_cap", config.FREE_BT))
-        + row("Переносы", pair("imports_used", "imports_cap", config.FREE_IMPORTS))
-        + row("Обращения к модели", "%s из %s%s" % (
+        '<div class="grid two" style="margin-top:12px"><div class=card><h2>Подписка</h2><div class=kv>'
+        + kv("План", e(("Special · с %s (выдан вручную)" % dt(u["special_since"]))
+                       if st["plan"] == billing.LIFE
+                       else (("%s · до %s" % (st["plan"], dt(u["paid_until"])))
+                             if st["active"] else "бесплатный")))
+        + kv("Сделки", e(pair("free_trades_used", "free_trades_cap", config.FREE_TRADES)))
+        + kv("Бэктест", e(pair("free_bt_used", "free_bt_cap", config.FREE_BT)))
+        + kv("Переносы", e(pair("imports_used", "imports_cap", config.FREE_IMPORTS)))
+        + kv("Обращения к модели", e("%s из %s%s" % (
             billing.ai_used(u), billing.ai_cap(u),
-            (" · окно до " + dt(u["ai_reset_at"])) if u["ai_reset_at"] else ""))
-        + row("Набор цен", {"early": "ранние (скидка навсегда)",
-                            "fxlab": "FX LAB (по промокоду)"}.get(
-                                u["price_plan"] or "std", "обычный"))
-        + row("Промокод", "—" if not u.get("promo_code") else
-              "%s · %s" % (e(u["promo_code"]), ("оплачен " + dt(u["promo_used_at"]))
-                           if u.get("promo_used_at") else "введён, ждёт оплаты"))
-        + row("Своя цена", ("%.2f EUR" % (u["own_price_cents"] / 100.0))
-              if u["own_price_cents"] else "—")
-        + row("Заметка", u["billing_note"] or "—")
-        + "</table>"
-        + "<h2>Откуда пришёл</h2><table>"
-        + row("IP регистрации", (u["signup_ip"] or "—")
-              + (" · разрешён вручную" if nb["allowed"] else ""))
-        + row("Отпечаток устройства", (u["signup_device"] or "")[:12] or "—")
-        + row("Тот же IP", who(nb["ip"]))
-        + row("То же устройство", who(nb["device"]))
-        + row("Та же база Notion", who(nb["notion"]))
-        + "</table>"
-        + "<p><small>Совпал только IP — это ещё ничего не значит: у мобильных "
-          "операторов один выход на тысячи людей. Совпало устройство — почти "
-          "наверняка тот же человек.</small></p>"
-        + "<h2>Поправить</h2>"
-        + "<p><input id=bdays type=number min=1 placeholder='30' style=\"%s\"> "
-          "<button id=bgrant style=\"%s\">Дать подписку на N дней</button> "
-          "<button id=blife style=\"%s\">Сделать Special</button> "
-          "<button id=brevoke style=\"%s\">Снять подписку</button></p>" % (
-              inp, btn, btn, btn)
-        + "<p><small>Бонус к бесплатным лимитам (прибавляем к границе, "
-          "потраченное не трогаем):</small><br>"
-          "сделки <input id=btr type=number placeholder='0' style=\"%s\"> "
-          "бэктест <input id=bbt type=number placeholder='0' style=\"%s\"> "
-          "переносы <input id=bim type=number placeholder='0' style=\"%s\"> "
-          "обращения <input id=bai type=number placeholder='0' style=\"%s\"> "
-          "<button id=bbonus style=\"%s\">Добавить</button></p>" % (inp, inp, inp, inp, btn)
-        + "<p><button id=bearly style=\"%s\">Цены как ранним</button> "
-          "<button id=bstd style=\"%s\">Обычные цены</button> "
-          "<button id=ballow style=\"%s\">%s</button></p>" % (
-              btn, btn, btn,
+            (" · окно до " + dt(u["ai_reset_at"])) if u["ai_reset_at"] else "")))
+        + kv("Набор цен", e({"early": "ранние (скидка навсегда)",
+                             "fxlab": "FX LAB (по промокоду)"}.get(u["price_plan"] or "std", "обычный")))
+        + kv("Промокод", "—" if not u["promo_code"] else
+             e("%s · %s" % (u["promo_code"], ("оплачен " + dt(u["promo_used_at"]))
+                            if u["promo_used_at"] else "введён, ждёт оплаты")))
+        + kv("Своя цена", e("%.2f EUR" % (u["own_price_cents"] / 100.0)) if u["own_price_cents"] else "—")
+        + kv("Заметка", e(u["billing_note"] or "—"))
+        + "</div></div>"
+        + "<div class=card><h2>Откуда пришёл</h2><div class=kv>"
+        + kv("IP регистрации", e((u["signup_ip"] or "—") + (" · разрешён вручную" if nb["allowed"] else "")))
+        + kv("Отпечаток устройства", e((u["signup_device"] or "")[:12] or "—"))
+        + kv("Тот же IP", who(nb["ip"]))
+        + kv("То же устройство", who(nb["device"]))
+        + kv("Та же база Notion", who(nb["notion"]))
+        + '</div><p class=mute style="margin:10px 0 0;font-size:12px">Совпал только IP — это ещё ничего '
+          'не значит: у мобильных операторов один выход на тысячи людей. Совпало устройство — почти '
+          "наверняка тот же человек.</p></div></div>"
+        + '<div class=card style="margin-top:12px"><h2>Поправить подписку</h2>'
+          '<div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">'
+          '<input id=bdays type=number min=1 placeholder="30" style="%s">'
+          '<button id=bgrant class=btn>Дать подписку на N дней</button>'
+          '<button id=blife class=btn>Сделать Special</button>'
+          '<button id=brevoke class=btn>Снять подписку</button></div>' % inp
+        + '<p class=mute style="margin:14px 0 8px;font-size:12px">Бонус к бесплатным лимитам '
+          "(прибавляем к границе, потраченное не трогаем):</p>"
+          '<div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">'
+          '<span class=mute>сделки</span><input id=btr type=number placeholder="0" style="%s">'
+          '<span class=mute>бэктест</span><input id=bbt type=number placeholder="0" style="%s">'
+          '<span class=mute>переносы</span><input id=bim type=number placeholder="0" style="%s">'
+          '<span class=mute>обращения</span><input id=bai type=number placeholder="0" style="%s">'
+          '<button id=bbonus class=btn>Добавить</button></div>' % (inp, inp, inp, inp)
+        + '<div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:14px">'
+          '<button id=bearly class=btn>Цены как ранним</button>'
+          '<button id=bstd class=btn>Обычные цены</button>'
+          '<button id=ballow class=btn>%s</button></div>'
+          '<p id=bmsg class=mute></p></div>' % (
               "Убрать разрешение IP" if nb["allowed"] else "Разрешить этот IP")
-        + "<p id=bmsg></p>"
         + "<script>const NICK=%s;"
           "async function bill(act,data){bmsg.textContent='…';"
           "const r=await fetch('/api/admin/billing/'+act,{method:'POST',"
@@ -1723,100 +1855,9 @@ class H(BaseHTTPRequestHandler):
                 return self._redirect("/login")
             if not _is_admin(uid):
                 self.send_response(403); self.end_headers(); return
-            with db.connect() as conn:
-                q = lambda sql, *a: conn.execute(sql, a).fetchone()
-                u = q("""SELECT count(*) AS n,
-                                count(*) FILTER (WHERE created_at >= now() - interval '7 days') AS d7,
-                                count(*) FILTER (WHERE created_at >= now() - interval '30 days') AS d30,
-                                count(*) FILTER (WHERE telegram_id IS NOT NULL) AS tg,
-                                count(*) FILTER (WHERE email_confirmed_at IS NOT NULL) AS mail
-                         FROM users""")
-                t = q("""SELECT count(*) AS n,
-                                count(*) FILTER (WHERE created_at >= now() - interval '7 days') AS d7,
-                                count(DISTINCT user_id) AS users,
-                                count(DISTINCT user_id) FILTER (WHERE created_at >= now() - interval '7 days') AS act7,
-                                count(DISTINCT user_id) FILTER (WHERE created_at >= now() - interval '30 days') AS act30
-                         FROM trades""")
-                refs = conn.execute("""SELECT coalesce(ref_source,'') AS ref, count(*) AS n,
-                                              count(*) FILTER (WHERE ref_at >= now() - interval '30 days') AS d30
-                                       FROM users GROUP BY 1 ORDER BY n DESC""").fetchall()
-                share_store.init()
-                sh = q("""SELECT count(*) AS n,
-                                 count(*) FILTER (WHERE created >= extract(epoch from now()) - 7*86400) AS d7,
-                                 count(*) FILTER (WHERE created >= extract(epoch from now()) - 30*86400) AS d30,
-                                 coalesce(sum(views),0) AS views,
-                                 count(DISTINCT user_id) AS people
-                          FROM share_stats""")
-                sh_kind = conn.execute("""SELECT kind, count(*) AS n, coalesce(sum(views),0) AS views
-                                          FROM share_stats GROUP BY kind ORDER BY n DESC""").fetchall()
-                sh_top = conn.execute("""SELECT u.nickname, count(*) AS n, coalesce(sum(s.views),0) AS views,
-                                                max(s.created) AS last
-                                         FROM share_stats s LEFT JOIN users u ON u.id = s.user_id
-                                         GROUP BY u.nickname ORDER BY n DESC LIMIT 20""").fetchall()
-                last = conn.execute("""SELECT u.nickname, u.created_at, coalesce(u.ref_source,'') AS ref,
-                                              (SELECT count(*) FROM trades t WHERE t.user_id=u.id) AS trades
-                                       FROM users u ORDER BY u.created_at DESC LIMIT 20""").fetchall()
-                # пошук людини за ніком або поштою: частина рядка, без регістру
-                query = urllib.parse.parse_qs(urlparse(self.path).query).get("q", [""])[0].strip()
-                found = []
-                if query:
-                    like = "%" + query.lower() + "%"
-                    found = conn.execute("""SELECT u.nickname, coalesce(u.email,'') AS email, u.created_at,
-                                                   coalesce(u.ref_source,'') AS ref,
-                                                   (SELECT count(*) FROM trades t WHERE t.user_id=u.id) AS trades
-                                            FROM users u
-                                            WHERE lower(u.nickname) LIKE %s OR lower(coalesce(u.email,'')) LIKE %s
-                                            ORDER BY u.created_at DESC LIMIT 30""", (like, like)).fetchall()
-            e = lambda x: str(x).replace("&","&amp;").replace("<","&lt;")
-            row = lambda k, v: "<tr><td>%s</td><td><b>%s</b></td></tr>" % (e(k), e(v))
-            html = ("<!doctype html><html lang=ru><meta charset=utf-8>"
-                    "<meta name=viewport content='width=device-width,initial-scale=1'>"
-                    "<title>StatsAI · цифры</title>"
-                    "<style>body{font:15px/1.5 -apple-system,Segoe UI,sans-serif;background:#0b0b0d;color:#eee;"
-                    "margin:0;padding:20px;max-width:640px}h1{font-size:18px;margin:0 0 16px}h2{font-size:12px;"
-                    "letter-spacing:.12em;text-transform:uppercase;color:#8a8a90;margin:22px 0 8px}table{width:100%;"
-                    "border-collapse:collapse}td{padding:7px 0;border-top:1px solid #222}td+td{text-align:right}"
-                    "small{color:#8a8a90}a{color:#40e094}"
-                    "form{display:flex;gap:8px;margin:0 0 6px}input{flex:1;font:inherit;padding:9px 12px;border-radius:9px;"
-                    "border:1px solid #2a2a2e;background:#141416;color:#eee}button{font:inherit;padding:9px 14px;"
-                    "border-radius:9px;border:1px solid #2a2a2e;background:#1b1b1e;color:#eee;cursor:pointer}</style>"
-                    "<h1>StatsAI · цифры <small>" + e(datetime.datetime.now().strftime("%d.%m.%Y %H:%M")) + "</small></h1>"
-                    "<h2>Найти человека</h2>"
-                    "<form method=get action='/admin'><input name=q placeholder='Ник или почта' value='"
-                    + e(query).replace("'", "&#39;") + "' autofocus><button>Найти</button></form>"
-                    + (("<table>" + "".join(
-                        "<tr><td><a href='/admin/u/%s'>%s</a> <small>%s · %s%s</small></td><td>%s сд.</td></tr>" % (
-                            e(r["nickname"]), e(r["nickname"]), e(r["email"]) or "без почты",
-                            r["created_at"].strftime("%d.%m.%Y"), (" · " + e(r["ref"])) if r["ref"] else "",
-                            r["trades"]) for r in found) + "</table>")
-                       if found else ("<p><small>Никого не нашёл по «%s».</small></p>" % e(query) if query else ""))
-                    + 
-                    "<h2>Аккаунты</h2><table>"
-                    + row("Всего", u["n"]) + row("За 7 дней", u["d7"]) + row("За 30 дней", u["d30"])
-                    + row("С Telegram", u["tg"]) + row("С подтверждённой почтой", u["mail"]) + "</table>"
-                    "<h2>Активность</h2><table>"
-                    + row("Сделок всего", t["n"]) + row("Сделок за 7 дней", t["d7"])
-                    + row("Людей хотя бы с одной сделкой", t["users"])
-                    + row("Писали сделки за 7 дней", t["act7"]) + row("Писали сделки за 30 дней", t["act30"]) + "</table>"
-                    "<h2>Откуда пришли (метки)</h2><table>"
-                    + "".join(row((REF_TITLES.get(r["ref"], r["ref"]) or "без метки")
-                                  + (" · за 30 дн. +%d" % r["d30"] if r["d30"] else ""), r["n"]) for r in refs) + "</table>"
-                    "<h2>Ссылки (поделились)</h2><table>"
-                    + row("Всего ссылок", sh["n"]) + row("За 7 дней", sh["d7"]) + row("За 30 дней", sh["d30"])
-                    + row("Людей делились", sh["people"]) + row("Переходов по ссылкам (без превью)", sh["views"]) + "</table>"
-                    "<h2>Ссылки по типу</h2><table>"
-                    + "".join(row(KIND_RU.get(r["kind"], r["kind"] or "—") + " · переходов " + str(r["views"]), r["n"]) for r in sh_kind) + "</table>"
-                    "<h2>Кто делится</h2><table>"
-                    + "".join("<tr><td><a href='/admin/u/%s'>%s</a> <small>%s · переходов %s</small></td><td>%s</td></tr>" % (
-                        e(r["nickname"] or ""), e(r["nickname"] or "—"),
-                        datetime.datetime.fromtimestamp(r["last"]).strftime("%d.%m") if r["last"] else "",
-                        r["views"], r["n"]) for r in sh_top) + "</table>"
-                    "<h2>Последние регистрации</h2><table>"
-                    + "".join("<tr><td><a href='/admin/u/%s'>%s</a> <small>%s%s</small></td><td>%s сд.</td></tr>" % (
-                        e(r["nickname"]), e(r["nickname"]), r["created_at"].strftime("%d.%m %H:%M"),
-                        (" · " + e(r["ref"])) if r["ref"] else "", r["trades"]) for r in last)
-                    + "</table></html>")
-            data = html.encode("utf-8")
+            # панель цифр малює admin_page.py; ?q= — підставити пошук
+            query = urllib.parse.parse_qs(urlparse(self.path).query).get("q", [""])[0].strip()
+            data = admin_page.dashboard(query, REF_TITLES, KIND_RU, list(ref_all())).encode("utf-8")
             self.send_response(200)
             self.send_header("Content-Type", "text/html; charset=utf-8")
             self.send_header("Content-Length", str(len(data)))
@@ -1839,114 +1880,12 @@ class H(BaseHTTPRequestHandler):
                 u = db.get_user_by_nick(nick) or db.get_user_by_email(nick)
             except Exception:
                 u = None
-            e = lambda x: str(x if x is not None else "").replace("&", "&amp;").replace("<", "&lt;")
-            row = lambda k, v: "<tr><td>%s</td><td><b>%s</b></td></tr>" % (e(k), e(v))
-            head = ("<!doctype html><html lang=ru><meta charset=utf-8>"
-                    "<meta name=viewport content='width=device-width,initial-scale=1'>"
-                    "<title>StatsAI · %s</title>"
-                    "<style>body{font:15px/1.5 -apple-system,Segoe UI,sans-serif;background:#0b0b0d;color:#eee;"
-                    "margin:0;padding:20px;max-width:640px}h1{font-size:18px;margin:0 0 16px}h2{font-size:12px;"
-                    "letter-spacing:.12em;text-transform:uppercase;color:#8a8a90;margin:22px 0 8px}table{width:100%%;"
-                    "border-collapse:collapse}td{padding:7px 0;border-top:1px solid #222}td+td{text-align:right}"
-                    "a{color:#8ab4ff}small{color:#8a8a90}</style>" % e(nick))
             if not u:
-                data = (head + "<h1>%s</h1><p>Такого пользователя нет.</p><p><a href='/admin'>← все цифры</a></p></html>" % e(nick)).encode("utf-8")
+                data = admin_page.not_found(nick).encode("utf-8")
                 self.send_response(404)
             else:
-                dt = lambda v: v.strftime("%d.%m.%Y %H:%M") if v else "—"
-                with db.connect() as conn:
-                    t = conn.execute("""SELECT count(*) AS n,
-                                               count(*) FILTER (WHERE result='Skip') AS skips,
-                                               min("date") AS first, max("date") AS last,
-                                               max(created_at) AS last_at,
-                                               count(*) FILTER (WHERE created_at >= now() - interval '7 days') AS d7,
-                                               count(*) FILTER (WHERE created_at >= now() - interval '30 days') AS d30,
-                                               count(DISTINCT left("date", 10)) AS days
-                                        FROM trades WHERE user_id=%s""", (u["id"],)).fetchone()
-                    pairs = conn.execute("""SELECT "pair", count(*) AS n FROM trades WHERE user_id=%s AND "pair"<>''
-                                            GROUP BY 1 ORDER BY n DESC LIMIT 5""", (u["id"],)).fetchall()
-                    share_store.init()
-                    sh = conn.execute("""SELECT count(*) AS n, coalesce(sum(views),0) AS views, max(created) AS last
-                                         FROM share_stats WHERE user_id=%s""", (u["id"],)).fetchone()
-                    kinds = conn.execute("""SELECT kind, count(*) AS n FROM share_stats WHERE user_id=%s
-                                            GROUP BY kind ORDER BY n DESC""", (u["id"],)).fetchall()
-                    _prefs_init()
-                    pr = conn.execute("SELECT data FROM user_prefs WHERE user_id=%s", (u["id"],)).fetchone()
-                try:
-                    ts = ts_store.get(u["id"])
-                except Exception:
-                    ts = None
-                prefs = (pr or {}).get("data") or {}
-                ts_line = "нет"
-                if ts:
-                    bits = []
-                    if ts.get("assets"): bits.append("активы: " + ", ".join(str(x) for x in ts["assets"][:6]))
-                    if ts.get("models"): bits.append("моделей: %d" % len(ts["models"]))
-                    if ts.get("updated"): bits.append("обновлена " + str(ts["updated"]))
-                    ts_line = "есть · " + " · ".join(bits) if bits else "есть"
-                html = (head + "<h1>%s <small>id %s</small></h1>" % (e(u["nickname"]), u["id"])
-                    + "<h2>Аккаунт</h2><table>"
-                    + row("Почта", u["email"]) + row("Почта подтверждена", dt(u["email_confirmed_at"]))
-                    + row("Зарегистрирован", dt(u["created_at"]))
-                    + row("Telegram", ("@" + u["telegram_username"]) if u["telegram_username"] else ("да" if u["telegram_id"] else "нет"))
-                    + row("Открытый журнал", "да · /u/%s" % e(u["nickname"]) if u["public_journal"] else "нет")
-                    + row("Метка партнёра",
-                          (REF_TITLES.get(u["ref_source"], u["ref_source"]) + " · с " + dt(u["ref_at"]))
-                          if u["ref_source"] else "нет")
-                    + "</table>"
-                    # мітку іноді треба поправити руками: людина перейшла не
-                    # за тим посиланням, а далі її посилання рахуються чужому
-                    + "<p><small>Сменить метку:</small> "
-                    + " ".join(
-                        "<button class=refb data-r='%s' style=\"padding:6px 11px;margin-right:6px;"
-                        "border-radius:8px;border:1px solid #333;background:#161618;color:#eee;"
-                        "cursor:pointer\">%s</button>" % (k, e(v))
-                        for k, v in [("", "без метки")] + [(r, REF_TITLES.get(r, r)) for r in ref_all()])
-                    + " <span id=refmsg></span></p>"
-                    + "<script>document.querySelectorAll('.refb').forEach(b=>b.onclick=async()=>{"
-                      "refmsg.textContent='…';"
-                      "const r=await fetch('/api/admin/set-ref',{method:'POST',"
-                      "headers:{'Content-Type':'application/json'},"
-                      "body:JSON.stringify({nick:%s,ref:b.dataset.r})});"
-                      "const d=await r.json().catch(()=>({}));"
-                      "refmsg.textContent=r.ok?'готово':(d.error||('ошибка '+r.status));"
-                      "if(r.ok)setTimeout(()=>location.reload(),600);});</script>"
-                      % json.dumps(u["nickname"], ensure_ascii=False)
-                    + "<h2>Сделки</h2><table>"
-                    + row("Всего", t["n"]) + row("Из них скипов", t["skips"]) + row("Торговых дней", t["days"])
-                    + row("Первая · последняя", "%s · %s" % (str(t["first"] or "—")[:10], str(t["last"] or "—")[:10]))
-                    + row("Последняя запись", dt(t["last_at"])) + row("За 7 дней", t["d7"]) + row("За 30 дней", t["d30"])
-                    + row("Инструменты", ", ".join("%s (%d)" % (r["pair"], r["n"]) for r in pairs) or "—")
-                    + "</table>"
-                    + "<h2>Торговая система</h2><table>" + row("ТС", ts_line) + "</table>"
-                    + _billing_block(u, e, row, dt)
-                    + "<h2>Ссылки</h2><table>"
-                    + row("Поделился", sh["n"]) + row("Переходов", sh["views"])
-                    + row("Последняя", datetime.datetime.fromtimestamp(sh["last"]).strftime("%d.%m.%Y") if sh["last"] else "—")
-                    + "".join(row("· " + KIND_RU.get(r["kind"], r["kind"]), r["n"]) for r in kinds)
-                    + "</table>"
-                    + "<h2>Опасная зона</h2>"
-                      "<p><small>Удаляет аккаунт и всё, что в нём: сделки, ТС, анализ дня, "
-                      "настройки, ссылки и скриншоты. Отменить нельзя. Чтобы подтвердить, "
-                      "впишите ник точно так: <b>%s</b></small></p>"
-                      "<p><input id=cf placeholder='%s' style=\"padding:8px;border-radius:8px;"
-                      "border:1px solid #333;background:#111;color:#eee;width:60%%\">"
-                      "<button id=go style=\"margin-left:8px;padding:9px 14px;border-radius:8px;"
-                      "border:0;background:#7a1f1f;color:#fff;cursor:pointer\">Удалить аккаунт</button></p>"
-                      "<p id=msg></p>"
-                      "<script>go.onclick=async()=>{if(!confirm('Удалить аккаунт %s? Отменить нельзя.'))return;"
-                      "go.disabled=true;msg.textContent='Удаляю…';"
-                      "const r=await fetch('/api/admin/delete-user',{method:'POST',"
-                      "headers:{'Content-Type':'application/json'},"
-                      "body:JSON.stringify({nick:%s,confirm:cf.value})});"
-                      "const d=await r.json().catch(()=>({}));"
-                      "if(r.ok){msg.textContent='Удалён. Файлов убрано: '+d.files;"
-                      "setTimeout(()=>location.href='/admin',1200);}"
-                      "else{go.disabled=false;msg.textContent=d.error||('Ошибка '+r.status);}};</script>"
-                      % (e(u["nickname"]), e(u["nickname"]), e(u["nickname"]),
-                         json.dumps(u["nickname"], ensure_ascii=False))
-                    + "<p><a href='/admin'>← все цифры</a></p></html>")
-                data = html.encode("utf-8")
+                data = admin_page.user_card(u, REF_TITLES, KIND_RU,
+                                           list(ref_all()), _billing_block(u)).encode("utf-8")
                 self.send_response(200)
             self.send_header("Content-Type", "text/html; charset=utf-8")
             self.send_header("Content-Length", str(len(data)))
@@ -2051,7 +1990,10 @@ class H(BaseHTTPRequestHandler):
             if rest == "list":
                 return self._json({"days": day_store.days(uid)})
             if rest == "stats":
-                since = (datetime.date.today() - datetime.timedelta(days=30)).isoformat()
+                # ?since=YYYY-MM-DD — для знімка місяця; без нього останні 30 днів
+                want = urllib.parse.parse_qs(urlparse(self.path).query).get("since", [""])[0]
+                since = want if day_store.valid_date(want) else \
+                    (datetime.date.today() - datetime.timedelta(days=30)).isoformat()
                 return self._json({"notes": day_store.notes_since(uid, since), "since": since})
             if not day_store.valid_date(rest):
                 return self._json({"error": "bad date"}, 400)
@@ -2262,10 +2204,11 @@ class H(BaseHTTPRequestHandler):
                 return self._json({"error": "завдання не знайдено"}, 404)
             return self._json(job.snapshot())
 
-        # публічні сторінки: приватність і умови вимагає Google для входу
-        # через акаунт, умови й повернення — платіжний сервіс під час
-        # перевірки домену. Адреси без .html: так вони вже роздаються рік.
-        if p in ("/privacy", "/terms", "/refund"):
+        # Публічні сторінки. Приватність і умови вимагає Google для входу
+        # через акаунт; умови, тарифи й повернення — платіжний сервіс під
+        # час перевірки сайту. Адреси без .html: так вони роздаються давно,
+        # і посилання на них уже розійшлись.
+        if p in ("/privacy", "/terms", "/refund", "/pricing"):
             return self._file(os.path.join(STATIC, p.strip("/") + ".html"), "text/html; charset=utf-8")
 
         # Ярлик на телефоні. Коли на сторінці немає посилання на іконку —
@@ -2396,6 +2339,9 @@ class H(BaseHTTPRequestHandler):
         if m:
             ref = ref_norm(m.group(1))
             if ref:
+                uid0 = self._uid()
+                if not (uid0 and _is_admin(uid0)):      # свої переходи не рахуємо
+                    ref_visit(ref, self.headers.get("User-Agent") or "")
                 self._ref_touch(ref)
                 if self._uid():
                     return self._redirect("/")
@@ -3535,7 +3481,17 @@ class H(BaseHTTPRequestHandler):
         if p == "/api/trades":
             if not isinstance(body, dict) or not str(body.get("pair", "")).strip():
                 return self._json({"error": "bad json or empty pair"}, 400)
-            t = clean_trade(body, new_id())
+            # Ключ від форми: та сама угода, надіслана вдруге (відповідь на
+            # перше збереження загубилась у мережі), — віддаємо записану, а
+            # не робимо двійника. Перевіряємо до ліміту: повтор не має
+            # з'їдати ще одну безкоштовну угоду.
+            cid = str(body.get("cid") or "")
+            tid = cid if re.fullmatch(r"w[0-9a-z]{12,32}", cid) else new_id()
+            if tid == cid:
+                old = db.get_trade(tid, uid)
+                if old:
+                    return self._json(old, 201)
+            t = clean_trade(body, tid)
             user = db.get_user(uid)
             # Спершу дозвіл, і лише потім робота: скріни важкі, а відмова
             # їх однаково викине.
@@ -3561,7 +3517,7 @@ class H(BaseHTTPRequestHandler):
                 return self._json({"error": "bad json"}, 400)
             # Перенесення файлом — те саме перенесення, що й з Notion, і
             # ліміт у них спільний: три рази в перші 30 днів. Інакше повз
-            # заслон на 30 угод можна було б завезти хоч тисячу таблицею.
+            # заслон на 20 угод можна було б завезти хоч тисячу таблицею.
             ok, why = billing.can_import(uid)
             if not ok:
                 return self._json(billing.deny(uid, why), 402)
@@ -3694,6 +3650,9 @@ class Server(HTTPServer):
 if __name__ == "__main__":
     db.init()
     _ref_init()
+    _emo_init()
+    _emo_init2()
+    _pairs_init()
     # календар гріємо одразу: помічник підкладає новини до кожного питання,
     # а поки кеш порожній, перше питання після перезапуску летить до моделі
     # без них — і вона чесно відповідає, що новин немає
