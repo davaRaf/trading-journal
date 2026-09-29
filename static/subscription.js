@@ -373,6 +373,7 @@ function sectionBody(){
          повернутись, знайде кнопку там же, коли підписка діє. */
       : '<div class="sub-state"><span class="sub-chip">'
         + esc(planLabel()) + "</span></div>")
+    + invRow()
     + '<div class="sub-shop' + (live ? " tucked" : "") + '">'
     +   earlyNote()
     +   '<div class="sub-plans">' + ORDER.map(card).join("") + "</div>"
@@ -463,30 +464,83 @@ function wirePreview(){
     b.addEventListener("click", () => setPreview(b.dataset.prev)));
 }
 
+/* Оплата карткою: каса Creem. Була тут завжди — тепер це одна з двох
+   доріг, а не єдина, тому винесена окремо. */
+async function payCard(plan, btn){
+  const note = document.getElementById("subSoon");
+  if (note) note.textContent = "";
+  /* Гасимо кнопку одразу: касу створює сервер, це пів секунди, і за цей
+     час нетерплячий устигає натиснути тричі й завести три оплати. */
+  if (btn) btn.disabled = true;
+  try{
+    const r = await api("POST", "/api/billing/checkout", {plan: plan});
+    if (!r || !r.url) throw new Error("no url");
+    location.href = r.url;              /* далі вже сторінка Creem */
+  }catch(err){
+    if (btn) btn.disabled = false;
+    if (note)
+      note.textContent = (err && err.code === "no_pay") ? T.subSoon : T.subPayFail;
+  }
+}
+
+function planName(plan){
+  return {month: T.subMonth, quarter: T.subQuarter, year: T.subYear}[plan] || "";
+}
+
+/* Смужка «рахунок уже виставлено». Потрібна тому, хто закрив вікно
+   переказу й повернувся: сума в рахунку одна-єдина, і виставляти другий
+   замість неї означало б загубити перший. */
+function invRow(){
+  if (!st || !st.invoice) return "";
+  const i = st.invoice;
+  const mins = Math.max(1, Math.ceil((i.seconds_left || 0) / 60));
+  return '<div class="sub-inv"><div class="sub-inv-t"><b>' + esc(T.cpOpenT) + "</b> "
+    + esc(T.cpOpenX.replace("%s", i.amount_text + " " + i.coin))
+    + ' <span class="sub-inv-left">' + esc(T.cpOpenLeft.replace("%d", mins)) + "</span></div>"
+    + '<button type="button" id="subInvGo">' + esc(T.cpOpenGo) + "</button></div>";
+}
+
+/* Повернення до відкритого рахунку. Стан перепитуємо: у смужці лежить
+   час на момент завантаження сторінки, а людина могла піти обідати. */
+function wireInv(){
+  const b = document.getElementById("subInvGo");
+  if (!b || !window.__cpay) return;
+  b.addEventListener("click", async () => {
+    b.disabled = true;
+    try{
+      await load();
+      if (st && st.invoice)
+        __cpay.show(st.invoice, planName(st.invoice.plan), money(price(st.invoice.plan)));
+      else redraw();                    /* рахунок згас, поки вкладка лежала */
+    }catch(e){ b.disabled = false; }
+  });
+}
+
+function price(plan){
+  const p = st && st.prices && st.prices[plan];
+  return p ? p.cents : 0;
+}
+
 function wire(){
   wirePreview();
   wirePromo();
   wireManage();
   wireChange();
+  wireInv();
   const box = document.querySelector(".sub-plans");
   if (!box) return;
-  box.addEventListener("click", async e => {
+  box.addEventListener("click", e => {
     const b = e.target.closest("[data-buy]");
     if (!b || b.disabled) return;
     const note = document.getElementById("subSoon");
     if (note) note.textContent = "";
-    /* Гасимо кнопку одразу: касу створює сервер, це пів секунди, і за цей
-       час нетерплячий устигає натиснути тричі й завести три оплати. */
-    b.disabled = true;
-    try{
-      const r = await api("POST", "/api/billing/checkout", {plan: b.dataset.buy});
-      if (!r || !r.url) throw new Error("no url");
-      location.href = r.url;            /* далі вже сторінка Creem */
-    }catch(err){
-      b.disabled = false;
-      if (note)
-        note.textContent = (err && err.code === "no_pay") ? T.subSoon : T.subPayFail;
-    }
+    const plan = b.dataset.buy;
+    /* Способів два — питаємо, який. Поки крипта не ввімкнена на сервері,
+       питати нема про що: одразу каса. */
+    if (st && st.crypto && window.__cpay)
+      __cpay.choose(plan, planName(plan), money(price(plan)), () => payCard(plan, b));
+    else
+      payCard(plan, b);
   });
 }
 
@@ -531,7 +585,7 @@ async function afterPay(){
 }
 
 window.__sub = {load: load, section: section, wire: wire, badge: badge,
-                state: () => st};
+                redraw: redraw, state: () => st};
 
 /* Стан читаємо одразу, не чекаючи, поки відкриють налаштування: значок
    тарифу стоїть у верхній смузі й має бути там з першої секунди. */
