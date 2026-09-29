@@ -27,8 +27,7 @@ import time
 import billing
 import db
 import tron
-from config import (CRYPTO_TTL_MIN, EUR_USDT, PLAN_DAYS, PRICES,
-                    TRON_WALLET)
+from config import CRYPTO_TTL_MIN, EUR_USDT, PLAN_DAYS, TRON_WALLET
 
 # Крок між сусідніми «хвостиками» суми і скільки їх усього. Сто
 # варіантів на тариф, найбільша надбавка — дев'ять копійок; одночасно
@@ -66,12 +65,13 @@ def price_units(uid, plan):
     із налаштувань. Курс не питаємо в ринку щохвилини навмисно: сума має
     бути тією самою й тоді, коли людина відкрила сторінку, і тоді, коли
     вона за п'ять хвилин натиснула «переказати».
+
+    Ціну беремо ту саму, що стоїть на картці тарифу, — разом із усіма
+    знижками: «ранньою», партнерською і введеним промокодом. Інакше
+    людина бачила б на екрані одну суму, а в рахунку — іншу, більшу, і
+    мала б рацію, вирішивши, що знижку їй не дали.
     """
-    row = db.get_user(uid) if uid else None
-    name = (row or {}).get("price_plan") or "std"
-    if name not in PRICES:
-        name = "std"
-    cents = PRICES[name].get(plan)
+    cents = (billing.prices(uid).get(plan) or {}).get("cents")
     if not cents:
         return 0
     return tron.to_units(cents / 100.0 * EUR_USDT)
