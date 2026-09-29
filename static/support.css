@@ -51,9 +51,6 @@ a.su-val:hover{color:var(--text); text-decoration:underline}
   text-transform:uppercase; color:var(--faint);
 }
 .su-sep::after{content:""; flex:1; height:1px; background:var(--line-soft)}
-/* Пояснення під підписом групи: підпис каже, що це, пояснення — навіщо
-   воно людині. Звичайним кеглем, бо це речення, а не ярлик. */
-.su-note{margin:5px 2px 8px; font-size:12.5px; line-height:1.5; color:var(--dim)}
 .su-instagram:hover .su-ic{background:#e1568f; color:#fff}
 .su-tiktok:hover .su-ic{background:#25f4ee; color:#04100f}
 .su-row .su-ic{transition:background .14s, color .14s}

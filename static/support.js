@@ -52,7 +52,7 @@ const CONTACTS = [
      нікуди. */
   {kind: "telegram", key: "socTg", value: "t.me/+S6zavvDDHABkMDIy",
    link: "https://t.me/+S6zavvDDHABkMDIy",
-   sep: "suNews", note: "suNewsX", cta: "suOpen"},
+   sep: "suNews", cta: "suOpen"},
 
   {kind: "instagram", key: "socIg", value: "@statsai_trading_journal",
    link: "https://www.instagram.com/statsai_trading_journal",
@@ -91,11 +91,7 @@ function row(c){
   /* Назва рядка: у контактів вона перекладається, у соцмереж це власна
      назва сервісу — беремо nm як є. */
   const nm = c.nm || T[c.key] || c.key;
-  /* Підпис групи, а під ним — пояснення, навіщо вона. У «мереж» його
-     немає: там усе зрозуміло з назв. */
-  const sep = c.sep ? '<div class="su-sep">' + esc(T[c.sep] || c.sep) + "</div>"
-    + (c.note ? '<p class="su-note">' + esc(T[c.note] || c.note) + "</p>" : "")
-    : "";
+  const sep = c.sep ? '<div class="su-sep">' + esc(T[c.sep] || c.sep) + "</div>" : "";
   return sep + '<div class="su-row su-' + esc(c.kind) + '">'
     + '<span class="su-ic">' + IC[c.kind] + "</span>"
     + '<span class="su-text"><b class="su-nm">' + esc(nm) + "</b>"
