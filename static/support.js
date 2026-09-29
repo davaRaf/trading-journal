@@ -43,17 +43,20 @@ const CONTACTS = [
   /* Соцмережі йдуть окремою групою: це не підтримка, а «де нас читати».
      sep — підпис-роздільник перед рядком, cta — своя назва кнопки
      (у мережу не «пишуть», її відкривають). */
-  /* Канал з анонсами стоїть у групі першим: це не «де нас почитати між
-     справами», а те, звідки людина дізнається, що в журналі з'явилось
-     нового. Публічного ніка в каналу немає — посилання-запрошення, —
-     тому в рядку стоїть опис, а не адреса: valKey замість value, бо
-     опис перекладається, а нік ні. */
-  {kind: "telegram", key: "socTg", valKey: "socTgVal",
+  /* Канал з анонсами — свій розділ, не «мережі». Туди приходять не
+     почитати між справами, а дізнатись, що в журналі з'явилось нового,
+     тож і підпис над ним свій, і стоїть він вище. */
+  /* У рядку — справжня адреса запрошення, як у решти рядків стоїть
+     справжня пошта чи нік. Гарнішого ніка в каналу немає, а вигадувати
+     той, якого не існує, не можна: його скопіюють і не потраплять
+     нікуди. */
+  {kind: "telegram", key: "socTg", value: "t.me/+S6zavvDDHABkMDIy",
    link: "https://t.me/+S6zavvDDHABkMDIy",
-   sep: "suSocial", cta: "suOpen"},
+   sep: "suNews", note: "suNewsX", cta: "suOpen"},
+
   {kind: "instagram", key: "socIg", value: "@statsai_trading_journal",
    link: "https://www.instagram.com/statsai_trading_journal",
-   cta: "suOpen", nm: "Instagram"},
+   sep: "suSocial", cta: "suOpen", nm: "Instagram"},
   {kind: "tiktok", key: "socTt", value: "@statsai_trading_journal",
    link: "https://www.tiktok.com/@statsai_trading_journal",
    cta: "suOpen", nm: "TikTok"},
@@ -78,10 +81,7 @@ function row(c){
      назвою лишається посиланням mailto: — для тих, у кого поштова
      програма таки призначена. Рядок без посилання взагалі — кнопка
      «Скопіювати». */
-  /* Те, що стоїть у рядку: нік як є або перекладений опис. Мову беремо
-     тут, а не в CONTACTS: список складається один раз при завантаженні,
-     і зашитий у нього текст лишився б українським назавжди. */
-  const value = c.valKey ? (T[c.valKey] || "") : c.value;
+  const value = c.value;
   const act = isUrl(c.link)
     ? '<a class="btn su-act" href="' + esc(c.link) + '" target="_blank" rel="noopener">' + esc(T[c.cta] || T.suWrite) + "</a>"
     : '<button type="button" class="btn su-act" data-su-copy="' + esc(value) + '">' + esc(T.suCopy) + "</button>";
@@ -91,7 +91,11 @@ function row(c){
   /* Назва рядка: у контактів вона перекладається, у соцмереж це власна
      назва сервісу — беремо nm як є. */
   const nm = c.nm || T[c.key] || c.key;
-  const sep = c.sep ? '<div class="su-sep">' + esc(T[c.sep] || c.sep) + "</div>" : "";
+  /* Підпис групи, а під ним — пояснення, навіщо вона. У «мереж» його
+     немає: там усе зрозуміло з назв. */
+  const sep = c.sep ? '<div class="su-sep">' + esc(T[c.sep] || c.sep) + "</div>"
+    + (c.note ? '<p class="su-note">' + esc(T[c.note] || c.note) + "</p>" : "")
+    : "";
   return sep + '<div class="su-row su-' + esc(c.kind) + '">'
     + '<span class="su-ic">' + IC[c.kind] + "</span>"
     + '<span class="su-text"><b class="su-nm">' + esc(nm) + "</b>"
@@ -100,8 +104,7 @@ function row(c){
 }
 
 function body(){
-  const rows = CONTACTS.filter(c => c.value || (c.valKey && T[c.valKey]))
-                       .map(row).join("");
+  const rows = CONTACTS.filter(c => c.value).map(row).join("");
   return '<div class="m-body su">'
     + '<p class="pp-lead">' + esc(T.suLead) + "</p>"
     + '<div class="su-list">' + rows + "</div></div>";

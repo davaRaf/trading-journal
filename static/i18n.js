@@ -757,7 +757,9 @@ uk: {
 
   // ---- соцмережі (підвал бічної панелі + вікно «Підтримка») ----
   socHere: "Ми тут",
-  socTg: "Telegram · Канал", socTgVal: "Анонси оновлень журналу",
+  socTg: "Telegram · Канал",
+  suNews: "Оновлення й анонси",
+  suNewsX: "Тут ви знайдете всі нові оновлення журналу й анонси.",
   socTgTip: "Telegram-канал — усі анонси оновлень журналу",
   socIgTip: "Instagram — розбори й новини журналу",
   socTtTip: "TikTok — короткі відео про торгівлю",
@@ -1480,7 +1482,9 @@ ru: {
 
   // ---- соцсети (подвал боковой панели + окно «Поддержка») ----
   socHere: "Мы тут",
-  socTg: "Telegram · Канал", socTgVal: "Анонсы обновлений журнала",
+  socTg: "Telegram · Канал",
+  suNews: "Обновления и анонсы",
+  suNewsX: "Здесь вы найдёте все новые обновления журнала и анонсы.",
   socTgTip: "Telegram-канал — все анонсы обновлений журнала",
   socIgTip: "Instagram — разборы и новости журнала",
   socTtTip: "TikTok — короткие видео о торговле",
@@ -2203,7 +2207,9 @@ en: {
 
   // ---- socials (sidebar footer + Support window) ----
   socHere: "Follow",
-  socTg: "Telegram · Channel", socTgVal: "Journal update announcements",
+  socTg: "Telegram · Channel",
+  suNews: "Updates and announcements",
+  suNewsX: "Here you will find every new journal update and announcement.",
   socTgTip: "Telegram channel — every journal update announced",
   socIgTip: "Instagram — journal breakdowns and news",
   socTtTip: "TikTok — short videos about trading",
