@@ -19,7 +19,7 @@ const esc = s => String(s == null ? "" : s)
 const PRICES = {month: 1199, quarter: 2799, year: 9999};
 const MONTHS = {month: 1, quarter: 3, year: 12};
 const ORDER = ["month", "quarter", "year"];
-const FREE = {trades: 30, bt: 30, imports: 3, days: 30, ai: 15};
+const FREE = {trades: 20, bt: 20, imports: 3, days: 30, ai: 15};
 
 const TX = {
   uk: {

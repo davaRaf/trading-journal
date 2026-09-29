@@ -22,11 +22,11 @@ from zoneinfo import ZoneInfo
 import db
 
 KYIV = ZoneInfo("Europe/Kyiv")
-FREE_LIMIT = 30          # безкоштовних ручних угод до підписки
+FREE_LIMIT = 20          # безкоштовних ручних угод до підписки (власник, 29.09.2026)
 
 
 def billing_start():
-    """З якого дня рахуються безкоштовні 30 угод: з запуску оплати, а не з
+    """З якого дня рахуються безкоштовні 20 угод: з запуску оплати, а не з
     реєстрації. Дату ставить запуск оплати в meta «billing_start»
     (РРРР-ММ-ДД), запасний шлях — змінна оточення BILLING_START. Поки її
     немає — ліміт не запущено і нікому не зараховано жодної угоди."""
@@ -371,7 +371,7 @@ def _kpis(D):
     sh7p = sum(r["p7"] for r in D["kinds"])
     views = sum(r["views"] for r in D["kinds"])
     lim = sum(1 for p in P if p["free"] >= FREE_LIMIT)
-    near = sum(1 for p in P if 20 <= p["free"] < FREE_LIMIT)
+    near = sum(1 for p in P if FREE_LIMIT - 5 <= p["free"] < FREE_LIMIT)
     bs = D.get("bstart")
     return ('<div class="grid kpis">'
             + _kpi("Аккаунтов", str(len(P)),
@@ -380,10 +380,10 @@ def _kpis(D):
             + _kpi("Активны 30 дней", str(a30), '<div class=d>%d%% от всех</div>' % (round(a30 * 100 / len(P)) if P else 0))
             + _kpi("Сделок вручную за 7 дн.", str(tm7), _delta(tm7, tm7p))
             + _kpi("Ссылок за 7 дней", str(sh7), _delta(sh7, sh7p).replace("</div>", " · %d переходов всего</div>" % views, 1))
-            + (_kpi("Упёрлись в лимит 30", '<span class=up>%d</span>' % lim,
+            + (_kpi("Упёрлись в лимит %d" % FREE_LIMIT, '<span class=up>%d</span>' % lim,
                     '<div class=d>ещё %d на подходе (20–29) · счёт с %s</div>' % (near, bs.strftime("%d.%m")))
                if bs else
-               _kpi("Лимит 30 сделок", '<span class=mute>—</span>',
+               _kpi("Лимит %d сделок" % FREE_LIMIT, '<span class=mute>—</span>',
                     '<div class=d>не запущен: считается с запуска оплаты</div>'))
             + "</div>")
 
@@ -419,7 +419,7 @@ def _funnel(D):
         ("Зарегистрировались", len(P)),
         ("Записали 1+ сделку", sum(1 for p in P if p["n"] >= 1)),
         ("10+ сделок", sum(1 for p in P if p["n"] >= 10)),
-        ("Дошли до лимита 30", sum(1 for p in P if p["free"] >= FREE_LIMIT)),
+        ("Дошли до лимита %d" % FREE_LIMIT, sum(1 for p in P if p["free"] >= FREE_LIMIT)),
         ("Активны 7 дней", sum(1 for p in P if p["st"] == "active")),
     ]
     rows = []
@@ -710,11 +710,11 @@ def user_card(u, titles, kind_ru, refs):
           '<span class=mute>' + e(u["email"]) + "</span></div>"
         + '<div class="grid kpis">'
         + _kpi("Сделок всего", str(t.get("n") or 0), '<div class=d>%d вручную · %d скипов</div>' % (manual, t.get("skips") or 0))
-        + (_kpi("До лимита 30", '<span class="%s">%d / %d</span>' % ("up" if free >= FREE_LIMIT else "be" if free >= 20 else "", min(free, 999), FREE_LIMIT),
+        + (_kpi("До лимита %d" % FREE_LIMIT, '<span class="%s">%d / %d</span>' % ("up" if free >= FREE_LIMIT else "be" if free >= FREE_LIMIT - 5 else "", min(free, 999), FREE_LIMIT),
                 '<div class=d>%s · с %s</div>' % ("упёрся в бесплатный лимит" if free >= FREE_LIMIT else "ещё %d бесплатных" % (FREE_LIMIT - free),
                                                 bstart.strftime("%d.%m.%Y")))
            if bstart else
-           _kpi("Лимит 30 сделок", '<span class=mute>не запущен</span>', '<div class=d>считается с запуска оплаты</div>'))
+           _kpi("Лимит %d сделок" % FREE_LIMIT, '<span class=mute>не запущен</span>', '<div class=d>считается с запуска оплаты</div>'))
         + _kpi("Торговых дней", str(t.get("days") or 0), '<div class=d>%s — %s</div>' % (str(t.get("first") or "—")[:10], str(t.get("last") or "—")[:10]))
         + _kpi("Сделок за 7 / 30 дн.", "%d / %d" % (t.get("d7") or 0, t.get("d30") or 0), "")
         + _kpi("Анализов дня", str(nt.get("n") or 0), '<div class=d>последний %s</div>' % dt(nt.get("last_at")))
