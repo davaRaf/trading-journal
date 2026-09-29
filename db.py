@@ -13,6 +13,7 @@ from psycopg.types.json import Jsonb
 
 import tidy
 from config import (DATABASE_URL, DB_POOL_MAX, EARLY_MIGRATION,
+                    FREE_CAPS_MIGRATION, FREE_BT, FREE_TRADES,
                     IMPORT_WINDOW_DAYS)
 
 # Текстовые поля сделки. Порядок важен: по нему строятся INSERT/UPDATE.
@@ -278,13 +279,13 @@ CREATE INDEX IF NOT EXISTS notion_gone_user ON notion_gone (user_id);
 
 -- ---------------------------------------------------------------- підписка --
 --
--- Журнал став платним: безкоштовно людина записує перші 30 справжніх угод і
+-- Журнал став платним: безкоштовно людина записує перші 20 справжніх угод і
 -- окремо 20 прогонів бектесту, далі — підписка. Нічого не видаляється:
 -- закриваються тільки нові записи, перенесення з Notion і те, що коштує
 -- грошей за модель (помічник, розбори).
 --
 -- Чому лічильник, а не COUNT(*) по угодах: delete_trade прибирає рядок
--- фізично. По COUNT людина записала б 30, прибрала всі й записала ще 30 —
+-- фізично. По COUNT людина записала б 20, прибрала всі й записала ще 20 —
 -- і так без кінця. Ці лічильники тільки ростуть.
 --
 -- Ліміти зберігаються в кожного свої (…_cap), щоб адмін міг дати бонус
@@ -293,11 +294,16 @@ CREATE INDEX IF NOT EXISTS notion_gone_user ON notion_gone (user_id);
 ALTER TABLE users ADD COLUMN IF NOT EXISTS plan TEXT NOT NULL DEFAULT 'free';
 ALTER TABLE users ADD COLUMN IF NOT EXISTS paid_until TIMESTAMPTZ;
 ALTER TABLE users ADD COLUMN IF NOT EXISTS free_trades_used INTEGER NOT NULL DEFAULT 0;
-ALTER TABLE users ADD COLUMN IF NOT EXISTS free_trades_cap INTEGER NOT NULL DEFAULT 30;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS free_trades_cap INTEGER NOT NULL DEFAULT 20;
 ALTER TABLE users ADD COLUMN IF NOT EXISTS free_bt_used INTEGER NOT NULL DEFAULT 0;
-ALTER TABLE users ADD COLUMN IF NOT EXISTS free_bt_cap INTEGER NOT NULL DEFAULT 30;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS free_bt_cap INTEGER NOT NULL DEFAULT 20;
 ALTER TABLE users ADD COLUMN IF NOT EXISTS imports_used INTEGER NOT NULL DEFAULT 0;
 ALTER TABLE users ADD COLUMN IF NOT EXISTS imports_cap INTEGER NOT NULL DEFAULT 3;
+-- Стеля була 30, стала 20 (власники, 29.09.2026). ADD COLUMN IF NOT EXISTS
+-- на вже наявній колонці нічого не робить — DEFAULT у ній лишився б старий,
+-- і кожен новий акаунт знову заводився б з тридцяткою. Тому окремим рядком.
+ALTER TABLE users ALTER COLUMN free_trades_cap SET DEFAULT 20;
+ALTER TABLE users ALTER COLUMN free_bt_cap SET DEFAULT 20;
 -- Набір цін: 'std' — звичайні, 'early' — назавжди дешевші для тих, хто був
 -- у журналі до появи платних підписок. own_price_cents — разова своя ціна
 -- (NULL — рахуємо за набором).
@@ -381,7 +387,35 @@ def init():
         conn.execute(SCHEMA)
         conn.commit()
     _grandfather_emails()
+    _lower_free_caps()
     _grandfather_early()
+
+
+def _lower_free_caps():
+    """Стеля безкоштовних угод і бектесту: 30 → 20 (рішення власників 29.09.2026).
+
+    DEFAULT у схемі стосується тільки нових рядків, а в тих, хто вже
+    заведений, у колонці лежить стара тридцятка — і розділ «Підписка»
+    показував би 30 навіть після правки config.
+
+    Беремо рівно стару тридцятку й рівно один раз (позначка в meta): у кого
+    стеля інша — це бонус від адміна, його чіпати не можна. Записане не
+    зникає: хто вже пройшов двадцяту угоду, лишається з усім, що записав,
+    закриваються тільки нові.
+
+    За вимикачем FREE_CAPS_MIGRATION з тієї ж причини, що й міграція
+    «ранніх»: робоча копія ходить у бойову базу, і без вимикача стеля
+    живим людям поїхала б від місцевого прогону, а не від викладки.
+    """
+    if not FREE_CAPS_MIGRATION or meta_get("free_caps_20"):
+        return
+    with connect() as conn:
+        conn.execute("UPDATE users SET free_trades_cap=%s WHERE free_trades_cap=30",
+                     (FREE_TRADES,))
+        conn.execute("UPDATE users SET free_bt_cap=%s WHERE free_bt_cap=30",
+                     (FREE_BT,))
+        conn.commit()
+    meta_set("free_caps_20", now().isoformat())
 
 
 def _grandfather_emails():

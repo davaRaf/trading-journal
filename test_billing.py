@@ -36,8 +36,8 @@ def case(name, got, want):
 def person(**kw):
     """Людина, яка щойно зареєструвалась і нічого ще не витратила."""
     row = {"id": 1, "plan": "free", "paid_until": None,
-           "free_trades_used": 0, "free_trades_cap": 30,
-           "free_bt_used": 0, "free_bt_cap": 30,
+           "free_trades_used": 0, "free_trades_cap": 20,
+           "free_bt_used": 0, "free_bt_cap": 20,
            "imports_used": 0, "imports_cap": 3,
            "ai_used": 0, "ai_cap": 15, "ai_reset_at": None,
            "price_plan": "std", "own_price_cents": None,
@@ -62,21 +62,21 @@ def check_rules():
     case("тариф новенького", billing.plan_of(free), "free")
 
     out = billing.state(free)
-    case("залишок справжніх", out["trades_left"], 30)
-    case("залишок прогонів", out["bt_left"], 30)
+    case("залишок справжніх", out["trades_left"], 20)
+    case("залишок прогонів", out["bt_left"], 20)
     case("залишок перенесень", out["imports_left"], 3)
     case("днів вікна перенесення", out["import_days_left"], 25)
     case("дати оплати немає", out["paid_until"], None)
 
     # Несиметрія лімітів — головне правило.
-    dry = person(free_trades_used=30)
+    dry = person(free_trades_used=20)
     case("скінчились справжні — відмова", billing.can_add_trade(dry),
          (False, "trades_limit"))
     case("скінчились справжні — бектест теж закрито",
          billing.can_add_trade(dry, "bt"), (False, "trades_limit"))
     case("залишок не йде в мінус", billing.state(dry)["trades_left"], 0)
 
-    bt_dry = person(free_trades_used=10, free_bt_used=30)
+    bt_dry = person(free_trades_used=10, free_bt_used=20)
     case("скінчились прогони — бектест закрито",
          billing.can_add_trade(bt_dry, "bt"), (False, "bt_limit"))
     case("скінчились прогони — справжні пишуться далі",
@@ -90,7 +90,7 @@ def check_rules():
     case("тариф підписки", billing.plan_of(rich), "year")
     case("підписка в стані", billing.state(rich)["active"], True)
 
-    old = paid(days=-1, free_trades_used=30)
+    old = paid(days=-1, free_trades_used=20)
     case("прострочена підписка не діє", billing.active(old), False)
     case("прострочений тариф — free", billing.plan_of(old), "free")
     case("після прострочення ліміт знову діє", billing.can_add_trade(old),
@@ -274,14 +274,14 @@ def check_db():
     uid = u["id"]
     try:
         case("новий у базі — free", billing.state(uid)["plan"], "free")
-        case("новому 30 справжніх", billing.state(uid)["trades_left"], 30)
+        case("новому 20 справжніх", billing.state(uid)["trades_left"], 20)
 
         billing.spend_trade(uid)
         billing.spend_trade(uid)
         billing.spend_trade(uid, "bt")
         s = billing.state(uid)
-        case("дві справжні витрачено", s["trades_left"], 28)
-        case("один прогін витрачено", s["bt_left"], 29)
+        case("дві справжні витрачено", s["trades_left"], 18)
+        case("один прогін витрачено", s["bt_left"], 19)
         case("перенесення не чіпали", s["imports_left"], 3)
 
         billing.spend_import(uid)
@@ -308,7 +308,7 @@ def check_db():
 
         billing.spend_trade(uid)
         case("з підпискою безкоштовне не витрачається",
-             billing.state(uid)["trades_left"], 28)
+             billing.state(uid)["trades_left"], 18)
         case("підписка підняла стелю звернень", billing.state(uid)["ai_cap"], 300)
         case("з підпискою помічник знову відповідає",
              billing.can_use_ai(uid), (True, ""))
@@ -321,8 +321,8 @@ def check_db():
 
         billing.bonus(uid, trades=5, bt=2, imports=1)
         s = billing.state(uid)
-        case("бонус на справжні", s["trades_left"], 33)
-        case("бонус на прогони", s["bt_left"], 31)
+        case("бонус на справжні", s["trades_left"], 23)
+        case("бонус на прогони", s["bt_left"], 21)
         case("бонус на перенесення", s["imports_left"], 3)
 
         # Міграція «ранніх». База тут жива й боєва, тому пробуємо не саму
@@ -403,7 +403,7 @@ def check_db():
         s = billing.state(uid)
         case("підписку знято", s["active"], False)
         case("тариф після зняття", s["plan"], "free")
-        case("витрачене нікуди не поділось", s["trades_left"], 33)
+        case("витрачене нікуди не поділось", s["trades_left"], 23)
     finally:
         with db.connect() as conn:
             conn.execute("DELETE FROM users WHERE id=%s", (uid,))
