@@ -26,6 +26,7 @@ import auth
 import backup
 import billing
 import creem
+import crypto_pay
 import http.cookies
 import config
 import db
@@ -2160,6 +2161,14 @@ class H(BaseHTTPRequestHandler):
             if not uid:
                 return self._json({"error": "auth required"}, 401)
             out = billing.public(uid)
+            # Друга каса поруч із карткою. Якщо людина вже виставила
+            # рахунок і зараз переказує гроші, віддаємо його тут же:
+            # сторінка перемалює очікування навіть після перезавантаження.
+            out["crypto"] = crypto_pay.enabled()
+            if out["crypto"]:
+                inv = crypto_pay.current(uid)
+                if inv:
+                    out["invoice"] = crypto_pay.public(inv)
             # Власникам — перемикач «подивитись як» у розділі «Підписка»: він
             # лише перефарбовує показ у їхньому браузері, права не змінює.
             if _is_admin(uid):
@@ -2485,6 +2494,48 @@ class H(BaseHTTPRequestHandler):
                 return self._json({"error": "не вдалося відкрити оплату",
                                    "code": "pay_failed"}, 502)
             return self._json({"url": url})
+
+        # ---- оплата криптою ----
+        if p == "/api/billing/crypto":
+            # Виставляємо рахунок: адреса, сума й скільки її чекати.
+            # Далі людина переказує USDT звідки їй зручно й може закрити
+            # вкладку — підписку ввімкне фоновий обхід, а не ця сторінка.
+            uid = self._uid()
+            if not uid:
+                return self._json({"error": "auth required"}, 401)
+            if not crypto_pay.enabled():
+                return self._json({"error": "оплата криптою ще не ввімкнена",
+                                   "code": "no_pay"}, 503)
+            if not isinstance(body, dict):
+                return self._json({"error": "bad json"}, 400)
+            plan = str(body.get("plan") or "").strip()
+            if plan not in billing.PLANS:
+                return self._json({"error": "невідомий тариф"}, 400)
+            inv = crypto_pay.create(uid, plan)
+            if not inv:
+                return self._json({"error": "не вдалося виставити рахунок",
+                                   "code": "pay_failed"}, 502)
+            return self._json(crypto_pay.public(inv))
+
+        if p == "/api/billing/crypto/claim":
+            # «Я оплатив, ось номер переказу» — запасний шлях для того, хто
+            # округлив суму: за сумою такий переказ не знайти, за номером —
+            # можна. Номер перевіряємо в блокчейні, на слово не віримо.
+            uid = self._uid()
+            if not uid:
+                return self._json({"error": "auth required"}, 401)
+            keys = ["claim:%s" % uid]
+            wait = ratelimit.check(keys, limit=10)
+            if wait:
+                return self._json({"error": "зачекай %d с" % wait,
+                                   "code": "too_many", "wait": wait}, 429)
+            ratelimit.miss(keys, limit=10)
+            txid = str((body or {}).get("tx") or "").strip()
+            ok, why = crypto_pay.claim(uid, txid)
+            if not ok:
+                return self._json({"error": "переказ не підійшов",
+                                   "code": why}, 404 if why == "not_found" else 409)
+            return self._json({"ok": True, "state": billing.public(uid)})
 
         # ---- кабінет підписки ----
         if p == "/api/billing/portal":
@@ -3726,6 +3777,8 @@ if __name__ == "__main__":
         # і сам перечитує Notion раз на дві години
         notion_sync.start(add=add_trades, fill=blank_filler, conf=notion_conf,
                           save=notion_save, shots=SHOTS, busy=import_busy)
+        # оплата криптою: дивимось у блокчейн, чи не прийшли гроші
+        crypto_pay.start()
     if config.RUN_BOT and config.BOT_TOKEN:
         # бот живе поруч із сайтом: на безкоштовному хостингу другий
         # процес тримати ніде, а опитування Телеграма нікому не заважає

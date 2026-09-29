@@ -379,6 +379,49 @@ CREATE TABLE IF NOT EXISTS signup_ips (
 CREATE INDEX IF NOT EXISTS signup_ips_ip ON signup_ips (ip);
 CREATE INDEX IF NOT EXISTS signup_ips_user ON signup_ips (user_id);
 
+-- Рахунки на оплату криптою. Гроші від усіх приходять на одну нашу
+-- адресу, і в переказі не написано, хто заплатив, — тому кожному рахунку
+-- дається трохи своя сума (11,9943 замість 11,99), і саме останні цифри
+-- працюють номером. Звідси UNIQUE на суму серед тих, що ще чекають:
+-- двох однакових сум одночасно бути не може, інакше оплату зарахували б
+-- не тому.
+--
+-- Суму тримаємо цілим числом найдрібніших часток (у USDT їх мільйон на
+-- монету): у дробових числах «11,99» не завжди дорівнює «11,99».
+CREATE TABLE IF NOT EXISTS crypto_invoices (
+  id         BIGSERIAL PRIMARY KEY,
+  user_id    BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  plan       TEXT NOT NULL,
+  units      BIGINT NOT NULL,
+  status     TEXT NOT NULL DEFAULT 'new',   -- new | paid | expired
+  tx         TEXT NOT NULL DEFAULT '',
+  payer      TEXT NOT NULL DEFAULT '',
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  expires_at TIMESTAMPTZ NOT NULL,
+  paid_at    TIMESTAMPTZ
+);
+CREATE INDEX IF NOT EXISTS crypto_inv_user ON crypto_invoices (user_id, created_at);
+CREATE INDEX IF NOT EXISTS crypto_inv_open ON crypto_invoices (status, expires_at);
+-- Той самий переказ не має закрити два рахунки.
+CREATE UNIQUE INDEX IF NOT EXISTS crypto_inv_tx ON crypto_invoices (tx)
+    WHERE tx <> '';
+-- Дві однакові суми одночасно — заборонені, поки обидві чекають оплати.
+CREATE UNIQUE INDEX IF NOT EXISTS crypto_inv_units ON crypto_invoices (units)
+    WHERE status = 'new';
+
+-- Перекази, які прийшли, але не збіглися з жодним рахунком: людина
+-- округлила суму або заплатила, коли рахунок уже згорів. Гроші в нас,
+-- тому такий переказ не можна просто загубити — він лежить тут і видно
+-- його в адмінці, звідки прив'язується до людини руками.
+CREATE TABLE IF NOT EXISTS crypto_orphans (
+  tx         TEXT PRIMARY KEY,
+  units      BIGINT NOT NULL,
+  payer      TEXT NOT NULL DEFAULT '',
+  at_ms      BIGINT NOT NULL DEFAULT 0,
+  settled_to BIGINT REFERENCES users(id) ON DELETE SET NULL,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
 -- Адреси, які адмін дозволив руками: «це інша людина, пропускай». Без
 -- цього списку сімʼя за одним роутером чи двоє з одного офісу не змогли б
 -- завести другий акаунт.

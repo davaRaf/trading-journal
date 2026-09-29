@@ -1,0 +1,340 @@
+# -*- coding: utf-8 -*-
+"""Оплата підписки переказом USDT: рахунки й зіставляння з блокчейном.
+
+Друга каса поруч із карткою. Різниця в тому, що між нами й людиною немає
+посередника: вона переказує USDT прямо на наш гаманець, а ми дивимось у
+відкритий блокчейн і бачимо, що гроші прийшли.
+
+Головна складність — зрозуміти, **чий** це переказ. Адреса в нас одна на
+всіх, і в переказі не написано ні імені, ні номера рахунку. Тому кожному
+рахунку дається трохи своя сума: не 11,99, а 11,9943, і останні цифри
+працюють номером. Побачили 11,9943 — знаємо, кому вмикати підписку.
+
+Через це людина не мусить нічого натискати після оплати й може закрити
+вкладку одразу: підписку вмикає фоновий обхід, а не сторінка.
+
+Що робити, коли сума не збіглася (людина округлила, біржа зрізала
+комісію): переказ не губимо — він лягає в crypto_orphans і видно його в
+адмінці, звідки прив'язується до людини руками. Плюс у людини є запасний
+шлях «я оплатив, ось номер переказу» — там ми шукаємо не за сумою.
+"""
+import datetime
+import random
+import threading
+import time
+
+import billing
+import db
+import tron
+from config import (CRYPTO_TTL_MIN, EUR_USDT, PLAN_DAYS, PRICES,
+                    TRON_WALLET)
+
+# Скільки різних «хвостиків» у суми. Три знаки — тисяча варіантів на
+# кожен тариф; одночасно відкритих рахунків у нас на порядки менше, тож
+# вільний знайдеться завжди, а людина бачить звичні на вигляд копійки.
+TAIL = 1000
+# Наскільки дозволяємо переказу не дотягнути до суми рахунку. Дрібниця
+# на кшталт зайвих часток монети не повинна лишати людину без підписки,
+# а от округлення до цілого — це вже інша сума, і воно сюди не пролізе.
+SLACK_UNITS = 10_000          # 0,01 USDT
+
+
+def enabled():
+    return tron.enabled()
+
+
+def price_units(uid, plan):
+    """Скільки USDT коштує тариф саме цій людині.
+
+    Ціни в нас у євро, а переказ іде в USDT, тож перераховуємо за курсом
+    із налаштувань. Курс не питаємо в ринку щохвилини навмисно: сума має
+    бути тією самою й тоді, коли людина відкрила сторінку, і тоді, коли
+    вона за п'ять хвилин натиснула «переказати».
+    """
+    row = db.get_user(uid) if uid else None
+    name = (row or {}).get("price_plan") or "std"
+    if name not in PRICES:
+        name = "std"
+    cents = PRICES[name].get(plan)
+    if not cents:
+        return 0
+    return tron.to_units(cents / 100.0 * EUR_USDT)
+
+
+def _free_units(base):
+    """Підібрати суму, якої зараз ніхто інший не чекає.
+
+    Хвостик беремо випадковий, а не по черзі: підряд ідучі суми видали б
+    сторонньому, скільки в нас оплат за день.
+    """
+    with db.connect() as conn:
+        taken = {r["units"] for r in conn.execute(
+            "SELECT units FROM crypto_invoices WHERE status='new' "
+            "AND units BETWEEN %s AND %s", (base, base + TAIL - 1)).fetchall()}
+    free = [base + i for i in range(TAIL) if base + i not in taken]
+    return random.choice(free) if free else 0
+
+
+def create(uid, plan):
+    """Виставити рахунок. Повертає його або None, якщо нема чого виставляти."""
+    if not enabled() or plan not in billing.PLANS:
+        return None
+    base = price_units(uid, plan)
+    if not base:
+        return None
+    # Старі рахунки цієї людини гасимо: два відкритих одночасно — це два
+    # різні числа на екрані й гарантована плутанина.
+    expire_old(uid)
+    units = _free_units(base)
+    if not units:
+        return None
+    until = db.now() + datetime.timedelta(minutes=CRYPTO_TTL_MIN)
+    with db.connect() as conn:
+        row = conn.execute(
+            "INSERT INTO crypto_invoices (user_id, plan, units, expires_at) "
+            "VALUES (%s,%s,%s,%s) RETURNING *", (uid, plan, units, until)).fetchone()
+        conn.commit()
+    return row
+
+
+def public(inv):
+    """Рахунок у тому вигляді, в якому його бачить сторінка.
+
+    Суму віддаємо і числом, і рядком: рядок людина копіює кнопкою, і саме
+    в ньому важливі останні цифри — це номер її рахунку. Округлити його
+    не можна, інакше переказ не впізнається.
+    """
+    if not inv:
+        return None
+    left = (inv["expires_at"] - db.now()).total_seconds()
+    return {
+        "id": inv["id"],
+        "plan": inv["plan"],
+        "wallet": TRON_WALLET,
+        "network": "TRON (TRC-20)",
+        "coin": "USDT",
+        "amount": tron.to_usdt(inv["units"]),
+        # рівно стільки знаків, скільки має монета, без хвоста з нулів
+        "amount_text": ("%.6f" % tron.to_usdt(inv["units"])).rstrip("0").rstrip("."),
+        "status": inv["status"],
+        "seconds_left": max(0, int(left)),
+    }
+
+
+def expire_old(uid=None):
+    """Згасити рахунки, яких уже не чекаємо.
+
+    Без цього сума лишалась би зайнятою назавжди, а людина, заплативши
+    через добу, чекала б підписки, якої ніхто не ввімкне.
+    """
+    with db.connect() as conn:
+        if uid:
+            conn.execute("UPDATE crypto_invoices SET status='expired' "
+                         "WHERE user_id=%s AND status='new'", (uid,))
+        else:
+            conn.execute("UPDATE crypto_invoices SET status='expired' "
+                         "WHERE status='new' AND expires_at < now()")
+        conn.commit()
+
+
+def current(uid):
+    """Рахунок, який людина зараз оплачує, або None."""
+    with db.connect() as conn:
+        return conn.execute(
+            "SELECT * FROM crypto_invoices WHERE user_id=%s AND status='new' "
+            "AND expires_at > now() ORDER BY id DESC LIMIT 1", (uid,)).fetchone()
+
+
+def last_paid(uid):
+    with db.connect() as conn:
+        return conn.execute(
+            "SELECT * FROM crypto_invoices WHERE user_id=%s AND status='paid' "
+            "ORDER BY id DESC LIMIT 1", (uid,)).fetchone()
+
+
+def _match(units):
+    """Який рахунок чекає саме на цю суму.
+
+    Береться й трохи більша сума: людина могла накинути зайвого, і
+    відмовляти їй за це безглуздо. Менша — тільки в межах дрібниці.
+    """
+    with db.connect() as conn:
+        return conn.execute(
+            "SELECT * FROM crypto_invoices WHERE status='new' "
+            "AND units BETWEEN %s AND %s ORDER BY id LIMIT 1",
+            (units - SLACK_UNITS, units + SLACK_UNITS)).fetchone()
+
+
+def _settle(inv, tx, payer, when_ms=0):
+    """Закрити рахунок і відкрити підписку.
+
+    Позначку ставимо умовно — «поки рахунок ще не оплачений»: той самий
+    переказ може приїхати двічі (фоновий обхід і кнопка «я оплатив»
+    одночасно), і підписка не має продовжитись на два строки за одні
+    гроші. Згаслий рахунок теж закриваємо: людина могла переказувати
+    довше, ніж ми чекали, і карати її за це ні до чого.
+    """
+    with db.connect() as conn:
+        got = conn.execute(
+            "UPDATE crypto_invoices SET status='paid', tx=%s, payer=%s, "
+            "paid_at=now() WHERE id=%s AND status IN ('new','expired') "
+            "RETURNING id", (tx, payer or "", inv["id"])).fetchone()
+        conn.commit()
+    if not got:
+        return False
+    billing.grant(inv["user_id"], PLAN_DAYS.get(inv["plan"], 30), inv["plan"])
+    billing.promo_paid(inv["user_id"])
+    print("крипта: оплачено %s для %s, переказ %s"
+          % (inv["plan"], inv["user_id"], tx[:16]), flush=True)
+    return True
+
+
+def _orphan(row):
+    """Запам'ятати переказ, який не збігся з жодним рахунком."""
+    with db.connect() as conn:
+        conn.execute(
+            "INSERT INTO crypto_orphans (tx, units, payer, at_ms) "
+            "VALUES (%s,%s,%s,%s) ON CONFLICT (tx) DO NOTHING",
+            (row["tx"], row["units"], row.get("from") or "", row.get("at") or 0))
+        conn.commit()
+
+
+def _seen(tx):
+    with db.connect() as conn:
+        a = conn.execute("SELECT 1 FROM crypto_invoices WHERE tx=%s", (tx,)).fetchone()
+        b = conn.execute("SELECT 1 FROM crypto_orphans WHERE tx=%s", (tx,)).fetchone()
+    return bool(a or b)
+
+
+def check_new():
+    """Один обхід: забрати свіжі перекази й закрити ними рахунки.
+
+    Повертає, скільки підписок увімкнули. None — блокчейн не відповів;
+    це не «оплат немає», а «сьогодні не спитали», і поводитись із цим
+    треба інакше: переказ нікуди не подінеться, спитаємо ще раз.
+    """
+    expire_old()
+    since = _since_ms()
+    rows = tron.incoming(since)
+    if rows is None:
+        return None
+    done = 0
+    for r in rows:
+        if not r["tx"] or _seen(r["tx"]):
+            continue
+        inv = _match(r["units"])
+        if inv and _settle(inv, r["tx"], r.get("from"), r.get("at")):
+            done += 1
+        else:
+            _orphan(r)
+    _remember_ms(rows)
+    return done
+
+
+def _since_ms():
+    """З якої миті питати перекази.
+
+    Тримаємо в meta час останнього побаченого: перезапуск сервера не має
+    означати ні повторного перебору всієї історії, ні прогалини, в якій
+    загубилась би чиясь оплата. Перший запуск бере останню сторінку.
+    """
+    raw = db.meta_get("crypto_seen_ms", "")
+    try:
+        return int(raw) if raw else 0
+    except (TypeError, ValueError):
+        return 0
+
+
+def _remember_ms(rows):
+    if not rows:
+        return
+    newest = max(r["at"] for r in rows)
+    if newest > _since_ms():
+        # плюс мілісекунда, щоб той самий переказ не приїхав ще раз
+        db.meta_set("crypto_seen_ms", str(newest + 1))
+
+
+def claim(uid, txid):
+    """«Я оплатив, ось номер переказу» — запасний шлях.
+
+    Потрібен тому, хто округлив суму: за сумою такий переказ не знайти,
+    а за номером — можна. Перевіряємо в блокчейні, що переказ справді
+    наш, справді USDT і справді на нашу адресу; на слово не віримо.
+
+    Повертає (ок, причина).
+    """
+    if not enabled():
+        return False, "off"
+    got = tron.by_hash(txid)
+    if not got:
+        return False, "not_found"
+    if _seen(got["tx"]):
+        return False, "used"
+    inv = current(uid) or _last_new(uid)
+    if not inv:
+        return False, "no_invoice"
+    if got["units"] + SLACK_UNITS < inv["units"]:
+        # Заплатили менше, ніж коштує тариф: підписку не вмикаємо, але й
+        # гроші не ховаємо — переказ лишається видним в адмінці.
+        _orphan(got)
+        return False, "too_small"
+    return (True, "") if _settle(inv, got["tx"], got.get("from"),
+                                 got.get("at")) else (False, "used")
+
+
+# --------------------------------------------------------- фоновий обхід ----
+# Поки ніхто нічого не оплачує, питати блокчейн ні до чого — тому обхід
+# спить довго, а прокидається частіше рівно тоді, коли є що чекати. На
+# безкоштовному ключі це тримає нас далеко від будь-яких лімітів.
+IDLE = 300         # нема відкритих рахунків — раз на п'ять хвилин
+BUSY = 30          # хтось платить просто зараз — раз на півхвилини
+
+
+def _waiting():
+    with db.connect() as conn:
+        return bool(conn.execute(
+            "SELECT 1 FROM crypto_invoices WHERE status='new' "
+            "AND expires_at > now() LIMIT 1").fetchone())
+
+
+def loop():
+    while True:
+        try:
+            busy = _waiting()
+            if busy:
+                check_new()
+            else:
+                expire_old()
+        except Exception as ex:
+            print("крипта: обхід зірвався:", ex, flush=True)
+            busy = False
+        time.sleep(BUSY if busy else IDLE)
+
+
+def start():
+    """Завести обхід, якщо оплата криптою взагалі ввімкнена."""
+    if not enabled():
+        print("крипта: гаманець не заданий, оплату не вмикаємо", flush=True)
+        return
+    if not tron.valid(TRON_WALLET):
+        # Одна переплутана літера в адресі — і гроші йдуть у нікуди.
+        # Краще не вмикати касу зовсім, ніж зібрати оплати в порожнечу.
+        print("крипта: адреса гаманця не сходиться, оплату не вмикаємо", flush=True)
+        return
+    threading.Thread(target=loop, daemon=True, name="crypto").start()
+    print("крипта: приймаємо USDT на %s" % TRON_WALLET, flush=True)
+
+
+def _last_new(uid):
+    """Останній неоплачений рахунок людини, зокрема й щойно згаслий.
+
+    Доба — навмисно щедро: людина могла переказувати довго, а номер
+    переказу принести ще пізніше. Старіше вже не беремо, інакше свіжа
+    оплата закрила б рахунок місячної давнини.
+    """
+    with db.connect() as conn:
+        return conn.execute(
+            "SELECT * FROM crypto_invoices WHERE user_id=%s "
+            "AND status IN ('new','expired') "
+            "AND created_at > now() - interval '1 day' "
+            "ORDER BY id DESC LIMIT 1", (uid,)).fetchone()
