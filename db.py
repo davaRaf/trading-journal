@@ -13,8 +13,7 @@ from psycopg.types.json import Jsonb
 
 import tidy
 from config import (DATABASE_URL, DB_POOL_MAX, EARLY_MIGRATION,
-                    FREE_CAPS_MIGRATION, FREE_BT, FREE_TRADES,
-                    IMPORT_WINDOW_DAYS)
+                    FREE_BT, FREE_TRADES, IMPORT_WINDOW_DAYS)
 
 # Текстовые поля сделки. Порядок важен: по нему строятся INSERT/UPDATE.
 TEXT_FIELDS = ["pair", "date", "session", "position", "entry_model", "bias", "setup",
@@ -387,35 +386,54 @@ def init():
         conn.execute(SCHEMA)
         conn.commit()
     _grandfather_emails()
-    _lower_free_caps()
+    _start_limits()
     _grandfather_early()
 
 
-def _lower_free_caps():
-    """Стеля безкоштовних угод і бектесту: 30 → 20 (рішення власників 29.09.2026).
+# Запуск лімітів одним запитом — щоб перевірка ганяла саме той текст, який
+# піде на бій, а не схожий на нього.
+LIMITS_SQL = """
+UPDATE users SET free_trades_cap = CASE WHEN free_trades_cap = 30 THEN %s
+                                        ELSE free_trades_cap END,
+                 free_bt_cap     = CASE WHEN free_bt_cap = 30 THEN %s
+                                        ELSE free_bt_cap END,
+                 free_trades_used = 0, free_bt_used = 0, imports_used = 0,
+                 ai_used = 0, ai_reset_at = NULL
+"""
 
-    DEFAULT у схемі стосується тільки нових рядків, а в тих, хто вже
-    заведений, у колонці лежить стара тридцятка — і розділ «Підписка»
-    показував би 30 навіть після правки config.
 
-    Беремо рівно стару тридцятку й рівно один раз (позначка в meta): у кого
-    стеля інша — це бонус від адміна, його чіпати не можна. Записане не
-    зникає: хто вже пройшов двадцяту угоду, лишається з усім, що записав,
-    закриваються тільки нові.
+def _start_limits():
+    """Момент, з якого ліміти починають рахуватись. До нього їх немає.
 
-    За вимикачем FREE_CAPS_MIGRATION з тієї ж причини, що й міграція
-    «ранніх»: робоча копія ходить у бойову базу, і без вимикача стеля
-    живим людям поїхала б від місцевого прогону, а не від викладки.
+    Робить дві речі разом, бо це одна подія — викладка:
+
+    Перше — опускає стелю з тридцятки до двадцятки (рішення власників
+    29.09.2026). DEFAULT у схемі стосується тільки нових рядків, а в тих,
+    хто вже заведений, у колонці лежить стара тридцятка, і розділ
+    «Підписка» показував би 30 навіть після правки config. Беремо рівно
+    тридцятку: у кого стеля інша — це бонус від адміна, його не чіпаємо.
+
+    Друге — обнуляє лічильники всім без винятку. Угоди, записані до
+    викладки, в ліміт не йдуть: люди писали їх, коли ліміту не було, і
+    відлік для всіх починається з нуля з цієї хвилини. Саме «всім», а не
+    тільки набору 'std', — інакше той, кого вже перевели на ранні ціни чи
+    промокод, стартував би з витраченим.
+
+    Записане не зникає: закриваються тільки нові записи, весь журнал
+    лишається на місці й видно в аналітиці.
+
+    За вимикачем EARLY_MIGRATION — тим самим, що й знижка «раннім», бо це
+    одна й та сама викладка, і двома вимикачами один з них забули б.
+    Робоча копія ходить у бойову базу, тож без вимикача ліміт живим людям
+    запустив би місцевий прогін, а не викладка. Позначка в meta не дасть
+    спрацювати вдруге — відлік не перезапуститься на наступному рестарті.
     """
-    if not FREE_CAPS_MIGRATION or meta_get("free_caps_20"):
+    if not EARLY_MIGRATION or meta_get("limits_started"):
         return
     with connect() as conn:
-        conn.execute("UPDATE users SET free_trades_cap=%s WHERE free_trades_cap=30",
-                     (FREE_TRADES,))
-        conn.execute("UPDATE users SET free_bt_cap=%s WHERE free_bt_cap=30",
-                     (FREE_BT,))
+        conn.execute(LIMITS_SQL, (FREE_TRADES, FREE_BT))
         conn.commit()
-    meta_set("free_caps_20", now().isoformat())
+    meta_set("limits_started", now().isoformat())
 
 
 def _grandfather_emails():
@@ -437,8 +455,6 @@ def _grandfather_emails():
 # текст, який піде на бій, а не схожий на нього.
 EARLY_SQL = """
 UPDATE users SET price_plan='early',
-       free_trades_used=0, free_bt_used=0, imports_used=0,
-       ai_used=0, ai_reset_at=NULL,
        imports_until=now() + (%s || ' days')::interval
  WHERE price_plan='std'
 """
@@ -454,10 +470,10 @@ def _grandfather_early():
     ходить у ту саму базу, що й бій, і без вимикача знижку роздав би
     місцевий прогін — за дні до самої викладки.
 
-    Лічильники цим людям обнуляємо тут же: у них за плечима сотні угод, і
-    ліміт має відрахувати з нуля від цієї хвилини, а не від першого запису
-    в журналі. Вікно перенесення з Notion відкриваємо наново — від
-    created_at воно в них давно минуло.
+    Лічильники тут не чіпаємо: їх обнуляє _start_limits(), і не цим людям,
+    а всім одразу — відлік ліміту починається з викладки для кожного.
+    Вікно перенесення з Notion відкриваємо наново: від created_at воно в
+    «ранніх» давно минуло.
 
     Оплачене не чіпаємо: plan і paid_until лишаються як є. Партнерський
     набір теж: WHERE price_plan='std' обходить тих, кого перевів промокод

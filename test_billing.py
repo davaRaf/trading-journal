@@ -340,16 +340,9 @@ def check_db():
             try:
                 conn.execute(db.EARLY_SQL, (config.IMPORT_WINDOW_DAYS,))
                 r = conn.execute(
-                    "SELECT price_plan, free_trades_used, free_bt_used, "
-                    "imports_used, ai_used, ai_reset_at, imports_until, "
-                    "plan, paid_until FROM users WHERE id=%s",
-                    (uid,)).fetchone()
+                    "SELECT price_plan, imports_until, plan, paid_until "
+                    "FROM users WHERE id=%s", (uid,)).fetchone()
                 case("міграція робить ранніми", r["price_plan"], "early")
-                case("міграція обнуляє справжні", r["free_trades_used"], 0)
-                case("міграція обнуляє прогони", r["free_bt_used"], 0)
-                case("міграція обнуляє перенесення", r["imports_used"], 0)
-                case("міграція обнуляє звернення", r["ai_used"], 0)
-                case("міграція скидає вікно звернень", r["ai_reset_at"], None)
                 # Годинник бази й наш розходяться на секунди, тому не
                 # рівність, а межі: вікно щойно відкрите на 30 днів.
                 left = billing.import_days_left(r)
@@ -363,6 +356,59 @@ def check_db():
                 conn.close()
             case("відкат повернув звичайні ціни",
                  db.get_user(uid)["price_plan"], "std")
+
+            # Запуск лімітів. Так само на живій базі — тому запит, а не
+            # функція, і теж під відкат: запустити відлік усім за дні до
+            # викладки означало б з'їсти людям безкоштовні угоди.
+            db._start_limits()
+            case("без вимикача ліміти не запускаються",
+                 db.meta_get("limits_started"), None)
+            # Далі підміняємо лічильники цьому акаунту, тож спершу
+            # запам'ятовуємо їх — наступні перевірки рахують від них.
+            KEEP = ("free_trades_cap", "free_bt_cap", "free_trades_used",
+                    "free_bt_used", "imports_used", "ai_used")
+            was = {k: db.get_user(uid)[k] for k in KEEP}
+            with db.connect() as c2:
+                c2.execute("UPDATE users SET free_trades_used=7, free_bt_used=3, "
+                           "imports_used=2, ai_used=4, free_trades_cap=30, "
+                           "free_bt_cap=30 WHERE id=%s", (uid,))
+                c2.commit()
+            conn = db.psycopg.connect(config.DATABASE_URL, row_factory=db.dict_row)
+            try:
+                conn.execute(db.LIMITS_SQL, (config.FREE_TRADES, config.FREE_BT))
+                r = conn.execute(
+                    "SELECT free_trades_cap, free_bt_cap, free_trades_used, "
+                    "free_bt_used, imports_used, ai_used, ai_reset_at, "
+                    "plan, paid_until FROM users WHERE id=%s", (uid,)).fetchone()
+                case("стеля угод стала двадцяткою", r["free_trades_cap"], 20)
+                case("стеля бектесту стала двадцяткою", r["free_bt_cap"], 20)
+                case("старі угоди в ліміт не пішли", r["free_trades_used"], 0)
+                case("старий бектест у ліміт не пішов", r["free_bt_used"], 0)
+                case("перенесення з нуля", r["imports_used"], 0)
+                case("звернення з нуля", r["ai_used"], 0)
+                case("вікно звернень скинуто", r["ai_reset_at"], None)
+                case("запуск лімітів не чіпає оплачене", r["plan"], "month")
+                case("запуск лімітів не чіпає дату оплати", bool(r["paid_until"]), True)
+            finally:
+                conn.rollback()
+                conn.close()
+            # Бонус адміна стелею не є: його міграція обходить.
+            with db.connect() as c2:
+                c2.execute("UPDATE users SET free_trades_cap=35 WHERE id=%s", (uid,))
+                c2.commit()
+            conn = db.psycopg.connect(config.DATABASE_URL, row_factory=db.dict_row)
+            try:
+                conn.execute(db.LIMITS_SQL, (config.FREE_TRADES, config.FREE_BT))
+                r = conn.execute("SELECT free_trades_cap FROM users WHERE id=%s",
+                                 (uid,)).fetchone()
+                case("бонус адміна лишається", r["free_trades_cap"], 35)
+            finally:
+                conn.rollback()
+                conn.close()
+            with db.connect() as c2:
+                c2.execute("UPDATE users SET " + ", ".join(k + "=%s" for k in KEEP)
+                           + " WHERE id=%s", tuple(was[k] for k in KEEP) + (uid,))
+                c2.commit()
 
         # Промокод на живому акаунті: звичайному він знижує ціну, а тому,
         # хто вже «ранній», — відбивається.
