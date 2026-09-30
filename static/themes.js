@@ -178,11 +178,19 @@ function refPath(){
   return ref ? "/" + (REF_SHORT[ref] || ref) : "";
 }
 
+/* Оформлення спільнот, у яких можна зробити знімок. Беремо з тієї ж
+   таблиці тем і в тому ж порядку, що й у вікні тем: додасться третя
+   колаборація — вона сама з’явиться й у вікні «Поділитись». */
+function collabs(){
+  return THEMES().filter(t => t.collab).map(t => ({id: t.collab, name: t.name}));
+}
+
 /* ---------- ручки ---------- */
 window.__skin = {
   section: section,
   collabRef: collabRef,
   refPath: refPath,
+  collabs: collabs,
   open(){ if (window.__settings) __settings.open("skin"); },
   set(id){ apply(id); redraw(); },
   seed(field, value){
