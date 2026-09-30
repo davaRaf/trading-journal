@@ -701,9 +701,10 @@ function open(kind, arg){
       });
       if(!res.ok) throw new Error("HTTP " + res.status);
       const r = await res.json();
-      /* Без хвостів: мітку партнера сторінка знімка дописує собі сама,
-         коли сервер скаже, що власник прийшов від нього. */
-      const url = location.origin + r.url;
+      /* Посилання роздають далі, тому під час колаборації воно йде з
+         міткою партнера — шматком шляху, без хвоста «?ref=». */
+      const ref = (window.__skin && __skin.refPath) ? __skin.refPath() : "";
+      const url = location.origin + ref + r.url;
       const out = document.getElementById("shOut");
       out.hidden = false;
       out.innerHTML = '<input class="sh-url" id="shUrl" readonly value="' + esc(url) + '">'

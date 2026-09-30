@@ -1700,6 +1700,23 @@ class H(BaseHTTPRequestHandler):
     def do_GET(self):
         if self._old_host(): return
         p = unquote(urlparse(self.path).path)
+
+        # ---- мітка партнера на початку шляху: /fxlab/u/dan, /bs/s/abc ----
+        # Те саме, що «?ref=», тільки без хвоста в адресі: посиланням
+        # діляться, і воно має виглядати охайно. Знявши мітку, далі
+        # малюємо сторінку так, ніби її в адресі й не було.
+        m = re.match(r"^/([A-Za-z0-9_-]{2,16})(/[^/].*)$", p)
+        if m and not p.startswith("/api/") and ref_norm(m.group(1)):
+            ref = ref_norm(m.group(1))
+            uid0 = self._uid()
+            if not (uid0 and _is_admin(uid0)):      # свої переходи не рахуємо
+                ref_visit(ref, self.headers.get("User-Agent") or "")
+            self._ref_touch(ref)
+            u = urlparse(self.path)
+            rest = u.path[len(m.group(1)) + 1:]     # шлях без «/<мітка>»
+            self.path = rest + (("?" + u.query) if u.query else "")
+            p = unquote(rest)
+
         # ?ref=<партнер> у будь-якій адресі — /, /login, /demo, /s/…
         if "ref=" in self.path and not p.startswith("/api/"):
             self._ref_touch()
