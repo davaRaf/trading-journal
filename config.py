@@ -103,6 +103,13 @@ SMTP_USER     = os.environ.get("SMTP_USER", "")
 SMTP_PASS     = os.environ.get("SMTP_PASS", "")
 SMTP_FROM     = os.environ.get("SMTP_FROM", "") or SMTP_USER
 SMTP_NAME     = os.environ.get("SMTP_NAME", "StatsAI")
+# Ключ до історії котирувань Oanda — щоб у «Перемотці» можна було ганяти
+# прогін цінами цього брокера, а не лише Dukascopy. Безкоштовний
+# демо-рахунок дає такий ключ: AMP > My Services > Manage API Access.
+# Порожній ключ — джерело просто не з'являється у списку, решта працює.
+# OANDA_ENV: practice — демо, live — бойовий рахунок.
+OANDA_TOKEN   = os.environ.get("OANDA_TOKEN", "")
+OANDA_ENV     = os.environ.get("OANDA_ENV", "practice")
 PORT          = int(os.environ.get("PORT", 8172))
 # На своєму комп'ютері слухаємо тільки себе, на хостингу — усі інтерфейси,
 # інакше платформа не достукається до сервера й вважатиме його мертвим.
@@ -156,7 +163,12 @@ CURRENCY = "EUR"
 # її віддає й приймає будь-яка біржа, тож заплатити людина може звідки
 # завгодно, не роблячи обмінів. MetaMask з нею не працює — це інша
 # технологія, — тому гаманець тут окремий від того, куди платить Creem.
-TRON_WALLET = os.environ.get("TRON_WALLET", "")
+# Адреса стоїть тут, а не тільки в оточенні: це не таємниця — її бачить
+# кожен, хто платить, вона написана у вікні переказу. Зате при викладці не
+# треба нічого доводити руками: сервер піднявся — каса працює. Змінна
+# оточення лишається й перебиває це значення, якщо гаманець зміниться.
+TRON_WALLET = os.environ.get("TRON_WALLET",
+                             "TGtTxZNutxhhNDPPjPusv3svqYHXDWuLXN")
 # Читаємо блокчейн через TronGrid. Ключ не обов'язковий: без нього вони
 # теж відповідають, просто скупіше за лімітами.
 TRON_API = os.environ.get("TRON_API", "https://api.trongrid.io")
