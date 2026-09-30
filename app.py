@@ -856,6 +856,9 @@ def _billing_block(u):
           '<div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">'
           '<input id=bdays type=number min=1 placeholder="30" style="%s">'
           '<button id=bgrant class=btn>Дать подписку на N дней</button>'
+          '<button class="btn bplan" data-d=30 data-p=month>Месяц</button>'
+          '<button class="btn bplan" data-d=90 data-p=quarter>Квартал</button>'
+          '<button class="btn bplan" data-d=365 data-p=year>Год</button>'
           '<button id=blife class=btn>Сделать Special</button>'
           '<button id=brevoke class=btn>Снять подписку</button></div>' % inp
         + '<p class=mute style="margin:14px 0 8px;font-size:12px">Бонус к бесплатным лимитам '
@@ -881,6 +884,9 @@ def _billing_block(u):
           "bmsg.textContent=r.ok?'готово':(d.error||('ошибка '+r.status));"
           "if(r.ok)setTimeout(()=>location.reload(),700);}"
           "bgrant.onclick=()=>bill('grant',{days:+bdays.value||0});"
+          "document.querySelectorAll('.bplan').forEach(b=>b.onclick=()=>{"
+          "if(confirm('Дать подписку «'+b.textContent+'»? Дни прибавятся к уже оплаченным.'))"
+          "bill('grant',{days:+b.dataset.d,plan:b.dataset.p});});"
           "blife.onclick=()=>{if(confirm('Сделать Special? Журнал откроется целиком, без срока и оплаты.'))"
           "bill('grant',{life:1});};"
           "brevoke.onclick=()=>{if(confirm('Снять подписку? Оплаченные дни пропадут.'))"

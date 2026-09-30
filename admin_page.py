@@ -37,6 +37,13 @@ def billing_start():
     except Exception:
         pass
     raw = raw or os.environ.get("BILLING_START", "").strip()
+    if not raw:
+        # викладка оплати ставить «limits_started» (db._start_limits) —
+        # з цієї хвилини журнал і рахує безкоштовні угоди
+        try:
+            raw = (db.meta_get("limits_started", "") or "").strip()
+        except Exception:
+            pass
     try:
         return datetime.date.fromisoformat(raw[:10]) if raw else None
     except ValueError:
@@ -44,6 +51,16 @@ def billing_start():
 
 
 # ------------------------------------------------------------ дрібниці ----
+
+def _sub(u, now):
+    """Чим людина зараз користується: month/quarter/year, life (Special) або ''."""
+    if u.get("plan") == "life":
+        return "life"
+    until = u.get("paid_until")
+    if until and until > now and u.get("plan") not in (None, "", "free"):
+        return u["plan"]
+    return ""
+
 
 def e(x):
     return _html.escape("" if x is None else str(x), quote=True)
@@ -276,7 +293,8 @@ def _collect():
 
     users = _q("""SELECT id, nickname, email, created_at, coalesce(ref_source,'') AS ref, ref_at,
                          telegram_id IS NOT NULL AS tg, public_journal AS pub,
-                         email_confirmed_at IS NOT NULL AS mailok
+                         email_confirmed_at IS NOT NULL AS mailok,
+                         plan, paid_until, free_trades_used, free_trades_cap
                   FROM users ORDER BY created_at DESC""")
     bstart = billing_start()
     tr = {r["user_id"]: r for r in _q("""
@@ -343,8 +361,10 @@ def _collect():
             "reg": created.isoformat() if created else "", "regd": (today - created).days if created else 999,
             "ref": u["ref"], "tg": bool(u["tg"]), "pub": bool(u["pub"]), "mail": bool(u["mailok"]),
             "n": n, "manual": t.get("manual") or 0, "bt": t.get("bt") or 0, "d7": t.get("d7") or 0,
-            # до ліміту йдуть лише ручні угоди з дня запуску оплати
-            "free": t.get("paid_n") or 0,
+            # той самий лічильник, яким журнал закриває запис (billing)
+            "free": (u["free_trades_used"] or 0) if bstart else 0,
+            "cap": u["free_trades_cap"] or FREE_LIMIT,
+            "sub": _sub(u, now),
             "notes": nt.get("n") or 0, "ts": u["id"] in has_ts,
             "sh": (shares.get(u["id"]) or {}).get("n") or 0, "views": (shares.get(u["id"]) or {}).get("views") or 0,
             "idp": idents.get(u["id"]) or "", "acc": accs.get(u["id"]) or 0,
@@ -370,9 +390,10 @@ def _kpis(D):
     sh7 = sum(r["d7"] for r in D["kinds"])
     sh7p = sum(r["p7"] for r in D["kinds"])
     views = sum(r["views"] for r in D["kinds"])
-    lim = sum(1 for p in P if p["free"] >= FREE_LIMIT)
-    near = sum(1 for p in P if FREE_LIMIT - 5 <= p["free"] < FREE_LIMIT)
+    lim = sum(1 for p in P if p["free"] >= p["cap"])
+    near = sum(1 for p in P if p["cap"] - 5 <= p["free"] < p["cap"])
     bs = D.get("bstart")
+    paid = {k: sum(1 for p in P if p["sub"] == k) for k in ("month", "quarter", "year", "life")}
     return ('<div class="grid kpis">'
             + _kpi("Аккаунтов", str(len(P)),
                    '<div class=d><span class=up>+%d</span> за 7 дней · неделей раньше +%d</div>' % (new7, new_p))
@@ -380,8 +401,12 @@ def _kpis(D):
             + _kpi("Активны 30 дней", str(a30), '<div class=d>%d%% от всех</div>' % (round(a30 * 100 / len(P)) if P else 0))
             + _kpi("Сделок вручную за 7 дн.", str(tm7), _delta(tm7, tm7p))
             + _kpi("Ссылок за 7 дней", str(sh7), _delta(sh7, sh7p).replace("</div>", " · %d переходов всего</div>" % views, 1))
+            + _kpi("Платят сейчас", '<span class=up>%d</span>' % (paid["month"] + paid["quarter"] + paid["year"]),
+                   '<div class=d>месяц %d · квартал %d · год %d · Special %d</div>'
+                   % (paid["month"], paid["quarter"], paid["year"], paid["life"]))
             + (_kpi("Упёрлись в лимит %d" % FREE_LIMIT, '<span class=up>%d</span>' % lim,
-                    '<div class=d>ещё %d на подходе (20–29) · счёт с %s</div>' % (near, bs.strftime("%d.%m")))
+                    '<div class=d>ещё %d на подходе (%d–%d) · счёт с %s</div>'
+                    % (near, FREE_LIMIT - 5, FREE_LIMIT - 1, bs.strftime("%d.%m")))
                if bs else
                _kpi("Лимит %d сделок" % FREE_LIMIT, '<span class=mute>—</span>',
                     '<div class=d>не запущен: считается с запуска оплаты</div>'))
@@ -545,7 +570,7 @@ def _watch(D):
     P = D["people"]
     top = sorted([p for p in P if p["days7"]], key=lambda p: (-p["days7"], -p["d7"]))[:8]
     idle = [p for p in P if p["st"] == "new" and p["regd"] <= 14][:10]
-    lim = sorted([p for p in P if p["free"] >= 20], key=lambda p: -p["free"])[:10]
+    lim = sorted([p for p in P if not p["sub"] and p["free"] >= p["cap"] - 5], key=lambda p: -p["free"])[:10]
     li = lambda p, right: '<a href="/admin/u/%s"><span class=nm>%s <small>%s</small></span><span class=mute>%s</span></a>' % (
         e(p["nick"]), e(p["nick"]), e(p["email"]), right)
     return ('<div class="grid three">'
@@ -556,8 +581,8 @@ def _watch(D):
             + ("".join(li(p, _ago(p["regd"])) for p in idle) or '<div class=empty>Все новенькие что-то записали</div>')
             + "</div></div>"
             '<div class=card><h2>Ближе всех к подписке</h2><div class=list>'
-            + ("".join(li(p, '<span class="%s">%d / %d</span>' % ("up" if p["free"] >= FREE_LIMIT else "be", p["free"], FREE_LIMIT)) for p in lim)
-               or '<div class=empty>%s</div>' % ("Пока никто не набрал 20 сделок с запуска оплаты" if D.get("bstart")
+            + ("".join(li(p, '<span class="%s">%d / %d</span>' % ("up" if p["free"] >= p["cap"] else "be", p["free"], p["cap"])) for p in lim)
+               or '<div class=empty>%s</div>' % (("Пока никто не подошёл к %d сделкам с запуска оплаты" % FREE_LIMIT) if D.get("bstart")
                                                  else "Оплата ещё не запущена — лимит пока никому не считается"))
             + "</div></div>"
             "</div>")
@@ -573,7 +598,7 @@ def _people(D, titles, query):
             '<th class=s data-k=nick>Ник</th><th class="s" data-k=st>Статус</th><th class="s num" data-k=n>Сделок</th>'
             '<th class="s num" data-k=d7>7 дн.</th><th class="s num" data-k=notes>Анализ</th>'
             '<th class="s num" data-k=since>Активность</th><th class="s num" data-k=regd>Регистрация</th>'
-            '<th>Метка</th><th>Есть</th></tr></thead><tbody></tbody></table></div>'
+            '<th class="s" data-k=sub>Тариф</th><th>Метка</th><th>Есть</th></tr></thead><tbody></tbody></table></div>'
             '<p class=mute id=pcount style="margin:10px 0 0;font-size:12.5px"></p></div>'
             "<script>const P=" + data + ";const Q=" + json.dumps(query or "", ensure_ascii=False) + ";" + PEOPLE_JS + "</script>")
 
@@ -582,7 +607,9 @@ PEOPLE_JS = r"""
 const ST={active:['Активный','p-active'],cool:['Остывает','p-cool'],sleep:['Спит','p-sleep'],new:['Не начал','p-new']};
 const F=[['all','Все',()=>true],['active','Активные',p=>p.st==='active'],['cool','Остывают',p=>p.st==='cool'],
 ['sleep','Спят',p=>p.st==='sleep'],['new','Не начали',p=>p.st==='new'],['fresh','Новые 7 дн.',p=>p.regd<=6],
-['limit','Лимит 30+',p=>p.free>=30],['tg','С Telegram',p=>p.tg]];
+['limit','Упёрлись в лимит',p=>!p.sub&&p.free>=p.cap],['paid','Платят',p=>['month','quarter','year'].includes(p.sub)],
+['special','Special',p=>p.sub==='life'],['tg','С Telegram',p=>p.tg]];
+const SUB={month:'Месяц',quarter:'Квартал',year:'Год',life:'Special'};
 let f='all',k='regd',dir=1,q=(Q||'').toLowerCase();
 const s=document.getElementById('q');if(s){s.value=Q||'';s.addEventListener('input',()=>{q=s.value.trim().toLowerCase();draw();});}
 const esc=x=>String(x==null?'':x).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
@@ -599,9 +626,11 @@ function draw(){
   '</span></td><td class=num>'+p.n+(p.n>p.manual?'<br><span class=mute style="font-size:11px">'+p.manual+' вручную</span>':'')+
   '</td><td class=num>'+(p.d7||'<span class=mute>0</span>')+'</td><td class=num>'+(p.notes||'<span class=mute>0</span>')+
   '</td><td class=num>'+ago(p.since)+'</td><td class=num>'+p.reg.split('-').reverse().join('.')+
+  '</td><td>'+(p.sub?'<span class="pill '+(p.sub==='life'?'p-cool':'p-active')+'">'+SUB[p.sub]+'</span>'
+   :'<span class=mute>'+p.free+' / '+p.cap+'</span>')+
   '</td><td>'+(p.refT?'<span class=tag>'+esc(p.refT)+'</span>':'<span class=mute>—</span>')+'</td><td>'+
   (p.tg?'<span class=tag>TG</span>':'')+(p.ts?'<span class=tag>ТС</span>':'')+(p.sh?'<span class=tag>🔗'+p.sh+'</span>':'')+
-  (p.acc?'<span class=tag>счета</span>':'')+'</td></tr>').join('')||'<tr><td colspan=9 class=empty>Никого</td></tr>';
+  (p.acc?'<span class=tag>счета</span>':'')+'</td></tr>').join('')||'<tr><td colspan=10 class=empty>Никого</td></tr>';
  document.getElementById('pcount').textContent='Показано '+L.length+' из '+P.length;
  document.querySelectorAll('#pt th.s').forEach(th=>th.classList.toggle('on',th.dataset.k===k));
 }
@@ -697,7 +726,7 @@ def user_card(u, titles, kind_ru, refs, billing_html=""):
             bits.append("обновлена " + str(ts["updated"]))
         ts_line = " · ".join(bits) or "есть"
     manual = t.get("manual") or 0
-    free = t.get("free") or 0
+    free = (u.get("free_trades_used") or 0) if bstart else 0
     nick_js = json.dumps(u["nickname"], ensure_ascii=False)
     kv = lambda k, v: "<span>%s</span><span>%s</span>" % (e(k), v)
 
