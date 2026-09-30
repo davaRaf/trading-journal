@@ -24,52 +24,12 @@ const MONTHS = {month: 1, quarter: 3, year: 12};
 const ORDER = ["month", "quarter", "year"];
 
 let st = null;                     /* останній стан із сервера */
-let real = null;                   /* той самий стан без перегляду «як у іншого» */
-
-/* Перегляд для власників: подивитись журнал очима людини з іншим тарифом.
-   Лише показ у цьому браузері — сервер права не змінює, ліміти рахує як є. */
-const PREVIEW_KEY = "sub_preview";
-const PREVIEWS = ["", "free", "early", "month", "quarter", "year", "life"];
-function previewOf(){ try{ return localStorage.getItem(PREVIEW_KEY) || ""; }catch(e){ return ""; } }
-function withPreview(s){
-  const p = s && s.admin ? previewOf() : "";
-  if (!p) return s;
-  const soon = new Date(Date.now() + ({month: 30, quarter: 91, year: 365}[p] || 0) * 864e5).toISOString();
-  /* «Безкоштовно» — новенький без знижок і промокоду (звичайні ціни),
-     «Перші клієнти» — безкоштовний з їхніми цінами: як виглядатиме магазин */
-  if ((p === "free" || p === "early") && s.prices){
-    const pr = Object.assign({}, s.prices, {set: p === "early" ? "early" : "std"});
-    for (const k in pr) if (pr[k] && pr[k].std_cents)
-      pr[k] = Object.assign({}, pr[k], {cents: p === "early" && s.early ? s.early[k] : pr[k].std_cents});
-    return Object.assign({}, s, {plan: "free", active: false, paid_until: null, prices: pr, preview: p});
-  }
-  return Object.assign({}, s, p === "free" ? {plan: "free", active: false, paid_until: null}
-    : p === "life" ? {plan: "life", active: true, paid_until: null}
-    : {plan: p, active: true, paid_until: soon}, {preview: p});
-}
 
 async function load(){
   if (inPub()){ st = null; return null; }
-  try{ real = await api("GET", "/api/billing/state"); st = withPreview(real); }
+  try{ st = await api("GET", "/api/billing/state"); }
   catch(e){ st = null; }           /* не відповіло — розділ просто не малюємо */
   return st;
-}
-
-function setPreview(p){
-  try{ p ? localStorage.setItem(PREVIEW_KEY, p) : localStorage.removeItem(PREVIEW_KEY); }catch(e){}
-  st = withPreview(real);
-  redraw();
-  if (window.__sideMe) __sideMe.tier();
-}
-
-function previewBox(){
-  if (!real || !real.admin) return "";
-  const cur = previewOf();
-  const name = p => p === "" ? T.subPrevReal : p === "free" ? T.subFree : p === "early" ? T.subPrevEarly
-    : p === "life" ? "Special" : {month: T.subMonth, quarter: T.subQuarter, year: T.subYear}[p];
-  return '<div class="sub-prev"><span>' + esc(T.subPrevLab) + "</span><div>"
-    + PREVIEWS.map(p => '<button type="button" class="' + (p === cur ? "on" : "") + '" data-prev="' + p + '">'
-      + esc(name(p)) + "</button>").join("") + "</div></div>";
 }
 
 /* €11,99 — кома, як у решті журналу, і без зайвого нуля в кінці. */
@@ -382,7 +342,7 @@ function manageBtn(){
 
 function section(){
   if (!st) return "";
-  return previewBox() + sectionBody();
+  return sectionBody();
 }
 function sectionBody(){
   const live = !!st.active;
@@ -494,11 +454,6 @@ function wireChange(){
   });
 }
 
-function wirePreview(){
-  document.querySelectorAll(".sub-prev [data-prev]").forEach(b =>
-    b.addEventListener("click", () => setPreview(b.dataset.prev)));
-}
-
 /* Оплата карткою: каса Creem. Була тут завжди — тепер це одна з двох
    доріг, а не єдина, тому винесена окремо. */
 async function payCard(plan, btn){
@@ -573,7 +528,6 @@ function price(plan){
 }
 
 function wire(){
-  wirePreview();
   wirePromo();
   wireManage();
   wireChange();
