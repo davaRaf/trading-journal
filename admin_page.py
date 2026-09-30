@@ -26,24 +26,31 @@ FREE_LIMIT = 20          # безкоштовних ручних угод до �
 
 
 def billing_start():
-    """З якого дня рахуються безкоштовні 20 угод: з запуску оплати, а не з
-    реєстрації. Дату ставить запуск оплати в meta «billing_start»
-    (РРРР-ММ-ДД), запасний шлях — змінна оточення BILLING_START. Поки її
-    немає — ліміт не запущено і нікому не зараховано жодної угоди."""
+    """З якого дня рахуються безкоштовні угоди — або None, якщо дати нема.
+
+    Позначку «limits_started» ставить db._start_limits: подія, яка обнуляє
+    лічильники всім і починає відлік наново. Її немає в базі, де колонки
+    завелись одразу з двадцяткою: обнуляти там не було чого, ліміти діяли
+    від першого дня, і дати «з якої рахуємо» просто не існує.
+
+    Тому None тут означає «дати нема», а не «лімітів нема». Число беремо з
+    лічильника біллінга в будь-якому разі, а дату, якщо вона є, пишемо
+    поруч дрібним. Раніше сторінка на порожній позначці показувала «не
+    запущен» і нулі — на бою, де ліміт давно працює, це була неправда.
+
+    Руками дату можна проставити в meta «billing_start» (РРРР-ММ-ДД) або
+    змінною оточення BILLING_START — на самі ліміти це не впливає.
+    """
     import os
     raw = ""
-    try:
-        raw = (db.meta_get("billing_start", "") or "").strip()
-    except Exception:
-        pass
-    raw = raw or os.environ.get("BILLING_START", "").strip()
-    if not raw:
-        # викладка оплати ставить «limits_started» (db._start_limits) —
-        # з цієї хвилини журнал і рахує безкоштовні угоди
+    for key in ("limits_started", "billing_start"):
         try:
-            raw = (db.meta_get("limits_started", "") or "").strip()
+            raw = (db.meta_get(key, "") or "").strip()
         except Exception:
-            pass
+            raw = ""
+        if raw:
+            break
+    raw = raw or os.environ.get("BILLING_START", "").strip()
     try:
         return datetime.date.fromisoformat(raw[:10]) if raw else None
     except ValueError:
@@ -55,7 +62,7 @@ def billing_start():
 PLAN_RU = {"month": "Месяц", "quarter": "Квартал", "year": "Год"}
 
 
-def _access(u, free, bstart):
+def _access(u, free):
     """Крупна плашка вгорі картки: який у людини доступ зараз — щоб не
     шукати це в таблиці нижче після кожної видачі."""
     now = datetime.datetime.now(datetime.timezone.utc)
@@ -76,8 +83,7 @@ def _access(u, free, bstart):
                       "до %s · осталось %d дн." % (until.astimezone(KYIV).strftime("%d.%m.%Y"), left))
     cap = u.get("free_trades_cap") or FREE_LIMIT
     return box % ("var(--line)", "transparent", "var(--dim)", "Бесплатный доступ",
-                  ("использовано %d из %d сделок" % (free, cap)) if bstart
-                  else "лимит сделок ещё не запущен")
+                  "использовано %d из %d сделок" % (free, cap))
 
 
 def _sub(u, now):
@@ -334,13 +340,10 @@ def _collect():
     tr = {r["user_id"]: r for r in _q("""
         SELECT user_id, count(*) AS n,
                count(*) FILTER (WHERE import_id = '' AND notion_id = '') AS manual,
-               count(*) FILTER (WHERE import_id = '' AND notion_id = ''
-                                  AND %s::date IS NOT NULL
-                                  AND (created_at AT TIME ZONE 'Europe/Kyiv')::date >= %s::date) AS paid_n,
                count(*) FILTER (WHERE "kind" = 'bt') AS bt,
                count(*) FILTER (WHERE created_at >= now() - interval '7 days') AS d7,
                max(created_at) AS last_at
-        FROM trades GROUP BY user_id""", (bstart, bstart))}
+        FROM trades GROUP BY user_id""")}
     notes = {r["user_id"]: r for r in _q("""
         SELECT user_id,
                count(*) FILTER (WHERE CASE WHEN jsonb_typeof(data->'assets') = 'array'
@@ -396,7 +399,7 @@ def _collect():
             "ref": u["ref"], "tg": bool(u["tg"]), "pub": bool(u["pub"]), "mail": bool(u["mailok"]),
             "n": n, "manual": t.get("manual") or 0, "bt": t.get("bt") or 0, "d7": t.get("d7") or 0,
             # той самий лічильник, яким журнал закриває запис (billing)
-            "free": (u["free_trades_used"] or 0) if bstart else 0,
+            "free": u["free_trades_used"] or 0,
             "cap": u["free_trades_cap"] or FREE_LIMIT,
             "sub": _sub(u, now),
             "notes": nt.get("n") or 0, "ts": u["id"] in has_ts,
@@ -424,8 +427,11 @@ def _kpis(D):
     sh7 = sum(r["d7"] for r in D["kinds"])
     sh7p = sum(r["p7"] for r in D["kinds"])
     views = sum(r["views"] for r in D["kinds"])
-    lim = sum(1 for p in P if p["free"] >= p["cap"])
-    near = sum(1 for p in P if p["cap"] - 5 <= p["free"] < p["cap"])
+    # Тих, хто платить, тут немає: лічильник у них стоїть, і "вперся" про
+    # них неправда — так само, як у списку нижче й у фільтрі таблиці.
+    dry = [p for p in P if not p["sub"]]
+    lim = sum(1 for p in dry if p["free"] >= p["cap"])
+    near = sum(1 for p in dry if p["cap"] - 5 <= p["free"] < p["cap"])
     bs = D.get("bstart")
     paid = {k: sum(1 for p in P if p["sub"] == k) for k in ("month", "quarter", "year", "life")}
     return ('<div class="grid kpis">'
@@ -438,12 +444,10 @@ def _kpis(D):
             + _kpi("Платят сейчас", '<span class=up>%d</span>' % (paid["month"] + paid["quarter"] + paid["year"]),
                    '<div class=d>месяц %d · квартал %d · год %d · Special %d</div>'
                    % (paid["month"], paid["quarter"], paid["year"], paid["life"]))
-            + (_kpi("Упёрлись в лимит %d" % FREE_LIMIT, '<span class=up>%d</span>' % lim,
-                    '<div class=d>ещё %d на подходе (%d–%d) · счёт с %s</div>'
-                    % (near, FREE_LIMIT - 5, FREE_LIMIT - 1, bs.strftime("%d.%m")))
-               if bs else
-               _kpi("Лимит %d сделок" % FREE_LIMIT, '<span class=mute>—</span>',
-                    '<div class=d>не запущен: считается с запуска оплаты</div>'))
+            + _kpi("Упёрлись в лимит %d" % FREE_LIMIT, '<span class=up>%d</span>' % lim,
+                   '<div class=d>ещё %d на подходе (%d–%d)%s</div>'
+                   % (near, FREE_LIMIT - 5, FREE_LIMIT - 1,
+                      (" · счёт с " + bs.strftime("%d.%m")) if bs else ""))
             + "</div>")
 
 
@@ -616,8 +620,7 @@ def _watch(D):
             + "</div></div>"
             '<div class=card><h2>Ближе всех к подписке</h2><div class=list>'
             + ("".join(li(p, '<span class="%s">%d / %d</span>' % ("up" if p["free"] >= p["cap"] else "be", p["free"], p["cap"])) for p in lim)
-               or '<div class=empty>%s</div>' % (("Пока никто не подошёл к %d сделкам с запуска оплаты" % FREE_LIMIT) if D.get("bstart")
-                                                 else "Оплата ещё не запущена — лимит пока никому не считается"))
+               or '<div class=empty>%s</div>' % ("Пока никто не подошёл к %d сделкам" % FREE_LIMIT))
             + "</div></div>"
             "</div>")
 
@@ -707,16 +710,13 @@ def user_card(u, titles, kind_ru, refs, billing_html=""):
     one = lambda sql: (_q(sql, (uid,)) or [{}])[0]
     bstart = billing_start()
     t = (_q("""SELECT count(*) AS n, count(*) FILTER (WHERE result='Skip') AS skips,
-                      count(*) FILTER (WHERE import_id = '' AND notion_id = ''
-                                         AND %s::date IS NOT NULL
-                                         AND (created_at AT TIME ZONE 'Europe/Kyiv')::date >= %s::date) AS free,
                       count(*) FILTER (WHERE import_id = '' AND notion_id = '') AS manual,
                       count(*) FILTER (WHERE "kind" = 'bt') AS bt,
                       min("date") AS first, max("date") AS last, max(created_at) AS last_at,
                       count(*) FILTER (WHERE created_at >= now() - interval '7 days') AS d7,
                       count(*) FILTER (WHERE created_at >= now() - interval '30 days') AS d30,
                       count(DISTINCT left("date", 10)) AS days
-               FROM trades WHERE user_id=%s""", (bstart, bstart, uid)) or [{}])[0]
+               FROM trades WHERE user_id=%s""", (uid,)) or [{}])[0]
     pairs = _q("""SELECT "pair", count(*) AS n FROM trades WHERE user_id=%s AND "pair"<>''
                   GROUP BY 1 ORDER BY n DESC LIMIT 6""", (uid,))
     weeks = {r["w"]: r for r in _q("""
@@ -765,7 +765,8 @@ def user_card(u, titles, kind_ru, refs, billing_html=""):
             bits.append("обновлена " + str(ts["updated"]))
         ts_line = " · ".join(bits) or "есть"
     manual = t.get("manual") or 0
-    free = (u.get("free_trades_used") or 0) if bstart else 0
+    free = u.get("free_trades_used") or 0
+    cap = u.get("free_trades_cap") or FREE_LIMIT
     nick_js = _js(u["nickname"])
     kv = lambda k, v: "<span>%s</span><span>%s</span>" % (e(k), v)
 
@@ -776,14 +777,18 @@ def user_card(u, titles, kind_ru, refs, billing_html=""):
           '<div style="font-size:26px;font-weight:700;letter-spacing:-.02em">' + e(u["nickname"]) + "</div>"
           '<span class="pill p-' + st[0] + '">' + st[1] + "</span>"
           '<span class=mute>' + e(u["email"]) + "</span></div>"
-        + _access(u, free, bstart)
+        + _access(u, free)
         + '<div class="grid kpis">'
         + _kpi("Сделок всего", str(t.get("n") or 0), '<div class=d>%d вручную · %d скипов</div>' % (manual, t.get("skips") or 0))
-        + (_kpi("До лимита %d" % FREE_LIMIT, '<span class="%s">%d / %d</span>' % ("up" if free >= FREE_LIMIT else "be" if free >= FREE_LIMIT - 5 else "", min(free, 999), FREE_LIMIT),
-                '<div class=d>%s · с %s</div>' % ("упёрся в бесплатный лимит" if free >= FREE_LIMIT else "ещё %d бесплатных" % (FREE_LIMIT - free),
-                                                bstart.strftime("%d.%m.%Y")))
-           if bstart else
-           _kpi("Лимит %d сделок" % FREE_LIMIT, '<span class=mute>не запущен</span>', '<div class=d>считается с запуска оплаты</div>'))
+        + (_kpi("Лимит сделок", '<span class=mute>подписка</span>',
+                '<div class=d>%d из %d · пока платит, не тратится</div>' % (free, cap))
+           if _sub(u, datetime.datetime.now(datetime.timezone.utc)) else
+           _kpi("До лимита %d" % cap,
+                '<span class="%s">%d / %d</span>'
+                % ("up" if free >= cap else "be" if free >= cap - 5 else "", min(free, 999), cap),
+                '<div class=d>%s%s</div>'
+                % ("упёрся в бесплатный лимит" if free >= cap else "ещё %d бесплатных" % (cap - free),
+                   (" · счёт с " + bstart.strftime("%d.%m.%Y")) if bstart else "")))
         + _kpi("Торговых дней", str(t.get("days") or 0), '<div class=d>%s — %s</div>' % (str(t.get("first") or "—")[:10], str(t.get("last") or "—")[:10]))
         + _kpi("Сделок за 7 / 30 дн.", "%d / %d" % (t.get("d7") or 0, t.get("d30") or 0), "")
         + _kpi("Анализов дня", str(nt.get("n") or 0), '<div class=d>последний %s</div>' % dt(nt.get("last_at")))
