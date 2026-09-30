@@ -94,6 +94,12 @@ def e(x):
     return _html.escape("" if x is None else str(x), quote=True)
 
 
+def _js(value):
+    """Значення всередину <script>. Те саме, що json.dumps, але з "</"
+    розірваним: інакше будь-який рядок із "</script>" закрив би тег."""
+    return json.dumps(value, ensure_ascii=False, default=str).replace("</", "<\\/")
+
+
 def _q(sql, args=None):
     """Запит, який не валить сторінку: таблиці може ще не бути (нова база),
     тоді показуємо нуль, а не 500."""
@@ -620,7 +626,12 @@ def _people(D, titles, query):
     rows = [{k: v for k, v in p.items() if not k.startswith("_")} for p in D["people"]]
     for r in rows:
         r["refT"] = titles.get(r["ref"], r["ref"]) if r["ref"] else ""
-    data = json.dumps(rows, ensure_ascii=False, default=str).replace("</", "<\\/")
+    # Усе, що їде всередину <script>, проганяємо через один хелпер:
+    # json.dumps не чіпає "</", а саме ним рядок закрив би тег — далі
+    # браузер читав би вміст як розмітку. Пошук (?q=) сюди приходить
+    # просто з адреси, тож посилання на /admin?q=... інакше стало б
+    # готовою пасткою для того, хто цю панель відкриє.
+    data = _js(rows)
     return ('<div class=card id=people><h2>Все люди</h2><div class=chips id=chips></div>'
             '<div class=tw><table id=pt><thead><tr>'
             '<th class=s data-k=nick>Ник</th><th class="s" data-k=st>Статус</th><th class="s num" data-k=n>Сделок</th>'
@@ -628,7 +639,7 @@ def _people(D, titles, query):
             '<th class="s num" data-k=since>Активность</th><th class="s num" data-k=regd>Регистрация</th>'
             '<th class="s" data-k=sub>Тариф</th><th>Метка</th><th>Есть</th></tr></thead><tbody></tbody></table></div>'
             '<p class=mute id=pcount style="margin:10px 0 0;font-size:12.5px"></p></div>'
-            "<script>const P=" + data + ";const Q=" + json.dumps(query or "", ensure_ascii=False) + ";" + PEOPLE_JS + "</script>")
+            "<script>const P=" + data + ";const Q=" + _js(query or "") + ";" + PEOPLE_JS + "</script>")
 
 
 PEOPLE_JS = r"""
@@ -755,7 +766,7 @@ def user_card(u, titles, kind_ru, refs, billing_html=""):
         ts_line = " · ".join(bits) or "есть"
     manual = t.get("manual") or 0
     free = (u.get("free_trades_used") or 0) if bstart else 0
-    nick_js = json.dumps(u["nickname"], ensure_ascii=False)
+    nick_js = _js(u["nickname"])
     kv = lambda k, v: "<span>%s</span><span>%s</span>" % (e(k), v)
 
     return (head("StatsAI · " + u["nickname"])

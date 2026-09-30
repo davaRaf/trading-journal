@@ -74,9 +74,6 @@ CHANNELS      = [x.strip().lower() for x in os.environ.get("CHANNELS", "social")
 # Короткі імена міток для адрес: statsai.xyz/bs → blackswan. Спільні для
 # сайту (app.py) і бота (bot_share.py), тому лежать тут.
 PARTNER_ALIASES = {"bs": "blackswan", "soc": "social", "ig": "social", "tt": "social"}
-# Разовый ключ для переноса скриншотов на новый сервер (tools/upload_shots.py).
-# Пока пустой — точка загрузки просто не существует. После переезда убрать.
-ADMIN_TOKEN   = os.environ.get("ADMIN_TOKEN", "")
 # Ключ моделі, якою говорять «Помічник», бот і розбори (llm.py). Раніше тут
 # був Gemini, але зі свого сервера Google відповідає «User location is not
 # supported» — він не пускає запити з IP хостингів. Тепер DeepSeek.

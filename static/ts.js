@@ -914,6 +914,15 @@ function tabReal(){
 }
 
 /* ---------- вкладка «Notion і нотатки» ---------- */
+/* Посилання на сторінку Notion людина вставляє руками, а звідси воно йде
+   в href. Екранування тут замало: «javascript:...» лишається робочим
+   посиланням і спрацьовує від самого кліку. Тому пускаємо тільки http(s)
+   і свій шлях, решта лишається текстом без посилання. */
+function tsHref(u){
+  const v = String(u == null ? "" : u).trim();
+  return (/^https?:\/\//i.test(v) || /^\/[^\/]/.test(v)) ? esc(v) : "";
+}
+
 /* Звідки підтягнуто: список сторінок, з якими працюємо далі. Сюди ж
    додають наступну — контекст на одній сторінці, моделі входу на іншій.
    Перечитуємо завжди всі разом: інакше модель бачила б систему по шматку. */
@@ -924,7 +933,7 @@ function srcList(){
     : (n.url ? [{url: n.url, title: ""}] : []);
   let h = "";
   if (pages.length) h += '<div class="ts-srcs">';
-  h += pages.map((pg, i) => '<span class="ts-src"><a href="' + esc(pg.url)
+  h += pages.map((pg, i) => '<span class="ts-src"><a href="' + tsHref(pg.url)
       + '" target="_blank" rel="noopener">' + esc(pg.title || pg.url) + "</a>"
       + (pages.length > 1 && !busy
           ? '<button class="rm" title="' + esc(d.srcDrop)

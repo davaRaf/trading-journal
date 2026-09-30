@@ -888,14 +888,15 @@ def list_trades(user_id, kind=""):
     return [_row_to_trade(r) for r in rows]
 
 
-def get_trade(tid, user_id=None):
-    sql = "SELECT * FROM trades WHERE id=%s"
-    args = [tid]
-    if user_id is not None:
-        sql += " AND user_id=%s"
-        args.append(user_id)
+def get_trade(tid, user_id):
+    """Угода людини. Хазяїн — обов'язковий: раніше він мав значення за
+    замовчуванням (None = будь-чия угода), і досить було один раз його не
+    передати, щоб за відомим id віддати чужий запис. Усі, хто кличе, його
+    й так передають — тепер інакше не вийде."""
     with connect() as conn:
-        return _row_to_trade(conn.execute(sql, args).fetchone())
+        return _row_to_trade(conn.execute(
+            "SELECT * FROM trades WHERE id=%s AND user_id=%s",
+            (tid, user_id)).fetchone())
 
 
 def notion_known(user_id):
@@ -981,6 +982,7 @@ def rename_value(user_id, field, values, to, kind="", conn=None):
     values = [v for v in (values or []) if v != to]
     if not values:
         return 0
+    # sql-ok: field звірено з TIDY_FIELDS на початку функції
     sql = ('UPDATE trades SET "%s"=%%s WHERE user_id=%%s '
            'AND "%s" = ANY(%%s)' % (field, field))
     args = [to, user_id, values]
@@ -1445,6 +1447,7 @@ def frequent_values(user_id, field, limit=6):
     if field not in TEXT_FIELDS:
         raise ValueError("невідоме поле: %s" % field)
     with connect() as conn:
+        # sql-ok: field зі свого списку, рядком сюди не потрапить
         rows = conn.execute(
             'SELECT "%s" AS v, count(*) AS n FROM trades '
             'WHERE user_id=%%s AND "%s" <> %%s '
@@ -1458,6 +1461,7 @@ def last_number(user_id, field):
     if field not in NUM_FIELDS:
         raise ValueError("невідоме поле: %s" % field)
     with connect() as conn:
+        # sql-ok: field зі свого списку, рядком сюди не потрапить
         row = conn.execute(
             'SELECT "%s" AS v FROM trades WHERE user_id=%%s AND "%s" IS NOT NULL '
             'ORDER BY created_at DESC LIMIT 1' % (field, field), (user_id,)).fetchone()

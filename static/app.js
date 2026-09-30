@@ -54,6 +54,13 @@ function shotSrc(s){
   if(!s.file) return s.data||"";
   return window.Pub&&Pub.on ? Pub.shot(s.file) : "/shots/"+esc(s.file);
 }
+/* Адреса картинки, яка йде в src="...". Пускаємо тільки свій шлях і
+   data:image — і екрануємо: зайва лапка в рядку інакше закрила б атрибут,
+   а далі в розмітку потрапило б усе, що там написано. */
+function safeImg(u){
+  const v = String(u==null?"":u);
+  return (/^\/[^\/]/.test(v) || /^data:image\//i.test(v)) ? esc(v) : "";
+}
 function r1(v){ return Math.round(v*100)/100; }
 function fmtR(v){ if(v==null||isNaN(v)) return "—"; const x=r1(v); return (x>0?"+":"")+x+"%"; }
 function clsR(v){ return v>0.0001?"pos":v<-0.0001?"neg":"beclr"; }
@@ -1872,7 +1879,7 @@ function tradeBodyHtml(t){
   h+=section(T.tcCharts,
     shots.length ? '<div class="charts">'+shots.map(s=>
       '<div class="chart-item"><div class="l">'+esc(s.tf||"chart")+'</div><img loading="lazy" src="'+
-      shotSrc(s)+'" onclick="openLightbox(this)">'+
+      safeImg(shotSrc(s))+'" onclick="openLightbox(this)">'+
       ((s.note||"").trim() ? '<div class="cnote">'+esc(s.note.trim())+"</div>" : "")+
       "</div>").join("")+"</div>" : "",
     shots.length ? [] : [T.tcNoScreens]);
@@ -2360,7 +2367,7 @@ function renderShots(){
     const src=shotSrc(s);
     return '<div class="tfslot filled"><div class="tfl"><span>'+esc(label)+'</span>'+
       '<button type="button" class="rm" title="'+T.shotRemoveTip+'" onclick="removeShot('+i+')">×</button></div>'+
-      '<img src="'+src+'" onclick="openLightbox(this)">'+
+      '<img src="'+safeImg(src)+'" onclick="openLightbox(this)">'+
       '<textarea class="tfnote" rows="1" data-i="'+i+'" placeholder="'+esc(T.snPh)+'" '+
       'oninput="shotNote('+i+',this)">'+esc(s.note||"")+"</textarea></div>";
   };

@@ -36,6 +36,7 @@ from botlang import t
 from config import SITE_URL
 
 KYIV = ZoneInfo("Europe/Kyiv")
+SHOT_MAX = 8 * 1024 * 1024    # скрін із Телеграма — та сама межа, що й із сайту
 
 # Скільки варіантів показуємо кнопками. Більше — і клавіатура займає
 # півекрана, а хвіст усе одно ніхто не читає: своє значення швидше
@@ -453,9 +454,12 @@ def on_photo(user, chat_id, photos):
         print("скрін не забрався:", ex)
         tg_api.send_message(chat_id, t(lang, "shotFailed"))
         return True
-    ext = (path.rsplit(".", 1)[-1] or "jpg").lower()
-    if ext not in ("jpg", "jpeg", "png", "webp"):
-        ext = "jpg"
+    # Розширення — з байтів, а не з імені, яке прислав Телеграм; заразом
+    # це відсіює все, що картинкою не є.
+    ext = filestore.kind(raw)
+    if not ext or len(raw) > SHOT_MAX:
+        tg_api.send_message(chat_id, t(lang, "shotFailed"))
+        return True
     name = "%s_%d.%s" % (trade.get("id") or _new_id(), int(time.time() * 1000) % 100000000, ext)
     filestore.put(name, raw)
     trade.setdefault("screenshots", []).append({"tf": "", "file": name})
