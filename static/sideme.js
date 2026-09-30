@@ -32,6 +32,7 @@ function paint(u){
   if (nick) nick.textContent = u.nickname;
   const btn = document.getElementById("sideMeBtn");
   if (btn) btn.setAttribute("aria-label", u.nickname + " · " + (T.stProfile || ""));
+  tier();
 }
 
 /* Без акаунта: рядок зникає, «Налаштування» (там мова) з'являються
@@ -51,7 +52,27 @@ async function load(){
   paint(u);
 }
 
-window.__sideMe = {paint: paint, load: load, user: () => me};
+/* Значок тарифу перед аватаркою, в тій самій плашці: FREE / 1М / 3М / 12М.
+   Малює його subscription.js, тут лише місце під нього — і оновлення,
+   коли стан підписки приїхав пізніше за профіль. */
+function tier(){
+  if (!me || !window.__sub) return;
+  const html = __sub.badge();      /* підпис під ніком ставить сам badge() */
+  if (!html){ const old = document.getElementById("sideMeTier"); if (old) old.remove(); return; }
+  const btn = document.getElementById("sideMeBtn");
+  if (!btn) return;
+  let slot = document.getElementById("sideMeTier");
+  if (!slot || slot.parentNode !== btn){
+    if (slot) slot.remove();
+    slot = document.createElement("span");
+    slot.id = "sideMeTier";
+    slot.className = "side-me-tier";
+    btn.insertBefore(slot, btn.firstChild);
+  }
+  slot.innerHTML = html;
+}
+
+window.__sideMe = {paint: paint, load: load, tier: tier, user: () => me};
 load();
 
 })();

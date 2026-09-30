@@ -50,6 +50,23 @@ fake_emotions.LABELS = dict(fake_emotions.OPTIONS)
 fake_emotions.classify = lambda text: "st" if "страш" in text.lower() else None   # код, як справжній
 fake_emotions.label = lambda v, lang="uk": fake_emotions.LABELS.get(v, v or "")
 
+# Підписка: сценарій питає в неї дозволу перед записом. Тут підміняємо
+# її тумблером — правила самої підписки перевіряє test_billing.py.
+fake_billing = types.ModuleType("billing")
+PAID = {"open": True}
+SPENT = []
+fake_billing.can_add_trade = lambda u, kind="": (
+    (True, "") if PAID["open"] else (False, "trades_limit"))
+fake_billing.spend_trade = lambda u, kind="": SPENT.append((u, kind))
+# Місце під угоду сценарій займає одним рухом: питає дозвіл і списує
+# разом (справжній take_trade робить це одним запитом у базу).
+fake_billing.take_trade = lambda u, kind="": (
+    (SPENT.append((u, kind)), (True, ""))[1] if PAID["open"]
+    else (False, "trades_limit"))
+fake_billing.release_trade = lambda u, kind="": (
+    SPENT.remove((u, kind)) if (u, kind) in SPENT else None)
+
+sys.modules["billing"] = fake_billing
 sys.modules["db"] = fake_db
 sys.modules["tg_api"] = fake_tg
 sys.modules["filestore"] = fake_store
@@ -95,6 +112,8 @@ def reset():
     STORE["saved"].clear()
     SENT.clear()
     PUT.clear()
+    SPENT.clear()
+    PAID["open"] = True
 
 
 def check_order():
@@ -290,6 +309,38 @@ def check_language():
         LANG["value"] = ""
 
 
+def check_paid_out():
+    """Безкоштовне скінчилось: угода не пишеться, сценарій не починається."""
+    reset()
+    PAID["open"] = False
+    tf.start(USER, CHAT)
+    check("сценарій не починається", STORE["draft"] is None)
+
+    # Чернетка могла початись раніше — перед самим записом питаємо ще раз.
+    STORE["draft"] = {"chat_id": CHAT, "step": "confirm",
+                      "data": {"trade": {"id": "t9", "pair": "NQ", "result": "Win"},
+                               "opts": []}}
+    press("ok")
+    check("угода в журнал не потрапила", not STORE["saved"])
+    check("чернетка прибрана", STORE["draft"] is None)
+    check("сказали про підписку", "підписк" in last()["text"].lower())
+
+    reset()
+    tf.start(USER, CHAT)
+    check("з відкритим лімітом сценарій іде далі", STORE["draft"] is not None)
+
+
+def check_spend():
+    """Записали угоду — забрали одиницю з безкоштовного запасу."""
+    reset()
+    STORE["draft"] = {"chat_id": CHAT, "step": "confirm",
+                      "data": {"trade": {"id": "t10", "pair": "NQ", "result": "Win"},
+                               "opts": []}}
+    press("ok")
+    check("угода записана", len(STORE["saved"]) == 1)
+    check("лічильник зрушив", len(SPENT) == 1)
+
+
 def check_cancel():
     reset()
     STORE["draft"] = {"chat_id": CHAT, "step": "setup",
@@ -307,5 +358,7 @@ check_full_walk()
 check_old_button()
 check_language()
 check_save()
+check_paid_out()
+check_spend()
 check_cancel()
 print("\nусе добре")

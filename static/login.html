@@ -170,6 +170,10 @@ body{
 
 .err{margin:12px 0 0; text-align:center; font-size:12.5px; color:rgb(var(--neg-rgb))}
 .err[hidden]{display:none}
+/* Відмова через другий акаунт — єдина, з якої є куди піти: помилитись
+   вона може (сім'я за одним роутером), тому поруч посилання написати нам. */
+.err a{color:inherit; text-decoration:underline; text-underline-offset:2px}
+.err a:hover{opacity:.8}
 /* Пояснення над кнопкою: навіщо тут пошта і що буде далі. Показуємо
    тільки у станах «забув пароль» і «новий пароль» — на вході й реєстрації
    пояснювати нічого. */
@@ -1048,6 +1052,9 @@ const I18N = {
     errServer: "Сервер не відповідає", errGeneric: "Не вийшло — спробуй ще раз",
     errNeed: "Потрібні пошта і пароль від 6 символів",
     errTaken: "Така пошта вже зайнята",
+    errTempMail: "Одноразова пошта не підійде — потрібна постійна скринька",
+    errIpTaken: "З цього пристрою вже заведено акаунт. Якщо ви це не ви — напишіть нам, розберемось.",
+    errIpWrite: "Написати нам",
     errShort: "Пароль — від 6 символів", errMatch: "Паролі не збігаються",
     errToken: "Посилання застаріло або вже спрацювало",
     errMany: "Забагато спроб — спробуй за %d с", errBad: "Невірна пошта або пароль",
@@ -1106,6 +1113,9 @@ const I18N = {
     errServer: "Сервер не отвечает", errGeneric: "Не вышло — попробуй ещё раз",
     errNeed: "Нужны почта и пароль от 6 символов",
     errTaken: "Такая почта уже занята",
+    errTempMail: "Одноразовая почта не подойдёт — нужен постоянный ящик",
+    errIpTaken: "С этого устройства аккаунт уже заведён. Если это не вы — напишите нам, разберёмся.",
+    errIpWrite: "Написать нам",
     errShort: "Пароль — от 6 символов", errMatch: "Пароли не совпадают",
     errToken: "Ссылка устарела или уже сработала",
     errMany: "Слишком много попыток — попробуй через %d с", errBad: "Неверная почта или пароль",
@@ -1164,6 +1174,9 @@ const I18N = {
     errServer: "Server isn't responding", errGeneric: "Didn't work — try again",
     errNeed: "An email and a password of 6+ characters are required",
     errTaken: "That email is already taken",
+    errTempMail: "A throwaway address won't do — please use a permanent mailbox",
+    errIpTaken: "An account has already been created from this device. If that wasn't you, write to us and we'll sort it out.",
+    errIpWrite: "Write to us",
     errShort: "Password must be 6+ characters", errMatch: "Passwords do not match",
     errToken: "That link has expired or was already used",
     errMany: "Too many attempts — try again in %d s", errBad: "Wrong email or password",
@@ -1264,6 +1277,41 @@ function showErr(text){
   errMsg.hidden = !text;
 }
 
+/* Пошта підтримки — та сама, що в журналі (static/support.js). Ведемо у
+   веб-Gmail: mailto: у Windows часто відкриває порожнечу. */
+const WRITE_TO = "https://mail.google.com/mail/?view=cm&fs=1&to=statsai.journal@gmail.com";
+
+function showErrWrite(text){
+  errMsg.textContent = text + " ";
+  const a = document.createElement("a");
+  a.href = WRITE_TO;
+  a.target = "_blank";
+  a.rel = "noopener";
+  a.textContent = T.errIpWrite;
+  errMsg.append(a);
+  errMsg.hidden = false;
+}
+
+/* Відбиток пристрою — грубий і навмисно без версії браузера: та
+   змінюється щомісяця з оновленням, і заслон обходився б очікуванням.
+   Беремо те, що лишається тим самим і в новому вікні, і в анонімному:
+   екран, пояс, мова, платформа. На сервері з цього лишається лише хеш. */
+function deviceMark(){
+  try{
+    const s = screen || {};
+    const n = navigator || {};
+    return [
+      (s.width || 0) + "x" + (s.height || 0) + "x" + (s.colorDepth || 0),
+      window.devicePixelRatio || 0,
+      (Intl.DateTimeFormat().resolvedOptions() || {}).timeZone || "",
+      (n.languages || [n.language || ""]).join(","),
+      n.platform || "",
+      n.hardwareConcurrency || 0,
+      n.maxTouchPoints || 0,
+    ].join("|");
+  }catch(e){ return ""; }
+}
+
 const okMsg = document.getElementById("okMsg");
 function showOk(text){
   okMsg.textContent = text;
@@ -1291,7 +1339,12 @@ fetch("/api/auth/providers").then(r => r.json()).then(j => {
 
 document.querySelectorAll(".soc").forEach(b => b.addEventListener("click", () => {
   const k = (b.dataset.svc || "").toLowerCase();
-  if (k === "google" || k === "discord") location.href = "/auth/" + k;
+  /* Відбиток передаємо тут же, в адресі: далі людина піде на чужий сайт і
+     повернеться звідти, і в тому запиті від нас лишаться самі куки —
+     сервер якраз перекладе відбиток у куку (див. DEV_COOKIE в app.py).
+     Без цього вхід через сервіс обходив заслон від других журналів. */
+  if (k === "google" || k === "discord")
+    location.href = "/auth/" + k + "?dev=" + encodeURIComponent(deviceMark());
 }));
 
 /* Повернулись із помилкою — кажемо словами, і мовою сторінки: раніше
@@ -1303,6 +1356,11 @@ function showUrlErr(){
   if (err === "oauth") showErr(T.errOauth);
   else if (err === "off") showErr(T.errOff);
   else if (err === "confirm") showErr(T.errConfirm);
+  /* Заслон від других журналів спрацював ще на боці сервісу входу: людина
+     повернулась ні з чим, і сказати про це можна тільки тут. Текст той
+     самий, що й при звичайній реєстрації, — з кнопкою «напишіть нам»:
+     сім'я за одним роутером має куди звернутись. */
+  else if (err === "ip_taken") showErrWrite(T.errIpTaken);
   /* Прийшли за посиланням із листа про пошту — кажемо, що прийнято. */
   if (q.get("ok") === "confirmed") showOk(T.okConfirmed);
 }
@@ -1313,6 +1371,7 @@ function errText(d){
   d = d || {};
   const map = {
     need_fields: T.errNeed, taken: T.errTaken, bad_login: T.errBad,
+    temp_mail: T.errTempMail,
     short: T.errShort, bad_token: T.errToken,
     no_user: T.fgNone, bad_email: T.fgBad, send_failed: T.fgFail,
     too_many: T.errMany.replace("%d", d.wait != null ? d.wait : "…"),
@@ -1420,7 +1479,7 @@ goBtn.addEventListener("click", async () => {
 
   goBtn.classList.add("busy");
   const body = reg
-    ? { email: em.value.trim(), password: pw.value, lang: LANG }
+    ? { email: em.value.trim(), password: pw.value, lang: LANG, device: deviceMark() }
     : { login: em.value.trim(), password: pw.value, lang: LANG };
   let res, data = {};
   try {
@@ -1439,6 +1498,13 @@ goBtn.addEventListener("click", async () => {
   goBtn.classList.remove("busy");
 
   if (!res.ok){
+    /* Другий акаунт із того самого пристрою: поля тут ні до чого,
+       підсвічувати їх червоним було б неправдою. */
+    if (data.code === "ip_taken"){
+      showErrWrite(T.errIpTaken);
+      shake();
+      return;
+    }
     showErr(errText(data));
     markBad(em); markBad(pw);
     shake();

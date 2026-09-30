@@ -279,11 +279,19 @@ async function api(method,url,body){
   if(res.status===401){ if(dataReady) location.href="/login"; throw new Error("API 401"); }
   if(!res.ok){
     /* завеликий файл чи не картинка — людині своїми словами, а не «API 413» */
-    let code="";
-    try{ code=(await res.json()).code||""; }catch(e){}
+    let info={};
+    try{ info=await res.json()||{}; }catch(e){}
+    const code=info.code||"";
     if(code==="too_big") throw new Error(T.errTooBig);
     if(code==="bad_image") throw new Error(T.errBadImage);
-    throw new Error("API "+res.status);
+    /* Безкоштовне скінчилось. Плашку показуємо тут, одну на всі місця
+       (paywall.js), а вище лишається тільки мовчки вийти: людині вже
+       сказали, і друге вікно «не вдалось зберегти» було б зайвим. */
+    if(res.status===402 && code==="need_sub" && window.Paywall)
+      throw Paywall.soft(info.reason||"");
+    /* Код відмови несемо далі: місцю виклику інколи треба сказати не
+       «щось пішло не так», а що саме — як полю промокоду. */
+    const err=new Error("API "+res.status); err.code=code; throw err;
   }
   return res.json();
 }
@@ -590,6 +598,7 @@ const Prefs=(function(){
     p.chips=(p.chips&&typeof p.chips==="object")?p.chips:{};
     p.tfs=(p.tfs&&typeof p.tfs==="object")?p.tfs:{};
     p.tfs.hide=Array.isArray(p.tfs.hide)?p.tfs.hide:[]; p.tfs.add=Array.isArray(p.tfs.add)?p.tfs.add:[];
+    p.tfs.desc=!!p.tfs.desc;   // старший зверху, як у TradingView
     return p;
   }
   function local(){ try{ return norm(JSON.parse(localStorage.getItem(KEY)||"{}")); }catch(e){ return norm(null); } }
@@ -614,7 +623,12 @@ const Prefs=(function(){
     hide(k,v){ const c=f(k); v=String(v); if(!c.hide.includes(v)) c.hide.push(v); c.add=c.add.filter(x=>x!==v); save(); },
     add(k,v){ const c=f(k); v=String(v).trim(); if(!v) return; c.hide=c.hide.filter(x=>x!==v); if(!c.add.includes(v)) c.add.push(v); save(); },
     restore(k){ f(k).hide=[]; save(); },
-    tfs(){ return merge(TF_SLOTS,P.tfs.add,P.tfs.hide); },
+    /* Список йде від молодшого до старшого. Хто читає графік згори вниз
+       (спочатку 4H, потім 15m, потім 1m) — перевертає його кнопкою, і вибір
+       лежить у налаштуваннях на сервері — тобто й після перезаходу, й на телефоні. */
+    tfs(){ const s=merge(TF_SLOTS,P.tfs.add,P.tfs.hide); return P.tfs.desc ? s.reverse() : s; },
+    tfDesc(){ return !!P.tfs.desc; },
+    tfDescSet(v){ P.tfs.desc=!!v; save(); },
     tfHidden(){ return P.tfs.hide.slice(); },
     tfHide(v){ if(!P.tfs.hide.includes(v)) P.tfs.hide.push(v); P.tfs.add=P.tfs.add.filter(x=>x!==v); save(); },
     tfAdd(v){ v=String(v).trim(); if(!v) return; P.tfs.hide=P.tfs.hide.filter(x=>x!==v); if(!TF_SLOTS.includes(v)&&!P.tfs.add.includes(v)) P.tfs.add.push(v); save(); },
@@ -663,6 +677,17 @@ function addTf(){
   if(!v) return;
   Prefs.tfAdd(v.length>6?v.slice(0,6):v); renderShots();
 }
+
+/* Порядок слотів: молодший зверху чи старший. На кнопці написано, як
+   зараз — «1m → 4H»: читається без підказки й не бреше, коли людина
+   прибрала чи додала свій таймфрейм. */
+function paintTfSort(){
+  const b=$("#tfSort"); if(!b) return;
+  const s=Prefs.tfs();
+  b.textContent = s.length>1 ? s[0]+" → "+s[s.length-1] : "";
+  b.title = T.tfOrderTip||"";
+}
+function toggleTfOrder(){ Prefs.tfDescSet(!Prefs.tfDesc()); renderShots(); }
 
 function uniqueVals(field){
   const set=new Set();
@@ -1043,38 +1068,55 @@ function ovEquityPeriod(){
   return {list:per.list, opts:{title:T.ovPnlTitle+" · "+T.railYearWord}};
 }
 
-/* колонка-компаньон: где, чем и по какой модели торгуем за выбранный период.
-   Раньше здесь всегда стоял год: переключаешь сверху на месяц — итоги
-   меняются, а сессии, инструменты и сетапы остаются годовыми и с ними
-   не сходятся. Берём тот же список сделок, что и весь «Огляд». */
+/* Права колонка «Огляду»: рік чотирма кварталами, день — крапкою.
+
+   Досі тут стояли сесії, інструменти й сетапи з відсотками. Власник
+   (24.09.2026) попросив інше: не зріз по полях, а рік одним поглядом —
+   де густо торгували, де тиждень стояли, де пішла смуга мінусів. Зрізи
+   по полях нікуди не ділись: вони в «Аналітиці» й у знімку, яким діляться.
+
+   Крапки стоять по днях тижня, як у календарі (понеділок перший), тож
+   у сітці видно й вихідні. Колір — підсумок дня: плюс, мінус, нуль.
+   День, у якому щось є, відкривається в журналі — тим самим кліком,
+   що й клітинка календаря. */
 function ovRailHtml(){
-  const yl=ovPeriod().list;
-  const when = S.ovPeriod==="month" ? T.ovMonthWord
-             : S.ovPeriod==="quarter" ? T.ovQuarterWord
-             : T.railYearWord;
-  const bar=(nm,qt,w,cls)=>
-    '<div class="bar '+(cls||"")+'"><span class="nm">'+esc(nm)+"</span>"+
-    '<span class="qt">'+qt+"</span>"+
-    '<span class="ln"><i style="width:'+Math.max(w,2).toFixed(1)+'%"></i></span></div>';
-  const byCount=field=>[...groupBy(yl,t=>t[field]).entries()]
-    .map(([k,v])=>[k,v.length]).sort((a,b)=>b[1]-a[1]).slice(0,4);
-  const share=rows=>{
-    if(!rows.length) return '<div class="empty">'+T.railNoData+'</div>';
-    const mx=Math.max(...rows.map(r=>r[1]));
-    return rows.map(([nm,n])=>bar(nm,"<b>"+n+"</b> · "+Math.round(n/yl.length*100)+"%",n/mx*100)).join("");
+  const now=new Date(), Y=now.getFullYear(), ys=String(Y);
+  const byDay=groupBy(S.trades, dayKey);
+  const today=isoDay(now), curQ=Math.floor(now.getMonth()/3);
+  const monthHtml=m=>{
+    const start=(new Date(Y,m,1).getDay()+6)%7;
+    const dim=new Date(Y,m+1,0).getDate();
+    let cells="";
+    for(let i=0;i<start;i++) cells+='<i class="od gap"></i>';
+    for(let d=1;d<=dim;d++){
+      const key=Y+"-"+pad(m+1)+"-"+pad(d);
+      const list=byDay.get(key)||[];
+      const mark=(key===today?" today":"");
+      if(!list.length){ cells+='<i class="od'+mark+'"></i>'; continue; }
+      const net=list.reduce((a,t)=>a+netR(t),0);
+      const tone=net>0.0001?" up":net<-0.0001?" down":" flat";
+      const tip=key.split("-").reverse().join(".")+" · "+fmtR(net)+" · "+list.length;
+      cells+='<i class="od'+tone+mark+'" data-tip="'+esc(tip)+
+             '" onclick="ovOpenDay(\''+key+'\')"></i>';
+    }
+    return '<div class="m"><span class="mn">'+esc((T.months[m]||"").slice(0,3))+"</span>"+
+           '<div class="g">'+cells+"</div></div>";
   };
-  /* при равном итоге выше тот, по которому сделок больше */
-  const setups=[...groupBy(yl,t=>t.setup).entries()]
-    .map(([k,v])=>[k,r1(calc(v).net),v.length])
-    .sort((a,b)=>Math.abs(b[1])-Math.abs(a[1])||b[2]-a[2]).slice(0,3);
-  const smx=Math.max(1,...setups.map(x=>Math.abs(x[1])));
-  const setupRows=setups.length
-    ? setups.map(([nm,r,n])=>bar(nm,'<b class="'+clsR(r)+'">'+ovFmt1(r)+"</b> · "+n,Math.abs(r)/smx*100,ovSign(r))).join("")
-    : '<div class="empty">'+T.railNoData+'</div>';
-  return '<aside class="rail"><div class="inner"><div class="cut">'+
-    '<section><h3>'+T.railSessions+'<em>'+when+'</em></h3><div class="rows">'+share(byCount("session"))+"</div></section>"+
-    '<section><h3>'+T.railInstruments+'<em>'+when+'</em></h3><div class="rows">'+share(byCount("pair"))+"</div></section>"+
-    '<section><h3>'+T.railSetups+'<em>'+T.railNetPctWord+" · "+when+'</em></h3><div class="rows">'+setupRows+"</div></section>"+
+  const quarter=i=>{
+    const list=S.trades.filter(t=>{
+      const k=monKey(t); if(k.slice(0,4)!==ys) return false;
+      const m=+k.slice(5,7)-1; return m>=i*3 && m<i*3+3;
+    });
+    const net=r1(calc(list).net);
+    return '<section class="q'+(i===curQ?" now":"")+'">'+
+      '<div class="qh"><b>'+["I","II","III","IV"][i]+" "+esc(T.ovQuarterWord)+"</b>"+
+      (list.length?'<em class="'+clsR(net)+'">'+ovFmt1(net)+"</em>":"")+"</div>"+
+      '<div class="ms">'+[0,1,2].map(k=>monthHtml(i*3+k)).join("")+"</div></section>";
+  };
+  const any=S.trades.some(t=>(t.date||"").slice(0,4)===ys);
+  return '<aside class="rail"><div class="inner ovi"><div class="cut ovq">'+
+    "<h3>"+esc(T.railYearWord)+"<em>"+Y+"</em></h3>"+
+    (any ? [0,1,2,3].map(quarter).join("") : '<div class="empty">'+T.railNoData+"</div>")+
     "</div></div></aside>";
 }
 
@@ -1149,8 +1191,6 @@ function vDashboard(){
       '</div></div></div>';
   }
   const per=ovPeriod(), st=calc(per.list);
-  const rs=per.list.map(netR);
-  const best=rs.length?Math.max(...rs):null, worst=rs.length?Math.min(...rs):null;
   const btns=OV_PERIODS().map(([k,l])=>
     '<button class="'+(S.ovPeriod===k?"on":"")+'" onclick="ovSetPeriod(\''+k+'\')">'+l+"</button>").join("");
   /* період порожній, а журнал ні — не показуємо самі нулі, а кажемо чому
@@ -1162,17 +1202,19 @@ function vDashboard(){
       (last ? " · "+T.ovLastTradeOn+" "+last.split("-").reverse().join(".") : "")+"</div>";
   }
 
+  /* Перемикач періоду живе в самій картці підсумку, а не в шапці. Картка
+     вже називає обраний період — «вересень 2026», «+59.10%», — тож вибір
+     стоїть там, де одразу видно його наслідок, а в кутку шапки лишається
+     одна дія замість трьох предметів поспіль (рішення власника 25.09.2026). */
   return '<div class="ovw">'+
-    '<div class="ohead">'+ovTabsHtml("dashboard")+
-      '<div class="per">'+btns+"</div></div>"+
+    '<div class="ohead">'+ovTabsHtml("dashboard")+"</div>"+
     '<div class="flow">'+
       ovWeekHtml()+
       '<div class="shell rise"><div class="core">'+
         '<div class="sum"><div><div class="lab">'+per.lab+"</div>"+
         '<div class="big '+clsR(st.net)+'">'+ovFmt(st.net)+"</div>"+note+"</div>"+
         '<div class="when">'+per.when+"</div>"+
-        '<div class="right"><div class="lab">'+T.ovBestWorst+'</div>'+
-        '<div class="v">'+ovFmt(best==null?0:best)+" · "+ovFmt(worst==null?0:worst)+"</div></div></div>"+
+        '<div class="per">'+btns+"</div></div>"+
         ovStatsHtml(st)+
       "</div></div>"+
       ovEquityHtml()+
@@ -2141,7 +2183,8 @@ function openForm(id, presetDay){
   "</div></section>"+
 
   /* ---- скриншоты ---- */
-  '<section class="fcard"><h4>'+T.fmShotsSection+'</h4><div class="fbody">'+
+  '<section class="fcard"><h4>'+T.fmShotsSection+
+    '<button type="button" class="tfsort" id="tfSort" onclick="toggleTfOrder()"></button></h4><div class="fbody">'+
     '<div class="tfgrid" id="shotsEdit"></div>'+
     '<input id="shotFile" type="file" accept="image/*" multiple hidden>'+
   "</div></section>"+
@@ -2348,6 +2391,7 @@ function renderShots(){
     T.shotDragHint+'</div>';
   h+='<div class="tfhint">'+shotsHintHtml()+'</div>';
   box.innerHTML=h;
+  paintTfSort();
   /* підписи вже написані — поля мають бути заввишки з текст, а не в рядок */
   box.querySelectorAll(".tfnote").forEach(growNote);
   /* перетаскивание: в конкретный таймфрейм или в общую зону */
@@ -2453,7 +2497,9 @@ function flashTfHint(text){
   el.textContent=text;
   setTimeout(()=>{ if(document.body.contains(el)) el.innerHTML=shotsHintHtml(); }, 2400);
 }
-function shotsHintHtml(){ return (window.ShotTap && ShotTap.touch()) ? T.shotTfHintTouch : T.shotTfHint; }
+/* Під слотами постійної підказки немає — рядок лишився порожнім ради
+   коротких повідомлень: «більше 20 скрінів» чи «у буфері порожньо». */
+function shotsHintHtml(){ return ""; }
 /* Двойной клик по слоту открывает файлы — та же привычка, что в «Анализе
    дня» и «Моей ТС». Кнопка «файл» рядом остаётся: на телефоне двойной
    тап неудобен. */
@@ -2591,7 +2637,8 @@ async function saveTrade(id){
     /* Бектест із ТС не звіряємо: сервер на такий запит однаково відповідає
        порожнім, бо день збирається з реальних угод. */
     if(saved && saved.id && !btOn() && t.result!=="Skip" && window.Watch) Watch.afterTrade(saved.id);
-  }catch(err){ alert(T.alertSaveFail+err.message); if(btn){btn.disabled=false;btn.textContent=T.fmSave;} }
+  }catch(err){ if(!err.soft) alert(T.alertSaveFail+err.message);
+    if(btn){btn.disabled=false;btn.textContent=T.fmSave;} }
 }
 
 /* ---------- импорт / экспорт ---------- */
@@ -2711,7 +2758,14 @@ async function doImport(){
   }
   if(!out.length){ alert(T.imNothingToImport); return; }
   const btn=$("#impGo"); btn.disabled=true; btn.textContent=T.imImporting;
-  const res=await api("POST","/api/import",out);
+  let res;
+  try{ res=await api("POST","/api/import",out); }
+  catch(err){
+    /* відмова через ліміт уже показана плашкою — тут лише вертаємо кнопку */
+    if(!err.soft) alert(T.alertSaveFail+err.message);
+    btn.disabled=false; btn.textContent=T.imGoBtn;
+    return;
+  }
   await reload(); closeModal(); render();
   alert(T.imImportedCount+res.added);
 }
@@ -2926,6 +2980,15 @@ function markDemo(){
     const sw=$("#modeSwitch"); if(sw) sw.hidden=true;
     S.mode="live"; markMode();
   }
+  /* #plan — коротке посилання на тарифи: його дає бот у відмові, і людина
+     має потрапити одразу в розділ підписки, а не шукати його в налаштуваннях.
+     Це не розділ журналу, тому прибираємо з адреси до звичайної розкладки. */
+  const wantPlan = location.hash === "#plan";
+  if(wantPlan){
+    history.replaceState(null, "", location.pathname + location.search);
+    /* щоб пропозиція перенесення не накрила тарифи — див. notion.js */
+    window.__wantPlan = true;
+  }
   S.view=location.hash.slice(1)||"dashboard";
   if(S.view==="monthly"){ S.view="journal"; location.hash="journal"; }
   /* Відкрили журнал за старою адресою розділу, якого в цьому режимі немає */
@@ -2937,4 +3000,12 @@ function markDemo(){
   if(window.__ts && __ts.ensure) __ts.ensure();
   /* Рахунки — теж джерело підказок для форми, і теж потрібні одразу. */
   if(window.__acc && __acc.preload) __acc.preload();
+  if(wantPlan && !DEMO && window.__settings){
+    /* Привітання при вході малюється поверх усього — чекаємо, поки воно
+       дограє, інакше тарифи відкриються під ним і людина їх не побачить. */
+    (async () => {
+      try{ if(window.__hello && __hello.done) await __hello.done; }catch(e){}
+      __settings.open("subscription");
+    })();
+  }
 })();

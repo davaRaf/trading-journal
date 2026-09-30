@@ -36,11 +36,25 @@ function THEMES(){ return [
   {id:"sand",     name:T.thSand,     base:"light", bg:"#f4f1e8", panel:"#fffefa",
    line:"#ded8c6", accent:"#4d7c0f", up:"#3f6212", down:"#9f1239", be:"#92400e"},
 
+  /* Колаборації стоять у вікні одним рядком у цьому ж порядку: FX LAB
+     першим, Black Swan другим (рішення власника 28.09.2026). */
+  /* Колаборація з FX LAB: темна «Лабораторія» за їхньою заставкою. */
+  {id:"fxlab", name:"FX LAB", base:"dark", bg:"#04070D", panel:"#0B1526",
+   line:"#1d3558", accent:"#4F9BFF", up:"#3DDC97", down:"#FF6B7A", be:"#A8BEDF",
+   collab:"fxlab"},
+
   /* Колаборація з спільнотою Black Swan: три їхні кольори — білий, чорний
      і синій. Назва бренду не перекладається, тому написана рядком. */
   {id:"blackswan", name:"Black Swan", base:"light", bg:"#ffffff", panel:"#ffffff",
    line:"#d7dade", accent:"#0066ff", up:"#0b7a42", down:"#c42b1c", be:"#8a6300",
-   collab:true},
+   collab:"blackswan"},
+]; }
+
+/* Спільноти-партнери: у вікні тем кожна має свій блок зі своїм знаком.
+   Знак на білій плашці, тому тут чорнильна версія. */
+function COLLABS(){ return [
+  {id:"fxlab",     img:"/static/fxlab-ink.png?v=1", title:T.thCollabGroupFx, note:T.thCollabNoteFx},
+  {id:"blackswan", img:"/static/swan.png?v=1",     title:T.thCollabGroup,   note:T.thCollabNote},
 ]; }
 
 const DEFAULT_SEED = {base:"dark", bg:"#0b0f14", accent:"#7dd3fc"};
@@ -70,6 +84,9 @@ function apply(id){
     root.setAttribute("data-theme", t.base);
   }
   root.setAttribute("data-skin", id);
+  /* підказка на парі знаків — про ту спільноту, чия тема ввімкнена */
+  const cm = document.getElementById("collabMark");
+  if (cm && window.T) cm.setAttribute("data-tip", id === "fxlab" ? T.collabTipFx : T.collabTip);
   try{ localStorage.setItem(KEY, id); }catch(e){}
   if (window.Ticker && typeof render === "function") render();
 }
@@ -113,15 +130,10 @@ function section(){
   return '<div class="nt th-grp">'
     + group(T.thDarkGroup,  own.filter(t => t.base === "dark"))
     + group(T.thLightGroup, own.filter(t => t.base === "light"))
-    + (collab.length
-        ? '<div class="th-collab">'
-          + '<div class="th-collab-head"><span class="th-collab-mark">'
-          +   '<img class="swan" src="/static/swan.png?v=1" alt="" aria-hidden="true"></span>'
-          +   '<span><b>'+T.thCollabGroup+'</b><i>'+T.thCollabNote+'</i></span></div>'
-          + '<div class="th-grid">'
-          + collab.map(t => card(t, t.id === now)).join("")
-          + '</div></div>'
-        : "")
+    /* усі колаборації — одним рядком звичайних карток, без описів: FX LAB,
+       потім Black Swan (порядок COLLABS) */
+    + (collab.length ? group(T.thCollabs,
+        COLLABS().map(p => collab.find(t => t.collab === p.id)).filter(Boolean)) : "")
     + '<div class="nt-sub">'+T.thCustom+'</div>'
     + '<div class="th-grid">' + customCard(now === "custom") + "</div>"
     + '<div class="th-custom">'

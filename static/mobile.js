@@ -23,6 +23,7 @@ top.innerHTML =
   + '<use href="#logomark"/></svg></span><span class="nm">Stats<i>AI</i></span>'
   + '<i class="tie" aria-hidden="true">×</i>'
   + '<span class="mark swan"><img class="swan" src="/static/swan.png?v=1" alt="" aria-hidden="true"></span>'
+  + '<span class="mark fx"><img class="fx" src="/static/fxlab.png?v=1" alt="" aria-hidden="true"></span>'
   + '</a>'
   + '<span class="sp"></span>'
   + '<button class="mnew" type="button" onclick="openForm()">'

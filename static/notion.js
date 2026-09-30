@@ -104,6 +104,11 @@ async function call(method, url, body){
   });
   let data = {};
   try{ data = await res.json(); }catch(e){}
+  /* Перенесення ходить своїм fetch, повз api(), тому плашку відмови
+     кличемо тут окремо — інакше людина побачила б у вікні голе
+     «imports_limit». */
+  if (res.status === 402 && data.code === "need_sub" && window.Paywall)
+    throw Paywall.soft(data.reason || "");
   if (!res.ok) throw new Error(data.error || (T.ntServerReplied + " " + res.status));
   return data;
 }
@@ -701,6 +706,9 @@ window.addEventListener("load", () => {
     let seen = "1";
     try{ seen = localStorage.getItem(SEEN_KEY) || ""; }catch(e){}
     if (seen === "1") return;
+    /* Людина прийшла з бота по тарифи (/#plan) — пропозиція перенесення
+       накрила б їх собою. Мітку не ставимо: запропонуємо наступного разу. */
+    if (window.__wantPlan) return;
     /* Порожній бектест — теж порожній журнал, але переносити в нього нема
        чого: старі прогони нізвідки не тягнемо. Мітку не ставимо — коли
        людина повернеться в реальний режим, пропозиція ще знадобиться. */

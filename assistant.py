@@ -19,6 +19,7 @@ import db
 import emotions
 import llm
 import news_msg
+import tidy
 import ts_store
 
 KYIV = ZoneInfo("Europe/Kyiv")          # час новин показуємо київський
@@ -81,16 +82,37 @@ def stats(all_trades):
 
 
 def by_field(trades, field):
-    groups = {}
+    """Зріз по полю. Написання зводимо до одного імені.
+
+    Інакше «US100», «NASDAQ» і «NQ» приїжджають моделі трьома різними
+    інструментами — і вона чесно розповідає про три активи там, де він
+    один. Те саме з сесіями («LO» і «London Killzone») та з регістром.
+    Зводить їх той самий довідник, що й запис угоди (tidy.key), тому
+    статистика помічника й статистика журналу не розходяться.
+
+    Показуємо при цьому не службовий ключ, а те написання, яким людина
+    користується частіше: побачити «NAS100» замість свого «US100» — так
+    само дивно, як побачити три інструменти замість одного.
+    """
+    groups, spellings = {}, {}
     for t in trades:
         raw = (t.get(field) or "").strip()
-        # кілька емоцій в угоді — угода рахується в кожній, а не сочетанням
-        keys = [k.strip() for k in raw.split(",") if k.strip()] if field == "emotion" else [raw]
-        for key in keys:
-            if key:
-                groups.setdefault(key, []).append(t)
-    return {k: stats(v) for k, v in sorted(groups.items(),
-                                           key=lambda kv: stats(kv[1])["net"])}
+        if not raw:
+            continue
+        # кілька емоцій в угоді — угода рахується в кожній, а не сполученням
+        raws = [x.strip() for x in raw.split(",") if x.strip()] if field == "emotion" else [raw]
+        for one in raws:
+            k = tidy.key(one) or one
+            groups.setdefault(k, []).append(t)
+            spellings.setdefault(k, {})
+            spellings[k][one] = spellings[k].get(one, 0) + 1
+
+    def name(k):
+        seen = spellings[k]
+        return max(sorted(seen), key=lambda w: seen[w])
+
+    return {name(k): stats(v) for k, v in sorted(groups.items(),
+                                                 key=lambda kv: stats(kv[1])["net"])}
 
 
 def when(t):
@@ -116,6 +138,43 @@ def this_week(trades):
             if (when(t) or datetime.datetime.min).date() >= monday]
 
 
+# ------------------------------------------------------------- відмінки ----
+# «3 угод» і «6 угоди» видають машину з головою. Помічник каже це людині
+# вголос, тому число й слово при ньому узгоджуємо самі — модель тут ні до
+# чого, вона лише переказує готовий факт.
+
+FORMS = {
+    "uk": {"trade": ("угода", "угоди", "угод"),
+           "day": ("день", "дні", "днів"),
+           "entry": ("вхід", "входи", "входів"),
+           "stop": ("стоп", "стопи", "стопів")},
+    "ru": {"trade": ("сделка", "сделки", "сделок"),
+           "day": ("день", "дня", "дней"),
+           "entry": ("вход", "входа", "входов"),
+           "stop": ("стоп", "стопа", "стопов")},
+    "en": {"trade": ("trade", "trades", "trades"),
+           "day": ("day", "days", "days"),
+           "entry": ("entry", "entries", "entries"),
+           "stop": ("stop-out", "stop-outs", "stop-outs")},
+}
+
+
+def many(n, what="trade", code="uk"):
+    """Число разом зі словом у потрібній формі: «1 угода», «3 угоди», «7 угод»."""
+    forms = FORMS.get(code, FORMS["uk"])[what]
+    n = int(n)
+    tail, hundred = abs(n) % 10, abs(n) % 100
+    if code == "en":
+        word = forms[0] if abs(n) == 1 else forms[1]
+    elif tail == 1 and hundred != 11:
+        word = forms[0]
+    elif 2 <= tail <= 4 and not 12 <= hundred <= 14:
+        word = forms[1]
+    else:
+        word = forms[2]
+    return "%d %s" % (n, word)
+
+
 # ---------------------------------------------------- підписи виписки ----
 # Виписку з журналу читає модель — і чуже слово з неї легко просочується у
 # відповідь: російською виходило «а в нотатке к сделке», бо саме так у нас
@@ -124,7 +183,7 @@ def this_week(trades):
 # пише російською, без домішків.
 LAB = {
     "uk": {
-        "trades": "%d угод", "wr": "вінрейт %.0f%%", "net": "підсумок %+.1f%%",
+        "trades": "%s", "wr": "вінрейт %.0f%%", "net": "підсумок %+.1f%%",
         "avg_rr": "сер. RR %.1f",
         "not_filled": "%s: не заповнено в жодній угоді",
         "empty": "Журнал порожній.",
@@ -138,16 +197,29 @@ LAB = {
         "by_dir": "ЗА ТИПОМ ВХОДУ (має бути Continuation/Reversal)",
         "by_model": "ЗА МОДЕЛЛЮ ВХОДУ", "mistakes_t": "ЗАПИСАНІ ПОМИЛКИ",
         "recent_t": "ОСТАННІ УГОДИ", "note": "нотатка", "mistake": "помилка",
-        "streak_now": "Останні %d угоди поспіль — стопи, серія триває.",
-        "streak_was": "У журналі була серія з %d стопів поспіль.",
-        "hurry": "%d входів зроблено менш ніж за %d хв після попереднього; "
+        "streak_now": "Останні %s поспіль — стопи, серія триває.",
+        "streak_was": "У журналі була серія з %s поспіль.",
+        "hurry": "%s зроблено менш ніж за %d хв після попереднього; "
                  "з них стопів — %d.",
-        "big_risk": "%d угод з ризиком понад %.1f%% при звичному %.1f%%.",
+        "big_risk": "%s з ризиком понад %.1f%% при звичному %.1f%%.",
         "against": "Входів проти власного біаса — %d, їх підсумок %+.1f%%.",
-        "emotion": "Емоція «%s»: %d угод, підсумок %+.1f%%.",
+        "emotion": "Емоція «%s»: %s, підсумок %+.1f%%.",
         "field_empty": "Поле «%s» не заповнене в жодній угоді — цей зріз "
                        "порахувати неможливо.",
         "f_session": "сесія", "f_setup": "сетап",
+        "n_new_pair": "У журналі з'явився інструмент, якого раніше не було — "
+                      "%s: %s, підсумок %+.1f%%.",
+        "n_new_setup": "Новий сетап у журналі — «%s»: %s, підсумок %+.1f%%.",
+        "n_back": "Перерва в %s закінчилась — угоди знову пішли.",
+        "n_win_streak": "Останні %s поспіль — у плюс.",
+        "n_best_week": "Цей тиждень — найкращий за весь журнал: %s, "
+                       "підсумок %+.1f%%.",
+        "n_pace_up": "Цього тижня угод %d — помітно більше звичних %.0f.",
+        "n_pace_down": "Цього тижня угод %d — менше звичних %.0f.",
+        "n_rr_up": "Середній RR за два тижні — %.1f проти звичних %.1f.",
+        "n_rr_down": "Середній RR за два тижні впав до %.1f проти звичних %.1f.",
+        "n_filled": "Поле «%s» почало заповнюватись: %s з ним за два тижні, "
+                    "а раніше — жодної.",
         "today": "СЬОГОДНІ: %s, %s (київський час %s)",
         "weekdays": ("понеділок", "вівторок", "середа", "четвер",
                      "п’ятниця", "субота", "неділя"),
@@ -162,7 +234,7 @@ LAB = {
         "ts_head": "\n\nТОРГОВА СИСТЕМА (як її описав трейдер у розділі «Моя ТС»):\n",
     },
     "ru": {
-        "trades": "%d сделок", "wr": "винрейт %.0f%%", "net": "итог %+.1f%%",
+        "trades": "%s", "wr": "винрейт %.0f%%", "net": "итог %+.1f%%",
         "avg_rr": "ср. RR %.1f",
         "not_filled": "%s: не заполнено ни в одной сделке",
         "empty": "Журнал пуст.",
@@ -176,16 +248,29 @@ LAB = {
         "by_dir": "ПО ТИПУ ВХОДА (должно быть Continuation/Reversal)",
         "by_model": "ПО МОДЕЛИ ВХОДА", "mistakes_t": "ЗАПИСАННЫЕ ОШИБКИ",
         "recent_t": "ПОСЛЕДНИЕ СДЕЛКИ", "note": "заметка", "mistake": "ошибка",
-        "streak_now": "Последние %d сделки подряд — стопы, серия продолжается.",
-        "streak_was": "В журнале была серия из %d стопов подряд.",
-        "hurry": "%d входов сделано меньше чем через %d мин после предыдущего; "
+        "streak_now": "Последние %s подряд — стопы, серия продолжается.",
+        "streak_was": "В журнале была серия из %s подряд.",
+        "hurry": "%s сделано меньше чем через %d мин после предыдущего; "
                  "из них стопов — %d.",
-        "big_risk": "%d сделок с риском больше %.1f%% при обычном %.1f%%.",
+        "big_risk": "%s с риском больше %.1f%% при обычном %.1f%%.",
         "against": "Входов против собственного биаса — %d, их итог %+.1f%%.",
-        "emotion": "Эмоция «%s»: %d сделок, итог %+.1f%%.",
+        "emotion": "Эмоция «%s»: %s, итог %+.1f%%.",
         "field_empty": "Поле «%s» не заполнено ни в одной сделке — этот срез "
                        "посчитать невозможно.",
         "f_session": "сессия", "f_setup": "сетап",
+        "n_new_pair": "В журнале появился инструмент, которого раньше не было — "
+                      "%s: %s, итог %+.1f%%.",
+        "n_new_setup": "Новый сетап в журнале — «%s»: %s, итог %+.1f%%.",
+        "n_back": "Перерыв в %s закончился — сделки снова пошли.",
+        "n_win_streak": "Последние %s подряд — в плюс.",
+        "n_best_week": "Эта неделя — лучшая за весь журнал: %s, "
+                       "итог %+.1f%%.",
+        "n_pace_up": "На этой неделе сделок %d — заметно больше обычных %.0f.",
+        "n_pace_down": "На этой неделе сделок %d — меньше обычных %.0f.",
+        "n_rr_up": "Средний RR за две недели — %.1f против обычных %.1f.",
+        "n_rr_down": "Средний RR за две недели упал до %.1f против обычных %.1f.",
+        "n_filled": "Поле «%s» начало заполняться: %s с ним за две недели, "
+                    "а раньше — ни одной.",
         "today": "СЕГОДНЯ: %s, %s (киевское время %s)",
         "weekdays": ("понедельник", "вторник", "среда", "четверг",
                      "пятница", "суббота", "воскресенье"),
@@ -200,7 +285,7 @@ LAB = {
         "ts_head": "\n\nТОРГОВАЯ СИСТЕМА (как её описал трейдер в разделе «Моя ТС»):\n",
     },
     "en": {
-        "trades": "%d trades", "wr": "win rate %.0f%%", "net": "net %+.1f%%",
+        "trades": "%s", "wr": "win rate %.0f%%", "net": "net %+.1f%%",
         "avg_rr": "avg RR %.1f",
         "not_filled": "%s: not filled in any trade",
         "empty": "The journal is empty.",
@@ -214,16 +299,29 @@ LAB = {
         "by_dir": "BY ENTRY TYPE (should be Continuation/Reversal)",
         "by_model": "BY ENTRY MODEL", "mistakes_t": "RECORDED MISTAKES",
         "recent_t": "RECENT TRADES", "note": "note", "mistake": "mistake",
-        "streak_now": "The last %d trades in a row are stop-outs, the streak is on.",
-        "streak_was": "There was a streak of %d stop-outs in a row.",
-        "hurry": "%d entries were taken less than %d min after the previous one; "
+        "streak_now": "The last %s in a row are stop-outs, the streak is on.",
+        "streak_was": "There was a streak of %s in a row.",
+        "hurry": "%s were taken less than %d min after the previous one; "
                  "%d of them were stop-outs.",
-        "big_risk": "%d trades with risk above %.1f%% while the usual one is %.1f%%.",
+        "big_risk": "%s with risk above %.1f%% while the usual one is %.1f%%.",
         "against": "Entries against own bias: %d, their net is %+.1f%%.",
-        "emotion": "Emotion “%s”: %d trades, net %+.1f%%.",
+        "emotion": "Emotion “%s”: %s, net %+.1f%%.",
         "field_empty": "The field “%s” is not filled in any trade, so "
                        "this breakdown cannot be calculated.",
         "f_session": "session", "f_setup": "setup",
+        "n_new_pair": "A new instrument shows up in the journal — "
+                      "%s: %s, net %+.1f%%.",
+        "n_new_setup": "A new setup in the journal — “%s”: %s, net %+.1f%%.",
+        "n_back": "A break of %s is over — trades are back.",
+        "n_win_streak": "The last %s in a row are winners.",
+        "n_best_week": "This is the best week in the whole journal: %s, "
+                       "net %+.1f%%.",
+        "n_pace_up": "This week has %d trades — noticeably more than the usual %.0f.",
+        "n_pace_down": "This week has %d trades — fewer than the usual %.0f.",
+        "n_rr_up": "Average RR over two weeks is %.1f versus the usual %.1f.",
+        "n_rr_down": "Average RR over two weeks dropped to %.1f versus the usual %.1f.",
+        "n_filled": "The field “%s” started getting filled: %s with it "
+                    "in two weeks, and none before.",
         "today": "TODAY: %s, %s (Kyiv time %s)",
         "weekdays": ("Monday", "Tuesday", "Wednesday", "Thursday",
                      "Friday", "Saturday", "Sunday"),
@@ -251,7 +349,7 @@ def lab(code):
 
 def _line(name, s, code="uk"):
     l = lab(code)
-    parts = ["%s — %s" % (name, l["trades"] % s["n"])]
+    parts = ["%s — %s" % (name, l["trades"] % many(s["n"], "trade", code))]
     if s["wr"] is not None:
         parts.append(l["wr"] % s["wr"])
     parts.append(l["net"] % s["net"])
@@ -318,13 +416,141 @@ def recent_lines(trades, limit=RECENT_LIMIT, code="uk"):
     return "\n".join(out)
 
 
+# ----------------------------------------------------------------- новини ----
+# Зауваження нижче шукають збої — і лишаються правдою місяцями. Якщо
+# помічник має тільки їх, він швидко перетворюється на буркотуна, що
+# переказує одне й те саме. Тут — те, що в журналі змінилось: новий
+# інструмент, повернення після перерви, тиждень, який виявився найкращим.
+# Ці факти живуть рівно стільки, скільки лишаються новими, і самі
+# змінюються разом із журналом.
+
+NEW_WINDOW = 14        # що потрапило сюди — вважаємо новим
+PAUSE_DAYS = 10        # довша тиша — уже перерва, а не вихідні
+PACE_RATIO = 1.8       # у стільки разів тиждень має відрізнятись від звичного
+RR_STEP = 0.4          # менша різниця в RR — це шум, а не зміна
+
+
+def _weeks(trades):
+    """Угоди по тижнях: {(рік, номер тижня): [угоди]}."""
+    out = {}
+    for t in trades:
+        d = when(t)
+        if d:
+            out.setdefault(d.isocalendar()[:2], []).append(t)
+    return out
+
+
+def news(trades, code="uk", tagged=False):
+    """Що в журналі змінилось останнім часом.
+
+    Кожен факт названий разом із тим, про кого він: «new_pair:US500», а не
+    просто «new_pair». Інакше помічник, сказавши раз про новий інструмент,
+    промовчав би про наступний.
+    """
+    l = lab(code)
+    found = []
+    ordered = [t for t in sorted(trades, key=lambda t: (t.get("date") or "")) if when(t)]
+    if len(ordered) < 8:
+        return []                            # у новому журналі все нове
+
+    # Ділимо по даті, а не пошуком угоди в списку: журнал буває на сотні
+    # записів, і порівнювати кожну з кожною ні до чого.
+    edge = datetime.datetime.now() - datetime.timedelta(days=NEW_WINDOW)
+    fresh = [t for t in ordered if when(t) >= edge]
+    older = [t for t in ordered if when(t) < edge]
+    if not fresh or not older:
+        return []
+
+    # 1. інструмент і сетап, яких раніше не було
+    for field, key_name in (("pair", "n_new_pair"), ("setup", "n_new_setup")):
+        was = {tidy.key(t.get(field)) for t in older if (t.get(field) or "").strip()}
+        seen = {}
+        for t in fresh:
+            raw = (t.get(field) or "").strip()
+            k = tidy.key(raw)
+            if k and k not in was:
+                seen.setdefault(k, []).append(t)
+        for k, group in seen.items():
+            if len(group) < 2:
+                continue                     # одна угода — ще не новий інструмент
+            st = stats(group)
+            name = (group[0].get(field) or "").strip()
+            found.append(("%s:%s" % (field, k),
+                          l[key_name] % (name, many(st["n"], "trade", code),
+                                         st["net"])))
+
+    # 2. повернення після тиші. Шукаємо найдовшу паузу, яка закінчилась
+    # уже в нових угодах: остання пауза в журналі — це просто проміжок між
+    # двома вчорашніми входами, вона тут ні до чого.
+    quiet = 0
+    for a, b in zip(ordered, ordered[1:]):
+        if when(b) >= edge:
+            quiet = max(quiet, (when(b) - when(a)).days)
+    if quiet >= PAUSE_DAYS:
+        found.append(("back", l["n_back"] % many(quiet, "day", code)))
+
+    # 3. серія плюсових — про хороше теж треба говорити
+    run = 0
+    for t in ordered:
+        run = run + 1 if t.get("result") in ("Win", "WinM") else 0
+    if run >= STREAK_MIN:
+        found.append(("win_streak", l["n_win_streak"] % many(run, "trade", code)))
+
+    # 4. найкращий тиждень за весь журнал
+    weeks = _weeks(ordered)
+    now_key = datetime.date.today().isocalendar()[:2]
+    if len(weeks) >= 3 and now_key in weeks and len(weeks[now_key]) >= 3:
+        nets = {k: stats(v)["net"] for k, v in weeks.items()}
+        if nets[now_key] > 0 and nets[now_key] == max(nets.values()):
+            st = stats(weeks[now_key])
+            found.append(("best_week", l["n_best_week"]
+                           % (many(st["n"], "trade", code), st["net"])))
+
+    # 5. темп тижня проти звичного
+    past = [len(v) for k, v in weeks.items() if k != now_key]
+    here = len(weeks.get(now_key, []))
+    if len(past) >= 3 and here:
+        usual = statistics.median(past)
+        if usual >= 1:
+            if here >= usual * PACE_RATIO:
+                found.append(("pace", l["n_pace_up"] % (here, usual)))
+            elif here * PACE_RATIO <= usual:
+                found.append(("pace", l["n_pace_down"] % (here, usual)))
+
+    # 6. середній RR зрушив із звичного
+    rr_new = [_num(t.get("rr")) for t in fresh if _num(t.get("rr")) is not None]
+    rr_old = [_num(t.get("rr")) for t in older if _num(t.get("rr")) is not None]
+    if len(rr_new) >= 3 and len(rr_old) >= 5:
+        a, b = statistics.mean(rr_new), statistics.median(rr_old)
+        if a - b >= RR_STEP:
+            found.append(("rr", l["n_rr_up"] % (a, b)))
+        elif b - a >= RR_STEP:
+            found.append(("rr", l["n_rr_down"] % (a, b)))
+
+    # 7. поле, яке почали заповнювати
+    for field, key_name in (("session", "f_session"), ("setup", "f_setup"),
+                            ("emotion", "by_emotion"), ("mistakes", "mistakes_t")):
+        now_n = sum(1 for t in fresh if (t.get(field) or "").strip())
+        then_n = sum(1 for t in older if (t.get(field) or "").strip())
+        if now_n >= 3 and then_n == 0:
+            found.append(("filled:%s" % field,
+                          l["n_filled"] % (l[key_name].lower(),
+                                           many(now_n, "trade", code))))
+
+    return found if tagged else [text for _, text in found]
+
+
 # ------------------------------------------------------------- зауваження ----
 
-def observations(trades, code="uk"):
+def observations(trades, code="uk", tagged=False):
     """Правила, що шукають збої. Кожне повертає факт, а не думку.
 
     Факти показуються людині як є — під відповіддю в «Розборі помилок».
     Тому пишемо їх мовою журналу, а не завжди українською.
+
+    tagged=True віддає пари (правило, факт). Ім'я правила потрібне тому,
+    хто заговорює першим: текст факту міняється разом із числами в ньому,
+    і за текстом не впізнати, що це та сама думка вкотре.
     """
     l = lab(code)
     found = []
@@ -333,15 +559,22 @@ def observations(trades, code="uk"):
         return found
 
     # серія стопів поспіль
+    # Поточну серію рахуємо по всьому журналу — вона обривається сама.
+    # А от «була серія» шукаємо лише за останній місяць: три стопи поспіль
+    # у березні лишаються правдою назавжди, і помічник нагадував би про них
+    # до кінця часів.
     streak = 0
-    worst = 0
     for t in ordered:
         streak = streak + 1 if t.get("result") == "Loss" else 0
-        worst = max(worst, streak)
+    worst = 0
+    run = 0
+    for t in in_last_days(ordered, 30):
+        run = run + 1 if t.get("result") == "Loss" else 0
+        worst = max(worst, run)
     if streak >= STREAK_MIN:
-        found.append(l["streak_now"] % streak)
+        found.append(("streak", l["streak_now"] % many(streak, "trade", code)))
     elif worst >= STREAK_MIN:
-        found.append(l["streak_was"] % worst)
+        found.append(("streak", l["streak_was"] % many(worst, "stop", code)))
 
     # поспіх: вхід одразу за попереднім
     hurried = []
@@ -351,7 +584,8 @@ def observations(trades, code="uk"):
             hurried.append((cur, gap))
     if hurried:
         losses = sum(1 for t, _ in hurried if t.get("result") == "Loss")
-        found.append(l["hurry"] % (len(hurried), HURRY_MINUTES, losses))
+        found.append(("hurry", l["hurry"]
+                      % (many(len(hurried), "entry", code), HURRY_MINUTES, losses)))
 
     # ризик вище звичного
     risks = [_num(t.get("risk")) for t in ordered if _num(t.get("risk"))]
@@ -360,7 +594,8 @@ def observations(trades, code="uk"):
         big = [t for t in ordered
                if (_num(t.get("risk")) or 0) > usual * 1.5]
         if big:
-            found.append(l["big_risk"] % (len(big), usual * 1.5, usual))
+            found.append(("big_risk", l["big_risk"]
+                          % (many(len(big), "trade", code), usual * 1.5, usual)))
 
     # Вхід проти власного біаса. Порівнюємо тільки Long/Short: якщо колонки при
     # перенесенні з'їхали і в напрямку лежить Continuation, порівняння безглузде.
@@ -371,20 +606,21 @@ def observations(trades, code="uk"):
                and t["bias"].strip().lower() != t["position"].strip().lower()]
     if against:
         s = stats(against)
-        found.append(l["against"] % (s["n"], s["net"]))
+        found.append(("against", l["against"] % (s["n"], s["net"])))
 
     # емоція, яка стабільно коштує грошей
     for name, s in by_field(trades, "emotion").items():
         if s["n"] >= 3 and s["net"] < 0:
-            found.append(l["emotion"] % (name, s["n"], s["net"]))
+            found.append(("emotion", l["emotion"]
+                         % (name, many(s["n"], "trade", code), s["net"])))
             break
 
     # порожні поля — інакше розбирати нема чого
     for field, key in (("session", "f_session"), ("setup", "f_setup")):
         filled = sum(1 for t in trades if (t.get(field) or "").strip())
         if filled == 0:
-            found.append(l["field_empty"] % l[key])
-    return found
+            found.append(("empty", l["field_empty"] % l[key]))
+    return found if tagged else [text for _, text in found]
 
 
 # ------------------------------------------------------------------- мова ----
@@ -743,12 +979,16 @@ def _lang_hint(history, lang=None):
     return lang_order("", default=lang or "uk")   # мовчазний чат — мовою сторінки
 
 
-def nudge(user_id, lang="uk", kind=""):
+def nudge(user_id, lang="uk", kind="", talk=True):
     """Привід заговорити першим — рівно один і не щоразу.
 
     Повертає {code, text, ask, view}: code сторінка вміє сказати сама
     (трьома мовами), text — те саме, але вже словами моделі. Немає ключа
     до моделі — лишається code, і помічник усе одно не мовчить.
+
+    talk=False — те саме, але без звертання до моделі: так робимо, коли
+    місячна порція звернень уже вичерпана. Привід від цього не зникає,
+    людина бачить фразу сторінки й нічого зламаного не помічає.
     """
     trades = emotions.localize([t for t in db.list_trades(user_id, kind) if not t.get("hidden")], lang)
     if len(trades) < 3:
@@ -763,8 +1003,32 @@ def nudge(user_id, lang="uk", kind=""):
         return {"code": "nots", "text": "", "view": "ts",
                 "ask": "З чого почати опис моєї торгової системи?"}
 
-    facts = observations(trades, lang)
-    if not facts:
+    # Одну й ту саму думку — не частіше разу на тиждень. Правила дивляться
+    # на весь журнал, тому «був поспіх» чи «ризик вище звичного» лишаються
+    # правдою місяцями, і помічник повторював це щодня, поки не набридне.
+    # Ключ — ім'я правила плюс тиждень; сам текст для ключа не годиться,
+    # бо в ньому числа, і «3 стопи поспіль» та «4 стопи поспіль» виглядали б
+    # двома різними думками.
+    # Спершу — що змінилось у журналі, і тільки потім давні зауваження.
+    # Помічник має помічати нове, а не переказувати те саме: новини живуть
+    # два тижні й самі зникають, а «був поспіх» правда місяцями.
+    facts = news(trades, lang, tagged=True) + observations(trades, lang, tagged=True)
+    week_key = "%s-%s" % datetime.date.today().isocalendar()[:2]
+    ledger = "nudge" + (":" + kind if kind else "")
+    fact = ""
+    for rule, text in facts:
+        # Названі поіменно — інструмент, сетап, поле — кажемо один раз
+        # назавжди: другий раз це вже не новина. Решта (темп тижня, серія,
+        # найкращий тиждень) вертається, але не частіше разу на тиждень.
+        once = ":" in rule
+        if db.record_notified(user_id, rule if once else "%s:%s" % (rule, week_key),
+                              ledger):
+            fact = text
+            break
+
+    if not fact:
+        # Або нема про що казати, або все вже сказано цього тижня. Тоді —
+        # підсумок тижня: він міняється сам і не набридає.
         week = stats(this_week(trades))
         if week["n"] < 2:
             return {}
@@ -772,9 +1036,8 @@ def nudge(user_id, lang="uk", kind=""):
                 "fill": {"n": week["n"], "net": "%+.1f%%" % week["net"]},
                 "ask": "Що спільного в моїх угодах цього тижня?"}
 
-    fact = facts[0]
     text = ""
-    if llm.enabled():
+    if talk and llm.enabled():
         order = LANG_ORDER.get(lang, LANG_ORDER["uk"])
         text = llm.ask(
             "Факт із журналу трейдера:\n- %s\n\n"

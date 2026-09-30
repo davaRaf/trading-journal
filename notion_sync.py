@@ -34,6 +34,7 @@ import secrets
 import threading
 import time
 
+import billing
 import db
 import notion_import as notion
 import notion_public as npub
@@ -155,6 +156,8 @@ def run_once():
             continue                      # людина саме переносить руками
         if _recent(uid):
             continue                      # сьогодні вже дивились
+        if not billing.can_autosync(uid)[0]:
+            continue                      # перші 30 днів минули, підписки немає
         try:
             got = sync_user(uid)
             if got and (got["added"] or got["filled"]):

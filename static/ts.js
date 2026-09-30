@@ -1615,7 +1615,7 @@ async function pullWith(urls){
     srcUrls = [""];
     save();
   }catch(e){
-    pullErr = D().pullErr;
+    pullErr = e.soft ? "" : D().pullErr;   // про ліміт уже сказала плашка
   }
   busy = false;
   render();

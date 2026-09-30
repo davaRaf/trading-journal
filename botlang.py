@@ -51,6 +51,59 @@ PHRASES = {
                     "I attach screenshots while logging a trade step by step. Say "
                     "«log a trade» to start."),
 
+    # ---- підписка ----
+    # Скільки лишилось, не кажемо ніде (рішення власника 22.09.2026): про
+    # межу людина дізнається саме тут, коли в неї впреться.
+    # Посилання тут немає: воно на кнопці під повідомленням (plans_kb).
+    # У чаті голе посилання виглядає як реклама, а кнопка — як відповідь.
+    "subTrades":   ("Безкоштовні угоди скінчились — нові записуються з підпискою. "
+                    "Усе, що вже записано, лишається в журналі.",
+                    "Бесплатные сделки закончились — новые записываются с подпиской. "
+                    "Всё, что уже записано, остаётся в журнале.",
+                    "Your free trades are used up — logging new ones needs a "
+                    "subscription. Everything already logged stays in the journal."),
+    "subAi":       ("Помічник на цей місяць замовк — місячна порція звернень "
+                    "вичерпана. Підписка знімає межу.",
+                    "Помощник на этот месяц замолчал — месячная порция обращений "
+                    "исчерпана. Подписка снимает предел.",
+                    "The assistant is out of answers for this month. "
+                    "A subscription lifts the limit."),
+    "subAiCap":    ("Забагато звернень за місяць навіть для підписки. "
+                    "Трохи згодом відповім.",
+                    "Слишком много обращений за месяц даже для подписки. "
+                    "Отвечу чуть позже.",
+                    "Too many requests this month even for a subscription. "
+                    "I will answer a bit later."),
+    "planBtn":     ("Подивитись тарифи", "Посмотреть тарифы", "See plans"),
+
+    # ---- /plan: що зараз відкрито ----
+    # Лічильника «лишилось N із 20» немає й тут (рішення власника
+    # 22.09.2026): кажемо, що дається, а не скільки з'їдено.
+    "planFree":    ("Зараз безкоштовно.", "Сейчас бесплатно.", "You are on the free plan."),
+    "planFreeWhat": ("Без підписки: %d угод, ще %d у режимі бектесту, "
+                     "%d перенесення в перші %d днів і %d звернень до помічника "
+                     "щомісяця.",
+                     "Без подписки: %d сделок, ещё %d в режиме бэктеста, "
+                     "%d переноса в первые %d дней и %d обращений к помощнику "
+                     "ежемесячно.",
+                     "Without a subscription: %d trades, another %d in backtest mode, "
+                     "%d imports within the first %d days and %d assistant requests "
+                     "per month."),
+    "planKeep":    ("Усе записане лишається назавжди — закриваються тільки нові записи.",
+                    "Всё записанное остаётся навсегда — закрываются только новые записи.",
+                    "Everything you wrote stays forever — only new entries close."),
+    "planPaid":    ("Підписка діє: %s, до %s.", "Подписка действует: %s, до %s.",
+                    "Subscription active: %s, until %s."),
+    "planLife":    ("Підписка діє назавжди — строку в неї немає.",
+                    "Подписка действует навсегда — срока у неё нет.",
+                    "Your subscription is permanent — it has no end date."),
+    "planPaidWhat": ("Нові угоди, перенесення й помічник — без обмежень.",
+                     "Новые сделки, переносы и помощник — без ограничений.",
+                     "New trades, imports and the assistant — without limits."),
+    "planMonth":   ("місячна", "месячная", "monthly"),
+    "planQuarter": ("квартальна", "квартальная", "quarterly"),
+    "planYear":    ("річна", "годовая", "yearly"),
+
     # ---- прив'язка журналу ----
     "linkHow":     ("Щоб почати, прив'яжи журнал:\n\n"
                     "1. Відкрий %s\n"
@@ -263,6 +316,17 @@ def t(lang, key, *args):
     i = ORDER.index(lang) if lang in ORDER else 0
     text = row[i]
     return (text % args) if args else text.replace("%%", "%")
+
+
+def plans_kb(lang):
+    """Кнопка-посилання на тарифи під відмовою.
+
+    Тут, поруч зі словами, а не в bot.py: цією кнопкою підписують і
+    відмову сценарію запису (trade_flow), і відмову помічника, і /plan —
+    хай напис і адреса будуть в одному місці.
+    """
+    from config import SITE_URL
+    return [[{"text": t(lang, "planBtn"), "url": SITE_URL.rstrip("/") + "/#plan"}]]
 
 
 def of_tg(tg_id):

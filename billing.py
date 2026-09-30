@@ -1,0 +1,687 @@
+# -*- coding: utf-8 -*-
+"""
+Платна підписка: хто ще пише безкоштовно, а кому вже час платити.
+
+Усе, що стосується грошей, зібрано тут одним модулем, щоб місця перевірок
+(сайт, бот, перенесення з Notion) не знали правил, а тільки питали дозволу:
+
+    ok, why = billing.can_add_trade(uid, kind)
+    if not ok:
+        <віддати 402 з billing.deny(uid, why)>
+    ...
+    billing.spend_trade(uid, kind)
+
+Правила (затверджені власником 22.09.2026):
+
+* безкоштовно 20 справжніх угод і **окремо** 20 прогонів бектесту;
+* ліміти несиметричні — скінчились прогони, закривається лише бектест;
+  скінчились справжні угоди, закрито все, зокрема й бектест;
+* перенесення з Notion — 3 рази в перші 30 днів після реєстрації;
+* звернень до моделі — 15 на місяць без підписки (рішення власника
+  23.09.2026); розділи журналу при цьому відкриті всі, і «Аналітика»
+  теж — платимо ми тільки за відповіді моделі;
+* нічого не видаляється: читання, статистика й вивантаження працюють
+  завжди, закриваються тільки нові записи, перенесення й зайві звернення
+  до моделі.
+
+Лічильники монотонні: spend_* їх тільки збільшує. Рахувати COUNT(*) по
+угодах не можна — db.delete_trade прибирає рядок фізично, і людина ходила
+б по колу «записав 30 → прибрав → записав ще 30».
+
+Поки діє підписка, безкоштовні лічильники не чіпаємо: підписка відкриває
+все, а якщо вона скінчиться, людина повернеться рівно туди, де зупинилась.
+"""
+import datetime
+import math
+
+import db
+from config import (AI_WINDOW_DAYS, CURRENCY, FREE_AI, FREE_BT, FREE_IMPORTS,
+                    FREE_TRADES, IMPORT_WINDOW_DAYS, PAID_AI, PLAN_DAYS,
+                    PRICES, PROMOS)
+
+# Платні тарифи. 'free' — не тариф, а його відсутність.
+PLANS = ("month", "quarter", "year")
+# Довічна підписка. Її не купують — ми даємо її руками (друзям журналу,
+# партнерам, першим тестувальникам), тому в PLANS її немає: там лежить те,
+# що продається й має ціну та товар у Creem. Дати її можна лише з адмінки,
+# і дати назавжди означає саме назавжди — дати кінця в такої підписки немає,
+# у базі paid_until лишається порожнім.
+LIFE = "life"
+
+# Причини відмови. Одні й ті самі рядки бачать сайт і бот, текст кожен
+# підставляє свій — звідси йде тільки привід.
+TRADES_LIMIT = "trades_limit"
+BT_LIMIT = "bt_limit"
+IMPORTS_LIMIT = "imports_limit"
+IMPORT_WINDOW = "import_window"
+# Безкоштовні звернення до моделі на місяць скінчились — тут пропонуємо
+# підписку. AI_CAP — інше: у стелю впирається вже той, хто платить, і
+# підписку йому пропонувати нема чого, йому кажемо зачекати.
+AI_LIMIT = "ai_limit"
+AI_CAP = "ai_cap"
+NO_USER = "no_user"
+
+# Відповіді на промокод. Окремі коди, а не готові фрази: слова до них
+# лежать на сторінці, трьома мовами.
+PROMO_BAD = "promo_bad"        # такого коду немає
+PROMO_OVER = "promo_over"      # код відпрацював своє
+PROMO_SAME = "promo_same"      # у людини вже ця сама ціна
+PROMO_USED = "promo_used"      # по коду вже заплатили — вдруге не можна
+PROMO_ACTIVE = "promo_active"  # підписка вже йде — знижка тільки на першу оплату
+
+
+def _user(u):
+    """Приймає і id, і вже прочитаний рядок: у місцях перевірки користувач
+    часто вже під рукою, і другий рейс у базу там зайвий."""
+    if isinstance(u, dict):
+        return u
+    return db.get_user(u)
+
+
+def _int(row, key, default=0):
+    v = row.get(key)
+    return default if v is None else int(v)
+
+
+def _cap(row, key, default):
+    """Свій ліміт людини; порожнє — загальний з config."""
+    v = row.get(key)
+    return default if v is None else int(v)
+
+
+# -------------------------------------------------------------- підписка ----
+
+def active(u):
+    """Чи відкрито людині все прямо зараз."""
+    row = _user(u)
+    if not row:
+        return False
+    # Довічна не має дати кінця, тому питати paid_until у неї нема сенсу.
+    if (row.get("plan") or "") == LIFE:
+        return True
+    until = row.get("paid_until")
+    return bool(until and until > db.now())
+
+
+def plan_of(u):
+    """Тариф, який діє. Прострочений тариф — це 'free': рядок у базі
+    лишається (видно, чим платили), але прав він уже не дає."""
+    row = _user(u)
+    if not row:
+        return "free"
+    p = (row.get("plan") or "free").strip()
+    if p == LIFE:
+        return LIFE
+    if not active(row) or p not in PLANS:
+        return "free"
+    return p
+
+
+def import_days_left(u):
+    """Скільки днів ще триває вікно перенесення з Notion (0 — минуло).
+
+    Звичайно рахуємо від реєстрації. Але в «ранніх» вона була задовго до
+    платних підписок, і вікно в них минуло б ще до першого запуску — тому
+    міграція ставить їм дату в users.imports_until, і тоді вважаємо по ній.
+    """
+    row = _user(u)
+    if not row:
+        return 0
+    until = row.get("imports_until")
+    if until:
+        # Пів дня — це ще день: рахуємо вгору, щоб останній день не став нулем.
+        return max(0, math.ceil((until - db.now()).total_seconds() / 86400))
+    born = row.get("created_at")
+    if not born:
+        return IMPORT_WINDOW_DAYS
+    gone = (db.now() - born).days
+    return max(0, IMPORT_WINDOW_DAYS - gone)
+
+
+def state(u):
+    """Повна картина по людині — для бота, адмінки й точки /api/billing/state.
+
+    Залишки тут є, але людині їх не показуємо: лічильника «лишилось N із 20»
+    в журналі немає ніде (рішення власника 22.09.2026), про вичерпання вона
+    дізнається з відмови.
+    """
+    row = _user(u)
+    if not row:
+        return {"plan": "free", "active": False, "paid_until": None,
+                "trades_left": 0, "bt_left": 0, "imports_left": 0,
+                "import_days_left": 0, "ai_left": 0, "ai_cap": 0,
+                "ai_reset_at": None, "price_plan": "std"}
+    until = row.get("paid_until")
+    reset = row.get("ai_reset_at")
+    return {
+        "plan": plan_of(row),
+        "active": active(row),
+        "paid_until": until.isoformat() if until else None,
+        "trades_left": max(0, _cap(row, "free_trades_cap", FREE_TRADES)
+                           - _int(row, "free_trades_used")),
+        "bt_left": max(0, _cap(row, "free_bt_cap", FREE_BT)
+                       - _int(row, "free_bt_used")),
+        "imports_left": max(0, _cap(row, "imports_cap", FREE_IMPORTS)
+                            - _int(row, "imports_used")),
+        "import_days_left": import_days_left(row),
+        # Звернення до моделі — єдине, що людині показати не гріх: вона має
+        # розуміти, чому помічник раптом відмовив. Скільки лишилось угод,
+        # як і раніше, не показуємо ніде.
+        "ai_left": max(0, ai_cap(row) - ai_used(row)),
+        "ai_cap": ai_cap(row),
+        "ai_reset_at": reset.isoformat() if reset and reset > db.now() else None,
+        "price_plan": (row.get("price_plan") or "std"),
+    }
+
+
+def free_terms(u):
+    """Що дається без підписки — числами.
+
+    Це умови, а не лічильник: тут «дається 20», а не «лишилось 12». Різниця
+    принципова — залишок ми не показуємо ніде, а умови людина має бачити
+    перед тим, як платити.
+
+    І це умови тарифу, а не особиста стеля цієї людини. У рядку вона буває
+    іншою: комусь піднімали руками, у когось лишилась із часів, коли
+    безкоштовних угод було тридцять. Але розділ відповідає на питання «що
+    входить у безкоштовне», і відповідь на нього одна для всіх — інакше
+    старі акаунти читали б у себе обіцянку, якої вже немає.
+
+    Рахує ліміт усе одно стеля з рядка людини (див. can_add_trade), а не
+    ці числа: підняту руками вигоду ніхто не забирає.
+    """
+    row = _user(u)
+    if not row:
+        return {}
+    return {
+        "trades": FREE_TRADES,
+        "bt": FREE_BT,
+        "imports": FREE_IMPORTS,
+        "import_days": IMPORT_WINDOW_DAYS,
+        "ai": FREE_AI,
+    }
+
+
+def public(u):
+    """Те саме, але для браузера й бота.
+
+    Лічильника «лишилось N із 20» немає ніде (рішення власника
+    22.09.2026), тому залишки угод, прогонів і перенесень назовні не
+    віддаємо зовсім — про вичерпання людина дізнається з відмови. Звернення
+    до моделі — виняток: відмова помічника інакше виглядала б поломкою.
+    """
+    out = state(u)
+    for k in ("trades_left", "bt_left", "imports_left", "import_days_left"):
+        out.pop(k, None)
+    out["prices"] = prices(u)
+    out["free"] = free_terms(u)
+    # Чи є куди вести кнопку «керувати підпискою». Номер покупця з'являється
+    # після першої оплати, тому в того, хто ще не платив, кабінету немає.
+    out["portal"] = bool((_user(u) or {}).get("creem_customer"))
+    return out
+
+
+def prices(u=None):
+    """Ціни, які бачить саме ця людина: звичайні або «ранні».
+
+    std_cents — ціна без знижки; на картці вона йде перекресленою, щоб
+    видно було, від чого рахується вигода.
+    """
+    row = _user(u) if u is not None else None
+    # Набір беремо той, що записаний у людини, якщо він нам відомий.
+    # Невідомий (лишився від старого коду чи від руки в базі) — це 'std':
+    # краще показати звичайну ціну, ніж впасти.
+    name = (row or {}).get("price_plan") or "std"
+    if name not in PRICES:
+        name = "std"
+    out = {"currency": CURRENCY, "set": name,
+           "own_cents": (row or {}).get("own_price_cents")}
+    for p in PLANS:
+        out[p] = {"cents": PRICES[name][p], "std_cents": PRICES["std"][p],
+                  "days": PLAN_DAYS[p]}
+    # Введений і ще не оплачений промокод: на картках — ціна першого платежу
+    code = promo_pending(row)
+    if code and name == "std":
+        out["set"] = "promo"
+        out["promo"] = code
+        for p in PLANS:
+            out[p]["cents"] = PRICES[PROMOS[code]["prices"]][p]
+    return out
+
+
+def promo_pending(u):
+    """Код, який людина ввела і по якому ще не платила, або ''."""
+    row = _user(u) if u is not None else None
+    code = (row or {}).get("promo_code") or ""
+    if not code or (row or {}).get("promo_used_at") or code not in PROMOS:
+        return ""
+    return code
+
+
+def promo_paid(uid):
+    """Оплата пройшла — код використано, вдруге не прийметься."""
+    with db.connect() as conn:
+        conn.execute("UPDATE users SET promo_used_at=now() WHERE id=%s "
+                     "AND promo_code IS NOT NULL AND promo_used_at IS NULL", (uid,))
+        conn.commit()
+
+
+# --------------------------------------------------------------- дозволи ----
+
+def can_add_trade(u, kind=""):
+    """(можна, причина). Порожня причина — можна.
+
+    Спершу загальна застава по справжніх угодах: скінчились вони — закрито
+    геть усе, зокрема й бектест. І тільки потім окрема застава на прогони.
+    """
+    row = _user(u)
+    if not row:
+        return False, NO_USER
+    if active(row):
+        return True, ""
+    if _int(row, "free_trades_used") >= _cap(row, "free_trades_cap", FREE_TRADES):
+        return False, TRADES_LIMIT
+    if kind == "bt" and _int(row, "free_bt_used") >= _cap(row, "free_bt_cap", FREE_BT):
+        return False, BT_LIMIT
+    return True, ""
+
+
+def can_import(u):
+    """Перенесення з Notion: три рази і тільки в перші 30 днів."""
+    row = _user(u)
+    if not row:
+        return False, NO_USER
+    if active(row):
+        return True, ""
+    if import_days_left(row) <= 0:
+        return False, IMPORT_WINDOW
+    if _int(row, "imports_used") >= _cap(row, "imports_cap", FREE_IMPORTS):
+        return False, IMPORTS_LIMIT
+    return True, ""
+
+
+def can_autosync(u):
+    """Нічне оновлення з Notion.
+
+    Лічильник перенесень воно не чіпає: це та сама база, яку людина вже
+    підключила руками, і рахувати щодобовий захід як одне з трьох
+    перенесень було б обманом. Правило простіше: або підписка, або ще не
+    минули перші 30 днів.
+    """
+    row = _user(u)
+    if not row:
+        return False, NO_USER
+    if active(row):
+        return True, ""
+    if import_days_left(row) <= 0:
+        return False, IMPORT_WINDOW
+    return True, ""
+
+
+def ai_cap(u):
+    """Скільки звернень до моделі належить людині за вікно.
+
+    Підписка не робить їх безмежними: стеля просто піднімається до PAID_AI.
+    Якщо адмін дав більше руками (ai_cap), беремо його число.
+    """
+    row = _user(u)
+    if not row:
+        return 0
+    own = _cap(row, "ai_cap", FREE_AI)
+    return max(own, PAID_AI) if active(row) else own
+
+
+def ai_used(u):
+    """Скільки витрачено в поточному вікні. Вікно минуло — нуль: лічильник
+    обнуляє перше ж звернення (див. spend_ai), окремого прибирання немає."""
+    row = _user(u)
+    if not row:
+        return 0
+    until = row.get("ai_reset_at")
+    if not until or until <= db.now():
+        return 0
+    return _int(row, "ai_used")
+
+
+def can_use_ai(u):
+    """Помічник, розбір дня, звірка «Моєї ТС», розмова з ботом.
+
+    Розділи журналу ми не закриваємо — платне саме це: кожна відповідь
+    моделі коштує нам грошей. Без підписки на місяць дається FREE_AI
+    звернень, з підпискою — стеля PAID_AI, щоб один акаунт не гнав запити
+    скриптом.
+    """
+    row = _user(u)
+    if not row:
+        return False, NO_USER
+    if ai_used(row) < ai_cap(row):
+        return True, ""
+    return False, (AI_CAP if active(row) else AI_LIMIT)
+
+
+def deny(u, reason):
+    """Тіло відмови. Один формат на сайт і бота, щоб плашка скрізь була та
+    сама: код кажемо ми, текст підставляє той, хто показує."""
+    return {"error": reason, "code": "need_sub", "reason": reason,
+            "state": state(u)}
+
+
+# --------------------------------------------------------------- витрати ----
+
+def _bump(uid, column, n=1):
+    with db.connect() as conn:
+        conn.execute("UPDATE users SET {0}={0}+%s WHERE id=%s".format(column),
+                     (n, uid))
+        conn.commit()
+
+
+def spend_trade(u, kind=""):
+    """Записали угоду — забираємо одиницю з безкоштовного запасу.
+
+    У того, в кого підписка, не рахуємо нічого: інакше людина, яка платила
+    півроку, після закінчення підписки опинилась би одразу за лімітом.
+
+    Для нових місць беріть take_trade: він питає дозвіл і забирає одиницю
+    одним запитом, і його не обійти пачкою одночасних запитів.
+    """
+    row = _user(u)
+    if not row or active(row):
+        return
+    _bump(row["id"], "free_bt_used" if kind == "bt" else "free_trades_used")
+
+
+def take_trade(u, kind=""):
+    """Зайняти безкоштовну угоду: дозвіл і списання одним запитом.
+
+    Навіщо разом. can_add_trade і spend_trade — два походи в базу, а між
+    ними встигає багато: сервер відповідає в 64 потоки, і пачка одночасних
+    запитів проходила перевірку всі разом, поки лічильник ще нульовий.
+    Двадцятка обходилась пачкою на сотню угод — кожен запит бачив те саме
+    «витрачено 0». Тепер межу стереже сама база: умова стоїть у тому ж
+    UPDATE, що й +1, і другий запит уже бачить збільшений лічильник.
+
+    Повертає (можна, причина) — той самий вигляд, що й can_add_trade.
+    """
+    row = _user(u)
+    if not row:
+        return False, NO_USER
+    if active(row):
+        return True, ""
+    col = "free_bt_used" if kind == "bt" else "free_trades_used"
+    # Справжні угоди стережуть і бектест: скінчились вони — закрито все.
+    where = "free_trades_used < free_trades_cap"
+    if kind == "bt":
+        where += " AND free_bt_used < free_bt_cap"
+    with db.connect() as conn:
+        got = conn.execute(
+            "UPDATE users SET {0} = {0} + 1 WHERE id=%s AND {1} "
+            "RETURNING id".format(col, where), (row["id"],)).fetchone()
+        conn.commit()
+    if got:
+        return True, ""
+    # Не зайняли — кажемо, об що саме вперлись. Читаємо наново: рядок під
+    # рукою застарів рівно тієї миті, коли нас обігнав сусідній запит.
+    return False, can_add_trade(row["id"], kind)[1] or TRADES_LIMIT
+
+
+def release_trade(u, kind=""):
+    """Повернути зайняту одиницю: угоду зайняли, а записати не вдалось."""
+    row = _user(u)
+    if not row or active(row):
+        return
+    col = "free_bt_used" if kind == "bt" else "free_trades_used"
+    with db.connect() as conn:
+        conn.execute("UPDATE users SET {0} = {0} - 1 "
+                     "WHERE id=%s AND {0} > 0".format(col), (row["id"],))
+        conn.commit()
+
+
+def spend_import(u):
+    row = _user(u)
+    if not row or active(row):
+        return
+    _bump(row["id"], "imports_used")
+
+
+def take_import(u):
+    """Зайняти перенесення — теж одним запитом, з тієї ж причини, що й
+    угоди: вікно й лічильник перевіряються разом зі списанням."""
+    row = _user(u)
+    if not row:
+        return False, NO_USER
+    if active(row):
+        return True, ""
+    if import_days_left(row) <= 0:
+        return False, IMPORT_WINDOW
+    with db.connect() as conn:
+        got = conn.execute(
+            "UPDATE users SET imports_used = imports_used + 1 "
+            "WHERE id=%s AND imports_used < imports_cap RETURNING id",
+            (row["id"],)).fetchone()
+        conn.commit()
+    return (True, "") if got else (False, IMPORTS_LIMIT)
+
+
+def release_import(u):
+    """Повернути зайняте перенесення: у файлі не виявилось жодної угоди."""
+    row = _user(u)
+    if not row or active(row):
+        return
+    with db.connect() as conn:
+        conn.execute("UPDATE users SET imports_used = imports_used - 1 "
+                     "WHERE id=%s AND imports_used > 0", (row["id"],))
+        conn.commit()
+
+
+def spend_ai(u):
+    """Звернення до моделі. Рахуємо і в тих, хто платить: стеля в них своя,
+    але вона теж стеля.
+
+    Вікно рухаємо тим самим запитом, що й лічильник: перше звернення після
+    ai_reset_at ставить одиницю й відсуває дату на місяць уперед. Двома
+    запитами тут не можна — два питання одночасно з двох вкладок розійшлися
+    б по різних вікнах.
+    """
+    row = _user(u)
+    if not row:
+        return
+    with db.connect() as conn:
+        conn.execute(
+            "UPDATE users SET "
+            " ai_used = CASE WHEN ai_reset_at IS NULL OR ai_reset_at <= now()"
+            "                THEN 1 ELSE ai_used + 1 END,"
+            " ai_reset_at = CASE WHEN ai_reset_at IS NULL OR ai_reset_at <= now()"
+            "                    THEN now() + %s * interval '1 day' ELSE ai_reset_at END"
+            " WHERE id=%s", (AI_WINDOW_DAYS, row["id"]))
+        conn.commit()
+
+
+def take_ai(u):
+    """Зайняти звернення до моделі: дозвіл і списання одним запитом.
+
+    Причина та сама, що в take_trade, але ціна помилки більша: кожне
+    звернення — це гроші за відповідь моделі. Пачкою одночасних питань
+    порція на місяць витрачалась за раз, і платили за це ми.
+
+    Стеля рахується тут, а не в базі: вона залежить від підписки (PAID_AI)
+    і від того, що адмін міг дати руками. Умова в UPDATE звіряє лічильник
+    саме з нею — і з тим самим зсувом вікна, що й spend_ai.
+    """
+    row = _user(u)
+    if not row:
+        return False, NO_USER
+    cap = ai_cap(row)
+    with db.connect() as conn:
+        got = conn.execute(
+            "UPDATE users SET "
+            " ai_used = CASE WHEN ai_reset_at IS NULL OR ai_reset_at <= now()"
+            "                THEN 1 ELSE ai_used + 1 END,"
+            " ai_reset_at = CASE WHEN ai_reset_at IS NULL OR ai_reset_at <= now()"
+            "                    THEN now() + %s * interval '1 day' ELSE ai_reset_at END"
+            " WHERE id=%s AND (ai_reset_at IS NULL OR ai_reset_at <= now()"
+            "                  OR ai_used < %s) RETURNING id",
+            (AI_WINDOW_DAYS, row["id"], cap)).fetchone()
+        conn.commit()
+    if got:
+        return True, ""
+    return False, (AI_CAP if active(row) else AI_LIMIT)
+
+
+# ------------------------------------------------------- підписка руками ----
+
+def grant(uid, days, plan=""):
+    """Дати підписку з адмінки (нею ж продовжуємо після оплати).
+
+    Дні додаються до того, що вже оплачено, а не затирають його: доплата
+    посеред місяця не має з'їдати залишок.
+    """
+    row = db.get_user(uid)
+    if not row:
+        return None
+    base = row.get("paid_until")
+    now = db.now()
+    if not base or base < now:
+        base = now
+    until = base + datetime.timedelta(days=int(days))
+    if plan not in PLANS:
+        plan = _plan_by_days(days)
+    with db.connect() as conn:
+        conn.execute("UPDATE users SET plan=%s, paid_until=%s, special_since=NULL WHERE id=%s",
+                     (plan, until, uid))
+        conn.commit()
+    return state(uid)
+
+
+def grant_life(uid):
+    """Підписка назавжди — з адмінки, без оплати й без дати кінця.
+
+    Дати кінця не ставимо зовсім (paid_until лишається порожнім): будь-яка
+    «дуже далека» дата рано чи пізно стала б брехнею в інтерфейсі — людині
+    показували б «до 01.01.2999». Замість неї сам тариф каже, що строку немає,
+    а active() це знає.
+    """
+    with db.connect() as conn:
+        # дату першої видачі не перебиваємо повторним натисканням
+        conn.execute("UPDATE users SET plan=%s, paid_until=NULL, "
+                     "special_since=COALESCE(special_since, now()) WHERE id=%s",
+                     (LIFE, uid))
+        conn.commit()
+    return state(uid)
+
+
+def _plan_by_days(days):
+    """Яким тарифом підписати, коли дні дали руками. Беремо найближчий
+    знизу: 45 днів — це все ще місячний."""
+    days = int(days)
+    best = "month"
+    for p in PLANS:
+        if days >= PLAN_DAYS[p] and PLAN_DAYS[p] >= PLAN_DAYS[best]:
+            best = p
+    return best
+
+
+def revoke(uid):
+    """Зняти підписку. Оплачені дні при цьому зникають — це кнопка для
+    повернення грошей, а не для «людина відмовилась продовжувати»: відмова
+    від продовження просто не рухає paid_until."""
+    with db.connect() as conn:
+        conn.execute("UPDATE users SET plan='free', paid_until=NULL, special_since=NULL WHERE id=%s",
+                     (uid,))
+        conn.commit()
+    return state(uid)
+
+
+def bonus(uid, trades=0, bt=0, imports=0, ai=0, note=None):
+    """Підняти безкоштовний ліміт саме цій людині (в адмінці).
+
+    Піднімаємо межу, а не зменшуємо витрачене: так видно і скільки людина
+    записала, і скільки їй додали.
+    """
+    sets, vals = [], []
+    for col, n in (("free_trades_cap", trades), ("free_bt_cap", bt),
+                   ("imports_cap", imports), ("ai_cap", ai)):
+        if n:
+            sets.append("{0}={0}+%s".format(col))
+            vals.append(int(n))
+    if note is not None:
+        sets.append("billing_note=%s")
+        vals.append(note)
+    if not sets:
+        return state(uid)
+    with db.connect() as conn:
+        conn.execute("UPDATE users SET %s WHERE id=%%s" % ", ".join(sets),
+                     vals + [uid])
+        conn.commit()
+    return state(uid)
+
+
+def set_price(uid, price_plan=None, own_cents=None, note=None):
+    """Набір цін і разова своя ціна. Ціна в центах, None лишає поле як
+    було, 0 — прибирає її. Набори перелічені в config.PRICES."""
+    sets, vals = [], []
+    if price_plan in PRICES:
+        sets.append("price_plan=%s")
+        vals.append(price_plan)
+    if own_cents is not None:
+        sets.append("own_price_cents=%s")
+        vals.append(int(own_cents) or None)
+    if note is not None:
+        sets.append("billing_note=%s")
+        vals.append(note)
+    if not sets:
+        return state(uid)
+    with db.connect() as conn:
+        conn.execute("UPDATE users SET %s WHERE id=%%s" % ", ".join(sets),
+                     vals + [uid])
+        conn.commit()
+    return state(uid)
+def redeem(uid, code):
+    """Промокод → знижка на перший платіж. Повертає (ok, причина).
+
+    Один раз на людину: код запам'ятовуємо одразу, а використаним він стає
+    тільки після оплати (promo_paid) — закрив касу, не заплативши, знижка
+    лишається за ним. Далі підписка продовжується за звичайною ціною.
+
+    Раннім код ні до чого: їхня ціна й так нижча і назавжди.
+    """
+    key = (code or "").strip().upper()
+    if key not in PROMOS:
+        return False, PROMO_BAD
+    row = _user(uid)
+    if not row:
+        return False, NO_USER
+    have = (row.get("price_plan") or "std")
+    if have in PRICES and have != "std" or row.get("own_price_cents"):
+        return False, PROMO_SAME
+    if row.get("promo_used_at"):
+        return False, PROMO_USED
+    if active(row):
+        return False, PROMO_ACTIVE
+    with db.connect() as conn:
+        conn.execute("UPDATE users SET promo_code=%s WHERE id=%s", (key, row["id"]))
+        conn.commit()
+    return True, ""
+
+
+
+
+def apply_paid(uid, plan, until=None):
+    """Підписку оплачено: ставимо тариф і дату кінця.
+
+    Дату беремо ту, яку назвала платіжка, а не рахуємо самі. Причина
+    проста: списувати вона буде за календарем — «те саме число наступного
+    місяця», — а в нас строк заданий днями. Лютий коротший за березень, і
+    вже за кілька продовжень наша дата поїхала б відносно їхньої, а людина
+    побачила б, що підписка скінчилась за день до списання.
+
+    Якщо дати немає (буває в окремих подіях) — відступаємо до своїх днів.
+    """
+    if plan not in PLANS:
+        plan = "month"
+    if until is None:
+        return grant(uid, PLAN_DAYS[plan], plan)
+    with db.connect() as conn:
+        conn.execute("UPDATE users SET plan=%s, paid_until=%s, special_since=NULL WHERE id=%s",
+                     (plan, until, uid))
+        conn.commit()
+    return state(uid)

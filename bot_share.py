@@ -22,6 +22,8 @@ import tg_api
 from botlang import t
 
 COLLAB = "blackswan"
+# Спільноти, в оформленні яких можна поділитись: id теми → назва на кнопці
+COLLABS = {"blackswan": "Black Swan", "fxlab": "FX LAB"}
 TTL_ORDER = ["1h", "24h", "7d", "30d", "forever"]
 TTL_LABEL = {"1h": "ttl1h", "24h": "ttl24h", "7d": "ttl7d", "30d": "ttl30d", "forever": "ttlForever"}
 
@@ -160,7 +162,7 @@ def share_url(rec, user):
 def make_link(user, trade, ttl_key, skin):
     lang = botlang.of(user)
     ttl_key = ttl_key if ttl_key in share_store.TTL else "7d"
-    data = trade_snapshot(trade, lang, skin if skin == COLLAB else "")
+    data = trade_snapshot(trade, lang, skin if skin in COLLABS else "")
     rec = share_store.create(data, ttl_key, share_store.TTL[ttl_key], user["id"])
     return share_url(rec, user)
 
@@ -184,8 +186,9 @@ def _ttl_kb(lang, tid):
 
 
 def _skin_kb(lang, tid, ttl_key):
-    return [[{"text": t(lang, "shSkinPlain"), "callback_data": "sh:go:%s:%s:plain" % (tid, ttl_key)},
-             {"text": "Black Swan", "callback_data": "sh:go:%s:%s:%s" % (tid, ttl_key, COLLAB)}]]
+    return [[{"text": t(lang, "shSkinPlain"), "callback_data": "sh:go:%s:%s:plain" % (tid, ttl_key)}]
+            + [{"text": name, "callback_data": "sh:go:%s:%s:%s" % (tid, ttl_key, sid)}
+               for sid, name in COLLABS.items()]]
 
 
 def on_callback(cq, user):
@@ -237,6 +240,10 @@ if __name__ == "__main__":
     d = trade_snapshot(tr, "ru", COLLAB)
     assert d["total"] == 4.5 and d["title"] == "GER40 · TP" and d["skin"] == "blackswan"
     assert d["kpis"][1]["v"] == "+4.5%" and d["kpis"][3]["v"] == "0.75%"
+    assert trade_snapshot(tr, "ru", "fxlab")["skin"] == "fxlab"
+    kb = _skin_kb("ru", "t1", "7d")[0]
+    assert [b["callback_data"].split(":")[-1] for b in kb] == ["plain", "blackswan", "fxlab"]
+    assert all(len(b["callback_data"].encode()) <= 64 for b in kb)
     td = d["trades"][0]
     assert td["cls"] == "pos" and td["time"] == "09:30" and td["shots"][0]["file"] == "a.png"
     assert dict((i["k"], i["v"]) for i in td["info"])["Тип входа"] == "Continuation"

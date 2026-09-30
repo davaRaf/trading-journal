@@ -12,7 +12,8 @@ from psycopg.rows import dict_row
 from psycopg.types.json import Jsonb
 
 import tidy
-from config import DATABASE_URL, DB_POOL_MAX
+from config import (DATABASE_URL, DB_POOL_MAX, EARLY_MIGRATION,
+                    FREE_BT, FREE_TRADES, IMPORT_WINDOW_DAYS)
 
 # Текстовые поля сделки. Порядок важен: по нему строятся INSERT/UPDATE.
 TEXT_FIELDS = ["pair", "date", "session", "position", "entry_model", "bias", "setup",
@@ -274,6 +275,161 @@ CREATE TABLE IF NOT EXISTS notion_gone (
   removed_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 CREATE INDEX IF NOT EXISTS notion_gone_user ON notion_gone (user_id);
+
+-- ---------------------------------------------------------------- підписка --
+--
+-- Журнал став платним: безкоштовно людина записує перші 20 справжніх угод і
+-- окремо 20 прогонів бектесту, далі — підписка. Нічого не видаляється:
+-- закриваються тільки нові записи, перенесення з Notion і те, що коштує
+-- грошей за модель (помічник, розбори).
+--
+-- Чому лічильник, а не COUNT(*) по угодах: delete_trade прибирає рядок
+-- фізично. По COUNT людина записала б 20, прибрала всі й записала ще 20 —
+-- і так без кінця. Ці лічильники тільки ростуть.
+--
+-- Ліміти зберігаються в кожного свої (…_cap), щоб адмін міг дати бонус
+-- одній людині, не чіпаючи решту. Самі суми тарифів лежать у config.py:
+-- змінити ціну не означає чіпати схему.
+ALTER TABLE users ADD COLUMN IF NOT EXISTS plan TEXT NOT NULL DEFAULT 'free';
+ALTER TABLE users ADD COLUMN IF NOT EXISTS paid_until TIMESTAMPTZ;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS free_trades_used INTEGER NOT NULL DEFAULT 0;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS free_trades_cap INTEGER NOT NULL DEFAULT 20;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS free_bt_used INTEGER NOT NULL DEFAULT 0;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS free_bt_cap INTEGER NOT NULL DEFAULT 20;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS imports_used INTEGER NOT NULL DEFAULT 0;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS imports_cap INTEGER NOT NULL DEFAULT 3;
+-- Стеля була 30, стала 20 (власники, 29.09.2026). ADD COLUMN IF NOT EXISTS
+-- на вже наявній колонці нічого не робить — DEFAULT у ній лишився б старий,
+-- і кожен новий акаунт знову заводився б з тридцяткою. Тому окремим рядком.
+ALTER TABLE users ALTER COLUMN free_trades_cap SET DEFAULT 20;
+ALTER TABLE users ALTER COLUMN free_bt_cap SET DEFAULT 20;
+-- Набір цін: 'std' — звичайні, 'early' — назавжди дешевші для тих, хто був
+-- у журналі до появи платних підписок. own_price_cents — разова своя ціна
+-- (NULL — рахуємо за набором).
+ALTER TABLE users ADD COLUMN IF NOT EXISTS price_plan TEXT NOT NULL DEFAULT 'std';
+ALTER TABLE users ADD COLUMN IF NOT EXISTS own_price_cents INTEGER;
+-- Доки триває вікно перенесення з Notion. NULL — рахуємо звичайно, 30 днів від
+-- реєстрації. Дата тут потрібна «раннім»: вони зареєструвались місяці тому, і
+-- від created_at вікно в них було б зачинене ще до першого запуску підписок.
+ALTER TABLE users ADD COLUMN IF NOT EXISTS imports_until TIMESTAMPTZ;
+-- Звідки реєструвались: за парою «адреса + відбиток пристрою» ловимо другий
+-- безкоштовний акаунт того самого автора. Сам по собі збіг адреси нічого не
+-- означає (мобільні оператори дають одну адресу тисячам людей) — він лише
+-- лишає позначку в адмінці.
+ALTER TABLE users ADD COLUMN IF NOT EXISTS signup_ip TEXT;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS signup_device TEXT;
+-- Чому саме цій людині дали бонус чи свою ціну: щоб через місяць не
+-- гадати, що це було.
+ALTER TABLE users ADD COLUMN IF NOT EXISTS billing_note TEXT;
+-- коли людині дали Special (довічну): в адмінці видно, кому й відколи
+ALTER TABLE users ADD COLUMN IF NOT EXISTS special_since TIMESTAMPTZ;
+-- промокод: який ввели (лишається й після оплати — видно, хто прийшов від
+-- партнера) і коли по ньому заплатили; після оплати вдруге не приймається
+ALTER TABLE users ADD COLUMN IF NOT EXISTS promo_code TEXT;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS promo_used_at TIMESTAMPTZ;
+-- Пошта, зведена до однієї скриньки (див. email_key): без хвоста після
+-- «+», а в gmail ще й без крапок. За email_norm людина заводила скільки
+-- завгодно безкоштовних журналів на той самий ящик.
+--
+-- Індекс навмисно не унікальний: у базі вже лежать такі пари, заведені до
+-- цієї перевірки, і UNIQUE не дав би застосувати схему. Нових не буде —
+-- реєстрація дивиться сюди перед створенням.
+ALTER TABLE users ADD COLUMN IF NOT EXISTS email_key TEXT NOT NULL DEFAULT '';
+CREATE INDEX IF NOT EXISTS users_email_key ON users (email_key);
+
+-- Звернення до моделі: скільки витрачено у поточному вікні й коли вікно
+-- закінчується. Розділи журналу відкриті всі, а платне — саме це: кожна
+-- відповідь помічника, розбору чи звірки коштує нам грошей.
+--
+-- Вікно рухається саме: перше звернення після ai_reset_at обнуляє
+-- лічильник і відсуває дату ще на місяць. Окремого прибирання за
+-- розкладом не треба — ніхто не ходить по базі вночі, щоб обнулити.
+ALTER TABLE users ADD COLUMN IF NOT EXISTS ai_used INTEGER NOT NULL DEFAULT 0;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS ai_cap INTEGER NOT NULL DEFAULT 15;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS ai_reset_at TIMESTAMPTZ;
+
+-- Номер людини на боці платіжки. Треба рівно для одного: відкрити їй
+-- кабінет Creem, де вона сама скасує продовження чи змінить картку. Перший
+-- платіж його й приносить — до першого платежу кабінету нема чого показувати.
+ALTER TABLE users ADD COLUMN IF NOT EXISTS creem_customer TEXT NOT NULL DEFAULT '';
+
+-- Події платіжки. Ключ — її власний id події: та сама подія приходить
+-- повторно (платіжки шлють вебхук, доки не отримають 200), і другий раз
+-- вона має нічого не змінити.
+CREATE TABLE IF NOT EXISTS payments (
+  id           TEXT PRIMARY KEY,
+  user_id      BIGINT REFERENCES users(id) ON DELETE SET NULL,
+  event        TEXT NOT NULL DEFAULT '',
+  amount_cents INTEGER,
+  currency     TEXT NOT NULL DEFAULT 'EUR',
+  raw          JSONB NOT NULL DEFAULT '{}'::jsonb,
+  created_at   TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS payments_user ON payments (user_id, created_at);
+
+-- Уся історія реєстрацій за адресами, а не тільки остання: users.signup_ip
+-- в людини один, а знати треба всі акаунти, що приходили з цієї адреси.
+CREATE TABLE IF NOT EXISTS signup_ips (
+  id         BIGSERIAL PRIMARY KEY,
+  ip         TEXT NOT NULL DEFAULT '',
+  device     TEXT NOT NULL DEFAULT '',
+  user_id    BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS signup_ips_ip ON signup_ips (ip);
+CREATE INDEX IF NOT EXISTS signup_ips_user ON signup_ips (user_id);
+
+-- Рахунки на оплату криптою. Гроші від усіх приходять на одну нашу
+-- адресу, і в переказі не написано, хто заплатив, — тому кожному рахунку
+-- дається трохи своя сума (11,9943 замість 11,99), і саме останні цифри
+-- працюють номером. Звідси UNIQUE на суму серед тих, що ще чекають:
+-- двох однакових сум одночасно бути не може, інакше оплату зарахували б
+-- не тому.
+--
+-- Суму тримаємо цілим числом найдрібніших часток (у USDT їх мільйон на
+-- монету): у дробових числах «11,99» не завжди дорівнює «11,99».
+CREATE TABLE IF NOT EXISTS crypto_invoices (
+  id         BIGSERIAL PRIMARY KEY,
+  user_id    BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  plan       TEXT NOT NULL,
+  units      BIGINT NOT NULL,
+  status     TEXT NOT NULL DEFAULT 'new',   -- new | paid | expired
+  tx         TEXT NOT NULL DEFAULT '',
+  payer      TEXT NOT NULL DEFAULT '',
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  expires_at TIMESTAMPTZ NOT NULL,
+  paid_at    TIMESTAMPTZ
+);
+CREATE INDEX IF NOT EXISTS crypto_inv_user ON crypto_invoices (user_id, created_at);
+CREATE INDEX IF NOT EXISTS crypto_inv_open ON crypto_invoices (status, expires_at);
+-- Той самий переказ не має закрити два рахунки.
+CREATE UNIQUE INDEX IF NOT EXISTS crypto_inv_tx ON crypto_invoices (tx)
+    WHERE tx <> '';
+-- Дві однакові суми одночасно — заборонені, поки обидві чекають оплати.
+CREATE UNIQUE INDEX IF NOT EXISTS crypto_inv_units ON crypto_invoices (units)
+    WHERE status = 'new';
+
+-- Перекази, які прийшли, але не збіглися з жодним рахунком: людина
+-- округлила суму або заплатила, коли рахунок уже згорів. Гроші в нас,
+-- тому такий переказ не можна просто загубити — він лежить тут і видно
+-- його в адмінці, звідки прив'язується до людини руками.
+CREATE TABLE IF NOT EXISTS crypto_orphans (
+  tx         TEXT PRIMARY KEY,
+  units      BIGINT NOT NULL,
+  payer      TEXT NOT NULL DEFAULT '',
+  at_ms      BIGINT NOT NULL DEFAULT 0,
+  settled_to BIGINT REFERENCES users(id) ON DELETE SET NULL,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+-- Адреси, які адмін дозволив руками: «це інша людина, пропускай». Без
+-- цього списку сімʼя за одним роутером чи двоє з одного офісу не змогли б
+-- завести другий акаунт.
+CREATE TABLE IF NOT EXISTS ip_allow (
+  ip         TEXT PRIMARY KEY,
+  note       TEXT NOT NULL DEFAULT '',
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
 """
 
 
@@ -282,6 +438,73 @@ def init():
         conn.execute(SCHEMA)
         conn.commit()
     _grandfather_emails()
+    _fill_email_keys()
+    _start_limits()
+    _grandfather_early()
+
+
+def _fill_email_keys():
+    """Проставити email_key тим, хто заведений до появи колонки.
+
+    Без вимикача й без позначки: тут не роздається нічого й нічого не
+    втрачається — рядок рахується з пошти, яка вже лежить у базі. Порожні
+    добираємо на кожному запуску, бо так само доводиться чинити рядки,
+    що приїхали в базу руками.
+    """
+    with connect() as conn:
+        rows = conn.execute("SELECT id, email FROM users WHERE email_key=''").fetchall()
+        for r in rows:
+            conn.execute("UPDATE users SET email_key=%s WHERE id=%s",
+                         (email_key(r["email"]), r["id"]))
+        if rows:
+            conn.commit()
+            print("пошта зведена до скриньки: %d рядків" % len(rows), flush=True)
+
+
+# Запуск лімітів одним запитом — щоб перевірка ганяла саме той текст, який
+# піде на бій, а не схожий на нього.
+LIMITS_SQL = """
+UPDATE users SET free_trades_cap = CASE WHEN free_trades_cap = 30 THEN %s
+                                        ELSE free_trades_cap END,
+                 free_bt_cap     = CASE WHEN free_bt_cap = 30 THEN %s
+                                        ELSE free_bt_cap END,
+                 free_trades_used = 0, free_bt_used = 0, imports_used = 0,
+                 ai_used = 0, ai_reset_at = NULL
+"""
+
+
+def _start_limits():
+    """Момент, з якого ліміти починають рахуватись. До нього їх немає.
+
+    Робить дві речі разом, бо це одна подія — викладка:
+
+    Перше — опускає стелю з тридцятки до двадцятки (рішення власників
+    29.09.2026). DEFAULT у схемі стосується тільки нових рядків, а в тих,
+    хто вже заведений, у колонці лежить стара тридцятка, і розділ
+    «Підписка» показував би 30 навіть після правки config. Беремо рівно
+    тридцятку: у кого стеля інша — це бонус від адміна, його не чіпаємо.
+
+    Друге — обнуляє лічильники всім без винятку. Угоди, записані до
+    викладки, в ліміт не йдуть: люди писали їх, коли ліміту не було, і
+    відлік для всіх починається з нуля з цієї хвилини. Саме «всім», а не
+    тільки набору 'std', — інакше той, кого вже перевели на ранні ціни чи
+    промокод, стартував би з витраченим.
+
+    Записане не зникає: закриваються тільки нові записи, весь журнал
+    лишається на місці й видно в аналітиці.
+
+    За вимикачем EARLY_MIGRATION — тим самим, що й знижка «раннім», бо це
+    одна й та сама викладка, і двома вимикачами один з них забули б.
+    Робоча копія ходить у бойову базу, тож без вимикача ліміт живим людям
+    запустив би місцевий прогін, а не викладка. Позначка в meta не дасть
+    спрацювати вдруге — відлік не перезапуститься на наступному рестарті.
+    """
+    if not EARLY_MIGRATION or meta_get("limits_started"):
+        return
+    with connect() as conn:
+        conn.execute(LIMITS_SQL, (FREE_TRADES, FREE_BT))
+        conn.commit()
+    meta_set("limits_started", now().isoformat())
 
 
 def _grandfather_emails():
@@ -297,6 +520,43 @@ def _grandfather_emails():
                      "WHERE email_confirmed_at IS NULL")
         conn.commit()
     meta_set("emails_grandfathered", "1")
+
+
+# Сама міграція «ранніх» одним запитом — щоб перевірка ганяла саме той
+# текст, який піде на бій, а не схожий на нього.
+EARLY_SQL = """
+UPDATE users SET price_plan='early',
+       imports_until=now() + (%s || ' days')::interval
+ WHERE price_plan='std'
+"""
+
+
+def _grandfather_early():
+    """Хто був у журналі до платних підписок — той «ранній»: знижка назавжди.
+
+    Спрацьовує рівно один раз (позначка в meta), інакше кожен перезапуск
+    роздавав би знижку й тим, хто прийшов уже на платне.
+
+    Не при першому запуску, а за вимикачем EARLY_MIGRATION: робоча копія
+    ходить у ту саму базу, що й бій, і без вимикача знижку роздав би
+    місцевий прогін — за дні до самої викладки.
+
+    Лічильники тут не чіпаємо: їх обнуляє _start_limits(), і не цим людям,
+    а всім одразу — відлік ліміту починається з викладки для кожного.
+    Вікно перенесення з Notion відкриваємо наново: від created_at воно в
+    «ранніх» давно минуло.
+
+    Оплачене не чіпаємо: plan і paid_until лишаються як є. Партнерський
+    набір теж: WHERE price_plan='std' обходить тих, кого перевів промокод
+    FX LAB, — ціна в них та сама, а от в обліку партнера вони мусять
+    лишитись своїми.
+    """
+    if not EARLY_MIGRATION or meta_get("early_marked"):
+        return
+    with connect() as conn:
+        conn.execute(EARLY_SQL, (IMPORT_WINDOW_DAYS,))
+        conn.commit()
+    meta_set("early_marked", now().isoformat())
 
 
 # ----------------------------------------------------------------- meta ----
@@ -317,12 +577,56 @@ def meta_set(key, value):
 
 # ------------------------------------------------------------ пользователи ----
 
+# Поштові служби, де крапки в імені скриньки нічого не означають: у них
+# «i.van@» і «ivan@» — той самий ящик.
+DOTLESS_MAIL = ("gmail.com", "googlemail.com")
+
+
+def email_key(email):
+    """Пошта, зведена до однієї скриньки.
+
+    email_norm — це просто нижній регістр, і для входу цього досить. Але
+    для «один безкоштовний журнал на людину» цього мало: «ivan+1@gmail»,
+    «ivan+2@gmail» і «i.v.a.n@gmail» — три різні рядки й один живий ящик.
+    Двадцятка множилась на стільки, скільки людині не ліньки придумати
+    хвостиків.
+
+    Що робимо: хвіст після «+» відкидаємо скрізь (так домовились усі
+    великі служби), крапки прибираємо тільки там, де вони справді нічого
+    не значать — інакше зіпсуємо чужі адреси, де крапка є частиною імені.
+    """
+    e = (email or "").strip().lower()
+    if "@" not in e:
+        return e
+    box, dom = e.rsplit("@", 1)
+    box = box.split("+", 1)[0]
+    if dom in DOTLESS_MAIL:
+        box = box.replace(".", "")
+    return (box + "@" + dom) if box else e
+
+
+def user_by_email_key(email):
+    """Чи є вже журнал на цю саму скриньку — з будь-якими хвостиками.
+
+    Дивимось у email_key, а не в email_norm: саме тут ловиться той, хто
+    заводить другий безкоштовний акаунт на ту саму пошту.
+    """
+    key = email_key(email)
+    if not key:
+        return None
+    with connect() as conn:
+        return conn.execute(
+            "SELECT * FROM users WHERE email_key=%s LIMIT 1", (key,)).fetchone()
+
+
 def create_user(email, nickname, pw_hash, pw_salt, pw_iters):
     with connect() as conn:
         row = conn.execute(
-            "INSERT INTO users (email, nickname, email_norm, pw_hash, pw_salt, pw_iters) "
-            "VALUES (%s, %s, %s, %s, %s, %s) RETURNING *",
-            (email, nickname, email.strip().lower(), pw_hash, pw_salt, pw_iters)).fetchone()
+            "INSERT INTO users (email, nickname, email_norm, email_key, "
+            "pw_hash, pw_salt, pw_iters) "
+            "VALUES (%s, %s, %s, %s, %s, %s, %s) RETURNING *",
+            (email, nickname, email.strip().lower(), email_key(email),
+             pw_hash, pw_salt, pw_iters)).fetchone()
         conn.commit()
     return row
 
@@ -1201,5 +1505,45 @@ def record_notified(user_id, event_key, kind):
         cur = conn.execute(
             "INSERT INTO notified_events (user_id, event_key, kind) VALUES (%s, %s, %s) "
             "ON CONFLICT DO NOTHING", (user_id, event_key, kind))
+        conn.commit()
+    return cur.rowcount > 0
+
+
+def payment_once(event_id, user_id, event, amount_cents=None,
+                 currency="EUR", raw=None):
+    """Записати подію від платіжки. Повертає False, якщо таку вже бачили.
+
+    Платіжки доставляють повідомлення «хоча б один раз»: мережа моргнула,
+    ми не встигли відповісти — і те саме прилетить ще раз. Без цього
+    заслону повторна доставка продовжила б підписку двічі за одні гроші.
+
+    Ключ — id самої події, а не оплати: на одну оплату подій кілька.
+    """
+    import json as _json
+    with connect() as conn:
+        row = conn.execute(
+            "INSERT INTO payments (id, user_id, event, amount_cents, currency, raw) "
+            "VALUES (%s,%s,%s,%s,%s,%s) ON CONFLICT (id) DO NOTHING RETURNING id",
+            (str(event_id), user_id, event or "", amount_cents, currency or "EUR",
+             _json.dumps(raw or {}))).fetchone()
+        conn.commit()
+    return bool(row)
+
+
+def set_creem_customer(user_id, customer_id):
+    """Запам'ятати номер людини на боці платіжки.
+
+    Пишемо тільки якщо номер новий: той самий приходить з кожною подією, і
+    зайвий UPDATE на кожне продовження ні до чого. Порожній номер не
+    затирає збережений — подія могла прийти без нього.
+    """
+    cid = str(customer_id or "").strip()[:128]
+    if not user_id or not cid:
+        return False
+    with connect() as conn:
+        cur = conn.execute(
+            "UPDATE users SET creem_customer=%s "
+            "WHERE id=%s AND creem_customer IS DISTINCT FROM %s",
+            (cid, user_id, cid))
         conn.commit()
     return cur.rowcount > 0

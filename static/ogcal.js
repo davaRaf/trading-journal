@@ -39,12 +39,77 @@ const SWAN = {
   up: "#0b7a42", down: "#c42b1c", be: "#0066ff",
   upBg: "rgba(11,122,66,.12)", downBg: "rgba(196,43,28,.10)", beBg: "rgba(0,102,255,.10)",
   mark: "#40e094",              /* наш знак лишається зеленим і тут */
+  partner: "blackswan",
+};
+/* FX LAB · «Лабораторія»: темна, як їхня заставка. Під вмістом — їхнє
+   фото лабораторії під темним склом і міліметрівка (див. labBg). */
+const LAB = {
+  /* Клітинки календаря й картки — щільні, без прозорості: крізь напівпрозорі
+     проступало фото, і календар губився на тлі. */
+  bg: "#04070D", panel: "#0B1526", line: "rgba(120,175,255,.18)",
+  soft: "rgba(120,175,255,.12)",
+  text: "#E4EDF9", dim: "#93A7C3", faint: "#6A80A3",
+  up: "#3DDC97", down: "#FF6B7A", be: "#A8BEDF",
+  upBg: "#16413F", downBg: "#3C2637", beBg: "#243044",
+  mark: "#40e094",
+  partner: "fxlab",
 };
 let C = DARK;
 
+/* Файли вантажимо одразу: малювання синхронне, до першого знімка вони
+   вже в пам'яті. Не встигли — картинка просто без них. */
+const LAB_IMG = new Image(); LAB_IMG.src = "/static/fxlab-lab.jpg?v=1";
+const FX_IMG  = new Image(); FX_IMG.src  = "/static/fxlab.png?v=1";
+const ready = im => im.complete && im.naturalWidth;
+
+/* Тло «Лабораторії». Фото лягає по ширині у верхню частину й тане донизу:
+   картинка дня буває в кілька екранів заввишки, і розтягнуте на всю
+   висоту фото перетворилось би на розмиту пляму. Далі — затемнення, щоб
+   цифри читались, синє світло зверху й міліметрівка на всю висоту. */
+function labBg(ctx, w, h){
+  ctx.fillStyle = LAB.bg; ctx.fillRect(0, 0, w, h);
+  const ph = Math.min(h, w * 0.62);
+  if (ready(LAB_IMG)){
+    const k = Math.max(w / LAB_IMG.naturalWidth, ph / LAB_IMG.naturalHeight);
+    const iw = LAB_IMG.naturalWidth * k, ih = LAB_IMG.naturalHeight * k;
+    ctx.save(); ctx.globalAlpha = .4;
+    ctx.drawImage(LAB_IMG, (w - iw) / 2, (ph - ih) / 2, iw, ih); ctx.restore();
+  }
+  let g = ctx.createLinearGradient(0, 0, 0, ph);
+  g.addColorStop(0, "rgba(4,7,13,.55)"); g.addColorStop(.5, "rgba(4,7,13,.78)"); g.addColorStop(1, "rgba(4,7,13,1)");
+  ctx.fillStyle = g; ctx.fillRect(0, 0, w, ph + 1);
+  const rw = Math.min(w, h) * 0.9;
+  g = ctx.createRadialGradient(w * .85, -rw * .15, 0, w * .85, -rw * .15, rw);
+  g.addColorStop(0, "rgba(40,120,255,.28)"); g.addColorStop(1, "rgba(40,120,255,0)");
+  ctx.fillStyle = g; ctx.fillRect(0, 0, w, h);
+  ctx.strokeStyle = "rgba(120,175,255,.05)"; ctx.lineWidth = 1;
+  ctx.beginPath();
+  for (let x = 0; x < w; x += 24){ ctx.moveTo(x + .5, 0); ctx.lineTo(x + .5, h); }
+  for (let y = 0; y < h; y += 24){ ctx.moveTo(0, y + .5); ctx.lineTo(w, y + .5); }
+  ctx.stroke();
+}
+
+/* Кути-видошукач по краях — ті самі, що обрамляють їхній знак. */
+function labCorners(ctx, w, h){
+  ctx.save(); ctx.strokeStyle = "#7FC4FF"; ctx.lineWidth = 4;
+  ctx.shadowColor = "rgba(79,155,255,.8)"; ctx.shadowBlur = 10;
+  const s = 34, m = 26;
+  ctx.beginPath(); ctx.moveTo(m, m + s); ctx.lineTo(m, m); ctx.lineTo(m + s, m); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(w - m - s, h - m); ctx.lineTo(w - m, h - m); ctx.lineTo(w - m, h - m - s); ctx.stroke();
+  ctx.restore();
+}
+
+function paintBg(ctx){
+  if (C.partner === "fxlab") labBg(ctx, W, H);
+  else { ctx.fillStyle = C.bg; ctx.fillRect(0, 0, W, H); }
+}
+
 /* Оформлення їде в самому знімку — те саме поле, що читає сторінка
    за посиланням. */
-function pick(data){ C = (data && data.skin === "blackswan") ? SWAN : DARK; }
+function pick(data){
+  const s = data && data.skin;
+  C = s === "blackswan" ? SWAN : s === "fxlab" ? LAB : DARK;
+}
 const SANS = '"Geist","Segoe UI",system-ui,sans-serif';
 const MONO = '"Archivo","Geist",system-ui,sans-serif';
 
@@ -89,6 +154,13 @@ function drawMark(ctx, x, y, size){
 const SWAN_IMG = new Image();
 SWAN_IMG.src = "/static/swan.png?v=1";
 function drawSwan(ctx, x, y, size){
+  /* знак тієї спільноти, у чиїх кольорах малюємо */
+  if (C.partner === "fxlab"){
+    if (!ready(FX_IMG)) return 0;
+    const w = size * FX_IMG.naturalWidth / FX_IMG.naturalHeight;
+    ctx.drawImage(FX_IMG, x, y, w, size);
+    return w;
+  }
   if (!SWAN_IMG.complete || !SWAN_IMG.naturalWidth) return 0;
   const w = size * SWAN_IMG.naturalWidth / SWAN_IMG.naturalHeight;
   ctx.drawImage(SWAN_IMG, x, y, w, size);
@@ -187,6 +259,8 @@ function author(ctx, a, x, y, col){
    Розмір рахуємо від ширини, а розкидаємо по висоті: картинка дня буває
    в кілька екранів заввишки, і прив'язка до висоти роздула б знак. */
 function watermark(ctx, w, h, col){
+  /* у «Лабораторії» тло вже несе їхнє фото — знаки поверх були б зайві */
+  if ((col || C).partner === "fxlab") return;
   const keep = C;
   C = col || C;
   const size = w * 0.54;
@@ -210,7 +284,7 @@ function header(ctx, kindFull, title, total){
   /* В оформленні спільноти знаки більші, і поруч із ними стоїть наша
      назва — а вже за нею «×» і їхній лебідь. Так видно, чий це журнал
      і з ким колаборація. */
-  const swan = C === SWAN;
+  const swan = !!C.partner;
   const size = swan ? 46 : 34;
 
   brand(ctx, 64, swan ? 36 : 40, size, C, swan);
@@ -412,7 +486,7 @@ function system(data){
   const cv = document.createElement("canvas");
   cv.width = W; cv.height = H;
   const ctx = cv.getContext("2d");
-  ctx.fillStyle = C.bg; ctx.fillRect(0, 0, W, H);
+  paintBg(ctx);
   candles(ctx, 640, 300, 520, 250);
 
   header(ctx, data.kindFull || data.kind, data.title, null);
@@ -447,6 +521,7 @@ function system(data){
   kpiRow(ctx, data.kpis, H - 58);
   author(ctx, data.author, W - 64, H - 34);
 
+  if (C.partner === "fxlab") labCorners(ctx, W, H);
   return cv.toDataURL("image/png");
 }
 
@@ -515,7 +590,7 @@ function day(data){
   const cv = document.createElement("canvas");
   cv.width = W; cv.height = H;
   const ctx = cv.getContext("2d");
-  ctx.fillStyle = C.bg; ctx.fillRect(0, 0, W, H);
+  paintBg(ctx);
 
   header(ctx, data.kindFull || data.kind, data.title, data.total);
   ctx.strokeStyle = C.line; ctx.lineWidth = 1;
@@ -587,6 +662,7 @@ function day(data){
   kpiRow(ctx, data.kpis, H - 58);
   author(ctx, data.author, W - 64, H - 34);
 
+  if (C.partner === "fxlab") labCorners(ctx, W, H);
   return cv.toDataURL("image/png");
 }
 
@@ -624,7 +700,7 @@ function period(data){
   const cv = document.createElement("canvas");
   cv.width = W; cv.height = H;
   const ctx = cv.getContext("2d");
-  ctx.fillStyle = C.bg; ctx.fillRect(0, 0, W, H);
+  paintBg(ctx);
 
   header(ctx, data.kindFull || data.kind, data.title, data.total);
   ctx.strokeStyle = C.line; ctx.lineWidth = 1;
@@ -643,6 +719,7 @@ function period(data){
   kpiRow(ctx, data.kpis, H - 58);
   author(ctx, data.author, W - 64, H - 34);
 
+  if (C.partner === "fxlab") labCorners(ctx, W, H);
   return cv.toDataURL("image/png");
 }
 
@@ -671,6 +748,6 @@ function rvMonth(data){
   return cv.toDataURL("image/png");
 }
 
-window.OgCal = {period, system, day, rvMonth, reviewShot, brand, watermark, author, prepAuthor};
+window.OgCal = {period, system, day, rvMonth, reviewShot, brand, watermark, author, prepAuthor, labBg, labCorners};
 
 })();

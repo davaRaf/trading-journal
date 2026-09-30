@@ -632,7 +632,7 @@ def dashboard(query, titles, kind_ru, refs=()):
 
 # -------------------------------------------------- картка людини ----
 
-def user_card(u, titles, kind_ru, refs):
+def user_card(u, titles, kind_ru, refs, billing_html=""):
     _inits()
     today = _today()
     uid = u["id"]
@@ -748,6 +748,7 @@ def user_card(u, titles, kind_ru, refs):
         + kv("Последняя", datetime.datetime.fromtimestamp(sh["last"]).strftime("%d.%m.%Y") if sh.get("last") else "—")
         + "".join(kv("· " + kind_ru.get(r["kind"], r["kind"]), "%d · %d перех." % (r["n"], r["views"])) for r in kinds)
         + "</div></div></div>"
+        + billing_html
         + '<div class="card danger" style="margin-top:12px"><h2>Опасная зона</h2>'
           '<p class=mute style="margin:0 0 10px;font-size:13px">Удаляет аккаунт и всё, что в нём: сделки, ТС, анализ дня, '
           'настройки, ссылки и скриншоты. Отменить нельзя. Чтобы подтвердить, впишите ник точно так: <b style="color:var(--text)">'

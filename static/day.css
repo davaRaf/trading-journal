@@ -187,7 +187,7 @@ textarea.dv-in{resize:none; overflow:hidden}
   display:flex; align-items:center; justify-content:center; font-size:10px; color:var(--faint);
   font-family:var(--mono)}
 .dv-wait li b{color:var(--text); font-weight:600}
-.dv-wait .go{width:100%; border:0; border-radius:var(--r-sm); font:inherit; font-size:14.5px;
+.dv-wait .go{opacity:1; width:100%; border:0; border-radius:var(--r-sm); font:inherit; font-size:14.5px;
   font-weight:600; padding:13px 18px; cursor:pointer; background:var(--accent);
   color:var(--accent-ink,#fff)}
 .dv-wait .go:hover{filter:brightness(1.08)}
@@ -399,12 +399,13 @@ button.dv-tfc:hover{border-color:var(--faint); color:var(--text)}
   color:var(--accent-ink,#fff); font:inherit; font-size:13px; font-weight:500; cursor:pointer}
 
 /* ---------- спільне на день і кнопка закриття ---------- */
-.dv-common{margin-top:14px; padding:20px 24px; background:var(--card); border:1px solid var(--line);
-  border-radius:var(--r); box-shadow:var(--shadow)}
-.dv-closebar{margin-top:14px; display:flex; align-items:center; gap:16px; padding:16px 20px;
+/* У смузі лишилась сама кнопка — стоїть праворуч, як і стояла. */
+.dv-closebar{margin-top:14px; display:flex; align-items:center; justify-content:flex-end;
+  gap:16px; padding:16px 20px;
   background:var(--card); border:1px solid var(--line); border-radius:var(--r); box-shadow:var(--shadow)}
-.dv-closebar .t{flex:1; font-size:13px; color:var(--dim); line-height:1.5}
-.dv-closebar .go{border:0; border-radius:var(--r-sm); font:inherit; font-size:14px; font-weight:600;
+/* opacity прописана навмисно: у style.css є свій .go — стрілка в таблиці,
+   яка лежить прозорою до наведення. Без цього рядка кнопка не видна. */
+.dv-closebar .go{opacity:1; border:0; border-radius:var(--r-sm); font:inherit; font-size:14px; font-weight:600;
   padding:11px 18px; cursor:pointer; background:var(--accent); color:var(--accent-ink,#fff); white-space:nowrap}
 .dv-closebar .go:hover{filter:brightness(1.08)}
 .dv-closebar .go[disabled]{background:var(--panel-2); color:var(--faint); cursor:default; filter:none}

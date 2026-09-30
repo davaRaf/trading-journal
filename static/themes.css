@@ -147,6 +147,81 @@
 :root[data-skin="blackswan"] .side .lab,
 :root[data-skin="blackswan"] .nt-sub{color:var(--dim)}
 
+/* Колаборація зі спільнотою FX LAB — «Лабораторія».
+
+   З їхньої заставки: нічна лабораторія, синє світло моніторів, скло
+   колб. Тло — міліметрівка, картки — напівпрозоре скло, цифри —
+   моноширинним, як показання приладів. Їхній кобальт #004BBB лишається
+   на кнопках і на картці підсумку; для тексту на темному він піднятий
+   до #4F9BFF, бо сам кобальт на чорному не читається. */
+:root[data-skin="fxlab"]{
+  /* Підкладка щільна: на ній стоять меню, вікна й перемикачі, і крізь
+     прозору вони просвічували. Скло — лише в карток (--card нижче). */
+  --bg:#04070D; --panel:#0A1425; --panel-2:#0C1627;
+  --line:rgba(120,175,255,.15); --line-soft:rgba(120,175,255,.09);
+  --text:#E4EDF9; --dim:#93A7C3; --faint:#62779A;
+  --accent:#4F9BFF; --accent-ink:#F2F7FF;
+  --up:#3DDC97; --down:#FF6B7A; --be:#A8BEDF;
+  /* лише легкий ореол навколо цифр: сильніший розпливався й заважав читати */
+  --up-glow:rgba(61,220,151,.16); --down-glow:rgba(255,107,122,.14); --be-glow:rgba(168,190,223,.1);
+  /* Усе, що виїжджає й спливає (панель угоди, шторки, меню, вікна), бере
+     --card — тому він щільний. Скло — окремий колір і лише для карток на
+     самих сторінках, див. правило нижче. */
+  --card:#0A1425; --card-lip:inset 0 1px 0 rgba(180,215,255,.07);
+  --glass:rgba(10,20,37,.72);
+  --side-bg:#050A13; --shell-bg:rgba(8,15,28,.6);
+  --seg-bg:#0A1425; --seg-on-bg:rgba(79,155,255,.16); --seg-on-line:rgba(120,180,255,.35);
+  --day-off-bg:rgba(10,18,32,.35); --day-off-ink:#2E3D55; --day-off-ink-2:#26344A;
+  --ghost:#4E6180; --ghost-2:#3C4D68;
+  --mark-bg:rgba(79,155,255,.08); --mark-line:rgba(120,175,255,.22);
+  --side-line:rgba(120,175,255,.1);
+  --ov-eq-line:#4F9BFF; --ov-eq-fill:rgba(79,155,255,.16); --ov-grid:rgba(120,175,255,.07);
+  --bar-track:rgba(120,175,255,.08);
+  --bar-fill:linear-gradient(90deg,#4F9BFF,rgba(79,155,255,.25));
+  --shadow:0 30px 80px -30px rgba(0,0,0,.7);
+  /* міліметрівка + світло моніторів зверху справа */
+  --grid-line:rgba(120,175,255,.055); --grid-step:24px;
+  --glow:radial-gradient(55% 45% at 82% -8%,rgba(40,120,255,.22),transparent 70%),
+         radial-gradient(40% 40% at 10% 105%,rgba(0,75,187,.16),transparent 70%);
+  --mono:"Geist Mono","Cascadia Mono",Consolas,monospace;
+  --fx-cobalt:linear-gradient(180deg,#0A5BD6,#004BBB);
+  --fx-brk:#7FC4FF;
+}
+
+/* Скло: картки на сторінках просвічують міліметрівку. Усередині панелей,
+   що виїжджають, карток не чіпаємо — там під ними щільне дно. */
+:root[data-skin="fxlab"] .main .core,
+:root[data-skin="fxlab"] .main .card,
+:root[data-skin="fxlab"] .ovw .rail .inner{background:var(--glass);
+  backdrop-filter:blur(10px); -webkit-backdrop-filter:blur(10px);
+  box-shadow:inset 0 1px 0 rgba(180,215,255,.07), var(--shadow)}
+
+/* Кнопки з акцентним тлом — у їхньому кобальті зі світінням: на світло-
+   синьому білий текст губився. */
+:root[data-skin="fxlab"] .newtrade,
+:root[data-skin="fxlab"] .addday,
+:root[data-skin="fxlab"] .btn.primary,
+:root[data-skin="fxlab"] .mtop .mnew{background:var(--fx-cobalt); color:#F2F7FF;
+  box-shadow:0 0 0 1px rgba(120,180,255,.35), 0 10px 28px -12px rgba(40,130,255,.75)}
+/* лише м'яка підсвітка; смужку активного розділу малює сам журнал (синя,
+   біля краю) — своєї другої, світлої, не додаємо */
+:root[data-skin="fxlab"] .nav a.on{background:linear-gradient(90deg,rgba(79,155,255,.18),rgba(79,155,255,.03));
+  box-shadow:none}
+
+/* Картка підсумку періоду на «Огляді»: кобальтове скло й гострі кути-
+   видошукач — ті самі, що обрамляють їхній знак. */
+:root[data-skin="fxlab"] .ovw .flow > .shell:has(.sum){position:relative; overflow:visible}
+:root[data-skin="fxlab"] .ovw .flow > .shell:has(.sum) > .core{
+  background:linear-gradient(160deg,rgba(0,75,187,.5),rgba(8,20,42,.78) 62%);
+  border-color:rgba(120,180,255,.35);
+  box-shadow:inset 0 1px 0 rgba(180,215,255,.16), 0 0 44px -12px rgba(40,130,255,.55)}
+:root[data-skin="fxlab"] .ovw .flow > .shell:has(.sum)::before,
+:root[data-skin="fxlab"] .ovw .flow > .shell:has(.sum)::after{content:""; position:absolute;
+  width:22px; height:22px; border:2.5px solid var(--fx-brk); pointer-events:none;
+  filter:drop-shadow(0 0 6px rgba(79,155,255,.7))}
+:root[data-skin="fxlab"] .ovw .flow > .shell:has(.sum)::before{left:0; top:0; border-right:0; border-bottom:0}
+:root[data-skin="fxlab"] .ovw .flow > .shell:has(.sum)::after{right:0; bottom:0; border-left:0; border-top:0}
+
 /* ============================ своя ============================ */
 /* Людина обирає два кольори — тло й акцент. Решту виводимо:
    підкладки трохи світліші (або темніші) за тло, лінії — з тексту. */
@@ -219,6 +294,6 @@
 
 /* BE+ фіолетовим у всіх темах: світліший на темних, глибший на світлих */
 :root[data-skin="night"],:root[data-skin="graphite"],:root[data-skin="midnight"],
-:root[data-skin="wine"],:root[data-skin="pine"]{--beplus:#b48cff}
+:root[data-skin="wine"],:root[data-skin="pine"],:root[data-skin="fxlab"]{--beplus:#b48cff}
 :root[data-skin="day"],:root[data-skin="paper"],:root[data-skin="fog"],
 :root[data-skin="sand"],:root[data-skin="blackswan"]{--beplus:#7c4dff}

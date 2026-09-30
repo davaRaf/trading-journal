@@ -489,12 +489,6 @@ function plansRead(a){
   return h ? '<div class="dv-sc">' + h + "</div>" : '<div class="hint">—</div>';
 }
 
-function skipEd(){
-  const d = D();
-  return ed("skip", d.phSkip, true)
-    + '<div class="dv-auto"><b>' + esc(d.autoTag) + "</b>" + esc(d.newsAuto) + "</div>";
-}
-
 function dayTrades(){
   /* у дати угоди може стояти й час — порівнюємо лише день */
   return (S.trades || []).filter(t => String(t.date || "").slice(0, 10) === DATE && !t.hidden);
@@ -736,10 +730,7 @@ function vOpen(){
     +     (popOpen ? assetPop() : "")
     +   "</div>"
     + "</div>"
-    + '<div class="dv-common">' + pt("05", d.p5)
-    +   skipEd() + "</div>"
     + '<div class="dv-closebar">'
-    +   '<div class="t">' + esc(ok ? d.closeNote : d.closeNoteOff) + "</div>"
     +   '<button class="go" onclick="__dv.close()"' + (ok ? "" : " disabled") + ">"
     +     esc(ok ? d.closeDay : d.writePlanFirst) + "</button>"
     + "</div>"
@@ -815,8 +806,6 @@ function vClosed(){
         : "")
     + "</div>"
     + '<div style="height:14px"></div>' + summary()
-    + '<div class="dv-common" style="margin-top:14px">' + pt("05", d.p5)
-    +   ed("skip", d.phSkip, true) + "</div>"
     + '<p class="dv-hint" style="margin-top:14px">'
     +   '<button class="dv-add" onclick="__dv.reopen()">' + esc(d.reopen) + "</button></p>"
     + strip();
@@ -1155,7 +1144,6 @@ uk: {
   p2: "Куди дивишся",
   p3: "Рівні, які відмітив",
   p4: "Що плануєш робити",
-  p5: "Чого не робити",
 
   q1: "Той самий графік увечері",
   q2: "Куди ринок пішов",
@@ -1167,7 +1155,6 @@ uk: {
   phPrice: "ціна", phWhat: "що це", phWhy2: "навіщо він мені",
   phPlanA: "Якщо ринок зробить … — я зроблю …",
   phPlanB: "А якщо піде інакше — тоді …",
-  phSkip: "Кожне правило з нового рядка. Наприклад: до 11:00 входу немає — виходжу з-за графіка",
   phFact: "Що ринок зробив насправді",
   phDid: "що з ним сталось",
   phLesson: "Один рядок собі на завтра",
@@ -1179,7 +1166,7 @@ uk: {
   shotTouchEmpty: "У буфері нема картинки. Два тапи — обрати файл.",
   shotLimit: "Не більше 20 скрінів", shotDup: "Цей скрін уже є",
 
-  autoTag: "саме", newsAuto: "Новини на сьогодні беруться з розділу «Новини»",
+  autoTag: "саме",
   tradesAuto: "Угоди підтягуються з журналу за назвою інструмента — тут їх не набирають",
   noTrades: "За цей день угод по цьому активу немає",
   byPlan: "за планом", offPlan: "поза планом", markIt: "позначити",
@@ -1193,8 +1180,6 @@ uk: {
 
   closeDay: "Записати підсумок дня", writePlanFirst: "Спершу запиши план",
   needMorning: "Спершу заповни ранковий аналіз: додай актив і запиши план — напрям, рівень чи скрін. Тоді можна перейти до вечора.",
-  closeNote: "Коли день скінчився — натисни: ліворуч лишиться план, праворуч зʼявиться місце під факт по кожному активу.",
-  closeNoteOff: "Кнопка ввімкнеться, коли в якомусь активі зʼявиться план: напрям, рівень чи скрін.",
   reopen: "← повернутись до плану",
 
   stPlayed: "Сценарій зіграв", stPlayedNote: "днів за останній місяць",
@@ -1228,7 +1213,6 @@ ru: {
   p2: "Куда смотришь",
   p3: "Уровни, которые отметил",
   p4: "Что планируешь делать",
-  p5: "Чего не делать",
 
   q1: "Тот же график вечером",
   q2: "Куда рынок пошёл",
@@ -1240,7 +1224,6 @@ ru: {
   phPrice: "цена", phWhat: "что это", phWhy2: "зачем он мне",
   phPlanA: "Если рынок сделает … — я сделаю …",
   phPlanB: "А если пойдёт иначе — тогда …",
-  phSkip: "Каждое правило с новой строки. Например: до 11:00 входа нет — выхожу из-за графика",
   phFact: "Что рынок сделал на самом деле",
   phDid: "что с ним стало",
   phLesson: "Одна строка себе на завтра",
@@ -1252,7 +1235,7 @@ ru: {
   shotTouchEmpty: "В буфере нет картинки. Два тапа — выбрать файл.",
   shotLimit: "Не больше 20 скринов", shotDup: "Этот скрин уже есть",
 
-  autoTag: "само", newsAuto: "Новости на сегодня берутся из раздела «Новости»",
+  autoTag: "само",
   tradesAuto: "Сделки подтягиваются из журнала по названию инструмента — тут их не набирают",
   noTrades: "За этот день сделок по этому активу нет",
   byPlan: "по плану", offPlan: "вне плана", markIt: "отметить",
@@ -1266,8 +1249,6 @@ ru: {
 
   closeDay: "Записать итог дня", writePlanFirst: "Сначала запиши план",
   needMorning: "Сначала заполни утренний анализ: добавь актив и запиши план — направление, уровень или скрин. Потом можно перейти к вечеру.",
-  closeNote: "Когда день закончился — нажми: слева останется план, справа появится место под факт по каждому активу.",
-  closeNoteOff: "Кнопка включится, когда в каком-то активе появится план: направление, уровень или скрин.",
   reopen: "← вернуться к плану",
 
   stPlayed: "Сценарий сыграл", stPlayedNote: "дней за последний месяц",
@@ -1301,7 +1282,6 @@ en: {
   p2: "Which way you look",
   p3: "Levels you marked",
   p4: "What you plan to do",
-  p5: "What not to do",
 
   q1: "The same chart in the evening",
   q2: "Where the market went",
@@ -1313,7 +1293,6 @@ en: {
   phPrice: "price", phWhat: "what it is", phWhy2: "why it matters",
   phPlanA: "If the market does … — I do …",
   phPlanB: "And if it goes the other way — then …",
-  phSkip: "One rule per line. For example: no entry by 11:00 — I leave the screen",
   phFact: "What the market actually did",
   phDid: "what happened to it",
   phLesson: "One line for tomorrow",
@@ -1325,7 +1304,7 @@ en: {
   shotTouchEmpty: "No image in the clipboard. Double tap to pick a file.",
   shotLimit: "20 screenshots at most", shotDup: "This screenshot is already here",
 
-  autoTag: "auto", newsAuto: "Today's news comes from the News section",
+  autoTag: "auto",
   tradesAuto: "Trades come from the journal, matched by instrument — no typing here",
   noTrades: "No trades on this instrument for this day",
   byPlan: "by plan", offPlan: "off plan", markIt: "mark",
@@ -1339,8 +1318,6 @@ en: {
 
   closeDay: "Write the day up", writePlanFirst: "Write the plan first",
   needMorning: "Fill in the morning analysis first: add an instrument and write a plan — a direction, a level or a screenshot. Then you can move on to the evening.",
-  closeNote: "When the day is over, press it: the plan stays on the left and room for the facts opens on the right, per instrument.",
-  closeNoteOff: "The button turns on once any instrument has a plan: a direction, a level or a screenshot.",
   reopen: "← back to the plan",
 
   stPlayed: "Scenario played out", stPlayedNote: "days in the last month",

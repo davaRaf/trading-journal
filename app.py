@@ -19,10 +19,14 @@ from http.server import BaseHTTPRequestHandler, HTTPServer
 import urllib.parse
 from urllib.parse import urlparse, unquote, parse_qs
 
+import antifraud
 import assistant
 import delete_ai
 import auth
 import backup
+import billing
+import creem
+import crypto_pay
 import http.cookies
 import config
 import db
@@ -564,6 +568,12 @@ def _prefs_init():
 # ---------------------------------------------------------------------------
 REF_COOKIE = "ref"
 REF_TTL = 30 * 24 * 3600
+# Відбиток пристрою для входу через Google чи Discord. Звичайна реєстрація
+# шле його в тілі запиту, а тут дорога йде через чужий сайт і назад, і
+# нічого, крім кук, не переживає цю подорож. Живе хвилини — рівно щоб
+# дійти до сервісу й повернутись.
+DEV_COOKIE = "devm"
+DEV_TTL = 15 * 60
 PARTNER_TITLES = {"blackswan": "Black Swan"}      # як партнера звуть у прев'ю
 # Коротке посилання: statsai.xyz/bs замість statsai.xyz/?ref=blackswan.
 # Довге теж лишається робочим — його вже роздали.
@@ -792,6 +802,96 @@ def delete_user_fully(uid):
     return len(names)
 
 
+def _billing_block(u):
+    """Підписка в картці адмінки: що видно і чим це можна поправити.
+
+    Тут, на відміну від журналу, лічильники показуємо — адмін мусить
+    бачити, скільки людина витратила й де її межа. Заборона на «лишилось
+    N із 20» стосується самої людини, а не цієї сторінки.
+    """
+    e = admin_page.e
+    dt = lambda v: v.strftime("%d.%m.%Y") if hasattr(v, "strftime") else (str(v)[:10] if v else "—")
+    st = billing.state(u["id"])
+    nb = antifraud.neighbours(u["id"])
+    n = lambda k, d=0: (u[k] if u[k] is not None else d)
+    pair = lambda used, cap, d: "%s из %s" % (n(used), n(cap, d))
+    kv = lambda k, v: "<span>%s</span><span>%s</span>" % (e(k), v)
+    who = lambda rows: ", ".join(
+        '<a href="/admin/u/%s" style="color:var(--acc)">%s</a>' % (e(r["nickname"]), e(r["nickname"]))
+        for r in rows) or "—"
+    nick_js = json.dumps(u["nickname"], ensure_ascii=False)
+    inp = ('padding:8px 10px;border-radius:9px;border:1px solid var(--line);'
+           'background:var(--card);color:var(--text);font:inherit;width:82px')
+    return (
+        '<div class="grid two" style="margin-top:12px"><div class=card><h2>Подписка</h2><div class=kv>'
+        + kv("План", e(("Special · с %s (выдан вручную)" % dt(u["special_since"]))
+                       if st["plan"] == billing.LIFE
+                       else (("%s · до %s" % (st["plan"], dt(u["paid_until"])))
+                             if st["active"] else "бесплатный")))
+        + kv("Сделки", e(pair("free_trades_used", "free_trades_cap", config.FREE_TRADES)))
+        + kv("Бэктест", e(pair("free_bt_used", "free_bt_cap", config.FREE_BT)))
+        + kv("Переносы", e(pair("imports_used", "imports_cap", config.FREE_IMPORTS)))
+        + kv("Обращения к модели", e("%s из %s%s" % (
+            billing.ai_used(u), billing.ai_cap(u),
+            (" · окно до " + dt(u["ai_reset_at"])) if u["ai_reset_at"] else "")))
+        + kv("Набор цен", e({"early": "ранние (скидка навсегда)",
+                             "fxlab": "FX LAB (по промокоду)"}.get(u["price_plan"] or "std", "обычный")))
+        + kv("Промокод", "—" if not u["promo_code"] else
+             e("%s · %s" % (u["promo_code"], ("оплачен " + dt(u["promo_used_at"]))
+                            if u["promo_used_at"] else "введён, ждёт оплаты")))
+        + kv("Своя цена", e("%.2f EUR" % (u["own_price_cents"] / 100.0)) if u["own_price_cents"] else "—")
+        + kv("Заметка", e(u["billing_note"] or "—"))
+        + "</div></div>"
+        + "<div class=card><h2>Откуда пришёл</h2><div class=kv>"
+        + kv("IP регистрации", e((u["signup_ip"] or "—") + (" · разрешён вручную" if nb["allowed"] else "")))
+        + kv("Отпечаток устройства", e((u["signup_device"] or "")[:12] or "—"))
+        + kv("Тот же IP", who(nb["ip"]))
+        + kv("То же устройство", who(nb["device"]))
+        + kv("Та же база Notion", who(nb["notion"]))
+        + '</div><p class=mute style="margin:10px 0 0;font-size:12px">Совпал только IP — это ещё ничего '
+          'не значит: у мобильных операторов один выход на тысячи людей. Совпало устройство — почти '
+          "наверняка тот же человек.</p></div></div>"
+        + '<div class=card style="margin-top:12px"><h2>Поправить подписку</h2>'
+          '<div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">'
+          '<input id=bdays type=number min=1 placeholder="30" style="%s">'
+          '<button id=bgrant class=btn>Дать подписку на N дней</button>'
+          '<button id=blife class=btn>Сделать Special</button>'
+          '<button id=brevoke class=btn>Снять подписку</button></div>' % inp
+        + '<p class=mute style="margin:14px 0 8px;font-size:12px">Бонус к бесплатным лимитам '
+          "(прибавляем к границе, потраченное не трогаем):</p>"
+          '<div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">'
+          '<span class=mute>сделки</span><input id=btr type=number placeholder="0" style="%s">'
+          '<span class=mute>бэктест</span><input id=bbt type=number placeholder="0" style="%s">'
+          '<span class=mute>переносы</span><input id=bim type=number placeholder="0" style="%s">'
+          '<span class=mute>обращения</span><input id=bai type=number placeholder="0" style="%s">'
+          '<button id=bbonus class=btn>Добавить</button></div>' % (inp, inp, inp, inp)
+        + '<div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:14px">'
+          '<button id=bearly class=btn>Цены как ранним</button>'
+          '<button id=bstd class=btn>Обычные цены</button>'
+          '<button id=ballow class=btn>%s</button></div>'
+          '<p id=bmsg class=mute></p></div>' % (
+              "Убрать разрешение IP" if nb["allowed"] else "Разрешить этот IP")
+        + "<script>const NICK=%s;"
+          "async function bill(act,data){bmsg.textContent='…';"
+          "const r=await fetch('/api/admin/billing/'+act,{method:'POST',"
+          "headers:{'Content-Type':'application/json'},"
+          "body:JSON.stringify(Object.assign({nick:NICK},data||{}))});"
+          "const d=await r.json().catch(()=>({}));"
+          "bmsg.textContent=r.ok?'готово':(d.error||('ошибка '+r.status));"
+          "if(r.ok)setTimeout(()=>location.reload(),700);}"
+          "bgrant.onclick=()=>bill('grant',{days:+bdays.value||0});"
+          "blife.onclick=()=>{if(confirm('Сделать Special? Журнал откроется целиком, без срока и оплаты.'))"
+          "bill('grant',{life:1});};"
+          "brevoke.onclick=()=>{if(confirm('Снять подписку? Оплаченные дни пропадут.'))"
+          "bill('revoke');};"
+          "bbonus.onclick=()=>bill('bonus',{trades:+btr.value||0,bt:+bbt.value||0,"
+          "imports:+bim.value||0,ai:+bai.value||0});"
+          "bearly.onclick=()=>bill('price',{price_plan:'early'});"
+          "bstd.onclick=()=>bill('price',{price_plan:'std'});"
+          "ballow.onclick=()=>bill('allow-ip',{off:%s});</script>" % (
+              nick_js, "true" if nb["allowed"] else "false"))
+
+
 def _is_admin(uid):
     try:
         u = db.get_user(uid)
@@ -957,13 +1057,17 @@ def nick_from_email(email):
     """
     base = (email or "").split("@")[0]
     base = "".join(ch for ch in base if ch.isalnum() or ch in "_-.").strip("._-")[:24]
-    return base or "trader"
+    base = base or "trader"
+    # Нік із пошти ніхто не вводить руками, тому заборонені імена треба
+    # відсіювати саме тут: пошта виду «davaraf@…» інакше зробила б власника
+    # з випадкової людини (див. nick_taken_by_us).
+    return (base + "1") if nick_taken_by_us(base) else base
 
 
 NICK_RE = re.compile(r"^[A-Za-z0-9_.-]{3,24}$")
-# Ніки, які читаються як частина сайту або як його голос.
-NICK_RESERVED = {"admin", "api", "static", "login", "logout", "reset", "confirm", "demo",
-                 "u", "auth", "support", "help", "statsai", "system", "root", "moderator"}
+# Службові й власницькі ніки лежать у config: їх перевіряє не лише ця
+# сторінка, а й вхід через Google чи Discord (oauth.py).
+nick_taken_by_us = config.nick_reserved
 AVATAR_MAX = 2 * 1024 * 1024
 
 
@@ -975,7 +1079,7 @@ def nick_problem(want, uid):
     me = db.get_user(uid)
     if me and (me["nickname"] or "") == want:
         return "same"
-    if want.lower() in NICK_RESERVED:
+    if nick_taken_by_us(want):
         return "taken"
     other = db.get_user_by_nick(want)
     if other and other["id"] != uid:
@@ -1331,6 +1435,7 @@ class H(BaseHTTPRequestHandler):
 
     def _body(self):
         self._too_big = False
+        self._raw_body = b""
         try:
             n = int(self.headers.get("Content-Length") or 0)
         except ValueError:
@@ -1343,6 +1448,10 @@ class H(BaseHTTPRequestHandler):
             self._too_big = True
             return None
         raw = self.rfile.read(n)
+        # Сире тіло лишаємо: підпис вебхука рахується саме від байтів, а
+        # не від розібраного json — після розбору й складання назад
+        # порядок ключів і пробіли зміняться, і підпис не зійдеться.
+        self._raw_body = raw
         try:
             return json.loads(raw.decode("utf-8"))
         except Exception:
@@ -1410,6 +1519,56 @@ class H(BaseHTTPRequestHandler):
             return None
         return keys
 
+    def _settle_return(self):
+        """Людина повернулась із каси: вмикаємо оплачене, не чекаючи вебхука.
+
+        Порядок тут навмисний. Підпис в адресі доводить лише те, що назад
+        її відправив Creem, а не те, що гроші дійшли: платіж міг лишитись
+        в обробці. Тому підпис каже тільки, **у кого питати**, а вмикаємо
+        за відповіддю їхнього API. Не підтвердив — не вмикаємо нічого,
+        дочекається вебхука.
+
+        Помилка тут не має ламати вхід у журнал: не змогли спитати —
+        мовчки пропускаємо, підписку донесе вебхук.
+        """
+        q = {k: v[0] for k, v in parse_qs(urlparse(self.path).query).items()}
+        if not creem.verify_return(q):
+            print("повернення: підпис не зійшовся", flush=True)
+            return
+        uid = creem.who({"request_id": q.get("request_id", "")})
+        sid = q.get("subscription_id", "")
+        if not uid or not sid:
+            return
+        try:
+            sub = creem.subscription(sid)
+        except Exception as ex:
+            print("повернення: не спитали Creem:", ex, flush=True)
+            return
+        status = str(sub.get("status") or "")
+        if status not in creem.LIVE_STATUSES:
+            print("повернення: підписка %s поки %r" % (sid, status), flush=True)
+            return
+        # Підпис міг бути справжній, але від іншої людини — звіряємо, що
+        # підписка справді та, про яку йшлося в адресі.
+        if creem.who(sub) not in (None, uid):
+            print("повернення: підписка не тієї людини", flush=True)
+            return
+        try:
+            db.set_creem_customer(uid, creem.customer_of(sub))
+        except Exception as ex:
+            print("повернення: не записав покупця:", ex, flush=True)
+        try:
+            billing.apply_paid(uid, creem.plan_of(sub) or "month",
+                               creem.period_end(sub))
+            # Номер підписки в журнал — без нього потім не скажеш, яку
+            # саме оплату вмикали, а скасувати її на боці Creem можна
+            # тільки за точним номером: списку за покупцем вони не дають.
+            print("повернення: увімкнули оплачене для %s: %s, %s, до %s"
+                  % (uid, sid, creem.plan_of(sub) or "month",
+                     creem.period_end(sub)), flush=True)
+        except Exception as ex:
+            print("повернення: не застосував оплату:", ex, flush=True)
+
     def _uid(self):
         return auth.current_user_id(self)
 
@@ -1434,6 +1593,18 @@ class H(BaseHTTPRequestHandler):
             return m.value if m else ""
         except Exception:
             return ""
+
+    def _dev_cookie(self, mark):
+        """Кука з відбитком пристрою на час походу в Google чи Discord.
+
+        HttpOnly тут ні до чого — відбиток однаково рахує браузер, і
+        приховувати від нього нічого. А от SameSite=Lax обов'язковий:
+        повернення з сервісу — це перехід з чужого сайту, і при Strict
+        кука до нас просто не доїхала б.
+        """
+        return ("%s=%s; Path=/; Max-Age=%d; SameSite=Lax"
+                % (DEV_COOKIE, urllib.parse.quote(mark, safe=""), DEV_TTL)
+                + ("; Secure" if auth.is_https(self) else ""))
 
     def _ref_query(self):
         """?ref=<партнер> у адресі — або нічого."""
@@ -1644,6 +1815,12 @@ class H(BaseHTTPRequestHandler):
             self.send_response(302)
             self.send_header("Location", url)
             self.send_header("Set-Cookie", oauth.state_cookie(state, auth.is_https(self)))
+            # Відбиток пристрою кладемо кукою по дорозі в сервіс: назад
+            # людина повернеться вже з чужого сайту, і в тому запиті від нас
+            # лишаться самі куки. Сторінка входу додає його до адреси.
+            dev = (parse_qs(urlparse(self.path).query).get("dev", [""])[0] or "")[:512]
+            if dev:
+                self.send_header("Set-Cookie", self._dev_cookie(dev))
             self.end_headers()
             return
 
@@ -1663,8 +1840,28 @@ class H(BaseHTTPRequestHandler):
                 ext_id, email, name = oauth.fetch_profile(prov, q.get("code", ""), self._base())
                 if not ext_id:
                     raise ValueError("сервіс не віддав профіль")
-                user = oauth.find_or_create_user(prov, ext_id, email, name)
+                # Відбиток пристрою на переадресації взятися нізвідки — його
+                # кладе кукою сама сторінка входу, перед тим як відправити
+                # людину в сервіс. Без цього вхід через Google був широкою
+                # хвірткою повз заслон: новий акаунт там робиться за хвилину.
+                ip = self._guest()
+                device = antifraud.device_hash(
+                    urllib.parse.unquote(self._cookie(DEV_COOKIE)))
+                user = oauth.find_or_create_user(
+                    prov, ext_id, email, name,
+                    guard=lambda: bool(antifraud.blocked(ip, device)))
+                try:
+                    antifraud.remember(user["id"], ip, device)
+                except Exception as ex:
+                    print("antifraud oauth:", ex)
                 ref_claim(user["id"], self._cookie(REF_COOKIE))
+            except oauth.Blocked:
+                print("oauth %s: другий безкоштовний акаунт" % prov)
+                self.send_response(302)
+                self.send_header("Location", "/login?err=ip_taken")
+                self.send_header("Set-Cookie", oauth.clear_state_cookie(auth.is_https(self)))
+                self.end_headers()
+                return
             except Exception as ex:
                 print("oauth %s: %s" % (prov, ex))
                 self.send_response(302)
@@ -1729,7 +1926,8 @@ class H(BaseHTTPRequestHandler):
                 data = admin_page.not_found(nick).encode("utf-8")
                 self.send_response(404)
             else:
-                data = admin_page.user_card(u, REF_TITLES, KIND_RU, list(ref_all())).encode("utf-8")
+                data = admin_page.user_card(u, REF_TITLES, KIND_RU,
+                                           list(ref_all()), _billing_block(u)).encode("utf-8")
                 self.send_response(200)
             self.send_header("Content-Type", "text/html; charset=utf-8")
             self.send_header("Content-Length", str(len(data)))
@@ -1955,6 +2153,29 @@ class H(BaseHTTPRequestHandler):
                 have = []
             return self._json({"backups": have, "keep": backup.KEEP})
 
+        if p == "/api/billing/state":
+            # Стан підписки для браузера: тариф, дата, ціни саме цієї людини
+            # і скільки лишилось звернень до моделі. Залишку угод тут немає —
+            # лічильника ми не показуємо ніде (див. billing.public).
+            uid = self._uid()
+            if not uid:
+                return self._json({"error": "auth required"}, 401)
+            out = billing.public(uid)
+            # Друга каса поруч із карткою. Якщо людина вже виставила
+            # рахунок і зараз переказує гроші, віддаємо його тут же:
+            # сторінка перемалює очікування навіть після перезавантаження.
+            out["crypto"] = crypto_pay.enabled()
+            if out["crypto"]:
+                inv = crypto_pay.current(uid)
+                if inv:
+                    out["invoice"] = crypto_pay.public(inv)
+            # Власникам — перемикач «подивитись як» у розділі «Підписка»: він
+            # лише перефарбовує показ у їхньому браузері, права не змінює.
+            if _is_admin(uid):
+                # early — щоб перемикач показав і ціни перших клієнтів
+                out = dict(out, admin=True, early=config.PRICES["early"])
+            return self._json(out)
+
         if p == "/api/calendar":
             # Розділу «Новини» віддаємо рівно один робочий тиждень: усередині
             # ми знаємо більше (фід плюс дні вперед з TradingView), і без
@@ -2179,6 +2400,14 @@ class H(BaseHTTPRequestHandler):
                 return self._redirect("/login?ref=" + ref)
 
         if p in ("/", "/index.html"):
+            # Повернення з каси: ?paid=1 з їхнім підписом. Робимо це до
+            # входу — людина могла повернутись у браузер без сесії, а
+            # оплата від цього не менш справжня.
+            if "paid=1" in (urlparse(self.path).query or ""):
+                try:
+                    self._settle_return()
+                except Exception as ex:
+                    print("повернення:", ex, flush=True)
             if not self._uid():
                 # ?ref=партнер лишаємо в адресі: месенджер іде за редіректом і
                 # бере прев'ю вже зі сторінки входу — там воно в стилі партнера
@@ -2235,6 +2464,260 @@ class H(BaseHTTPRequestHandler):
 
         # ---- вход и регистрация ----
         # ---- поправити мітку руками: лише власникам ----
+        # ---- каса ----
+        if p == "/api/billing/checkout":
+            # Створюємо оплату й віддаємо адресу, куди відправити людину.
+            # Разом з оплатою йде її номер у нашій базі — інакше, коли
+            # прийде підтвердження, ми знатимемо, що хтось заплатив, але
+            # не знатимемо хто.
+            uid = self._uid()
+            if not uid:
+                return self._json({"error": "auth required"}, 401)
+            if not creem.enabled():
+                return self._json({"error": "оплата ще не ввімкнена",
+                                   "code": "no_pay"}, 503)
+            if not isinstance(body, dict):
+                return self._json({"error": "bad json"}, 400)
+            plan = str(body.get("plan") or "").strip()
+            if plan not in billing.PLANS:
+                return self._json({"error": "невідомий тариф"}, 400)
+            try:
+                u = db.get_user(uid) or {}
+                promo = billing.promo_pending(u)
+                url = creem.checkout(uid, plan,
+                                     price_set=(u.get("price_plan") or "std"),
+                                     email=u.get("email") or "",
+                                     discount=(billing.PROMOS[promo]["creem"][plan]
+                                               if promo else ""))
+            except Exception as ex:
+                print("checkout:", ex, flush=True)
+                return self._json({"error": "не вдалося відкрити оплату",
+                                   "code": "pay_failed"}, 502)
+            return self._json({"url": url})
+
+        # ---- оплата криптою ----
+        if p == "/api/billing/crypto":
+            # Виставляємо рахунок: адреса, сума й скільки її чекати.
+            # Далі людина переказує USDT звідки їй зручно й може закрити
+            # вкладку — підписку ввімкне фоновий обхід, а не ця сторінка.
+            uid = self._uid()
+            if not uid:
+                return self._json({"error": "auth required"}, 401)
+            if not crypto_pay.enabled():
+                return self._json({"error": "оплата криптою ще не ввімкнена",
+                                   "code": "no_pay"}, 503)
+            if not isinstance(body, dict):
+                return self._json({"error": "bad json"}, 400)
+            plan = str(body.get("plan") or "").strip()
+            if plan not in billing.PLANS:
+                return self._json({"error": "невідомий тариф"}, 400)
+            # Кожен рахунок — рядок у базі й зайнята сума. Передумувати
+            # можна скільки завгодно, але не сто разів на хвилину.
+            keys = ["cinv:%s" % uid]
+            wait = ratelimit.check(keys, limit=20)
+            if wait:
+                return self._json({"error": "зачекай %d с" % wait,
+                                   "code": "too_many", "wait": wait}, 429)
+            ratelimit.miss(keys, limit=20)
+            inv = crypto_pay.create(uid, plan)
+            if not inv:
+                return self._json({"error": "не вдалося виставити рахунок",
+                                   "code": "pay_failed"}, 502)
+            return self._json(crypto_pay.public(inv))
+
+        if p == "/api/billing/crypto/cancel":
+            # «Передумав». Рахунок гасне, але не зникає: переказ, який уже
+            # пішов, усе одно знайде його й увімкне підписку.
+            uid = self._uid()
+            if not uid:
+                return self._json({"error": "auth required"}, 401)
+            crypto_pay.cancel(uid)
+            return self._json({"ok": True, "state": billing.public(uid)})
+
+        if p == "/api/billing/crypto/claim":
+            # «Я оплатив, ось номер переказу» — запасний шлях для того, хто
+            # округлив суму: за сумою такий переказ не знайти, за номером —
+            # можна. Номер перевіряємо в блокчейні, на слово не віримо.
+            uid = self._uid()
+            if not uid:
+                return self._json({"error": "auth required"}, 401)
+            keys = ["claim:%s" % uid]
+            wait = ratelimit.check(keys, limit=10)
+            if wait:
+                return self._json({"error": "зачекай %d с" % wait,
+                                   "code": "too_many", "wait": wait}, 429)
+            ratelimit.miss(keys, limit=10)
+            txid = str((body or {}).get("tx") or "").strip()
+            ok, why = crypto_pay.claim(uid, txid)
+            if not ok:
+                return self._json({"error": "переказ не підійшов",
+                                   "code": why}, 404 if why == "not_found" else 409)
+            return self._json({"ok": True, "state": billing.public(uid)})
+
+        # ---- кабінет підписки ----
+        if p == "/api/billing/portal":
+            # Скасувати продовження чи змінити картку людина має вміти сама,
+            # без листів у підтримку. Робить це кабінет Creem — ми лише
+            # беремо разове посилання туди.
+            uid = self._uid()
+            if not uid:
+                return self._json({"error": "auth required"}, 401)
+            if not creem.enabled():
+                return self._json({"error": "оплата ще не ввімкнена",
+                                   "code": "no_pay"}, 503)
+            cid = (db.get_user(uid) or {}).get("creem_customer") or ""
+            if not cid:
+                # Людина ще не платила — кабінету в неї просто немає.
+                return self._json({"error": "немає оплат",
+                                   "code": "no_customer"}, 404)
+            try:
+                url = creem.portal(cid)
+            except Exception as ex:
+                print("portal:", ex, flush=True)
+                return self._json({"error": "не вдалося відкрити кабінет",
+                                   "code": "portal_failed"}, 502)
+            return self._json({"url": url})
+        # ---- підтвердження оплати від Creem ----
+        if p == "/api/creem/webhook":
+            # Єдина точка, куди стукає платіжка. Статичних адрес у їхніх
+            # запитів немає, тому відсіяти чужих можна тільки підписом.
+            raw = getattr(self, "_raw_body", b"")
+            if not creem.verify(raw, self.headers.get("creem-signature") or ""):
+                print("webhook: підпис не зійшовся", flush=True)
+                return self._json({"error": "bad signature"}, 400)
+            if not isinstance(body, dict):
+                return self._json({"error": "bad json"}, 400)
+
+            ev = str(body.get("eventType") or body.get("type")
+                     or body.get("event") or "")
+            ev_id = str(body.get("id") or body.get("event_id") or "")
+            obj = body.get("object") or body.get("data") or {}
+            if not isinstance(obj, dict):
+                obj = {}
+            uid = creem.who(obj)
+
+            # Повторна доставка тієї самої події не має продовжити підписку
+            # вдруге. Ключ — id події; якщо такий уже лежить, просто мовчки
+            # погоджуємось, інакше Creem повторюватиме ще і ще.
+            if ev_id:
+                try:
+                    fresh = db.payment_once(
+                        ev_id, uid, ev,
+                        amount_cents=(obj.get("amount") or obj.get("total")),
+                        currency=(obj.get("currency") or "EUR"), raw=body)
+                except Exception as ex:
+                    print("webhook: не записав подію:", ex, flush=True)
+                    fresh = True
+                if not fresh:
+                    return self._json({"ok": True, "repeat": True})
+
+            print("webhook: %s для %s" % (ev, uid), flush=True)
+            # Номер покупця на боці Creem приходить з кожною подією, а
+            # потрібен, щоб відкрити людині її кабінет. Запам'ятовуємо мовчки:
+            # не вийшло — це не привід відмовляти в оплаті.
+            if uid:
+                try:
+                    db.set_creem_customer(uid, creem.customer_of(obj))
+                except Exception as ex:
+                    print("webhook: не записав покупця:", ex, flush=True)
+            if not uid:
+                # Без номера людини робити нічого не можемо, але відповідаємо
+                # згодою: подія записана, розберемо руками в адмінці.
+                return self._json({"ok": True, "unknown_user": True})
+
+            try:
+                if ev in ("subscription.active", "subscription.paid",
+                          "checkout.completed"):
+                    plan = creem.plan_of(obj) or "month"
+                    billing.apply_paid(uid, plan, creem.period_end(obj))
+                    billing.promo_paid(uid)   # перша оплата — код відпрацював
+                elif ev in ("refund.created", "dispute.created",
+                            "subscription.expired", "subscription.unpaid"):
+                    # Повернення й спір — гроші пішли назад, підписку знімаємо.
+                    # Строк скінчився без оплати — те саме по суті.
+                    billing.revoke(uid)
+                # Відмова від продовження (subscription.canceled,
+                # scheduled_cancel) дати не чіпає навмисно: оплачені дні
+                # людина дожити має, так написано в умовах.
+            except Exception as ex:
+                print("webhook: не застосував %s: %s" % (ev, ex), flush=True)
+            return self._json({"ok": True})
+
+        # ---- промокод ----
+        if p == "/api/billing/promo":
+            # Код не знижує ціну сам — він переводить акаунт на інший набір,
+            # і той лишається назавжди. Тому у відповідь віддаємо новий стан
+            # цілком: сторінка перемалює картки з уже новими сумами.
+            uid = self._uid()
+            if not uid:
+                return self._json({"error": "auth required"}, 401)
+            if not isinstance(body, dict):
+                return self._json({"error": "bad json"}, 400)
+            code = str(body.get("code") or "")[:64]
+            ok, why = billing.redeem(uid, code)
+            if not ok:
+                return self._json({"error": why, "code": why}, 400)
+            print("promo: %s ввів %r" % (uid, code.strip().upper()), flush=True)
+            return self._json(billing.public(uid))
+
+        # ---- підписка руками: дати, зняти, підсипати бонус, поставити ціну ----
+        if p.startswith("/api/admin/billing/"):
+            who = self._uid()
+            if not who:
+                return self._json({"error": "auth required"}, 401)
+            if not _is_admin(who):
+                return self._json({"error": "forbidden"}, 403)
+            if not isinstance(body, dict):
+                return self._json({"error": "bad json"}, 400)
+            nick = str(body.get("nick") or "").strip()
+            try:
+                u = db.get_user_by_nick(nick) or db.get_user_by_email(nick)
+            except Exception:
+                u = None
+            if not u:
+                return self._json({"error": "такого пользователя нет"}, 404)
+            act = p[len("/api/admin/billing/"):].strip("/")
+            note = str(body.get("note") or "").strip() or None
+            num = lambda k: int(body.get(k) or 0)
+            print("admin: %s робить %r акаунту %s (id %s)" % (
+                who, act, u["nickname"], u["id"]), flush=True)
+            if act == "grant":
+                # Назавжди — окремим прапорцем, а не «99999 днів»: інакше
+                # в базі лежала б вигадана дата, а людині показували б строк.
+                if body.get("life"):
+                    return self._json(billing.grant_life(u["id"]))
+                days = num("days")
+                if days <= 0:
+                    return self._json({"error": "нужно число дней"}, 400)
+                plan = str(body.get("plan") or "").strip()
+                return self._json(billing.grant(u["id"], days, plan))
+            if act == "revoke":
+                return self._json(billing.revoke(u["id"]))
+            if act == "bonus":
+                if not any(num(k) for k in ("trades", "bt", "imports", "ai")) and note is None:
+                    return self._json({"error": "нечего добавлять"}, 400)
+                return self._json(billing.bonus(u["id"], trades=num("trades"),
+                                                bt=num("bt"), imports=num("imports"),
+                                                ai=num("ai"), note=note))
+            if act == "price":
+                plan = str(body.get("price_plan") or "").strip()
+                own = body.get("own_cents")
+                return self._json(billing.set_price(
+                    u["id"], price_plan=plan if plan in ("std", "early") else None,
+                    own_cents=int(own) if str(own or "").strip() else None, note=note))
+            # «це інша людина» — адреса перестає бути заслоном для нових
+            # реєстрацій; саму людину це нікуди не пускає й не блокує.
+            if act == "allow-ip":
+                ip = (u["signup_ip"] or "").strip()
+                if not ip:
+                    return self._json({"error": "у этого аккаунта не записан IP"}, 400)
+                if body.get("off"):
+                    antifraud.forbid(ip)
+                else:
+                    antifraud.allow(ip, note or ("разрешено из карточки " + u["nickname"]))
+                return self._json({"ok": True, "ip": ip, "allowed": not body.get("off")})
+            return self._json({"error": "неизвестное действие"}, 400)
+
         if p == "/api/admin/set-ref":
             who = self._uid()
             if not who:
@@ -2305,8 +2788,21 @@ class H(BaseHTTPRequestHandler):
             if not EMAIL_RE.match(email) or len(password) < 6:
                 return self._json({"error": "потрібні пошта і пароль від 6 символів",
                                    "code": "need_fields"}, 400)
-            if db.get_user_by_email(email):
+            if db.get_user_by_email(email) or db.user_by_email_key(email):
+                # Друга умова — та сама скринька з іншим хвостиком:
+                # «ivan+2@gmail» це той самий ящик, що й «ivan@gmail».
                 return self._json({"error": "така пошта вже зайнята", "code": "taken"}, 409)
+            if antifraud.throwaway_mail(email):
+                return self._json({"error": "потрібна постійна пошта",
+                                   "code": "temp_mail"}, 409)
+            # Другий акаунт із тієї самої адреси І з того самого пристрою.
+            # Тільки разом: сам IP нічого не доводить — за одним виходом
+            # оператора сидить півміста (див. antifraud.py).
+            ip = self._guest()
+            device = antifraud.device_hash(body.get("device"))
+            if antifraud.blocked(ip, device):
+                return self._json({"error": "з цієї адреси вже є акаунт",
+                                   "code": "ip_taken"}, 409)
             pw_hash, pw_salt, iters = auth.hash_password(password)
             # Нікнейм робимо з пошти. Він може збігтися з чужим — тоді
             # пробуємо ще раз із хвостиком: людина про це навіть не знає,
@@ -2325,6 +2821,12 @@ class H(BaseHTTPRequestHandler):
                         raise
             if not user:
                 return self._json({"error": "така пошта вже зайнята", "code": "taken"}, 409)
+            # Звідки й з чого зайшли — щоб наступну таку реєстрацію було з
+            # чим порівняти, а в адмінці було видно сусідів.
+            try:
+                antifraud.remember(user["id"], ip, device)
+            except Exception as ex:
+                print("antifraud:", ex)     # заважати реєстрації це не має
             ref_claim(user["id"], self._cookie(REF_COOKIE))
             # У журнал — лише після коду з листа (рішення владельця
             # 15.09.2026): раніше пускали одразу, а підтвердження просили
@@ -2744,6 +3246,14 @@ class H(BaseHTTPRequestHandler):
                 return self._json({"error": "порожнє питання"}, 400)
             if not llm.enabled():
                 return self._json({"error": "помічник вимкнений — немає DEEPSEEK_API_KEY"}, 503)
+            # Місячна порція звернень до моделі. Списуємо одразу й одне на
+            # питання, навіть якщо всередині модель смикають двічі (правка
+            # «Моєї ТС», добір угод на видалення): людина спитала раз.
+            # Дозвіл і списання одним запитом: пачка одночасних питань
+            # інакше проходила перевірку всі разом (див. billing.take_ai).
+            ok, why = billing.take_ai(uid)
+            if not ok:
+                return self._json(billing.deny(uid, why), 402)
             # історія розмови приходить з браузера — беремо тільки останні репліки
             raw = (body or {}).get("history")
             history = [m for m in raw if isinstance(m, dict)][-16:] if isinstance(raw, list) else []
@@ -2777,9 +3287,14 @@ class H(BaseHTTPRequestHandler):
 
         if p == "/api/assistant/nudge":
             lang = str((body or {}).get("lang") or "ru")
+            # Заговорює помічник сам, тому з порції нічого не знімаємо: не
+            # людина попросила. Але й платити за це без кінця не будемо —
+            # коли порція вичерпана, привід лишається, а слова до нього
+            # бере сторінка (у неї свої, на три мови).
             return self._json(assistant.nudge(
                 uid, lang if lang in ("uk", "ru", "en") else "ru",
-                "bt" if (body or {}).get("kind") == "bt" else ""))
+                "bt" if (body or {}).get("kind") == "bt" else "",
+                talk=billing.can_use_ai(uid)[0]))
 
         if p == "/api/assistant/review":
             # той самий платний запит до моделі — і лічильник той самий
@@ -2791,6 +3306,11 @@ class H(BaseHTTPRequestHandler):
             ratelimit.miss(keys, limit=ASK_LIMIT)
             if not llm.enabled():
                 return self._json({"error": "помічник вимкнений — немає DEEPSEEK_API_KEY"}, 503)
+            # Дозвіл і списання одним запитом: пачка одночасних питань
+            # інакше проходила перевірку всі разом (див. billing.take_ai).
+            ok, why = billing.take_ai(uid)
+            if not ok:
+                return self._json(billing.deny(uid, why), 402)
             raw = (body or {}).get("history")
             history = [m for m in raw if isinstance(m, dict)][-16:] if isinstance(raw, list) else []
             # мова журналу: факти під відповіддю показуються як є, і в
@@ -2889,10 +3409,16 @@ class H(BaseHTTPRequestHandler):
                       if isinstance(t, dict) and t.get("collection") and t.get("view")]
             if not tables or not mapping.get("pair"):
                 return self._json({"error": "потрібні таблиця і колонка з інструментом"}, 400)
+            # Три перенесення в перші 30 днів — далі тільки з підпискою.
+            # Дивимось до запуску потоку: скасувати його потім нічим.
+            ok, why = billing.can_import(uid)
+            if not ok:
+                return self._json(billing.deny(uid, why), 402)
             conf = notion_conf(uid)
             title = body.get("title") or ""
             conf.update({"url": url, "mapping": mapping, "title": title})
             job = start_import(uid, tables, mapping, body.get("options") or {})
+            billing.spend_import(uid)
             when = datetime.datetime.now().strftime("%Y-%m-%d %H:%M")
             # запись про базу кладём до того, как перенос закончится: браузер
             # могут закрыть посреди работы, а сделки уже поедут в журнал
@@ -3024,7 +3550,11 @@ class H(BaseHTTPRequestHandler):
             day = ts_check.same_day(db.list_trades(uid), trade)
             items = ts_check.check(ts, trade, day)
             lang = str((body or {}).get("lang") or "ru")
-            text = ts_check.say(items, lang if lang in ("uk", "ru", "en") else "ru")
+            # Розходження рахує код і вони безкоштовні завжди; модель тут
+            # лише переказує їх по-людськи. Скінчилась порція — лишаємо
+            # сам перелік, підписи до кодів у сторінки свої.
+            text = (ts_check.say(items, lang if lang in ("uk", "ru", "en") else "ru")
+                    if billing.can_use_ai(uid)[0] else "")
             # мовчазний помічник виглядає зламаним: коли звіряти нема за
             # що, кажемо про це прямо, а не вдаємо, що все гаразд
             return self._json({"items": items, "text": text,
@@ -3052,6 +3582,11 @@ class H(BaseHTTPRequestHandler):
             # розділах — контекст окремо, моделі входу окремо. Старий виклик
             # з одним "url" лишається робочим.
             b = body or {}
+            # Дозвіл і списання одним запитом: пачка одночасних питань
+            # інакше проходила перевірку всі разом (див. billing.take_ai).
+            ok, why = billing.take_ai(uid)
+            if not ok:
+                return self._json(billing.deny(uid, why), 402)
             links = b.get("urls") if isinstance(b.get("urls"), list) else None
             try:
                 draft = ts_notion.read(links if links else (b.get("url") or ""),
@@ -3065,7 +3600,8 @@ class H(BaseHTTPRequestHandler):
                 return self._json({"error": "bad json or empty pair"}, 400)
             # Ключ від форми: та сама угода, надіслана вдруге (відповідь на
             # перше збереження загубилась у мережі), — віддаємо записану, а
-            # не робимо двійника.
+            # не робимо двійника. Перевіряємо до ліміту: повтор не має
+            # з'їдати ще одну безкоштовну угоду.
             cid = str(body.get("cid") or "")
             tid = cid if re.fullmatch(r"w[0-9a-z]{12,32}", cid) else new_id()
             if tid == cid:
@@ -3073,16 +3609,33 @@ class H(BaseHTTPRequestHandler):
                 if old:
                     return self._json(old, 201)
             t = clean_trade(body, tid)
+            user = db.get_user(uid)
+            # Спершу дозвіл, і лише потім робота: скріни важкі, а відмова
+            # їх однаково викине. Це швидка відмова, а не застава — межу
+            # тримає take_trade нижче, вже разом зі списанням.
+            ok, why = billing.can_add_trade(user, t.get("kind"))
+            if not ok:
+                return self._json(billing.deny(user, why), 402)
             try:
                 save_screenshots(t, uid)
             except filestore.ShotError as e:
                 return self._shot_reply(e)
-            user = db.get_user(uid)
+            # Місце займаємо до запису: інакше пачка одночасних запитів
+            # проходить перевірку всі разом і кладе більше, ніж дозволено.
+            ok, why = billing.take_trade(user, t.get("kind"))
+            if not ok:
+                return self._json(billing.deny(user, why), 402)
             # У бэктеста эмоции нет: входа не было, спрашивать не о чем.
             ask = (t.get("kind") != "bt"
                    and not str(t.get("emotion") or "").strip()
                    and user["telegram_id"] is not None)
-            db.insert_trade(uid, t, "pending" if ask else "na")
+            try:
+                db.insert_trade(uid, t, "pending" if ask else "na")
+            except Exception:
+                # Записати не вийшло — місце віддаємо назад, інакше воно
+                # згорить ні за що.
+                billing.release_trade(user, t.get("kind"))
+                raise
             if ask:
                 ask_emotion_later(user, t)
             return self._json(t, 201)
@@ -3090,6 +3643,12 @@ class H(BaseHTTPRequestHandler):
         if p == "/api/import":
             if body is None:
                 return self._json({"error": "bad json"}, 400)
+            # Перенесення файлом — те саме перенесення, що й з Notion, і
+            # ліміт у них спільний: три рази в перші 30 днів. Інакше повз
+            # заслон на 20 угод можна було б завезти хоч тисячу таблицею.
+            ok, why = billing.take_import(uid)
+            if not ok:
+                return self._json(billing.deny(uid, why), 402)
             items = body if isinstance(body, list) else body.get("trades") or []
             batch = []
             for it in items:
@@ -3101,7 +3660,13 @@ class H(BaseHTTPRequestHandler):
                 except filestore.ShotError:
                     t["screenshots"] = []   # угоду з файлу беремо, битий скрін — ні
                 batch.append(t)
-            return self._json({"ok": True, "added": db.insert_trades(uid, batch)})
+            # Перенесення вже зайнято вище (take_import), тому тут рахувати
+            # нема чого. Порожній файл — окремий випадок: людині не додали
+            # нічого, і з'їдати за це одне з трьох було б несправедливо.
+            added = db.insert_trades(uid, batch)
+            if not added:
+                billing.release_import(uid)
+            return self._json({"ok": True, "added": added})
 
         self.send_response(404); self.end_headers()
 
@@ -3229,6 +3794,8 @@ if __name__ == "__main__":
         # і сам перечитує Notion раз на дві години
         notion_sync.start(add=add_trades, fill=blank_filler, conf=notion_conf,
                           save=notion_save, shots=SHOTS, busy=import_busy)
+        # оплата криптою: дивимось у блокчейн, чи не прийшли гроші
+        crypto_pay.start()
     if config.RUN_BOT and config.BOT_TOKEN:
         # бот живе поруч із сайтом: на безкоштовному хостингу другий
         # процес тримати ніде, а опитування Телеграма нікому не заважає
