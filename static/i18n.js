@@ -153,7 +153,7 @@ uk: {
   fmShotsSection: "Скриншоти за таймфреймами",
   fmEntryDetailsPh: "тест 4h імб, 1m цисд, ціль 15m фрактал", fmThoughtsLabel: "Думки про угоду",
   fmMistakeLabel: "Помилка, якщо була", fmMistakeEmptyPh: "порожньо, якщо помилок немає",
-  fmEmotionLabel: "Емоція під час угоди",
+  fmEmotionLabel: "Емоція під час угоди", fmEmotionAutotag: "не вкажеш — запитає бот у Telegram",
   fmEmotionPh: "або своїми словами", fmCancel: "Скасувати", fmSave: "Зберегти", fmSaving: "Зберігаю…",
 
   calcChooseResult: "Обери результат — покажу, скільки це у відсотках",
@@ -757,6 +757,11 @@ uk: {
 
   // ---- соцмережі (підвал бічної панелі + вікно «Підтримка») ----
   socHere: "Ми тут",
+  // ---- смужка про Telegram-канал над робочою областю ----
+  tgNewsLead: "Новини журналу — у Telegram.",
+  tgNewsText: "Анонсуємо оновлення й нові функції першими.",
+  tgNewsCta: "Підписатися",
+  tgNewsClose: "Закрити",
   socTg: "Telegram · Канал",
   suNews: "Оновлення й анонси",
   socTgTip: "Telegram-канал — усі анонси оновлень журналу",
@@ -889,7 +894,7 @@ ru: {
   fmShotsSection: "Скриншоты по таймфреймам",
   fmEntryDetailsPh: "тест 4h имб, 1m цисд, цель 15m фрактал", fmThoughtsLabel: "Мысли о сделке",
   fmMistakeLabel: "Ошибка, если была", fmMistakeEmptyPh: "пусто, если ошибок нет",
-  fmEmotionLabel: "Эмоция во время сделки",
+  fmEmotionLabel: "Эмоция во время сделки", fmEmotionAutotag: "не укажешь — спросит бот в Telegram",
   fmEmotionPh: "или своими словами", fmCancel: "Отмена", fmSave: "Сохранить", fmSaving: "Сохраняю…",
 
   calcChooseResult: "Выбери результат — покажу, сколько это в процентах",
@@ -1481,6 +1486,11 @@ ru: {
 
   // ---- соцсети (подвал боковой панели + окно «Поддержка») ----
   socHere: "Мы тут",
+  // ---- полоска про Telegram-канал над рабочей областью ----
+  tgNewsLead: "Новости журнала — в Telegram.",
+  tgNewsText: "Анонсируем обновления и новые функции первыми.",
+  tgNewsCta: "Подписаться",
+  tgNewsClose: "Закрыть",
   socTg: "Telegram · Канал",
   suNews: "Обновления и анонсы",
   socTgTip: "Telegram-канал — все анонсы обновлений журнала",
@@ -1613,7 +1623,7 @@ en: {
   fmShotsSection: "Screenshots by timeframe",
   fmEntryDetailsPh: "e.g. 4h imbalance, 1m CISD, target 15m fractal", fmThoughtsLabel: "Thoughts on the trade",
   fmMistakeLabel: "Mistake, if any", fmMistakeEmptyPh: "leave empty if no mistakes",
-  fmEmotionLabel: "Emotion during the trade",
+  fmEmotionLabel: "Emotion during the trade", fmEmotionAutotag: "skip it — the Telegram bot will ask",
   fmEmotionPh: "or in your own words", fmCancel: "Cancel", fmSave: "Save", fmSaving: "Saving…",
 
   calcChooseResult: "Pick a result — I'll show what that means in percent",
@@ -2205,6 +2215,11 @@ en: {
 
   // ---- socials (sidebar footer + Support window) ----
   socHere: "Follow",
+  // ---- Telegram channel strip above the workspace ----
+  tgNewsLead: "Journal news is on Telegram.",
+  tgNewsText: "Updates and new features are announced there first.",
+  tgNewsCta: "Subscribe",
+  tgNewsClose: "Close",
   socTg: "Telegram · Channel",
   suNews: "Updates and announcements",
   socTgTip: "Telegram channel — every journal update announced",
