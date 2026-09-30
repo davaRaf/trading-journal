@@ -326,10 +326,6 @@ textarea.dv-in{resize:none; overflow:hidden}
   padding:4px 8px; border-radius:6px; cursor:pointer}
 .dv-ah .x:hover{color:var(--text); background:var(--panel)}
 .dv-cb .dv-blk:first-child{border-top:none}
-/* Тло щільне, не прозоре: крізь пунктирну рамку просвічувала фонова
-   фігура, і підказку ставало важко читати. */
-.dv-empty{padding:26px 22px; border:1px dashed var(--line); border-radius:var(--r); color:var(--dim);
-  background:var(--panel); font-size:13.5px; text-align:center}
 
 /* назва блока у правій (фактовій) колонці */
 .dv-pt.fact b{color:var(--be); background:var(--be-soft)}
@@ -372,14 +368,67 @@ button.dv-tfc:hover{border-color:var(--faint); color:var(--text)}
 .dv-shot.ro{cursor:default}
 
 /* ---------- додати актив ---------- */
-.dv-addwrap{position:relative; align-self:flex-start}
-.dv-addbig{display:inline-flex; align-items:center; gap:9px; padding:12px 18px; border-radius:var(--r);
-  border:1px dashed var(--line); color:var(--dim); font:inherit; font-size:13.5px; background:var(--card);
-  cursor:pointer}
-.dv-addbig:hover{color:var(--text); border-color:var(--faint)}
+.dv-addwrap{position:relative; align-self:stretch}
+/* Уся підказка — це кнопка: клік по будь-якому її місцю відкриває вибір
+   активу. Плюс у кружку стоїть поруч із текстом — без нього блок читався
+   як звичайна підказка, і було не видно, що на нього тиснуть.
+   Тло щільне, не прозоре: крізь пунктирну рамку просвічувала фонова
+   фігура, і текст ставало важко читати. */
+.dv-addblock{display:flex; align-items:center; justify-content:center; gap:11px; width:100%;
+  padding:24px 22px; border-radius:var(--r); border:1px dashed var(--line); color:var(--dim);
+  font:inherit; font-size:13.5px; background:var(--panel); text-align:center; cursor:pointer;
+  transition:color var(--m-tap,110ms) ease, border-color var(--m-tap,110ms) ease,
+             background var(--m-tap,110ms) ease}
+.dv-addblock .ic{flex:none; display:inline-flex; align-items:center; justify-content:center;
+  width:26px; height:26px; border-radius:50%; border:1px dashed var(--line); color:var(--faint);
+  font-size:17px; line-height:1; padding-bottom:2px;
+  transition:color var(--m-tap,110ms) ease, border-color var(--m-tap,110ms) ease,
+             background var(--m-tap,110ms) ease, transform var(--m-in,180ms) var(--m-ease-out,ease-out)}
+.dv-addblock:hover{color:var(--text); border-color:var(--faint)}
+.dv-addblock:hover .ic{color:var(--accent); border-style:solid; border-color:var(--accent);
+  background:var(--accent-soft)}
+.dv-addblock:active .ic{transform:scale(.92)}
+/* Список відкритий — плюс лягає навскіс і читається як «закрити». */
+.dv-addblock.open{border-style:solid; border-color:var(--accent); color:var(--text)}
+.dv-addblock.open .ic{transform:rotate(45deg); color:var(--accent); border-style:solid;
+  border-color:var(--accent); background:var(--accent-soft)}
+
+/* Плашка з активами виїжджає з-під кнопки тим самим рухом, що й вікна
+   сайту (motion.css): 180 мс, легкий підйом і масштаб. Вузол щоразу
+   новий — анімація стартує сама, кликати з JS нічого не треба. */
 .dv-pop{position:absolute; left:0; top:calc(100% + 8px); z-index:30; width:min(300px, calc(100vw - 40px));
   background:var(--panel); border:1px solid var(--line); border-radius:var(--r); padding:12px;
-  box-shadow:var(--shadow-pop)}
+  box-shadow:var(--shadow-pop); transform-origin:top left}
+@media (prefers-reduced-motion: no-preference){
+  .dv-pop{animation:dvPop var(--m-in,180ms) var(--m-ease-out,ease-out) backwards}
+  /* Групи підтягуються слідом, щоб око встигло пройти плашку зверху вниз. */
+  .dv-pop .grp{animation:dvPopGrp var(--m-in,180ms) var(--m-ease-out,ease-out) backwards}
+  .dv-pop .grp:nth-child(2){animation-delay:45ms}
+  .dv-pop .grp:nth-child(3){animation-delay:90ms}
+}
+@keyframes dvPop{
+  from{opacity:0; transform:translateY(-8px) scale(.97)}
+  to{opacity:1; transform:none}
+}
+@keyframes dvPopGrp{
+  from{opacity:0; transform:translateY(4px)}
+  to{opacity:1; transform:none}
+}
+/* Зникання коротше за появу (120 проти 180) — так рух на виході
+   здається спритнішим, це те саме правило, що й у вікнах сайту. */
+@media (prefers-reduced-motion: no-preference){
+  .dv-pop.out{animation:dvPopOut var(--m-out,120ms) var(--m-ease-in,cubic-bezier(.4,0,1,1)) both}
+  .dv-pop.out .grp{animation:none}
+}
+@keyframes dvPopOut{
+  from{opacity:1; transform:none}
+  to{opacity:0; transform:translateY(-6px) scale(.98)}
+}
+@media (prefers-reduced-motion: reduce){
+  .dv-pop, .dv-pop.out, .dv-pop .grp{animation:none}
+  .dv-addblock, .dv-addblock .ic{transition:none}
+  .dv-addblock.open .ic{transform:rotate(45deg)}
+}
 .dv-pop .grp{margin-bottom:12px}
 .dv-pop .grp:last-child{margin-bottom:0}
 .dv-pop .lbl{font-family:var(--mono); font-size:9px; letter-spacing:.16em; text-transform:uppercase;

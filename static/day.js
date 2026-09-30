@@ -723,17 +723,23 @@ function vOpen(){
   return head()
     + '<div class="dv-need" id="dvNeed" role="status" aria-live="polite" hidden></div>'
     + '<div class="dv-stack">'
-    +   (N.assets.length ? N.assets.map(cardOpen).join("")
-        : '<div class="dv-empty">' + esc(d.noAssetsHint) + "</div>")
+    +   N.assets.map(cardOpen).join("")
+    /* Актив додаємо кліком по самій підказці: окремої кнопки збоку немає. */
     +   '<div class="dv-addwrap">'
-    +     '<button class="dv-addbig" type="button" onclick="__dv.pop()">+ ' + esc(d.addAsset) + "</button>"
+    +     '<button class="dv-addblock' + (popOpen ? " open" : "") + '" type="button"'
+    +       ' aria-expanded="' + (popOpen ? "true" : "false") + '" onclick="__dv.pop()">'
+    +       '<span class="ic" aria-hidden="true">+</span>'
+    +       '<span class="tx">' + esc(N.assets.length ? d.addAsset : d.noAssetsHint) + "</span>"
+    +     "</button>"
     +     (popOpen ? assetPop() : "")
     +   "</div>"
     + "</div>"
-    + '<div class="dv-closebar">'
-    +   '<button class="go" onclick="__dv.close()"' + (ok ? "" : " disabled") + ">"
-    +     esc(ok ? d.closeDay : d.writePlanFirst) + "</button>"
-    + "</div>"
+    /* Смуга з кнопкою з'являється лише коли план уже є: поки порожньо,
+       вимкнена кнопка «Спершу запиши план» місця не займає. */
+    + (ok
+        ? '<div class="dv-closebar"><button class="go" onclick="__dv.close()">'
+          + esc(d.closeDay) + "</button></div>"
+        : "")
     + strip();
 }
 
@@ -835,7 +841,7 @@ document.addEventListener("click", e => {
 
   /* відкриті спливні: клік повз них — закриває */
   if (calOpen && !e.target.closest(".dv-calwrap")){ calOpen = false; render(); return; }
-  if (popOpen && !e.target.closest(".dv-addwrap")){ popOpen = false; render(); return; }
+  if (popOpen && !e.target.closest(".dv-addwrap")){ closePop(); return; }
   if (tfEdit && !e.target.closest(".dv-tfpick")){ tfEdit = null; render(); return; }
 
   const sl = e.target.closest && e.target.closest(".dv-shot[data-shot]");
@@ -988,6 +994,21 @@ document.addEventListener("keydown", e => {
 });
 
 /* ---------------- назовні ---------------- */
+/* Закриття плашки з активами. Вузол малюється заново на кожен render,
+   тому просто зняти popOpen — це зникнення ривком. Спершу програємо
+   зникання на самому вузлі, а перемальовуємо вже по його кінцю.
+   Кому рух заважає (prefers-reduced-motion) — закриваємо одразу. */
+function closePop(){
+  const el = document.querySelector(".dv-addwrap .dv-pop");
+  const calm = window.matchMedia && matchMedia("(prefers-reduced-motion: reduce)").matches;
+  if (!el || calm){ popOpen = false; render(); return; }
+  if (el.classList.contains("out")) return;        /* уже зникає */
+  el.classList.add("out");
+  const btn = el.parentNode.querySelector(".dv-addblock");
+  if (btn){ btn.classList.remove("open"); btn.setAttribute("aria-expanded", "false"); }
+  setTimeout(() => { popOpen = false; render(); }, 120);
+}
+
 window.__dv = {
   go: shift,
   goto: goto,
@@ -1001,11 +1022,12 @@ window.__dv = {
   },
   pop(){
     if (window.Guest && Guest.block(T.gsGateTitle)) return;
-    popOpen = !popOpen; calOpen = false; render();
+    if (popOpen){ closePop(); return; }
+    popOpen = true; calOpen = false; render();
   },
   addAsset(nm, fromTs){
     N.assets.push(blankAsset(nm, fromTs === 1 || fromTs === "1" || fromTs === true));
-    popOpen = false; save(); render();
+    save(); closePop();          /* картка з'явиться, коли плашка зникне */
   },
   addOwn(){
     const inp = document.getElementById("dvOwn");
@@ -1178,13 +1200,13 @@ uk: {
   colAsset: "актив", colPlan: "план", colFact: "що вийшло", colMatch: "за планом",
   colHold: "тримався", colRes: "результат", lessonTitle: "що з цього винести",
 
-  closeDay: "Записати підсумок дня", writePlanFirst: "Спершу запиши план",
-  needMorning: "Спершу заповни ранковий аналіз: додай актив і запиши план — напрям, рівень чи скрін. Тоді можна перейти до вечора.",
-  reopen: "← повернутись до плану",
-
   stPlayed: "Сценарій зіграв", stPlayedNote: "днів за останній місяць",
   stOff: "Угод поза планом", stOffNote: "взяв те, чого зранку не планував",
   stCost: "Скільки вони коштували", stCostNote: "разом по цих угодах",
+  closeDay: "Записати підсумок дня",
+  needMorning: "Спершу заповни ранковий аналіз: додай актив і запиши план — напрям, рівень чи скрін. Тоді можна перейти до вечора.",
+  reopen: "← повернутись до плану",
+
 },
 
 ru: {
@@ -1247,13 +1269,13 @@ ru: {
   colAsset: "актив", colPlan: "план", colFact: "что вышло", colMatch: "по плану",
   colHold: "держался", colRes: "результат", lessonTitle: "что из этого вынести",
 
-  closeDay: "Записать итог дня", writePlanFirst: "Сначала запиши план",
-  needMorning: "Сначала заполни утренний анализ: добавь актив и запиши план — направление, уровень или скрин. Потом можно перейти к вечеру.",
-  reopen: "← вернуться к плану",
-
   stPlayed: "Сценарий сыграл", stPlayedNote: "дней за последний месяц",
   stOff: "Сделок вне плана", stOffNote: "взял то, чего утром не планировал",
   stCost: "Сколько они стоили", stCostNote: "вместе по этим сделкам",
+  closeDay: "Записать итог дня",
+  needMorning: "Сначала заполни утренний анализ: добавь актив и запиши план — направление, уровень или скрин. Потом можно перейти к вечеру.",
+  reopen: "← вернуться к плану",
+
 },
 
 en: {
@@ -1316,13 +1338,13 @@ en: {
   colAsset: "instrument", colPlan: "plan", colFact: "what happened", colMatch: "as planned",
   colHold: "held to it", colRes: "result", lessonTitle: "what to take from it",
 
-  closeDay: "Write the day up", writePlanFirst: "Write the plan first",
-  needMorning: "Fill in the morning analysis first: add an instrument and write a plan — a direction, a level or a screenshot. Then you can move on to the evening.",
-  reopen: "← back to the plan",
-
   stPlayed: "Scenario played out", stPlayedNote: "days in the last month",
   stOff: "Trades off plan", stOffNote: "things you didn't plan in the morning",
   stCost: "What they cost", stCostNote: "total across those trades",
+  closeDay: "Write the day up",
+  needMorning: "Fill in the morning analysis first: add an instrument and write a plan — a direction, a level or a screenshot. Then you can move on to the evening.",
+  reopen: "← back to the plan",
+
 },
 };
 
