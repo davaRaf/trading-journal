@@ -575,14 +575,15 @@ REF_TTL = 30 * 24 * 3600
 # дійти до сервісу й повернутись.
 DEV_COOKIE = "devm"
 DEV_TTL = 15 * 60
-PARTNER_TITLES = {"blackswan": "Black Swan"}      # як партнера звуть у прев'ю
+PARTNER_TITLES = {"blackswan": "Black Swan",      # як партнера звуть у прев'ю
+                  "fxlab": "FX LAB"}
 # Коротке посилання: statsai.xyz/bs замість statsai.xyz/?ref=blackswan.
 # Довге теж лишається робочим — його вже роздали.
 # ig і tt лишаємо як синоніми соцмереж: якщо коротке посилання вже кудись
 # вставили, воно рахується туди ж, а не пропадає
 PARTNER_ALIASES = config.PARTNER_ALIASES
 # Як мітку звуть у звіті
-REF_TITLES = {"blackswan": "Black Swan", "social": "Соцсети"}
+REF_TITLES = {"blackswan": "Black Swan", "fxlab": "FX LAB", "social": "Соцсети"}
 
 
 def ref_all():
@@ -2343,8 +2344,11 @@ class H(BaseHTTPRequestHandler):
             og_path = os.path.join(STATIC, "og-%s.png" % ref) if ref else ""
             if ref and os.path.exists(og_path):
                 title = PARTNER_TITLES.get(ref, ref)
-                desc = ("Журнал трейдера в оформлении %s: сделки, статистика, "
-                        "анализ дня и своя ТС." % title)
+                # Слово «коллаборация» — в самом описании: в чате сообщества
+                # карточку видят те, кто пришёл от партнёра, и первое, что
+                # они должны понять, — это совместное, а не реклама мимо.
+                desc = ("Коллаборация StatsAI и %s. Журнал трейдера: сделки, "
+                        "статистика, анализ дня и своя ТС." % title)
                 # у адресі картинки — час її зміни: месенджери кешують прев'ю за
                 # адресою, і без цього нова картинка не показувалась
                 html = html.replace("/static/og-main.png",

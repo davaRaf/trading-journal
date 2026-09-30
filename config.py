@@ -66,7 +66,7 @@ def nick_reserved(nick):
     return key in NICK_RESERVED or key in ADMIN_NICKS
 # Партнери-спільноти: мітка в адресі (?ref=blackswan) → рахунок партнера.
 # Мітка стає полем users.ref_source. Новий партнер — ще одне слово тут.
-PARTNERS      = [x.strip().lower() for x in os.environ.get("PARTNERS", "blackswan").split(",") if x.strip()]
+PARTNERS      = [x.strip().lower() for x in os.environ.get("PARTNERS", "blackswan,fxlab").split(",") if x.strip()]
 # Свої канали. Мітка рахується так само, але це не партнери: відсотка немає,
 # і через чужі посилання вона не передається — інакше «прийшли з інстаграма»
 # перестало б означати саме інстаграм.
