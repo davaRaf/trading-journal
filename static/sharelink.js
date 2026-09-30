@@ -29,14 +29,22 @@ const collabRef = () => (window.__skin && __skin.collabRef) ? __skin.collabRef()
 const inCollab = () => !!collabRef();
 
 /* Кого пропонуємо тому, хто сидить у своїй темі. Це просто ще один вигляд
-   знімка, не мітка, тому тут лишається найстарша спільнота. */
-const COLLAB = "blackswan";
+   знімка, не мітка, тому пропонуємо всі: раніше тут стояла одна
+   найстарша спільнота, і знімок у вигляді FX LAB було ніяк не зробити,
+   хоч і сторінка, і картинка його давно вміють. Список — з таблиці тем
+   (static/themes.js), щоб нова колаборація з’являлась тут сама. */
+const COLLABS = () => (window.__skin && __skin.collabs) ? __skin.collabs() : [];
 
 let lastSkin = "";
 try{ lastSkin = localStorage.getItem("share_skin") || ""; }catch(e){}
 
-/* стиль, у якому робимо знімок просто зараз */
-function shareSkin(){ return inCollab() ? curSkin() : lastSkin; }
+/* стиль, у якому робимо знімок просто зараз.
+   Запам’ятаний вибір звіряємо зі списком: у пам’яті браузера може
+   лежати спільнота, якої вже немає, — тоді знімок йде звичайний. */
+function shareSkin(){
+  if (inCollab()) return curSkin();
+  return COLLABS().some(c => c.id === lastSkin) ? lastSkin : "";
+}
 
 /* ---------- що саме показуємо ---------- */
 
@@ -563,10 +571,10 @@ function open(kind, arg){
     + (inCollab() ? "" :
         '<div class="sh-lab">' + T.slStyleLabel + '</div>'
         + '<div class="sh-skin" id="shSkin">'
-        +   '<button class="sh-chip' + (lastSkin ? "" : " on") + '" data-s="">'
+        +   '<button class="sh-chip' + (shareSkin() ? "" : " on") + '" data-s="">'
         +     esc(T.slStylePlain) + '</button>'
-        +   '<button class="sh-chip' + (lastSkin ? " on" : "") + '" data-s="' + COLLAB + '">'
-        +     'Black Swan</button>'
+        +   COLLABS().map(c => '<button class="sh-chip' + (shareSkin() === c.id ? " on" : "")
+        +     '" data-s="' + esc(c.id) + '">' + esc(c.name) + '</button>').join("")
         + '</div>')
     + '<div class="sh-lab">' + T.slDurationLabel + '</div>'
     + '<div class="sh-ttl">' + TTL().map(t =>
