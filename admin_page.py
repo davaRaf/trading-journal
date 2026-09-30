@@ -52,6 +52,34 @@ def billing_start():
 
 # ------------------------------------------------------------ дрібниці ----
 
+PLAN_RU = {"month": "Месяц", "quarter": "Квартал", "year": "Год"}
+
+
+def _access(u, free, bstart):
+    """Крупна плашка вгорі картки: який у людини доступ зараз — щоб не
+    шукати це в таблиці нижче після кожної видачі."""
+    now = datetime.datetime.now(datetime.timezone.utc)
+    sub = _sub(u, now)
+    box = ('<div style="display:flex;align-items:center;gap:14px;flex-wrap:wrap;padding:16px 18px;'
+           'margin-bottom:14px;border-radius:14px;border:1px solid %s;background:%s">'
+           '<span style="font-size:22px;font-weight:700;color:%s">%s</span>'
+           '<span style="color:var(--text);font-size:14.5px">%s</span></div>')
+    if sub == "life":
+        since = u.get("special_since")
+        return box % ("#e3b341", "rgba(227,179,65,.10)", "#e3b341", "★ Special",
+                      "полный доступ навсегда, без оплаты"
+                      + (" · выдан %s" % since.strftime("%d.%m.%Y") if since else ""))
+    if sub:
+        until = u["paid_until"]
+        left = max(0, (until - now).days)
+        return box % ("var(--acc)", "rgba(64,224,148,.08)", "var(--acc)", "Подписка · " + PLAN_RU.get(sub, sub),
+                      "до %s · осталось %d дн." % (until.astimezone(KYIV).strftime("%d.%m.%Y"), left))
+    cap = u.get("free_trades_cap") or FREE_LIMIT
+    return box % ("var(--line)", "transparent", "var(--dim)", "Бесплатный доступ",
+                  ("использовано %d из %d сделок" % (free, cap)) if bstart
+                  else "лимит сделок ещё не запущен")
+
+
 def _sub(u, now):
     """Чим людина зараз користується: month/quarter/year, life (Special) або ''."""
     if u.get("plan") == "life":
@@ -737,6 +765,7 @@ def user_card(u, titles, kind_ru, refs, billing_html=""):
           '<div style="font-size:26px;font-weight:700;letter-spacing:-.02em">' + e(u["nickname"]) + "</div>"
           '<span class="pill p-' + st[0] + '">' + st[1] + "</span>"
           '<span class=mute>' + e(u["email"]) + "</span></div>"
+        + _access(u, free, bstart)
         + '<div class="grid kpis">'
         + _kpi("Сделок всего", str(t.get("n") or 0), '<div class=d>%d вручную · %d скипов</div>' % (manual, t.get("skips") or 0))
         + (_kpi("До лимита %d" % FREE_LIMIT, '<span class="%s">%d / %d</span>' % ("up" if free >= FREE_LIMIT else "be" if free >= FREE_LIMIT - 5 else "", min(free, 999), FREE_LIMIT),
