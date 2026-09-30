@@ -701,10 +701,10 @@ function open(kind, arg){
       });
       if(!res.ok) throw new Error("HTTP " + res.status);
       const r = await res.json();
-      /* Посилання роздають далі, тому під час колаборації воно йде з міткою
-         партнера: хто прийде за ним, рахується йому. */
-      const raw = location.origin + r.url;
-      const url = (window.__skin && __skin.withRef) ? __skin.withRef(raw) : raw;
+      /* Посилання роздають далі, тому під час колаборації воно йде з
+         міткою партнера — шматком шляху, без хвоста «?ref=». */
+      const ref = (window.__skin && __skin.refPath) ? __skin.refPath() : "";
+      const url = location.origin + ref + r.url;
       const out = document.getElementById("shOut");
       out.hidden = false;
       out.innerHTML = '<input class="sh-url" id="shUrl" readonly value="' + esc(url) + '">'

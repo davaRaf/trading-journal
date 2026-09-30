@@ -67,28 +67,6 @@ function current(){
   try{ return localStorage.getItem(KEY) || "night"; }catch(e){ return "night"; }
 }
 
-/* Мітка з якою людина прийшла. Вона головніша за оформлення: якщо гість
-   зайшов за чужим посиланням, ми його не перебиваємо. */
-const CAME_WITH_REF = /[?&]ref=/.test(location.search);
-
-/* Адреса самої вкладки. Поки стоїть оформлення партнера, мітка висить і
-   в рядку браузера: людина копіює адресу звідти, і той, кому вона її
-   дасть, рахується партнерові — а прев'ю такого посилання йде їхнє.
-   Сторінку не перезавантажуємо, тому зайвого переходу партнеру не
-   зараховується: його рахує сервер на справжньому заході. */
-function markAddress(id){
-  if (CAME_WITH_REF) return;
-  const th = THEMES().find(t => t.id === id);
-  const ref = (th && th.collab) || "";
-  let u;
-  try{ u = new URL(location.href); }catch(e){ return; }
-  if (ref) u.searchParams.set("ref", ref);
-  else u.searchParams.delete("ref");
-  if (u.href !== location.href){
-    try{ history.replaceState(null, "", u.href); }catch(e){}
-  }
-}
-
 /* ---------- застосування ---------- */
 function apply(id){
   const root = document.documentElement;
@@ -106,7 +84,6 @@ function apply(id){
     root.setAttribute("data-theme", t.base);
   }
   root.setAttribute("data-skin", id);
-  markAddress(id);
   /* підказка на парі знаків — про ту спільноту, чия тема ввімкнена */
   const cm = document.getElementById("collabMark");
   if (cm && window.T) cm.setAttribute("data-tip", id === "fxlab" ? T.collabTipFx : T.collabTip);
@@ -180,29 +157,32 @@ function redraw(){
 
 /* Мітка партнера, чиє оформлення зараз стоїть. Порожньо — своя тема.
 
-   Живе тут, бо тут і лежить таблиця тем: хто з ким у колаборації,
-   знає вона одна. Решта файлів (посилання на журнал, знімки) просто
-   питає — і посилання, роздані під час колаборації, рахуються
-   партнерові, навіть якщо сама людина прийшла не від нього. */
+   Живе тут, бо тут і лежить таблиця тем: хто з ким у колаборації, знає
+   вона одна. Решта файлів (посилання на журнал, знімки) просто питає —
+   і посилання, роздані під час колаборації, рахуються партнерові, навіть
+   якщо сама людина прийшла не від нього.
+
+   Мітка стоїть шматком шляху: statsai.xyz/fxlab/u/dan, а не «?ref=». */
 function collabRef(){
   const id = document.documentElement.getAttribute("data-skin") || "";
   const th = THEMES().find(t => t.id === id);
   return (th && th.collab) || "";
 }
 
-/* Дописати мітку до посилання, яким збираються поділитись. Уже є своя —
-   не чіпаємо: перша мітка головніша, так само як у сервера. */
-function withRef(url){
+/* Як мітка стоїть в адресі: шматком шляху на початку, без «?ref=».
+   Короткі назви ті самі, що в config.PARTNER_ALIASES на сервері. */
+const REF_SHORT = {blackswan: "bs"};
+
+function refPath(){
   const ref = collabRef();
-  if (!ref || /[?&]ref=/.test(url)) return url;
-  return url + (url.indexOf("?") < 0 ? "?" : "&") + "ref=" + encodeURIComponent(ref);
+  return ref ? "/" + (REF_SHORT[ref] || ref) : "";
 }
 
 /* ---------- ручки ---------- */
 window.__skin = {
   section: section,
   collabRef: collabRef,
-  withRef: withRef,
+  refPath: refPath,
   open(){ if (window.__settings) __settings.open("skin"); },
   set(id){ apply(id); redraw(); },
   seed(field, value){
