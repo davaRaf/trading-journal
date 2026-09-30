@@ -53,6 +53,7 @@ def copy_rows(dst, table, rows, new_user_id):
         return 0
     both = [c for c in cols(dst, table) if c[0] in rows[0].keys()]
     names = [c[0] for c in both]
+    # sql-ok: назви таблиці й колонок — із самої бази, не з чийогось запиту
     sql = 'INSERT INTO "%s" (%s) VALUES (%s) ON CONFLICT DO NOTHING' % (
         table, ", ".join('"%s"' % n for n in names), ", ".join(["%s"] * len(names)))
     n = 0
@@ -91,6 +92,7 @@ def main():
         plan = {}
         for t in PER_USER:
             if exists(src, t) and exists(dst, t):
+                # sql-ok: t перебирає PER_USER, свій список таблиць
                 plan[t] = src.execute('SELECT * FROM "%s" WHERE user_id=%%s' % t, (old_id,)).fetchall()
         names = [r["name"] for r in src.execute(
             "SELECT DISTINCT jsonb_array_elements(screenshots)->>'file' AS name "
@@ -108,6 +110,7 @@ def main():
 
         with dst.transaction():
             ucols = [c for c in cols(dst, "users") if c[0] != "id" and c[0] in user]
+            # sql-ok: назви колонок — із самої бази
             new = dst.execute(
                 'INSERT INTO users (%s) VALUES (%s) RETURNING id' % (
                     ", ".join('"%s"' % c[0] for c in ucols), ", ".join(["%s"] * len(ucols))),

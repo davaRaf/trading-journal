@@ -161,6 +161,85 @@ CONFIRM_LETTER = (
 )
 
 
+ALERT_SUBJECT = ("Хтось підбирає пароль до вашого журналу StatsAI",
+                 "Кто-то подбирает пароль к вашему журналу StatsAI",
+                 "Someone is trying to guess your StatsAI password")
+
+# Лист-попередження. Посилань усередині навмисно немає, крім адреси самого
+# сайту: людина, яку щойно налякали листом, найлегше ведеться на посилання
+# «змінити пароль тут» — і саме таким листом її й обманюють. Хай зайде на
+# сайт сама, тим шляхом, який знає.
+ALERT_LETTER = (
+    "Доброго дня!\n\n"
+    "За останню годину до вашого акаунта в журналі StatsAI було %(tries)d "
+    "невдалих спроб входу. Схоже, пароль підбирають.\n\n"
+    "Сам вхід ми вже пригальмували: після кількох помилок поспіль сторінка "
+    "просить зачекати, і пауза росте. Всередину ніхто не потрапив — цей лист "
+    "саме про спроби.\n\n"
+    "Якщо це не ви:\n"
+    "  1. Змініть пароль на довший — у налаштуваннях журналу.\n"
+    "  2. Увімкніть вхід за кодом із застосунку (двофакторну перевірку) —\n"
+    "     тоді самого пароля для входу буде замало.\n\n"
+    "Якщо це ви просто не згадали пароль — скористайтесь «Забув пароль» на "
+    "сторінці входу.\n\n"
+    "--\n"
+    "StatsAI — помічник трейдера\n"
+    "%(site)s\n",
+
+    "Здравствуйте!\n\n"
+    "За последний час к вашему аккаунту в журнале StatsAI было %(tries)d "
+    "неудачных попыток входа. Похоже, пароль подбирают.\n\n"
+    "Сам вход мы уже притормозили: после нескольких ошибок подряд страница "
+    "просит подождать, и пауза растёт. Внутрь никто не попал — это письмо "
+    "именно о попытках.\n\n"
+    "Если это не вы:\n"
+    "  1. Смените пароль на более длинный — в настройках журнала.\n"
+    "  2. Включите вход по коду из приложения (двухфакторную проверку) —\n"
+    "     тогда одного пароля для входа будет мало.\n\n"
+    "Если это вы просто не вспомнили пароль — воспользуйтесь «Забыл пароль» "
+    "на странице входа.\n\n"
+    "--\n"
+    "StatsAI — помощник трейдера\n"
+    "%(site)s\n",
+
+    "Hello,\n\n"
+    "Over the past hour there were %(tries)d failed sign-in attempts on your "
+    "StatsAI account. It looks like someone is guessing the password.\n\n"
+    "Sign-in is already slowed down: after a few errors in a row the page asks "
+    "to wait, and the pause grows. Nobody got in — this message is about the "
+    "attempts themselves.\n\n"
+    "If this was not you:\n"
+    "  1. Change the password to a longer one, in the journal settings.\n"
+    "  2. Turn on the app code (two-factor check) — then the password alone\n"
+    "     is not enough to sign in.\n\n"
+    "If this was you and you simply forgot the password, use «Forgot password» "
+    "on the sign-in page.\n\n"
+    "--\n"
+    "StatsAI — trading assistant\n"
+    "%(site)s\n",
+)
+
+ALERT_TG = (
+    "⚠️ <b>Підбір пароля до StatsAI</b>\n\n"
+    "За останню годину — %(tries)d невдалих спроб входу у ваш журнал. "
+    "Вхід уже пригальмовано, всередину ніхто не потрапив.\n\n"
+    "Якщо це не ви — змініть пароль на довший і увімкніть вхід за кодом "
+    "із застосунку.",
+
+    "⚠️ <b>Подбор пароля к StatsAI</b>\n\n"
+    "За последний час — %(tries)d неудачных попыток входа в ваш журнал. "
+    "Вход уже притормозили, внутрь никто не попал.\n\n"
+    "Если это не вы — смените пароль на более длинный и включите вход "
+    "по коду из приложения.",
+
+    "⚠️ <b>Password guessing on StatsAI</b>\n\n"
+    "Over the past hour there were %(tries)d failed sign-in attempts on your "
+    "journal. Sign-in is already slowed down and nobody got in.\n\n"
+    "If this was not you, change the password to a longer one and turn on "
+    "the app code.",
+)
+
+
 CODE_SUBJECT = ("Код підтвердження StatsAI: %s",
                 "Код подтверждения StatsAI: %s",
                 "StatsAI confirmation code: %s")
@@ -306,3 +385,37 @@ def start_confirm(user, base_url, lang="uk"):
         return False
     return mailer.send(user["email"], _t(CONFIRM_SUBJECT, lang),
                        _t(CONFIRM_LETTER, lang) % words)
+
+
+def warn_guessing(user, tries, base_url, lang="ru"):
+    """Сказати людині, що її пароль підбирають. Поштою і в Телеграм.
+
+    Кличе app.py, коли невдалих спроб за годину набралось на першу
+    сходинку паузи. Важливо, що лист іде **хазяїнові акаунта**, а не тому,
+    хто стукав: чужому це нічого не каже, а свій дізнається, що час
+    міняти пароль і вмикати код із застосунку.
+
+    Повертає список каналів, які спрацювали — як і start().
+    """
+    site = (base_url or config.SITE_URL).rstrip("/")
+    words = {"tries": int(tries), "site": site}
+    done = []
+
+    if has_email(user) and mailer.enabled():
+        if mailer.send(user["email"], _t(ALERT_SUBJECT, lang),
+                       _t(ALERT_LETTER, lang) % words):
+            done.append("email")
+
+    if has_telegram(user):
+        try:
+            tg_api.call("sendMessage", {
+                "chat_id": user["telegram_id"],
+                "text": _t(ALERT_TG, lang) % words,
+                "parse_mode": "HTML",
+                "disable_web_page_preview": True,
+            })
+            done.append("telegram")
+        except Exception as ex:
+            print("підбір: у Телеграм не пішло — %s" % ex, flush=True)
+
+    return done

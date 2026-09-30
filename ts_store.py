@@ -166,9 +166,10 @@ def save_shot(user_id, data_url, shots_dir):
         raise ValueError("зіпсований файл")
     if len(raw) > MAX_BYTES:
         raise filestore.ShotError("завеликий файл", "too_big", 413)
-    if not filestore.is_image(raw):
+    # Розширення беремо з байтів, а не зі слова в data-URL: його пише клієнт.
+    ext = filestore.kind(raw)
+    if not ext:
         raise filestore.ShotError("не картинка", "bad_image")
-    ext = m.group(1).lower().replace("jpeg", "jpg")
     name = "ts%d_%x.%s" % (int(user_id), int(time.time() * 1000), ext)
     # у базі — надовго, на диску — кешем: у контейнерів файлова система
     # тимчасова, і після оновлення коду картинки зникли б

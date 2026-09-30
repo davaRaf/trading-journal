@@ -38,11 +38,15 @@ fake_tg.send_message = lambda chat, text, keyboard=None, parse_mode=None, reply_
     SENT.append({"text": text, "kb": keyboard}))
 fake_tg.answer_callback = lambda cid, text=None: None
 fake_tg.get_file = lambda fid: {"file_path": "photos/x.jpg"}
-fake_tg.download = lambda path, timeout=30: b"picture"
+# Не просто b"picture": сценарій дивиться на перші байти, і «картинка»
+# без підпису jpeg до нього тепер не доходить — як і не мала б.
+JPEG = b"\xff\xd8\xff\xe0" + b"picture"
+fake_tg.download = lambda path, timeout=30: JPEG
 
 fake_store = types.ModuleType("filestore")
 PUT = []
 fake_store.put = lambda name, raw, mime=None: PUT.append(name)
+fake_store.kind = lambda raw: "jpg" if (raw or b"")[:3] == b"\xff\xd8\xff" else None
 
 fake_emotions = types.ModuleType("emotions")
 fake_emotions.OPTIONS = [("sp", "Спокій"), ("st", "Страх")]

@@ -8,6 +8,7 @@ import base64
 import datetime
 import gzip
 import hmac
+import html as _html
 import json
 import os
 import re
@@ -43,6 +44,7 @@ import notion_sync
 import authmail
 import oauth
 import ratelimit
+import seclog
 import accounts_store
 import bt_journals_store
 import day_store
@@ -75,6 +77,37 @@ def new_id():
     with _id_lock:
         _id_counter += 1
         return "t" + str(_id_counter)
+
+
+# Що сторінці дозволено вантажити. Другий рубіж проти XSS: навіть якщо
+# чужий текст колись просочиться в HTML, підвантажити скрипт зі свого
+# домену йому не дадуть, а <base> і <object> закриті зовсім.
+#
+# 'unsafe-inline' у script-src поки обов'язковий: сторінки журналу тримають
+# обробники прямо в розмітці (onclick=...) і вбудовані <script>. Прибрати
+# його можна тільки разом із ними — окрема велика робота.
+#
+# Шрифти йдуть із Google Fonts, картинки бувають data: (аватарка в формі)
+# і blob: (щойно вибраний файл) — тому вони в списку.
+CSP = "; ".join([
+    "default-src 'self'",
+    "base-uri 'self'",
+    "object-src 'none'",
+    "frame-ancestors 'self'",
+    "form-action 'self'",
+    "img-src 'self' data: blob:",
+    "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
+    "font-src 'self' https://fonts.gstatic.com data:",
+    "script-src 'self' 'unsafe-inline'",
+    "connect-src 'self'",
+    "frame-src 'self'",
+])
+
+
+def html_escape(x):
+    """Текст людини всередину HTML. Разом із лапками: підставляємо і в
+    тіло сторінки, і в content="..." мета-тегів."""
+    return _html.escape("" if x is None else str(x), quote=True)
 
 
 DATAURL_RE = re.compile(r"^data:image/(png|jpeg|jpg|webp|gif);base64,(.+)$", re.S)
@@ -115,14 +148,15 @@ def save_screenshots(trade, uid, old=None):
             m = DATAURL_RE.match(s["data"])
             if not m:
                 continue
-            ext = m.group(1).replace("jpeg", "jpg")
             try:
                 raw = base64.b64decode(m.group(2))
             except Exception:
                 continue
             if len(raw) > SHOT_MAX:
                 raise filestore.ShotError("завеликий скріншот", "too_big", 413)
-            if not filestore.is_image(raw):
+            # Розширення — з самих байтів: слово в data-URL пише клієнт.
+            ext = filestore.kind(raw)
+            if not ext:
                 raise filestore.ShotError("файл не схожий на картинку", "bad_image")
             name = "%s_%d_%s.%s" % (trade["id"], int(time.time() * 1000) % 100000000 + i, tf, ext)
             ready.append((s, name, raw))
@@ -150,6 +184,22 @@ def keep_file(name, raw):
             f.write(raw)
     except OSError:
         pass
+
+
+def under(base, name):
+    """Повний шлях до файла всередині base — або None, якщо назва виводить
+    назовні.
+
+    Одного os.path.join мало: назва, що починається з кореня ("/etc/passwd",
+    "C:/..."), не додається до base, а заміняє його цілком — і запит до
+    папки зі стилями діставав будь-який файл на сервері. Тому питаємо
+    систему, де шлях опинився насправді, і звіряємо з коренем."""
+    try:
+        full = os.path.realpath(os.path.join(base, name))
+    except (OSError, ValueError):
+        return None
+    root = os.path.realpath(base)
+    return full if full == root or full.startswith(root + os.sep) else None
 
 
 def shot_path(name):
@@ -339,18 +389,18 @@ def share_og(rec, sid, base):
     # для тижня й місяця сторінка малює свій календар — він і йде в превью;
     # для дня й угоди беремо скрін самої угоди
     shot = d.get("og") or share_preview_shot(rec)
-    esc_ = lambda x: str(x).replace("&", "&amp;").replace('"', "&quot;").replace("<", "&lt;")
+    esc_ = html_escape
     tags = [
         '<meta property="og:type" content="website">',
         '<meta property="og:site_name" content="StatsAI">',
         '<meta property="og:title" content="%s">' % esc_(title),
         '<meta property="og:description" content="%s">' % esc_(desc),
-        '<meta property="og:url" content="%s/s/%s">' % (base, sid),
+        '<meta property="og:url" content="%s/s/%s">' % (esc_(base), sid),
         '<meta name="twitter:title" content="%s">' % esc_(title),
         '<meta name="twitter:description" content="%s">' % esc_(desc),
     ]
     if shot:
-        img = "%s/api/share/%s/shot/%s" % (base, sid, shot)
+        img = esc_("%s/api/share/%s/shot/%s" % (base, sid, shot))
         tags += ['<meta property="og:image" content="%s">' % img,
                  '<meta name="twitter:image" content="%s">' % img,
                  '<meta name="twitter:card" content="summary_large_image">']
@@ -820,7 +870,11 @@ def _billing_block(u):
     who = lambda rows: ", ".join(
         '<a href="/admin/u/%s" style="color:var(--acc)">%s</a>' % (e(r["nickname"]), e(r["nickname"]))
         for r in rows) or "—"
-    nick_js = json.dumps(u["nickname"], ensure_ascii=False)
+    # Нік їде всередину <script>. json.dumps не чіпає "</", а саме ним
+    # рядок закрив би тег і все після нього стало б розміткою. Ніком
+    # такого не зробити (NICK_RE не пускає ні "<", ні "/"), але
+    # підстраховка тут коштує рядок, а перевірка живе в іншому файлі.
+    nick_js = json.dumps(u["nickname"], ensure_ascii=False).replace("</", "<\\/")
     inp = ('padding:8px 10px;border-radius:9px;border:1px solid var(--line);'
            'background:var(--card);color:var(--text);font:inherit;width:82px')
     return (
@@ -1226,6 +1280,16 @@ def public_owner(user_id):
 
 
 class H(BaseHTTPRequestHandler):
+    # Чим ми підписуємось у заголовку Server. Стандартно тут їде
+    # «BaseHTTP/0.6 Python/3.14.6» — рядок, з якого одразу видно, якої
+    # версії мова й бібліотека. Саме з цього починають, коли шукають
+    # готову діру під конкретну версію; нам сказати нічого.
+    server_version = "StatsAI"
+    sys_version = ""
+
+    def version_string(self):
+        return self.server_version
+
     # Скільки чекати на самого клієнта. Без цього браузер, який відкрив
     # з'єднання і замовк (обірваний вай-фай, вкладка в сплячці), тримав би
     # робітника вічно — а їх обмежена кількість.
@@ -1265,6 +1329,10 @@ class H(BaseHTTPRequestHandler):
             self.send_header("Content-Encoding", "gzip")
             self.send_header("Vary", "Accept-Encoding")
         self.send_header("Content-Length", str(len(data)))
+        # Жодної відповіді api не кешуємо. Поки сайт віддає себе сам, це
+        # дрібниця, але щойно попереду стане CDN, відповідь без цього рядка
+        # може осісти в ньому й дістатись не тому, кому призначалась.
+        self.send_header("Cache-Control", "no-store")
         if cookie:
             self.send_header("Set-Cookie", cookie)
         self.end_headers()
@@ -1418,9 +1486,11 @@ class H(BaseHTTPRequestHandler):
         if os.path.exists(main_og):
             html = html.replace('"/static/og-main.png"',
                                 '"/static/og-main.png?v=%d"' % int(os.path.getmtime(main_og)))
-        html = html.replace('content="/static/', 'content="%s/static/' % self._base())
+        # Адреса сайту без PUBLIC_URL збирається із заголовка Host, а його
+        # підробляють одним рядком у запиті: у розмітку — лише екрановану.
+        html = html.replace('content="/static/', 'content="%s/static/' % html_escape(self._base()))
         html = html.replace("</title>",
-                            '</title>\n<meta property="og:url" content="%s/">' % self._base(), 1)
+                            '</title>\n<meta property="og:url" content="%s/">' % html_escape(self._base()), 1)
         body = html.encode("utf-8")
         enc = self._squeeze(body)
         if enc is not None:
@@ -1467,6 +1537,35 @@ class H(BaseHTTPRequestHandler):
     def _too_big_reply(self):
         """Тіло більше за MAX_BODY — кажемо прямо, а не «bad json»."""
         return self._json({"error": "запит завеликий", "code": "too_big"}, 413)
+
+    # Адреси, яких загальна межа не стосується. /health стукає сам сервер
+    # раз на кілька секунд, і замкнути його означало б перезапускати живий
+    # сайт по колу.
+    FLOOD_FREE = ("/health",)
+
+    def _flooding(self):
+        """Чи засипає нас ця адреса запитами. True — відповідь уже пішла.
+
+        Стоїть першою дією кожного запиту, до будь-якої роботи: сенс саме
+        в тому, щоб на напливі не ходити в базу й не читати файли. Відмова
+        коротка, з Retry-After — чемні клієнти після нього притихають самі.
+        """
+        p = urlparse(self.path).path
+        if p in self.FLOOD_FREE:
+            return False
+        wait = ratelimit.flood("flood:" + self._guest())
+        if not wait:
+            return False
+        body = json.dumps({"error": "забагато запитів", "code": "too_many",
+                           "wait": wait}, ensure_ascii=False).encode("utf-8")
+        self.send_response(429)
+        self.send_header("Content-Type", "application/json; charset=utf-8")
+        self.send_header("Retry-After", str(wait))
+        self.send_header("Content-Length", str(len(body)))
+        self.close_connection = True      # не тримаємо з'єднання за собою
+        self.end_headers()
+        self.wfile.write(body)
+        return True
 
     def _shot_reply(self, e):
         return self._json({"error": str(e), "code": e.code}, e.status)
@@ -1519,12 +1618,41 @@ class H(BaseHTTPRequestHandler):
     def _twofa_limit(self, uid):
         """Ліміт на коди: шість цифр перебирати по 5 на хвилину — роки."""
         keys = ["2fa:%d" % uid]
-        wait = ratelimit.check(keys)
+        wait = ratelimit.locked(keys)
         if wait:
             self._json({"error": "забагато спроб — спробуй за %d с" % wait,
                         "code": "too_many", "wait": wait}, 429)
             return None
         return keys
+
+    # Після скількох невдач за годину кажемо хазяїнові акаунта, що його
+    # підбирають. Береться перша сходинка паузи: рівно з неї починається
+    # те, чого звичайна забудькуватість не робить.
+    GUESS_ALERT = ratelimit.STEPS[0][0]
+
+    def _note_guessing(self, user, lang):
+        """Порахувати невдалу спробу на сам акаунт і, якщо їх забагато,
+        попередити хазяїна.
+
+        Лист — не частіше разу на годину (notified_events), інакше
+        попередження саме стало б розсилкою: сто спроб — сто листів.
+        Помилка тут нічого не має ламати: людині вже відмовлено у вході,
+        і це головне.
+        """
+        try:
+            key = "user:%d" % user["id"]
+            ratelimit.fail([key])
+            if ratelimit.fails(key) < self.GUESS_ALERT:
+                return
+            hour = datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m-%dT%H")
+            if not db.record_notified(user["id"], "guess:" + hour, "guess"):
+                return
+            print("підбір пароля: %s, %d спроб за годину"
+                  % (user["nickname"], ratelimit.fails(key)), flush=True)
+            in_background(authmail.warn_guessing, user, ratelimit.fails(key),
+                          self._base(), lang)
+        except Exception as ex:
+            print("підбір: не вдалось попередити —", ex, flush=True)
 
     def _settle_return(self):
         """Людина повернулась із каси: вмикаємо оплачене, не чекаючи вебхука.
@@ -1650,6 +1778,7 @@ class H(BaseHTTPRequestHandler):
         self.send_header("X-Content-Type-Options", "nosniff")
         self.send_header("X-Frame-Options", "SAMEORIGIN")
         self.send_header("Referrer-Policy", "strict-origin-when-cross-origin")
+        self.send_header("Content-Security-Policy", CSP)
         if auth.is_https(self):
             self.send_header("Strict-Transport-Security", "max-age=31536000")
         BaseHTTPRequestHandler.end_headers(self)
@@ -1704,6 +1833,7 @@ class H(BaseHTTPRequestHandler):
         return ok
 
     def do_GET(self):
+        if self._flooding(): return
         if self._old_host(): return
         p = unquote(urlparse(self.path).path)
 
@@ -1812,9 +1942,12 @@ class H(BaseHTTPRequestHandler):
                 host = self.headers.get("X-Forwarded-Host") or self.headers.get("Host") or ""
                 base = "%s://%s" % (proto, host)
                 d = rec.get("data") or {}
+                # Назву знімка пише людина, а звідси вона їде прямо в HTML:
+                # екрануємо все, а не саме "<" — інакше лапка чи "&" псують
+                # розмітку сусідніх тегів.
                 html = html.replace("<title>StatsAI</title>",
-                                    "<title>%s · StatsAI</title>" % (d.get("title") or "StatsAI")
-                                    .replace("<", "&lt;"), 1)
+                                    "<title>%s · StatsAI</title>"
+                                    % html_escape(d.get("title") or "StatsAI"), 1)
                 html = html.replace("</head>", share_og(rec, sid, base) + "\n</head>", 1)
             data = html.encode("utf-8")
             self.send_response(200)
@@ -1920,7 +2053,9 @@ class H(BaseHTTPRequestHandler):
             if not uid:
                 return self._redirect("/login")
             if not _is_admin(uid):
+                seclog.event("адмінка", False, user=db.get_user(uid), ip=self._guest())
                 self.send_response(403); self.end_headers(); return
+            seclog.event("адмінка", True, user=db.get_user(uid), ip=self._guest())
             # панель цифр малює admin_page.py; ?q= — підставити пошук
             query = urllib.parse.parse_qs(urlparse(self.path).query).get("q", [""])[0].strip()
             data = admin_page.dashboard(query, REF_TITLES, KIND_RU, list(ref_all())).encode("utf-8")
@@ -2047,7 +2182,6 @@ class H(BaseHTTPRequestHandler):
                 return self._json({"error": "auth required"}, 401)
             return self._json({"journals": bt_journals_store.lst(uid)})
 
-        # ---- аналіз дня (day_store.py) ----
         if p.startswith("/api/day/"):
             uid = self._uid()
             if not uid:
@@ -2342,10 +2476,11 @@ class H(BaseHTTPRequestHandler):
             if os.path.exists(main_og):
                 html = html.replace('"/static/og-main.png"',
                                     '"/static/og-main.png?v=%d"' % int(os.path.getmtime(main_og)))
-            html = html.replace('content="/static/', 'content="%s/static/' % self._base())
+            html = html.replace('content="/static/',
+                                'content="%s/static/' % html_escape(self._base()))
             if 'property="og:url"' not in html:
                 html = html.replace("</title>",
-                                    '</title>\n<meta property="og:url" content="%s/">' % self._base(), 1)
+                                    '</title>\n<meta property="og:url" content="%s/">' % html_escape(self._base()), 1)
             body = html.encode("utf-8")
             enc = self._squeeze(body)
             if enc is not None:
@@ -2361,11 +2496,15 @@ class H(BaseHTTPRequestHandler):
             return
 
         if p.startswith("/design/"):
-            # прототипы: экран входа, новости, знак — чтобы смотреть с того же адреса
-            name = os.path.normpath(p[len("/design/"):]).replace("\\", "/")
-            if name.startswith("..") or name in ("", "."):
+            # прототипы: экран входа, новости, знак — чтобы смотреть с того же адреса.
+            # Це чернетки майбутніх розділів, і лежать вони на бойовому
+            # сайті. Стороннім там робити нічого, тому показуємо тільки
+            # своїм — рядок нижче прибрати, якщо треба комусь показати.
+            if not _is_admin(self._uid()):
+                self.send_response(404); self.end_headers(); return
+            full = under(os.path.join(ROOT, "design"), p[len("/design/"):])
+            if not full:
                 self.send_response(403); self.end_headers(); return
-            full = os.path.join(ROOT, "design", name)
             if os.path.isdir(full):
                 full = os.path.join(full, "index.html")
             ext = full.rsplit(".", 1)[-1].lower()
@@ -2454,9 +2593,10 @@ class H(BaseHTTPRequestHandler):
             return self._file(os.path.join(STATIC, "index.html"), "text/html; charset=utf-8")
 
         if p.startswith("/static/"):
-            name = os.path.normpath(p[len("/static/"):]).replace("\\", "/")
-            if name.startswith(".."):
+            full = under(STATIC, p[len("/static/"):])
+            if not full:
                 self.send_response(403); self.end_headers(); return
+            name = os.path.relpath(full, STATIC).replace("\\", "/")
             # Чернетки й службове (_test.html, .rej, .txt) назовні не віддаємо
             base = name.rsplit("/", 1)[-1]
             if base.startswith("_") or base.startswith(".") or \
@@ -2471,13 +2611,14 @@ class H(BaseHTTPRequestHandler):
             versioned = "v=" in urlparse(self.path).query
             cache = self.FOREVER if versioned else None
             if ctype.startswith("video/"):
-                return self._media(os.path.join(STATIC, name), ctype, cache)
-            return self._file(os.path.join(STATIC, name), ctype, cache)
+                return self._media(full, ctype, cache)
+            return self._file(full, ctype, cache)
 
         self.send_response(404); self.end_headers()
 
     # ---------- POST ----------
     def do_POST(self):
+        if self._flooding(): return
         if self._old_host(): return
         p = urlparse(self.path).path
         body = self._body()
@@ -2701,8 +2842,8 @@ class H(BaseHTTPRequestHandler):
             act = p[len("/api/admin/billing/"):].strip("/")
             note = str(body.get("note") or "").strip() or None
             num = lambda k: int(body.get(k) or 0)
-            print("admin: %s робить %r акаунту %s (id %s)" % (
-                who, act, u["nickname"], u["id"]), flush=True)
+            seclog.event("адмін", True, user=db.get_user(who), ip=self._guest(),
+                         дія=act, кому=u["nickname"], кому_id=u["id"])
             if act == "grant":
                 # Назавжди — окремим прапорцем, а не «99999 днів»: інакше
                 # в базі лежала б вигадана дата, а людині показували б строк.
@@ -2763,8 +2904,8 @@ class H(BaseHTTPRequestHandler):
                 conn.execute("UPDATE users SET ref_source=%s, ref_at=%s WHERE id=%s",
                              (ref or None, "now()" and (datetime.datetime.now() if ref else None), u["id"]))
                 conn.commit()
-            print("admin: %s ставить мітку %r акаунту %s (id %s)" % (
-                who, ref, u["nickname"], u["id"]), flush=True)
+            seclog.event("адмін", True, user=db.get_user(who), ip=self._guest(),
+                         дія="мітка:%s" % (ref or "—"), кому=u["nickname"], кому_id=u["id"])
             return self._json({"ok": True, "ref": ref})
 
         # ---- видалення акаунта на прохання людини: лише власникам ----
@@ -2789,8 +2930,8 @@ class H(BaseHTTPRequestHandler):
                 return self._json({"error": "ник в подтверждении не совпадает"}, 400)
             if _is_admin(u["id"]) and u["id"] != who:
                 return self._json({"error": "аккаунт владельца так не удаляют"}, 403)
-            print("admin: %s видаляє акаунт %s (%s, id %s)" % (
-                who, u["nickname"], u["email"], u["id"]), flush=True)
+            seclog.event("адмін", True, user=db.get_user(who), ip=self._guest(),
+                         дія="видалення", кому=u["nickname"], кому_id=u["id"])
             n = delete_user_fully(u["id"])
             return self._json({"deleted": u["nickname"], "files": n})
 
@@ -2843,6 +2984,7 @@ class H(BaseHTTPRequestHandler):
                         raise
             if not user:
                 return self._json({"error": "така пошта вже зайнята", "code": "taken"}, 409)
+            seclog.event("реєстрація", True, user=user, ip=ip)
             # Звідки й з чого зайшли — щоб наступну таку реєстрацію було з
             # чим порівняти, а в адмінці було видно сусідів.
             try:
@@ -2863,7 +3005,7 @@ class H(BaseHTTPRequestHandler):
             # та перебір одного акаунта з різних адрес — це різні речі.
             who = str(body.get("login") or "").strip().lower()
             keys = ["ip:" + self._guest()] + (["who:" + who] if who else [])
-            wait = ratelimit.check(keys)
+            wait = ratelimit.locked(keys)
             if wait:
                 return self._json(
                     {"error": "забагато спроб входу — спробуй за %d с" % wait, "code": "too_many", "wait": wait}, 429)
@@ -2871,9 +3013,17 @@ class H(BaseHTTPRequestHandler):
             if not user or not auth.verify_password(str(body.get("password") or ""),
                                                     user["pw_hash"], user["pw_salt"],
                                                     user["pw_iters"]):
-                ratelimit.miss(keys)
+                ratelimit.fail(keys)
+                # Окремий лічильник на сам акаунт: логін пишуть і поштою, і
+                # ніком, і з великої літери — за рядком їх не звести, а
+                # попередити треба про підбір саме цього журналу.
+                if user:
+                    self._note_guessing(user, str(body.get("lang") or "ru"))
+                seclog.event("вхід", False, user=user, ip=self._guest(),
+                             login=body.get("login"))
                 return self._json({"error": "невірна пошта або пароль", "code": "bad_login"}, 401)
-            ratelimit.forget(keys)
+            ratelimit.clear(keys + ["user:%d" % user["id"]])
+            seclog.event("вхід", True, user=user, ip=self._guest())
             # Пароль правильний, але пошту так і не підтвердили — спершу код.
             if self._needs_mail_code(user):
                 return self._ask_mail_code(user, str(body.get("lang") or "ru"))
@@ -2905,14 +3055,14 @@ class H(BaseHTTPRequestHandler):
                 in_background(authmail.start_code, user, self._base(), str(body.get("lang") or "ru"))
                 return self._json({"ok": True})
             keys = ["mailcode:%d" % uid]
-            wait = ratelimit.check(keys)
+            wait = ratelimit.locked(keys)
             if wait:
                 return self._json({"error": "забагато спроб — спробуй за %d с" % wait,
                                    "code": "too_many", "wait": wait}, 429)
             if not authmail.take_code(uid, body.get("code")):
-                ratelimit.miss(keys)
+                ratelimit.fail(keys)
                 return self._json({"error": "код не підходить", "code": "mail_bad"}, 401)
-            ratelimit.forget(keys)
+            ratelimit.clear(keys)
             db.confirm_email(uid)
             self._add_cookie(auth.mailcode_cookie("", sec))
             return self._enter(db.get_user(uid))
@@ -2933,9 +3083,12 @@ class H(BaseHTTPRequestHandler):
             user = db.get_user(uid)
             ok, left = twofa.verify(user, (body or {}).get("code"))
             if not ok:
-                ratelimit.miss(keys)
+                ratelimit.fail(keys)
+                seclog.event("вхід-2fa", False, user=user, ip=self._guest())
                 return self._json({"error": "код не підходить", "code": "twofa_bad"}, 401)
-            ratelimit.forget(keys)
+            ratelimit.clear(keys)
+            seclog.event("вхід-2fa", True, user=user, ip=self._guest(),
+                         код="запасний" if left is not None else "застосунок")
             self._add_cookie(auth.pending_cookie("", sec))
             out = {"user": user_public(user)}
             if left is not None:
@@ -3011,20 +3164,21 @@ class H(BaseHTTPRequestHandler):
             if len(password) < 6:
                 return self._json({"error": "пароль від 6 символів", "code": "short"}, 400)
             keys = ["reset:" + self._guest()]
-            wait = ratelimit.check(keys)
+            wait = ratelimit.locked(keys)
             if wait:
                 return self._json({"error": "забагато спроб — спробуй за %d с" % wait,
                                    "code": "too_many", "wait": wait}, 429)
             user = db.take_link(authmail.token_hash(token), "password") if token else None
             if not user:
-                ratelimit.miss(keys)
+                ratelimit.fail(keys)
                 return self._json({"error": "посилання застаріло", "code": "bad_token"}, 400)
-            ratelimit.forget(keys)
+            ratelimit.clear(keys)
             pw_hash, pw_salt, iters = auth.hash_password(password)
             db.set_password(user["id"], pw_hash, pw_salt, iters)
             # Пароль скидають, коли його знає хтось чужий (чи боїться цього) —
             # тож усі старі входи гасимо.
             auth.bump_gen(user["id"])
+            seclog.event("пароль", True, user=user, ip=self._guest(), як="скидання")
             user = db.get_user(user["id"])
             # Одразу впускаємо: людина щойно довела, що скринька її, і
             # вводити пароль удруге тим самим рухом — зайве. Але з 2FA — ні:
@@ -3036,31 +3190,6 @@ class H(BaseHTTPRequestHandler):
 
         # ---- дальше всё только для своих ----
         uid = self._uid()
-        # ---- разовая заливка скриншотов при переезде ----
-        # Работает, только если задан ADMIN_TOKEN. Нужна один раз: перенести
-        # накопленные картинки со старой машины. После переезда переменную убрать.
-        if p == "/api/admin/upload-shot":
-            token = config.ADMIN_TOKEN
-            if not token or not hmac.compare_digest(
-                    (self.headers.get("X-Admin-Token") or "").encode("utf-8"),
-                    token.encode("utf-8")):
-                return self._json({"error": "no"}, 404)
-            name = os.path.basename(str((body or {}).get("name") or ""))
-            data = (body or {}).get("data") or ""
-            if not name or not re.match(r"^[\w.\-]{4,120}$", name):
-                return self._json({"error": "bad name"}, 400)
-            dest = os.path.join(SHOTS, name)
-            if os.path.exists(dest):
-                return self._json({"ok": True, "skipped": True})
-            try:
-                raw = base64.b64decode(data)
-            except Exception:
-                return self._json({"error": "bad data"}, 400)
-            if len(raw) > 8 * 1024 * 1024:
-                return self._json({"error": "too big"}, 400)
-            with open(dest, "wb") as f:
-                f.write(raw)
-            return self._json({"ok": True})
 
         if p.startswith("/api/") and not uid:
             return self._json({"error": "auth required"}, 401)
@@ -3100,9 +3229,10 @@ class H(BaseHTTPRequestHandler):
                 return self._json({"error": "не картинка", "code": "bad_image"}, 400)
             if len(raw) > AVATAR_MAX:
                 return self._json({"error": "завелике фото", "code": "too_big"}, 413)
-            if not filestore.is_image(raw):
+            ext = filestore.kind(raw)
+            if not ext:
                 return self._json({"error": "не картинка", "code": "bad_image"}, 400)
-            name = "av%d_%s.%s" % (uid, secrets.token_hex(6), m.group(1).replace("jpeg", "jpg"))
+            name = "av%d_%s.%s" % (uid, secrets.token_hex(6), ext)
             filestore.put(name, raw)
             old = db.set_avatar(uid, name)
             if own_avatar_file(old) and old != name:
@@ -3167,19 +3297,20 @@ class H(BaseHTTPRequestHandler):
                 return self._json({"error": "пароль від 6 символів",
                                    "code": "short"}, 400)
             keys = ["pw:%d" % uid]
-            wait = ratelimit.check(keys)
+            wait = ratelimit.locked(keys)
             if wait:
                 return self._json({"error": "забагато спроб — спробуй за %d с" % wait,
                                    "code": "too_many", "wait": wait}, 429)
             me = db.get_user(uid)
             if not me or not auth.verify_password(old, me["pw_hash"], me["pw_salt"],
                                                   me["pw_iters"]):
-                ratelimit.miss(keys)
+                ratelimit.fail(keys)
                 return self._json({"error": "старий пароль не підходить",
                                    "code": "bad_old"}, 403)
-            ratelimit.forget(keys)
+            ratelimit.clear(keys)
             pw_hash, pw_salt, iters = auth.hash_password(new)
             db.set_password(uid, pw_hash, pw_salt, iters)
+            seclog.event("пароль", True, user=me, ip=self._guest(), як="сам")
             # новий пароль — нове покоління: хто зайшов зі старим, вилітає
             return self._fresh_login(uid, {"ok": True})
 
@@ -3212,11 +3343,12 @@ class H(BaseHTTPRequestHandler):
                 return self._json({"error": "час вийшов — почни заново", "code": "twofa_expired"}, 400)
             step = twofa.match_step(secret, (body or {}).get("code"))
             if step is None:
-                ratelimit.miss(keys)
+                ratelimit.fail(keys)
                 return self._json({"error": "код не підходить", "code": "twofa_bad"}, 400)
-            ratelimit.forget(keys)
+            ratelimit.clear(keys)
             codes = twofa.new_backup_codes()
             db.twofa_enable(uid, secret, [twofa.backup_hash(c) for c in codes], step)
+            seclog.event("2fa", True, user=me, ip=self._guest(), стан="увімкнено")
             return self._fresh_login(uid, {"backup_codes": codes})
 
         # ---- 2FA: вимкнути або нові запасні коди ----
@@ -3232,11 +3364,12 @@ class H(BaseHTTPRequestHandler):
                 return self._json({"error": "2FA вимкнено", "code": "twofa_off"}, 409)
             ok, _ = twofa.verify(me, (body or {}).get("code"))
             if not ok:
-                ratelimit.miss(keys)
+                ratelimit.fail(keys)
                 return self._json({"error": "код не підходить", "code": "twofa_bad"}, 400)
-            ratelimit.forget(keys)
+            ratelimit.clear(keys)
             if p.endswith("/disable"):
                 db.twofa_disable(uid)
+                seclog.event("2fa", True, user=me, ip=self._guest(), стан="вимкнено")
                 return self._fresh_login(uid, {"ok": True})
             codes = twofa.new_backup_codes()
             db.twofa_set_backup(uid, [twofa.backup_hash(c) for c in codes])
@@ -3694,6 +3827,7 @@ class H(BaseHTTPRequestHandler):
 
     # ---------- PUT ----------
     def do_PUT(self):
+        if self._flooding(): return
         if self._old_host(): return
         p = urlparse(self.path).path
 
@@ -3742,6 +3876,7 @@ class H(BaseHTTPRequestHandler):
 
     # ---------- DELETE ----------
     def do_DELETE(self):
+        if self._flooding(): return
         if self._old_host(): return
         p = urlparse(self.path).path
         m = re.match(r"^/api/trades/([\w-]+)$", p)

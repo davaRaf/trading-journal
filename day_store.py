@@ -120,9 +120,10 @@ def save_shot(user_id, data_url, shots_dir, prefix="dn"):
         raise ValueError("зіпсований файл")
     if len(raw) > MAX_BYTES:
         raise filestore.ShotError("завеликий файл", "too_big", 413)
-    if not filestore.is_image(raw):
+    # Розширення беремо з байтів, а не зі слова в data-URL: його пише клієнт.
+    ext = filestore.kind(raw)
+    if not ext:
         raise filestore.ShotError("не картинка", "bad_image")
-    ext = m.group(1).lower().replace("jpeg", "jpg")
     # префікс каже, чиє це і звідки: dn — розбір дня, sg — картинка
     # для превью посилання. За ним же перевіряється власник у /dnshot/
     name = "%s%d_%x.%s" % (str(prefix), int(user_id), int(time.time() * 1000), ext)
