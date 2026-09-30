@@ -757,11 +757,6 @@ uk: {
 
   // ---- соцмережі (підвал бічної панелі + вікно «Підтримка») ----
   socHere: "Ми тут",
-  // ---- смужка про Telegram-канал над робочою областю ----
-  tgNewsLead: "Новини журналу — у Telegram.",
-  tgNewsText: "Анонсуємо оновлення й нові функції першими.",
-  tgNewsCta: "Підписатися",
-  tgNewsClose: "Закрити",
   socTg: "Telegram · Канал",
   suNews: "Оновлення й анонси",
   socTgTip: "Telegram-канал — усі анонси оновлень журналу",
@@ -1486,11 +1481,6 @@ ru: {
 
   // ---- соцсети (подвал боковой панели + окно «Поддержка») ----
   socHere: "Мы тут",
-  // ---- полоска про Telegram-канал над рабочей областью ----
-  tgNewsLead: "Новости журнала — в Telegram.",
-  tgNewsText: "Анонсируем обновления и новые функции первыми.",
-  tgNewsCta: "Подписаться",
-  tgNewsClose: "Закрыть",
   socTg: "Telegram · Канал",
   suNews: "Обновления и анонсы",
   socTgTip: "Telegram-канал — все анонсы обновлений журнала",
@@ -2215,11 +2205,6 @@ en: {
 
   // ---- socials (sidebar footer + Support window) ----
   socHere: "Follow",
-  // ---- Telegram channel strip above the workspace ----
-  tgNewsLead: "Journal news is on Telegram.",
-  tgNewsText: "Updates and new features are announced there first.",
-  tgNewsCta: "Subscribe",
-  tgNewsClose: "Close",
   socTg: "Telegram · Channel",
   suNews: "Updates and announcements",
   socTgTip: "Telegram channel — every journal update announced",
