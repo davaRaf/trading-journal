@@ -45,6 +45,7 @@ import oauth
 import ratelimit
 import accounts_store
 import bt_journals_store
+import candles
 import day_store
 import tg_api
 import tidy
@@ -2023,6 +2024,52 @@ class H(BaseHTTPRequestHandler):
                 return self._json({"error": "auth required"}, 401)
             return self._json({"journals": bt_journals_store.lst(uid)})
 
+        # ---- свічки для перемотки (candles.py) ----
+        if p == "/api/candles/symbols":
+            if not self._uid():
+                return self._json({"error": "auth required"}, 401)
+            return self._json({"symbols": candles.symbols(),
+                               "sources": candles.source_list(),
+                               "tfs": sorted(candles.TF, key=candles.TF.get)})
+
+        if p == "/api/candles":
+            uid = self._uid()
+            if not uid:
+                return self._json({"error": "auth required"}, 401)
+            q = parse_qs(urlparse(self.path).query)
+            sym = (q.get("symbol", [""])[0] or "").upper()
+            tf = q.get("tf", ["15m"])[0]
+            src = q.get("source", [""])[0] or None
+            try:
+                since = datetime.date.fromisoformat(q.get("from", [""])[0])
+                until = datetime.date.fromisoformat(q.get("to", [""])[0])
+            except ValueError:
+                return self._json({"error": "bad dates"}, 400)
+            # Кожен незакешований день — це похід у мережу, а фід відповідає
+            # неквапливо. Тому за раз віддаємо щонайбільше місяць: браузер
+            # довантажує наступний шматок, поки людина дивиться поточний.
+            if (until - since).days > 31:
+                until = since + datetime.timedelta(days=31)
+            try:
+                src = candles.pick_source(sym, src)
+                rows = candles.bars(sym, tf, since, until, src)
+            except ValueError as ex:
+                return self._json({"error": str(ex)}, 400)
+            except candles.FeedError as ex:
+                # Джерело мовчить — це не наша помилка й не порожня історія:
+                # браузер має сказати «спробуйте ще раз», а не малювати
+                # порожній графік.
+                print("свічки: %s" % ex, flush=True)
+                return self._json({"error": "feed unavailable"}, 503)
+            digits = candles.SYMBOLS[sym]["digits"]
+            out = [[int(b[0]), round(b[1], digits), round(b[2], digits),
+                    round(b[3], digits), round(b[4], digits), round(b[5], 2)]
+                   for b in rows]
+            return self._json({"symbol": sym, "tf": tf, "source": src,
+                               "digits": digits,
+                               "from": since.isoformat(), "to": until.isoformat(),
+                               "bars": out})
+
         # ---- аналіз дня (day_store.py) ----
         if p.startswith("/api/day/"):
             uid = self._uid()
@@ -2169,11 +2216,6 @@ class H(BaseHTTPRequestHandler):
                 inv = crypto_pay.current(uid)
                 if inv:
                     out["invoice"] = crypto_pay.public(inv)
-            # Власникам — перемикач «подивитись як» у розділі «Підписка»: він
-            # лише перефарбовує показ у їхньому браузері, права не змінює.
-            if _is_admin(uid):
-                # early — щоб перемикач показав і ціни перших клієнтів
-                out = dict(out, admin=True, early=config.PRICES["early"])
             return self._json(out)
 
         if p == "/api/calendar":
