@@ -1069,8 +1069,18 @@ document.addEventListener("load", e => {
   if (e.target.tagName === "IMG") fade();
 }, true);
 
+/* Номер знімка з адреси. Саме функцією, а не разовим розбором: адреса
+   під час показу міняється — до неї спереду дописується мітка партнера
+   (/bs/s/abc). Тому шукаємо шматок після «/s/», а не відрізаємо початок:
+   інакше після заміни адреси в номер потрапляло «bs/s/abc», і всі
+   картинки знімка починали віддавати 404. */
+function shareId(){
+  const m = location.pathname.match(/\/s\/([A-Za-z0-9_-]{6,32})/);
+  return m ? m[1] : "";
+}
+
 function shotUrl(file){
-  const id = location.pathname.replace(/^\/s\//, "");
+  const id = shareId();
   return "/api/share/" + encodeURIComponent(id) + "/shot/" + encodeURIComponent(file);
 }
 
@@ -1169,7 +1179,7 @@ function render(rec){
         {day:"numeric", month:"long", hour:"2-digit", minute:"2-digit"})
     : T.shNoLimit;
 
-  const id = location.pathname.replace(/^\/s\//, "");
+  const id = shareId();
   const author = rec.author || null;
   const authorHtml = !author ? "" :
       '<div class="author">'
@@ -1218,7 +1228,7 @@ function render(rec){
 }
 
 (async function(){
-  const id = location.pathname.replace(/^\/s\//, "");
+  const id = shareId();
   try{
     const res = await fetch("/api/share/" + encodeURIComponent(id));
     if(res.status === 404){
