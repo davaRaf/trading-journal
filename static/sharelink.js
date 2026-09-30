@@ -709,7 +709,7 @@ function open(kind, arg){
       out.hidden = false;
       out.innerHTML = '<input class="sh-url" id="shUrl" readonly value="' + esc(url) + '">'
         + '<button class="btn" id="shCopy">' + T.slCopyBtn + '</button>'
-        + '<a class="btn" href="' + esc(r.url) + '" target="_blank" rel="noopener">' + T.slOpenBtn + '</a>';
+        + '<a class="btn" href="' + esc(ref + r.url) + '" target="_blank" rel="noopener">' + T.slOpenBtn + '</a>';
       document.getElementById("shUrl").select();
       document.getElementById("shCopy").onclick = async () => {
         try{ await navigator.clipboard.writeText(url); }
