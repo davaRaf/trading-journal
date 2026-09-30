@@ -155,9 +155,31 @@ function redraw(){
   if (window.__settings && document.querySelector(".stx")) __settings.redraw();
 }
 
+/* Мітка партнера, чиє оформлення зараз стоїть. Порожньо — своя тема.
+
+   Живе тут, бо тут і лежить таблиця тем: хто з ким у колаборації,
+   знає вона одна. Решта файлів (посилання на журнал, знімки) просто
+   питає — і посилання, роздані під час колаборації, рахуються
+   партнерові, навіть якщо сама людина прийшла не від нього. */
+function collabRef(){
+  const id = document.documentElement.getAttribute("data-skin") || "";
+  const th = THEMES().find(t => t.id === id);
+  return (th && th.collab) || "";
+}
+
+/* Дописати мітку до посилання, яким збираються поділитись. Уже є своя —
+   не чіпаємо: перша мітка головніша, так само як у сервера. */
+function withRef(url){
+  const ref = collabRef();
+  if (!ref || /[?&]ref=/.test(url)) return url;
+  return url + (url.indexOf("?") < 0 ? "?" : "&") + "ref=" + encodeURIComponent(ref);
+}
+
 /* ---------- ручки ---------- */
 window.__skin = {
   section: section,
+  collabRef: collabRef,
+  withRef: withRef,
   open(){ if (window.__settings) __settings.open("skin"); },
   set(id){ apply(id); redraw(); },
   seed(field, value){

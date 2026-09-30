@@ -45,7 +45,6 @@ import oauth
 import ratelimit
 import accounts_store
 import bt_journals_store
-import candles
 import day_store
 import tg_api
 import tidy
@@ -575,14 +574,15 @@ REF_TTL = 30 * 24 * 3600
 # дійти до сервісу й повернутись.
 DEV_COOKIE = "devm"
 DEV_TTL = 15 * 60
-PARTNER_TITLES = {"blackswan": "Black Swan"}      # як партнера звуть у прев'ю
+PARTNER_TITLES = {"blackswan": "Black Swan",      # як партнера звуть у прев'ю
+                  "fxlab": "FX LAB"}
 # Коротке посилання: statsai.xyz/bs замість statsai.xyz/?ref=blackswan.
 # Довге теж лишається робочим — його вже роздали.
 # ig і tt лишаємо як синоніми соцмереж: якщо коротке посилання вже кудись
 # вставили, воно рахується туди ж, а не пропадає
 PARTNER_ALIASES = config.PARTNER_ALIASES
 # Як мітку звуть у звіті
-REF_TITLES = {"blackswan": "Black Swan", "social": "Соцсети"}
+REF_TITLES = {"blackswan": "Black Swan", "fxlab": "FX LAB", "social": "Соцсети"}
 
 
 def ref_all():
@@ -2024,52 +2024,6 @@ class H(BaseHTTPRequestHandler):
                 return self._json({"error": "auth required"}, 401)
             return self._json({"journals": bt_journals_store.lst(uid)})
 
-        # ---- свічки для перемотки (candles.py) ----
-        if p == "/api/candles/symbols":
-            if not self._uid():
-                return self._json({"error": "auth required"}, 401)
-            return self._json({"symbols": candles.symbols(),
-                               "sources": candles.source_list(),
-                               "tfs": sorted(candles.TF, key=candles.TF.get)})
-
-        if p == "/api/candles":
-            uid = self._uid()
-            if not uid:
-                return self._json({"error": "auth required"}, 401)
-            q = parse_qs(urlparse(self.path).query)
-            sym = (q.get("symbol", [""])[0] or "").upper()
-            tf = q.get("tf", ["15m"])[0]
-            src = q.get("source", [""])[0] or None
-            try:
-                since = datetime.date.fromisoformat(q.get("from", [""])[0])
-                until = datetime.date.fromisoformat(q.get("to", [""])[0])
-            except ValueError:
-                return self._json({"error": "bad dates"}, 400)
-            # Кожен незакешований день — це похід у мережу, а фід відповідає
-            # неквапливо. Тому за раз віддаємо щонайбільше місяць: браузер
-            # довантажує наступний шматок, поки людина дивиться поточний.
-            if (until - since).days > 31:
-                until = since + datetime.timedelta(days=31)
-            try:
-                src = candles.pick_source(sym, src)
-                rows = candles.bars(sym, tf, since, until, src)
-            except ValueError as ex:
-                return self._json({"error": str(ex)}, 400)
-            except candles.FeedError as ex:
-                # Джерело мовчить — це не наша помилка й не порожня історія:
-                # браузер має сказати «спробуйте ще раз», а не малювати
-                # порожній графік.
-                print("свічки: %s" % ex, flush=True)
-                return self._json({"error": "feed unavailable"}, 503)
-            digits = candles.SYMBOLS[sym]["digits"]
-            out = [[int(b[0]), round(b[1], digits), round(b[2], digits),
-                    round(b[3], digits), round(b[4], digits), round(b[5], 2)]
-                   for b in rows]
-            return self._json({"symbol": sym, "tf": tf, "source": src,
-                               "digits": digits,
-                               "from": since.isoformat(), "to": until.isoformat(),
-                               "bars": out})
-
         # ---- аналіз дня (day_store.py) ----
         if p.startswith("/api/day/"):
             uid = self._uid()
@@ -2343,8 +2297,11 @@ class H(BaseHTTPRequestHandler):
             og_path = os.path.join(STATIC, "og-%s.png" % ref) if ref else ""
             if ref and os.path.exists(og_path):
                 title = PARTNER_TITLES.get(ref, ref)
-                desc = ("Журнал трейдера в оформлении %s: сделки, статистика, "
-                        "анализ дня и своя ТС." % title)
+                # Слово «коллаборация» — в самом описании: в чате сообщества
+                # карточку видят те, кто пришёл от партнёра, и первое, что
+                # они должны понять, — это совместное, а не реклама мимо.
+                desc = ("Коллаборация StatsAI и %s. Журнал трейдера: сделки, "
+                        "статистика, анализ дня и своя ТС." % title)
                 # у адресі картинки — час її зміни: месенджери кешують прев'ю за
                 # адресою, і без цього нова картинка не показувалась
                 html = html.replace("/static/og-main.png",

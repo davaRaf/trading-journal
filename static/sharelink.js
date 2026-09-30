@@ -22,15 +22,21 @@ try{ lastTtl = localStorage.getItem("share_ttl") || "7d"; }catch(e){}
    Ділитись можна у своєму вигляді або в оформленні спільноти. Коли журнал
    і так у їхній темі, вибирати нічого: знімок іде в тому самому вигляді,
    що й екран, тому перемикач не показуємо. */
-const COLLAB = "blackswan";
+/* Колаборацій уже дві, тому «чия зараз тема» питаємо в таблиці тем
+   (static/themes.js): список партнерів живе там одним місцем. */
 const curSkin = () => document.documentElement.getAttribute("data-skin") || "";
-const inCollab = () => curSkin() === COLLAB;
+const collabRef = () => (window.__skin && __skin.collabRef) ? __skin.collabRef() : "";
+const inCollab = () => !!collabRef();
+
+/* Кого пропонуємо тому, хто сидить у своїй темі. Це просто ще один вигляд
+   знімка, не мітка, тому тут лишається найстарша спільнота. */
+const COLLAB = "blackswan";
 
 let lastSkin = "";
 try{ lastSkin = localStorage.getItem("share_skin") || ""; }catch(e){}
 
 /* стиль, у якому робимо знімок просто зараз */
-function shareSkin(){ return inCollab() ? COLLAB : lastSkin; }
+function shareSkin(){ return inCollab() ? curSkin() : lastSkin; }
 
 /* ---------- що саме показуємо ---------- */
 
@@ -695,7 +701,10 @@ function open(kind, arg){
       });
       if(!res.ok) throw new Error("HTTP " + res.status);
       const r = await res.json();
-      const url = location.origin + r.url;
+      /* Посилання роздають далі, тому під час колаборації воно йде з міткою
+         партнера: хто прийде за ним, рахується йому. */
+      const raw = location.origin + r.url;
+      const url = (window.__skin && __skin.withRef) ? __skin.withRef(raw) : raw;
       const out = document.getElementById("shOut");
       out.hidden = false;
       out.innerHTML = '<input class="sh-url" id="shUrl" readonly value="' + esc(url) + '">'
