@@ -12,8 +12,12 @@ let user = null;
 const esc = s => String(s == null ? "" : s)
   .replace(/[&<>"]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
 
+/* Посилання на відкритий журнал. Коли стоїть оформлення колаборації,
+   дописуємо мітку партнера: людина показує журнал у їхньому вигляді,
+   і той, хто прийде за посиланням, має рахуватись їм. */
 function link(){
-  return location.origin + "/u/" + encodeURIComponent(user.nickname);
+  const url = location.origin + "/u/" + encodeURIComponent(user.nickname);
+  return (window.__skin && __skin.withRef) ? __skin.withRef(url) : url;
 }
 
 /* Начинка без обгортки: та сама і в своєму вікні, і розділом у вікні
