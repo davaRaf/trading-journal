@@ -40,6 +40,21 @@ def product(price_set, plan):
     return (CREEM_PRODUCTS.get(price_set or "std") or {}).get(plan, "")
 
 
+def _say(ex):
+    """Помилку від Creem — словами, а не «HTTP Error 400: Bad Request».
+
+    У відмові завжди лежить тіло з причиною («немає такої знижки», «товар
+    не той»), і без нього в логу стоїть голий код, за яким не зрозуміти
+    нічого. Читаємо тіло один раз і чіпляємо до тексту: далі воно піде в
+    лог поруч із запитом, який упав.
+    """
+    try:
+        txt = ex.read().decode("utf-8", "replace")[:400]
+    except Exception:
+        txt = ""
+    return "HTTP %s %s" % (ex.code, txt or ex.reason)
+
+
 def _post(path, body):
     req = urllib.request.Request(
         CREEM_API + path,
@@ -49,8 +64,11 @@ def _post(path, body):
                  "Accept": "application/json",
                  "User-Agent": UA},
         method="POST")
-    with urllib.request.urlopen(req, timeout=TIMEOUT) as r:
-        return json.load(r)
+    try:
+        with urllib.request.urlopen(req, timeout=TIMEOUT) as r:
+            return json.load(r)
+    except urllib.error.HTTPError as ex:
+        raise RuntimeError("POST %s: %s" % (path, _say(ex)))
 
 
 def checkout(user_id, plan, price_set="std", email="", return_url="", discount=""):
@@ -247,8 +265,11 @@ def _get(path):
         headers={"x-api-key": CREEM_API_KEY,
                  "Accept": "application/json",
                  "User-Agent": UA})
-    with urllib.request.urlopen(req, timeout=TIMEOUT) as r:
-        return json.load(r)
+    try:
+        with urllib.request.urlopen(req, timeout=TIMEOUT) as r:
+            return json.load(r)
+    except urllib.error.HTTPError as ex:
+        raise RuntimeError("GET %s: %s" % (path, _say(ex)))
 
 
 def subscription(sub_id):

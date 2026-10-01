@@ -2323,6 +2323,10 @@ class H(BaseHTTPRequestHandler):
             # рахунок і зараз переказує гроші, віддаємо його тут же:
             # сторінка перемалює очікування навіть після перезавантаження.
             out["crypto"] = crypto_pay.enabled()
+            # Чи працює каса картками. Без цього сторінка показувала
+            # плитку «Карткою» завжди, і натиснута без ключа вона
+            # відповідала помилкою в підвалі розділу — тобто нічим.
+            out["card"] = creem.enabled()
             if out["crypto"]:
                 inv = crypto_pay.current(uid)
                 if inv:
@@ -2634,15 +2638,24 @@ class H(BaseHTTPRequestHandler):
             # прийде підтвердження, ми знатимемо, що хтось заплатив, але
             # не знатимемо хто.
             uid = self._uid()
+            # Каса — місце, де скарга «натискаю, нічого не відбувається»
+            # нерозрізненна з «натискаю, і запит не доходить». Решта логу
+            # тут мовчить (log_message заглушений), тому кожен захід у касу
+            # лишає рядок: видно і сам факт натискання, і чим воно скінчилось.
+            print("каса: захід, uid=%s, тариф=%r" % (
+                uid, (body or {}).get("plan") if isinstance(body, dict) else None),
+                flush=True)
             if not uid:
                 return self._json({"error": "auth required"}, 401)
             if not creem.enabled():
+                print("каса: ключа Creem немає — 503", flush=True)
                 return self._json({"error": "оплата ще не ввімкнена",
                                    "code": "no_pay"}, 503)
             if not isinstance(body, dict):
                 return self._json({"error": "bad json"}, 400)
             plan = str(body.get("plan") or "").strip()
             if plan not in billing.PLANS:
+                print("каса: тариф %r не наш — 400" % plan, flush=True)
                 return self._json({"error": "невідомий тариф"}, 400)
             try:
                 u = db.get_user(uid) or {}
@@ -2656,6 +2669,7 @@ class H(BaseHTTPRequestHandler):
                 print("checkout:", ex, flush=True)
                 return self._json({"error": "не вдалося відкрити оплату",
                                    "code": "pay_failed"}, 502)
+            print("каса: відкрили, тариф=%s" % plan, flush=True)
             return self._json({"url": url})
 
         # ---- оплата криптою ----

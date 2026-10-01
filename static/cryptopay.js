@@ -100,9 +100,10 @@ function close(){
 function render(){
   if (!wrap) return;
   const box = wrap.querySelector(".cpay");
-  box.innerHTML = S.mode === "pick" ? pickBody() : payBody();
+  box.innerHTML = S.mode === "pick" ? pickBody()
+                : S.mode === "card" ? cardBody() : payBody();
   bind();
-  const first = box.querySelector("button:not(.cpay-x)");
+  const first = box.querySelector("button:not(.cpay-x):not([disabled])");
   if (first) first.focus({preventScroll: true});
 }
 
@@ -117,16 +118,48 @@ function head(title, sub){
 function pickBody(){
   const sub = '<span>' + esc(S.planName) + '</span> · <span class="cpay-sum">'
     + esc(S.priceText) + "</span>";
-  const way = (kind, ico, t, x) =>
-    '<button type="button" class="cpay-way" data-way="' + kind + '">'
+  const way = (kind, ico, t, x, off) =>
+    '<button type="button" class="cpay-way' + (off ? " off" : "")
+    + '" data-way="' + kind + '"' + (off ? " disabled" : "") + ">"
     + '<span class="cpay-way-ico">' + ico + "</span>"
     + '<span class="cpay-way-t"><b>' + esc(t) + "</b><span>" + esc(x) + "</span></span>"
-    + '<span class="cpay-way-go">' + icoNext() + "</span></button>";
+    + '<span class="cpay-way-go">' + (off ? icoWarn() : icoNext()) + "</span></button>";
+  /* Каса картками вимкнена на сервері — кажемо це на самій плитці.
+     Клікабельна плитка, яка у відповідь не робить нічого, гірша за
+     вимкнену: людина думає, що зламався журнал, а не що оплата ще не
+     ввімкнена. */
+  const off = S.cardOn === false;
   return head(T.cpPickT, sub)
     + '<div class="cpay-body"><div class="cpay-ways">'
-    + way("card", icoCard(), T.cpCardT, T.cpCardX)
+    + way("card", icoCard(), T.cpCardT, off ? T.subSoon : T.cpCardX, off)
     + way("crypto", icoCoin(), T.cpCryptoT, T.cpCryptoX)
     + "</div></div>";
+}
+
+/* Екран каси картками: поки сервер її створює — чекаємо, не вийшло —
+   кажемо чому. Вікно при цьому не закриваємо: закрите вікно і є те
+   «нічого не сталося», на яке скаржились. */
+function cardBody(){
+  const sub = '<span>' + esc(S.planName) + '</span> · <span class="cpay-sum">'
+    + esc(S.priceText) + "</span>";
+  if (!S.msg){
+    /* Перехід не стався за чотири секунди — віддаємо адресу каси руками.
+       Автоматичний перехід інколи не відбувається (розширення, блокувальник),
+       і тоді людина сидить перед написом «відкриваємо» без жодного виходу. */
+    const by_hand = S.slow && S.url
+      ? '<div class="cpay-act"><a class="cpay-btn" href="' + esc(S.url)
+        + '" target="_blank" rel="noopener">' + esc(T.cpCardOpen) + "</a></div>"
+      : "";
+    return head(T.cpPickT, sub)
+      + '<div class="cpay-body"><div class="cpay-state wait">'
+      + '<span class="cpay-dot"></span><div><b>' + esc(T.cpCardGo) + "</b></div></div>"
+      + by_hand + "</div>";
+  }
+  return head(T.cpPickT, sub)
+    + '<div class="cpay-body"><div class="cpay-state dead">'
+    + '<span class="cpay-dot"></span><div><b>' + esc(S.msg) + "</b></div></div>"
+    + '<div class="cpay-act"><button type="button" class="cpay-btn" data-x>'
+    + esc(T.cpClose) + "</button></div></div>";
 }
 
 /* --------------------------------------------------- вікно переказу --- */
@@ -335,11 +368,27 @@ function bind(){
     b.addEventListener("click", close));
 
   box.querySelectorAll("[data-way]").forEach(b =>
-    b.addEventListener("click", () => {
+    b.addEventListener("click", async () => {
       if (b.dataset.way === "card"){
         const go = S.onCard;
-        close();
-        if (go) go();
+        if (!go) return close();
+        /* Касу відкриває «Підписка», але чекаємо її тут: вона або
+           відправляє людину на Creem, або повертає причину — і причину
+           має бачити те саме вікно, в якому натиснули. */
+        S.mode = "card";
+        S.msg = "";
+        render();
+        const res = (await go()) || {};
+        if (!wrap || !S || S.mode !== "card") return;
+        if (res.url){                   /* касу дали — чекаємо переходу */
+          S.url = res.url;
+          setTimeout(() => {
+            if (wrap && S && S.mode === "card" && !S.msg){ S.slow = true; render(); }
+          }, 4000);
+          return;
+        }
+        S.msg = res.why || T.subPayFail;
+        render();
       } else {
         start(S.plan, S.planName, S.priceText);
       }
@@ -484,9 +533,10 @@ function show(inv, planName, priceText){
 
 /* Вибір способу. Карткою — повертаємо керування в «Підписку»: касу
    відкриває вона, і робить це рівно так само, як робила завжди. */
-function choose(plan, planName, priceText, onCard){
+function choose(plan, planName, priceText, onCard, cardOn){
   mount();
-  S = {mode: "pick", plan: plan, planName: planName, priceText: priceText, onCard: onCard};
+  S = {mode: "pick", plan: plan, planName: planName, priceText: priceText,
+       onCard: onCard, cardOn: cardOn !== false, msg: ""};
   render();
 }
 
