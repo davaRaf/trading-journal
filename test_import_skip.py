@@ -11,6 +11,7 @@ notion_id, і за ним її не впізнати. Впізнаємо за в
 """
 import notion_public as npub
 import tidy
+import notion_import as ni
 from notion_import import Job
 
 # справжнє читання рядка — fake_source нижче його підміняє
@@ -232,6 +233,30 @@ def main():
                ["https://s3.tradingview.com/snapshots/0/095ElZgk.png",
                 "https://s3.tradingview.com/snapshots/f/FR8do30b.png",
                 "https://www.notion.so/image/abc?x=1"])
+
+    # ---- пропущені угоди ----
+    ok &= case("SK — це пропуск", ni.norm_result("SK"), "Skip")
+    ok &= case("SKTAKE / SKSTOP — теж пропуск",
+               (ni.norm_result("SKTAKE"), ni.norm_result("SKSTOP")), ("Skip", "Skip"))
+    ok &= case("«risk» пропуском не стає", ni.norm_result("risk"), "risk")
+    ok &= case("звичайні підсумки не зачепило",
+               (ni.norm_result("TP"), ni.norm_result("SL"), ni.norm_result("BE")),
+               ("Win", "Loss", "BE"))
+
+    # ---- переплутані абетки: «Сontinuation» з кириличною «С» ----
+    # Таке слово на око не відрізнити від латинського, а підбір колонок
+    # його не впізнавав — і тип входу приїжджав порожнім.
+    ok &= case("кирилична «С» у Сontinuation",
+               ni.norm_dirtype("Сontinuation"), "Continuation")
+    ok &= case("кирилична «н» у Sнort", ni.norm_side("Sнort"), "Short")
+    ok &= case("кирилична «О» у LОNDON", ni.is_session("LОNDON"), True)
+    ok &= case("цілком кириличне слово лишається собою",
+               (ni.norm_dirtype("Розворот"), ni.norm_result("Збиток")),
+               ("Reversal", "Loss"))
+    ok &= case("колонку з мішаними значеннями таки впізнаємо",
+               ni.guess_mapping({"Тип": "select"},
+                                {"Тип": ["Сontinuation"] * 7 + ["Reversal"] * 3}
+                                ).get("direction_type"), "Тип")
 
     print("\n" + ("усе добре" if ok else "є помилки"))
     return 0 if ok else 1
