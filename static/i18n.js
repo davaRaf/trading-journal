@@ -2278,6 +2278,10 @@ function applyLang(code){
   if(sk){ setTip(sk, T.thModalTitle); sk.setAttribute("aria-label", T.thModalTitle); }
   setText("sideMeSub", T.stProfile);
   const smb = document.getElementById("sideMeBtn"); if(smb) setTip(smb, T.stProfile);
+  /* Значок налаштувань біля плашки профілю — видно його тільки на телефоні,
+     але підпис для читача екрана потрібен однаково. */
+  const smg = document.getElementById("sideMeGear");
+  if(smg){ smg.setAttribute("aria-label", T.stTitle); setTip(smg, T.stTip); }
 
   const cb = document.getElementById("calcBtn");
   if(cb){ setTip(cb, T.sdCalcTip); const sp = cb.querySelector("span"); if(sp) sp.textContent = T.ckTitle; }

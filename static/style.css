@@ -1976,6 +1976,10 @@ body::after{
 .side-me-t b{font-size:13.5px;font-weight:600;overflow-wrap:anywhere;line-height:1.3}
 .side-me-t small{font-size:11.5px;color:var(--faint);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .side-me-who:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
+/* Значок налаштувань біля плашки профілю живе тільки у шторці телефона
+   (mobile.css). У смузі зверху його немає: там налаштування відкриває сама
+   плашка, а поруч уже стоїть значок оформлення. */
+.side-me-st{display:none}
 /* Знак стоїть першим у панелі, тож донизу тепер тисне підвал, а не він. */
 .side .brand{flex:none}
 .side-foot [hidden]{display:none !important}

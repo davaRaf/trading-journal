@@ -10,7 +10,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Geist:wght@300;400;500;600;700&family=Geist+Mono:wght@400;500;600;700&family=Archivo:wght@400;500;600&display=swap">
-<link rel="stylesheet" href="/static/style.css?v=90">
+<link rel="stylesheet" href="/static/style.css?v=91">
 <link rel="stylesheet" href="/static/accounts.css?v=25">
 <link rel="stylesheet" href="/static/btj.css?v=11">
 <link rel="stylesheet" href="/static/news.css?v=43">
@@ -20,7 +20,7 @@
 <link rel="stylesheet" href="/static/links.css?v=3">
 <link rel="stylesheet" href="/static/ts.css?v=37">
 <link rel="stylesheet" href="/static/day.css?v=19">
-<link rel="stylesheet" href="/static/mobile.css?v=52">
+<link rel="stylesheet" href="/static/mobile.css?v=53">
 <link rel="stylesheet" href="/static/guest.css?v=5">
 <link rel="stylesheet" href="/static/pub.css?v=1">
 <link rel="stylesheet" href="/static/motion.css?v=2">
@@ -188,6 +188,11 @@ try{if((location.pathname==="/"||location.pathname==="/index.html")&&!sessionSto
          Заповнює static/sideme.js. -->
     <div class="side-me" id="sideMe">
       <button class="side-me-who" id="sideMeBtn" type="button" onclick="__settings.open('profile')"><span class="side-me-av" id="sideMeAv" aria-hidden="true"></span><span class="side-me-t"><b id="sideMeNick"></b><small id="sideMeSub">Профіль</small></span></button>
+      <!-- Значок налаштувань праворуч від плашки — тільки на телефоні (скарга
+           01.10.2026: з телефона не видно, як туди взагалі зайти). На комп'ютері
+           його немає: там у налаштування ведуть і плашка профілю, і значок
+           оформлення поруч, а третій значок у смузі був би зайвий. -->
+      <button class="side-me-st" id="sideMeGear" type="button" aria-label="Налаштування" onclick="__settings.open()"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M20 7h-7M7 7H4M20 17h-3M11 17H4" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/><circle cx="10" cy="7" r="2.5" stroke="currentColor" stroke-width="1.7"/><circle cx="14" cy="17" r="2.5" stroke="currentColor" stroke-width="1.7"/></svg></button>
     </div>
   </div>
 </header>
@@ -231,7 +236,7 @@ try{if((location.pathname==="/"||location.pathname==="/index.html")&&!sessionSto
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 5l7 7-7 7"/></svg></button>
 </div>
 
-<script src="/static/i18n.js?v=114"></script>
+<script src="/static/i18n.js?v=115"></script>
 <script src="/static/hello.js?v=3"></script>
 <script src="/static/ui.js?v=20"></script>
 <script src="/static/demo.js?v=3"></script>
@@ -247,7 +252,7 @@ try{if((location.pathname==="/"||location.pathname==="/index.html")&&!sessionSto
 <script src="/static/me.js?v=13"></script>
 <script src="/static/cryptopay.js?v=3"></script>
 <script src="/static/subscription.js?v=19"></script>
-<script src="/static/settings.js?v=13"></script>
+<script src="/static/settings.js?v=14"></script>
 <script src="/static/sideme.js?v=7"></script>
 <script src="/static/support.js?v=12"></script>
 <script src="/static/assistant.js?v=9"></script>

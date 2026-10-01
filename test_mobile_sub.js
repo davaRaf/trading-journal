@@ -37,6 +37,7 @@ function run(phone, where){
 }
 
 let bad = 0;
+const ok2 = (c, msg) => { console.log((c ? "ok   " : "ПРОВАЛ ") + msg); if (!c) bad++; };
 const ok = (c, msg) => { console.log((c ? "ok   " : "ПРОВАЛ ") + msg); if (!c) bad++; };
 
 (async () => {
@@ -53,5 +54,34 @@ const ok = (c, msg) => { console.log((c ? "ok   " : "ПРОВАЛ ") + msg); if 
   ok(/stx-nav/.test(pc) && pc.includes(T.subTitle), "комп'ютер: меню розділів із «Підпискою» на місці");
   ok(pc.includes("профіль"), "комп'ютер: справа одразу профіль, як було");
 
-  process.exit(bad ? 1 : 0);
 })();
+process.on("exit", () => process.exitCode = bad ? 1 : 0);
+
+/* ---- значок налаштувань біля плашки профілю (скарга 01.10.2026) ----
+   З телефона не було видно, як зайти в налаштування: у шторці стояла лише
+   плашка з ніком, а на налаштування вона не схожа. Перевіряємо, що значок
+   є в розмітці, веде в список розділів, видний саме у шторці телефона й
+   має підпис усіма трьома мовами. */
+const html = fs.readFileSync("static/index.html", "utf8");
+const css = fs.readFileSync("static/style.css", "utf8");
+const mcss = fs.readFileSync("static/mobile.css", "utf8");
+const i18n = fs.readFileSync("static/i18n.js", "utf8");
+
+const me = html.slice(html.indexOf('<div class="side-me"'), html.indexOf('</header>'));
+const gear = (me.match(/<button class="side-me-st"[^>]*>/) || [])[0] || "";
+
+ok2(!!gear, "значок налаштувань стоїть у плашці профілю");
+ok2(me.indexOf('side-me-who') < me.indexOf('side-me-st'), "значок праворуч від ніка, а не перед ним");
+ok2(/onclick="__settings\.open\(\)"/.test(gear), "значок веде в список розділів, а не в профіль");
+ok2(/aria-label=/.test(gear), "у значка є підпис для читача екрана");
+ok2(/\.side-me-st\{display:none\}/.test(css), "на комп'ютері значка немає");
+ok2(/\.mmenu-wrap \.mmenu \.side-me-st\{[^}]*display:grid/.test(mcss), "у шторці телефона значок видно");
+ok2(/getElementById\("sideMeGear"\)/.test(i18n), "підпис значка перекладається разом з мовою");
+
+/* stTip/stTitle — підписи значка; без них у когось буде «undefined» */
+const dicts = i18n.slice(i18n.indexOf("const I18N = {"));
+for (const lang of ["uk", "ru", "en"]){
+  const i = dicts.indexOf("\n" + lang + ": {");
+  const part = dicts.slice(i, dicts.indexOf("\n},", i));
+  ok2(/\bstTip:/.test(part) && /\bstTitle:/.test(part), "є підписи налаштувань у словнику " + lang);
+}
