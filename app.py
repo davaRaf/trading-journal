@@ -2659,12 +2659,10 @@ class H(BaseHTTPRequestHandler):
                 return self._json({"error": "невідомий тариф"}, 400)
             try:
                 u = db.get_user(uid) or {}
-                promo = billing.promo_pending(u)
                 url = creem.checkout(uid, plan,
                                      price_set=(u.get("price_plan") or "std"),
                                      email=u.get("email") or "",
-                                     discount=(billing.PROMOS[promo]["creem"][plan]
-                                               if promo else ""))
+                                     discount=billing.promo_discount(u, plan))
             except Exception as ex:
                 print("checkout:", ex, flush=True)
                 return self._json({"error": "не вдалося відкрити оплату",

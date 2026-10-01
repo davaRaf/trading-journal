@@ -248,6 +248,19 @@ def check_prices():
          (False, "promo_same"))
     case("вигаданий код", billing.redeem(person(), "ХАЛЯВА"),
          (False, "promo_bad"))
+    # Знижка йде в касу тільки тому, хто на звичайних цінах. Набір міг
+    # змінитись уже після того, як код прийняли, — тоді товар у Creem інший,
+    # і знижка до нього не кріпиться.
+    case("код у касу: звичайний набір",
+         billing.promo_discount(person(promo_code="FXLAB"), "month"), "FXLAB-M")
+    case("код у касу: ранній — без знижки",
+         billing.promo_discount(person(promo_code="FXLAB", price_plan="early"), "month"), "")
+    case("код у касу: партнерський набір — без знижки",
+         billing.promo_discount(person(promo_code="FXLAB", price_plan="fxlab"), "year"), "")
+    case("код у касу: коду немає — порожньо",
+         billing.promo_discount(person(), "month"), "")
+    case("код у касу: оплачений код не йде",
+         billing.promo_discount(person(promo_code="FXLAB", promo_used_at=NOW), "year"), "")
     # Промокод — один раз: після оплати по ньому вдруге не приймається
     case("по коду вже платили — вдруге ні",
          billing.redeem(person(promo_code="FXLAB", promo_used_at=NOW), "FXLAB"),
