@@ -116,7 +116,14 @@ def verify(raw_body, signature):
         return False
     mine = hmac.new(CREEM_WEBHOOK_SECRET.encode("utf-8"),
                     raw_body, hashlib.sha256).hexdigest()
-    return hmac.compare_digest(mine, str(signature).strip())
+    try:
+        return hmac.compare_digest(mine, str(signature).strip())
+    except TypeError:
+        # compare_digest не порівнює рядки з не-ASCII і кидає TypeError.
+        # Підпис у Creem — шістнадцяткове число, тож усе інше їхнім бути
+        # не може. Але точка відкрита всьому світу: заголовок з кирилицею
+        # валив обробник трейсбеком і 502 замість чесних 400.
+        return False
 
 
 def who(obj):
