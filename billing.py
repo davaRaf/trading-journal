@@ -258,6 +258,29 @@ def promo_pending(u):
     return code
 
 
+def promo_discount(u, plan):
+    """Код знижки для каси — або '', якщо знижка тут не до речі.
+
+    Промокод живе тільки у звичайному наборі цін. Той, хто вже на знижених
+    (ранні, FX LAB), купує в Creem **інший товар**, і знижка до нього не
+    кріпиться: каса відповідає «Discount cannot be applied to the product»,
+    а людина бачить «не вдалося відкрити оплату».
+
+    Набір міг змінитись і після того, як код прийняли: redeem не дає ввести
+    його «ранньому», але ранніми людей позначають разово — і той, хто встиг
+    ввести код до позначки, опинявся саме в цій дірі.
+
+    Показ цін це вже враховує (prices), тож і каса має зважати на те саме.
+    """
+    row = _user(u) if u is not None else None
+    code = promo_pending(row)
+    if not code:
+        return ""
+    if ((row or {}).get("price_plan") or "std") != "std":
+        return ""
+    return (PROMOS[code]["creem"] or {}).get(plan, "")
+
+
 def promo_paid(uid):
     """Оплата пройшла — код використано, вдруге не прийметься."""
     with db.connect() as conn:
