@@ -694,7 +694,7 @@ def _emo_init2():
                 return
             with db.connect() as conn:
                 rows = conn.execute('SELECT id, "emotion", emotion_raw FROM trades '
-                                    'WHERE emotion_raw IS NOT NULL AND "emotion" <> ''').fetchall()
+                                    'WHERE emotion_raw IS NOT NULL AND "emotion" <> \'\'').fetchall()
             n = 0
             for r in rows:
                 parts = [p.strip() for p in r["emotion"].split(",") if p.strip()]
