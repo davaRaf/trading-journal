@@ -56,6 +56,10 @@
   transition:border-color .15s ease, background .15s ease, transform .12s ease;
 }
 .cpay-way:hover{border-color:color-mix(in srgb,var(--accent) 45%,transparent)}
+/* Спосіб, якого зараз немає: видно, що він тут, і видно, що не зараз. */
+.cpay-way.off{cursor:default; opacity:.55}
+.cpay-way.off:hover{border-color:var(--line)}
+.cpay-way.off .cpay-way-go{color:var(--down)}
 .cpay-way:active{transform:scale(.995)}
 .cpay-way:focus-visible{outline:2px solid var(--accent); outline-offset:2px}
 .cpay-way-ico{

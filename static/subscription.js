@@ -455,7 +455,17 @@ function wireChange(){
 }
 
 /* Оплата карткою: каса Creem. Була тут завжди — тепер це одна з двох
-   доріг, а не єдина, тому винесена окремо. */
+   доріг, а не єдина, тому винесена окремо.
+
+   Повертає порожній рядок, якщо людина вже їде на касу, і текст причини,
+   якщо не вийшло. Причину віддаємо саме назад, бо натискають кнопку у
+   вікні вибору способу: сказати там — означає сказати туди, куди людина
+   дивиться. Раніше відмова писалась абзацом у підвал розділу, під
+   перелік можливостей, і натиснута картка виглядала як «нічого не
+   сталося». */
+/* Скільки чекаємо переходу на касу, перш ніж вирішити, що він не стався. */
+const SLOW = 4000;
+
 async function payCard(plan, btn){
   const note = document.getElementById("subSoon");
   if (note) note.textContent = "";
@@ -466,10 +476,25 @@ async function payCard(plan, btn){
     const r = await api("POST", "/api/billing/checkout", {plan: plan});
     if (!r || !r.url) throw new Error("no url");
     location.href = r.url;              /* далі вже сторінка Creem */
+    /* Кнопку повертаємо до життя й після успіху. Перехід — не подія, яка
+       точно станеться: каса могла не відкритись, перехід могло перехопити
+       розширення. А загашена кнопка після цього молчить на всі наступні
+       натискання — обробник виходить на `b.disabled` і не робить навіть
+       запиту. Саме так виглядає «тисну, і нічого не відбувається», коли в
+       логу сервера при цьому порожньо. */
+    setTimeout(() => { if (btn) btn.disabled = false; }, SLOW);
+    return {url: r.url};
   }catch(err){
     if (btn) btn.disabled = false;
-    if (note)
-      note.textContent = (err && err.code === "no_pay") ? T.subSoon : T.subPayFail;
+    const why = (err && err.code === "no_pay") ? T.subSoon : T.subPayFail;
+    /* Підвальний абзац лишається — там відмова для того випадку, коли
+       вікна вибору не було зовсім. Але тепер він ще й під'їжджає до ока:
+       мовчазний текст за два екрани нижче нікому не сказав нічого. */
+    if (note){
+      note.textContent = why;
+      note.scrollIntoView({block: "nearest", behavior: "smooth"});
+    }
+    return {why: why};
   }
 }
 
@@ -542,9 +567,12 @@ function wire(){
     if (note) note.textContent = "";
     const plan = b.dataset.buy;
     /* Способів два — питаємо, який. Поки крипта не ввімкнена на сервері,
-       питати нема про що: одразу каса. */
+       питати нема про що: одразу каса. Разом з питанням віддаємо, чи
+       працює каса картками: вимкнену плитку краще показати заздалегідь,
+       ніж дати натиснути її вхолосту. */
     if (st && st.crypto && window.__cpay)
-      __cpay.choose(plan, planName(plan), money(price(plan)), () => payCard(plan, b));
+      __cpay.choose(plan, planName(plan), money(price(plan)),
+                    () => payCard(plan, b), st.card !== false);
     else
       payCard(plan, b);
   });
