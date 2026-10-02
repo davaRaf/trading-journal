@@ -962,7 +962,8 @@ def _ts_restore_block(u):
         vers = backup.strategies(u["id"])
     except Exception as ex:
         print("ts restore list:", ex)
-        return ""
+        return ('<div class=card style="margin-top:12px"><h2>ТС из копии</h2>'
+                '<p class=mute>Не удалось прочитать копии: %s</p></div>' % e(str(ex)))
     if not vers:
         return ('<div class=card style="margin-top:12px"><h2>ТС из копии</h2>'
                 '<p class=mute>Копий с ТС нет.</p></div>')
