@@ -1027,7 +1027,13 @@ function vFull(){
                  ["real", d.tabReal], ["extra", d.tabExtra]];
   /* Біля назви розділу нічого не пишемо: звідки взялась ТС і коли її чіпали
      востаннє — службова дрібниця, а не заголовок. Головна дія одна —
-     «Редагувати»; опитування й видалення пішли в меню «⋯». */
+     «Редагувати»; видалення пішло в меню «⋯».
+
+     Опитування в цьому меню немає: ТС уже зібрана, а пройти його наново
+     означає переписати її з нуля — людина тисне «Пройти опитування», щоб
+     щось підправити, і втрачає все записане. Хто справді хоче почати
+     спочатку, спершу видаляє ТС — і опитування чекає на порожньому
+     екрані. */
   let h = '<div class="tsv' + (editing ? " editing" : "") + '">';
   h += '<div class="vhead tsv-head"><h1>' + esc(d.title) + "</h1>"
     + '<span class="right">'
@@ -1042,7 +1048,6 @@ function vFull(){
           ? '<div class="tsv-menu" role="menu">'
             + '<button type="button" role="menuitem" class="m-share" onclick="__ts.share()">' + esc(d.btnShare) + "</button>"
             + '<button type="button" role="menuitem" onclick="__ts.srcOpen()">' + esc(d.btnNotion) + "</button>"
-            + '<button type="button" role="menuitem" onclick="__ts.ask()">' + esc(d.btnAsk) + "</button>"
             + '<button type="button" role="menuitem" class="danger" onclick="__ts.wipe()">' + esc(d.btnDelete) + "</button>"
             + "</div>"
           : "")
