@@ -147,6 +147,17 @@ def listing(uid):
              "trades": r["trades"]} for r in rows]
 
 
+def strategies(uid):
+    """ТС з денних зліпків, новіші першими: дата і сама стратегія.
+    Для адмінки — повернути людині її систему, якщо її затерло."""
+    init()
+    with db.connect() as conn:
+        rows = conn.execute(
+            "SELECT made_on, data->'strategy' AS ts FROM backups WHERE user_id=%s "
+            "ORDER BY made_on DESC", (uid,)).fetchall()
+    return [(str(r["made_on"]), r["ts"]) for r in rows if r["ts"]]
+
+
 def _users():
     with db.connect() as conn:
         rows = conn.execute("SELECT id FROM users ORDER BY id").fetchall()

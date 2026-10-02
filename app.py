@@ -953,6 +953,35 @@ def _billing_block(u):
               nick_js, "true" if nb["allowed"] else "false"))
 
 
+def _ts_restore_block(u):
+    """Картка адмінки: повернути ТС з денного зліпка. Скріни у зліпку лише
+    іменами — якщо файли вже прибрано, слоти лишаться порожніми."""
+    e = admin_page.e
+    try:
+        cur = json.dumps(ts_store.get(u["id"]) or {}, sort_keys=True, ensure_ascii=False)
+        vers = backup.strategies(u["id"])
+    except Exception as ex:
+        print("ts restore list:", ex)
+        return ""
+    if not vers:
+        return ('<div class=card style="margin-top:12px"><h2>ТС из копии</h2>'
+                '<p class=mute>Копий с ТС нет.</p></div>')
+    opts = "".join(
+        '<option value="%s">%s · %d знаков%s</option>' % (
+            d, e(".".join(reversed(d.split("-")))), len(js),
+            " · как сейчас" if js == cur else "")
+        for d, js in ((d, json.dumps(ts, sort_keys=True, ensure_ascii=False)) for d, ts in vers))
+    return ('<div class=card style="margin-top:12px"><h2>ТС из копии</h2>'
+            '<p class=mute style="font-size:12px;margin:0 0 10px">Копия делается раз в день, хранится 14 дней. '
+            'Сейчас ТС %d знаков. Выбери день до того, как её затёрло.</p>'
+            '<div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">'
+            '<select id=tsday class=btn>%s</select>'
+            '<button id=tsback class=btn>Вернуть ТС</button></div>'
+            '<script>tsback.onclick=()=>{if(confirm("Заменить нынешнюю ТС копией за "+'
+            'tsday.selectedOptions[0].textContent.split(" ")[0]+"?"))bill("ts-restore",{day:tsday.value});};'
+            '</script></div>' % (len(cur), opts))
+
+
 def _is_admin(uid):
     try:
         u = db.get_user(uid)
@@ -2086,7 +2115,8 @@ class H(BaseHTTPRequestHandler):
                 self.send_response(404)
             else:
                 data = admin_page.user_card(u, REF_TITLES, KIND_RU,
-                                           list(ref_all()), _billing_block(u)).encode("utf-8")
+                                           list(ref_all()),
+                                           _billing_block(u) + _ts_restore_block(u)).encode("utf-8")
                 self.send_response(200)
             self.send_header("Content-Type", "text/html; charset=utf-8")
             self.send_header("Content-Length", str(len(data)))
@@ -2868,6 +2898,13 @@ class H(BaseHTTPRequestHandler):
                 return self._json(billing.grant(u["id"], days, plan))
             if act == "revoke":
                 return self._json(billing.revoke(u["id"]))
+            if act == "ts-restore":
+                day = str(body.get("day") or "")
+                ts = dict(backup.strategies(u["id"])).get(day)
+                if not ts:
+                    return self._json({"error": "за этот день копии ТС нет"}, 404)
+                ts_store.put(u["id"], ts)
+                return self._json({"ok": True, "day": day})
             if act == "bonus":
                 if not any(num(k) for k in ("trades", "bt", "imports", "ai")) and note is None:
                     return self._json({"error": "нечего добавлять"}, 400)
