@@ -2330,8 +2330,9 @@ function onPasteShot(e){
   /* Форма угоди тепер виїжджає панеллю, а не лежить у #modal — стара
      перевірка обривала вставку ще до буфера. Досить того, що форма
      на екрані: #shotsEdit існує тільки поки вона відкрита. */
-  if(!$("#shotsEdit")) return;
-  const items=[...(e.clipboardData||{}).items||[]].filter(i=>i.type.startsWith("image/"));
+  if(!$("#shotsEdit")||e.defaultPrevented) return;
+  /* одне Ctrl+V = один скрін: буфер Windows віддає ту саму картинку кількома items */
+  const items=[...(e.clipboardData||{}).items||[]].filter(i=>i.type.startsWith("image/")).slice(0,1);
   if(!items.length) return;
   e.preventDefault();
   items.forEach((it,idx)=>{

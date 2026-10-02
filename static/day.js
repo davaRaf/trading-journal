@@ -960,6 +960,8 @@ document.addEventListener("mouseover", e => {
 });
 document.addEventListener("paste", e => {
   if (S.view !== "day" || !N) return;
+  /* відкрита форма угоди сама бере скрін — сюди його не дублюємо */
+  if (e.defaultPrevented || document.getElementById("shotsEdit")) return;
   if (e.target.closest && e.target.closest("input,textarea")) return;
   const files = (e.clipboardData && e.clipboardData.files) || [];
   if (!files.length) return;
