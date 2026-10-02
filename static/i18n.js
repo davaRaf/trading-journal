@@ -214,17 +214,11 @@ uk: {
   ntAddMoreLead: "Встав посилання на другу базу — її угоди додадуться до тих, що є.",
   ntSourcesTitle: "Перенесені журнали",
   ntSourcesHint: "Натисни на журнал — перечитаємо: нове додасться, старе не задвоїться.",
-  ntAutoEvery: "Перечитуємо самі кожні %d год.",
-  ntAutoDaily: "Перечитуємо самі раз на добу.",
-  ntAutoLast: "Востаннє —",
-  ntAutoAdded: "нових угод: %d",
-  ntAutoNone: "нового не було",
-  ntAutoFail: "Notion не відповів",
   ntSrcRemove: "Прибрати угоди",
   /* Дві різні дії біля кожної бази: відв'язати (обмін спиняється, угоди
      лишаються) і прибрати угоди цього перенесення. */
   ntSrcOff: "Відв'язати",
-  ntSrcOffHint: "Оновлення спиняться, перенесені з цього журналу угоди приберуться.",
+  ntSrcOffHint: "Перенесені з цього журналу угоди приберуться.",
   /* Відео-підказка: найчастіша заминка — опубліковані не всі бази,
      тож сесії та сетапи приходять порожні. Показати швидше, ніж описати. */
   ntVideoBtn: "Угоди не перенеслися або підтяглося не все? Відео · 40 с",
@@ -950,17 +944,11 @@ ru: {
   ntAddMoreLead: "Вставь ссылку на вторую базу — её сделки добавятся к тем, что есть.",
   ntSourcesTitle: "Перенесённые журналы",
   ntSourcesHint: "Нажми на журнал — перечитаем: новое добавится, старое не задвоится.",
-  ntAutoEvery: "Перечитываем сами каждые %d ч.",
-  ntAutoDaily: "Перечитываем сами раз в сутки.",
-  ntAutoLast: "В последний раз —",
-  ntAutoAdded: "новых сделок: %d",
-  ntAutoNone: "нового не было",
-  ntAutoFail: "Notion не ответил",
   ntSrcRemove: "Убрать сделки",
   /* Два разных действия у каждой базы: отвязать (обмен прекращается, сделки
      остаются) и убрать сделки этого перенесения. */
   ntSrcOff: "Отвязать",
-  ntSrcOffHint: "Обновления прекратятся, перенесённые из этого журнала сделки уберутся.",
+  ntSrcOffHint: "Перенесённые из этого журнала сделки уберутся.",
   /* Видео-подсказка: чаще всего опубликованы не все базы, и сессии
      с сетапами приходят пустыми. Показать быстрее, чем описать. */
   ntVideoBtn: "Сделки не перенеслись или подтянулось не всё? Видео · 40 сек",
@@ -1675,17 +1663,11 @@ en: {
   ntAddMoreLead: "Paste a link to a second database — its trades join the ones you have.",
   ntSourcesTitle: "Imported journals",
   ntSourcesHint: "Click a journal to re-read it: new trades are added, old ones aren't duplicated.",
-  ntAutoEvery: "We re-read them ourselves every %d h.",
-  ntAutoDaily: "We re-read them ourselves once a day.",
-  ntAutoLast: "Last time —",
-  ntAutoAdded: "new trades: %d",
-  ntAutoNone: "nothing new",
-  ntAutoFail: "Notion did not answer",
   ntSrcRemove: "Remove trades",
   /* Two separate actions per source: disconnect (updates stop, trades stay)
      and remove the trades this import brought. */
   ntSrcOff: "Disconnect",
-  ntSrcOffHint: "Updates stop and the trades imported from this journal are removed.",
+  ntSrcOffHint: "The trades imported from this journal are removed.",
   /* Video hint: the usual snag is that not every database is published,
      so sessions and setups arrive empty. Faster shown than described. */
   ntVideoBtn: "Trades didn't come over, or only some of them? Watch · 40 sec",

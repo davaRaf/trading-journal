@@ -40,7 +40,6 @@ from psycopg.types.json import Jsonb
 
 import notion_import as notion
 import notion_public as npub
-import notion_sync
 import authmail
 import oauth
 import ratelimit
@@ -2426,9 +2425,6 @@ class H(BaseHTTPRequestHandler):
                 # а це — «людина вже переносила»: вікно-пропозиція новачкові
                 # більше не потрібне
                 "imported": bool(db.notion_known(uid)[1]),
-                # коли востаннє перечитували Notion самі (notion_sync.py)
-                "auto": conf.get("auto") or None,
-                "autoHours": notion_sync.EVERY // 3600,
                 "fields": [{"k": k, "label": notion.LABELS[k]} for k in notion.FIELDS],
             })
 
@@ -3998,9 +3994,6 @@ if __name__ == "__main__":
     if config.RUN_JOBS:
         # щоденний зліпок журналу: тихо, у фоні, раз на добу
         backup.start()
-        # і сам перечитує Notion раз на дві години
-        notion_sync.start(add=add_trades, fill=blank_filler, conf=notion_conf,
-                          save=notion_save, shots=SHOTS, busy=import_busy)
         # оплата криптою: дивимось у блокчейн, чи не прийшли гроші
         crypto_pay.start()
     if config.RUN_BOT and config.BOT_TOKEN:
