@@ -57,6 +57,38 @@ def billing_start():
         return None
 
 
+def limits_at():
+    """Та сама мить, але з годиною — межа, з якої рахуємо угоди в адмінці.
+
+    Усе, записане до запуску лімітів, панель не показує: тієї хвилини
+    лічильники обнулили всім, і старі угоди в ліміт не пішли. Якби картка
+    рахувала журнал цілком, вона показувала б «30 вручну» там, де біллінг
+    бачить п'ять, і поруч два числа про різне.
+
+    Беремо саме відмітку з meta (там ISO з часом), а не дату з
+    billing_start: угоди того ж дня, записані до викладки, теж лишились
+    поза лімітом. Немає відмітки — немає й межі: рахуємо все, як раніше.
+    """
+    try:
+        raw = (db.meta_get("limits_started", "") or "").strip()
+    except Exception:
+        raw = ""
+    if raw:
+        try:
+            at = datetime.datetime.fromisoformat(raw)
+            return at if at.tzinfo else at.replace(tzinfo=datetime.timezone.utc)
+        except ValueError:
+            pass
+    d = billing_start()
+    return datetime.datetime.combine(d, datetime.time(), KYIV) if d else None
+
+
+def _since(col="created_at"):
+    """(хвіст WHERE, аргументи) — «тільки після запуску лімітів»."""
+    at = limits_at()
+    return (" AND %s >= %%s" % col, (at,)) if at else ("", ())
+
+
 # ------------------------------------------------------------ дрібниці ----
 
 PLAN_RU = {"month": "Месяц", "quarter": "Квартал", "year": "Год"}
@@ -337,13 +369,22 @@ def _collect():
                          plan, paid_until, free_trades_used, free_trades_cap
                   FROM users ORDER BY created_at DESC""")
     bstart = billing_start()
+    # Числа угод — тільки з миті запуску лімітів (limits_at): те, що людина
+    # занесла до оновлення, власникам нецікаве й до ліміту не має стосунку.
+    # Поруч тримаємо «за весь час» (n_all, manual_all) — його питає розділ
+    # «Чим користуються»: перенесення з Notion і бектест майже в усіх були
+    # ще до викладки, і від відсічки вони б занулились.
+    cut, cargs = _since()
     tr = {r["user_id"]: r for r in _q("""
-        SELECT user_id, count(*) AS n,
-               count(*) FILTER (WHERE import_id = '' AND notion_id = '') AS manual,
+        SELECT user_id,
+               count(*) FILTER (WHERE true{0}) AS n,
+               count(*) FILTER (WHERE import_id = '' AND notion_id = ''{0}) AS manual,
+               count(*) FILTER (WHERE created_at >= now() - interval '7 days'{0}) AS d7,
+               count(*) AS n_all,
+               count(*) FILTER (WHERE import_id = '' AND notion_id = '') AS manual_all,
                count(*) FILTER (WHERE "kind" = 'bt') AS bt,
-               count(*) FILTER (WHERE created_at >= now() - interval '7 days') AS d7,
                max(created_at) AS last_at
-        FROM trades GROUP BY user_id""")}
+        FROM trades GROUP BY user_id""".format(cut), (cargs * 3) or None)}
     notes = {r["user_id"]: r for r in _q("""
         SELECT user_id,
                count(*) FILTER (WHERE CASE WHEN jsonb_typeof(data->'assets') = 'array'
@@ -398,6 +439,7 @@ def _collect():
             "reg": created.isoformat() if created else "", "regd": (today - created).days if created else 999,
             "ref": u["ref"], "tg": bool(u["tg"]), "pub": bool(u["pub"]), "mail": bool(u["mailok"]),
             "n": n, "manual": t.get("manual") or 0, "bt": t.get("bt") or 0, "d7": t.get("d7") or 0,
+            "nall": t.get("n_all") or 0, "mall": t.get("manual_all") or 0,
             # той самий лічильник, яким журнал закриває запис (billing)
             "free": u["free_trades_used"] or 0,
             "cap": u["free_trades_cap"] or FREE_LIMIT,
@@ -503,7 +545,7 @@ def _features(D):
         ("Telegram-бот подключён", sum(1 for p in P if p["tg"])),
         ("Своя ТС заполнена", sum(1 for p in P if p["ts"])),
         ("Ведут анализ дня", sum(1 for p in P if p["notes"])),
-        ("Переносили из Notion / Excel", sum(1 for p in P if p["n"] > p["manual"])),
+        ("Переносили из Notion / Excel", sum(1 for p in P if p["nall"] > p["mall"])),
         ("Делились ссылкой", sum(1 for p in P if p["sh"])),
         ("Завели счета", sum(1 for p in P if p["acc"])),
         ("Бэктест", sum(1 for p in P if p["bt"])),
@@ -627,6 +669,10 @@ def _watch(D):
 
 def _people(D, titles, query):
     rows = [{k: v for k, v in p.items() if not k.startswith("_")} for p in D["people"]]
+    # Колонка рахує угоди з запуску лімітів — підписуємо, щоб число поряд з
+    # «5 / 20» не читалось як весь журнал.
+    since_th = ('<br><span class=mute style="font-weight:400;font-size:11px">с %s</span>'
+                % D["bstart"].strftime("%d.%m")) if D["bstart"] else ""
     for r in rows:
         r["refT"] = titles.get(r["ref"], r["ref"]) if r["ref"] else ""
     # Усе, що їде всередину <script>, проганяємо через один хелпер:
@@ -637,7 +683,8 @@ def _people(D, titles, query):
     data = _js(rows)
     return ('<div class=card id=people><h2>Все люди</h2><div class=chips id=chips></div>'
             '<div class=tw><table id=pt><thead><tr>'
-            '<th class=s data-k=nick>Ник</th><th class="s" data-k=st>Статус</th><th class="s num" data-k=n>Сделок</th>'
+            '<th class=s data-k=nick>Ник</th><th class="s" data-k=st>Статус</th><th class="s num" data-k=n>Сделок'
+            + since_th + '</th>'
             '<th class="s num" data-k=d7>7 дн.</th><th class="s num" data-k=notes>Анализ</th>'
             '<th class="s num" data-k=since>Активность</th><th class="s num" data-k=regd>Регистрация</th>'
             '<th class="s" data-k=sub>Тариф</th><th>Метка</th><th>Есть</th></tr></thead><tbody></tbody></table></div>'
@@ -709,16 +756,23 @@ def user_card(u, titles, kind_ru, refs, billing_html=""):
     uid = u["id"]
     one = lambda sql: (_q(sql, (uid,)) or [{}])[0]
     bstart = billing_start()
+    # Угоди рахуємо з миті запуску лімітів (_since): записане до оновлення
+    # власникам нецікаве. Окремо беремо «за весь час» — лише на те, що не
+    # може від відсічки зникнути: слід останнього запису (бо з нього статус
+    # «Активний / Спить») і бектест.
+    cut, cargs = _since()
     t = (_q("""SELECT count(*) AS n, count(*) FILTER (WHERE result='Skip') AS skips,
                       count(*) FILTER (WHERE import_id = '' AND notion_id = '') AS manual,
-                      count(*) FILTER (WHERE "kind" = 'bt') AS bt,
-                      min("date") AS first, max("date") AS last, max(created_at) AS last_at,
+                      min("date") AS first, max("date") AS last,
                       count(*) FILTER (WHERE created_at >= now() - interval '7 days') AS d7,
                       count(*) FILTER (WHERE created_at >= now() - interval '30 days') AS d30,
                       count(DISTINCT left("date", 10)) AS days
-               FROM trades WHERE user_id=%s""", (uid,)) or [{}])[0]
-    pairs = _q("""SELECT "pair", count(*) AS n FROM trades WHERE user_id=%s AND "pair"<>''
-                  GROUP BY 1 ORDER BY n DESC LIMIT 6""", (uid,))
+               FROM trades WHERE user_id=%s""" + cut, (uid,) + cargs) or [{}])[0]
+    tall = (_q("""SELECT count(*) AS n, max(created_at) AS last_at,
+                         count(*) FILTER (WHERE "kind" = 'bt') AS bt
+                  FROM trades WHERE user_id=%s""", (uid,)) or [{}])[0]
+    pairs = _q("""SELECT "pair", count(*) AS n FROM trades WHERE user_id=%s AND "pair"<>''""" + cut
+               + ' GROUP BY 1 ORDER BY n DESC LIMIT 6', (uid,) + cargs)
     weeks = {r["w"]: r for r in _q("""
         SELECT date_trunc('week', created_at AT TIME ZONE 'Europe/Kyiv')::date AS w, count(*) AS n,
                count(*) FILTER (WHERE import_id = '' AND notion_id = '') AS manual
@@ -737,10 +791,10 @@ def user_card(u, titles, kind_ru, refs, billing_html=""):
     except Exception:
         ts = None
 
-    lasts = [x for x in (t.get("last_at"), nt.get("last_at")) if x]
+    lasts = [x for x in (tall.get("last_at"), nt.get("last_at")) if x]
     last = _kdate(max(lasts)) if lasts else None
     since = (today - last).days if last else None
-    if not (t.get("n") or 0) and not (nt.get("n") or 0):
+    if not (tall.get("n") or 0) and not (nt.get("n") or 0):
         st = ("new", "Не начал")
     elif since is not None and since <= 7:
         st = ("active", "Активный")
@@ -779,7 +833,8 @@ def user_card(u, titles, kind_ru, refs, billing_html=""):
           '<span class=mute>' + e(u["email"]) + "</span></div>"
         + _access(u, free)
         + '<div class="grid kpis">'
-        + _kpi("Сделок всего", str(t.get("n") or 0), '<div class=d>%d вручную · %d скипов</div>' % (manual, t.get("skips") or 0))
+        + _kpi("Сделок с " + bstart.strftime("%d.%m.%Y") if bstart else "Сделок всего",
+               str(t.get("n") or 0), '<div class=d>%d вручную · %d скипов</div>' % (manual, t.get("skips") or 0))
         + (_kpi("Лимит сделок", '<span class=mute>подписка</span>',
                 '<div class=d>%d из %d · пока платит, не тратится</div>' % (free, cap))
            if _sub(u, datetime.datetime.now(datetime.timezone.utc)) else
@@ -807,7 +862,7 @@ def user_card(u, titles, kind_ru, refs, billing_html=""):
              if u["public_journal"] else "нет")
         + kv("Своя ТС", e(ts_line))
         + kv("Счета", e(", ".join((a["name"] or a["firm"] or a["kind"]) for a in accs) or "нет"))
-        + kv("Бэктест", "%d сделок" % (t.get("bt") or 0) if t.get("bt") else "нет")
+        + kv("Бэктест", "%d сделок" % (tall.get("bt") or 0) if tall.get("bt") else "нет")
         + kv("Инструменты", e(", ".join("%s (%d)" % (r["pair"], r["n"]) for r in pairs) or "—"))
         + "</div></div></div>"
         + '<div class="grid two"><div class=card><h2>Метка партнёра</h2>'
