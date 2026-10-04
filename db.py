@@ -353,6 +353,13 @@ ALTER TABLE users ADD COLUMN IF NOT EXISTS ai_reset_at TIMESTAMPTZ;
 -- платіж його й приносить — до першого платежу кабінету нема чого показувати.
 ALTER TABLE users ADD COLUMN IF NOT EXISTS creem_customer TEXT NOT NULL DEFAULT '';
 
+-- Замок на акаунт, який ставить і знімає тільки власник руками з /admin.
+-- Текст у колонці — те, що людина побачить на весь екран замість журналу;
+-- порожньо означає, що замка немає. Два стани в одній колонці навмисно:
+-- замок без слів нічим не кращий за тишу, а слова без замка нічого не
+-- тримають, тож і зберігати їх окремо нема сенсу.
+ALTER TABLE users ADD COLUMN IF NOT EXISTS lock_note TEXT NOT NULL DEFAULT '';
+
 -- Події платіжки. Ключ — її власний id події: та сама подія приходить
 -- повторно (платіжки шлють вебхук, доки не отримають 200), і другий раз
 -- вона має нічого не змінити.
@@ -669,6 +676,31 @@ def get_user_by_nick(nick):
     with connect() as conn:
         return conn.execute(
             "SELECT * FROM users WHERE lower(nickname)=%s LIMIT 1", (key,)).fetchone()
+
+
+def set_lock(user_id, note):
+    """Замок на акаунт: текст — поставити, порожньо — зняти.
+
+    Ставить і знімає тільки власник руками з /admin. Сама людина зняти
+    його не може нічим: замок перевіряється на сервері, а не в браузері.
+    """
+    with connect() as conn:
+        conn.execute("UPDATE users SET lock_note=%s WHERE id=%s",
+                     ((note or "").strip(), user_id))
+        conn.commit()
+
+
+def locked_users():
+    """{id: текст} по всіх, у кого стоїть замок.
+
+    Запитом по всіх, а не по одному: замкнених одиниці (зазвичай нікого),
+    і тримати їх у пам'яті дешевше, ніж питати базу на кожен запит кожної
+    людини (див. app.py: _locked).
+    """
+    with connect() as conn:
+        rows = conn.execute(
+            "SELECT id, lock_note FROM users WHERE lock_note <> ''").fetchall()
+    return {r["id"]: r["lock_note"] for r in rows}
 
 
 def set_nickname(user_id, nick):

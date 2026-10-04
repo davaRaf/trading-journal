@@ -750,6 +750,13 @@ def dashboard(query, titles, kind_ru, refs=()):
 
 # -------------------------------------------------- картка людини ----
 
+# Слова замка за умовчанням: підставляються в поле, але не зашиті —
+# власник правит їх перед тим, як поставити, і текст лягає в базу
+# (users.lock_note). Контакт дописує сам екран замка (static/lock.js).
+LOCK_DEFAULT = ("Извини, но мы не дадим тебе брать наши идеи с журнала.\n\n"
+                "Если хочешь пользоваться журналом, а не красть идеи — напиши нам.")
+
+
 def user_card(u, titles, kind_ru, refs, billing_html=""):
     _inits()
     today = _today()
@@ -822,6 +829,8 @@ def user_card(u, titles, kind_ru, refs, billing_html=""):
     free = u.get("free_trades_used") or 0
     cap = u.get("free_trades_cap") or FREE_LIMIT
     nick_js = _js(u["nickname"])
+    lock_note = u.get("lock_note") or ""
+    lock_on = bool(lock_note)
     kv = lambda k, v: "<span>%s</span><span>%s</span>" % (e(k), v)
 
     return (head("StatsAI · " + u["nickname"])
@@ -878,6 +887,22 @@ def user_card(u, titles, kind_ru, refs, billing_html=""):
         + "".join(kv("· " + kind_ru.get(r["kind"], r["kind"]), "%d · %d перех." % (r["n"], r["views"])) for r in kinds)
         + "</div></div></div>"
         + billing_html
+        + '<div class=card style="margin-top:12px"><h2>Замок на журнал</h2>'
+          '<p class=mute style="margin:0 0 10px;font-size:13px">'
+        + ('<b style="color:var(--text)">Замок стоит.</b> Человек видит только этот текст '
+           'и Telegram-контакт, журналом пользоваться не может — ни одна кнопка не работает. '
+           'Чтобы снять, очисти поле и нажми кнопку.'
+           if lock_on else
+           'Поставишь — человек при следующем заходе увидит только этот текст и Telegram-контакт. '
+           'Пользоваться журналом не сможет, закрыть это сам не сможет: замок снимается '
+           'только отсюда, руками.')
+        + "</p>"
+          '<textarea id=lknote rows=4 style="width:100%;box-sizing:border-box;padding:9px 12px;'
+          'border-radius:9px;border:1px solid var(--line);background:var(--card);color:var(--text);'
+          'font:inherit;resize:vertical">' + e(lock_note or LOCK_DEFAULT) + "</textarea>"
+          '<div style="display:flex;gap:8px;align-items:center;margin-top:8px">'
+          '<button id=lkgo class=btn>' + ("Обновить или снять" if lock_on else "Поставить замок")
+        + '</button><span id=lkmsg class=mute></span></div></div>'
         + '<div class="card danger" style="margin-top:12px"><h2>Опасная зона</h2>'
           '<p class=mute style="margin:0 0 10px;font-size:13px">Удаляет аккаунт и всё, что в нём: сделки, ТС, анализ дня, '
           'настройки, ссылки и скриншоты. Отменить нельзя. Чтобы подтвердить, впишите ник точно так: <b style="color:var(--text)">'
@@ -890,6 +915,14 @@ def user_card(u, titles, kind_ru, refs, billing_html=""):
           "const r=await fetch('/api/admin/set-ref',{method:'POST',headers:{'Content-Type':'application/json'},"
           "body:JSON.stringify({nick:" + nick_js + ",ref:b.dataset.r})});const d=await r.json().catch(()=>({}));"
           "refmsg.textContent=r.ok?'готово':(d.error||('ошибка '+r.status));if(r.ok)setTimeout(()=>location.reload(),600);});"
+          "lkgo.onclick=async()=>{const t=lknote.value.trim();"
+          "if(!confirm(t?('Поставить замок для '+" + nick_js + "+'? Журналом пользоваться не сможет.')"
+          ":('Снять замок с '+" + nick_js + "+'?')))return;"
+          "lkgo.disabled=true;lkmsg.textContent='…';"
+          "const r=await fetch('/api/admin/set-lock',{method:'POST',headers:{'Content-Type':'application/json'},"
+          "body:JSON.stringify({nick:" + nick_js + ",note:t})});const d=await r.json().catch(()=>({}));"
+          "lkgo.disabled=false;lkmsg.textContent=r.ok?(d.locked?'замок стоит':'снят'):(d.error||('ошибка '+r.status));"
+          "if(r.ok)setTimeout(()=>location.reload(),700);};"
           "go.onclick=async()=>{if(!confirm('Удалить аккаунт '+" + nick_js + "+'? Отменить нельзя.'))return;"
           "go.disabled=true;msg.textContent='Удаляю…';const r=await fetch('/api/admin/delete-user',{method:'POST',"
           "headers:{'Content-Type':'application/json'},body:JSON.stringify({nick:" + nick_js + ",confirm:cf.value})});"
