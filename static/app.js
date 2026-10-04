@@ -289,6 +289,13 @@ async function api(method,url,body){
     let info={};
     try{ info=await res.json()||{}; }catch(e){}
     const code=info.code||"";
+    /* Замок на акаунті. Поверх усього й назавжди: журналом під ним
+       користуватись не можна, і друге вікно «не вдалось завантажити»
+       поверх замка було б зайвим. Текст несе сервер. */
+    if(res.status===403 && code==="locked" && window.Lock){
+      Lock.show(info.error||"");
+      throw new Error("locked");
+    }
     if(code==="too_big") throw new Error(T.errTooBig);
     if(code==="bad_image") throw new Error(T.errBadImage);
     /* Безкоштовне скінчилось. Плашку показуємо тут, одну на всі місця

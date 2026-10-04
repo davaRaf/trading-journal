@@ -1861,6 +1861,58 @@ class H(BaseHTTPRequestHandler):
             self._health[:] = [now, ok]
         return ok
 
+    # ---------- замок на акаунт ----------
+    # Ставить і знімає його тільки власник руками з /admin (db.set_lock).
+    # Замкнених зазвичай немає взагалі, тому тримаємо їх у пам'яті й
+    # перечитуємо раз на LOCK_TTL секунд: інакше кожен запит кожної людини
+    # коштував би ще один SELECT заради стану, якого ні в кого немає.
+    LOCK_TTL = 20
+    _lock_gate = threading.Lock()
+    _locks = [0.0, {}]                 # коли читали, {uid: текст}
+
+    # Що працює й під замком: /api/auth/ — щоб було чим вийти, і
+    # /api/admin/ — інакше власник, замкнувши сам себе помилково, не мав
+    # би чим зняти. Вхід сюди можна було б і не вносити: він ходить без
+    # сесії, а замок без неї нікого не знає.
+    LOCK_FREE = ("/api/auth/", "/api/admin/")
+
+    def _lock_note(self, uid):
+        """Текст замка цієї людини або "" — замка немає."""
+        now = time.time()
+        with self._lock_gate:
+            when, got = self._locks
+            fresh = now - when < self.LOCK_TTL
+        if fresh:
+            return got.get(uid, "")
+        try:
+            got = db.locked_users()
+        except Exception:
+            # База не відповіла — замок не вигадуємо й не знімаємо:
+            # лишаємо те, що знали востаннє.
+            return self._locks[1].get(uid, "")
+        with self._lock_gate:
+            self._locks[:] = [now, got]
+        return got.get(uid, "")
+
+    def _locked_out(self, p):
+        """True — запит далі не йде: на акаунті замок.
+
+        Стоїть на /api/, а не на сторінках: сторінка має відкритись, щоб
+        показати сам текст замка (lock.js), а зробити нею нічого не
+        вийде — усі дії журналу ходять через /api/. Тому замок тримає
+        сервер, і зняти його з консолі браузера неможливо.
+        """
+        if not p.startswith("/api/") or p.startswith(self.LOCK_FREE):
+            return False
+        uid = self._uid()
+        if not uid:
+            return False
+        note = self._lock_note(uid)
+        if not note:
+            return False
+        self._json({"error": note, "code": "locked"}, 403)
+        return True
+
     def do_GET(self):
         if self._flooding(): return
         if self._old_host(): return
@@ -1885,6 +1937,12 @@ class H(BaseHTTPRequestHandler):
         # ?ref=<партнер> у будь-якій адресі — /, /login, /demo, /s/…
         if "ref=" in self.path and not p.startswith("/api/"):
             self._ref_touch()
+
+        # Замок — після зняття мітки, а не до нього: мітка на початку
+        # шляху переписує адресу, і «/fxlab/api/trades» стає «/api/trades»
+        # уже тут. Перевірка до переписування дивилась би на шлях, якого
+        # обробник не побачить, — і замок обходився б одним префіксом.
+        if self._locked_out(p): return
 
         if p == "/health":
             if self._db_alive():
@@ -2655,6 +2713,10 @@ class H(BaseHTTPRequestHandler):
         body = self._body()
         if self._too_big:
             return self._too_big_reply()
+        # Після читання тіла, а не до нього: відповісти, не забравши
+        # надіслані байти, означає лишити їх у з'єднанні — наступний запит
+        # почався б з їхньої середини.
+        if self._locked_out(p): return
 
         # ---- вход и регистрация ----
         # ---- поправити мітку руками: лише власникам ----
@@ -2953,6 +3015,38 @@ class H(BaseHTTPRequestHandler):
             seclog.event("адмін", True, user=db.get_user(who), ip=self._guest(),
                          дія="мітка:%s" % (ref or "—"), кому=u["nickname"], кому_id=u["id"])
             return self._json({"ok": True, "ref": ref})
+
+        # ---- замок на акаунт: лише власникам ----
+        # Замок ставиться й знімається тільки звідси, руками. Автоматики
+        # навколо нього немає навмисно: це крок, після якого людина не може
+        # працювати, і робити його за здогадом коду не можна.
+        if p == "/api/admin/set-lock":
+            who = self._uid()
+            if not who:
+                return self._json({"error": "auth required"}, 401)
+            if not _is_admin(who):
+                return self._json({"error": "forbidden"}, 403)
+            if not isinstance(body, dict):
+                return self._json({"error": "bad json"}, 400)
+            nick = str(body.get("nick") or "").strip()
+            try:
+                u = db.get_user_by_nick(nick) or db.get_user_by_email(nick)
+            except Exception:
+                u = None
+            if not u:
+                return self._json({"error": "такого пользователя нет"}, 404)
+            note = str(body.get("note") or "").strip()[:2000]
+            db.set_lock(u["id"], note)
+            # Список замків лежить у пам'яті до LOCK_TTL секунд, і в цього
+            # робітника він свій. Свій скидаємо одразу, решта підхопить
+            # сама — для «зняв замок» це секунди, і людина однаково
+            # перезавантажує сторінку довше.
+            with self._lock_gate:
+                self._locks[:] = [0.0, {}]
+            seclog.event("адмін", True, user=db.get_user(who), ip=self._guest(),
+                         дія="замок:%s" % ("поставив" if note else "знято"),
+                         кому=u["nickname"], кому_id=u["id"])
+            return self._json({"ok": True, "locked": bool(note)})
 
         # ---- видалення акаунта на прохання людини: лише власникам ----
         if p == "/api/admin/delete-user":
@@ -3876,14 +3970,18 @@ class H(BaseHTTPRequestHandler):
         if self._flooding(): return
         if self._old_host(): return
         p = urlparse(self.path).path
+        # Тіло читаємо тут, а не в кожній гілці: замок нижче відповідає
+        # замкненому одразу, а відповідь без забраних байтів лишила б їх
+        # у з'єднанні (див. do_POST).
+        body = self._body()
+        if self._too_big:
+            return self._too_big_reply()
+        if self._locked_out(p): return
 
         if p == "/api/prefs":
             uid = self._uid()
             if not uid:
                 return self._json({"error": "auth required"}, 401)
-            body = self._body()
-            if self._too_big:
-                return self._too_big_reply()
             if not isinstance(body, dict):
                 return self._json({"error": "bad json"}, 400)
             if len(json.dumps(body, ensure_ascii=False)) > PREFS_MAX:
@@ -3898,9 +3996,6 @@ class H(BaseHTTPRequestHandler):
         if not uid:
             return self._json({"error": "auth required"}, 401)
         tid = m.group(1)
-        body = self._body()
-        if self._too_big:
-            return self._too_big_reply()
         if not isinstance(body, dict):
             return self._json({"error": "bad json"}, 400)
         old = db.get_trade(tid, uid)
@@ -3925,6 +4020,7 @@ class H(BaseHTTPRequestHandler):
         if self._flooding(): return
         if self._old_host(): return
         p = urlparse(self.path).path
+        if self._locked_out(p): return
         m = re.match(r"^/api/trades/([\w-]+)$", p)
         if not m:
             self.send_response(404); self.end_headers(); return
