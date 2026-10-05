@@ -82,7 +82,8 @@ function tradeDetail(t){
     time: (t.date || "").slice(11, 16),
     pair: t.pair || "",
     result: resLabel(t.result),
-    cls: isWin(t) ? "pos" : t.result === "Loss" ? "neg" : "be",
+    cls: isWin(t) ? "pos" : t.result === "Loss" ? "neg"
+       : (t.result === "BE+" || t.result === "BE-") ? "bepm" : "be",
     skip: isSkip(t) || isOpen(t),    /* скіп і відкрита — без відсотка й кольору */
     net: netR(t),
     info: info,

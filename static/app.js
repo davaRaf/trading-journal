@@ -141,10 +141,12 @@ function isSkip(t){ return t.result==="Skip"; }
    поки не з'явиться TP / SL / BE. */
 function isOpen(t){ return t.result==="Open"; }
 function realTrades(list){ return list.filter(t=>!isSkip(t) && !isOpen(t)); }
+/* BE− і BE+ — один фіолетовий колір (власник, 05.10.2026); чистий BE — жовтий */
+function isBePM(r){ return r==="BE+"||r==="BE-"; }
 /* класс плашки результата — один на все места, где она рисуется */
 function resCls(r){
   return r==="Win"?"win":r==="WinM"?"win hand":r==="Loss"?"loss"
-       :r==="Skip"?"skip":r==="Open"?"open":r==="BE+"?"beplus":"be";
+       :r==="Skip"?"skip":r==="Open"?"open":isBePM(r)?"beplus":"be";
 }
 /* сколько человек оставил на столе, выйдя рукой раньше цели */
 function handLost(t){
@@ -517,7 +519,8 @@ function calHtml(ym, clickFn, selDay){
     const key=Y+"-"+pad(M)+"-"+pad(d);
     const list=byDay.get(key)||[];
     const net=list.reduce((a,t)=>a+netR(t),0);
-    const tint=list.length?(net>0.0001?" up":net<-0.0001?" down":" flat"):"";
+    const tint=list.length?(net>0.0001?" up":net<-0.0001?" down"
+      :(list.some(t=>isBePM(t.result)) && !list.some(t=>t.result==="BE")?" flat bepm":" flat")):"";
     const cls=tint+(key===selDay?" sel":"")+(key===today?" today":"");
     let body="";
     if(list.length){
@@ -530,7 +533,7 @@ function calHtml(ym, clickFn, selDay){
         if(t.result==="Loss") return '<i class="mk sl'+(rv?" rev":"")+'" data-tip="'+T.calSlTip+(rv?" · "+T.calRevSuffix:"")+'">SL</i>';
         if(t.result==="BE+")  return '<i class="mk beplus'+(rv?" rev":"")+'" data-tip="'+T.calBePlusTip+'">BE+</i>';
         if(t.result==="BE")   return '<i class="mk be'+(rv?" rev":"")+'" data-tip="'+T.calBeTip+'">BE</i>';
-        return '<i class="mk be'+(rv?" rev":"")+'" data-tip="'+T.calBeMinusTip+'">BE\u2212</i>';
+        return '<i class="mk beplus'+(rv?" rev":"")+'" data-tip="'+T.calBeMinusTip+'">BE\u2212</i>';
       }).join("");
       body='<div class="marks">'+marks+'</div><div class="res '+clsR(net)+'">'+fmtR(net)+"</div>";
     }
@@ -863,9 +866,9 @@ function ovWeekHtml(){
     const cnt={};
     for(const t of list) cnt[t.result]=(cnt[t.result]||0)+1;
     const top=Object.keys(cnt).sort((a,b)=>cnt[b]-cnt[a])[0];
-    const cls=(top==="Win"||top==="WinM")?"w":top==="Loss"?"l":"b";
+    const cls=(top==="Win"||top==="WinM")?"w":top==="Loss"?"l":isBePM(top)?"p":"b";
     const val=ovFmtRaw(r);
-    cells+='<div class="day '+ovSign(r)+'" onclick="ovOpenDay(\''+key+'\')" title="'+
+    cells+='<div class="day '+ovSign(r)+(ovSign(r)==="be"&&isBePM(top)?" bepm":"")+'" onclick="ovOpenDay(\''+key+'\')" title="'+
       list.length+" "+ovWord(list.length)+'">'+
       '<span class="glow '+cls+'">'+(RES_TAG[top]||"")+'</span>'+
       '<span class="wd">'+wd+'</span><span class="dn">'+d.getDate()+'</span>'+
@@ -2184,7 +2187,7 @@ function openForm(id, presetDay){
         '<button type="button" class="'+(resStat(t)===o[0]?"on":"")+'" data-v="'+o[0]+'" onclick="resStatus(this)">'+o[1]+"</button>").join("")+"</div>"+
       '<div id="resChips"'+(resStat(t)?" hidden":"")+'>'+
       seg("result",[{v:"Win",t:"TP",cls:"win"},{v:"WinM",t:T.resHand,cls:"win"},
-                    {v:"BE",t:"BE",cls:"bek"},{v:"BE-",t:"BE\u2212",cls:"bek"},
+                    {v:"BE",t:"BE",cls:"bek"},{v:"BE-",t:"BE\u2212",cls:"bepk"},
                     {v:"BE+",t:"BE+",cls:"bepk"},{v:"Loss",t:"SL",cls:"loss"}],t?t.result:"","res chips")+
       "</div></div>"+
     '<div class="frow" id="rowRR">'+
@@ -2315,7 +2318,7 @@ function calcOutcome(){
     return;
   }
   else { val=0; txt = res==="BE+" ? T.calcBePlusMsg : res==="BE" ? T.calcBeMsg : T.calcBeMinusMsg; }
-  box.className="outcome "+(val>0.0001?"pos":val<-0.0001?"neg":"be");
+  box.className="outcome "+(val>0.0001?"pos":val<-0.0001?"neg":"be")+(isBePM(res)?" bepm":"");
   box.innerHTML='<span class="big">'+fmtR(val)+'</span><span class="txt">'+txt+"</span>";
 }
 

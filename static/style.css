@@ -373,6 +373,8 @@ svg.chart{display:block;width:100%;height:auto}
 .cal .day.up{background:var(--up-soft);border-color:transparent}
 .cal .day.down{background:var(--down-soft);border-color:transparent}
 .cal .day.flat{background:var(--be-soft);border-color:transparent}
+.cal .day.flat.bepm{background:var(--beplus-soft)}
+.cal .day.bepm .res{color:var(--beplus);text-shadow:none}
 .cal .day.up:hover,.cal .day.down:hover,.cal .day.flat:hover{border-color:var(--faint)}
 .cal .day.sel{border-color:var(--accent) !important;box-shadow:0 0 0 1px var(--accent)}
 .cal .day .n{font-family:var(--mono);font-size:11px;color:var(--faint)}
@@ -1008,6 +1010,7 @@ table.simple.mini td:last-child{white-space:nowrap;font-weight:600}
 .outcome.pos{border-color:var(--up);background:var(--up-soft)} .outcome.pos .big{color:var(--up)}
 .outcome.neg{border-color:var(--down);background:var(--down-soft)} .outcome.neg .big{color:var(--down)}
 .outcome.be{border-color:var(--be);background:var(--be-soft)} .outcome.be .big{color:var(--be)}
+.outcome.bepm{border-color:var(--beplus);background:var(--beplus-soft)} .outcome.bepm .big{color:var(--beplus)}
 .outcome.skip{border-color:var(--line);background:var(--panel-2)} .outcome.skip .big{color:var(--faint)}
 
 /* форма стоит окном по центру: шапка и подвал держатся, поля прокручиваются */
@@ -1204,7 +1207,9 @@ h1.ovh a.on::after{content:"";position:absolute;left:0;right:0;bottom:0;height:2
 .ovw .glow{position:absolute;inset:0;display:grid;place-items:center;pointer-events:none;
   font-family:var(--mono);font-weight:500;font-size:62px;line-height:1;letter-spacing:-.05em;
   padding:0 3px;opacity:.20;filter:none;text-shadow:none}
-.ovw .glow.w{color:var(--up)} .ovw .glow.l{color:var(--down)} .ovw .glow.b{color:var(--be)}
+.ovw .glow.w{color:var(--up)} .ovw .glow.l{color:var(--down)} .ovw .glow.b{color:var(--be)} .ovw .glow.p{color:var(--beplus)}
+.ovw .day.be.bepm{border-color:color-mix(in srgb,var(--beplus) 26%,transparent);
+  background:linear-gradient(180deg,color-mix(in srgb,var(--beplus) 9%,transparent),color-mix(in srgb,var(--beplus) 2%,transparent))}
 .ovw .day .wd,.ovw .day .dn,.ovw .day .bot{position:relative;z-index:1}
 .ovw .day .wd{font-family:var(--mono);font-size:9px;letter-spacing:.14em;text-transform:uppercase;color:var(--faint)}
 .ovw .day .dn{font-family:var(--mono);font-size:16px;color:var(--dim);margin-top:3px;letter-spacing:-.02em}
