@@ -80,17 +80,26 @@ function dots(){ return '<span class="sw-dots">' + list().slice(0, 3).map(s => '
 /* where: "j" — журнал/огляд/аналітика (є «усі»), "ts" — «Моя ТС» */
 function btn(where){
   if (off()) return "";
-  if (!multi()){
-    return where === "ts" && L !== undefined
-      ? '<button type="button" class="sw-add" onclick="__strat.add()" data-tip="' + esc(D().addTip) + '">+ ' + esc(D().add) + "</button>"
-      : "";
-  }
+  const plus = where === "ts" && L !== undefined
+    ? '<button type="button" class="sw-add" onclick="__strat.quick()" data-tip="' + esc(D().addTip) + '">+ ' + esc(D().newOne) + "</button>"
+    : "";
+  if (!multi()) return plus;
   const v = where === "ts" ? sid() : cur;
   const all = v === "all";
   return '<button type="button" class="sw-pill" aria-haspopup="menu" onclick="__strat.menu(this,\'' + (where || "j") + '\')">'
     + (all ? dots() : '<i class="sw-dot" style="--c:' + color(v) + '"></i>')
     + '<span class="sw-name">' + esc(all ? D().all : label(v)) + "</span>"
-    + (where === "ts" ? "" : '<span class="sw-n">' + count(v) + "</span>") + CHEV + "</button>";
+    + (where === "ts" ? "" : '<span class="sw-n">' + count(v) + "</span>") + CHEV + "</button>" + plus;
+}
+
+/* «+ Нова стратегія»: одразу заводимо порожню й відкриваємо її — там
+   людину чекає звичний вибір: опитування з нуля або підтягнути з Notion.
+   Назва — «ТС N», перейменувати можна в меню «⋯». */
+async function quick(){
+  let r;
+  try{ r = await api("POST", "/api/ts/new", {name: ""}); }catch(e){ return; }
+  L = r.list || L;
+  go(String(r.id));
 }
 
 let pop = null;
@@ -115,8 +124,6 @@ function menu(b, where){
   h += list().map((s, i) => row(s.id, nm(s, i), '<i class="sw-dot" style="--c:' + color(s.id) + '"></i>',
                                 where === "ts" ? null : count(s.id))).join("");
   if (where !== "ts") h += '<div class="sw-sep"></div>' + row("all", d.all, dots(), count("all"));
-  h += '<div class="sw-sep"></div><button type="button" class="sw-act" data-a="add">+ ' + esc(d.newOne) + "</button>";
-  if (where === "ts") h += '<button type="button" class="sw-act" data-a="edit">' + esc(d.editTip) + "</button>";
   pop = document.createElement("div");
   pop.className = "sw-pop"; pop.setAttribute("role", "menu"); pop.dataset.for = where;
   pop.innerHTML = h;
@@ -127,11 +134,9 @@ function menu(b, where){
   pop.style.left = Math.min(Math.max(8, r.left), innerWidth - w - 8) + "px";
   pop.style.top = (r.bottom + 6 + hgt > innerHeight - 8 && r.top > hgt + 14 ? r.top - hgt - 6 : r.bottom + 6) + "px";
   pop.addEventListener("click", e => {
-    const it = e.target.closest("[data-v],[data-a]");
+    const it = e.target.closest("[data-v]");
     if (!it) return;
     closeMenu();
-    if (it.dataset.a === "add") return add();
-    if (it.dataset.a === "edit") return edit(+sid());
     select(it.dataset.v); apply();
   });
   setTimeout(() => {
@@ -229,7 +234,10 @@ function pickForm(b){
 /* рядок «Стратегія — ТС 2» у картці угоди; поки стратегія одна — нічого */
 function fact(t){ return multi() ? [D().lab, label(t.ts)] : null; }
 
-window.__strat = {load, filter, multi, sid, label, color, btn, menu, go, add, create, edit, rename, drop,
+/* у меню «⋯»: першу стратегію можна лише перейменувати */
+function editWord(){ return sid() === "0" ? D().renameOnly : D().editTip; }
+
+window.__strat = {load, editWord, filter, multi, sid, label, color, btn, menu, go, add, quick, create, edit, rename, drop,
                   formField, pickForm, fact};
 
 /* Журнал міг прочитати угоди ще до того, як підвантажився цей файл (на
@@ -244,7 +252,7 @@ setTimeout(async () => {
 const DICT = {
 uk: {
   ts: "ТС", lab: "Стратегія", labTs: "Торгові стратегії", newOne: "Нова стратегія", all: "Усі стратегії", add: "Стратегія", addTip: "Додати ще одну торгову стратегію",
-  editTip: "Перейменувати або прибрати", close: "Закрити", cancel: "Скасувати", save: "Зберегти", del: "Прибрати",
+  editTip: "Перейменувати або прибрати стратегію", renameOnly: "Перейменувати стратегію", close: "Закрити", cancel: "Скасувати", save: "Зберегти", del: "Прибрати",
   newTitle: "Нова стратегія", editTitle: "Стратегія", name: "Назва", namePh: "Скальп US100",
   start: "З чого почати", empty: "З нуля", emptyX: "Порожня ТС — заповниш опитуванням, з Notion або руками",
   copy: "Копія", copyX: "Ті самі правила — далі правиш під нову ідею", create: "Створити",
@@ -254,7 +262,7 @@ uk: {
 },
 ru: {
   ts: "ТС", lab: "Стратегия", labTs: "Торговые стратегии", newOne: "Новая стратегия", all: "Все стратегии", add: "Стратегия", addTip: "Добавить ещё одну торговую стратегию",
-  editTip: "Переименовать или удалить", close: "Закрыть", cancel: "Отмена", save: "Сохранить", del: "Удалить",
+  editTip: "Переименовать или удалить стратегию", renameOnly: "Переименовать стратегию", close: "Закрыть", cancel: "Отмена", save: "Сохранить", del: "Удалить",
   newTitle: "Новая стратегия", editTitle: "Стратегия", name: "Название", namePh: "Скальп US100",
   start: "С чего начать", empty: "С нуля", emptyX: "Пустая ТС — заполнишь опросом, из Notion или вручную",
   copy: "Копия", copyX: "Те же правила — дальше правишь под новую идею", create: "Создать",
@@ -264,7 +272,7 @@ ru: {
 },
 en: {
   ts: "System", lab: "Strategy", labTs: "Trading systems", newOne: "New strategy", all: "All strategies", add: "Strategy", addTip: "Add another trading strategy",
-  editTip: "Rename or remove", close: "Close", cancel: "Cancel", save: "Save", del: "Remove",
+  editTip: "Rename or remove strategy", renameOnly: "Rename strategy", close: "Close", cancel: "Cancel", save: "Save", del: "Remove",
   newTitle: "New strategy", editTitle: "Strategy", name: "Name", namePh: "US100 scalp",
   start: "Start from", empty: "Scratch", emptyX: "An empty system — fill it via the survey, Notion or by hand",
   copy: "Copy of", copyX: "Same rules — then adjust them for the new idea", create: "Create",

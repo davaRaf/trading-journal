@@ -1388,7 +1388,11 @@ h1.ovh a.on::after{content:"";position:absolute;left:0;right:0;bottom:0;height:2
 .sw-row.on{background:var(--accent-soft)} .sw-row.on .sw-ok{visibility:visible}
 .sw-sep{height:1px;background:var(--line-soft);margin:5px 6px}
 .sw-act{color:var(--dim);font-size:13px} .sw-act:hover{color:var(--accent)}
-.tsv-head .sw-pill,.tsv-head .sw-add{margin-right:auto}
+
+.sw-ic{width:32px;height:32px;margin-left:-2px;border-radius:999px;border:1px solid var(--line);background:none;
+  color:var(--dim);font:600 15px/1 var(--sans);cursor:pointer}
+.sw-ic:hover{color:var(--text);border-color:var(--faint)}
+
 .strat-form{display:flex;flex-direction:column;gap:8px}
 .strat-form .st-lab{font-size:12px;color:var(--dim);margin-top:8px}
 .strat-form input[type=text],.strat-form #stName{font-size:15px}

@@ -1052,6 +1052,9 @@ function vFull(){
           ? '<div class="tsv-menu" role="menu">'
             + '<button type="button" role="menuitem" class="m-share" onclick="__ts.share()">' + esc(d.btnShare) + "</button>"
             + '<button type="button" role="menuitem" onclick="__ts.srcOpen()">' + esc(d.btnNotion) + "</button>"
+            /* кілька стратегій: назва й видалення самої стратегії — тут, а не в перемикачі */
+            + (window.__strat && __strat.multi()
+              ? '<button type="button" role="menuitem" onclick="__ts.menuClose();__strat.edit(+__strat.sid())">' + esc(__strat.editWord()) + "</button>" : "")
             + '<button type="button" role="menuitem" class="danger" onclick="__ts.wipe()">' + esc(d.btnDelete) + "</button>"
             + "</div>"
           : "")
@@ -1082,7 +1085,9 @@ function vTS(){
   /* у порожньої стратегії свого заголовка немає — коли їх кілька, даємо
      шапку з перемикачем, інакше з неї не вибратись */
   const sw = window.__strat && __strat.multi()
-    ? '<div class="vhead tsv-head"><h1>' + esc(D().title) + "</h1>" + __strat.btn("ts") + "</div>" : "";
+    ? '<div class="vhead tsv-head"><h1>' + esc(D().title) + "</h1>" + __strat.btn("ts")
+      + '<button type="button" class="sw-ic" onclick="__strat.edit(+__strat.sid())" data-tip="' + esc(__strat.editWord())
+      + '" aria-label="' + esc(__strat.editWord()) + '">⋯</button></div>' : "";
   return TS ? vFull() : sw + vNone();
 }
 VIEWS.ts = vTS;
@@ -1675,6 +1680,7 @@ window.__ts = {
   /* перечитати з сервера: помічник міг щось дописати на прохання трейдера,
      і розділ під вікном має показати це без F5 */
   reload(){ return load(); },
+  menuClose(){ menuOpen = false; soft(); },
   /* що з ТС іде в підказки форми: інструменти й моделі входу. Таймфрейми
      ні — у ТС їх пишуть як завгодно («1M», «D»), і слоти під скріни двоїлись. */
   hints(){
