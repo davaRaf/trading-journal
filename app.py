@@ -45,6 +45,7 @@ import oauth
 import ratelimit
 import seclog
 import accounts_store
+import notes_store
 import bt_journals_store
 import day_store
 import tg_api
@@ -2291,6 +2292,13 @@ class H(BaseHTTPRequestHandler):
                 return self._json({"error": "auth required"}, 401)
             return self._json({"journals": bt_journals_store.lst(uid)})
 
+        # ---- нотатки (notes_store.py) ----
+        if p == "/api/notes":
+            uid = self._uid()
+            if not uid:
+                return self._json({"error": "auth required"}, 401)
+            return self._json({"notes": notes_store.lst(uid)})
+
         if p.startswith("/api/day/"):
             uid = self._uid()
             if not uid:
@@ -3825,6 +3833,21 @@ class H(BaseHTTPRequestHandler):
             except (TypeError, ValueError):
                 return self._json({"error": "bad id"}, 400)
             accounts_store.drop(uid, acc_id)
+            return self._json({"ok": True})
+
+        # ---- нотатки ----
+        if p == "/api/notes":
+            n = notes_store.save(uid, (body or {}).get("note"))
+            if not n:
+                return self._json({"error": "not saved"}, 400)
+            return self._json({"note": n})
+
+        if p == "/api/notes/drop":
+            try:
+                nid = int((body or {}).get("id"))
+            except (TypeError, ValueError):
+                return self._json({"error": "bad id"}, 400)
+            notes_store.drop(uid, nid)
             return self._json({"ok": True})
 
         # ---- журнали бектесту ----
