@@ -44,7 +44,10 @@ function inner(){
        журнал закритий — посилання на неї людина розсилає сама. */
     + '<label class="pp-sw" style="margin-top:18px"><input type="checkbox" id="ppTsCopy"'
     +   (user.ts_copy ? " checked" : "") + "><b>" + esc(T.ppTsCopy) + "</b></label>"
-    + '<p class="pp-lead" style="margin-top:6px">' + esc(T.ppTsCopyNote) + "</p>";
+    + '<p class="pp-lead" style="margin-top:6px">' + esc(T.ppTsCopyNote) + "</p>"
+    + '<label class="pp-sw" style="margin-top:18px"><input type="checkbox" id="ppMail"'
+    +   (user.mail_news !== false ? " checked" : "") + "><b>" + esc(T.ppMail) + "</b></label>"
+    + '<p class="pp-lead" style="margin-top:6px">' + esc(T.ppMailNote) + "</p>";
 }
 
 function body(){
@@ -82,6 +85,17 @@ function wire(){
     }
     sw.disabled = false;
     paint();
+  };
+  const ml = document.getElementById("ppMail");
+  if (ml) ml.onchange = async () => {
+    ml.disabled = true;
+    try{
+      const r = await api("POST", "/api/me/mail", {on: ml.checked});
+      user.mail_news = !!r.mail_news;
+    }catch(e){
+      ml.checked = user.mail_news !== false;
+    }
+    ml.disabled = false;
   };
   const tc = document.getElementById("ppTsCopy");
   if (tc) tc.onchange = async () => {

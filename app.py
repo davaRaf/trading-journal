@@ -46,6 +46,7 @@ import ratelimit
 import seclog
 import accounts_store
 import notes_store
+import mailout
 import bt_journals_store
 import day_store
 import tg_api
@@ -1265,6 +1266,7 @@ def user_public(user):
             "digest_enabled": user["digest_enabled"],
             "public_journal": bool(user["public_journal"]),
             "ts_copy": bool(user.get("ts_copy")),
+            "mail_news": user.get("mail_news") is not False,
             "tz": user["tz"] or "Europe/Kyiv",
             "email_confirmed": user["email_confirmed_at"] is not None,
             "avatar": avatar_url(user.get("avatar")),
@@ -2162,6 +2164,40 @@ class H(BaseHTTPRequestHandler):
             return self._json({"prefs": prefs_get(uid)})
 
         # ---- звідки про нас дізнались: лише власникам ----
+        # ---- відписка з листа: без входу, за підписаним посиланням ----
+        if p == "/unsub":
+            qs = parse_qs(urlparse(self.path).query)
+            ok = mailout.unsubscribe((qs.get("u") or [""])[0], (qs.get("t") or [""])[0])
+            text = ("Готово — больше не пришлём писем с новостями. Вернуть можно в профиле журнала."
+                    if ok else "Ссылка не сработала. Отписаться можно в профиле журнала.")
+            data = ('<!doctype html><meta charset=utf-8><meta name=viewport content="width=device-width,initial-scale=1">'
+                    '<title>StatsAI</title><body style="font-family:Segoe UI,Arial,sans-serif;background:#0d0f12;color:#e8eaee;'
+                    'display:grid;place-items:center;min-height:90vh;margin:0;padding:16px"><div style="max-width:420px;text-align:center">'
+                    '<h2>Stats<span style="color:#3ccf8e">AI</span></h2><p style="line-height:1.6">%s</p>'
+                    '<p><a href="/" style="color:#3ccf8e">Открыть журнал</a></p></div></body>' % _html.escape(text)).encode("utf-8")
+            self.send_response(200)
+            self.send_header("Content-Type", "text/html; charset=utf-8")
+            self.send_header("Content-Length", str(len(data)))
+            self.end_headers()
+            self.wfile.write(data)
+            return
+
+        if p == "/admin/mail":
+            uid = self._uid()
+            if not uid:
+                return self._redirect("/login")
+            if not _is_admin(uid):
+                self.send_response(403); self.end_headers(); return
+            data = admin_page.mail_page(mailout.stats(), mailout.AUDIENCES, list(ref_all()),
+                                        REF_TITLES, bool(config.RESEND_API_KEY)).encode("utf-8")
+            self.send_response(200)
+            self.send_header("Content-Type", "text/html; charset=utf-8")
+            self.send_header("Content-Length", str(len(data)))
+            self.send_header("Cache-Control", "no-store")
+            self.end_headers()
+            self.wfile.write(data)
+            return
+
         # ---- службова сторінка з цифрами: лише власникам ----
         if p == "/admin":
             uid = self._uid()
@@ -3377,6 +3413,38 @@ class H(BaseHTTPRequestHandler):
         if p.startswith("/api/") and not uid:
             return self._json({"error": "auth required"}, 401)
 
+        if p == "/api/me/mail":
+            on = bool((body or {}).get("on"))
+            mailout.set_news(uid, on)
+            return self._json({"mail_news": on})
+
+        # ---- розсилка: лише власникам ----
+        if p.startswith("/api/admin/mail/"):
+            if not _is_admin(uid):
+                return self._json({"error": "forbidden"}, 403)
+            b = body or {}
+            act = p[len("/api/admin/mail/"):]
+            subject = str(b.get("subject") or "").strip()[:150]
+            text = str(b.get("body") or "")[:20000]
+            aud = b.get("audience") if b.get("audience") in mailout.AUDIENCES else "all"
+            ref = str(b.get("ref") or "")
+            ref = ref if ref in ref_all() else ""
+            if act == "count":
+                return self._json({"n": len(mailout.recipients(aud, ref))})
+            if act == "run":
+                return self._json({"n": mailout.run_once()})
+            if not subject or not text.strip():
+                return self._json({"error": "нужны тема и текст"}, 400)
+            if act == "test":
+                me = db.get_user(uid)
+                ok = mailout.send_one(me["email"], subject, text, uid)
+                return self._json({"to": me["email"]} if ok else {"error": "письмо не ушло — смотри лог сервера"},
+                                  200 if ok else 502)
+            if act == "send":
+                seclog.event("розсилка", True, user=db.get_user(uid), ip=self._guest(), тема=subject)
+                return self._json({"n": mailout.enqueue(subject, text, aud, ref)})
+            return self._json({"error": "неизвестное действие"}, 400)
+
         if p == "/api/ts/active":
             db.set_ts_active(uid, (body or {}).get("ts"))
             return self._json({"ok": True})
@@ -4230,6 +4298,8 @@ if __name__ == "__main__":
     if config.RUN_JOBS:
         # щоденний зліпок журналу: тихо, у фоні, раз на добу
         backup.start()
+        # розсилка: черга листів, не більше MAIL_DAILY на добу
+        mailout.start()
         # оплата криптою: дивимось у блокчейн, чи не прийшли гроші
         crypto_pay.start()
     if config.RUN_BOT and config.BOT_TOKEN:

@@ -739,6 +739,7 @@ def dashboard(query, titles, kind_ru, refs=()):
               '<label class=search><svg width=15 height=15 viewBox="0 0 24 24" fill=none><circle cx=11 cy=11 r=7 '
               'stroke=currentColor stroke-width=2 /><path d="M20 20l-3.5-3.5" stroke=currentColor stroke-width=2 '
               'stroke-linecap=round /></svg><input id=q placeholder="Ник или почта" autocomplete=off></label>'
+              '<a class=back href="/admin/mail" style="margin-right:14px">✉ Рассылка</a>'
               '<span class=stamp>обновлено ' + stamp + "</span></div>"
             + _kpis(D) + _charts(D)
             + '<div class="grid three">' + _funnel(D) + _features(D) + _status(D) + "</div>"
@@ -934,6 +935,60 @@ def user_card(u, titles, kind_ru, refs, billing_html=""):
           "setTimeout(()=>location.href='/admin',1500);}else{go.disabled=goban.disabled=false;msg.textContent=d.error||('Ошибка '+r.status);}};"
           "go.onclick=()=>del(false);goban.onclick=()=>del(true);"
           "</script></div></body></html>")
+
+
+def mail_page(st, audiences, refs, titles, mail_on):
+    """Рассылка: письмо, кому, «себе на проверку», «поставить в очередь»."""
+    opt = "".join('<option value="%s">%s</option>' % (e(k), e(v)) for k, v in audiences.items())
+    ropt = '<option value="">все источники</option>' + "".join(
+        '<option value="%s">пришли из %s</option>' % (e(r), e(titles.get(r, r))) for r in refs)
+    camps = "".join("<tr><td>%s</td><td class=num>%s из %s</td></tr>"
+                    % (e(c["campaign"]), c["sent"], c["n"]) for c in st["campaigns"]) or \
+        '<tr><td colspan=2 class=mute>ещё ничего не отправляли</td></tr>'
+    warn = "" if mail_on else ('<p style="color:var(--down)">Почта на сервере не настроена (нет RESEND_API_KEY) — '
+                               "письма не уйдут. Очередь копится и разошлётся, когда ключ появится.</p>")
+    inp = ('width:100%;padding:10px 12px;border-radius:10px;border:1px solid var(--line);'
+           'background:var(--card);color:var(--text);font:inherit;box-sizing:border-box')
+    return (head("StatsAI · рассылка")
+            + '<div class=top><a class=back href="/admin">← все цифры</a></div>'
+            + '<div class=card><h2>Рассылка по почте</h2>' + warn
+            + '<p class=mute style="font-size:13px">Абзацы — через пустую строку. Кнопка — отдельной строкой: '
+              '<code>[Открыть журнал](https://statsai.xyz/)</code>. Ссылка «Отписаться» добавится сама.</p>'
+            + '<p><input id=ms placeholder="Тема письма" style="%s"></p>' % inp
+            + '<p><textarea id=mb rows=12 placeholder="Текст письма" style="%s;resize:vertical"></textarea></p>' % inp
+            + '<div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">'
+              '<select id=ma style="%s;width:auto">%s</select>' % (inp, opt)
+            + '<select id=mr style="%s;width:auto">%s</select>' % (inp, ropt)
+            + '<span id=mn class=mute></span></div>'
+            + '<div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:14px">'
+              '<button id=mt class=btn>Отправить себе на проверку</button>'
+              '<button id=mq class="btn go" style="background:var(--acc);color:#0b120e;border:0">Отправить всем выбранным</button>'
+              '</div><p id=mm class=mute></p></div>'
+            + '<div class=card style="margin-top:12px"><h2>Очередь</h2><div class=kv>'
+              '<span>Ждут отправки</span><span>%s</span><span>Ушло сегодня</span><span>%s из %s в день</span>'
+              '<span>Не ушло</span><span>%s</span></div>' % (st["wait"], st["today"], st["limit"], st["failed"])
+            + '<p class=mute style="font-size:12px">Бесплатный Resend — не больше %s писем в день. Остальное '
+              'уходит на следующий день само, по порядку.</p>' % st["limit"]
+            + '<button id=mrun class=btn>Отправить порцию сейчас</button>'
+            + '<table style="margin-top:12px">' + camps + "</table></div>"
+            + "<script>"
+              "const J=(u,b)=>fetch(u,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(b||{})})"
+              ".then(r=>r.json().then(d=>[r.ok,d]));"
+              "const body=()=>({subject:ms.value.trim(),body:mb.value,audience:ma.value,ref:mr.value});"
+              "async function cnt(){const [ok,d]=await J('/api/admin/mail/count',body());mn.textContent=ok?('получат: '+d.n):'';}"
+              "ma.onchange=cnt;mr.onchange=cnt;cnt();"
+              "mt.onclick=async()=>{const b=body();if(!b.subject||!b.body.trim()){mm.textContent='Нужны тема и текст';return;}"
+              "mm.textContent='…';const [ok,d]=await J('/api/admin/mail/test',b);"
+              "mm.textContent=ok?('Ушло на '+d.to+' — проверь почту'):(d.error||'не ушло');};"
+              "mq.onclick=async()=>{const b=body();if(!b.subject||!b.body.trim()){mm.textContent='Нужны тема и текст';return;}"
+              "if(!confirm('Поставить письмо в очередь? '+mn.textContent))return;mm.textContent='…';"
+              "const [ok,d]=await J('/api/admin/mail/send',b);"
+              "mm.textContent=ok?('В очереди: '+d.n+'. Уходит до %s в день.'):(d.error||'ошибка');"
+              "if(ok)setTimeout(()=>location.reload(),1500);};"
+              "mrun.onclick=async()=>{mrun.disabled=true;const [ok,d]=await J('/api/admin/mail/run');"
+              "mrun.disabled=false;mm.textContent=ok?('Отправлено сейчас: '+d.n):(d.error||'ошибка');"
+              "if(ok)setTimeout(()=>location.reload(),1200);};"
+              "</script></div></body></html>" % st["limit"])
 
 
 def not_found(nick):
