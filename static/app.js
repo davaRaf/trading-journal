@@ -2177,12 +2177,16 @@ function openForm(id, presetDay){
 
   /* ---- результат ---- */
   '<section class="fcard accent"><h4>'+T.fmResultSection+'</h4><div class="fbody">'+
+    /* Спершу статус (закрита / в роботі / скіп), і лише в закритої —
+       чим саме: так «Скіп» і «В роботі» не губляться серед тейків і стопів. */
     '<div class="f"><label>'+T.fmFinishedAs+' <i>*</i></label>'+
+      '<div class="rstat" id="rstat">'+[["",T.resClosed],["Open",T.resOpen],["Skip",T.resSkip]].map(o=>
+        '<button type="button" class="'+(resStat(t)===o[0]?"on":"")+'" data-v="'+o[0]+'" onclick="resStatus(this)">'+o[1]+"</button>").join("")+"</div>"+
+      '<div id="resChips"'+(resStat(t)?" hidden":"")+'>'+
       seg("result",[{v:"Win",t:"TP",cls:"win"},{v:"WinM",t:T.resHand,cls:"win"},
-                    {v:"Loss",t:"SL",cls:"loss"},{v:"BE",t:"BE",cls:"bek"},
-                    {v:"BE-",t:"BE\u2212",cls:"bek"},{v:"BE+",t:"BE+",cls:"bepk"},
-                    {v:"Skip",t:T.resSkip,cls:"skipk"},
-                    {v:"Open",t:T.resOpen,cls:"openk"}],t?t.result:"","big res")+"</div>"+
+                    {v:"BE",t:"BE",cls:"bek"},{v:"BE-",t:"BE\u2212",cls:"bek"},
+                    {v:"BE+",t:"BE+",cls:"bepk"},{v:"Loss",t:"SL",cls:"loss"}],t?t.result:"","res chips")+
+      "</div></div>"+
     '<div class="frow" id="rowRR">'+
       '<div class="f"><label id="labRR">RR</label>'+
         '<input id="fld_rr" type="number" step="0.1" min="0" placeholder="2.5" oninput="calcOutcome()" value="'+(t&&t.rr!=null?t.rr:"")+'"></div>'+
@@ -2351,6 +2355,19 @@ function onPasteShot(e){
       if(idx===0) S.activeTf=null;
     });
   });
+}
+
+/* Статус угоди у формі: "" — закрита (тоді обирають підсумок), "Open", "Skip". */
+function resStat(t){ const r=t&&t.result; return r==="Open"||r==="Skip"?r:""; }
+function resStatus(btn){
+  document.querySelectorAll("#rstat button").forEach(b=>b.classList.toggle("on",b===btn));
+  const v=btn.dataset.v, inp=$("#fld_result");
+  $("#resChips").hidden=!!v;
+  /* «Закрита» поверх уже обраного тейка чи стопа нічого не скидає */
+  if(!v && inp.value!=="Open" && inp.value!=="Skip") return;
+  $("#seg_result").querySelectorAll("button").forEach(b=>b.classList.remove("on","win","loss","bek","bepk"));
+  inp.value=v;
+  calcOutcome();
 }
 
 /* выбор варианта в переключателе */
