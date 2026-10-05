@@ -161,6 +161,9 @@ def drop(user_id, sid):
         if got:
             conn.execute("UPDATE trades SET ts='' WHERE user_id=%s AND ts=%s",
                          (user_id, str(sid)))
+            # рахунки цієї стратегії — туди ж, куди й угоди
+            conn.execute("UPDATE accounts SET ts='0' WHERE user_id=%s AND ts=%s",
+                         (user_id, str(sid)))
     return bool(got)
 
 

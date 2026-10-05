@@ -303,7 +303,8 @@ function card(a){
   return '<div class="shell"><div class="core ac-card ' + st + '">'
     + '<div class="ac-top">' + logo(a.firm, a.name, "ac-logo")
     + '<div class="ac-name"><b>' + esc(a.name) + "</b>"
-    +   (under ? '<div class="ac-sub">' + under + "</div>" : "") + "</div>"
+    +   (under ? '<div class="ac-sub">' + under + "</div>" : "")
+    +   (window.__strat ? __strat.accTag(a) : "") + "</div>"
     + '<span class="ac-st ' + st + '">' + esc(d.status[a.status] || "") + "</span></div>"
     + head + spark(s.curve) + bars + stats + cut
     + (dead && openId === a.id ? why(a, s) : "")
@@ -658,6 +659,8 @@ function form(a){
     +   '<div class="ac-row2">' + dateField(d.fClosed, "acClosed", a.closed_at)
     +     field(d.fReason, "acReason", a.reason, d.phReason) + "</div></div>"
     + field(d.fNote, "acNote", a.note, d.phNote)
+    /* під яку стратегію рахунок — лише коли їх кілька (strat.js) */
+    + (window.__strat ? __strat.accField(a) : "")
     + '<p class="ac-err" id="acErr" hidden></p>'
     + "</div>";
 }
@@ -757,6 +760,7 @@ async function save(id){
     target_pct: num("acTarget"), dd_total_pct: num("acDdTotal"), dd_daily_pct: num("acDdDaily"),
     opened_at: val("acOpened"), status: segVal("acStatus"),
     closed_at: val("acClosed"), reason: val("acReason"), note: val("acNote"),
+    ts: val("acTs"),
   };
   if (!acc.name){ show(err, d.errName); return; }
   let saved = null;
@@ -912,7 +916,8 @@ function vAccounts(){
   /* Шапка спільна з «Оглядом»: заголовок там і є перемикачем вкладок.
      Без app.js (такого не буває, але хай) лишиться просто назва. */
   const head = '<div class="ohead ac-head">'
-    + (window.ovTabsHtml ? ovTabsHtml("accounts") : "<h1>" + esc(d.title) + "</h1>") + total()
+    + (window.ovTabsHtml ? ovTabsHtml("accounts") : "<h1>" + esc(d.title) + "</h1>")
+    + (window.__strat ? __strat.btn() : "") + total()
     + '<button class="btn primary ac-new" id="acAdd">' + esc(d.add) + "</button></div>";
 
   if (!ACCS.length){
@@ -922,9 +927,12 @@ function vAccounts(){
       + '<button class="btn primary" id="acAdd2">' + esc(d.add) + "</button>"
       + "</div></div></div>";
   }
+  /* кілька стратегій: рахунки обраної плюс спільні */
+  const shown = window.__strat ? __strat.accFilter(ACCS) : ACCS;
   return '<div class="acw">' + head
-    + '<div class="ac-grid">' + ACCS.map(card).join("") + "</div></div>";
+    + '<div class="ac-grid">' + shown.map(card).join("") + "</div></div>";
 }
+window.__accList = () => ACCS || [];
 
 function blank(){ return {name: "", firm: "", kind: "own", currency: "USD", status: "active"}; }
 

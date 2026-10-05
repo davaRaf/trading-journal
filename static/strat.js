@@ -42,6 +42,8 @@ async function load(){
   catch(e){ L = L || [{id: 0, name: "", has: false}]; }
   if (cur !== "all" && !list().some(s => String(s.id) === cur)) cur = "0";
   if (cur === "all" && !multi()) cur = "0";
+  /* порожні з минулого разу (закрили вкладку посеред нової) — прибираємо */
+  list().filter(s => s.id && !s.has && String(s.id) !== cur).forEach(s => sweepEmpty(String(s.id)));
 }
 
 function filter(trades){
@@ -50,9 +52,29 @@ function filter(trades){
 }
 
 function select(v){
+  const was = cur;
   cur = String(v);
   try{ localStorage.setItem(LS, cur); }catch(e){}
+  if (was !== cur) sweepEmpty(was);
 }
+
+/* «+ Нова стратегія» заводить порожню одразу — щоб було куди писати
+   опитування. Пішов із неї, нічого не заповнивши й без угод, — значить
+   передумав: прибираємо, щоб не лишались «ТС 5», «ТС 6» з нічим. */
+async function sweepEmpty(id){
+  if (!id || id === "0" || id === "all" || count(id)) return;
+  const s = list().find(x => String(x.id) === String(id));
+  if (!s) return;
+  try{
+    const r = await api("GET", "/api/ts?sid=" + id);
+    if (r && r.ts && Object.keys(r.ts).length) return;
+    if ((ACCS_OF(id)).length) return;
+    L = (await api("POST", "/api/ts/drop", {sid: +id})).list || L;
+  }catch(e){ return; }
+  render();
+}
+/* рахунки, заведені саме під цю стратегію (accounts.js кладе їх у window.__accs) */
+function ACCS_OF(id){ return (window.__accList ? __accList() : []).filter(a => String(a.ts || "") === String(id)); }
 
 /* після зміни стратегії: журнал — її угоди, «Моя ТС» — її правила */
 function apply(){
@@ -234,24 +256,54 @@ function pickForm(b){
 /* рядок «Стратегія — ТС 2» у картці угоди; поки стратегія одна — нічого */
 function fact(t){ return multi() ? [D().lab, label(t.ts)] : null; }
 
+/* ---------------- рахунки ----------------
+   У рахунку ts: "" — під усі стратегії, "0" — перша, інакше номер. */
+function accField(a){
+  const v = a && a.id ? String(a.ts || "") : (cur === "all" ? "" : sid());
+  const hidden = '<input type="hidden" id="acTs" value="' + esc(v) + '">';
+  if (!multi()) return hidden;
+  const chip = (k, name, dot) => '<button type="button" class="' + (k === v ? "on" : "") + '" data-v="' + k
+    + '" onclick="__strat.pickAcc(this)">' + dot + esc(name) + "</button>";
+  return '<div class="ac-f strat-f"><span>' + esc(D().accFor) + "</span>"
+    + '<div class="strat-chips">' + chip("", D().all, dots())
+    + list().map((s, i) => chip(String(s.id), nm(s, i), '<i class="sw-dot" style="--c:' + color(s.id) + '"></i>')).join("")
+    + "</div>" + hidden + "</div>";
+}
+function pickAcc(b){
+  b.parentElement.querySelectorAll("button").forEach(x => x.classList.toggle("on", x === b));
+  document.getElementById("acTs").value = b.dataset.v;
+}
+/* у «Рахунках» — рахунки обраної стратегії плюс спільні */
+function accFilter(list_){
+  if (!multi() || cur === "all") return list_;
+  return list_.filter(a => !a.ts || String(a.ts) === cur);
+}
+function accTag(a){
+  if (!multi()) return "";
+  const all = !a.ts;
+  return '<span class="ac-st">' + (all ? dots() : '<i class="sw-dot" style="--c:' + color(a.ts) + '"></i>')
+    + esc(all ? D().all : label(a.ts)) + "</span>";
+}
+
 /* у меню «⋯»: першу стратегію можна лише перейменувати */
 function editWord(){ return sid() === "0" ? D().renameOnly : D().editTip; }
 
-window.__strat = {load, editWord, filter, multi, sid, label, color, btn, menu, go, add, quick, create, edit, rename, drop,
+window.__strat = {load, editWord, accField, pickAcc, accFilter, accTag, filter, multi, sid, label, color, btn, menu, go, add, quick, create, edit, rename, drop,
                   formField, pickForm, fact};
 
 /* Журнал міг прочитати угоди ще до того, як підвантажився цей файл (на
    локальному сервері відповідь приходить миттєво) — тоді reload() нас не
    покликав. Добираємо стратегії самі й перемальовуємо. */
-setTimeout(async () => {
-  if (L !== undefined || !Array.isArray(S.liveAll) || off()) return;
-  await load();
-  if (multi()){ S.trades = S.all = filter(S.liveAll); render(); }
-}, 0);
+(function wait(n){
+  if (L !== undefined) return;                       /* reload() уже покликав */
+  if (!Array.isArray(S.liveAll)){ if (n < 60) setTimeout(() => wait(n + 1), 250); return; }
+  if (off()) return;
+  load().then(() => { if (multi()){ S.trades = S.all = filter(S.liveAll); render(); } });
+})(0);
 
 const DICT = {
 uk: {
-  ts: "ТС", lab: "Стратегія", labTs: "Торгові стратегії", newOne: "Нова стратегія", all: "Усі стратегії", add: "Стратегія", addTip: "Додати ще одну торгову стратегію",
+  accFor: "Під яку стратегію", ts: "ТС", lab: "Стратегія", labTs: "Торгові стратегії", newOne: "Нова стратегія", all: "Усі стратегії", add: "Стратегія", addTip: "Додати ще одну торгову стратегію",
   editTip: "Перейменувати або прибрати стратегію", renameOnly: "Перейменувати стратегію", close: "Закрити", cancel: "Скасувати", save: "Зберегти", del: "Прибрати",
   newTitle: "Нова стратегія", editTitle: "Стратегія", name: "Назва", namePh: "Скальп US100",
   start: "З чого почати", empty: "З нуля", emptyX: "Порожня ТС — заповниш опитуванням, з Notion або руками",
@@ -261,7 +313,7 @@ uk: {
   dropAsk: "Прибрати «%s»? Правила стратегії видаляться, а її угоди перейдуть у «%t».",
 },
 ru: {
-  ts: "ТС", lab: "Стратегия", labTs: "Торговые стратегии", newOne: "Новая стратегия", all: "Все стратегии", add: "Стратегия", addTip: "Добавить ещё одну торговую стратегию",
+  accFor: "Под какую стратегию", ts: "ТС", lab: "Стратегия", labTs: "Торговые стратегии", newOne: "Новая стратегия", all: "Все стратегии", add: "Стратегия", addTip: "Добавить ещё одну торговую стратегию",
   editTip: "Переименовать или удалить стратегию", renameOnly: "Переименовать стратегию", close: "Закрыть", cancel: "Отмена", save: "Сохранить", del: "Удалить",
   newTitle: "Новая стратегия", editTitle: "Стратегия", name: "Название", namePh: "Скальп US100",
   start: "С чего начать", empty: "С нуля", emptyX: "Пустая ТС — заполнишь опросом, из Notion или вручную",
@@ -271,7 +323,7 @@ ru: {
   dropAsk: "Удалить «%s»? Правила стратегии удалятся, а её сделки перейдут в «%t».",
 },
 en: {
-  ts: "System", lab: "Strategy", labTs: "Trading systems", newOne: "New strategy", all: "All strategies", add: "Strategy", addTip: "Add another trading strategy",
+  accFor: "For which strategy", ts: "System", lab: "Strategy", labTs: "Trading systems", newOne: "New strategy", all: "All strategies", add: "Strategy", addTip: "Add another trading strategy",
   editTip: "Rename or remove strategy", renameOnly: "Rename strategy", close: "Close", cancel: "Cancel", save: "Save", del: "Remove",
   newTitle: "New strategy", editTitle: "Strategy", name: "Name", namePh: "US100 scalp",
   start: "Start from", empty: "Scratch", emptyX: "An empty system — fill it via the survey, Notion or by hand",

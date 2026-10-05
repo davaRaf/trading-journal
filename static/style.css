@@ -1410,6 +1410,11 @@ h1.ovh a.on::after{content:"";position:absolute;left:0;right:0;bottom:0;height:2
 .strat-chips button:hover{color:var(--text);border-color:var(--faint)}
 .strat-chips button.on{color:var(--accent);border-color:var(--accent);background:var(--accent-soft)}
 .strat-f{margin-bottom:6px}
+.ac-form .strat-f{display:flex;flex-direction:column;gap:8px;margin-top:4px}
+.ac-st{display:inline-flex;align-items:center;gap:7px;margin-top:7px;padding:3px 10px 3px 8px;border-radius:999px;
+  border:1px solid var(--line-soft);font-size:12px;font-weight:500;color:var(--dim)}
+.ac-st .sw-dot{width:7px;height:7px;box-shadow:none}
+.ac-st .sw-dots i{width:7px;height:7px}
 .ovn .cut{min-height:0}
 .ovn .nlist{min-height:0;overflow:hidden}
 .ovn h3 .ncnt{font-family:var(--sans);letter-spacing:0;text-transform:none;font-size:11px;color:var(--ghost-2);

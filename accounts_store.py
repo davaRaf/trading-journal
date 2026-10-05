@@ -70,6 +70,9 @@ ALTER TABLE accounts ADD COLUMN IF NOT EXISTS balance_n INTEGER NOT NULL DEFAULT
 -- Множник журналу на мить, коли баланс вписали. NULL — позначки ще
 -- немає: така картка рахується по-старому, до першого перезапису.
 ALTER TABLE accounts ADD COLUMN IF NOT EXISTS balance_f DOUBLE PRECISION;
+-- Під яку стратегію рахунок (ts_store.py): "" — під усі, "0" — перша,
+-- інакше номер стратегії.
+ALTER TABLE accounts ADD COLUMN IF NOT EXISTS ts TEXT NOT NULL DEFAULT '';
 
 -- Разова чистка імен, які лягли в базу до нормалізації: пробіл на кінці
 -- робив «FTMO » і «FTMO» різними рахунками, а в браузері вони склеювались
@@ -114,7 +117,7 @@ SPACE_RE = re.compile(r"[\s\u00a0\u202f\u2007]+")
 NUM_FIELDS = ("start_balance", "current_balance", "target_pct",
                "dd_daily_pct", "dd_total_pct", "balance_f")
 TEXT_FIELDS = ("name", "firm", "kind", "currency", "opened_at", "closed_at",
-               "status", "reason", "note", "balance_at")
+               "status", "reason", "note", "balance_at", "ts")
 # Лічильник угод — окремо: це ціле число, і зберігати його дробовим було б
 # просто неправдою про те, що воно означає.
 INT_FIELDS = ("balance_n",)
@@ -200,6 +203,7 @@ def clean(body):
         n = _num((body or {}).get(k))
         a[k] = max(0, int(n)) if n is not None else 0
     a["kind"] = a["kind"] if a["kind"] in KINDS else "own"
+    a["ts"] = a["ts"] if a["ts"].isdigit() else ""
     a["status"] = a["status"] if a["status"] in STATUS else "active"
     a["currency"] = (a["currency"] or "USD")[:8]
     a["name"] = norm_name(a["name"])
