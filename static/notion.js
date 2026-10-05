@@ -715,6 +715,14 @@ window.addEventListener("load", () => {
     if (window.__hello && window.__hello.done) await window.__hello.done;
     await checkState();
 
+    /* ?notion=1 — посилання з листа «перенеси журнал з Notion»: одразу майстер */
+    if (/[?&]notion=1/.test(location.search)){
+      history.replaceState(null, "", location.pathname + location.hash);
+      try{ localStorage.setItem(SEEN_KEY, "1"); }catch(e){}
+      if (!(typeof btOn === "function" && btOn())) open();
+      return;
+    }
+
     let seen = "1";
     try{ seen = localStorage.getItem(SEEN_KEY) || ""; }catch(e){}
     if (seen === "1") return;

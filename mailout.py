@@ -215,7 +215,18 @@ def run_once():
 
 def loop():
     time.sleep(120)
+    import mailauto
+    checked = 0
     while True:
+        # автоматические письма раскладываем раз в час и только днём по Киеву
+        try:
+            if time.time() - checked > 3600 and mailauto.due_hours():
+                checked = time.time()
+                got = mailauto.check()
+                if any(got.values()):
+                    print("рассылка: автописьма в очереди —", got, flush=True)
+        except Exception as ex:
+            print("автописьма:", ex, flush=True)
         try:
             n = run_once()
             if n:

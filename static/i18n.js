@@ -2232,6 +2232,13 @@ function applyLang(code){
   try{ window.T = T; window.LANG = LANG; }catch(e){}
   document.documentElement.setAttribute("lang", T.htmlLang);
   try{ localStorage.setItem("statsai_lang", LANG); }catch(e){}
+  /* мова — і на сервер: автоматичні листи йдуть тією ж мовою. Шлемо лише
+     коли змінилась, і тільки в журналі (на сторінці входу api() немає). */
+  try{
+    if (typeof api === "function" && localStorage.getItem("statsai_lang_sent") !== LANG)
+      api("POST", "/api/me/lang", {lang: LANG})
+        .then(() => { try{ localStorage.setItem("statsai_lang_sent", LANG); }catch(e){} }).catch(() => {});
+  }catch(e){}
 
   const setText = (id, txt) => { const el = document.getElementById(id); if(el) el.textContent = txt; };
   const setTip  = (el, txt) => { if(el) el.setAttribute("data-tip", txt); };

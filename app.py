@@ -47,6 +47,7 @@ import seclog
 import accounts_store
 import notes_store
 import mailout
+import mailauto
 import bt_journals_store
 import day_store
 import tg_api
@@ -1004,6 +1005,16 @@ def _ts_restore_block(u):
             '<script>tsback.onclick=()=>{if(confirm("Заменить нынешнюю ТС копией за "+'
             'tsday.selectedOptions[0].textContent.split(" ")[0]+"?"))bill("ts-restore",{day:tsday.value});};'
             '</script></div>' % (len(cur), opts))
+
+
+def _sub_canceled(uid, on):
+    try:
+        mailauto.init()
+        with db.connect() as conn:
+            conn.execute("UPDATE users SET sub_canceled=%s WHERE id=%s", (bool(on), uid))
+            conn.commit()
+    except Exception as ex:
+        print("sub_canceled:", ex, flush=True)
 
 
 def _is_admin(uid):
@@ -2972,6 +2983,11 @@ class H(BaseHTTPRequestHandler):
                     plan = creem.plan_of(obj) or "month"
                     billing.apply_paid(uid, plan, creem.period_end(obj))
                     billing.promo_paid(uid)   # перша оплата — код відпрацював
+                    _sub_canceled(uid, False)
+                elif ev in ("subscription.canceled", "subscription.scheduled_cancel"):
+                    # дати не чіпаємо (див. нижче), лише запам'ятовуємо: сама
+                    # не продовжиться — за 3 дні до кінця нагадаємо листом
+                    _sub_canceled(uid, True)
                 elif ev in ("refund.created", "dispute.created",
                             "subscription.expired", "subscription.unpaid"):
                     # Повернення й спір — гроші пішли назад, підписку знімаємо.
@@ -3413,6 +3429,16 @@ class H(BaseHTTPRequestHandler):
         if p.startswith("/api/") and not uid:
             return self._json({"error": "auth required"}, 401)
 
+        # мова сайту — щоб автоматичні листи (mailauto.py) йшли нею
+        if p == "/api/me/lang":
+            lg = str((body or {}).get("lang") or "")
+            if lg in ("uk", "ru", "en"):
+                mailauto.init()
+                with db.connect() as conn:
+                    conn.execute("UPDATE users SET lang=%s WHERE id=%s", (lg, uid))
+                    conn.commit()
+            return self._json({"ok": True})
+
         if p == "/api/me/mail":
             on = bool((body or {}).get("on"))
             mailout.set_news(uid, on)
@@ -3433,6 +3459,8 @@ class H(BaseHTTPRequestHandler):
                 return self._json({"n": len(mailout.recipients(aud, ref))})
             if act == "run":
                 return self._json({"n": mailout.run_once()})
+            if act == "auto":
+                return self._json(mailauto.check())
             if not subject or not text.strip():
                 return self._json({"error": "нужны тема и текст"}, 400)
             if act == "test":
