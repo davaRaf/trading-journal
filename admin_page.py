@@ -972,7 +972,7 @@ def mail_page(st, audiences, refs, titles, mail_on):
             + '<button id=mrun class=btn>Отправить порцию сейчас</button> '
               '<button id=mauto class=btn>Проверить автописьма</button>'
             + '<p class=mute style="font-size:12px">Автописьма (сервер проверяет сам раз в час, днём): '
-              '«ещё не начал» через 2–3 дня — перенос из Notion; итог месяца 1-го числа; '
+              '«ещё не начал» через 2–3 дня — перенос из Notion, через 7 дней — «неделя без записей», дальше новичку не пишем; итог месяца 1-го числа; '
               '«неделя без записей»; «подписка заканчивается» за 3 дня, если не продлится сама.</p>'
             + '<table style="margin-top:12px">' + camps + "</table></div>"
             + "<script>"
@@ -990,7 +990,7 @@ def mail_page(st, audiences, refs, titles, mail_on):
               "mm.textContent=ok?('В очереди: '+d.n+'. Уходит до %s в день.'):(d.error||'ошибка');"
               "if(ok)setTimeout(()=>location.reload(),1500);};"
               "mauto.onclick=async()=>{const [ok,d]=await J('/api/admin/mail/auto');"
-              "mm.textContent=ok?('В очередь: не начали '+d.start+', месяц '+d.month+', пауза '+d.lapse+', подписка '+d.ending):'ошибка';"
+              "mm.textContent=ok?('В очередь: не начали '+d.start+' / '+d.start2+', месяц '+d.month+', пауза '+d.lapse+', подписка '+d.ending):'ошибка';"
               "if(ok)setTimeout(()=>location.reload(),1500);};"
               "mrun.onclick=async()=>{mrun.disabled=true;const [ok,d]=await J('/api/admin/mail/run');"
               "mrun.disabled=false;mm.textContent=ok?('Отправлено сейчас: '+d.n):(d.error||'ошибка');"

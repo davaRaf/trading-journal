@@ -30,6 +30,7 @@ SCHEMA = """
 ALTER TABLE users ADD COLUMN IF NOT EXISTS lang TEXT NOT NULL DEFAULT '';
 ALTER TABLE users ADD COLUMN IF NOT EXISTS sub_canceled BOOLEAN NOT NULL DEFAULT FALSE;
 ALTER TABLE users ADD COLUMN IF NOT EXISTS mail_start_at TIMESTAMPTZ;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS mail_start2_at TIMESTAMPTZ;
 ALTER TABLE users ADD COLUMN IF NOT EXISTS mail_lapse_at TIMESTAMPTZ;
 ALTER TABLE users ADD COLUMN IF NOT EXISTS mail_ending_for TEXT NOT NULL DEFAULT '';
 """
@@ -82,6 +83,26 @@ TEXT = {
          "You'll see right away which sessions and setups make money and which eat it.\n\n"
          "[Move from Notion](" + SITE + "/?notion=1)\n\n"
          "No Notion? Log your first trade — it takes half a minute."),
+},
+"start2": {
+  "uk": ("Тиждень без записів",
+         "Минув тиждень, а журнал поки порожній.\n\n"
+         "Якщо торгуєш — запиши хоча б останні кілька угод. Уже з них видно, де ти заробляєш, а де втрачаєш, "
+         "і це найпростіший спосіб почати.\n\n"
+         "А якщо угоди в Notion, журнал перенесе їх сам за пару хвилин.\n\n"
+         "[Відкрити журнал](" + SITE + "/)"),
+  "ru": ("Неделя без записей",
+         "Прошла неделя, а журнал пока пустой.\n\n"
+         "Если торгуешь — запиши хотя бы последние несколько сделок. Уже по ним видно, где ты зарабатываешь, а где теряешь, "
+         "и это самый простой способ начать.\n\n"
+         "А если сделки в Notion, журнал перенесёт их сам за пару минут.\n\n"
+         "[Открыть журнал](" + SITE + "/)"),
+  "en": ("A week without entries",
+         "A week has passed and your journal is still empty.\n\n"
+         "If you're trading, log at least your last few trades. Even those show where you make money and where you "
+         "lose it — the easiest way to start.\n\n"
+         "And if your trades are in Notion, the journal moves them over for you in a couple of minutes.\n\n"
+         "[Open the journal](" + SITE + "/)"),
 },
 "lapse": {
   "uk": ("Тиждень без записів",
@@ -190,7 +211,7 @@ def check(now=None):
     """Разложить по очереди всё, что пора отправить. Возвращает {вид: сколько}."""
     init()
     now = now or datetime.datetime.now(KYIV)
-    done = {"start": 0, "month": 0, "lapse": 0, "ending": 0}
+    done = {"start": 0, "start2": 0, "month": 0, "lapse": 0, "ending": 0}
     utc = datetime.timezone.utc
 
     # start — 2–7 дней после регистрации, журнал пустой, ещё не писали
@@ -203,6 +224,17 @@ def check(now=None):
         with db.connect() as conn:
             conn.execute("UPDATE users SET mail_start_at=now() WHERE id=%s", (u["id"],)); conn.commit()
         done["start"] += 1
+
+    # start2 — неделя после регистрации, журнал всё ещё пустой; дальше новичку не пишем
+    for u in _people("AND mail_start2_at IS NULL AND created_at < now() - interval '7 days' "
+                     "AND created_at > now() - interval '14 days'"):
+        if db.list_trades(u["id"], "all"):
+            continue
+        s, b = TEXT["start2"][lang_of(u)]
+        _queue(u, s, b, "start2")
+        with db.connect() as conn:
+            conn.execute("UPDATE users SET mail_start2_at=now() WHERE id=%s", (u["id"],)); conn.commit()
+        done["start2"] += 1
 
     # lapse — последняя сделка 7–30 дней назад, было хотя бы 5 сделок, за этот перерыв не писали
     for u in _people():
