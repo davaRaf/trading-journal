@@ -1071,8 +1071,18 @@ document.addEventListener("load", e => {
   if (e.target.tagName === "IMG") fade();
 }, true);
 
+/* Номер знімка з адреси. Саме функцією, а не разовим розбором: адреса
+   під час показу міняється — до неї спереду дописується мітка партнера
+   (/bs/s/abc). Тому шукаємо шматок після «/s/», а не відрізаємо початок:
+   інакше після заміни адреси в номер потрапляло «bs/s/abc», і всі
+   картинки знімка починали віддавати 404. */
+function shareId(){
+  const m = location.pathname.match(/\/s\/([A-Za-z0-9_-]{6,32})/);
+  return m ? m[1] : "";
+}
+
 function shotUrl(file){
-  const id = location.pathname.replace(/^\/s\//, "");
+  const id = shareId();
   return "/api/share/" + encodeURIComponent(id) + "/shot/" + encodeURIComponent(file);
 }
 
@@ -1133,10 +1143,18 @@ document.addEventListener("click", e => {
 
 function render(rec){
   const d = rec.data || {};
-  /* мітка партнера в адресі — щоб власник спільноти бачив, що це його
-     посилання. Старі посилання без ?ref= отримують її тут же. */
-  if (rec.ref && !/[?&]ref=/.test(location.search)){
-    try{ history.replaceState(null, "", location.pathname + "?ref=" + encodeURIComponent(rec.ref)); }catch(e){}
+  /* Мітка партнера в адресі — щоб власник спільноти бачив, що це його
+     посилання. Стоїть шматком шляху (/bs/s/abc), а не хвостом «?ref=»:
+     знімком діляться, і адресу копіюють просто з рядка браузера.
+     Стару форму, якщо з нею прийшли, тут же прибираємо. */
+  if (rec.ref && location.pathname.indexOf("/" + rec.ref + "/") !== 0){
+    try{
+      const q = new URLSearchParams(location.search);
+      q.delete("ref");
+      const tail = q.toString();
+      history.replaceState(null, "", "/" + rec.ref + location.pathname
+        + (tail ? "?" + tail : "") + location.hash);
+    }catch(e){}
   }
   /* Знімок міг бути зроблений в оформленні спільноти — тоді сторінка
      фарбується так само, незалежно від того, яка тема в гостя. */
@@ -1163,7 +1181,7 @@ function render(rec){
         {day:"numeric", month:"long", hour:"2-digit", minute:"2-digit"})
     : T.shNoLimit;
 
-  const id = location.pathname.replace(/^\/s\//, "");
+  const id = shareId();
   const author = rec.author || null;
   const authorHtml = !author ? "" :
       '<div class="author">'
@@ -1246,7 +1264,7 @@ function wireTsCopy(id){
 }
 
 (async function(){
-  const id = location.pathname.replace(/^\/s\//, "");
+  const id = shareId();
   try{
     const res = await fetch("/api/share/" + encodeURIComponent(id));
     if(res.status === 404){

@@ -24,52 +24,12 @@ const MONTHS = {month: 1, quarter: 3, year: 12};
 const ORDER = ["month", "quarter", "year"];
 
 let st = null;                     /* останній стан із сервера */
-let real = null;                   /* той самий стан без перегляду «як у іншого» */
-
-/* Перегляд для власників: подивитись журнал очима людини з іншим тарифом.
-   Лише показ у цьому браузері — сервер права не змінює, ліміти рахує як є. */
-const PREVIEW_KEY = "sub_preview";
-const PREVIEWS = ["", "free", "early", "month", "quarter", "year", "life"];
-function previewOf(){ try{ return localStorage.getItem(PREVIEW_KEY) || ""; }catch(e){ return ""; } }
-function withPreview(s){
-  const p = s && s.admin ? previewOf() : "";
-  if (!p) return s;
-  const soon = new Date(Date.now() + ({month: 30, quarter: 91, year: 365}[p] || 0) * 864e5).toISOString();
-  /* «Безкоштовно» — новенький без знижок і промокоду (звичайні ціни),
-     «Перші клієнти» — безкоштовний з їхніми цінами: як виглядатиме магазин */
-  if ((p === "free" || p === "early") && s.prices){
-    const pr = Object.assign({}, s.prices, {set: p === "early" ? "early" : "std"});
-    for (const k in pr) if (pr[k] && pr[k].std_cents)
-      pr[k] = Object.assign({}, pr[k], {cents: p === "early" && s.early ? s.early[k] : pr[k].std_cents});
-    return Object.assign({}, s, {plan: "free", active: false, paid_until: null, prices: pr, preview: p});
-  }
-  return Object.assign({}, s, p === "free" ? {plan: "free", active: false, paid_until: null}
-    : p === "life" ? {plan: "life", active: true, paid_until: null}
-    : {plan: p, active: true, paid_until: soon}, {preview: p});
-}
 
 async function load(){
   if (inPub()){ st = null; return null; }
-  try{ real = await api("GET", "/api/billing/state"); st = withPreview(real); }
+  try{ st = await api("GET", "/api/billing/state"); }
   catch(e){ st = null; }           /* не відповіло — розділ просто не малюємо */
   return st;
-}
-
-function setPreview(p){
-  try{ p ? localStorage.setItem(PREVIEW_KEY, p) : localStorage.removeItem(PREVIEW_KEY); }catch(e){}
-  st = withPreview(real);
-  redraw();
-  if (window.__sideMe) __sideMe.tier();
-}
-
-function previewBox(){
-  if (!real || !real.admin) return "";
-  const cur = previewOf();
-  const name = p => p === "" ? T.subPrevReal : p === "free" ? T.subFree : p === "early" ? T.subPrevEarly
-    : p === "life" ? "Special" : {month: T.subMonth, quarter: T.subQuarter, year: T.subYear}[p];
-  return '<div class="sub-prev"><span>' + esc(T.subPrevLab) + "</span><div>"
-    + PREVIEWS.map(p => '<button type="button" class="' + (p === cur ? "on" : "") + '" data-prev="' + p + '">'
-      + esc(name(p)) + "</button>").join("") + "</div></div>";
 }
 
 /* €11,99 — кома, як у решті журналу, і без зайвого нуля в кінці. */
@@ -222,16 +182,51 @@ function freeTerms(){
     T.subFreeImports.replace("%d", f.imports).replace("%d", f.import_days),
     T.subFreeAi.replace("%d", f.ai),
   ];
-  return '<div class="sub-fhead">' + esc(T.subFreeHead) + "</div>"
-    + '<ul class="sub-free">' + rows.map(r => "<li>" + r + "</li>").join("") + "</ul>";
+  return fold("free", T.subFreeHead,
+              '<ul class="sub-free">' + rows.map(r => "<li>" + r + "</li>").join("") + "</ul>");
+}
+
+/* Шторка: заголовок-кнопка, під нею перелік.
+
+   Обидва переліки — доводи, а не дії: людина читає їх один раз, коли
+   вирішує платити, а потім вони просто розтягують розділ на два екрани.
+   Тому згорнуті за замовчуванням, а розгортає їх сама людина.
+
+   Висоту анімуємо через grid-template-rows 0fr → 1fr: це єдиний спосіб
+   плавно розкрити вміст, висоти якого ми не знаємо наперед, не міряючи
+   його руками щоразу. */
+function chev(){
+  return '<svg class="sub-chev" width="14" height="14" viewBox="0 0 24 24" fill="none"'
+    + ' stroke="currentColor" stroke-width="2" stroke-linecap="round"'
+    + ' stroke-linejoin="round" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg>';
+}
+
+function fold(id, head, inner){
+  return '<div class="sub-fold" data-fold="' + id + '">'
+    + '<button type="button" class="sub-fold-btn" aria-expanded="false"'
+    +   ' aria-controls="subFold-' + id + '">'
+    +   "<span>" + esc(head) + "</span>" + chev()
+    + "</button>"
+    + '<div class="sub-fold-body" id="subFold-' + id + '">'
+    +   '<div class="sub-fold-in">' + inner + "</div></div>"
+    + "</div>";
+}
+
+function wireFold(){
+  document.querySelectorAll(".sub-fold-btn").forEach(b =>
+    b.addEventListener("click", () => {
+      const box = b.closest(".sub-fold");
+      const open = box.classList.toggle("open");
+      b.setAttribute("aria-expanded", open ? "true" : "false");
+    }));
 }
 
 function feats(){
   const rows = [T.subF1, T.subF2, T.subF3, T.subF4];
-  return '<div class="sub-fhead">' + esc(T.subOpens) + "</div>"
-    + '<ul class="sub-feats">'
-    + rows.map(r => "<li>" + tick() + "<span>" + r + "</span></li>").join("")
-    + "</ul>";
+  return fold("opens", T.subOpens,
+              '<ul class="sub-feats">'
+              + rows.map(r => "<li>" + tick() + "<span>" + r + "</span></li>").join("")
+              + "</ul>");
 }
 
 /* Порожній рядок означає «показувати нема чого»: чужий журнал або
@@ -347,7 +342,7 @@ function manageBtn(){
 
 function section(){
   if (!st) return "";
-  return previewBox() + sectionBody();
+  return sectionBody();
 }
 function sectionBody(){
   const live = !!st.active;
@@ -373,6 +368,7 @@ function sectionBody(){
          повернутись, знайде кнопку там же, коли підписка діє. */
       : '<div class="sub-state"><span class="sub-chip">'
         + esc(planLabel()) + "</span></div>")
+    + invRow()
     + '<div class="sub-shop' + (live ? " tucked" : "") + '">'
     +   earlyNote()
     +   '<div class="sub-plans">' + ORDER.map(card).join("") + "</div>"
@@ -458,35 +454,127 @@ function wireChange(){
   });
 }
 
-function wirePreview(){
-  document.querySelectorAll(".sub-prev [data-prev]").forEach(b =>
-    b.addEventListener("click", () => setPreview(b.dataset.prev)));
+/* Оплата карткою: каса Creem. Була тут завжди — тепер це одна з двох
+   доріг, а не єдина, тому винесена окремо.
+
+   Повертає порожній рядок, якщо людина вже їде на касу, і текст причини,
+   якщо не вийшло. Причину віддаємо саме назад, бо натискають кнопку у
+   вікні вибору способу: сказати там — означає сказати туди, куди людина
+   дивиться. Раніше відмова писалась абзацом у підвал розділу, під
+   перелік можливостей, і натиснута картка виглядала як «нічого не
+   сталося». */
+/* Скільки чекаємо переходу на касу, перш ніж вирішити, що він не стався. */
+const SLOW = 4000;
+
+async function payCard(plan, btn){
+  const note = document.getElementById("subSoon");
+  if (note) note.textContent = "";
+  /* Гасимо кнопку одразу: касу створює сервер, це пів секунди, і за цей
+     час нетерплячий устигає натиснути тричі й завести три оплати. */
+  if (btn) btn.disabled = true;
+  try{
+    const r = await api("POST", "/api/billing/checkout", {plan: plan});
+    if (!r || !r.url) throw new Error("no url");
+    location.href = r.url;              /* далі вже сторінка Creem */
+    /* Кнопку повертаємо до життя й після успіху. Перехід — не подія, яка
+       точно станеться: каса могла не відкритись, перехід могло перехопити
+       розширення. А загашена кнопка після цього молчить на всі наступні
+       натискання — обробник виходить на `b.disabled` і не робить навіть
+       запиту. Саме так виглядає «тисну, і нічого не відбувається», коли в
+       логу сервера при цьому порожньо. */
+    setTimeout(() => { if (btn) btn.disabled = false; }, SLOW);
+    return {url: r.url};
+  }catch(err){
+    if (btn) btn.disabled = false;
+    const why = (err && err.code === "no_pay") ? T.subSoon : T.subPayFail;
+    /* Підвальний абзац лишається — там відмова для того випадку, коли
+       вікна вибору не було зовсім. Але тепер він ще й під'їжджає до ока:
+       мовчазний текст за два екрани нижче нікому не сказав нічого. */
+    if (note){
+      note.textContent = why;
+      note.scrollIntoView({block: "nearest", behavior: "smooth"});
+    }
+    return {why: why};
+  }
+}
+
+function planName(plan){
+  return {month: T.subMonth, quarter: T.subQuarter, year: T.subYear}[plan] || "";
+}
+
+/* Смужка «рахунок уже виставлено». Потрібна тому, хто закрив вікно
+   переказу й повернувся: сума в рахунку одна-єдина, і виставляти другий
+   замість неї означало б загубити перший. */
+function invRow(){
+  if (!st || !st.invoice) return "";
+  const i = st.invoice;
+  const mins = Math.max(1, Math.ceil((i.seconds_left || 0) / 60));
+  return '<div class="sub-inv"><div class="sub-inv-t"><b>' + esc(T.cpOpenT) + "</b> "
+    + esc(T.cpOpenX.replace("%s", i.amount_text + " " + i.coin))
+    + ' <span class="sub-inv-left">' + esc(T.cpOpenLeft.replace("%d", mins)) + "</span></div>"
+    + '<button type="button" class="sub-inv-off" id="subInvOff">' + esc(T.cpCancel) + "</button>"
+    + '<button type="button" id="subInvGo">' + esc(T.cpOpenGo) + "</button></div>";
+}
+
+/* Повернення до відкритого рахунку. Стан перепитуємо: у смужці лежить
+   час на момент завантаження сторінки, а людина могла піти обідати. */
+function wireInv(){
+  /* Передумав: рахунок гасне, але гроші, які вже пішли, не пропадають —
+     сервер тримає його ще добу й закриє переказом, коли той дійде.
+     Саме це й написано в питанні: без цього «скасувати» виглядає як
+     «втратити переказ». */
+  const off = document.getElementById("subInvOff");
+  if (off) off.addEventListener("click", async () => {
+    const ok = await Ask.yes(T.cpCancelQ + " " + T.cpCancelX,
+                             {ok: T.cpCancelYes, cancel: T.cpCancelNo});
+    if (!ok) return;
+    off.disabled = true;
+    try{ await api("POST", "/api/billing/crypto/cancel"); }catch(e){}
+    await load();
+    redraw();
+  });
+
+  const b = document.getElementById("subInvGo");
+  if (!b || !window.__cpay) return;
+  b.addEventListener("click", async () => {
+    b.disabled = true;
+    try{
+      await load();
+      if (st && st.invoice)
+        __cpay.show(st.invoice, planName(st.invoice.plan), money(price(st.invoice.plan)));
+      else redraw();                    /* рахунок згас, поки вкладка лежала */
+    }catch(e){ b.disabled = false; }
+  });
+}
+
+function price(plan){
+  const p = st && st.prices && st.prices[plan];
+  return p ? p.cents : 0;
 }
 
 function wire(){
-  wirePreview();
   wirePromo();
   wireManage();
   wireChange();
+  wireInv();
+  wireFold();
   const box = document.querySelector(".sub-plans");
   if (!box) return;
-  box.addEventListener("click", async e => {
+  box.addEventListener("click", e => {
     const b = e.target.closest("[data-buy]");
     if (!b || b.disabled) return;
     const note = document.getElementById("subSoon");
     if (note) note.textContent = "";
-    /* Гасимо кнопку одразу: касу створює сервер, це пів секунди, і за цей
-       час нетерплячий устигає натиснути тричі й завести три оплати. */
-    b.disabled = true;
-    try{
-      const r = await api("POST", "/api/billing/checkout", {plan: b.dataset.buy});
-      if (!r || !r.url) throw new Error("no url");
-      location.href = r.url;            /* далі вже сторінка Creem */
-    }catch(err){
-      b.disabled = false;
-      if (note)
-        note.textContent = (err && err.code === "no_pay") ? T.subSoon : T.subPayFail;
-    }
+    const plan = b.dataset.buy;
+    /* Способів два — питаємо, який. Поки крипта не ввімкнена на сервері,
+       питати нема про що: одразу каса. Разом з питанням віддаємо, чи
+       працює каса картками: вимкнену плитку краще показати заздалегідь,
+       ніж дати натиснути її вхолосту. */
+    if (st && st.crypto && window.__cpay)
+      __cpay.choose(plan, planName(plan), money(price(plan)),
+                    () => payCard(plan, b), st.card !== false);
+    else
+      payCard(plan, b);
   });
 }
 
@@ -531,7 +619,7 @@ async function afterPay(){
 }
 
 window.__sub = {load: load, section: section, wire: wire, badge: badge,
-                state: () => st};
+                redraw: redraw, state: () => st};
 
 /* Стан читаємо одразу, не чекаючи, поки відкриють налаштування: значок
    тарифу стоїть у верхній смузі й має бути там з першої секунди. */

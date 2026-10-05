@@ -13,7 +13,7 @@ from psycopg.types.json import Jsonb
 
 import tidy
 from config import (DATABASE_URL, DB_POOL_MAX, EARLY_MIGRATION,
-                    IMPORT_WINDOW_DAYS)
+                    FREE_BT, FREE_TRADES, IMPORT_WINDOW_DAYS)
 
 # Текстовые поля сделки. Порядок важен: по нему строятся INSERT/UPDATE.
 TEXT_FIELDS = ["pair", "date", "session", "position", "entry_model", "bias", "setup",
@@ -262,9 +262,9 @@ ALTER TABLE trades ADD COLUMN IF NOT EXISTS "bt_run" TEXT NOT NULL DEFAULT '';
 -- відбиток (день, інструмент, напрямок, результат) і те, яким перенесенням
 -- вона приїхала.
 --
--- Навіщо: Notion перечитується сам раз на добу (notion_sync.py), а що вже
--- перенесено — рахувалося по тому, що лежить у журналі. Прибрана вчора
--- угода зникала з цього рахунку й наступного дня приїжджала знову, наче
+-- Навіщо: базу можна перенести ще раз (кнопка в «Підключеннях»), а що вже
+-- перенесено — рахувалося по тому, що лежить у журналі. Прибрана угода
+-- зникала з цього рахунку й наступного разу приїжджала знову, наче
 -- нова. Людина викидає — журнал відрощує назад.
 --
 -- Рядки прив'язані до перенесення: коли базу знімають цілком («прибрати»),
@@ -282,13 +282,13 @@ CREATE INDEX IF NOT EXISTS notion_gone_user ON notion_gone (user_id);
 
 -- ---------------------------------------------------------------- підписка --
 --
--- Журнал став платним: безкоштовно людина записує перші 30 справжніх угод і
--- окремо 30 прогонів бектесту, далі — підписка. Нічого не видаляється:
+-- Журнал став платним: безкоштовно людина записує перші 20 справжніх угод і
+-- окремо 20 прогонів бектесту, далі — підписка. Нічого не видаляється:
 -- закриваються тільки нові записи, перенесення з Notion і те, що коштує
 -- грошей за модель (помічник, розбори).
 --
 -- Чому лічильник, а не COUNT(*) по угодах: delete_trade прибирає рядок
--- фізично. По COUNT людина записала б 30, прибрала всі й записала ще 30 —
+-- фізично. По COUNT людина записала б 20, прибрала всі й записала ще 20 —
 -- і так без кінця. Ці лічильники тільки ростуть.
 --
 -- Ліміти зберігаються в кожного свої (…_cap), щоб адмін міг дати бонус
@@ -297,11 +297,16 @@ CREATE INDEX IF NOT EXISTS notion_gone_user ON notion_gone (user_id);
 ALTER TABLE users ADD COLUMN IF NOT EXISTS plan TEXT NOT NULL DEFAULT 'free';
 ALTER TABLE users ADD COLUMN IF NOT EXISTS paid_until TIMESTAMPTZ;
 ALTER TABLE users ADD COLUMN IF NOT EXISTS free_trades_used INTEGER NOT NULL DEFAULT 0;
-ALTER TABLE users ADD COLUMN IF NOT EXISTS free_trades_cap INTEGER NOT NULL DEFAULT 30;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS free_trades_cap INTEGER NOT NULL DEFAULT 20;
 ALTER TABLE users ADD COLUMN IF NOT EXISTS free_bt_used INTEGER NOT NULL DEFAULT 0;
-ALTER TABLE users ADD COLUMN IF NOT EXISTS free_bt_cap INTEGER NOT NULL DEFAULT 30;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS free_bt_cap INTEGER NOT NULL DEFAULT 20;
 ALTER TABLE users ADD COLUMN IF NOT EXISTS imports_used INTEGER NOT NULL DEFAULT 0;
 ALTER TABLE users ADD COLUMN IF NOT EXISTS imports_cap INTEGER NOT NULL DEFAULT 3;
+-- Стеля була 30, стала 20 (власники, 29.09.2026). ADD COLUMN IF NOT EXISTS
+-- на вже наявній колонці нічого не робить — DEFAULT у ній лишився б старий,
+-- і кожен новий акаунт знову заводився б з тридцяткою. Тому окремим рядком.
+ALTER TABLE users ALTER COLUMN free_trades_cap SET DEFAULT 20;
+ALTER TABLE users ALTER COLUMN free_bt_cap SET DEFAULT 20;
 -- Набір цін: 'std' — звичайні, 'early' — назавжди дешевші для тих, хто був
 -- у журналі до появи платних підписок. own_price_cents — разова своя ціна
 -- (NULL — рахуємо за набором).
@@ -326,6 +331,15 @@ ALTER TABLE users ADD COLUMN IF NOT EXISTS special_since TIMESTAMPTZ;
 -- партнера) і коли по ньому заплатили; після оплати вдруге не приймається
 ALTER TABLE users ADD COLUMN IF NOT EXISTS promo_code TEXT;
 ALTER TABLE users ADD COLUMN IF NOT EXISTS promo_used_at TIMESTAMPTZ;
+-- Пошта, зведена до однієї скриньки (див. email_key): без хвоста після
+-- «+», а в gmail ще й без крапок. За email_norm людина заводила скільки
+-- завгодно безкоштовних журналів на той самий ящик.
+--
+-- Індекс навмисно не унікальний: у базі вже лежать такі пари, заведені до
+-- цієї перевірки, і UNIQUE не дав би застосувати схему. Нових не буде —
+-- реєстрація дивиться сюди перед створенням.
+ALTER TABLE users ADD COLUMN IF NOT EXISTS email_key TEXT NOT NULL DEFAULT '';
+CREATE INDEX IF NOT EXISTS users_email_key ON users (email_key);
 
 -- Звернення до моделі: скільки витрачено у поточному вікні й коли вікно
 -- закінчується. Розділи журналу відкриті всі, а платне — саме це: кожна
@@ -342,6 +356,13 @@ ALTER TABLE users ADD COLUMN IF NOT EXISTS ai_reset_at TIMESTAMPTZ;
 -- кабінет Creem, де вона сама скасує продовження чи змінить картку. Перший
 -- платіж його й приносить — до першого платежу кабінету нема чого показувати.
 ALTER TABLE users ADD COLUMN IF NOT EXISTS creem_customer TEXT NOT NULL DEFAULT '';
+
+-- Замок на акаунт, який ставить і знімає тільки власник руками з /admin.
+-- Текст у колонці — те, що людина побачить на весь екран замість журналу;
+-- порожньо означає, що замка немає. Два стани в одній колонці навмисно:
+-- замок без слів нічим не кращий за тишу, а слова без замка нічого не
+-- тримають, тож і зберігати їх окремо нема сенсу.
+ALTER TABLE users ADD COLUMN IF NOT EXISTS lock_note TEXT NOT NULL DEFAULT '';
 
 -- Події платіжки. Ключ — її власний id події: та сама подія приходить
 -- повторно (платіжки шлють вебхук, доки не отримають 200), і другий раз
@@ -369,6 +390,49 @@ CREATE TABLE IF NOT EXISTS signup_ips (
 CREATE INDEX IF NOT EXISTS signup_ips_ip ON signup_ips (ip);
 CREATE INDEX IF NOT EXISTS signup_ips_user ON signup_ips (user_id);
 
+-- Рахунки на оплату криптою. Гроші від усіх приходять на одну нашу
+-- адресу, і в переказі не написано, хто заплатив, — тому кожному рахунку
+-- дається трохи своя сума (11,9943 замість 11,99), і саме останні цифри
+-- працюють номером. Звідси UNIQUE на суму серед тих, що ще чекають:
+-- двох однакових сум одночасно бути не може, інакше оплату зарахували б
+-- не тому.
+--
+-- Суму тримаємо цілим числом найдрібніших часток (у USDT їх мільйон на
+-- монету): у дробових числах «11,99» не завжди дорівнює «11,99».
+CREATE TABLE IF NOT EXISTS crypto_invoices (
+  id         BIGSERIAL PRIMARY KEY,
+  user_id    BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  plan       TEXT NOT NULL,
+  units      BIGINT NOT NULL,
+  status     TEXT NOT NULL DEFAULT 'new',   -- new | paid | expired
+  tx         TEXT NOT NULL DEFAULT '',
+  payer      TEXT NOT NULL DEFAULT '',
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  expires_at TIMESTAMPTZ NOT NULL,
+  paid_at    TIMESTAMPTZ
+);
+CREATE INDEX IF NOT EXISTS crypto_inv_user ON crypto_invoices (user_id, created_at);
+CREATE INDEX IF NOT EXISTS crypto_inv_open ON crypto_invoices (status, expires_at);
+-- Той самий переказ не має закрити два рахунки.
+CREATE UNIQUE INDEX IF NOT EXISTS crypto_inv_tx ON crypto_invoices (tx)
+    WHERE tx <> '';
+-- Дві однакові суми одночасно — заборонені, поки обидві чекають оплати.
+CREATE UNIQUE INDEX IF NOT EXISTS crypto_inv_units ON crypto_invoices (units)
+    WHERE status = 'new';
+
+-- Перекази, які прийшли, але не збіглися з жодним рахунком: людина
+-- округлила суму або заплатила, коли рахунок уже згорів. Гроші в нас,
+-- тому такий переказ не можна просто загубити — він лежить тут і видно
+-- його в адмінці, звідки прив'язується до людини руками.
+CREATE TABLE IF NOT EXISTS crypto_orphans (
+  tx         TEXT PRIMARY KEY,
+  units      BIGINT NOT NULL,
+  payer      TEXT NOT NULL DEFAULT '',
+  at_ms      BIGINT NOT NULL DEFAULT 0,
+  settled_to BIGINT REFERENCES users(id) ON DELETE SET NULL,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
 -- Адреси, які адмін дозволив руками: «це інша людина, пропускай». Без
 -- цього списку сімʼя за одним роутером чи двоє з одного офісу не змогли б
 -- завести другий акаунт.
@@ -376,6 +440,16 @@ CREATE TABLE IF NOT EXISTS ip_allow (
   ip         TEXT PRIMARY KEY,
   note       TEXT NOT NULL DEFAULT '',
   created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+-- Бан з адмінки: адреса, пристрій (хеш) і пошта людини, яку прибрали.
+-- Окремою таблицею, бо signup_ips зникає разом з акаунтом.
+CREATE TABLE IF NOT EXISTS bans (
+  kind       TEXT NOT NULL,              -- ip | device | email
+  value      TEXT NOT NULL,
+  note       TEXT NOT NULL DEFAULT '',
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  PRIMARY KEY (kind, value)
 );
 """
 
@@ -385,7 +459,73 @@ def init():
         conn.execute(SCHEMA)
         conn.commit()
     _grandfather_emails()
+    _fill_email_keys()
+    _start_limits()
     _grandfather_early()
+
+
+def _fill_email_keys():
+    """Проставити email_key тим, хто заведений до появи колонки.
+
+    Без вимикача й без позначки: тут не роздається нічого й нічого не
+    втрачається — рядок рахується з пошти, яка вже лежить у базі. Порожні
+    добираємо на кожному запуску, бо так само доводиться чинити рядки,
+    що приїхали в базу руками.
+    """
+    with connect() as conn:
+        rows = conn.execute("SELECT id, email FROM users WHERE email_key=''").fetchall()
+        for r in rows:
+            conn.execute("UPDATE users SET email_key=%s WHERE id=%s",
+                         (email_key(r["email"]), r["id"]))
+        if rows:
+            conn.commit()
+            print("пошта зведена до скриньки: %d рядків" % len(rows), flush=True)
+
+
+# Запуск лімітів одним запитом — щоб перевірка ганяла саме той текст, який
+# піде на бій, а не схожий на нього.
+LIMITS_SQL = """
+UPDATE users SET free_trades_cap = CASE WHEN free_trades_cap = 30 THEN %s
+                                        ELSE free_trades_cap END,
+                 free_bt_cap     = CASE WHEN free_bt_cap = 30 THEN %s
+                                        ELSE free_bt_cap END,
+                 free_trades_used = 0, free_bt_used = 0, imports_used = 0,
+                 ai_used = 0, ai_reset_at = NULL
+"""
+
+
+def _start_limits():
+    """Момент, з якого ліміти починають рахуватись. До нього їх немає.
+
+    Робить дві речі разом, бо це одна подія — викладка:
+
+    Перше — опускає стелю з тридцятки до двадцятки (рішення власників
+    29.09.2026). DEFAULT у схемі стосується тільки нових рядків, а в тих,
+    хто вже заведений, у колонці лежить стара тридцятка, і розділ
+    «Підписка» показував би 30 навіть після правки config. Беремо рівно
+    тридцятку: у кого стеля інша — це бонус від адміна, його не чіпаємо.
+
+    Друге — обнуляє лічильники всім без винятку. Угоди, записані до
+    викладки, в ліміт не йдуть: люди писали їх, коли ліміту не було, і
+    відлік для всіх починається з нуля з цієї хвилини. Саме «всім», а не
+    тільки набору 'std', — інакше той, кого вже перевели на ранні ціни чи
+    промокод, стартував би з витраченим.
+
+    Записане не зникає: закриваються тільки нові записи, весь журнал
+    лишається на місці й видно в аналітиці.
+
+    За вимикачем EARLY_MIGRATION — тим самим, що й знижка «раннім», бо це
+    одна й та сама викладка, і двома вимикачами один з них забули б.
+    Робоча копія ходить у бойову базу, тож без вимикача ліміт живим людям
+    запустив би місцевий прогін, а не викладка. Позначка в meta не дасть
+    спрацювати вдруге — відлік не перезапуститься на наступному рестарті.
+    """
+    if not EARLY_MIGRATION or meta_get("limits_started"):
+        return
+    with connect() as conn:
+        conn.execute(LIMITS_SQL, (FREE_TRADES, FREE_BT))
+        conn.commit()
+    meta_set("limits_started", now().isoformat())
 
 
 def _grandfather_emails():
@@ -407,8 +547,6 @@ def _grandfather_emails():
 # текст, який піде на бій, а не схожий на нього.
 EARLY_SQL = """
 UPDATE users SET price_plan='early',
-       free_trades_used=0, free_bt_used=0, imports_used=0,
-       ai_used=0, ai_reset_at=NULL,
        imports_until=now() + (%s || ' days')::interval
  WHERE price_plan='std'
 """
@@ -424,10 +562,10 @@ def _grandfather_early():
     ходить у ту саму базу, що й бій, і без вимикача знижку роздав би
     місцевий прогін — за дні до самої викладки.
 
-    Лічильники цим людям обнуляємо тут же: у них за плечима сотні угод, і
-    ліміт має відрахувати з нуля від цієї хвилини, а не від першого запису
-    в журналі. Вікно перенесення з Notion відкриваємо наново — від
-    created_at воно в них давно минуло.
+    Лічильники тут не чіпаємо: їх обнуляє _start_limits(), і не цим людям,
+    а всім одразу — відлік ліміту починається з викладки для кожного.
+    Вікно перенесення з Notion відкриваємо наново: від created_at воно в
+    «ранніх» давно минуло.
 
     Оплачене не чіпаємо: plan і paid_until лишаються як є. Партнерський
     набір теж: WHERE price_plan='std' обходить тих, кого перевів промокод
@@ -460,12 +598,56 @@ def meta_set(key, value):
 
 # ------------------------------------------------------------ пользователи ----
 
+# Поштові служби, де крапки в імені скриньки нічого не означають: у них
+# «i.van@» і «ivan@» — той самий ящик.
+DOTLESS_MAIL = ("gmail.com", "googlemail.com")
+
+
+def email_key(email):
+    """Пошта, зведена до однієї скриньки.
+
+    email_norm — це просто нижній регістр, і для входу цього досить. Але
+    для «один безкоштовний журнал на людину» цього мало: «ivan+1@gmail»,
+    «ivan+2@gmail» і «i.v.a.n@gmail» — три різні рядки й один живий ящик.
+    Двадцятка множилась на стільки, скільки людині не ліньки придумати
+    хвостиків.
+
+    Що робимо: хвіст після «+» відкидаємо скрізь (так домовились усі
+    великі служби), крапки прибираємо тільки там, де вони справді нічого
+    не значать — інакше зіпсуємо чужі адреси, де крапка є частиною імені.
+    """
+    e = (email or "").strip().lower()
+    if "@" not in e:
+        return e
+    box, dom = e.rsplit("@", 1)
+    box = box.split("+", 1)[0]
+    if dom in DOTLESS_MAIL:
+        box = box.replace(".", "")
+    return (box + "@" + dom) if box else e
+
+
+def user_by_email_key(email):
+    """Чи є вже журнал на цю саму скриньку — з будь-якими хвостиками.
+
+    Дивимось у email_key, а не в email_norm: саме тут ловиться той, хто
+    заводить другий безкоштовний акаунт на ту саму пошту.
+    """
+    key = email_key(email)
+    if not key:
+        return None
+    with connect() as conn:
+        return conn.execute(
+            "SELECT * FROM users WHERE email_key=%s LIMIT 1", (key,)).fetchone()
+
+
 def create_user(email, nickname, pw_hash, pw_salt, pw_iters):
     with connect() as conn:
         row = conn.execute(
-            "INSERT INTO users (email, nickname, email_norm, pw_hash, pw_salt, pw_iters) "
-            "VALUES (%s, %s, %s, %s, %s, %s) RETURNING *",
-            (email, nickname, email.strip().lower(), pw_hash, pw_salt, pw_iters)).fetchone()
+            "INSERT INTO users (email, nickname, email_norm, email_key, "
+            "pw_hash, pw_salt, pw_iters) "
+            "VALUES (%s, %s, %s, %s, %s, %s, %s) RETURNING *",
+            (email, nickname, email.strip().lower(), email_key(email),
+             pw_hash, pw_salt, pw_iters)).fetchone()
         conn.commit()
     return row
 
@@ -508,6 +690,31 @@ def get_user_by_nick(nick):
     with connect() as conn:
         return conn.execute(
             "SELECT * FROM users WHERE lower(nickname)=%s LIMIT 1", (key,)).fetchone()
+
+
+def set_lock(user_id, note):
+    """Замок на акаунт: текст — поставити, порожньо — зняти.
+
+    Ставить і знімає тільки власник руками з /admin. Сама людина зняти
+    його не може нічим: замок перевіряється на сервері, а не в браузері.
+    """
+    with connect() as conn:
+        conn.execute("UPDATE users SET lock_note=%s WHERE id=%s",
+                     ((note or "").strip(), user_id))
+        conn.commit()
+
+
+def locked_users():
+    """{id: текст} по всіх, у кого стоїть замок.
+
+    Запитом по всіх, а не по одному: замкнених одиниці (зазвичай нікого),
+    і тримати їх у пам'яті дешевше, ніж питати базу на кожен запит кожної
+    людини (див. app.py: _locked).
+    """
+    with connect() as conn:
+        rows = conn.execute(
+            "SELECT id, lock_note FROM users WHERE lock_note <> ''").fetchall()
+    return {r["id"]: r["lock_note"] for r in rows}
 
 
 def set_nickname(user_id, nick):
@@ -739,14 +946,15 @@ def list_trades(user_id, kind=""):
     return [_row_to_trade(r) for r in rows]
 
 
-def get_trade(tid, user_id=None):
-    sql = "SELECT * FROM trades WHERE id=%s"
-    args = [tid]
-    if user_id is not None:
-        sql += " AND user_id=%s"
-        args.append(user_id)
+def get_trade(tid, user_id):
+    """Угода людини. Хазяїн — обов'язковий: раніше він мав значення за
+    замовчуванням (None = будь-чия угода), і досить було один раз його не
+    передати, щоб за відомим id віддати чужий запис. Усі, хто кличе, його
+    й так передають — тепер інакше не вийде."""
     with connect() as conn:
-        return _row_to_trade(conn.execute(sql, args).fetchone())
+        return _row_to_trade(conn.execute(
+            "SELECT * FROM trades WHERE id=%s AND user_id=%s",
+            (tid, user_id)).fetchone())
 
 
 def notion_known(user_id):
@@ -763,7 +971,7 @@ def notion_known(user_id):
 def notion_gone(user_id):
     """Що людина прибрала з журналу руками: id записів у Notion і скільки
     угод із кожним відбитком прибрано. Перенесення рахує їх такими, що вже
-    приїжджали, — інакше прибране повертається наступним автооновленням."""
+    приїжджали, — інакше прибране повертається наступним перенесенням."""
     with connect() as conn:
         rows = conn.execute("SELECT notion_id, mark FROM notion_gone "
                             "WHERE user_id=%s", (user_id,)).fetchall()
@@ -778,7 +986,7 @@ def notion_gone(user_id):
 def import_seen(user_id, rows):
     """Усе, за чим перенесення впізнає «це в нас уже було»: інструменти,
     id записів Notion і відбитки. Рахуємо разом і живі угоди, і прибрані —
-    ручне перенесення й автооновлення мають дивитись однаково."""
+    перше перенесення й повторне мають дивитись однаково."""
     known, seen = notion_known(user_id)
     gone_ids, gone_marks = notion_gone(user_id)
     marks = tidy.prints(rows)
@@ -832,6 +1040,7 @@ def rename_value(user_id, field, values, to, kind="", conn=None):
     values = [v for v in (values or []) if v != to]
     if not values:
         return 0
+    # sql-ok: field звірено з TIDY_FIELDS на початку функції
     sql = ('UPDATE trades SET "%s"=%%s WHERE user_id=%%s '
            'AND "%s" = ANY(%%s)' % (field, field))
     args = [to, user_id, values]
@@ -1186,7 +1395,7 @@ def update_trade(user_id, t):
 
 def delete_trade(user_id, tid):
     """Прибирає угоду й запам'ятовує, що її прибрали: угоди з Notion інакше
-    повертаються наступним автооновленням (див. notion_gone)."""
+    повертаються наступним перенесенням (див. notion_gone)."""
     with connect() as conn:
         row = conn.execute("SELECT * FROM trades WHERE id=%s AND user_id=%s",
                            (tid, user_id)).fetchone()
@@ -1296,6 +1505,7 @@ def frequent_values(user_id, field, limit=6):
     if field not in TEXT_FIELDS:
         raise ValueError("невідоме поле: %s" % field)
     with connect() as conn:
+        # sql-ok: field зі свого списку, рядком сюди не потрапить
         rows = conn.execute(
             'SELECT "%s" AS v, count(*) AS n FROM trades '
             'WHERE user_id=%%s AND "%s" <> %%s '
@@ -1309,6 +1519,7 @@ def last_number(user_id, field):
     if field not in NUM_FIELDS:
         raise ValueError("невідоме поле: %s" % field)
     with connect() as conn:
+        # sql-ok: field зі свого списку, рядком сюди не потрапить
         row = conn.execute(
             'SELECT "%s" AS v FROM trades WHERE user_id=%%s AND "%s" IS NOT NULL '
             'ORDER BY created_at DESC LIMIT 1' % (field, field), (user_id,)).fetchone()

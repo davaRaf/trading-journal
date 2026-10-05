@@ -27,6 +27,44 @@ class NotionError(Exception):
     pass
 
 
+# ------------------------------------------------------- переплутані абетки
+
+# Кирилиця й латиниця мають однакові на вигляд літери, і в журналах вони
+# постійно перемішуються: «Сontinuation» з кириличною «С», «ХAU/USD» з
+# кириличною «Х». На око не відрізнити, а для нас це вже інше слово —
+# колонка не впізнається й поле приїжджає порожнім.
+#
+# Чіпаємо тільки мішане слово: там одна абетка випадкова, і ми зводимо
+# його до тієї, якої більше. Слово цілком кириличне («розворот») чи
+# цілком латинське лишаємо як є — його ні з чим плутати.
+_CYR_TO_LAT = {"а": "a", "в": "b", "е": "e", "ё": "e", "і": "i", "ј": "j",
+               "к": "k", "м": "m", "н": "h", "о": "o", "р": "p", "с": "c",
+               "т": "t", "у": "y", "х": "x", "ѕ": "s"}
+_LAT_TO_CYR = {"a": "а", "b": "в", "c": "с", "e": "е", "h": "н", "i": "і",
+               "k": "к", "m": "м", "o": "о", "p": "р", "s": "ѕ", "t": "т",
+               "x": "х", "y": "у"}
+_CYR_RE = re.compile(r"[а-яёіїєґ]")
+_LAT_RE = re.compile(r"[a-z]")
+
+
+def unmix(s):
+    """Слово з літерами двох абеток зводимо до однієї — тієї, якої більше."""
+    s = str(s)
+    cyr = len(_CYR_RE.findall(s))
+    if not cyr:
+        return s
+    lat = len(_LAT_RE.findall(s))
+    if not lat:
+        return s
+    table = _CYR_TO_LAT if lat >= cyr else _LAT_TO_CYR
+    return "".join(table.get(ch, ch) for ch in s)
+
+
+def low(v):
+    """Значення до спільного вигляду: без країв, малими, однією абеткою."""
+    return unmix(str(v if v is not None else "").strip().lower())
+
+
 # --------------------------------------------------------- угадывание колонок
 
 FIELDS = ["date", "pair", "position", "bias", "direction_type", "entry_model",
@@ -157,7 +195,8 @@ _SESSION_MAX = 24
 
 
 def is_session(v):
-    s = str(v if v is not None else "").strip()
+    # через low(): «LОNDON» з кириличною «О» — та сама лондонська сесія
+    s = low(v)
     return len(s) <= _SESSION_MAX and bool(_SESSION_RE.search(s))
 
 _DATE_RE = re.compile(r"^\d{4}-\d{2}-\d{2}|^\d{1,2}[./]\d{1,2}[./]\d{2,4}")
@@ -179,7 +218,6 @@ def _plain_num(v):
 
 def _checks():
     """Как выглядят значения каждого поля. По этому и узнаём, и проверяем."""
-    low = lambda v: str(v).strip().lower()
     sides = _side_words()
     return {
         "date":           lambda v: bool(_DATE_RE.match(str(v).strip())),
@@ -202,7 +240,6 @@ def infer_by_values(out, used_col, props, values):
     отменяем и колонку освобождаем. Потом добираем недостающее по значениям.
     """
     checks = _checks()
-    low = lambda v: str(v).strip().lower()
     sides = _side_words()
 
     def about_other(field, vals):
@@ -297,7 +334,7 @@ def infer_by_values(out, used_col, props, values):
 
 
 def _score(field, name, ptype):
-    low = re.sub(r"[_\s]+", " ", str(name).strip().lower())
+    low = unmix(re.sub(r"[_\s]+", " ", str(name).strip().lower()))
     best = 0
     for hint in HINTS[field]:
         if low == hint:
@@ -331,45 +368,54 @@ RESULTS = [
     (("be+", "be +", "беззбиток+", "безубыток+", "бу+"), "BE+"),
     (("be-", "be -", "беззбиток-", "безубыток-", "бу-"), "BE-"),
     (("be", "breakeven", "break even", "беззбиток", "безубыток", "бу", "нуль", "ноль"), "BE"),
+    # «Пропуск» журнал знає як Skip. У Notion його пишуть і словом, і
+    # скороченням: «SK», «скіп», «не взяв».
+    (("skip", "скіп", "скип", "пропуск", "пропущено", "не взяв", "не брав",
+      "не взял", "не брал"), "Skip"),
     (("win", "tp", "take", "profit", "прибуток", "прибыль", "тейк", "плюс", "+"), "Win"),
     (("loss", "sl", "stop", "збиток", "убыток", "стоп", "мінус", "минус", "-"), "Loss"),
 ]
 
 
 def norm_side(v):
-    low = str(v or "").strip().lower()
-    if not low:
+    s = low(v)
+    if not s:
         return ""
-    if any(w in low for w in LONG):
+    if any(w in s for w in LONG):
         return "Long"
-    if any(w in low for w in SHORT):
+    if any(w in s for w in SHORT):
         return "Short"
     return str(v).strip()
 
 
 def norm_result(v):
-    low = str(v or "").strip().lower()
-    if not low:
+    s = low(v)
+    if not s:
         return ""
     for words, val in RESULTS:
-        if low in words:
+        if s in words:
             return val
     # «Lose», «Lost» — целым словом: подстрокой поймали бы «Closed»
-    if re.search(r"\b(lose|lost)\b", low):
+    if re.search(r"\b(lose|lost)\b", s):
         return "Loss"
+    # «SK» — пропущена угода, «SKTAKE» / «SKSTOP» — пропустив, а ціна сходила
+    # в тейк чи в стоп. Усе це пропуск: угоди не було, у перемоги й збитки
+    # вона потрапляти не повинна. Цілим словом: «risk» — не пропуск.
+    if re.search(r"\bsk(take|stop)?\b", s):
+        return "Skip"
     for words, val in RESULTS:
-        if any(w in low for w in words if len(w) > 1):
+        if any(w in s for w in words if len(w) > 1):
             return val
     return str(v).strip()
 
 
 def norm_dirtype(v):
-    low = str(v or "").strip().lower()
-    if not low:
+    s = low(v)
+    if not s:
         return ""
-    if any(w in low for w in ("continu", "продовж", "продолж", "трен")):
+    if any(w in s for w in ("continu", "продовж", "продолж", "трен")):
         return "Continuation"
-    if any(w in low for w in ("revers", "розворот", "разворот", "контр")):
+    if any(w in s for w in ("revers", "розворот", "разворот", "контр")):
         return "Reversal"
     return str(v).strip()
 

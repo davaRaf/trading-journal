@@ -22,19 +22,29 @@ try{ lastTtl = localStorage.getItem("share_ttl") || "7d"; }catch(e){}
    Ділитись можна у своєму вигляді або в оформленні спільноти. Коли журнал
    і так у їхній темі, вибирати нічого: знімок іде в тому самому вигляді,
    що й екран, тому перемикач не показуємо. */
-/* порядок — як у вікні «Оформлення»: FX LAB першим, Black Swan другим */
-const COLLABS = [{id:"fxlab", name:"FX LAB", img:"/static/fxlab-ink.png?v=1"},
-                 {id:"blackswan", name:"Black Swan", img:"/static/swan.png?v=1"}];
-const isCollab = s => COLLABS.some(c => c.id === s);
+/* Колаборацій уже дві, тому «чия зараз тема» питаємо в таблиці тем
+   (static/themes.js): список партнерів живе там одним місцем. */
 const curSkin = () => document.documentElement.getAttribute("data-skin") || "";
-const inCollab = () => isCollab(curSkin());
+const collabRef = () => (window.__skin && __skin.collabRef) ? __skin.collabRef() : "";
+const inCollab = () => !!collabRef();
+
+/* Кого пропонуємо тому, хто сидить у своїй темі. Це просто ще один вигляд
+   знімка, не мітка, тому пропонуємо всі: раніше тут стояла одна
+   найстарша спільнота, і знімок у вигляді FX LAB було ніяк не зробити,
+   хоч і сторінка, і картинка його давно вміють. Список — з таблиці тем
+   (static/themes.js), щоб нова колаборація з’являлась тут сама. */
+const COLLABS = () => (window.__skin && __skin.collabs) ? __skin.collabs() : [];
 
 let lastSkin = "";
 try{ lastSkin = localStorage.getItem("share_skin") || ""; }catch(e){}
-if (!isCollab(lastSkin)) lastSkin = "";
 
-/* стиль, у якому робимо знімок просто зараз */
-function shareSkin(){ return inCollab() ? curSkin() : lastSkin; }
+/* стиль, у якому робимо знімок просто зараз.
+   Запам’ятаний вибір звіряємо зі списком: у пам’яті браузера може
+   лежати спільнота, якої вже немає, — тоді знімок йде звичайний. */
+function shareSkin(){
+  if (inCollab()) return curSkin();
+  return COLLABS().some(c => c.id === lastSkin) ? lastSkin : "";
+}
 
 /* ---------- що саме показуємо ---------- */
 
@@ -561,10 +571,10 @@ function open(kind, arg){
     + (inCollab() ? "" :
         '<div class="sh-lab">' + T.slStyleLabel + '</div>'
         + '<div class="sh-skin" id="shSkin">'
-        +   '<button class="sh-chip' + (lastSkin ? "" : " on") + '" data-s="">'
+        +   '<button class="sh-chip' + (shareSkin() ? "" : " on") + '" data-s="">'
         +     esc(T.slStylePlain) + '</button>'
-        +   COLLABS.map(c => '<button class="sh-chip' + (lastSkin === c.id ? " on" : "")
-              + '" data-s="' + c.id + '">' + c.name + '</button>').join("")
+        +   COLLABS().map(c => '<button class="sh-chip' + (shareSkin() === c.id ? " on" : "")
+        +     '" data-s="' + esc(c.id) + '">' + esc(c.name) + '</button>').join("")
         + '</div>')
     + '<div class="sh-lab">' + T.slDurationLabel + '</div>'
     + '<div class="sh-ttl">' + TTL().map(t =>
@@ -699,12 +709,15 @@ function open(kind, arg){
       });
       if(!res.ok) throw new Error("HTTP " + res.status);
       const r = await res.json();
-      const url = location.origin + r.url;
+      /* Посилання роздають далі, тому під час колаборації воно йде з
+         міткою партнера — шматком шляху, без хвоста «?ref=». */
+      const ref = (window.__skin && __skin.refPath) ? __skin.refPath() : "";
+      const url = location.origin + ref + r.url;
       const out = document.getElementById("shOut");
       out.hidden = false;
       out.innerHTML = '<input class="sh-url" id="shUrl" readonly value="' + esc(url) + '">'
         + '<button class="btn" id="shCopy">' + T.slCopyBtn + '</button>'
-        + '<a class="btn" href="' + esc(r.url) + '" target="_blank" rel="noopener">' + T.slOpenBtn + '</a>';
+        + '<a class="btn" href="' + esc(ref + r.url) + '" target="_blank" rel="noopener">' + T.slOpenBtn + '</a>';
       document.getElementById("shUrl").select();
       document.getElementById("shCopy").onclick = async () => {
         try{ await navigator.clipboard.writeText(url); }

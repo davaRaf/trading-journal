@@ -22,20 +22,34 @@ from zoneinfo import ZoneInfo
 import db
 
 KYIV = ZoneInfo("Europe/Kyiv")
-FREE_LIMIT = 30          # безкоштовних ручних угод до підписки
+FREE_LIMIT = 20          # безкоштовних ручних угод до підписки (власник, 29.09.2026)
 
 
 def billing_start():
-    """З якого дня рахуються безкоштовні 30 угод: з запуску оплати, а не з
-    реєстрації. Дату ставить запуск оплати в meta «billing_start»
-    (РРРР-ММ-ДД), запасний шлях — змінна оточення BILLING_START. Поки її
-    немає — ліміт не запущено і нікому не зараховано жодної угоди."""
+    """З якого дня рахуються безкоштовні угоди — або None, якщо дати нема.
+
+    Позначку «limits_started» ставить db._start_limits: подія, яка обнуляє
+    лічильники всім і починає відлік наново. Її немає в базі, де колонки
+    завелись одразу з двадцяткою: обнуляти там не було чого, ліміти діяли
+    від першого дня, і дати «з якої рахуємо» просто не існує.
+
+    Тому None тут означає «дати нема», а не «лімітів нема». Число беремо з
+    лічильника біллінга в будь-якому разі, а дату, якщо вона є, пишемо
+    поруч дрібним. Раніше сторінка на порожній позначці показувала «не
+    запущен» і нулі — на бою, де ліміт давно працює, це була неправда.
+
+    Руками дату можна проставити в meta «billing_start» (РРРР-ММ-ДД) або
+    змінною оточення BILLING_START — на самі ліміти це не впливає.
+    """
     import os
     raw = ""
-    try:
-        raw = (db.meta_get("billing_start", "") or "").strip()
-    except Exception:
-        pass
+    for key in ("limits_started", "billing_start"):
+        try:
+            raw = (db.meta_get(key, "") or "").strip()
+        except Exception:
+            raw = ""
+        if raw:
+            break
     raw = raw or os.environ.get("BILLING_START", "").strip()
     try:
         return datetime.date.fromisoformat(raw[:10]) if raw else None
@@ -43,10 +57,85 @@ def billing_start():
         return None
 
 
+def limits_at():
+    """Та сама мить, але з годиною — межа, з якої рахуємо угоди в адмінці.
+
+    Усе, записане до запуску лімітів, панель не показує: тієї хвилини
+    лічильники обнулили всім, і старі угоди в ліміт не пішли. Якби картка
+    рахувала журнал цілком, вона показувала б «30 вручну» там, де біллінг
+    бачить п'ять, і поруч два числа про різне.
+
+    Беремо саме відмітку з meta (там ISO з часом), а не дату з
+    billing_start: угоди того ж дня, записані до викладки, теж лишились
+    поза лімітом. Немає відмітки — немає й межі: рахуємо все, як раніше.
+    """
+    try:
+        raw = (db.meta_get("limits_started", "") or "").strip()
+    except Exception:
+        raw = ""
+    if raw:
+        try:
+            at = datetime.datetime.fromisoformat(raw)
+            return at if at.tzinfo else at.replace(tzinfo=datetime.timezone.utc)
+        except ValueError:
+            pass
+    d = billing_start()
+    return datetime.datetime.combine(d, datetime.time(), KYIV) if d else None
+
+
+def _since(col="created_at"):
+    """(хвіст WHERE, аргументи) — «тільки після запуску лімітів»."""
+    at = limits_at()
+    return (" AND %s >= %%s" % col, (at,)) if at else ("", ())
+
+
 # ------------------------------------------------------------ дрібниці ----
+
+PLAN_RU = {"month": "Месяц", "quarter": "Квартал", "year": "Год"}
+
+
+def _access(u, free):
+    """Крупна плашка вгорі картки: який у людини доступ зараз — щоб не
+    шукати це в таблиці нижче після кожної видачі."""
+    now = datetime.datetime.now(datetime.timezone.utc)
+    sub = _sub(u, now)
+    box = ('<div style="display:flex;align-items:center;gap:14px;flex-wrap:wrap;padding:16px 18px;'
+           'margin-bottom:14px;border-radius:14px;border:1px solid %s;background:%s">'
+           '<span style="font-size:22px;font-weight:700;color:%s">%s</span>'
+           '<span style="color:var(--text);font-size:14.5px">%s</span></div>')
+    if sub == "life":
+        since = u.get("special_since")
+        return box % ("#e3b341", "rgba(227,179,65,.10)", "#e3b341", "★ Special",
+                      "полный доступ навсегда, без оплаты"
+                      + (" · выдан %s" % since.strftime("%d.%m.%Y") if since else ""))
+    if sub:
+        until = u["paid_until"]
+        left = max(0, (until - now).days)
+        return box % ("var(--acc)", "rgba(64,224,148,.08)", "var(--acc)", "Подписка · " + PLAN_RU.get(sub, sub),
+                      "до %s · осталось %d дн." % (until.astimezone(KYIV).strftime("%d.%m.%Y"), left))
+    cap = u.get("free_trades_cap") or FREE_LIMIT
+    return box % ("var(--line)", "transparent", "var(--dim)", "Бесплатный доступ",
+                  "использовано %d из %d сделок" % (free, cap))
+
+
+def _sub(u, now):
+    """Чим людина зараз користується: month/quarter/year, life (Special) або ''."""
+    if u.get("plan") == "life":
+        return "life"
+    until = u.get("paid_until")
+    if until and until > now and u.get("plan") not in (None, "", "free"):
+        return u["plan"]
+    return ""
+
 
 def e(x):
     return _html.escape("" if x is None else str(x), quote=True)
+
+
+def _js(value):
+    """Значення всередину <script>. Те саме, що json.dumps, але з "</"
+    розірваним: інакше будь-який рядок із "</script>" закрив би тег."""
+    return json.dumps(value, ensure_ascii=False, default=str).replace("</", "<\\/")
 
 
 def _q(sql, args=None):
@@ -276,19 +365,26 @@ def _collect():
 
     users = _q("""SELECT id, nickname, email, created_at, coalesce(ref_source,'') AS ref, ref_at,
                          telegram_id IS NOT NULL AS tg, public_journal AS pub,
-                         email_confirmed_at IS NOT NULL AS mailok
+                         email_confirmed_at IS NOT NULL AS mailok,
+                         plan, paid_until, free_trades_used, free_trades_cap
                   FROM users ORDER BY created_at DESC""")
     bstart = billing_start()
+    # Числа угод — тільки з миті запуску лімітів (limits_at): те, що людина
+    # занесла до оновлення, власникам нецікаве й до ліміту не має стосунку.
+    # Поруч тримаємо «за весь час» (n_all, manual_all) — його питає розділ
+    # «Чим користуються»: перенесення з Notion і бектест майже в усіх були
+    # ще до викладки, і від відсічки вони б занулились.
+    cut, cargs = _since()
     tr = {r["user_id"]: r for r in _q("""
-        SELECT user_id, count(*) AS n,
-               count(*) FILTER (WHERE import_id = '' AND notion_id = '') AS manual,
-               count(*) FILTER (WHERE import_id = '' AND notion_id = ''
-                                  AND %s::date IS NOT NULL
-                                  AND (created_at AT TIME ZONE 'Europe/Kyiv')::date >= %s::date) AS paid_n,
+        SELECT user_id,
+               count(*) FILTER (WHERE true{0}) AS n,
+               count(*) FILTER (WHERE import_id = '' AND notion_id = ''{0}) AS manual,
+               count(*) FILTER (WHERE created_at >= now() - interval '7 days'{0}) AS d7,
+               count(*) AS n_all,
+               count(*) FILTER (WHERE import_id = '' AND notion_id = '') AS manual_all,
                count(*) FILTER (WHERE "kind" = 'bt') AS bt,
-               count(*) FILTER (WHERE created_at >= now() - interval '7 days') AS d7,
                max(created_at) AS last_at
-        FROM trades GROUP BY user_id""", (bstart, bstart))}
+        FROM trades GROUP BY user_id""".format(cut), (cargs * 3) or None)}
     notes = {r["user_id"]: r for r in _q("""
         SELECT user_id,
                count(*) FILTER (WHERE CASE WHEN jsonb_typeof(data->'assets') = 'array'
@@ -343,8 +439,11 @@ def _collect():
             "reg": created.isoformat() if created else "", "regd": (today - created).days if created else 999,
             "ref": u["ref"], "tg": bool(u["tg"]), "pub": bool(u["pub"]), "mail": bool(u["mailok"]),
             "n": n, "manual": t.get("manual") or 0, "bt": t.get("bt") or 0, "d7": t.get("d7") or 0,
-            # до ліміту йдуть лише ручні угоди з дня запуску оплати
-            "free": t.get("paid_n") or 0,
+            "nall": t.get("n_all") or 0, "mall": t.get("manual_all") or 0,
+            # той самий лічильник, яким журнал закриває запис (billing)
+            "free": u["free_trades_used"] or 0,
+            "cap": u["free_trades_cap"] or FREE_LIMIT,
+            "sub": _sub(u, now),
             "notes": nt.get("n") or 0, "ts": u["id"] in has_ts,
             "sh": (shares.get(u["id"]) or {}).get("n") or 0, "views": (shares.get(u["id"]) or {}).get("views") or 0,
             "idp": idents.get(u["id"]) or "", "acc": accs.get(u["id"]) or 0,
@@ -370,9 +469,13 @@ def _kpis(D):
     sh7 = sum(r["d7"] for r in D["kinds"])
     sh7p = sum(r["p7"] for r in D["kinds"])
     views = sum(r["views"] for r in D["kinds"])
-    lim = sum(1 for p in P if p["free"] >= FREE_LIMIT)
-    near = sum(1 for p in P if 20 <= p["free"] < FREE_LIMIT)
+    # Тих, хто платить, тут немає: лічильник у них стоїть, і "вперся" про
+    # них неправда — так само, як у списку нижче й у фільтрі таблиці.
+    dry = [p for p in P if not p["sub"]]
+    lim = sum(1 for p in dry if p["free"] >= p["cap"])
+    near = sum(1 for p in dry if p["cap"] - 5 <= p["free"] < p["cap"])
     bs = D.get("bstart")
+    paid = {k: sum(1 for p in P if p["sub"] == k) for k in ("month", "quarter", "year", "life")}
     return ('<div class="grid kpis">'
             + _kpi("Аккаунтов", str(len(P)),
                    '<div class=d><span class=up>+%d</span> за 7 дней · неделей раньше +%d</div>' % (new7, new_p))
@@ -380,11 +483,13 @@ def _kpis(D):
             + _kpi("Активны 30 дней", str(a30), '<div class=d>%d%% от всех</div>' % (round(a30 * 100 / len(P)) if P else 0))
             + _kpi("Сделок вручную за 7 дн.", str(tm7), _delta(tm7, tm7p))
             + _kpi("Ссылок за 7 дней", str(sh7), _delta(sh7, sh7p).replace("</div>", " · %d переходов всего</div>" % views, 1))
-            + (_kpi("Упёрлись в лимит 30", '<span class=up>%d</span>' % lim,
-                    '<div class=d>ещё %d на подходе (20–29) · счёт с %s</div>' % (near, bs.strftime("%d.%m")))
-               if bs else
-               _kpi("Лимит 30 сделок", '<span class=mute>—</span>',
-                    '<div class=d>не запущен: считается с запуска оплаты</div>'))
+            + _kpi("Платят сейчас", '<span class=up>%d</span>' % (paid["month"] + paid["quarter"] + paid["year"]),
+                   '<div class=d>месяц %d · квартал %d · год %d · Special %d</div>'
+                   % (paid["month"], paid["quarter"], paid["year"], paid["life"]))
+            + _kpi("Упёрлись в лимит %d" % FREE_LIMIT, '<span class=up>%d</span>' % lim,
+                   '<div class=d>ещё %d на подходе (%d–%d)%s</div>'
+                   % (near, FREE_LIMIT - 5, FREE_LIMIT - 1,
+                      (" · счёт с " + bs.strftime("%d.%m")) if bs else ""))
             + "</div>")
 
 
@@ -419,7 +524,7 @@ def _funnel(D):
         ("Зарегистрировались", len(P)),
         ("Записали 1+ сделку", sum(1 for p in P if p["n"] >= 1)),
         ("10+ сделок", sum(1 for p in P if p["n"] >= 10)),
-        ("Дошли до лимита 30", sum(1 for p in P if p["free"] >= FREE_LIMIT)),
+        ("Дошли до лимита %d" % FREE_LIMIT, sum(1 for p in P if p["free"] >= FREE_LIMIT)),
         ("Активны 7 дней", sum(1 for p in P if p["st"] == "active")),
     ]
     rows = []
@@ -440,7 +545,7 @@ def _features(D):
         ("Telegram-бот подключён", sum(1 for p in P if p["tg"])),
         ("Своя ТС заполнена", sum(1 for p in P if p["ts"])),
         ("Ведут анализ дня", sum(1 for p in P if p["notes"])),
-        ("Переносили из Notion / Excel", sum(1 for p in P if p["n"] > p["manual"])),
+        ("Переносили из Notion / Excel", sum(1 for p in P if p["nall"] > p["mall"])),
         ("Делились ссылкой", sum(1 for p in P if p["sh"])),
         ("Завели счета", sum(1 for p in P if p["acc"])),
         ("Бэктест", sum(1 for p in P if p["bt"])),
@@ -545,7 +650,7 @@ def _watch(D):
     P = D["people"]
     top = sorted([p for p in P if p["days7"]], key=lambda p: (-p["days7"], -p["d7"]))[:8]
     idle = [p for p in P if p["st"] == "new" and p["regd"] <= 14][:10]
-    lim = sorted([p for p in P if p["free"] >= 20], key=lambda p: -p["free"])[:10]
+    lim = sorted([p for p in P if not p["sub"] and p["free"] >= p["cap"] - 5], key=lambda p: -p["free"])[:10]
     li = lambda p, right: '<a href="/admin/u/%s"><span class=nm>%s <small>%s</small></span><span class=mute>%s</span></a>' % (
         e(p["nick"]), e(p["nick"]), e(p["email"]), right)
     return ('<div class="grid three">'
@@ -556,33 +661,44 @@ def _watch(D):
             + ("".join(li(p, _ago(p["regd"])) for p in idle) or '<div class=empty>Все новенькие что-то записали</div>')
             + "</div></div>"
             '<div class=card><h2>Ближе всех к подписке</h2><div class=list>'
-            + ("".join(li(p, '<span class="%s">%d / %d</span>' % ("up" if p["free"] >= FREE_LIMIT else "be", p["free"], FREE_LIMIT)) for p in lim)
-               or '<div class=empty>%s</div>' % ("Пока никто не набрал 20 сделок с запуска оплаты" if D.get("bstart")
-                                                 else "Оплата ещё не запущена — лимит пока никому не считается"))
+            + ("".join(li(p, '<span class="%s">%d / %d</span>' % ("up" if p["free"] >= p["cap"] else "be", p["free"], p["cap"])) for p in lim)
+               or '<div class=empty>%s</div>' % ("Пока никто не подошёл к %d сделкам" % FREE_LIMIT))
             + "</div></div>"
             "</div>")
 
 
 def _people(D, titles, query):
     rows = [{k: v for k, v in p.items() if not k.startswith("_")} for p in D["people"]]
+    # Колонка рахує угоди з запуску лімітів — підписуємо, щоб число поряд з
+    # «5 / 20» не читалось як весь журнал.
+    since_th = ('<br><span class=mute style="font-weight:400;font-size:11px">с %s</span>'
+                % D["bstart"].strftime("%d.%m")) if D["bstart"] else ""
     for r in rows:
         r["refT"] = titles.get(r["ref"], r["ref"]) if r["ref"] else ""
-    data = json.dumps(rows, ensure_ascii=False, default=str).replace("</", "<\\/")
+    # Усе, що їде всередину <script>, проганяємо через один хелпер:
+    # json.dumps не чіпає "</", а саме ним рядок закрив би тег — далі
+    # браузер читав би вміст як розмітку. Пошук (?q=) сюди приходить
+    # просто з адреси, тож посилання на /admin?q=... інакше стало б
+    # готовою пасткою для того, хто цю панель відкриє.
+    data = _js(rows)
     return ('<div class=card id=people><h2>Все люди</h2><div class=chips id=chips></div>'
             '<div class=tw><table id=pt><thead><tr>'
-            '<th class=s data-k=nick>Ник</th><th class="s" data-k=st>Статус</th><th class="s num" data-k=n>Сделок</th>'
+            '<th class=s data-k=nick>Ник</th><th class="s" data-k=st>Статус</th><th class="s num" data-k=n>Сделок'
+            + since_th + '</th>'
             '<th class="s num" data-k=d7>7 дн.</th><th class="s num" data-k=notes>Анализ</th>'
             '<th class="s num" data-k=since>Активность</th><th class="s num" data-k=regd>Регистрация</th>'
-            '<th>Метка</th><th>Есть</th></tr></thead><tbody></tbody></table></div>'
+            '<th class="s" data-k=sub>Тариф</th><th>Метка</th><th>Есть</th></tr></thead><tbody></tbody></table></div>'
             '<p class=mute id=pcount style="margin:10px 0 0;font-size:12.5px"></p></div>'
-            "<script>const P=" + data + ";const Q=" + json.dumps(query or "", ensure_ascii=False) + ";" + PEOPLE_JS + "</script>")
+            "<script>const P=" + data + ";const Q=" + _js(query or "") + ";" + PEOPLE_JS + "</script>")
 
 
 PEOPLE_JS = r"""
 const ST={active:['Активный','p-active'],cool:['Остывает','p-cool'],sleep:['Спит','p-sleep'],new:['Не начал','p-new']};
 const F=[['all','Все',()=>true],['active','Активные',p=>p.st==='active'],['cool','Остывают',p=>p.st==='cool'],
 ['sleep','Спят',p=>p.st==='sleep'],['new','Не начали',p=>p.st==='new'],['fresh','Новые 7 дн.',p=>p.regd<=6],
-['limit','Лимит 30+',p=>p.free>=30],['tg','С Telegram',p=>p.tg]];
+['limit','Упёрлись в лимит',p=>!p.sub&&p.free>=p.cap],['paid','Платят',p=>['month','quarter','year'].includes(p.sub)],
+['special','Special',p=>p.sub==='life'],['tg','С Telegram',p=>p.tg]];
+const SUB={month:'Месяц',quarter:'Квартал',year:'Год',life:'Special'};
 let f='all',k='regd',dir=1,q=(Q||'').toLowerCase();
 const s=document.getElementById('q');if(s){s.value=Q||'';s.addEventListener('input',()=>{q=s.value.trim().toLowerCase();draw();});}
 const esc=x=>String(x==null?'':x).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
@@ -599,9 +715,11 @@ function draw(){
   '</span></td><td class=num>'+p.n+(p.n>p.manual?'<br><span class=mute style="font-size:11px">'+p.manual+' вручную</span>':'')+
   '</td><td class=num>'+(p.d7||'<span class=mute>0</span>')+'</td><td class=num>'+(p.notes||'<span class=mute>0</span>')+
   '</td><td class=num>'+ago(p.since)+'</td><td class=num>'+p.reg.split('-').reverse().join('.')+
+  '</td><td>'+(p.sub?'<span class="pill '+(p.sub==='life'?'p-cool':'p-active')+'">'+SUB[p.sub]+'</span>'
+   :'<span class=mute>'+p.free+' / '+p.cap+'</span>')+
   '</td><td>'+(p.refT?'<span class=tag>'+esc(p.refT)+'</span>':'<span class=mute>—</span>')+'</td><td>'+
   (p.tg?'<span class=tag>TG</span>':'')+(p.ts?'<span class=tag>ТС</span>':'')+(p.sh?'<span class=tag>🔗'+p.sh+'</span>':'')+
-  (p.acc?'<span class=tag>счета</span>':'')+'</td></tr>').join('')||'<tr><td colspan=9 class=empty>Никого</td></tr>';
+  (p.acc?'<span class=tag>счета</span>':'')+'</td></tr>').join('')||'<tr><td colspan=10 class=empty>Никого</td></tr>';
  document.getElementById('pcount').textContent='Показано '+L.length+' из '+P.length;
  document.querySelectorAll('#pt th.s').forEach(th=>th.classList.toggle('on',th.dataset.k===k));
 }
@@ -632,25 +750,36 @@ def dashboard(query, titles, kind_ru, refs=()):
 
 # -------------------------------------------------- картка людини ----
 
-def user_card(u, titles, kind_ru, refs):
+# Слова замка за умовчанням: підставляються в поле, але не зашиті —
+# власник правит їх перед тим, як поставити, і текст лягає в базу
+# (users.lock_note). Контакт дописує сам екран замка (static/lock.js).
+LOCK_DEFAULT = ("Извини, но мы не дадим тебе брать наши идеи с журнала.\n\n"
+                "Если хочешь пользоваться журналом, а не красть идеи — напиши нам.")
+
+
+def user_card(u, titles, kind_ru, refs, billing_html=""):
     _inits()
     today = _today()
     uid = u["id"]
     one = lambda sql: (_q(sql, (uid,)) or [{}])[0]
     bstart = billing_start()
+    # Угоди рахуємо з миті запуску лімітів (_since): записане до оновлення
+    # власникам нецікаве. Окремо беремо «за весь час» — лише на те, що не
+    # може від відсічки зникнути: слід останнього запису (бо з нього статус
+    # «Активний / Спить») і бектест.
+    cut, cargs = _since()
     t = (_q("""SELECT count(*) AS n, count(*) FILTER (WHERE result='Skip') AS skips,
-                      count(*) FILTER (WHERE import_id = '' AND notion_id = ''
-                                         AND %s::date IS NOT NULL
-                                         AND (created_at AT TIME ZONE 'Europe/Kyiv')::date >= %s::date) AS free,
                       count(*) FILTER (WHERE import_id = '' AND notion_id = '') AS manual,
-                      count(*) FILTER (WHERE "kind" = 'bt') AS bt,
-                      min("date") AS first, max("date") AS last, max(created_at) AS last_at,
+                      min("date") AS first, max("date") AS last,
                       count(*) FILTER (WHERE created_at >= now() - interval '7 days') AS d7,
                       count(*) FILTER (WHERE created_at >= now() - interval '30 days') AS d30,
                       count(DISTINCT left("date", 10)) AS days
-               FROM trades WHERE user_id=%s""", (bstart, bstart, uid)) or [{}])[0]
-    pairs = _q("""SELECT "pair", count(*) AS n FROM trades WHERE user_id=%s AND "pair"<>''
-                  GROUP BY 1 ORDER BY n DESC LIMIT 6""", (uid,))
+               FROM trades WHERE user_id=%s""" + cut, (uid,) + cargs) or [{}])[0]
+    tall = (_q("""SELECT count(*) AS n, max(created_at) AS last_at,
+                         count(*) FILTER (WHERE "kind" = 'bt') AS bt
+                  FROM trades WHERE user_id=%s""", (uid,)) or [{}])[0]
+    pairs = _q("""SELECT "pair", count(*) AS n FROM trades WHERE user_id=%s AND "pair"<>''""" + cut
+               + ' GROUP BY 1 ORDER BY n DESC LIMIT 6', (uid,) + cargs)
     weeks = {r["w"]: r for r in _q("""
         SELECT date_trunc('week', created_at AT TIME ZONE 'Europe/Kyiv')::date AS w, count(*) AS n,
                count(*) FILTER (WHERE import_id = '' AND notion_id = '') AS manual
@@ -669,10 +798,10 @@ def user_card(u, titles, kind_ru, refs):
     except Exception:
         ts = None
 
-    lasts = [x for x in (t.get("last_at"), nt.get("last_at")) if x]
+    lasts = [x for x in (tall.get("last_at"), nt.get("last_at")) if x]
     last = _kdate(max(lasts)) if lasts else None
     since = (today - last).days if last else None
-    if not (t.get("n") or 0) and not (nt.get("n") or 0):
+    if not (tall.get("n") or 0) and not (nt.get("n") or 0):
         st = ("new", "Не начал")
     elif since is not None and since <= 7:
         st = ("active", "Активный")
@@ -697,8 +826,11 @@ def user_card(u, titles, kind_ru, refs):
             bits.append("обновлена " + str(ts["updated"]))
         ts_line = " · ".join(bits) or "есть"
     manual = t.get("manual") or 0
-    free = t.get("free") or 0
-    nick_js = json.dumps(u["nickname"], ensure_ascii=False)
+    free = u.get("free_trades_used") or 0
+    cap = u.get("free_trades_cap") or FREE_LIMIT
+    nick_js = _js(u["nickname"])
+    lock_note = u.get("lock_note") or ""
+    lock_on = bool(lock_note)
     kv = lambda k, v: "<span>%s</span><span>%s</span>" % (e(k), v)
 
     return (head("StatsAI · " + u["nickname"])
@@ -708,13 +840,19 @@ def user_card(u, titles, kind_ru, refs):
           '<div style="font-size:26px;font-weight:700;letter-spacing:-.02em">' + e(u["nickname"]) + "</div>"
           '<span class="pill p-' + st[0] + '">' + st[1] + "</span>"
           '<span class=mute>' + e(u["email"]) + "</span></div>"
+        + _access(u, free)
         + '<div class="grid kpis">'
-        + _kpi("Сделок всего", str(t.get("n") or 0), '<div class=d>%d вручную · %d скипов</div>' % (manual, t.get("skips") or 0))
-        + (_kpi("До лимита 30", '<span class="%s">%d / %d</span>' % ("up" if free >= FREE_LIMIT else "be" if free >= 20 else "", min(free, 999), FREE_LIMIT),
-                '<div class=d>%s · с %s</div>' % ("упёрся в бесплатный лимит" if free >= FREE_LIMIT else "ещё %d бесплатных" % (FREE_LIMIT - free),
-                                                bstart.strftime("%d.%m.%Y")))
-           if bstart else
-           _kpi("Лимит 30 сделок", '<span class=mute>не запущен</span>', '<div class=d>считается с запуска оплаты</div>'))
+        + _kpi("Сделок с " + bstart.strftime("%d.%m.%Y") if bstart else "Сделок всего",
+               str(t.get("n") or 0), '<div class=d>%d вручную · %d скипов</div>' % (manual, t.get("skips") or 0))
+        + (_kpi("Лимит сделок", '<span class=mute>подписка</span>',
+                '<div class=d>%d из %d · пока платит, не тратится</div>' % (free, cap))
+           if _sub(u, datetime.datetime.now(datetime.timezone.utc)) else
+           _kpi("До лимита %d" % cap,
+                '<span class="%s">%d / %d</span>'
+                % ("up" if free >= cap else "be" if free >= cap - 5 else "", min(free, 999), cap),
+                '<div class=d>%s%s</div>'
+                % ("упёрся в бесплатный лимит" if free >= cap else "ещё %d бесплатных" % (cap - free),
+                   (" · счёт с " + bstart.strftime("%d.%m.%Y")) if bstart else "")))
         + _kpi("Торговых дней", str(t.get("days") or 0), '<div class=d>%s — %s</div>' % (str(t.get("first") or "—")[:10], str(t.get("last") or "—")[:10]))
         + _kpi("Сделок за 7 / 30 дн.", "%d / %d" % (t.get("d7") or 0, t.get("d30") or 0), "")
         + _kpi("Анализов дня", str(nt.get("n") or 0), '<div class=d>последний %s</div>' % dt(nt.get("last_at")))
@@ -733,7 +871,7 @@ def user_card(u, titles, kind_ru, refs):
              if u["public_journal"] else "нет")
         + kv("Своя ТС", e(ts_line))
         + kv("Счета", e(", ".join((a["name"] or a["firm"] or a["kind"]) for a in accs) or "нет"))
-        + kv("Бэктест", "%d сделок" % (t.get("bt") or 0) if t.get("bt") else "нет")
+        + kv("Бэктест", "%d сделок" % (tall.get("bt") or 0) if tall.get("bt") else "нет")
         + kv("Инструменты", e(", ".join("%s (%d)" % (r["pair"], r["n"]) for r in pairs) or "—"))
         + "</div></div></div>"
         + '<div class="grid two"><div class=card><h2>Метка партнёра</h2>'
@@ -748,23 +886,53 @@ def user_card(u, titles, kind_ru, refs):
         + kv("Последняя", datetime.datetime.fromtimestamp(sh["last"]).strftime("%d.%m.%Y") if sh.get("last") else "—")
         + "".join(kv("· " + kind_ru.get(r["kind"], r["kind"]), "%d · %d перех." % (r["n"], r["views"])) for r in kinds)
         + "</div></div></div>"
+        + billing_html
+        + '<div class=card style="margin-top:12px"><h2>Замок на журнал</h2>'
+          '<p class=mute style="margin:0 0 10px;font-size:13px">'
+        + ('<b style="color:var(--text)">Замок стоит.</b> Человек видит только этот текст '
+           'и Telegram-контакт, журналом пользоваться не может — ни одна кнопка не работает. '
+           'Чтобы снять, очисти поле и нажми кнопку.'
+           if lock_on else
+           'Поставишь — человек при следующем заходе увидит только этот текст и Telegram-контакт. '
+           'Пользоваться журналом не сможет, закрыть это сам не сможет: замок снимается '
+           'только отсюда, руками.')
+        + "</p>"
+          '<textarea id=lknote rows=4 style="width:100%;box-sizing:border-box;padding:9px 12px;'
+          'border-radius:9px;border:1px solid var(--line);background:var(--card);color:var(--text);'
+          'font:inherit;resize:vertical">' + e(lock_note or LOCK_DEFAULT) + "</textarea>"
+          '<div style="display:flex;gap:8px;align-items:center;margin-top:8px">'
+          '<button id=lkgo class=btn>' + ("Обновить или снять" if lock_on else "Поставить замок")
+        + '</button><span id=lkmsg class=mute></span></div></div>'
         + '<div class="card danger" style="margin-top:12px"><h2>Опасная зона</h2>'
           '<p class=mute style="margin:0 0 10px;font-size:13px">Удаляет аккаунт и всё, что в нём: сделки, ТС, анализ дня, '
           'настройки, ссылки и скриншоты. Отменить нельзя. Чтобы подтвердить, впишите ник точно так: <b style="color:var(--text)">'
         + e(u["nickname"]) + "</b></p>"
           '<div style="display:flex;gap:8px;flex-wrap:wrap"><input id=cf placeholder="' + e(u["nickname"]) + '" '
           'style="flex:1;min-width:200px;padding:9px 12px;border-radius:9px;border:1px solid var(--line);background:var(--card);'
-          'color:var(--text);font:inherit"><button id=go class="btn go">Удалить аккаунт</button></div><p id=msg class=mute></p></div>'
+          'color:var(--text);font:inherit"><button id=go class="btn go">Удалить аккаунт</button>'
+          '<button id=goban class="btn go">Забанить и удалить</button></div>'
+          '<p class=mute style="margin:8px 0 0;font-size:12px">«Забанить» ещё и запоминает его IP, устройство и почту: '
+          'новый аккаунт оттуда не заведётся. Осторожно: у мобильных операторов один IP на много людей.</p>'
+          '<p id=msg class=mute></p></div>'
         + "<script>"
           "document.querySelectorAll('.refb').forEach(b=>b.onclick=async()=>{refmsg.textContent='…';"
           "const r=await fetch('/api/admin/set-ref',{method:'POST',headers:{'Content-Type':'application/json'},"
           "body:JSON.stringify({nick:" + nick_js + ",ref:b.dataset.r})});const d=await r.json().catch(()=>({}));"
           "refmsg.textContent=r.ok?'готово':(d.error||('ошибка '+r.status));if(r.ok)setTimeout(()=>location.reload(),600);});"
-          "go.onclick=async()=>{if(!confirm('Удалить аккаунт '+" + nick_js + "+'? Отменить нельзя.'))return;"
-          "go.disabled=true;msg.textContent='Удаляю…';const r=await fetch('/api/admin/delete-user',{method:'POST',"
-          "headers:{'Content-Type':'application/json'},body:JSON.stringify({nick:" + nick_js + ",confirm:cf.value})});"
-          "const d=await r.json().catch(()=>({}));if(r.ok){msg.textContent='Удалён. Файлов убрано: '+d.files;"
-          "setTimeout(()=>location.href='/admin',1200);}else{go.disabled=false;msg.textContent=d.error||('Ошибка '+r.status);}};"
+          "lkgo.onclick=async()=>{const t=lknote.value.trim();"
+          "if(!confirm(t?('Поставить замок для '+" + nick_js + "+'? Журналом пользоваться не сможет.')"
+          ":('Снять замок с '+" + nick_js + "+'?')))return;"
+          "lkgo.disabled=true;lkmsg.textContent='…';"
+          "const r=await fetch('/api/admin/set-lock',{method:'POST',headers:{'Content-Type':'application/json'},"
+          "body:JSON.stringify({nick:" + nick_js + ",note:t})});const d=await r.json().catch(()=>({}));"
+          "lkgo.disabled=false;lkmsg.textContent=r.ok?(d.locked?'замок стоит':'снят'):(d.error||('ошибка '+r.status));"
+          "if(r.ok)setTimeout(()=>location.reload(),700);};"
+          "const del=async ban=>{if(!confirm((ban?'Забанить и удалить ':'Удалить аккаунт ')+" + nick_js + "+'? Отменить нельзя.'))return;"
+          "go.disabled=goban.disabled=true;msg.textContent='Удаляю…';const r=await fetch('/api/admin/delete-user',{method:'POST',"
+          "headers:{'Content-Type':'application/json'},body:JSON.stringify({nick:" + nick_js + ",confirm:cf.value,ban:ban})});"
+          "const d=await r.json().catch(()=>({}));if(r.ok){msg.textContent='Удалён. Файлов убрано: '+d.files+(ban?' · в бане записей: '+d.banned:'');"
+          "setTimeout(()=>location.href='/admin',1500);}else{go.disabled=goban.disabled=false;msg.textContent=d.error||('Ошибка '+r.status);}};"
+          "go.onclick=()=>del(false);goban.onclick=()=>del(true);"
           "</script></div></body></html>")
 
 

@@ -614,5 +614,37 @@
   "impact": "Low",
   "forecast": "",
   "previous": ""
+ },
+ {
+  "title": "BRICS Summit",
+  "country": "All",
+  "date": "2026-09-13T04:15:00-04:00",
+  "impact": "Low",
+  "forecast": "",
+  "previous": ""
+ },
+ {
+  "title": "BusinessNZ Services Index",
+  "country": "NZD",
+  "date": "2026-09-13T18:30:00-04:00",
+  "impact": "Low",
+  "forecast": "",
+  "previous": "50.6"
+ },
+ {
+  "title": "Visitor Arrivals m/m",
+  "country": "NZD",
+  "date": "2026-09-13T18:45:00-04:00",
+  "impact": "Low",
+  "forecast": "",
+  "previous": "-0.1%"
+ },
+ {
+  "title": "RBA Assist Gov Hunter Speaks",
+  "country": "AUD",
+  "date": "2026-09-13T22:30:00-04:00",
+  "impact": "Low",
+  "forecast": "",
+  "previous": ""
  }
 ]

@@ -16,6 +16,7 @@ import sys
 
 import config
 import db
+import antifraud
 import billing
 
 UTC = datetime.timezone.utc
@@ -36,8 +37,8 @@ def case(name, got, want):
 def person(**kw):
     """Людина, яка щойно зареєструвалась і нічого ще не витратила."""
     row = {"id": 1, "plan": "free", "paid_until": None,
-           "free_trades_used": 0, "free_trades_cap": 30,
-           "free_bt_used": 0, "free_bt_cap": 30,
+           "free_trades_used": 0, "free_trades_cap": 20,
+           "free_bt_used": 0, "free_bt_cap": 20,
            "imports_used": 0, "imports_cap": 3,
            "ai_used": 0, "ai_cap": 15, "ai_reset_at": None,
            "price_plan": "std", "own_price_cents": None,
@@ -62,21 +63,21 @@ def check_rules():
     case("тариф новенького", billing.plan_of(free), "free")
 
     out = billing.state(free)
-    case("залишок справжніх", out["trades_left"], 30)
-    case("залишок прогонів", out["bt_left"], 30)
+    case("залишок справжніх", out["trades_left"], 20)
+    case("залишок прогонів", out["bt_left"], 20)
     case("залишок перенесень", out["imports_left"], 3)
     case("днів вікна перенесення", out["import_days_left"], 25)
     case("дати оплати немає", out["paid_until"], None)
 
     # Несиметрія лімітів — головне правило.
-    dry = person(free_trades_used=30)
+    dry = person(free_trades_used=20)
     case("скінчились справжні — відмова", billing.can_add_trade(dry),
          (False, "trades_limit"))
     case("скінчились справжні — бектест теж закрито",
          billing.can_add_trade(dry, "bt"), (False, "trades_limit"))
     case("залишок не йде в мінус", billing.state(dry)["trades_left"], 0)
 
-    bt_dry = person(free_trades_used=10, free_bt_used=30)
+    bt_dry = person(free_trades_used=10, free_bt_used=20)
     case("скінчились прогони — бектест закрито",
          billing.can_add_trade(bt_dry, "bt"), (False, "bt_limit"))
     case("скінчились прогони — справжні пишуться далі",
@@ -90,7 +91,7 @@ def check_rules():
     case("тариф підписки", billing.plan_of(rich), "year")
     case("підписка в стані", billing.state(rich)["active"], True)
 
-    old = paid(days=-1, free_trades_used=30)
+    old = paid(days=-1, free_trades_used=20)
     case("прострочена підписка не діє", billing.active(old), False)
     case("прострочений тариф — free", billing.plan_of(old), "free")
     case("після прострочення ліміт знову діє", billing.can_add_trade(old),
@@ -132,8 +133,6 @@ def check_rules():
          billing.can_import(early_imp), (True, ""))
     case("ранньому лишилось 30 днів",
          billing.import_days_left(early_imp), 30)
-    case("ранньому й нічне оновлення дозволено",
-         billing.can_autosync(early_imp), (True, ""))
     gone = person(imports_until=NOW - datetime.timedelta(hours=1))
     case("задане вікно теж закінчується",
          billing.can_import(gone), (False, "import_window"))
@@ -142,17 +141,6 @@ def check_rules():
     case("останній день вікна — ще день",
          billing.import_days_left(person(
              imports_until=NOW + datetime.timedelta(hours=5))), 1)
-
-    # Нічне оновлення: воно з тих самих баз, тому лічильник перенесень не
-    # чіпає — дивиться тільки на вікно й на підписку.
-    case("нічне оновлення в перші 30 днів", billing.can_autosync(person()), (True, ""))
-    case("витрачені перенесення оновленню не заважають",
-         billing.can_autosync(person(imports_used=3)), (True, ""))
-    case("після 30 днів оновлення спиняється", billing.can_autosync(late),
-         (False, "import_window"))
-    case("з підпискою оновлюємо завжди",
-         billing.can_autosync(paid(created_at=NOW - datetime.timedelta(days=400))),
-         (True, ""))
 
     # Звернення до моделі: 15 на місяць без підписки. Розділи журналу при
     # цьому відкриті всі — платимо ми саме за відповіді моделі.
@@ -187,6 +175,38 @@ def check_rules():
     case("відмова каже привід", no["reason"], "trades_limit")
     case("відмова несе стан", no["state"]["trades_left"], 0)
 
+    # Нік власника — це права адміна, тому його не можна ні взяти в
+    # профілі, ні привезти іменем з Google чи Discord (там пробіли
+    # дозволені, і саме цим шляхом ім'я власника проходило як своє).
+    print("\nніки власників")
+    for nick in config.ADMIN_NICKS:
+        case("не віддаємо нік %r" % nick, config.nick_reserved(nick), True)
+        case("не віддаємо його ж іншим регістром",
+             config.nick_reserved(nick.upper()), True)
+    case("службовий нік теж зайнятий", config.nick_reserved("admin"), True)
+    case("звичайний нік вільний", config.nick_reserved("trader7"), False)
+
+    # Одна скринька — один безкоштовний журнал. Хвіст після «+» і крапки в
+    # gmail нічого не змінюють, а чужі домени з крапками не чіпаємо.
+    print("\nодна пошта — один журнал")
+    same = [("ivan@gmail.com", "ivan+1@gmail.com"),
+            ("ivan@gmail.com", "i.v.a.n@gmail.com"),
+            ("ivan@gmail.com", "IVAN+хвіст@Gmail.com"),
+            ("ivan@googlemail.com", "i.van+2@googlemail.com"),
+            ("ivan@mail.com", "ivan+7@mail.com")]
+    for a, b in same:
+        case("%s = %s" % (a, b), db.email_key(a) == db.email_key(b), True)
+    case("крапки поза gmail значать своє",
+         db.email_key("i.van@mail.com") == db.email_key("ivan@mail.com"), False)
+    case("різні люди лишаються різними",
+         db.email_key("ivan@gmail.com") == db.email_key("petro@gmail.com"), False)
+
+    print("\nодноразова пошта")
+    for bad in ("kto@mailinator.com", "kto@temp-mail.org", "kto@sub.yopmail.com"):
+        case("не приймаємо %s" % bad, antifraud.throwaway_mail(bad), True)
+    for good in ("kto@gmail.com", "kto@ukr.net", "kto@company.co.uk"):
+        case("приймаємо %s" % good, antifraud.throwaway_mail(good), False)
+
 
 def check_prices():
     print("\nціни")
@@ -215,6 +235,19 @@ def check_prices():
          (False, "promo_same"))
     case("вигаданий код", billing.redeem(person(), "ХАЛЯВА"),
          (False, "promo_bad"))
+    # Знижка йде в касу тільки тому, хто на звичайних цінах. Набір міг
+    # змінитись уже після того, як код прийняли, — тоді товар у Creem інший,
+    # і знижка до нього не кріпиться.
+    case("код у касу: звичайний набір",
+         billing.promo_discount(person(promo_code="FXLAB"), "month"), "FXLAB-M")
+    case("код у касу: ранній — без знижки",
+         billing.promo_discount(person(promo_code="FXLAB", price_plan="early"), "month"), "")
+    case("код у касу: партнерський набір — без знижки",
+         billing.promo_discount(person(promo_code="FXLAB", price_plan="fxlab"), "year"), "")
+    case("код у касу: коду немає — порожньо",
+         billing.promo_discount(person(), "month"), "")
+    case("код у касу: оплачений код не йде",
+         billing.promo_discount(person(promo_code="FXLAB", promo_used_at=NOW), "year"), "")
     # Промокод — один раз: після оплати по ньому вдруге не приймається
     case("по коду вже платили — вдруге ні",
          billing.redeem(person(promo_code="FXLAB", promo_used_at=NOW), "FXLAB"),
@@ -274,18 +307,67 @@ def check_db():
     uid = u["id"]
     try:
         case("новий у базі — free", billing.state(uid)["plan"], "free")
-        case("новому 30 справжніх", billing.state(uid)["trades_left"], 30)
+        case("новому 20 справжніх", billing.state(uid)["trades_left"], 20)
 
         billing.spend_trade(uid)
         billing.spend_trade(uid)
         billing.spend_trade(uid, "bt")
         s = billing.state(uid)
-        case("дві справжні витрачено", s["trades_left"], 28)
-        case("один прогін витрачено", s["bt_left"], 29)
+        case("дві справжні витрачено", s["trades_left"], 18)
+        case("один прогін витрачено", s["bt_left"], 19)
         case("перенесення не чіпали", s["imports_left"], 3)
 
         billing.spend_import(uid)
         case("перенесення витрачено", billing.state(uid)["imports_left"], 2)
+
+        # Межа тримається самою базою, а не парою «спитали → списали».
+        # Перевіряємо саме те, чим її обходили: сервер відповідає в багато
+        # потоків, і пачка одночасних запитів проходила перевірку всі
+        # разом, поки лічильник ще не встиг вирости.
+        #
+        # Лічильники тут крутимо як хочемо, тому спершу запам'ятовуємо їх:
+        # перевірки нижче рахують від того, що було до цього місця.
+        SPENT = ("free_trades_used", "free_bt_used", "imports_used",
+                 "ai_used", "ai_reset_at")
+        spent_was = {k: db.get_user(uid)[k] for k in SPENT}
+        with db.connect() as c2:
+            c2.execute("UPDATE users SET free_trades_used=0, free_bt_used=0, "
+                       "imports_used=0 WHERE id=%s", (uid,))
+            c2.commit()
+        took = [billing.take_trade(uid)[0] for _ in range(25)]
+        case("зайняти вдалось рівно двадцять", sum(took), 20)
+        case("двадцять перших пройшли", all(took[:20]), True)
+        case("решті відмовили", any(took[20:]), False)
+        case("лічильник рівно на межі",
+             db.get_user(uid)["free_trades_used"], 20)
+        case("за межею причина зрозуміла", billing.take_trade(uid),
+             (False, "trades_limit"))
+
+        # Повернення місця: угоду зайняли, а записати не вийшло.
+        billing.release_trade(uid)
+        case("місце повернулось", db.get_user(uid)["free_trades_used"], 19)
+        case("і його можна зайняти знову", billing.take_trade(uid), (True, ""))
+
+        # Те саме для перенесень.
+        with db.connect() as c2:
+            c2.execute("UPDATE users SET imports_used=0 WHERE id=%s", (uid,))
+            c2.commit()
+        took = [billing.take_import(uid)[0] for _ in range(6)]
+        case("перенесень зайнято рівно три", sum(took), 3)
+        case("четверте перенесення відбито", billing.take_import(uid),
+             (False, "imports_limit"))
+
+        # Порція звернень до моделі — так само однією дією.
+        with db.connect() as c2:
+            c2.execute("UPDATE users SET ai_used=0, ai_reset_at=NULL WHERE id=%s", (uid,))
+            c2.commit()
+        took = [billing.take_ai(uid)[0] for _ in range(20)]
+        case("звернень зайнято рівно п'ятнадцять", sum(took), 15)
+        case("шістнадцяте відбито", billing.take_ai(uid), (False, "ai_limit"))
+        with db.connect() as c2:
+            c2.execute("UPDATE users SET " + ", ".join(k + "=%s" for k in SPENT)
+                       + " WHERE id=%s", tuple(spent_was[k] for k in SPENT) + (uid,))
+            c2.commit()
 
         # Звернення до моделі: 15 проходять, 16-те — ні.
         for _ in range(15):
@@ -308,7 +390,7 @@ def check_db():
 
         billing.spend_trade(uid)
         case("з підпискою безкоштовне не витрачається",
-             billing.state(uid)["trades_left"], 28)
+             billing.state(uid)["trades_left"], 18)
         case("підписка підняла стелю звернень", billing.state(uid)["ai_cap"], 300)
         case("з підпискою помічник знову відповідає",
              billing.can_use_ai(uid), (True, ""))
@@ -321,8 +403,8 @@ def check_db():
 
         billing.bonus(uid, trades=5, bt=2, imports=1)
         s = billing.state(uid)
-        case("бонус на справжні", s["trades_left"], 33)
-        case("бонус на прогони", s["bt_left"], 31)
+        case("бонус на справжні", s["trades_left"], 23)
+        case("бонус на прогони", s["bt_left"], 21)
         case("бонус на перенесення", s["imports_left"], 3)
 
         # Міграція «ранніх». База тут жива й боєва, тому пробуємо не саму
@@ -340,16 +422,9 @@ def check_db():
             try:
                 conn.execute(db.EARLY_SQL, (config.IMPORT_WINDOW_DAYS,))
                 r = conn.execute(
-                    "SELECT price_plan, free_trades_used, free_bt_used, "
-                    "imports_used, ai_used, ai_reset_at, imports_until, "
-                    "plan, paid_until FROM users WHERE id=%s",
-                    (uid,)).fetchone()
+                    "SELECT price_plan, imports_until, plan, paid_until "
+                    "FROM users WHERE id=%s", (uid,)).fetchone()
                 case("міграція робить ранніми", r["price_plan"], "early")
-                case("міграція обнуляє справжні", r["free_trades_used"], 0)
-                case("міграція обнуляє прогони", r["free_bt_used"], 0)
-                case("міграція обнуляє перенесення", r["imports_used"], 0)
-                case("міграція обнуляє звернення", r["ai_used"], 0)
-                case("міграція скидає вікно звернень", r["ai_reset_at"], None)
                 # Годинник бази й наш розходяться на секунди, тому не
                 # рівність, а межі: вікно щойно відкрите на 30 днів.
                 left = billing.import_days_left(r)
@@ -363,6 +438,59 @@ def check_db():
                 conn.close()
             case("відкат повернув звичайні ціни",
                  db.get_user(uid)["price_plan"], "std")
+
+            # Запуск лімітів. Так само на живій базі — тому запит, а не
+            # функція, і теж під відкат: запустити відлік усім за дні до
+            # викладки означало б з'їсти людям безкоштовні угоди.
+            db._start_limits()
+            case("без вимикача ліміти не запускаються",
+                 db.meta_get("limits_started"), None)
+            # Далі підміняємо лічильники цьому акаунту, тож спершу
+            # запам'ятовуємо їх — наступні перевірки рахують від них.
+            KEEP = ("free_trades_cap", "free_bt_cap", "free_trades_used",
+                    "free_bt_used", "imports_used", "ai_used")
+            was = {k: db.get_user(uid)[k] for k in KEEP}
+            with db.connect() as c2:
+                c2.execute("UPDATE users SET free_trades_used=7, free_bt_used=3, "
+                           "imports_used=2, ai_used=4, free_trades_cap=30, "
+                           "free_bt_cap=30 WHERE id=%s", (uid,))
+                c2.commit()
+            conn = db.psycopg.connect(config.DATABASE_URL, row_factory=db.dict_row)
+            try:
+                conn.execute(db.LIMITS_SQL, (config.FREE_TRADES, config.FREE_BT))
+                r = conn.execute(
+                    "SELECT free_trades_cap, free_bt_cap, free_trades_used, "
+                    "free_bt_used, imports_used, ai_used, ai_reset_at, "
+                    "plan, paid_until FROM users WHERE id=%s", (uid,)).fetchone()
+                case("стеля угод стала двадцяткою", r["free_trades_cap"], 20)
+                case("стеля бектесту стала двадцяткою", r["free_bt_cap"], 20)
+                case("старі угоди в ліміт не пішли", r["free_trades_used"], 0)
+                case("старий бектест у ліміт не пішов", r["free_bt_used"], 0)
+                case("перенесення з нуля", r["imports_used"], 0)
+                case("звернення з нуля", r["ai_used"], 0)
+                case("вікно звернень скинуто", r["ai_reset_at"], None)
+                case("запуск лімітів не чіпає оплачене", r["plan"], "month")
+                case("запуск лімітів не чіпає дату оплати", bool(r["paid_until"]), True)
+            finally:
+                conn.rollback()
+                conn.close()
+            # Бонус адміна стелею не є: його міграція обходить.
+            with db.connect() as c2:
+                c2.execute("UPDATE users SET free_trades_cap=35 WHERE id=%s", (uid,))
+                c2.commit()
+            conn = db.psycopg.connect(config.DATABASE_URL, row_factory=db.dict_row)
+            try:
+                conn.execute(db.LIMITS_SQL, (config.FREE_TRADES, config.FREE_BT))
+                r = conn.execute("SELECT free_trades_cap FROM users WHERE id=%s",
+                                 (uid,)).fetchone()
+                case("бонус адміна лишається", r["free_trades_cap"], 35)
+            finally:
+                conn.rollback()
+                conn.close()
+            with db.connect() as c2:
+                c2.execute("UPDATE users SET " + ", ".join(k + "=%s" for k in KEEP)
+                           + " WHERE id=%s", tuple(was[k] for k in KEEP) + (uid,))
+                c2.commit()
 
         # Промокод на живому акаунті: звичайному він знижує ціну, а тому,
         # хто вже «ранній», — відбивається.
@@ -403,7 +531,7 @@ def check_db():
         s = billing.state(uid)
         case("підписку знято", s["active"], False)
         case("тариф після зняття", s["plan"], "free")
-        case("витрачене нікуди не поділось", s["trades_left"], 33)
+        case("витрачене нікуди не поділось", s["trades_left"], 23)
     finally:
         with db.connect() as conn:
             conn.execute("DELETE FROM users WHERE id=%s", (uid,))

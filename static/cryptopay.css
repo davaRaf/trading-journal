@@ -1,0 +1,297 @@
+/* ============================================================
+   Оплата криптою: вибір способу і вікно переказу.
+
+   Окремий файл, бо це окремий шлях: розділ «Підписка» показує
+   ціни, а тут людина вже платить і дивиться на екран, поки йдуть
+   гроші. Кольори — ті самі токени журналу, тому вікно живе
+   в усіх оформленнях.
+
+   Стан видно трьома способами одразу — кружком, словом і смужкою
+   часу внизу: кольором самим по собі про гроші не кажуть.
+   ============================================================ */
+
+.cpay-wrap{
+  position:fixed; inset:0; z-index:230; background:var(--overlay-strong);
+  display:flex; align-items:center; justify-content:center; padding:20px;
+  opacity:0; transition:opacity .18s var(--ease, ease);
+}
+.cpay-wrap.in{opacity:1}
+.cpay{
+  width:100%; max-width:560px; max-height:min(92vh, 860px); overflow:auto;
+  background:var(--panel); border:1px solid var(--line); border-radius:16px;
+  box-shadow:var(--shadow-pop); color:var(--text);
+  transform:translateY(10px) scale(.985); transition:transform .18s var(--ease, ease);
+}
+.cpay-wrap.in .cpay{transform:none}
+@media (prefers-reduced-motion:reduce){
+  .cpay-wrap, .cpay{transition:none}
+}
+
+/* ——— шапка ——— */
+.cpay-head{
+  display:flex; align-items:flex-start; gap:12px;
+  padding:20px 20px 16px; border-bottom:1px solid var(--line);
+}
+.cpay-head h3{margin:0; font-size:17px; font-weight:600; line-height:1.3}
+.cpay-head p{margin:5px 0 0; font-size:12.5px; color:var(--dim)}
+.cpay-head .cpay-sum{
+  font-family:var(--mono); font-variant-numeric:tabular-nums; color:var(--text);
+}
+.cpay-x{
+  margin-left:auto; flex:none; width:36px; height:36px; display:grid; place-items:center;
+  border:1px solid var(--line); border-radius:10px; background:none; color:var(--dim);
+  cursor:pointer; transition:color .15s ease, border-color .15s ease;
+}
+.cpay-x:hover{color:var(--text); border-color:var(--dim)}
+.cpay-x:focus-visible{outline:2px solid var(--accent); outline-offset:2px}
+
+.cpay-body{padding:18px 20px 20px}
+
+/* ——— вибір способу ——— */
+.cpay-ways{display:grid; gap:10px}
+.cpay-way{
+  display:flex; align-items:center; gap:14px; width:100%; text-align:left;
+  padding:15px 16px; min-height:64px; cursor:pointer; font:inherit; color:var(--text);
+  border:1px solid var(--line); border-radius:var(--r); background:var(--panel-2);
+  transition:border-color .15s ease, background .15s ease, transform .12s ease;
+}
+.cpay-way:hover{border-color:color-mix(in srgb,var(--accent) 45%,transparent)}
+/* Спосіб, якого зараз немає: видно, що він тут, і видно, що не зараз. */
+.cpay-way.off{cursor:default; opacity:.55}
+.cpay-way.off:hover{border-color:var(--line)}
+.cpay-way.off .cpay-way-go{color:var(--down)}
+.cpay-way:active{transform:scale(.995)}
+.cpay-way:focus-visible{outline:2px solid var(--accent); outline-offset:2px}
+.cpay-way-ico{
+  flex:none; width:40px; height:40px; display:grid; place-items:center; border-radius:11px;
+  background:var(--accent-soft); color:var(--accent);
+}
+/* Підписи — тільки всередині своєї колонки. Селектор «.cpay-way span»
+   був би сильніший за «.cpay-way-ico», і плитка зі значком отримала б
+   display:block замість grid — значок сповзав би в куток. */
+.cpay-way-t b{display:block; font-size:14px; font-weight:600}
+.cpay-way-t span{display:block; margin-top:3px; font-size:12.5px; color:var(--dim)}
+.cpay-way-go{margin-left:auto; flex:none; display:grid; place-items:center; color:var(--faint)}
+/* Значки — блоками: інлайновим svg браузер лишає місце під хвостик
+   літери, і все, що поруч, стоїть на пів пікселя вище, ніж треба. */
+.cpay svg{display:block}
+
+/* ——— три кроки ——— */
+/* Не прикраса: людина має бачити, що переказ — це ще не кінець, і що
+   мережі потрібен час на підтвердження. */
+.cpay-steps{display:flex; align-items:center; gap:8px; margin-bottom:18px}
+.cpay-step{display:flex; align-items:center; gap:7px; font-family:var(--mono);
+  font-size:10.5px; font-weight:600; letter-spacing:.06em; text-transform:uppercase;
+  color:var(--faint)}
+.cpay-step i{
+  width:7px; height:7px; border-radius:50%; background:var(--line);
+  flex:none; font-style:normal;
+}
+.cpay-step.on{color:var(--text)}
+.cpay-step.on i{background:var(--accent);
+  box-shadow:0 0 0 4px color-mix(in srgb,var(--accent) 18%,transparent)}
+.cpay-step.done{color:var(--dim)}
+.cpay-step.done i{background:var(--accent)}
+.cpay-steps hr{flex:1 1 auto; height:1px; border:0; margin:0; background:var(--line)}
+
+/* ——— рядки з даними переказу ——— */
+.cpay-grid{display:grid; gap:10px}
+.cpay-fld{
+  border:1px solid var(--line); border-radius:var(--r); background:var(--panel-2);
+  padding:12px 14px;
+}
+.cpay-fld.hot{
+  border-color:color-mix(in srgb,var(--accent) 40%,transparent);
+  background:var(--accent-soft);
+}
+.cpay-lbl{
+  font-family:var(--mono); font-size:10.5px; font-weight:600; letter-spacing:.08em;
+  text-transform:uppercase; color:var(--faint); margin-bottom:7px;
+}
+.cpay-val{display:flex; align-items:center; gap:10px}
+.cpay-val b{
+  flex:1 1 auto; min-width:0; font-family:var(--mono); font-weight:600;
+  font-variant-numeric:tabular-nums; font-size:15px; line-height:1.35;
+  word-break:break-all;
+}
+.cpay-fld.hot .cpay-val b{font-size:23px; letter-spacing:-.02em; color:var(--text)}
+.cpay-val b em{font-style:normal; font-size:13px; font-weight:500; color:var(--dim);
+  margin-left:6px; letter-spacing:0}
+.cpay-addr b{font-size:13.5px}
+.cpay-hint{margin:8px 0 0; font-size:12px; line-height:1.5; color:var(--dim)}
+
+.cpay-copy{
+  flex:none; display:inline-flex; align-items:center; gap:6px; min-height:36px;
+  padding:0 12px; border-radius:var(--r-sm); border:1px solid var(--line);
+  background:var(--panel); color:var(--dim); font:inherit; font-size:12.5px;
+  cursor:pointer; transition:color .15s ease, border-color .15s ease;
+}
+.cpay-copy:hover{color:var(--text); border-color:var(--accent)}
+.cpay-copy:focus-visible{outline:2px solid var(--accent); outline-offset:2px}
+.cpay-copy.ok{color:var(--up); border-color:color-mix(in srgb,var(--up) 45%,transparent)}
+
+/* дві короткі клітинки в рядок: мережа й монета */
+.cpay-two{display:grid; grid-template-columns:1fr 1fr; gap:10px}
+
+/* ——— попередження про мережу ——— */
+/* Єдине, чого не можна відкотити: переказ в іншій мережі не повернеться.
+   Тому не сірим текстом унизу, а окремою смужкою кольору попередження. */
+.cpay-warn{
+  display:flex; gap:10px; align-items:flex-start; margin-top:12px;
+  padding:11px 13px; border-radius:var(--r);
+  border:1px solid color-mix(in srgb,var(--be) 35%,transparent);
+  background:var(--be-soft); font-size:12.5px; line-height:1.5; color:var(--text);
+}
+.cpay-warn svg{flex:none; margin-top:1px; color:var(--be)}
+.cpay-warn p{margin:0}
+.cpay-warn p + p{margin-top:4px; color:var(--dim)}
+
+/* ——— стан ——— */
+.cpay-state{
+  display:flex; align-items:flex-start; gap:11px; margin-top:16px;
+  padding:13px 14px; border:1px solid var(--line); border-radius:var(--r);
+  background:var(--panel-2);
+}
+.cpay-state b{display:block; font-size:13.5px; font-weight:600}
+.cpay-state p{margin:4px 0 0; font-size:12.5px; line-height:1.5; color:var(--dim)}
+.cpay-dot{
+  flex:none; width:9px; height:9px; margin-top:4px; border-radius:50%;
+  background:var(--dim);
+}
+.cpay-state.wait .cpay-dot{background:var(--accent); animation:cpayPulse 1.6s ease-in-out infinite}
+.cpay-state.check .cpay-dot{background:var(--be); animation:cpayPulse .9s ease-in-out infinite}
+.cpay-state.done{border-color:color-mix(in srgb,var(--up) 45%,transparent); background:var(--up-soft)}
+.cpay-state.done .cpay-dot{background:var(--up)}
+.cpay-state.dead{border-color:color-mix(in srgb,var(--down) 40%,transparent); background:var(--down-soft)}
+.cpay-state.dead .cpay-dot{background:var(--down)}
+@keyframes cpayPulse{
+  0%,100%{opacity:1}
+  50%{opacity:.3}
+}
+@media (prefers-reduced-motion:reduce){
+  .cpay-state .cpay-dot{animation:none}
+}
+
+/* ——— готово ——— */
+/* Заради цього екрана все й робилось: людина віддала гроші й має
+   побачити відповідь, а не здогадуватись. */
+.cpay-ok{text-align:center; padding:18px 6px 6px}
+.cpay-ok-ring{
+  width:64px; height:64px; margin:0 auto 16px; border-radius:50%;
+  display:grid; place-items:center; color:var(--up);
+  background:var(--up-soft); border:1px solid color-mix(in srgb,var(--up) 40%,transparent);
+  animation:cpayPop .3s var(--ease, ease) both;
+}
+.cpay-ok h4{margin:0; font-size:18px; font-weight:600}
+.cpay-ok p{margin:7px 0 0; font-size:13px; color:var(--dim)}
+@keyframes cpayPop{from{transform:scale(.7); opacity:0} to{transform:scale(1); opacity:1}}
+@media (prefers-reduced-motion:reduce){ .cpay-ok-ring{animation:none} }
+
+/* ——— таймер унизу ——— */
+/* Знизу, під усім: він не вимагає дії, він лише каже, скільки ще
+   тримається виставлена сума. */
+.cpay-foot{
+  padding:14px 20px 18px; border-top:1px solid var(--line); background:var(--panel-2);
+  border-radius:0 0 15px 15px;
+}
+.cpay-time{
+  display:flex; align-items:baseline; justify-content:space-between; gap:12px;
+  font-size:12.5px; color:var(--dim);
+}
+.cpay-time b{
+  font-family:var(--mono); font-size:20px; font-weight:600; color:var(--text);
+  font-variant-numeric:tabular-nums; letter-spacing:-.01em;
+}
+.cpay-time.low b{color:var(--down)}
+.cpay-bar{
+  height:4px; margin-top:9px; border-radius:999px; background:var(--bar-track);
+  overflow:hidden;
+}
+.cpay-bar i{
+  display:block; height:100%; border-radius:999px; background:var(--accent);
+  transition:width 1s linear;
+}
+.cpay-foot.low .cpay-bar i{background:var(--down)}
+@media (prefers-reduced-motion:reduce){ .cpay-bar i{transition:none} }
+
+/* ——— «я вже переказав» ——— */
+.cpay-claim{margin-top:14px; padding-top:14px; border-top:1px solid var(--line)}
+.cpay-claim-go{
+  font:inherit; font-size:12.5px; color:var(--dim); background:none; border:0;
+  padding:4px 2px; cursor:pointer; text-decoration:underline; text-underline-offset:3px;
+  text-decoration-color:color-mix(in srgb,var(--dim) 45%,transparent);
+}
+.cpay-claim-go:hover{color:var(--text)}
+.cpay-claim-go:focus-visible{outline:2px solid var(--accent); outline-offset:2px}
+/* «Скасувати рахунок» — під усім і по центру: дія рідкісна, і місце
+   в неї відповідне. */
+.cpay-off{margin-top:12px; text-align:center}
+.cpay-tx{display:flex; gap:9px; margin-top:10px}
+.cpay-tx input{
+  flex:1 1 auto; min-width:0; height:44px; padding:0 13px;
+  border-radius:var(--r-sm); border:1px solid var(--line);
+  background:var(--panel); color:var(--text);
+  font-family:var(--mono); font-size:13px; letter-spacing:.02em;
+}
+.cpay-tx input::placeholder{color:var(--faint); letter-spacing:0}
+.cpay-tx input:focus{outline:none; border-color:var(--accent)}
+.cpay-tx button{
+  flex:0 0 auto; height:44px; padding:0 18px; border-radius:var(--r-sm);
+  border:1px solid var(--line); background:none; color:var(--dim);
+  font:inherit; font-size:13.5px; cursor:pointer;
+  transition:color .15s ease, border-color .15s ease;
+}
+.cpay-tx button:hover{color:var(--text); border-color:var(--accent)}
+.cpay-tx button:disabled{opacity:.45; cursor:default}
+.cpay-msg{margin:9px 0 0; font-size:12.5px; line-height:1.5; color:var(--down)}
+
+/* ——— кнопки внизу тіла ——— */
+.cpay-act{display:flex; gap:10px; margin-top:16px}
+.cpay-btn{
+  flex:1 1 auto; min-height:44px; border-radius:var(--r-sm); cursor:pointer;
+  font:inherit; font-size:13.5px; font-weight:500;
+  background:var(--accent); border:1px solid var(--accent); color:var(--accent-ink);
+  transition:filter .15s ease;
+}
+.cpay-btn:hover{filter:brightness(1.06)}
+.cpay-btn.ghost{background:none; border-color:var(--line); color:var(--dim); font-weight:400}
+.cpay-btn.ghost:hover{color:var(--text); border-color:var(--dim); filter:none}
+.cpay-btn:focus-visible{outline:2px solid var(--accent); outline-offset:2px}
+
+/* ——— смужка «рахунок відкритий» у розділі «Підписка» ——— */
+.sub-inv{
+  display:flex; align-items:center; gap:12px; flex-wrap:wrap; margin-bottom:11px;
+  padding:12px 14px; border-radius:var(--r);
+  border:1px solid color-mix(in srgb,var(--accent) 35%,transparent);
+  background:var(--accent-soft); font-size:12.5px; color:var(--text);
+}
+.sub-inv b{font-weight:600}
+.sub-inv .sub-inv-t{flex:1 1 auto; min-width:0}
+.sub-inv .sub-inv-left{font-family:var(--mono); font-variant-numeric:tabular-nums; color:var(--dim)}
+.sub-inv button{
+  flex:none; min-height:36px; padding:0 14px; border-radius:var(--r-sm);
+  border:1px solid var(--accent); background:var(--accent); color:var(--accent-ink);
+  font:inherit; font-size:12.5px; font-weight:500; cursor:pointer;
+}
+.sub-inv button:focus-visible{outline:2px solid var(--accent); outline-offset:2px}
+/* Відмова — тихою кнопкою поруч: передумати можна, але головна тут та,
+   що веде назад до оплати. */
+.sub-inv button.sub-inv-off{
+  border-color:color-mix(in srgb,var(--dim) 40%,transparent);
+  background:none; color:var(--dim); font-weight:400;
+}
+.sub-inv button.sub-inv-off:hover{color:var(--text); border-color:var(--dim)}
+
+/* ——— телефон ——— */
+@media (max-width:560px){
+  .cpay-wrap{padding:0; align-items:flex-end}
+  .cpay{max-width:none; max-height:94vh; border-radius:16px 16px 0 0;
+    padding-bottom:env(safe-area-inset-bottom)}
+  .cpay-two{grid-template-columns:1fr}
+  .cpay-tx{flex-direction:column}
+  .cpay-tx button{width:100%}
+  .cpay-act{flex-direction:column-reverse}
+  .cpay-fld.hot .cpay-val b{font-size:20px}
+  .cpay-foot{border-radius:0}
+  .sub-inv button{width:100%}
+}

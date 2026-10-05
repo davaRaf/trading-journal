@@ -32,6 +32,31 @@ import db
 NEIGHBOURS = 8
 
 
+# Служби одноразової пошти: ящик живе хвилину, і безкоштовних журналів з
+# нього можна наробити стільки, скільки не ліньки оновлювати сторінку.
+# Список навмисно короткий — тут ті, що з'являються першими в пошуку
+# «temp mail»; ганятися за всіма безглуздо, а ці закривають більшість.
+# Рахуємо й піддомени: у cock.li їх десятки.
+THROWAWAY = (
+    "mailinator.com", "guerrillamail.com", "guerrillamail.info", "sharklasers.com",
+    "10minutemail.com", "10minutemail.net", "tempmail.com", "temp-mail.org",
+    "tempmailo.com", "trashmail.com", "throwawaymail.com", "yopmail.com",
+    "getnada.com", "nada.email", "dispostable.com", "fakeinbox.com",
+    "maildrop.cc", "mailnesia.com", "mohmal.com", "emailondeck.com",
+    "spamgourmet.com", "mytemp.email", "moakt.com", "tempr.email",
+    "discard.email", "mailcatch.com", "inboxkitten.com", "harakirimail.com",
+    "byom.de", "cock.li", "vomoto.com", "grr.la", "spam4.me",
+)
+
+
+def throwaway_mail(email):
+    """Чи це одноразова скринька. Піддомени теж рахуються."""
+    dom = (email or "").strip().lower().rsplit("@", 1)[-1]
+    if not dom:
+        return False
+    return any(dom == d or dom.endswith("." + d) for d in THROWAWAY)
+
+
 def device_hash(raw):
     """Відбиток пристрою → короткий хеш. Порожньо лишається порожнім:
     «не знаємо» не має злипатися в один пристрій на всіх."""
@@ -84,8 +109,39 @@ def twin(ip, device):
             (ip, device)).fetchone()
 
 
-def blocked(ip, device):
-    """Чи закривати реєстрацію. Дозволена адреса знімає заслон одразу."""
+def ban_user(u, note=""):
+    """Запам'ятати все, по чому людину впізнати: усі її IP, пристрої й пошту.
+    Робиться ДО видалення — signup_ips видаляється разом з акаунтом."""
+    rows = [("email", db.email_key(u.get("email") or "")),
+            ("ip", u.get("signup_ip")), ("device", u.get("signup_device"))]
+    with db.connect() as conn:
+        for r in conn.execute("SELECT ip, device FROM signup_ips WHERE user_id=%s",
+                              (u["id"],)).fetchall():
+            rows += [("ip", r["ip"]), ("device", r["device"])]
+        for k, v in rows:
+            if v:
+                conn.execute("INSERT INTO bans (kind, value, note) VALUES (%s,%s,%s) "
+                             "ON CONFLICT DO NOTHING", (k, v, note or ""))
+        conn.commit()
+    return sorted({k + ":" + v for k, v in rows if v})
+
+
+def banned(ip="", device="", email=""):
+    """Збіг хоч одного: бан ставить власник свідомо, тут і сам IP рахується."""
+    pairs = [(k, v) for k, v in (("ip", ip), ("device", device),
+                                 ("email", db.email_key(email or ""))) if v]
+    if not pairs:
+        return False
+    with db.connect() as conn:
+        return any(conn.execute("SELECT 1 FROM bans WHERE kind=%s AND value=%s",
+                                p).fetchone() for p in pairs)
+
+
+def blocked(ip, device, email=""):
+    """Чи закривати реєстрацію. Бан сильніший за дозвіл адреси; дозволена
+    адреса знімає лише заслон «той самий IP і пристрій»."""
+    if banned(ip, device, email):
+        return True
     if allowed(ip):
         return None
     return twin(ip, device)

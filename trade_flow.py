@@ -36,6 +36,7 @@ from botlang import t
 from config import SITE_URL
 
 KYIV = ZoneInfo("Europe/Kyiv")
+SHOT_MAX = 8 * 1024 * 1024    # скрін із Телеграма — та сама межа, що й із сайту
 
 # Скільки варіантів показуємо кнопками. Більше — і клавіатура займає
 # півекрана, а хвіст усе одно ніхто не читає: своє значення швидше
@@ -67,13 +68,13 @@ def mode_kb(lang):
 def paid_out(user, chat_id):
     """Безкоштовні угоди скінчились — сказати про це й далі не йти.
 
-    Питаємо на вході в сценарій, коли угоду розібрали з тексту, і ще раз
-    перед самим записом. Перші — щоб людина не заповнювала десяток полів
-    заради відмови; останній обов'язковий: чернетка живе в базі й могла
-    початись ще до того, як безкоштовне скінчилось.
+    Питаємо на вході в сценарій, коли угоду розібрали з тексту: щоб людина
+    не заповнювала десяток полів заради відмови. Саму межу тримає не це, а
+    take_trade перед записом — чернетка живе в базі й могла початись ще до
+    того, як безкоштовне скінчилось.
     """
     # Питаємо базу, а не рядок під рукою: чернетка могла пролежати добу,
-    # і за цей час людина дописала свої тридцять з сайту.
+    # і за цей час людина дописала свої двадцять з сайту.
     ok, _ = billing.can_add_trade(user["id"])
     if ok:
         return False
@@ -453,9 +454,12 @@ def on_photo(user, chat_id, photos):
         print("скрін не забрався:", ex)
         tg_api.send_message(chat_id, t(lang, "shotFailed"))
         return True
-    ext = (path.rsplit(".", 1)[-1] or "jpg").lower()
-    if ext not in ("jpg", "jpeg", "png", "webp"):
-        ext = "jpg"
+    # Розширення — з байтів, а не з імені, яке прислав Телеграм; заразом
+    # це відсіює все, що картинкою не є.
+    ext = filestore.kind(raw)
+    if not ext or len(raw) > SHOT_MAX:
+        tg_api.send_message(chat_id, t(lang, "shotFailed"))
+        return True
     name = "%s_%d.%s" % (trade.get("id") or _new_id(), int(time.time() * 1000) % 100000000, ext)
     filestore.put(name, raw)
     trade.setdefault("screenshots", []).append({"tf": "", "file": name})
@@ -584,13 +588,22 @@ def _save(user, chat_id, draft):
         v = trade.get(f)
         t_[f] = float(v) if isinstance(v, (int, float)) else None
     t_["screenshots"] = trade.get("screenshots") or []
-    if paid_out(user, chat_id):
+    # Місце займаємо до запису — одним запитом з перевіркою, інакше угода з
+    # бота й угода з сайту в ту саму мить проходять межу вдвох.
+    ok, _ = billing.take_trade(user["id"])
+    if not ok:
         db.draft_clear(user["id"])
+        lang_ = botlang.of(user)
+        tg_api.send_message(chat_id, t(lang_, "subTrades"),
+                            keyboard=botlang.plans_kb(lang_))
         return
     # Емоцію в сценарії вже питали, тому вдогонку її не питаємо: статус
     # «na» саме про це — «питання не стоїть».
-    db.insert_trade(user["id"], t_, "na")
-    billing.spend_trade(user["id"])
+    try:
+        db.insert_trade(user["id"], t_, "na")
+    except Exception:
+        billing.release_trade(user["id"])
+        raise
     db.draft_clear(user["id"])
     # одразу пропонуємо посилання: ділитись угодою хочуть саме в цю мить
     tg_api.send_message(chat_id, t(lang, "saved") + "\n\n" + card(t_, lang)

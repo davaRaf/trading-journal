@@ -19,6 +19,7 @@ import hashlib
 import hmac
 import json
 import urllib.error
+import urllib.parse
 import urllib.request
 
 from config import (CREEM_API, CREEM_API_KEY, CREEM_PRODUCTS, CREEM_RETURN,
@@ -39,6 +40,21 @@ def product(price_set, plan):
     return (CREEM_PRODUCTS.get(price_set or "std") or {}).get(plan, "")
 
 
+def _say(ex):
+    """Помилку від Creem — словами, а не «HTTP Error 400: Bad Request».
+
+    У відмові завжди лежить тіло з причиною («немає такої знижки», «товар
+    не той»), і без нього в логу стоїть голий код, за яким не зрозуміти
+    нічого. Читаємо тіло один раз і чіпляємо до тексту: далі воно піде в
+    лог поруч із запитом, який упав.
+    """
+    try:
+        txt = ex.read().decode("utf-8", "replace")[:400]
+    except Exception:
+        txt = ""
+    return "HTTP %s %s" % (ex.code, txt or ex.reason)
+
+
 def _post(path, body):
     req = urllib.request.Request(
         CREEM_API + path,
@@ -48,8 +64,11 @@ def _post(path, body):
                  "Accept": "application/json",
                  "User-Agent": UA},
         method="POST")
-    with urllib.request.urlopen(req, timeout=TIMEOUT) as r:
-        return json.load(r)
+    try:
+        with urllib.request.urlopen(req, timeout=TIMEOUT) as r:
+            return json.load(r)
+    except urllib.error.HTTPError as ex:
+        raise RuntimeError("POST %s: %s" % (path, _say(ex)))
 
 
 def checkout(user_id, plan, price_set="std", email="", return_url="", discount=""):
@@ -97,7 +116,14 @@ def verify(raw_body, signature):
         return False
     mine = hmac.new(CREEM_WEBHOOK_SECRET.encode("utf-8"),
                     raw_body, hashlib.sha256).hexdigest()
-    return hmac.compare_digest(mine, str(signature).strip())
+    try:
+        return hmac.compare_digest(mine, str(signature).strip())
+    except TypeError:
+        # compare_digest не порівнює рядки з не-ASCII і кидає TypeError.
+        # Підпис у Creem — шістнадцяткове число, тож усе інше їхнім бути
+        # не може. Але точка відкрита всьому світу: заголовок з кирилицею
+        # валив обробник трейсбеком і 502 замість чесних 400.
+        return False
 
 
 def who(obj):
@@ -208,3 +234,59 @@ def portal(customer_id):
     if not url:
         raise RuntimeError("Creem не дав посилання на кабінет: %r" % (res,))
     return url
+
+
+# ------------------------------------------------------- повернення з каси ----
+# Після оплати Creem відправляє людину назад і додає до адреси свої
+# опізнавачі й підпис. Порядок полів у підписі саме такий — вони
+# склеюються через «|» у тому ж порядку, в якому Creem їх перелічує,
+# а сіллю служить наш API-ключ. Міняти порядок не можна: підпис не зійдеться.
+RETURN_KEYS = ("request_id", "checkout_id", "order_id", "customer_id",
+               "subscription_id", "product_id")
+
+
+def return_signature(params):
+    """Порахувати підпис адреси повернення так, як його рахує Creem."""
+    parts = ["%s=%s" % (k, params[k]) for k in RETURN_KEYS if params.get(k)]
+    parts.append("salt=" + CREEM_API_KEY)
+    return hashlib.sha256("|".join(parts).encode("utf-8")).hexdigest()
+
+
+def verify_return(params):
+    """Чи справді ця адреса від Creem.
+
+    Підпис доводить одне: людину повернув Creem, а не хтось підставив
+    адресу руками. Він **не** доводить, що гроші дійшли — платіж міг
+    лишитись в обробці. Тому на самому підписі рішення не ухвалюємо:
+    далі питаємо в Creem, що з підпискою насправді.
+    """
+    got = str(params.get("signature") or "")
+    if not got or not CREEM_API_KEY:
+        return False
+    return hmac.compare_digest(got, return_signature(params))
+
+
+def _get(path):
+    req = urllib.request.Request(
+        CREEM_API + path,
+        headers={"x-api-key": CREEM_API_KEY,
+                 "Accept": "application/json",
+                 "User-Agent": UA})
+    try:
+        with urllib.request.urlopen(req, timeout=TIMEOUT) as r:
+            return json.load(r)
+    except urllib.error.HTTPError as ex:
+        raise RuntimeError("GET %s: %s" % (path, _say(ex)))
+
+
+def subscription(sub_id):
+    """Спитати Creem, що з підпискою зараз. Джерело правди — тут."""
+    sid = str(sub_id or "").strip()
+    if not sid:
+        raise ValueError("немає номера підписки")
+    return _get("/v1/subscriptions?subscription_id=" + urllib.parse.quote(sid))
+
+
+# Стани, за яких підписка справді працює. Решта — очікування, борг або
+# кінець; вмикати за ними не можна.
+LIVE_STATUSES = ("active", "trialing")

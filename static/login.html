@@ -1052,11 +1052,13 @@ const I18N = {
     errServer: "Сервер не відповідає", errGeneric: "Не вийшло — спробуй ще раз",
     errNeed: "Потрібні пошта і пароль від 6 символів",
     errTaken: "Така пошта вже зайнята",
+    errTempMail: "Одноразова пошта не підійде — потрібна постійна скринька",
     errIpTaken: "З цього пристрою вже заведено акаунт. Якщо ви це не ви — напишіть нам, розберемось.",
     errIpWrite: "Написати нам",
     errShort: "Пароль — від 6 символів", errMatch: "Паролі не збігаються",
     errToken: "Посилання застаріло або вже спрацювало",
-    errMany: "Забагато спроб — спробуй за %d с", errBad: "Невірна пошта або пароль",
+    errMany: "Забагато спроб — спробуй за %d с",
+    errManyMin: "Забагато спроб — спробуй за %d хв", errBad: "Невірна пошта або пароль",
     btnIn: "Увійти", btnUp: "Створити акаунт",
     altIn: 'Немає акаунта? <a href="#" data-goto="up">Створити</a>',
     altUp: 'Вже є акаунт? <a href="#" data-goto="in">Увійти</a>',
@@ -1112,11 +1114,13 @@ const I18N = {
     errServer: "Сервер не отвечает", errGeneric: "Не вышло — попробуй ещё раз",
     errNeed: "Нужны почта и пароль от 6 символов",
     errTaken: "Такая почта уже занята",
+    errTempMail: "Одноразовая почта не подойдёт — нужен постоянный ящик",
     errIpTaken: "С этого устройства аккаунт уже заведён. Если это не вы — напишите нам, разберёмся.",
     errIpWrite: "Написать нам",
     errShort: "Пароль — от 6 символов", errMatch: "Пароли не совпадают",
     errToken: "Ссылка устарела или уже сработала",
-    errMany: "Слишком много попыток — попробуй через %d с", errBad: "Неверная почта или пароль",
+    errMany: "Слишком много попыток — попробуй через %d с",
+    errManyMin: "Слишком много попыток — попробуй через %d мин", errBad: "Неверная почта или пароль",
     btnIn: "Войти", btnUp: "Создать аккаунт",
     altIn: 'Нет аккаунта? <a href="#" data-goto="up">Создать</a>',
     altUp: 'Уже есть аккаунт? <a href="#" data-goto="in">Войти</a>',
@@ -1172,11 +1176,13 @@ const I18N = {
     errServer: "Server isn't responding", errGeneric: "Didn't work — try again",
     errNeed: "An email and a password of 6+ characters are required",
     errTaken: "That email is already taken",
+    errTempMail: "A throwaway address won't do — please use a permanent mailbox",
     errIpTaken: "An account has already been created from this device. If that wasn't you, write to us and we'll sort it out.",
     errIpWrite: "Write to us",
     errShort: "Password must be 6+ characters", errMatch: "Passwords do not match",
     errToken: "That link has expired or was already used",
-    errMany: "Too many attempts — try again in %d s", errBad: "Wrong email or password",
+    errMany: "Too many attempts — try again in %d s",
+    errManyMin: "Too many attempts — try again in %d min", errBad: "Wrong email or password",
     btnIn: "Sign in", btnUp: "Create account",
     altIn: 'No account? <a href="#" data-goto="up">Create one</a>',
     altUp: 'Already have an account? <a href="#" data-goto="in">Sign in</a>',
@@ -1336,7 +1342,12 @@ fetch("/api/auth/providers").then(r => r.json()).then(j => {
 
 document.querySelectorAll(".soc").forEach(b => b.addEventListener("click", () => {
   const k = (b.dataset.svc || "").toLowerCase();
-  if (k === "google" || k === "discord") location.href = "/auth/" + k;
+  /* Відбиток передаємо тут же, в адресі: далі людина піде на чужий сайт і
+     повернеться звідти, і в тому запиті від нас лишаться самі куки —
+     сервер якраз перекладе відбиток у куку (див. DEV_COOKIE в app.py).
+     Без цього вхід через сервіс обходив заслон від других журналів. */
+  if (k === "google" || k === "discord")
+    location.href = "/auth/" + k + "?dev=" + encodeURIComponent(deviceMark());
 }));
 
 /* Повернулись із помилкою — кажемо словами, і мовою сторінки: раніше
@@ -1348,19 +1359,33 @@ function showUrlErr(){
   if (err === "oauth") showErr(T.errOauth);
   else if (err === "off") showErr(T.errOff);
   else if (err === "confirm") showErr(T.errConfirm);
+  /* Заслон від других журналів спрацював ще на боці сервісу входу: людина
+     повернулась ні з чим, і сказати про це можна тільки тут. Текст той
+     самий, що й при звичайній реєстрації, — з кнопкою «напишіть нам»:
+     сім'я за одним роутером має куди звернутись. */
+  else if (err === "ip_taken") showErrWrite(T.errIpTaken);
   /* Прийшли за посиланням із листа про пошту — кажемо, що прийнято. */
   if (q.get("ok") === "confirmed") showOk(T.okConfirmed);
 }
 
 /* Сервер надсилає код помилки, слова підбираємо тут. Невідомий код —
    показуємо, що прислав сервер, аби не мовчати. */
+/* Пауза за вперті спроби росте до півгодини й більше, а «через 1800 с»
+   ніхто в голові не ділить. Від двох хвилин кажемо хвилинами. */
+function waitText(sec){
+  if (sec == null) return "…";
+  return sec < 120 ? T.errMany.replace("%d", sec)
+                   : T.errManyMin.replace("%d", Math.ceil(sec / 60));
+}
+
 function errText(d){
   d = d || {};
   const map = {
     need_fields: T.errNeed, taken: T.errTaken, bad_login: T.errBad,
+    temp_mail: T.errTempMail,
     short: T.errShort, bad_token: T.errToken,
     no_user: T.fgNone, bad_email: T.fgBad, send_failed: T.fgFail,
-    too_many: T.errMany.replace("%d", d.wait != null ? d.wait : "…"),
+    too_many: waitText(d.wait),
     twofa_bad: T.tfBad, twofa_expired: T.tfExpired,
     mail_bad: T.mcBad, mail_expired: T.mcExpired,
   };

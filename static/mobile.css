@@ -47,7 +47,7 @@
      рахується: відступ сторінки й липка шапка таблиці новин. */
   :root{--tb-h:0px}
   .topbar{display:none}
-  body > .main, body > .tgn-col{margin-left:0!important;margin-top:0!important}
+  body > .main{margin-left:0!important;margin-top:0!important}
   .main{padding:14px 14px 24px}
 
   /* ---- шапка ---- */
@@ -155,8 +155,16 @@
   .mmenu-wrap .mmenu .mini, .mmenu-wrap .mmenu #themeBtn{font-size:13.5px; justify-content:flex-start; padding:10px 12px}
   .mmenu-wrap .mmenu .lab{display:block}
   /* свій профіль угорі шторки: підпис видно й у режимі «тільки значки» */
-  .mmenu-wrap .mmenu .side-me{width:auto; padding:0 0 14px; border-bottom:1px solid var(--line-soft)}
+  .mmenu-wrap .mmenu .side-me{width:auto; gap:8px; padding:0 0 14px; border-bottom:1px solid var(--line-soft)}
   .mmenu-wrap .mmenu .side-me-who{flex:1; justify-content:flex-start; min-height:52px; padding:6px 8px}
+  /* Значок налаштувань праворуч від плашки: з телефона інакше не видно, як
+     туди зайти, — плашка з ніком на налаштування не схожа. Вид той самий,
+     що в кнопки «закрити» вгорі шторки, щоб ряд не розсипався. */
+  .mmenu-wrap .mmenu .side-me-st{display:grid; place-items:center; flex:none;
+    width:40px; height:40px; padding:0; border:1px solid var(--line); border-radius:11px;
+    background:transparent; color:var(--dim); cursor:pointer}
+  .mmenu-wrap .mmenu .side-me-st:active{color:var(--text); background:var(--panel-2)}
+  .mmenu-wrap .mmenu .side-me-st:focus-visible{outline:2px solid var(--accent); outline-offset:1px}
   .mmenu-wrap .mmenu .side-me-t{display:flex}
   .mmenu-wrap .mmenu .side-me-t b{font-size:15px}
   .mmenu-wrap .mmenu .side-me-av{width:38px; height:38px}
@@ -175,6 +183,7 @@
     width:44px; height:44px; border-radius:13px; color:var(--dim);
     border:1px solid var(--line); background:var(--panel)}
   .mmenu .socs .soc .ic{width:22px; height:22px}
+  .mmenu .socs .soc.tg:active{color:#2aabee}
   .mmenu .socs .soc.ig:active{color:#e1568f}
   .mmenu .socs .soc.tt:active{color:#25f4ee}
   .mmenu .socs .soc.tg:active{color:#2aabee}
@@ -345,9 +354,13 @@
   .ovw .sum{flex-direction:column; align-items:flex-start; gap:8px; margin-bottom:14px}
   .ovw .sum .big{font-size:40px; margin-top:8px}
   .ovw .sum .when{font-size:16px; margin-bottom:0}
-  .ovw .sum .right{margin-left:0; text-align:left; display:flex; align-items:baseline; gap:10px;
-    flex-wrap:wrap; width:100%}
-  .ovw .sum .right .v{font-size:13.5px}
+  /* На телефоні картка йде стовпчиком, тож рядок із перемикачем стає
+     першим — там же, де він був у шапці, і читається по порядку: обрав
+     період — побачив число. Перемикач займає рядок, «поділитися» під ним. */
+  .ovw .sum .per{order:-1; margin-left:0; margin-bottom:4px; width:100%}
+  /* Дрібніший вигляд з картки тут не підходить: на телефоні в нього
+     ціляться пальцем, і кнопка має бути не нижчою за 44px. */
+  .ovw .sum .per button{padding:12px 6px; font-size:12.5px}
   .ovw .stats .st{padding:11px 12px 10px}
   .ovw .stats .st:nth-child(4n){border-right:1px solid var(--line-soft)}
   .ovw .stats .st:nth-child(2n){border-right:none}
@@ -356,8 +369,10 @@
   .ovw .stats .val{font-size:19px; margin-top:6px}
   .ovw .stats .lab{font-size:8.5px}
 
-  /* колонка-компаньйон стає звичайним блоком під графіком */
-  .ovw .rail{margin-top:14px}
+  /* колонка-компаньйон стає звичайним блоком під графіком.
+     На широкому екрані вона тримається верху (align-self:start), а тут
+     це вже стовпчик, і від start блок стискався до ширини крапок. */
+  .ovw .rail{margin-top:14px; align-self:stretch}
 
   /* помічник менший — і не перекриває останню картку: знизу лишено запас */
   .as-fab{width:46px !important; height:46px !important}

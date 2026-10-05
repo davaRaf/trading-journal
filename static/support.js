@@ -40,14 +40,20 @@ const CONTACTS = [
   {kind: "telegram", key: "suTelegram2", value: "@david_rafaelian",
    link: "https://t.me/david_rafaelian"},
 
-  /* Наш Telegram-канал — окремою групою перед соцмережами: там оновлення
-     журналу, і це головне місце, де про них пишемо (власник, 28.09.2026). */
-  {kind: "telegram", key: "suTgChannel", value: "@journalStatsAI",
-   link: "https://t.me/journalStatsAI", sep: "suChannel", cta: "suOpen"},
-
   /* Соцмережі йдуть окремою групою: це не підтримка, а «де нас читати».
      sep — підпис-роздільник перед рядком, cta — своя назва кнопки
      (у мережу не «пишуть», її відкривають). */
+  /* Канал з анонсами — свій розділ, не «мережі». Туди приходять не
+     почитати між справами, а дізнатись, що в журналі з'явилось нового,
+     тож і підпис над ним свій, і стоїть він вище. */
+  /* У рядку — справжня адреса запрошення, як у решти рядків стоїть
+     справжня пошта чи нік. Гарнішого ніка в каналу немає, а вигадувати
+     той, якого не існує, не можна: його скопіюють і не потраплять
+     нікуди. */
+  {kind: "telegram", key: "socTg", value: "t.me/+S6zavvDDHABkMDIy",
+   link: "https://t.me/+S6zavvDDHABkMDIy",
+   sep: "suNews", cta: "suOpen"},
+
   {kind: "instagram", key: "socIg", value: "@statsai_trading_journal",
    link: "https://www.instagram.com/statsai_trading_journal",
    sep: "suSocial", cta: "suOpen", nm: "Instagram"},
@@ -75,12 +81,13 @@ function row(c){
      назвою лишається посиланням mailto: — для тих, у кого поштова
      програма таки призначена. Рядок без посилання взагалі — кнопка
      «Скопіювати». */
+  const value = c.value;
   const act = isUrl(c.link)
     ? '<a class="btn su-act" href="' + esc(c.link) + '" target="_blank" rel="noopener">' + esc(T[c.cta] || T.suWrite) + "</a>"
-    : '<button type="button" class="btn su-act" data-su-copy="' + esc(c.value) + '">' + esc(T.suCopy) + "</button>";
+    : '<button type="button" class="btn su-act" data-su-copy="' + esc(value) + '">' + esc(T.suCopy) + "</button>";
   const val = c.kind === "mail"
-    ? '<a class="su-val" href="mailto:' + esc(c.value) + '">' + esc(c.value) + "</a>"
-    : '<i class="su-val">' + esc(c.value) + "</i>";
+    ? '<a class="su-val" href="mailto:' + esc(value) + '">' + esc(value) + "</a>"
+    : '<i class="su-val">' + esc(value) + "</i>";
   /* Назва рядка: у контактів вона перекладається, у соцмереж це власна
      назва сервісу — беремо nm як є. */
   const nm = c.nm || T[c.key] || c.key;

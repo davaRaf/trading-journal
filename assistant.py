@@ -99,13 +99,13 @@ def by_field(trades, field):
         raw = (t.get(field) or "").strip()
         if not raw:
             continue
-        # кілька емоцій в угоді — угода рахується в кожній, а не сочетанням
-        vals = [x.strip() for x in raw.split(",") if x.strip()] if field == "emotion" else [raw]
-        for v in vals:
-            k = tidy.key(v) or v
+        # кілька емоцій в угоді — угода рахується в кожній, а не сполученням
+        raws = [x.strip() for x in raw.split(",") if x.strip()] if field == "emotion" else [raw]
+        for one in raws:
+            k = tidy.key(one) or one
             groups.setdefault(k, []).append(t)
             spellings.setdefault(k, {})
-            spellings[k][v] = spellings[k].get(v, 0) + 1
+            spellings[k][one] = spellings[k].get(one, 0) + 1
 
     def name(k):
         seen = spellings[k]

@@ -44,14 +44,31 @@ class ShotError(ValueError):
         self.status = status
 
 
+def kind(raw):
+    """Що це насправді — за першими байтами. Повертає розширення ("png",
+    "jpg", "webp", "gif") або None, якщо на картинку не схоже.
+
+    Розширення беремо звідси, а не зі слова в data-URL і не з імені файла:
+    те й те пише клієнт. Під «image/png» могло їхати що завгодно, а назва
+    "opasnyy.php.jpg" — стара витівка з розрахунку на те, що сервер
+    подивиться на останні три букви й заспокоїться.
+    """
+    raw = raw or b""
+    if raw.startswith(b"\x89PNG\r\n\x1a\n"):
+        return "png"
+    if raw.startswith(b"\xff\xd8\xff"):                            # jpeg
+        return "jpg"
+    if raw[:6] in (b"GIF87a", b"GIF89a"):
+        return "gif"
+    if raw[:4] == b"RIFF" and raw[8:12] == b"WEBP":
+        return "webp"
+    return None
+
+
 def is_image(raw):
-    """Чи це справді картинка — за першими байтами, а не за словом у
-    data-URL: те слово пише клієнт, і під «image/png» могло їхати що
-    завгодно."""
-    return (raw.startswith(b"\x89PNG\r\n\x1a\n")
-            or raw.startswith(b"\xff\xd8\xff")                     # jpeg
-            or raw[:6] in (b"GIF87a", b"GIF89a")
-            or (raw[:4] == b"RIFF" and raw[8:12] == b"WEBP"))
+    """Чи це справді картинка. Обгортка над kind() — так її кличуть із
+    кількох місць."""
+    return kind(raw) is not None
 
 
 def init():

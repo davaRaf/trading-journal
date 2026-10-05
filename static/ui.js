@@ -504,6 +504,14 @@ const Panel = (function(){
    якщо прилетить одразу, відкриває файли. Буфер читаємо в момент тапу —
    браузер дає це лише всередині жесту, — а застосовуємо результат тільки
    якщо другого тапу не було. */
+/* Зажатий Ctrl+V — це десятки вставок підряд, і кожна летіла в наступну
+   порожню плашку скріна. Повтор від утримання клавіші гасимо тут, один раз
+   на весь журнал: браузер тоді не шле й саму подію paste. */
+document.addEventListener("keydown", e => {
+  if (e.repeat && (e.ctrlKey || e.metaKey) && (e.code === "KeyV" || e.key === "v" || e.key === "V"))
+    e.preventDefault();
+}, true);
+
 const ShotTap = (function(){
   const GAP = 320;
   let key = null, at = 0, timer = null, gen = 0;

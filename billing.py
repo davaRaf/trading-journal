@@ -13,7 +13,7 @@
 
 Правила (затверджені власником 22.09.2026):
 
-* безкоштовно 30 справжніх угод і **окремо** 30 прогонів бектесту;
+* безкоштовно 20 справжніх угод і **окремо** 20 прогонів бектесту;
 * ліміти несиметричні — скінчились прогони, закривається лише бектест;
   скінчились справжні угоди, закрито все, зокрема й бектест;
 * перенесення з Notion — 3 рази в перші 30 днів після реєстрації;
@@ -141,7 +141,7 @@ def import_days_left(u):
 def state(u):
     """Повна картина по людині — для бота, адмінки й точки /api/billing/state.
 
-    Залишки тут є, але людині їх не показуємо: лічильника «лишилось N із 30»
+    Залишки тут є, але людині їх не показуємо: лічильника «лишилось N із 20»
     в журналі немає ніде (рішення власника 22.09.2026), про вичерпання вона
     дізнається з відмови.
     """
@@ -177,28 +177,35 @@ def state(u):
 def free_terms(u):
     """Що дається без підписки — числами.
 
-    Це умови, а не лічильник: тут «дається 30», а не «лишилось 12». Різниця
+    Це умови, а не лічильник: тут «дається 20», а не «лишилось 12». Різниця
     принципова — залишок ми не показуємо ніде, а умови людина має бачити
     перед тим, як платити.
+
+    І це умови тарифу, а не особиста стеля цієї людини. У рядку вона буває
+    іншою: комусь піднімали руками, у когось лишилась із часів, коли
+    безкоштовних угод було тридцять. Але розділ відповідає на питання «що
+    входить у безкоштовне», і відповідь на нього одна для всіх — інакше
+    старі акаунти читали б у себе обіцянку, якої вже немає.
+
+    Рахує ліміт усе одно стеля з рядка людини (див. can_add_trade), а не
+    ці числа: підняту руками вигоду ніхто не забирає.
     """
     row = _user(u)
     if not row:
         return {}
     return {
-        "trades": _cap(row, "free_trades_cap", FREE_TRADES),
-        "bt": _cap(row, "free_bt_cap", FREE_BT),
-        "imports": _cap(row, "imports_cap", FREE_IMPORTS),
+        "trades": FREE_TRADES,
+        "bt": FREE_BT,
+        "imports": FREE_IMPORTS,
         "import_days": IMPORT_WINDOW_DAYS,
-        # У того, хто платить, у ai_cap стоїть стеля підписки — в умовах
-        # безкоштовного вона ні до чого, там завжди місячна порція.
-        "ai": FREE_AI if active(row) else _cap(row, "ai_cap", FREE_AI),
+        "ai": FREE_AI,
     }
 
 
 def public(u):
     """Те саме, але для браузера й бота.
 
-    Лічильника «лишилось N із 30» немає ніде (рішення власника
+    Лічильника «лишилось N із 20» немає ніде (рішення власника
     22.09.2026), тому залишки угод, прогонів і перенесень назовні не
     віддаємо зовсім — про вичерпання людина дізнається з відмови. Звернення
     до моделі — виняток: відмова помічника інакше виглядала б поломкою.
@@ -251,6 +258,29 @@ def promo_pending(u):
     return code
 
 
+def promo_discount(u, plan):
+    """Код знижки для каси — або '', якщо знижка тут не до речі.
+
+    Промокод живе тільки у звичайному наборі цін. Той, хто вже на знижених
+    (ранні, FX LAB), купує в Creem **інший товар**, і знижка до нього не
+    кріпиться: каса відповідає «Discount cannot be applied to the product»,
+    а людина бачить «не вдалося відкрити оплату».
+
+    Набір міг змінитись і після того, як код прийняли: redeem не дає ввести
+    його «ранньому», але ранніми людей позначають разово — і той, хто встиг
+    ввести код до позначки, опинявся саме в цій дірі.
+
+    Показ цін це вже враховує (prices), тож і каса має зважати на те саме.
+    """
+    row = _user(u) if u is not None else None
+    code = promo_pending(row)
+    if not code:
+        return ""
+    if ((row or {}).get("price_plan") or "std") != "std":
+        return ""
+    return (PROMOS[code]["creem"] or {}).get(plan, "")
+
+
 def promo_paid(uid):
     """Оплата пройшла — код використано, вдруге не прийметься."""
     with db.connect() as conn:
@@ -290,24 +320,6 @@ def can_import(u):
         return False, IMPORT_WINDOW
     if _int(row, "imports_used") >= _cap(row, "imports_cap", FREE_IMPORTS):
         return False, IMPORTS_LIMIT
-    return True, ""
-
-
-def can_autosync(u):
-    """Нічне оновлення з Notion.
-
-    Лічильник перенесень воно не чіпає: це та сама база, яку людина вже
-    підключила руками, і рахувати щодобовий захід як одне з трьох
-    перенесень було б обманом. Правило простіше: або підписка, або ще не
-    минули перші 30 днів.
-    """
-    row = _user(u)
-    if not row:
-        return False, NO_USER
-    if active(row):
-        return True, ""
-    if import_days_left(row) <= 0:
-        return False, IMPORT_WINDOW
     return True, ""
 
 
@@ -373,6 +385,9 @@ def spend_trade(u, kind=""):
 
     У того, в кого підписка, не рахуємо нічого: інакше людина, яка платила
     півроку, після закінчення підписки опинилась би одразу за лімітом.
+
+    Для нових місць беріть take_trade: він питає дозвіл і забирає одиницю
+    одним запитом, і його не обійти пачкою одночасних запитів.
     """
     row = _user(u)
     if not row or active(row):
@@ -380,11 +395,87 @@ def spend_trade(u, kind=""):
     _bump(row["id"], "free_bt_used" if kind == "bt" else "free_trades_used")
 
 
+def take_trade(u, kind=""):
+    """Зайняти безкоштовну угоду: дозвіл і списання одним запитом.
+
+    Навіщо разом. can_add_trade і spend_trade — два походи в базу, а між
+    ними встигає багато: сервер відповідає в 64 потоки, і пачка одночасних
+    запитів проходила перевірку всі разом, поки лічильник ще нульовий.
+    Двадцятка обходилась пачкою на сотню угод — кожен запит бачив те саме
+    «витрачено 0». Тепер межу стереже сама база: умова стоїть у тому ж
+    UPDATE, що й +1, і другий запит уже бачить збільшений лічильник.
+
+    Повертає (можна, причина) — той самий вигляд, що й can_add_trade.
+    """
+    row = _user(u)
+    if not row:
+        return False, NO_USER
+    if active(row):
+        return True, ""
+    col = "free_bt_used" if kind == "bt" else "free_trades_used"
+    # Справжні угоди стережуть і бектест: скінчились вони — закрито все.
+    where = "free_trades_used < free_trades_cap"
+    if kind == "bt":
+        where += " AND free_bt_used < free_bt_cap"
+    with db.connect() as conn:
+        got = conn.execute(
+            "UPDATE users SET {0} = {0} + 1 WHERE id=%s AND {1} "
+            "RETURNING id".format(col, where), (row["id"],)).fetchone()
+        conn.commit()
+    if got:
+        return True, ""
+    # Не зайняли — кажемо, об що саме вперлись. Читаємо наново: рядок під
+    # рукою застарів рівно тієї миті, коли нас обігнав сусідній запит.
+    return False, can_add_trade(row["id"], kind)[1] or TRADES_LIMIT
+
+
+def release_trade(u, kind=""):
+    """Повернути зайняту одиницю: угоду зайняли, а записати не вдалось."""
+    row = _user(u)
+    if not row or active(row):
+        return
+    col = "free_bt_used" if kind == "bt" else "free_trades_used"
+    with db.connect() as conn:
+        conn.execute("UPDATE users SET {0} = {0} - 1 "
+                     "WHERE id=%s AND {0} > 0".format(col), (row["id"],))
+        conn.commit()
+
+
 def spend_import(u):
     row = _user(u)
     if not row or active(row):
         return
     _bump(row["id"], "imports_used")
+
+
+def take_import(u):
+    """Зайняти перенесення — теж одним запитом, з тієї ж причини, що й
+    угоди: вікно й лічильник перевіряються разом зі списанням."""
+    row = _user(u)
+    if not row:
+        return False, NO_USER
+    if active(row):
+        return True, ""
+    if import_days_left(row) <= 0:
+        return False, IMPORT_WINDOW
+    with db.connect() as conn:
+        got = conn.execute(
+            "UPDATE users SET imports_used = imports_used + 1 "
+            "WHERE id=%s AND imports_used < imports_cap RETURNING id",
+            (row["id"],)).fetchone()
+        conn.commit()
+    return (True, "") if got else (False, IMPORTS_LIMIT)
+
+
+def release_import(u):
+    """Повернути зайняте перенесення: у файлі не виявилось жодної угоди."""
+    row = _user(u)
+    if not row or active(row):
+        return
+    with db.connect() as conn:
+        conn.execute("UPDATE users SET imports_used = imports_used - 1 "
+                     "WHERE id=%s AND imports_used > 0", (row["id"],))
+        conn.commit()
 
 
 def spend_ai(u):
@@ -408,6 +499,37 @@ def spend_ai(u):
             "                    THEN now() + %s * interval '1 day' ELSE ai_reset_at END"
             " WHERE id=%s", (AI_WINDOW_DAYS, row["id"]))
         conn.commit()
+
+
+def take_ai(u):
+    """Зайняти звернення до моделі: дозвіл і списання одним запитом.
+
+    Причина та сама, що в take_trade, але ціна помилки більша: кожне
+    звернення — це гроші за відповідь моделі. Пачкою одночасних питань
+    порція на місяць витрачалась за раз, і платили за це ми.
+
+    Стеля рахується тут, а не в базі: вона залежить від підписки (PAID_AI)
+    і від того, що адмін міг дати руками. Умова в UPDATE звіряє лічильник
+    саме з нею — і з тим самим зсувом вікна, що й spend_ai.
+    """
+    row = _user(u)
+    if not row:
+        return False, NO_USER
+    cap = ai_cap(row)
+    with db.connect() as conn:
+        got = conn.execute(
+            "UPDATE users SET "
+            " ai_used = CASE WHEN ai_reset_at IS NULL OR ai_reset_at <= now()"
+            "                THEN 1 ELSE ai_used + 1 END,"
+            " ai_reset_at = CASE WHEN ai_reset_at IS NULL OR ai_reset_at <= now()"
+            "                    THEN now() + %s * interval '1 day' ELSE ai_reset_at END"
+            " WHERE id=%s AND (ai_reset_at IS NULL OR ai_reset_at <= now()"
+            "                  OR ai_used < %s) RETURNING id",
+            (AI_WINDOW_DAYS, row["id"], cap)).fetchone()
+        conn.commit()
+    if got:
+        return True, ""
+    return False, (AI_CAP if active(row) else AI_LIMIT)
 
 
 # ------------------------------------------------------- підписка руками ----

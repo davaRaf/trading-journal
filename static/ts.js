@@ -914,6 +914,15 @@ function tabReal(){
 }
 
 /* ---------- вкладка «Notion і нотатки» ---------- */
+/* Посилання на сторінку Notion людина вставляє руками, а звідси воно йде
+   в href. Екранування тут замало: «javascript:...» лишається робочим
+   посиланням і спрацьовує від самого кліку. Тому пускаємо тільки http(s)
+   і свій шлях, решта лишається текстом без посилання. */
+function tsHref(u){
+  const v = String(u == null ? "" : u).trim();
+  return (/^https?:\/\//i.test(v) || /^\/[^\/]/.test(v)) ? esc(v) : "";
+}
+
 /* Звідки підтягнуто: список сторінок, з якими працюємо далі. Сюди ж
    додають наступну — контекст на одній сторінці, моделі входу на іншій.
    Перечитуємо завжди всі разом: інакше модель бачила б систему по шматку. */
@@ -924,7 +933,7 @@ function srcList(){
     : (n.url ? [{url: n.url, title: ""}] : []);
   let h = "";
   if (pages.length) h += '<div class="ts-srcs">';
-  h += pages.map((pg, i) => '<span class="ts-src"><a href="' + esc(pg.url)
+  h += pages.map((pg, i) => '<span class="ts-src"><a href="' + tsHref(pg.url)
       + '" target="_blank" rel="noopener">' + esc(pg.title || pg.url) + "</a>"
       + (pages.length > 1 && !busy
           ? '<button class="rm" title="' + esc(d.srcDrop)
@@ -1018,7 +1027,13 @@ function vFull(){
                  ["real", d.tabReal], ["extra", d.tabExtra]];
   /* Біля назви розділу нічого не пишемо: звідки взялась ТС і коли її чіпали
      востаннє — службова дрібниця, а не заголовок. Головна дія одна —
-     «Редагувати»; опитування й видалення пішли в меню «⋯». */
+     «Редагувати»; видалення пішло в меню «⋯».
+
+     Опитування в цьому меню немає: ТС уже зібрана, а пройти його наново
+     означає переписати її з нуля — людина тисне «Пройти опитування», щоб
+     щось підправити, і втрачає все записане. Хто справді хоче почати
+     спочатку, спершу видаляє ТС — і опитування чекає на порожньому
+     екрані. */
   let h = '<div class="tsv' + (editing ? " editing" : "") + '">';
   h += '<div class="vhead tsv-head"><h1>' + esc(d.title) + "</h1>"
     + '<span class="right">'
@@ -1033,7 +1048,6 @@ function vFull(){
           ? '<div class="tsv-menu" role="menu">'
             + '<button type="button" role="menuitem" class="m-share" onclick="__ts.share()">' + esc(d.btnShare) + "</button>"
             + '<button type="button" role="menuitem" onclick="__ts.srcOpen()">' + esc(d.btnNotion) + "</button>"
-            + '<button type="button" role="menuitem" onclick="__ts.ask()">' + esc(d.btnAsk) + "</button>"
             + '<button type="button" role="menuitem" class="danger" onclick="__ts.wipe()">' + esc(d.btnDelete) + "</button>"
             + "</div>"
           : "")
@@ -1281,6 +1295,8 @@ document.addEventListener("keydown", e => {
 
 document.addEventListener("paste", e => {
   if (S.view !== "ts" || !TS) return;
+  /* відкрита форма угоди сама бере скрін — сюди його не дублюємо */
+  if (e.defaultPrevented || document.getElementById("shotsEdit")) return;
   if (e.target.closest && e.target.closest("input,textarea")) return;
   const files = (e.clipboardData && e.clipboardData.files) || [];
   if (!files.length) return;

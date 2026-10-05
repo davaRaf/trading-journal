@@ -8,6 +8,7 @@ import base64
 import datetime
 import gzip
 import hmac
+import html as _html
 import json
 import os
 import re
@@ -26,6 +27,7 @@ import auth
 import backup
 import billing
 import creem
+import crypto_pay
 import http.cookies
 import config
 import db
@@ -38,10 +40,10 @@ from psycopg.types.json import Jsonb
 
 import notion_import as notion
 import notion_public as npub
-import notion_sync
 import authmail
 import oauth
 import ratelimit
+import seclog
 import accounts_store
 import bt_journals_store
 import day_store
@@ -74,6 +76,37 @@ def new_id():
     with _id_lock:
         _id_counter += 1
         return "t" + str(_id_counter)
+
+
+# Що сторінці дозволено вантажити. Другий рубіж проти XSS: навіть якщо
+# чужий текст колись просочиться в HTML, підвантажити скрипт зі свого
+# домену йому не дадуть, а <base> і <object> закриті зовсім.
+#
+# 'unsafe-inline' у script-src поки обов'язковий: сторінки журналу тримають
+# обробники прямо в розмітці (onclick=...) і вбудовані <script>. Прибрати
+# його можна тільки разом із ними — окрема велика робота.
+#
+# Шрифти йдуть із Google Fonts, картинки бувають data: (аватарка в формі)
+# і blob: (щойно вибраний файл) — тому вони в списку.
+CSP = "; ".join([
+    "default-src 'self'",
+    "base-uri 'self'",
+    "object-src 'none'",
+    "frame-ancestors 'self'",
+    "form-action 'self'",
+    "img-src 'self' data: blob:",
+    "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
+    "font-src 'self' https://fonts.gstatic.com data:",
+    "script-src 'self' 'unsafe-inline'",
+    "connect-src 'self'",
+    "frame-src 'self'",
+])
+
+
+def html_escape(x):
+    """Текст людини всередину HTML. Разом із лапками: підставляємо і в
+    тіло сторінки, і в content="..." мета-тегів."""
+    return _html.escape("" if x is None else str(x), quote=True)
 
 
 DATAURL_RE = re.compile(r"^data:image/(png|jpeg|jpg|webp|gif);base64,(.+)$", re.S)
@@ -114,14 +147,15 @@ def save_screenshots(trade, uid, old=None):
             m = DATAURL_RE.match(s["data"])
             if not m:
                 continue
-            ext = m.group(1).replace("jpeg", "jpg")
             try:
                 raw = base64.b64decode(m.group(2))
             except Exception:
                 continue
             if len(raw) > SHOT_MAX:
                 raise filestore.ShotError("завеликий скріншот", "too_big", 413)
-            if not filestore.is_image(raw):
+            # Розширення — з самих байтів: слово в data-URL пише клієнт.
+            ext = filestore.kind(raw)
+            if not ext:
                 raise filestore.ShotError("файл не схожий на картинку", "bad_image")
             name = "%s_%d_%s.%s" % (trade["id"], int(time.time() * 1000) % 100000000 + i, tf, ext)
             ready.append((s, name, raw))
@@ -149,6 +183,22 @@ def keep_file(name, raw):
             f.write(raw)
     except OSError:
         pass
+
+
+def under(base, name):
+    """Повний шлях до файла всередині base — або None, якщо назва виводить
+    назовні.
+
+    Одного os.path.join мало: назва, що починається з кореня ("/etc/passwd",
+    "C:/..."), не додається до base, а заміняє його цілком — і запит до
+    папки зі стилями діставав будь-який файл на сервері. Тому питаємо
+    систему, де шлях опинився насправді, і звіряємо з коренем."""
+    try:
+        full = os.path.realpath(os.path.join(base, name))
+    except (OSError, ValueError):
+        return None
+    root = os.path.realpath(base)
+    return full if full == root or full.startswith(root + os.sep) else None
 
 
 def shot_path(name):
@@ -338,18 +388,18 @@ def share_og(rec, sid, base):
     # для тижня й місяця сторінка малює свій календар — він і йде в превью;
     # для дня й угоди беремо скрін самої угоди
     shot = d.get("og") or share_preview_shot(rec)
-    esc_ = lambda x: str(x).replace("&", "&amp;").replace('"', "&quot;").replace("<", "&lt;")
+    esc_ = html_escape
     tags = [
         '<meta property="og:type" content="website">',
         '<meta property="og:site_name" content="StatsAI">',
         '<meta property="og:title" content="%s">' % esc_(title),
         '<meta property="og:description" content="%s">' % esc_(desc),
-        '<meta property="og:url" content="%s/s/%s">' % (base, sid),
+        '<meta property="og:url" content="%s/s/%s">' % (esc_(base), sid),
         '<meta name="twitter:title" content="%s">' % esc_(title),
         '<meta name="twitter:description" content="%s">' % esc_(desc),
     ]
     if shot:
-        img = "%s/api/share/%s/shot/%s" % (base, sid, shot)
+        img = esc_("%s/api/share/%s/shot/%s" % (base, sid, shot))
         tags += ['<meta property="og:image" content="%s">' % img,
                  '<meta name="twitter:image" content="%s">' % img,
                  '<meta name="twitter:card" content="summary_large_image">']
@@ -578,14 +628,21 @@ def _prefs_init():
 # ---------------------------------------------------------------------------
 REF_COOKIE = "ref"
 REF_TTL = 30 * 24 * 3600
-PARTNER_TITLES = {"blackswan": "Black Swan"}      # як партнера звуть у прев'ю
+# Відбиток пристрою для входу через Google чи Discord. Звичайна реєстрація
+# шле його в тілі запиту, а тут дорога йде через чужий сайт і назад, і
+# нічого, крім кук, не переживає цю подорож. Живе хвилини — рівно щоб
+# дійти до сервісу й повернутись.
+DEV_COOKIE = "devm"
+DEV_TTL = 15 * 60
+PARTNER_TITLES = {"blackswan": "Black Swan",      # як партнера звуть у прев'ю
+                  "fxlab": "FX LAB"}
 # Коротке посилання: statsai.xyz/bs замість statsai.xyz/?ref=blackswan.
 # Довге теж лишається робочим — його вже роздали.
 # ig і tt лишаємо як синоніми соцмереж: якщо коротке посилання вже кудись
 # вставили, воно рахується туди ж, а не пропадає
 PARTNER_ALIASES = config.PARTNER_ALIASES
 # Як мітку звуть у звіті
-REF_TITLES = {"blackswan": "Black Swan", "social": "Соцсети"}
+REF_TITLES = {"blackswan": "Black Swan", "fxlab": "FX LAB", "social": "Соцсети"}
 
 
 def ref_all():
@@ -647,7 +704,7 @@ def _emo_init2():
                 return
             with db.connect() as conn:
                 rows = conn.execute('SELECT id, "emotion", emotion_raw FROM trades '
-                                    'WHERE emotion_raw IS NOT NULL AND "emotion" <> ''').fetchall()
+                                    'WHERE emotion_raw IS NOT NULL AND "emotion" <> \'\'').fetchall()
             n = 0
             for r in rows:
                 parts = [p.strip() for p in r["emotion"].split(",") if p.strip()]
@@ -806,77 +863,82 @@ def delete_user_fully(uid):
     return len(names)
 
 
-def _billing_block(u, e, row, dt):
+def _billing_block(u):
     """Підписка в картці адмінки: що видно і чим це можна поправити.
 
     Тут, на відміну від журналу, лічильники показуємо — адмін мусить
     бачити, скільки людина витратила й де її межа. Заборона на «лишилось
-    N із 30» стосується самої людини, а не цієї сторінки.
+    N із 20» стосується самої людини, а не цієї сторінки.
     """
+    e = admin_page.e
+    dt = lambda v: v.strftime("%d.%m.%Y") if hasattr(v, "strftime") else (str(v)[:10] if v else "—")
     st = billing.state(u["id"])
     nb = antifraud.neighbours(u["id"])
     n = lambda k, d=0: (u[k] if u[k] is not None else d)
     pair = lambda used, cap, d: "%s из %s" % (n(used), n(cap, d))
+    kv = lambda k, v: "<span>%s</span><span>%s</span>" % (e(k), v)
     who = lambda rows: ", ".join(
-        "<a href='/admin/u/%s'>%s</a>" % (e(r["nickname"]), e(r["nickname"]))
+        '<a href="/admin/u/%s" style="color:var(--acc)">%s</a>' % (e(r["nickname"]), e(r["nickname"]))
         for r in rows) or "—"
-    nick_js = json.dumps(u["nickname"], ensure_ascii=False)
-    inp = ("padding:7px;border-radius:8px;border:1px solid #333;"
-           "background:#111;color:#eee;width:74px")
-    btn = ("padding:8px 12px;border-radius:8px;border:1px solid #333;"
-           "background:#161618;color:#eee;cursor:pointer")
+    # Нік їде всередину <script>. json.dumps не чіпає "</", а саме ним
+    # рядок закрив би тег і все після нього стало б розміткою. Ніком
+    # такого не зробити (NICK_RE не пускає ні "<", ні "/"), але
+    # підстраховка тут коштує рядок, а перевірка живе в іншому файлі.
+    nick_js = json.dumps(u["nickname"], ensure_ascii=False).replace("</", "<\\/")
+    inp = ('padding:8px 10px;border-radius:9px;border:1px solid var(--line);'
+           'background:var(--card);color:var(--text);font:inherit;width:82px')
     return (
-        "<h2>Подписка</h2><table>"
-        + row("План", ("Special · с %s (выдан вручную)" % dt(u.get("special_since")))
-              if st["plan"] == billing.LIFE
-              else (("%s · до %s" % (st["plan"], dt(u["paid_until"])))
-                    if st["active"] else "бесплатный"))
-        + row("Сделки", pair("free_trades_used", "free_trades_cap", config.FREE_TRADES))
-        + row("Бэктест", pair("free_bt_used", "free_bt_cap", config.FREE_BT))
-        + row("Переносы", pair("imports_used", "imports_cap", config.FREE_IMPORTS))
-        + row("Обращения к модели", "%s из %s%s" % (
+        '<div class="grid two" style="margin-top:12px"><div class=card><h2>Подписка</h2><div class=kv>'
+        + kv("План", e(("Special · с %s (выдан вручную)" % dt(u["special_since"]))
+                       if st["plan"] == billing.LIFE
+                       else (("%s · до %s" % (st["plan"], dt(u["paid_until"])))
+                             if st["active"] else "бесплатный")))
+        + kv("Сделки", e(pair("free_trades_used", "free_trades_cap", config.FREE_TRADES)))
+        + kv("Бэктест", e(pair("free_bt_used", "free_bt_cap", config.FREE_BT)))
+        + kv("Переносы", e(pair("imports_used", "imports_cap", config.FREE_IMPORTS)))
+        + kv("Обращения к модели", e("%s из %s%s" % (
             billing.ai_used(u), billing.ai_cap(u),
-            (" · окно до " + dt(u["ai_reset_at"])) if u["ai_reset_at"] else ""))
-        + row("Набор цен", {"early": "ранние (скидка навсегда)",
-                            "fxlab": "FX LAB (по промокоду)"}.get(
-                                u["price_plan"] or "std", "обычный"))
-        + row("Промокод", "—" if not u.get("promo_code") else
-              "%s · %s" % (e(u["promo_code"]), ("оплачен " + dt(u["promo_used_at"]))
-                           if u.get("promo_used_at") else "введён, ждёт оплаты"))
-        + row("Своя цена", ("%.2f EUR" % (u["own_price_cents"] / 100.0))
-              if u["own_price_cents"] else "—")
-        + row("Заметка", u["billing_note"] or "—")
-        + "</table>"
-        + "<h2>Откуда пришёл</h2><table>"
-        + row("IP регистрации", (u["signup_ip"] or "—")
-              + (" · разрешён вручную" if nb["allowed"] else ""))
-        + row("Отпечаток устройства", (u["signup_device"] or "")[:12] or "—")
-        + row("Тот же IP", who(nb["ip"]))
-        + row("То же устройство", who(nb["device"]))
-        + row("Та же база Notion", who(nb["notion"]))
-        + "</table>"
-        + "<p><small>Совпал только IP — это ещё ничего не значит: у мобильных "
-          "операторов один выход на тысячи людей. Совпало устройство — почти "
-          "наверняка тот же человек.</small></p>"
-        + "<h2>Поправить</h2>"
-        + "<p><input id=bdays type=number min=1 placeholder='30' style=\"%s\"> "
-          "<button id=bgrant style=\"%s\">Дать подписку на N дней</button> "
-          "<button id=blife style=\"%s\">Сделать Special</button> "
-          "<button id=brevoke style=\"%s\">Снять подписку</button></p>" % (
-              inp, btn, btn, btn)
-        + "<p><small>Бонус к бесплатным лимитам (прибавляем к границе, "
-          "потраченное не трогаем):</small><br>"
-          "сделки <input id=btr type=number placeholder='0' style=\"%s\"> "
-          "бэктест <input id=bbt type=number placeholder='0' style=\"%s\"> "
-          "переносы <input id=bim type=number placeholder='0' style=\"%s\"> "
-          "обращения <input id=bai type=number placeholder='0' style=\"%s\"> "
-          "<button id=bbonus style=\"%s\">Добавить</button></p>" % (inp, inp, inp, inp, btn)
-        + "<p><button id=bearly style=\"%s\">Цены как ранним</button> "
-          "<button id=bstd style=\"%s\">Обычные цены</button> "
-          "<button id=ballow style=\"%s\">%s</button></p>" % (
-              btn, btn, btn,
+            (" · окно до " + dt(u["ai_reset_at"])) if u["ai_reset_at"] else "")))
+        + kv("Набор цен", e({"early": "ранние (скидка навсегда)",
+                             "fxlab": "FX LAB (по промокоду)"}.get(u["price_plan"] or "std", "обычный")))
+        + kv("Промокод", "—" if not u["promo_code"] else
+             e("%s · %s" % (u["promo_code"], ("оплачен " + dt(u["promo_used_at"]))
+                            if u["promo_used_at"] else "введён, ждёт оплаты")))
+        + kv("Своя цена", e("%.2f EUR" % (u["own_price_cents"] / 100.0)) if u["own_price_cents"] else "—")
+        + kv("Заметка", e(u["billing_note"] or "—"))
+        + "</div></div>"
+        + "<div class=card><h2>Откуда пришёл</h2><div class=kv>"
+        + kv("IP регистрации", e((u["signup_ip"] or "—") + (" · разрешён вручную" if nb["allowed"] else "")))
+        + kv("Отпечаток устройства", e((u["signup_device"] or "")[:12] or "—"))
+        + kv("Тот же IP", who(nb["ip"]))
+        + kv("То же устройство", who(nb["device"]))
+        + kv("Та же база Notion", who(nb["notion"]))
+        + '</div><p class=mute style="margin:10px 0 0;font-size:12px">Совпал только IP — это ещё ничего '
+          'не значит: у мобильных операторов один выход на тысячи людей. Совпало устройство — почти '
+          "наверняка тот же человек.</p></div></div>"
+        + '<div class=card style="margin-top:12px"><h2>Поправить подписку</h2>'
+          '<div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">'
+          '<input id=bdays type=number min=1 placeholder="30" style="%s">'
+          '<button id=bgrant class=btn>Дать подписку на N дней</button>'
+          '<button class="btn bplan" data-d=30 data-p=month>Месяц</button>'
+          '<button class="btn bplan" data-d=90 data-p=quarter>Квартал</button>'
+          '<button class="btn bplan" data-d=365 data-p=year>Год</button>'
+          '<button id=blife class=btn>Сделать Special</button>'
+          '<button id=brevoke class=btn>Снять подписку</button></div>' % inp
+        + '<p class=mute style="margin:14px 0 8px;font-size:12px">Бонус к бесплатным лимитам '
+          "(прибавляем к границе, потраченное не трогаем):</p>"
+          '<div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">'
+          '<span class=mute>сделки</span><input id=btr type=number placeholder="0" style="%s">'
+          '<span class=mute>бэктест</span><input id=bbt type=number placeholder="0" style="%s">'
+          '<span class=mute>переносы</span><input id=bim type=number placeholder="0" style="%s">'
+          '<span class=mute>обращения</span><input id=bai type=number placeholder="0" style="%s">'
+          '<button id=bbonus class=btn>Добавить</button></div>' % (inp, inp, inp, inp)
+        + '<div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:14px">'
+          '<button id=bearly class=btn>Цены как ранним</button>'
+          '<button id=bstd class=btn>Обычные цены</button>'
+          '<button id=ballow class=btn>%s</button></div>'
+          '<p id=bmsg class=mute></p></div>' % (
               "Убрать разрешение IP" if nb["allowed"] else "Разрешить этот IP")
-        + "<p id=bmsg></p>"
         + "<script>const NICK=%s;"
           "async function bill(act,data){bmsg.textContent='…';"
           "const r=await fetch('/api/admin/billing/'+act,{method:'POST',"
@@ -886,6 +948,9 @@ def _billing_block(u, e, row, dt):
           "bmsg.textContent=r.ok?'готово':(d.error||('ошибка '+r.status));"
           "if(r.ok)setTimeout(()=>location.reload(),700);}"
           "bgrant.onclick=()=>bill('grant',{days:+bdays.value||0});"
+          "document.querySelectorAll('.bplan').forEach(b=>b.onclick=()=>{"
+          "if(confirm('Дать подписку «'+b.textContent+'»? Дни прибавятся к уже оплаченным.'))"
+          "bill('grant',{days:+b.dataset.d,plan:b.dataset.p});});"
           "blife.onclick=()=>{if(confirm('Сделать Special? Журнал откроется целиком, без срока и оплаты.'))"
           "bill('grant',{life:1});};"
           "brevoke.onclick=()=>{if(confirm('Снять подписку? Оплаченные дни пропадут.'))"
@@ -896,6 +961,36 @@ def _billing_block(u, e, row, dt):
           "bstd.onclick=()=>bill('price',{price_plan:'std'});"
           "ballow.onclick=()=>bill('allow-ip',{off:%s});</script>" % (
               nick_js, "true" if nb["allowed"] else "false"))
+
+
+def _ts_restore_block(u):
+    """Картка адмінки: повернути ТС з денного зліпка. Скріни у зліпку лише
+    іменами — якщо файли вже прибрано, слоти лишаться порожніми."""
+    e = admin_page.e
+    try:
+        cur = json.dumps(ts_store.get(u["id"]) or {}, sort_keys=True, ensure_ascii=False)
+        vers = backup.strategies(u["id"])
+    except Exception as ex:
+        print("ts restore list:", ex)
+        return ('<div class=card style="margin-top:12px"><h2>ТС из копии</h2>'
+                '<p class=mute>Не удалось прочитать копии: %s</p></div>' % e(str(ex)))
+    if not vers:
+        return ('<div class=card style="margin-top:12px"><h2>ТС из копии</h2>'
+                '<p class=mute>Копий с ТС нет.</p></div>')
+    opts = "".join(
+        '<option value="%s">%s · %d знаков%s</option>' % (
+            d, e(".".join(reversed(d.split("-")))), len(js),
+            " · как сейчас" if js == cur else "")
+        for d, js in ((d, json.dumps(ts, sort_keys=True, ensure_ascii=False)) for d, ts in vers))
+    return ('<div class=card style="margin-top:12px"><h2>ТС из копии</h2>'
+            '<p class=mute style="font-size:12px;margin:0 0 10px">Копия делается раз в день, хранится 14 дней. '
+            'Сейчас ТС %d знаков. Выбери день до того, как её затёрло.</p>'
+            '<div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">'
+            '<select id=tsday class=btn>%s</select>'
+            '<button id=tsback class=btn>Вернуть ТС</button></div>'
+            '<script>tsback.onclick=()=>{if(confirm("Заменить нынешнюю ТС копией за "+'
+            'tsday.selectedOptions[0].textContent.split(" ")[0]+"?"))bill("ts-restore",{day:tsday.value});};'
+            '</script></div>' % (len(cur), opts))
 
 
 def _is_admin(uid):
@@ -1063,13 +1158,17 @@ def nick_from_email(email):
     """
     base = (email or "").split("@")[0]
     base = "".join(ch for ch in base if ch.isalnum() or ch in "_-.").strip("._-")[:24]
-    return base or "trader"
+    base = base or "trader"
+    # Нік із пошти ніхто не вводить руками, тому заборонені імена треба
+    # відсіювати саме тут: пошта виду «davaraf@…» інакше зробила б власника
+    # з випадкової людини (див. nick_taken_by_us).
+    return (base + "1") if nick_taken_by_us(base) else base
 
 
 NICK_RE = re.compile(r"^[A-Za-z0-9_.-]{3,24}$")
-# Ніки, які читаються як частина сайту або як його голос.
-NICK_RESERVED = {"admin", "api", "static", "login", "logout", "reset", "confirm", "demo",
-                 "u", "auth", "support", "help", "statsai", "system", "root", "moderator"}
+# Службові й власницькі ніки лежать у config: їх перевіряє не лише ця
+# сторінка, а й вхід через Google чи Discord (oauth.py).
+nick_taken_by_us = config.nick_reserved
 AVATAR_MAX = 2 * 1024 * 1024
 
 
@@ -1081,7 +1180,7 @@ def nick_problem(want, uid):
     me = db.get_user(uid)
     if me and (me["nickname"] or "") == want:
         return "same"
-    if want.lower() in NICK_RESERVED:
+    if nick_taken_by_us(want):
         return "taken"
     other = db.get_user_by_nick(want)
     if other and other["id"] != uid:
@@ -1222,6 +1321,16 @@ def public_owner(user_id):
 
 
 class H(BaseHTTPRequestHandler):
+    # Чим ми підписуємось у заголовку Server. Стандартно тут їде
+    # «BaseHTTP/0.6 Python/3.14.6» — рядок, з якого одразу видно, якої
+    # версії мова й бібліотека. Саме з цього починають, коли шукають
+    # готову діру під конкретну версію; нам сказати нічого.
+    server_version = "StatsAI"
+    sys_version = ""
+
+    def version_string(self):
+        return self.server_version
+
     # Скільки чекати на самого клієнта. Без цього браузер, який відкрив
     # з'єднання і замовк (обірваний вай-фай, вкладка в сплячці), тримав би
     # робітника вічно — а їх обмежена кількість.
@@ -1261,6 +1370,10 @@ class H(BaseHTTPRequestHandler):
             self.send_header("Content-Encoding", "gzip")
             self.send_header("Vary", "Accept-Encoding")
         self.send_header("Content-Length", str(len(data)))
+        # Жодної відповіді api не кешуємо. Поки сайт віддає себе сам, це
+        # дрібниця, але щойно попереду стане CDN, відповідь без цього рядка
+        # може осісти в ньому й дістатись не тому, кому призначалась.
+        self.send_header("Cache-Control", "no-store")
         if cookie:
             self.send_header("Set-Cookie", cookie)
         self.end_headers()
@@ -1414,9 +1527,11 @@ class H(BaseHTTPRequestHandler):
         if os.path.exists(main_og):
             html = html.replace('"/static/og-main.png"',
                                 '"/static/og-main.png?v=%d"' % int(os.path.getmtime(main_og)))
-        html = html.replace('content="/static/', 'content="%s/static/' % self._base())
+        # Адреса сайту без PUBLIC_URL збирається із заголовка Host, а його
+        # підробляють одним рядком у запиті: у розмітку — лише екрановану.
+        html = html.replace('content="/static/', 'content="%s/static/' % html_escape(self._base()))
         html = html.replace("</title>",
-                            '</title>\n<meta property="og:url" content="%s/">' % self._base(), 1)
+                            '</title>\n<meta property="og:url" content="%s/">' % html_escape(self._base()), 1)
         body = html.encode("utf-8")
         enc = self._squeeze(body)
         if enc is not None:
@@ -1463,6 +1578,35 @@ class H(BaseHTTPRequestHandler):
     def _too_big_reply(self):
         """Тіло більше за MAX_BODY — кажемо прямо, а не «bad json»."""
         return self._json({"error": "запит завеликий", "code": "too_big"}, 413)
+
+    # Адреси, яких загальна межа не стосується. /health стукає сам сервер
+    # раз на кілька секунд, і замкнути його означало б перезапускати живий
+    # сайт по колу.
+    FLOOD_FREE = ("/health",)
+
+    def _flooding(self):
+        """Чи засипає нас ця адреса запитами. True — відповідь уже пішла.
+
+        Стоїть першою дією кожного запиту, до будь-якої роботи: сенс саме
+        в тому, щоб на напливі не ходити в базу й не читати файли. Відмова
+        коротка, з Retry-After — чемні клієнти після нього притихають самі.
+        """
+        p = urlparse(self.path).path
+        if p in self.FLOOD_FREE:
+            return False
+        wait = ratelimit.flood("flood:" + self._guest())
+        if not wait:
+            return False
+        body = json.dumps({"error": "забагато запитів", "code": "too_many",
+                           "wait": wait}, ensure_ascii=False).encode("utf-8")
+        self.send_response(429)
+        self.send_header("Content-Type", "application/json; charset=utf-8")
+        self.send_header("Retry-After", str(wait))
+        self.send_header("Content-Length", str(len(body)))
+        self.close_connection = True      # не тримаємо з'єднання за собою
+        self.end_headers()
+        self.wfile.write(body)
+        return True
 
     def _shot_reply(self, e):
         return self._json({"error": str(e), "code": e.code}, e.status)
@@ -1515,12 +1659,91 @@ class H(BaseHTTPRequestHandler):
     def _twofa_limit(self, uid):
         """Ліміт на коди: шість цифр перебирати по 5 на хвилину — роки."""
         keys = ["2fa:%d" % uid]
-        wait = ratelimit.check(keys)
+        wait = ratelimit.locked(keys)
         if wait:
             self._json({"error": "забагато спроб — спробуй за %d с" % wait,
                         "code": "too_many", "wait": wait}, 429)
             return None
         return keys
+
+    # Після скількох невдач за годину кажемо хазяїнові акаунта, що його
+    # підбирають. Береться перша сходинка паузи: рівно з неї починається
+    # те, чого звичайна забудькуватість не робить.
+    GUESS_ALERT = ratelimit.STEPS[0][0]
+
+    def _note_guessing(self, user, lang):
+        """Порахувати невдалу спробу на сам акаунт і, якщо їх забагато,
+        попередити хазяїна.
+
+        Лист — не частіше разу на годину (notified_events), інакше
+        попередження саме стало б розсилкою: сто спроб — сто листів.
+        Помилка тут нічого не має ламати: людині вже відмовлено у вході,
+        і це головне.
+        """
+        try:
+            key = "user:%d" % user["id"]
+            ratelimit.fail([key])
+            if ratelimit.fails(key) < self.GUESS_ALERT:
+                return
+            hour = datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m-%dT%H")
+            if not db.record_notified(user["id"], "guess:" + hour, "guess"):
+                return
+            print("підбір пароля: %s, %d спроб за годину"
+                  % (user["nickname"], ratelimit.fails(key)), flush=True)
+            in_background(authmail.warn_guessing, user, ratelimit.fails(key),
+                          self._base(), lang)
+        except Exception as ex:
+            print("підбір: не вдалось попередити —", ex, flush=True)
+
+    def _settle_return(self):
+        """Людина повернулась із каси: вмикаємо оплачене, не чекаючи вебхука.
+
+        Порядок тут навмисний. Підпис в адресі доводить лише те, що назад
+        її відправив Creem, а не те, що гроші дійшли: платіж міг лишитись
+        в обробці. Тому підпис каже тільки, **у кого питати**, а вмикаємо
+        за відповіддю їхнього API. Не підтвердив — не вмикаємо нічого,
+        дочекається вебхука.
+
+        Помилка тут не має ламати вхід у журнал: не змогли спитати —
+        мовчки пропускаємо, підписку донесе вебхук.
+        """
+        q = {k: v[0] for k, v in parse_qs(urlparse(self.path).query).items()}
+        if not creem.verify_return(q):
+            print("повернення: підпис не зійшовся", flush=True)
+            return
+        uid = creem.who({"request_id": q.get("request_id", "")})
+        sid = q.get("subscription_id", "")
+        if not uid or not sid:
+            return
+        try:
+            sub = creem.subscription(sid)
+        except Exception as ex:
+            print("повернення: не спитали Creem:", ex, flush=True)
+            return
+        status = str(sub.get("status") or "")
+        if status not in creem.LIVE_STATUSES:
+            print("повернення: підписка %s поки %r" % (sid, status), flush=True)
+            return
+        # Підпис міг бути справжній, але від іншої людини — звіряємо, що
+        # підписка справді та, про яку йшлося в адресі.
+        if creem.who(sub) not in (None, uid):
+            print("повернення: підписка не тієї людини", flush=True)
+            return
+        try:
+            db.set_creem_customer(uid, creem.customer_of(sub))
+        except Exception as ex:
+            print("повернення: не записав покупця:", ex, flush=True)
+        try:
+            billing.apply_paid(uid, creem.plan_of(sub) or "month",
+                               creem.period_end(sub))
+            # Номер підписки в журнал — без нього потім не скажеш, яку
+            # саме оплату вмикали, а скасувати її на боці Creem можна
+            # тільки за точним номером: списку за покупцем вони не дають.
+            print("повернення: увімкнули оплачене для %s: %s, %s, до %s"
+                  % (uid, sid, creem.plan_of(sub) or "month",
+                     creem.period_end(sub)), flush=True)
+        except Exception as ex:
+            print("повернення: не застосував оплату:", ex, flush=True)
 
     def _uid(self):
         return auth.current_user_id(self)
@@ -1546,6 +1769,18 @@ class H(BaseHTTPRequestHandler):
             return m.value if m else ""
         except Exception:
             return ""
+
+    def _dev_cookie(self, mark):
+        """Кука з відбитком пристрою на час походу в Google чи Discord.
+
+        HttpOnly тут ні до чого — відбиток однаково рахує браузер, і
+        приховувати від нього нічого. А от SameSite=Lax обов'язковий:
+        повернення з сервісу — це перехід з чужого сайту, і при Strict
+        кука до нас просто не доїхала б.
+        """
+        return ("%s=%s; Path=/; Max-Age=%d; SameSite=Lax"
+                % (DEV_COOKIE, urllib.parse.quote(mark, safe=""), DEV_TTL)
+                + ("; Secure" if auth.is_https(self) else ""))
 
     def _ref_query(self):
         """?ref=<партнер> у адресі — або нічого."""
@@ -1584,6 +1819,7 @@ class H(BaseHTTPRequestHandler):
         self.send_header("X-Content-Type-Options", "nosniff")
         self.send_header("X-Frame-Options", "SAMEORIGIN")
         self.send_header("Referrer-Policy", "strict-origin-when-cross-origin")
+        self.send_header("Content-Security-Policy", CSP)
         if auth.is_https(self):
             self.send_header("Strict-Transport-Security", "max-age=31536000")
         BaseHTTPRequestHandler.end_headers(self)
@@ -1637,12 +1873,88 @@ class H(BaseHTTPRequestHandler):
             self._health[:] = [now, ok]
         return ok
 
+    # ---------- замок на акаунт ----------
+    # Ставить і знімає його тільки власник руками з /admin (db.set_lock).
+    # Замкнених зазвичай немає взагалі, тому тримаємо їх у пам'яті й
+    # перечитуємо раз на LOCK_TTL секунд: інакше кожен запит кожної людини
+    # коштував би ще один SELECT заради стану, якого ні в кого немає.
+    LOCK_TTL = 20
+    _lock_gate = threading.Lock()
+    _locks = [0.0, {}]                 # коли читали, {uid: текст}
+
+    # Що працює й під замком: /api/auth/ — щоб було чим вийти, і
+    # /api/admin/ — інакше власник, замкнувши сам себе помилково, не мав
+    # би чим зняти. Вхід сюди можна було б і не вносити: він ходить без
+    # сесії, а замок без неї нікого не знає.
+    LOCK_FREE = ("/api/auth/", "/api/admin/")
+
+    def _lock_note(self, uid):
+        """Текст замка цієї людини або "" — замка немає."""
+        now = time.time()
+        with self._lock_gate:
+            when, got = self._locks
+            fresh = now - when < self.LOCK_TTL
+        if fresh:
+            return got.get(uid, "")
+        try:
+            got = db.locked_users()
+        except Exception:
+            # База не відповіла — замок не вигадуємо й не знімаємо:
+            # лишаємо те, що знали востаннє.
+            return self._locks[1].get(uid, "")
+        with self._lock_gate:
+            self._locks[:] = [now, got]
+        return got.get(uid, "")
+
+    def _locked_out(self, p):
+        """True — запит далі не йде: на акаунті замок.
+
+        Стоїть на /api/, а не на сторінках: сторінка має відкритись, щоб
+        показати сам текст замка (lock.js), а зробити нею нічого не
+        вийде — усі дії журналу ходять через /api/. Тому замок тримає
+        сервер, і зняти його з консолі браузера неможливо.
+        """
+        if not p.startswith("/api/") or p.startswith(self.LOCK_FREE):
+            return False
+        uid = self._uid()
+        if not uid:
+            return False
+        note = self._lock_note(uid)
+        if not note:
+            return False
+        self._json({"error": note, "code": "locked"}, 403)
+        return True
+
     def do_GET(self):
+        if self._flooding(): return
         if self._old_host(): return
         p = unquote(urlparse(self.path).path)
+
+        # ---- мітка партнера на початку шляху: /fxlab/u/dan, /bs/s/abc ----
+        # Те саме, що «?ref=», тільки без хвоста в адресі: посиланням
+        # діляться, і воно має виглядати охайно. Знявши мітку, далі
+        # малюємо сторінку так, ніби її в адресі й не було.
+        m = re.match(r"^/([A-Za-z0-9_-]{2,16})(/[^/].*)$", p)
+        if m and not p.startswith("/api/") and ref_norm(m.group(1)):
+            ref = ref_norm(m.group(1))
+            uid0 = self._uid()
+            if not (uid0 and _is_admin(uid0)):      # свої переходи не рахуємо
+                ref_visit(ref, self.headers.get("User-Agent") or "")
+            self._ref_touch(ref)
+            u = urlparse(self.path)
+            rest = u.path[len(m.group(1)) + 1:]     # шлях без «/<мітка>»
+            self.path = rest + (("?" + u.query) if u.query else "")
+            p = unquote(rest)
+
         # ?ref=<партнер> у будь-якій адресі — /, /login, /demo, /s/…
         if "ref=" in self.path and not p.startswith("/api/"):
             self._ref_touch()
+
+        # Замок — після зняття мітки, а не до нього: мітка на початку
+        # шляху переписує адресу, і «/fxlab/api/trades» стає «/api/trades»
+        # уже тут. Перевірка до переписування дивилась би на шлях, якого
+        # обробник не побачить, — і замок обходився б одним префіксом.
+        if self._locked_out(p): return
 
         if p == "/health":
             if self._db_alive():
@@ -1731,9 +2043,12 @@ class H(BaseHTTPRequestHandler):
                 host = self.headers.get("X-Forwarded-Host") or self.headers.get("Host") or ""
                 base = "%s://%s" % (proto, host)
                 d = rec.get("data") or {}
+                # Назву знімка пише людина, а звідси вона їде прямо в HTML:
+                # екрануємо все, а не саме "<" — інакше лапка чи "&" псують
+                # розмітку сусідніх тегів.
                 html = html.replace("<title>StatsAI</title>",
-                                    "<title>%s · StatsAI</title>" % (d.get("title") or "StatsAI")
-                                    .replace("<", "&lt;"), 1)
+                                    "<title>%s · StatsAI</title>"
+                                    % html_escape(d.get("title") or "StatsAI"), 1)
                 html = html.replace("</head>", share_og(rec, sid, base) + "\n</head>", 1)
             data = html.encode("utf-8")
             self.send_response(200)
@@ -1758,6 +2073,12 @@ class H(BaseHTTPRequestHandler):
             self.send_response(302)
             self.send_header("Location", url)
             self.send_header("Set-Cookie", oauth.state_cookie(state, auth.is_https(self)))
+            # Відбиток пристрою кладемо кукою по дорозі в сервіс: назад
+            # людина повернеться вже з чужого сайту, і в тому запиті від нас
+            # лишаться самі куки. Сторінка входу додає його до адреси.
+            dev = (parse_qs(urlparse(self.path).query).get("dev", [""])[0] or "")[:512]
+            if dev:
+                self.send_header("Set-Cookie", self._dev_cookie(dev))
             self.end_headers()
             return
 
@@ -1777,15 +2098,28 @@ class H(BaseHTTPRequestHandler):
                 ext_id, email, name = oauth.fetch_profile(prov, q.get("code", ""), self._base())
                 if not ext_id:
                     raise ValueError("сервіс не віддав профіль")
-                user = oauth.find_or_create_user(prov, ext_id, email, name)
-                # Вхід через Google чи Discord іде переадресацією, відбитка
-                # пристрою тут немає — тому й не блокуємо. Адресу все одно
-                # записуємо: в адмінці буде видно сусідів по ній.
+                # Відбиток пристрою на переадресації взятися нізвідки — його
+                # кладе кукою сама сторінка входу, перед тим як відправити
+                # людину в сервіс. Без цього вхід через Google був широкою
+                # хвірткою повз заслон: новий акаунт там робиться за хвилину.
+                ip = self._guest()
+                device = antifraud.device_hash(
+                    urllib.parse.unquote(self._cookie(DEV_COOKIE)))
+                user = oauth.find_or_create_user(
+                    prov, ext_id, email, name,
+                    guard=lambda: bool(antifraud.blocked(ip, device, email)))
                 try:
-                    antifraud.remember(user["id"], self._guest(), "")
+                    antifraud.remember(user["id"], ip, device)
                 except Exception as ex:
                     print("antifraud oauth:", ex)
                 ref_claim(user["id"], self._cookie(REF_COOKIE))
+            except oauth.Blocked:
+                print("oauth %s: другий безкоштовний акаунт" % prov)
+                self.send_response(302)
+                self.send_header("Location", "/login?err=ip_taken")
+                self.send_header("Set-Cookie", oauth.clear_state_cookie(auth.is_https(self)))
+                self.end_headers()
+                return
             except Exception as ex:
                 print("oauth %s: %s" % (prov, ex))
                 self.send_response(302)
@@ -1820,7 +2154,9 @@ class H(BaseHTTPRequestHandler):
             if not uid:
                 return self._redirect("/login")
             if not _is_admin(uid):
+                seclog.event("адмінка", False, user=db.get_user(uid), ip=self._guest())
                 self.send_response(403); self.end_headers(); return
+            seclog.event("адмінка", True, user=db.get_user(uid), ip=self._guest())
             # панель цифр малює admin_page.py; ?q= — підставити пошук
             query = urllib.parse.parse_qs(urlparse(self.path).query).get("q", [""])[0].strip()
             data = admin_page.dashboard(query, REF_TITLES, KIND_RU, list(ref_all())).encode("utf-8")
@@ -1850,14 +2186,9 @@ class H(BaseHTTPRequestHandler):
                 data = admin_page.not_found(nick).encode("utf-8")
                 self.send_response(404)
             else:
-                card = admin_page.user_card(u, REF_TITLES, KIND_RU, list(ref_all()))
-                # підписка — блоком перед «Опасной зоной»
-                row = lambda k, v: "<tr><td>%s</td><td>%s</td></tr>" % (k, v)
-                dt = lambda v: v.strftime("%d.%m.%Y %H:%M") if v else "—"
-                bill = ('<div class="card" style="margin-top:12px">'
-                        + _billing_block(u, admin_page.e, row, dt) + "</div>")
-                card = card.replace('<div class="card danger"', bill + '<div class="card danger"', 1)
-                data = card.encode("utf-8")
+                data = admin_page.user_card(u, REF_TITLES, KIND_RU,
+                                           list(ref_all()),
+                                           _billing_block(u) + _ts_restore_block(u)).encode("utf-8")
                 self.send_response(200)
             self.send_header("Content-Type", "text/html; charset=utf-8")
             self.send_header("Content-Length", str(len(data)))
@@ -1953,7 +2284,6 @@ class H(BaseHTTPRequestHandler):
                 return self._json({"error": "auth required"}, 401)
             return self._json({"journals": bt_journals_store.lst(uid)})
 
-        # ---- аналіз дня (day_store.py) ----
         if p.startswith("/api/day/"):
             uid = self._uid()
             if not uid:
@@ -2091,11 +2421,18 @@ class H(BaseHTTPRequestHandler):
             if not uid:
                 return self._json({"error": "auth required"}, 401)
             out = billing.public(uid)
-            # Власникам — перемикач «подивитись як» у розділі «Підписка»: він
-            # лише перефарбовує показ у їхньому браузері, права не змінює.
-            if _is_admin(uid):
-                # early — щоб перемикач показав і ціни перших клієнтів
-                out = dict(out, admin=True, early=config.PRICES["early"])
+            # Друга каса поруч із карткою. Якщо людина вже виставила
+            # рахунок і зараз переказує гроші, віддаємо його тут же:
+            # сторінка перемалює очікування навіть після перезавантаження.
+            out["crypto"] = crypto_pay.enabled()
+            # Чи працює каса картками. Без цього сторінка показувала
+            # плитку «Карткою» завжди, і натиснута без ключа вона
+            # відповідала помилкою в підвалі розділу — тобто нічим.
+            out["card"] = creem.enabled()
+            if out["crypto"]:
+                inv = crypto_pay.current(uid)
+                if inv:
+                    out["invoice"] = crypto_pay.public(inv)
             return self._json(out)
 
         if p == "/api/calendar":
@@ -2160,9 +2497,6 @@ class H(BaseHTTPRequestHandler):
                 # а це — «людина вже переносила»: вікно-пропозиція новачкові
                 # більше не потрібне
                 "imported": bool(db.notion_known(uid)[1]),
-                # коли востаннє перечитували Notion самі (notion_sync.py)
-                "auto": conf.get("auto") or None,
-                "autoHours": notion_sync.EVERY // 3600,
                 "fields": [{"k": k, "label": notion.LABELS[k]} for k in notion.FIELDS],
             })
 
@@ -2223,8 +2557,11 @@ class H(BaseHTTPRequestHandler):
             og_path = os.path.join(STATIC, "og-%s.png" % ref) if ref else ""
             if ref and os.path.exists(og_path):
                 title = PARTNER_TITLES.get(ref, ref)
-                desc = ("Журнал трейдера в оформлении %s: сделки, статистика, "
-                        "анализ дня и своя ТС." % title)
+                # Слово «коллаборация» — в самом описании: в чате сообщества
+                # карточку видят те, кто пришёл от партнёра, и первое, что
+                # они должны понять, — это совместное, а не реклама мимо.
+                desc = ("Коллаборация StatsAI и %s. Журнал трейдера: сделки, "
+                        "статистика, анализ дня и своя ТС." % title)
                 # у адресі картинки — час її зміни: месенджери кешують прев'ю за
                 # адресою, і без цього нова картинка не показувалась
                 html = html.replace("/static/og-main.png",
@@ -2242,10 +2579,11 @@ class H(BaseHTTPRequestHandler):
             if os.path.exists(main_og):
                 html = html.replace('"/static/og-main.png"',
                                     '"/static/og-main.png?v=%d"' % int(os.path.getmtime(main_og)))
-            html = html.replace('content="/static/', 'content="%s/static/' % self._base())
+            html = html.replace('content="/static/',
+                                'content="%s/static/' % html_escape(self._base()))
             if 'property="og:url"' not in html:
                 html = html.replace("</title>",
-                                    '</title>\n<meta property="og:url" content="%s/">' % self._base(), 1)
+                                    '</title>\n<meta property="og:url" content="%s/">' % html_escape(self._base()), 1)
             body = html.encode("utf-8")
             enc = self._squeeze(body)
             if enc is not None:
@@ -2261,11 +2599,15 @@ class H(BaseHTTPRequestHandler):
             return
 
         if p.startswith("/design/"):
-            # прототипы: экран входа, новости, знак — чтобы смотреть с того же адреса
-            name = os.path.normpath(p[len("/design/"):]).replace("\\", "/")
-            if name.startswith("..") or name in ("", "."):
+            # прототипы: экран входа, новости, знак — чтобы смотреть с того же адреса.
+            # Це чернетки майбутніх розділів, і лежать вони на бойовому
+            # сайті. Стороннім там робити нічого, тому показуємо тільки
+            # своїм — рядок нижче прибрати, якщо треба комусь показати.
+            if not _is_admin(self._uid()):
+                self.send_response(404); self.end_headers(); return
+            full = under(os.path.join(ROOT, "design"), p[len("/design/"):])
+            if not full:
                 self.send_response(403); self.end_headers(); return
-            full = os.path.join(ROOT, "design", name)
             if os.path.isdir(full):
                 full = os.path.join(full, "index.html")
             ext = full.rsplit(".", 1)[-1].lower()
@@ -2322,6 +2664,14 @@ class H(BaseHTTPRequestHandler):
                 return self._redirect("/login?ref=" + ref)
 
         if p in ("/", "/index.html"):
+            # Повернення з каси: ?paid=1 з їхнім підписом. Робимо це до
+            # входу — людина могла повернутись у браузер без сесії, а
+            # оплата від цього не менш справжня.
+            if "paid=1" in (urlparse(self.path).query or ""):
+                try:
+                    self._settle_return()
+                except Exception as ex:
+                    print("повернення:", ex, flush=True)
             if not self._uid():
                 # ?ref=партнер лишаємо в адресі: месенджер іде за редіректом і
                 # бере прев'ю вже зі сторінки входу — там воно в стилі партнера
@@ -2346,9 +2696,10 @@ class H(BaseHTTPRequestHandler):
             return self._file(os.path.join(STATIC, "index.html"), "text/html; charset=utf-8")
 
         if p.startswith("/static/"):
-            name = os.path.normpath(p[len("/static/"):]).replace("\\", "/")
-            if name.startswith(".."):
+            full = under(STATIC, p[len("/static/"):])
+            if not full:
                 self.send_response(403); self.end_headers(); return
+            name = os.path.relpath(full, STATIC).replace("\\", "/")
             # Чернетки й службове (_test.html, .rej, .txt) назовні не віддаємо
             base = name.rsplit("/", 1)[-1]
             if base.startswith("_") or base.startswith(".") or \
@@ -2363,18 +2714,23 @@ class H(BaseHTTPRequestHandler):
             versioned = "v=" in urlparse(self.path).query
             cache = self.FOREVER if versioned else None
             if ctype.startswith("video/"):
-                return self._media(os.path.join(STATIC, name), ctype, cache)
-            return self._file(os.path.join(STATIC, name), ctype, cache)
+                return self._media(full, ctype, cache)
+            return self._file(full, ctype, cache)
 
         self.send_response(404); self.end_headers()
 
     # ---------- POST ----------
     def do_POST(self):
+        if self._flooding(): return
         if self._old_host(): return
         p = urlparse(self.path).path
         body = self._body()
         if self._too_big:
             return self._too_big_reply()
+        # Після читання тіла, а не до нього: відповісти, не забравши
+        # надіслані байти, означає лишити їх у з'єднанні — наступний запит
+        # почався б з їхньої середини.
+        if self._locked_out(p): return
 
         # ---- вход и регистрация ----
         # ---- поправити мітку руками: лише власникам ----
@@ -2385,29 +2741,96 @@ class H(BaseHTTPRequestHandler):
             # прийде підтвердження, ми знатимемо, що хтось заплатив, але
             # не знатимемо хто.
             uid = self._uid()
+            # Каса — місце, де скарга «натискаю, нічого не відбувається»
+            # нерозрізненна з «натискаю, і запит не доходить». Решта логу
+            # тут мовчить (log_message заглушений), тому кожен захід у касу
+            # лишає рядок: видно і сам факт натискання, і чим воно скінчилось.
+            print("каса: захід, uid=%s, тариф=%r" % (
+                uid, (body or {}).get("plan") if isinstance(body, dict) else None),
+                flush=True)
             if not uid:
                 return self._json({"error": "auth required"}, 401)
             if not creem.enabled():
+                print("каса: ключа Creem немає — 503", flush=True)
                 return self._json({"error": "оплата ще не ввімкнена",
                                    "code": "no_pay"}, 503)
             if not isinstance(body, dict):
                 return self._json({"error": "bad json"}, 400)
             plan = str(body.get("plan") or "").strip()
             if plan not in billing.PLANS:
+                print("каса: тариф %r не наш — 400" % plan, flush=True)
                 return self._json({"error": "невідомий тариф"}, 400)
             try:
                 u = db.get_user(uid) or {}
-                promo = billing.promo_pending(u)
                 url = creem.checkout(uid, plan,
                                      price_set=(u.get("price_plan") or "std"),
                                      email=u.get("email") or "",
-                                     discount=(billing.PROMOS[promo]["creem"][plan]
-                                               if promo else ""))
+                                     discount=billing.promo_discount(u, plan))
             except Exception as ex:
                 print("checkout:", ex, flush=True)
                 return self._json({"error": "не вдалося відкрити оплату",
                                    "code": "pay_failed"}, 502)
+            print("каса: відкрили, тариф=%s" % plan, flush=True)
             return self._json({"url": url})
+
+        # ---- оплата криптою ----
+        if p == "/api/billing/crypto":
+            # Виставляємо рахунок: адреса, сума й скільки її чекати.
+            # Далі людина переказує USDT звідки їй зручно й може закрити
+            # вкладку — підписку ввімкне фоновий обхід, а не ця сторінка.
+            uid = self._uid()
+            if not uid:
+                return self._json({"error": "auth required"}, 401)
+            if not crypto_pay.enabled():
+                return self._json({"error": "оплата криптою ще не ввімкнена",
+                                   "code": "no_pay"}, 503)
+            if not isinstance(body, dict):
+                return self._json({"error": "bad json"}, 400)
+            plan = str(body.get("plan") or "").strip()
+            if plan not in billing.PLANS:
+                return self._json({"error": "невідомий тариф"}, 400)
+            # Кожен рахунок — рядок у базі й зайнята сума. Передумувати
+            # можна скільки завгодно, але не сто разів на хвилину.
+            keys = ["cinv:%s" % uid]
+            wait = ratelimit.check(keys, limit=20)
+            if wait:
+                return self._json({"error": "зачекай %d с" % wait,
+                                   "code": "too_many", "wait": wait}, 429)
+            ratelimit.miss(keys, limit=20)
+            inv = crypto_pay.create(uid, plan)
+            if not inv:
+                return self._json({"error": "не вдалося виставити рахунок",
+                                   "code": "pay_failed"}, 502)
+            return self._json(crypto_pay.public(inv))
+
+        if p == "/api/billing/crypto/cancel":
+            # «Передумав». Рахунок гасне, але не зникає: переказ, який уже
+            # пішов, усе одно знайде його й увімкне підписку.
+            uid = self._uid()
+            if not uid:
+                return self._json({"error": "auth required"}, 401)
+            crypto_pay.cancel(uid)
+            return self._json({"ok": True, "state": billing.public(uid)})
+
+        if p == "/api/billing/crypto/claim":
+            # «Я оплатив, ось номер переказу» — запасний шлях для того, хто
+            # округлив суму: за сумою такий переказ не знайти, за номером —
+            # можна. Номер перевіряємо в блокчейні, на слово не віримо.
+            uid = self._uid()
+            if not uid:
+                return self._json({"error": "auth required"}, 401)
+            keys = ["claim:%s" % uid]
+            wait = ratelimit.check(keys, limit=10)
+            if wait:
+                return self._json({"error": "зачекай %d с" % wait,
+                                   "code": "too_many", "wait": wait}, 429)
+            ratelimit.miss(keys, limit=10)
+            txid = str((body or {}).get("tx") or "").strip()
+            ok, why = crypto_pay.claim(uid, txid)
+            if not ok:
+                return self._json({"error": "переказ не підійшов",
+                                   "code": why}, 404 if why == "not_found" else 409)
+            return self._json({"ok": True, "state": billing.public(uid)})
 
         # ---- кабінет підписки ----
         if p == "/api/billing/portal":
@@ -2534,8 +2957,8 @@ class H(BaseHTTPRequestHandler):
             act = p[len("/api/admin/billing/"):].strip("/")
             note = str(body.get("note") or "").strip() or None
             num = lambda k: int(body.get(k) or 0)
-            print("admin: %s робить %r акаунту %s (id %s)" % (
-                who, act, u["nickname"], u["id"]), flush=True)
+            seclog.event("адмін", True, user=db.get_user(who), ip=self._guest(),
+                         дія=act, кому=u["nickname"], кому_id=u["id"])
             if act == "grant":
                 # Назавжди — окремим прапорцем, а не «99999 днів»: інакше
                 # в базі лежала б вигадана дата, а людині показували б строк.
@@ -2548,6 +2971,13 @@ class H(BaseHTTPRequestHandler):
                 return self._json(billing.grant(u["id"], days, plan))
             if act == "revoke":
                 return self._json(billing.revoke(u["id"]))
+            if act == "ts-restore":
+                day = str(body.get("day") or "")
+                ts = dict(backup.strategies(u["id"])).get(day)
+                if not ts:
+                    return self._json({"error": "за этот день копии ТС нет"}, 404)
+                ts_store.put(u["id"], ts)
+                return self._json({"ok": True, "day": day})
             if act == "bonus":
                 if not any(num(k) for k in ("trades", "bt", "imports", "ai")) and note is None:
                     return self._json({"error": "нечего добавлять"}, 400)
@@ -2596,9 +3026,41 @@ class H(BaseHTTPRequestHandler):
                 conn.execute("UPDATE users SET ref_source=%s, ref_at=%s WHERE id=%s",
                              (ref or None, "now()" and (datetime.datetime.now() if ref else None), u["id"]))
                 conn.commit()
-            print("admin: %s ставить мітку %r акаунту %s (id %s)" % (
-                who, ref, u["nickname"], u["id"]), flush=True)
+            seclog.event("адмін", True, user=db.get_user(who), ip=self._guest(),
+                         дія="мітка:%s" % (ref or "—"), кому=u["nickname"], кому_id=u["id"])
             return self._json({"ok": True, "ref": ref})
+
+        # ---- замок на акаунт: лише власникам ----
+        # Замок ставиться й знімається тільки звідси, руками. Автоматики
+        # навколо нього немає навмисно: це крок, після якого людина не може
+        # працювати, і робити його за здогадом коду не можна.
+        if p == "/api/admin/set-lock":
+            who = self._uid()
+            if not who:
+                return self._json({"error": "auth required"}, 401)
+            if not _is_admin(who):
+                return self._json({"error": "forbidden"}, 403)
+            if not isinstance(body, dict):
+                return self._json({"error": "bad json"}, 400)
+            nick = str(body.get("nick") or "").strip()
+            try:
+                u = db.get_user_by_nick(nick) or db.get_user_by_email(nick)
+            except Exception:
+                u = None
+            if not u:
+                return self._json({"error": "такого пользователя нет"}, 404)
+            note = str(body.get("note") or "").strip()[:2000]
+            db.set_lock(u["id"], note)
+            # Список замків лежить у пам'яті до LOCK_TTL секунд, і в цього
+            # робітника він свій. Свій скидаємо одразу, решта підхопить
+            # сама — для «зняв замок» це секунди, і людина однаково
+            # перезавантажує сторінку довше.
+            with self._lock_gate:
+                self._locks[:] = [0.0, {}]
+            seclog.event("адмін", True, user=db.get_user(who), ip=self._guest(),
+                         дія="замок:%s" % ("поставив" if note else "знято"),
+                         кому=u["nickname"], кому_id=u["id"])
+            return self._json({"ok": True, "locked": bool(note)})
 
         # ---- видалення акаунта на прохання людини: лише власникам ----
         if p == "/api/admin/delete-user":
@@ -2622,10 +3084,11 @@ class H(BaseHTTPRequestHandler):
                 return self._json({"error": "ник в подтверждении не совпадает"}, 400)
             if _is_admin(u["id"]) and u["id"] != who:
                 return self._json({"error": "аккаунт владельца так не удаляют"}, 403)
-            print("admin: %s видаляє акаунт %s (%s, id %s)" % (
-                who, u["nickname"], u["email"], u["id"]), flush=True)
+            seclog.event("адмін", True, user=db.get_user(who), ip=self._guest(),
+                         дія="видалення", кому=u["nickname"], кому_id=u["id"])
+            banned = antifraud.ban_user(u, "бан з картки " + u["nickname"]) if body.get("ban") else []
             n = delete_user_fully(u["id"])
-            return self._json({"deleted": u["nickname"], "files": n})
+            return self._json({"deleted": u["nickname"], "files": n, "banned": len(banned)})
 
         if p == "/api/auth/register":
             if not isinstance(body, dict):
@@ -2643,14 +3106,19 @@ class H(BaseHTTPRequestHandler):
             if not EMAIL_RE.match(email) or len(password) < 6:
                 return self._json({"error": "потрібні пошта і пароль від 6 символів",
                                    "code": "need_fields"}, 400)
-            if db.get_user_by_email(email):
+            if db.get_user_by_email(email) or db.user_by_email_key(email):
+                # Друга умова — та сама скринька з іншим хвостиком:
+                # «ivan+2@gmail» це той самий ящик, що й «ivan@gmail».
                 return self._json({"error": "така пошта вже зайнята", "code": "taken"}, 409)
+            if antifraud.throwaway_mail(email):
+                return self._json({"error": "потрібна постійна пошта",
+                                   "code": "temp_mail"}, 409)
             # Другий акаунт із тієї самої адреси І з того самого пристрою.
             # Тільки разом: сам IP нічого не доводить — за одним виходом
             # оператора сидить півміста (див. antifraud.py).
             ip = self._guest()
             device = antifraud.device_hash(body.get("device"))
-            if antifraud.blocked(ip, device):
+            if antifraud.blocked(ip, device, email):
                 return self._json({"error": "з цієї адреси вже є акаунт",
                                    "code": "ip_taken"}, 409)
             pw_hash, pw_salt, iters = auth.hash_password(password)
@@ -2671,6 +3139,7 @@ class H(BaseHTTPRequestHandler):
                         raise
             if not user:
                 return self._json({"error": "така пошта вже зайнята", "code": "taken"}, 409)
+            seclog.event("реєстрація", True, user=user, ip=ip)
             # Звідки й з чого зайшли — щоб наступну таку реєстрацію було з
             # чим порівняти, а в адмінці було видно сусідів.
             try:
@@ -2691,7 +3160,7 @@ class H(BaseHTTPRequestHandler):
             # та перебір одного акаунта з різних адрес — це різні речі.
             who = str(body.get("login") or "").strip().lower()
             keys = ["ip:" + self._guest()] + (["who:" + who] if who else [])
-            wait = ratelimit.check(keys)
+            wait = ratelimit.locked(keys)
             if wait:
                 return self._json(
                     {"error": "забагато спроб входу — спробуй за %d с" % wait, "code": "too_many", "wait": wait}, 429)
@@ -2699,9 +3168,17 @@ class H(BaseHTTPRequestHandler):
             if not user or not auth.verify_password(str(body.get("password") or ""),
                                                     user["pw_hash"], user["pw_salt"],
                                                     user["pw_iters"]):
-                ratelimit.miss(keys)
+                ratelimit.fail(keys)
+                # Окремий лічильник на сам акаунт: логін пишуть і поштою, і
+                # ніком, і з великої літери — за рядком їх не звести, а
+                # попередити треба про підбір саме цього журналу.
+                if user:
+                    self._note_guessing(user, str(body.get("lang") or "ru"))
+                seclog.event("вхід", False, user=user, ip=self._guest(),
+                             login=body.get("login"))
                 return self._json({"error": "невірна пошта або пароль", "code": "bad_login"}, 401)
-            ratelimit.forget(keys)
+            ratelimit.clear(keys + ["user:%d" % user["id"]])
+            seclog.event("вхід", True, user=user, ip=self._guest())
             # Пароль правильний, але пошту так і не підтвердили — спершу код.
             if self._needs_mail_code(user):
                 return self._ask_mail_code(user, str(body.get("lang") or "ru"))
@@ -2733,14 +3210,14 @@ class H(BaseHTTPRequestHandler):
                 in_background(authmail.start_code, user, self._base(), str(body.get("lang") or "ru"))
                 return self._json({"ok": True})
             keys = ["mailcode:%d" % uid]
-            wait = ratelimit.check(keys)
+            wait = ratelimit.locked(keys)
             if wait:
                 return self._json({"error": "забагато спроб — спробуй за %d с" % wait,
                                    "code": "too_many", "wait": wait}, 429)
             if not authmail.take_code(uid, body.get("code")):
-                ratelimit.miss(keys)
+                ratelimit.fail(keys)
                 return self._json({"error": "код не підходить", "code": "mail_bad"}, 401)
-            ratelimit.forget(keys)
+            ratelimit.clear(keys)
             db.confirm_email(uid)
             self._add_cookie(auth.mailcode_cookie("", sec))
             return self._enter(db.get_user(uid))
@@ -2761,9 +3238,12 @@ class H(BaseHTTPRequestHandler):
             user = db.get_user(uid)
             ok, left = twofa.verify(user, (body or {}).get("code"))
             if not ok:
-                ratelimit.miss(keys)
+                ratelimit.fail(keys)
+                seclog.event("вхід-2fa", False, user=user, ip=self._guest())
                 return self._json({"error": "код не підходить", "code": "twofa_bad"}, 401)
-            ratelimit.forget(keys)
+            ratelimit.clear(keys)
+            seclog.event("вхід-2fa", True, user=user, ip=self._guest(),
+                         код="запасний" if left is not None else "застосунок")
             self._add_cookie(auth.pending_cookie("", sec))
             out = {"user": user_public(user)}
             if left is not None:
@@ -2839,20 +3319,21 @@ class H(BaseHTTPRequestHandler):
             if len(password) < 6:
                 return self._json({"error": "пароль від 6 символів", "code": "short"}, 400)
             keys = ["reset:" + self._guest()]
-            wait = ratelimit.check(keys)
+            wait = ratelimit.locked(keys)
             if wait:
                 return self._json({"error": "забагато спроб — спробуй за %d с" % wait,
                                    "code": "too_many", "wait": wait}, 429)
             user = db.take_link(authmail.token_hash(token), "password") if token else None
             if not user:
-                ratelimit.miss(keys)
+                ratelimit.fail(keys)
                 return self._json({"error": "посилання застаріло", "code": "bad_token"}, 400)
-            ratelimit.forget(keys)
+            ratelimit.clear(keys)
             pw_hash, pw_salt, iters = auth.hash_password(password)
             db.set_password(user["id"], pw_hash, pw_salt, iters)
             # Пароль скидають, коли його знає хтось чужий (чи боїться цього) —
             # тож усі старі входи гасимо.
             auth.bump_gen(user["id"])
+            seclog.event("пароль", True, user=user, ip=self._guest(), як="скидання")
             user = db.get_user(user["id"])
             # Одразу впускаємо: людина щойно довела, що скринька її, і
             # вводити пароль удруге тим самим рухом — зайве. Але з 2FA — ні:
@@ -2864,31 +3345,6 @@ class H(BaseHTTPRequestHandler):
 
         # ---- дальше всё только для своих ----
         uid = self._uid()
-        # ---- разовая заливка скриншотов при переезде ----
-        # Работает, только если задан ADMIN_TOKEN. Нужна один раз: перенести
-        # накопленные картинки со старой машины. После переезда переменную убрать.
-        if p == "/api/admin/upload-shot":
-            token = config.ADMIN_TOKEN
-            if not token or not hmac.compare_digest(
-                    (self.headers.get("X-Admin-Token") or "").encode("utf-8"),
-                    token.encode("utf-8")):
-                return self._json({"error": "no"}, 404)
-            name = os.path.basename(str((body or {}).get("name") or ""))
-            data = (body or {}).get("data") or ""
-            if not name or not re.match(r"^[\w.\-]{4,120}$", name):
-                return self._json({"error": "bad name"}, 400)
-            dest = os.path.join(SHOTS, name)
-            if os.path.exists(dest):
-                return self._json({"ok": True, "skipped": True})
-            try:
-                raw = base64.b64decode(data)
-            except Exception:
-                return self._json({"error": "bad data"}, 400)
-            if len(raw) > 8 * 1024 * 1024:
-                return self._json({"error": "too big"}, 400)
-            with open(dest, "wb") as f:
-                f.write(raw)
-            return self._json({"ok": True})
 
         if p.startswith("/api/") and not uid:
             return self._json({"error": "auth required"}, 401)
@@ -2953,9 +3409,10 @@ class H(BaseHTTPRequestHandler):
                 return self._json({"error": "не картинка", "code": "bad_image"}, 400)
             if len(raw) > AVATAR_MAX:
                 return self._json({"error": "завелике фото", "code": "too_big"}, 413)
-            if not filestore.is_image(raw):
+            ext = filestore.kind(raw)
+            if not ext:
                 return self._json({"error": "не картинка", "code": "bad_image"}, 400)
-            name = "av%d_%s.%s" % (uid, secrets.token_hex(6), m.group(1).replace("jpeg", "jpg"))
+            name = "av%d_%s.%s" % (uid, secrets.token_hex(6), ext)
             filestore.put(name, raw)
             old = db.set_avatar(uid, name)
             if own_avatar_file(old) and old != name:
@@ -3020,19 +3477,20 @@ class H(BaseHTTPRequestHandler):
                 return self._json({"error": "пароль від 6 символів",
                                    "code": "short"}, 400)
             keys = ["pw:%d" % uid]
-            wait = ratelimit.check(keys)
+            wait = ratelimit.locked(keys)
             if wait:
                 return self._json({"error": "забагато спроб — спробуй за %d с" % wait,
                                    "code": "too_many", "wait": wait}, 429)
             me = db.get_user(uid)
             if not me or not auth.verify_password(old, me["pw_hash"], me["pw_salt"],
                                                   me["pw_iters"]):
-                ratelimit.miss(keys)
+                ratelimit.fail(keys)
                 return self._json({"error": "старий пароль не підходить",
                                    "code": "bad_old"}, 403)
-            ratelimit.forget(keys)
+            ratelimit.clear(keys)
             pw_hash, pw_salt, iters = auth.hash_password(new)
             db.set_password(uid, pw_hash, pw_salt, iters)
+            seclog.event("пароль", True, user=me, ip=self._guest(), як="сам")
             # новий пароль — нове покоління: хто зайшов зі старим, вилітає
             return self._fresh_login(uid, {"ok": True})
 
@@ -3065,11 +3523,12 @@ class H(BaseHTTPRequestHandler):
                 return self._json({"error": "час вийшов — почни заново", "code": "twofa_expired"}, 400)
             step = twofa.match_step(secret, (body or {}).get("code"))
             if step is None:
-                ratelimit.miss(keys)
+                ratelimit.fail(keys)
                 return self._json({"error": "код не підходить", "code": "twofa_bad"}, 400)
-            ratelimit.forget(keys)
+            ratelimit.clear(keys)
             codes = twofa.new_backup_codes()
             db.twofa_enable(uid, secret, [twofa.backup_hash(c) for c in codes], step)
+            seclog.event("2fa", True, user=me, ip=self._guest(), стан="увімкнено")
             return self._fresh_login(uid, {"backup_codes": codes})
 
         # ---- 2FA: вимкнути або нові запасні коди ----
@@ -3085,11 +3544,12 @@ class H(BaseHTTPRequestHandler):
                 return self._json({"error": "2FA вимкнено", "code": "twofa_off"}, 409)
             ok, _ = twofa.verify(me, (body or {}).get("code"))
             if not ok:
-                ratelimit.miss(keys)
+                ratelimit.fail(keys)
                 return self._json({"error": "код не підходить", "code": "twofa_bad"}, 400)
-            ratelimit.forget(keys)
+            ratelimit.clear(keys)
             if p.endswith("/disable"):
                 db.twofa_disable(uid)
+                seclog.event("2fa", True, user=me, ip=self._guest(), стан="вимкнено")
                 return self._fresh_login(uid, {"ok": True})
             codes = twofa.new_backup_codes()
             db.twofa_set_backup(uid, [twofa.backup_hash(c) for c in codes])
@@ -3124,10 +3584,11 @@ class H(BaseHTTPRequestHandler):
             # Місячна порція звернень до моделі. Списуємо одразу й одне на
             # питання, навіть якщо всередині модель смикають двічі (правка
             # «Моєї ТС», добір угод на видалення): людина спитала раз.
-            ok, why = billing.can_use_ai(uid)
+            # Дозвіл і списання одним запитом: пачка одночасних питань
+            # інакше проходила перевірку всі разом (див. billing.take_ai).
+            ok, why = billing.take_ai(uid)
             if not ok:
                 return self._json(billing.deny(uid, why), 402)
-            billing.spend_ai(uid)
             # історія розмови приходить з браузера — беремо тільки останні репліки
             raw = (body or {}).get("history")
             history = [m for m in raw if isinstance(m, dict)][-16:] if isinstance(raw, list) else []
@@ -3180,10 +3641,11 @@ class H(BaseHTTPRequestHandler):
             ratelimit.miss(keys, limit=ASK_LIMIT)
             if not llm.enabled():
                 return self._json({"error": "помічник вимкнений — немає DEEPSEEK_API_KEY"}, 503)
-            ok, why = billing.can_use_ai(uid)
+            # Дозвіл і списання одним запитом: пачка одночасних питань
+            # інакше проходила перевірку всі разом (див. billing.take_ai).
+            ok, why = billing.take_ai(uid)
             if not ok:
                 return self._json(billing.deny(uid, why), 402)
-            billing.spend_ai(uid)
             raw = (body or {}).get("history")
             history = [m for m in raw if isinstance(m, dict)][-16:] if isinstance(raw, list) else []
             # мова журналу: факти під відповіддю показуються як є, і в
@@ -3455,10 +3917,11 @@ class H(BaseHTTPRequestHandler):
             # розділах — контекст окремо, моделі входу окремо. Старий виклик
             # з одним "url" лишається робочим.
             b = body or {}
-            ok, why = billing.can_use_ai(uid)
+            # Дозвіл і списання одним запитом: пачка одночасних питань
+            # інакше проходила перевірку всі разом (див. billing.take_ai).
+            ok, why = billing.take_ai(uid)
             if not ok:
                 return self._json(billing.deny(uid, why), 402)
-            billing.spend_ai(uid)
             links = b.get("urls") if isinstance(b.get("urls"), list) else None
             try:
                 draft = ts_notion.read(links if links else (b.get("url") or ""),
@@ -3472,7 +3935,8 @@ class H(BaseHTTPRequestHandler):
                 return self._json({"error": "bad json or empty pair"}, 400)
             # Ключ від форми: та сама угода, надіслана вдруге (відповідь на
             # перше збереження загубилась у мережі), — віддаємо записану, а
-            # не робимо двійника.
+            # не робимо двійника. Перевіряємо до ліміту: повтор не має
+            # з'їдати ще одну безкоштовну угоду.
             cid = str(body.get("cid") or "")
             tid = cid if re.fullmatch(r"w[0-9a-z]{12,32}", cid) else new_id()
             if tid == cid:
@@ -3482,7 +3946,8 @@ class H(BaseHTTPRequestHandler):
             t = clean_trade(body, tid)
             user = db.get_user(uid)
             # Спершу дозвіл, і лише потім робота: скріни важкі, а відмова
-            # їх однаково викине.
+            # їх однаково викине. Це швидка відмова, а не застава — межу
+            # тримає take_trade нижче, вже разом зі списанням.
             ok, why = billing.can_add_trade(user, t.get("kind"))
             if not ok:
                 return self._json(billing.deny(user, why), 402)
@@ -3490,12 +3955,22 @@ class H(BaseHTTPRequestHandler):
                 save_screenshots(t, uid)
             except filestore.ShotError as e:
                 return self._shot_reply(e)
+            # Місце займаємо до запису: інакше пачка одночасних запитів
+            # проходить перевірку всі разом і кладе більше, ніж дозволено.
+            ok, why = billing.take_trade(user, t.get("kind"))
+            if not ok:
+                return self._json(billing.deny(user, why), 402)
             # У бэктеста эмоции нет: входа не было, спрашивать не о чем.
             ask = (t.get("kind") != "bt"
                    and not str(t.get("emotion") or "").strip()
                    and user["telegram_id"] is not None)
-            db.insert_trade(uid, t, "pending" if ask else "na")
-            billing.spend_trade(user, t.get("kind"))
+            try:
+                db.insert_trade(uid, t, "pending" if ask else "na")
+            except Exception:
+                # Записати не вийшло — місце віддаємо назад, інакше воно
+                # згорить ні за що.
+                billing.release_trade(user, t.get("kind"))
+                raise
             if ask:
                 ask_emotion_later(user, t)
             return self._json(t, 201)
@@ -3505,8 +3980,8 @@ class H(BaseHTTPRequestHandler):
                 return self._json({"error": "bad json"}, 400)
             # Перенесення файлом — те саме перенесення, що й з Notion, і
             # ліміт у них спільний: три рази в перші 30 днів. Інакше повз
-            # заслон на 30 угод можна було б завезти хоч тисячу таблицею.
-            ok, why = billing.can_import(uid)
+            # заслон на 20 угод можна було б завезти хоч тисячу таблицею.
+            ok, why = billing.take_import(uid)
             if not ok:
                 return self._json(billing.deny(uid, why), 402)
             items = body if isinstance(body, list) else body.get("trades") or []
@@ -3520,25 +3995,33 @@ class H(BaseHTTPRequestHandler):
                 except filestore.ShotError:
                     t["screenshots"] = []   # угоду з файлу беремо, битий скрін — ні
                 batch.append(t)
+            # Перенесення вже зайнято вище (take_import), тому тут рахувати
+            # нема чого. Порожній файл — окремий випадок: людині не додали
+            # нічого, і з'їдати за це одне з трьох було б несправедливо.
             added = db.insert_trades(uid, batch)
-            if added:
-                billing.spend_import(uid)
+            if not added:
+                billing.release_import(uid)
             return self._json({"ok": True, "added": added})
 
         self.send_response(404); self.end_headers()
 
     # ---------- PUT ----------
     def do_PUT(self):
+        if self._flooding(): return
         if self._old_host(): return
         p = urlparse(self.path).path
+        # Тіло читаємо тут, а не в кожній гілці: замок нижче відповідає
+        # замкненому одразу, а відповідь без забраних байтів лишила б їх
+        # у з'єднанні (див. do_POST).
+        body = self._body()
+        if self._too_big:
+            return self._too_big_reply()
+        if self._locked_out(p): return
 
         if p == "/api/prefs":
             uid = self._uid()
             if not uid:
                 return self._json({"error": "auth required"}, 401)
-            body = self._body()
-            if self._too_big:
-                return self._too_big_reply()
             if not isinstance(body, dict):
                 return self._json({"error": "bad json"}, 400)
             if len(json.dumps(body, ensure_ascii=False)) > PREFS_MAX:
@@ -3553,9 +4036,6 @@ class H(BaseHTTPRequestHandler):
         if not uid:
             return self._json({"error": "auth required"}, 401)
         tid = m.group(1)
-        body = self._body()
-        if self._too_big:
-            return self._too_big_reply()
         if not isinstance(body, dict):
             return self._json({"error": "bad json"}, 400)
         old = db.get_trade(tid, uid)
@@ -3577,8 +4057,10 @@ class H(BaseHTTPRequestHandler):
 
     # ---------- DELETE ----------
     def do_DELETE(self):
+        if self._flooding(): return
         if self._old_host(): return
         p = urlparse(self.path).path
+        if self._locked_out(p): return
         m = re.match(r"^/api/trades/([\w-]+)$", p)
         if not m:
             self.send_response(404); self.end_headers(); return
@@ -3648,9 +4130,8 @@ if __name__ == "__main__":
     if config.RUN_JOBS:
         # щоденний зліпок журналу: тихо, у фоні, раз на добу
         backup.start()
-        # і сам перечитує Notion раз на дві години
-        notion_sync.start(add=add_trades, fill=blank_filler, conf=notion_conf,
-                          save=notion_save, shots=SHOTS, busy=import_busy)
+        # оплата криптою: дивимось у блокчейн, чи не прийшли гроші
+        crypto_pay.start()
     if config.RUN_BOT and config.BOT_TOKEN:
         # бот живе поруч із сайтом: на безкоштовному хостингу другий
         # процес тримати ніде, а опитування Телеграма нікому не заважає

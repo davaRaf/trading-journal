@@ -155,9 +155,42 @@ function redraw(){
   if (window.__settings && document.querySelector(".stx")) __settings.redraw();
 }
 
+/* Мітка партнера, чиє оформлення зараз стоїть. Порожньо — своя тема.
+
+   Живе тут, бо тут і лежить таблиця тем: хто з ким у колаборації, знає
+   вона одна. Решта файлів (посилання на журнал, знімки) просто питає —
+   і посилання, роздані під час колаборації, рахуються партнерові, навіть
+   якщо сама людина прийшла не від нього.
+
+   Мітка стоїть шматком шляху: statsai.xyz/fxlab/u/dan, а не «?ref=». */
+function collabRef(){
+  const id = document.documentElement.getAttribute("data-skin") || "";
+  const th = THEMES().find(t => t.id === id);
+  return (th && th.collab) || "";
+}
+
+/* Як мітка стоїть в адресі: шматком шляху на початку, без «?ref=».
+   Короткі назви ті самі, що в config.PARTNER_ALIASES на сервері. */
+const REF_SHORT = {blackswan: "bs"};
+
+function refPath(){
+  const ref = collabRef();
+  return ref ? "/" + (REF_SHORT[ref] || ref) : "";
+}
+
+/* Оформлення спільнот, у яких можна зробити знімок. Беремо з тієї ж
+   таблиці тем і в тому ж порядку, що й у вікні тем: додасться третя
+   колаборація — вона сама з’явиться й у вікні «Поділитись». */
+function collabs(){
+  return THEMES().filter(t => t.collab).map(t => ({id: t.collab, name: t.name}));
+}
+
 /* ---------- ручки ---------- */
 window.__skin = {
   section: section,
+  collabRef: collabRef,
+  refPath: refPath,
+  collabs: collabs,
   open(){ if (window.__settings) __settings.open("skin"); },
   set(id){ apply(id); redraw(); },
   seed(field, value){
