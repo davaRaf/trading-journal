@@ -1255,7 +1255,7 @@ function vJournal(){
     '<button class="'+(S.jMode==="table"?"on":"")+'" data-tip="'+T.jrTableTabTip+'" onclick="setJMode(\'table\')">'+T.jrTableTab+'</button>'+
     '<button class="'+(S.jMode==="list"?"on":"")+'" data-tip="'+T.jrAllTabTip+'" onclick="setJMode(\'list\')">'+T.jrAllTab+'</button>'+
     "</div>";
-  let h='<div class="jhead">'+(btOn()&&window.__btj ? __btj.head(S.jMode) : '<h1>'+T.jrTitle+'</h1>'+(window.__strat?__strat.btn():"")+modeTabs);
+  let h='<div class="jhead">'+(btOn()&&window.__btj ? __btj.head(S.jMode) : '<h1>'+T.jrTitle+'</h1>'+modeTabs+(window.__strat?__strat.btn():""));
   if(S.jMode==="list"){
     /* «Інструменти» — те саме гніздо, що й у календарі: без нього
        sharelink.js не знаходив місця й ставив «Поділитись» ліворуч. */

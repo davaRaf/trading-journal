@@ -1361,7 +1361,7 @@ h1.ovh a.on::after{content:"";position:absolute;left:0;right:0;bottom:0;height:2
 .ovw .rail .inner.ovn{flex:none;margin-top:6px;padding:16px 16px 12px}
 
 /* ---------- кілька стратегій (strat.js) ---------- */
-.strat-filter{margin-left:12px}
+.btj-filter.strat-filter{margin-left:4px}
 .ohead .strat-filter,.jhead .strat-filter{align-self:center}
 .strat-tabs{display:flex;flex-wrap:wrap;gap:6px;margin:0 0 16px;padding:4px;border:1px solid var(--line-soft);
   border-radius:12px;background:var(--seg-bg);width:max-content;max-width:100%}
