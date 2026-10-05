@@ -1039,6 +1039,7 @@ function vFull(){
      екрані. */
   let h = '<div class="tsv' + (editing ? " editing" : "") + '">';
   h += '<div class="vhead tsv-head"><h1>' + esc(d.title) + "</h1>"
+    + (window.__strat ? __strat.btn("ts") : "")
     + '<span class="right">'
     +   '<button class="tsv-btn pri" type="button" onclick="__ts.edit()">'
     +     (editing ? DONE_IC + esc(d.btnDone) : PEN_IC + esc(d.btnEdit)) + "</button>"
@@ -1078,8 +1079,11 @@ function vTS(){
     load();
     return '<div class="empty">' + esc(D().loading) + "</div>";
   }
-  /* вкладки стратегій над розділом: ТС 1 · ТС 2 · + */
-  return (window.__strat ? __strat.tabsHtml() : "") + (TS ? vFull() : vNone());
+  /* у порожньої стратегії свого заголовка немає — коли їх кілька, даємо
+     шапку з перемикачем, інакше з неї не вибратись */
+  const sw = window.__strat && __strat.multi()
+    ? '<div class="vhead tsv-head"><h1>' + esc(D().title) + "</h1>" + __strat.btn("ts") + "</div>" : "";
+  return TS ? vFull() : sw + vNone();
 }
 VIEWS.ts = vTS;
 

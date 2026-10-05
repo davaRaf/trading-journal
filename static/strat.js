@@ -3,13 +3,13 @@
 
    У людини може бути не одна ТС: скальп на US100 і свінг на золоті —
    різні правила і різна статистика. Кожна стратегія — свій журнал:
-   перемикач «Стратегія ▾» у шапках «Огляду», «Журналу» й «Аналітики»
-   показує угоди лише обраної (або всіх). У «Моїй ТС» — вкладки
-   стратегій і «+». Угода пам'ятає свою стратегію полем ts
-   ("" — перша, інакше номер із сервера).
+   перемикач праворуч від заголовка «Огляду», «Журналу», «Аналітики» й
+   «Моєї ТС» показує угоди й правила обраної (у журналі — ще й «усі»).
+   У кожної стратегії свій колір-крапка. Угода пам'ятає свою стратегію
+   полем ts ("" — перша, інакше номер із сервера).
 
-   Поки стратегія одна, нічого з цього не видно: ні перемикача, ні поля
-   у формі — лише вкладка і «+» у «Моїй ТС», щоб було звідки почати.
+   Поки стратегія одна, перемикача ніде немає — лише тиха кнопка
+   «+ Стратегія» біля «Моєї ТС», щоб було звідки почати.
    У бектесті стратегій немає: там свої журнали (btj.js).
    ============================================================ */
 (function(){
@@ -34,7 +34,10 @@ function multi(){ return !off() && list().length > 1; }
 function sid(){ return off() || cur === "all" ? "0" : cur; }
 
 async function load(){
-  if (off()) return;
+  /* DEMO тут ще не відомий: reload() з'ясовує його після угод, а нас кличе
+     раніше. Тож питаємо лише бектест і чужий журнал; у демо запит просто
+     не вдасться, і лишиться одна стратегія. */
+  if ((typeof btOn === "function" && btOn()) || (window.Pub && Pub.on)) return;
   try{ L = (await api("GET", "/api/ts/list")).list || []; }
   catch(e){ L = L || [{id: 0, name: "", has: false}]; }
   if (cur !== "all" && !list().some(s => String(s.id) === cur)) cur = "0";
@@ -59,37 +62,83 @@ function apply(){
   render();
 }
 
-/* ---------------- перемикач у шапках ---------------- */
-const CHEV = '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M6 9l6 6 6-6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>';
-function btn(){
-  if (!multi()) return "";
-  return '<button type="button" class="btj-filter strat-filter" onclick="__strat.pick(this)">'
-    + "<span>" + esc(D().lab) + "</span><b>" + esc(cur === "all" ? D().all : label(cur)) + "</b>" + CHEV + "</button>";
+/* ---------------- перемикач ---------------- */
+/* у кожної стратегії свій колір — щоб розрізняти з першого погляду */
+const COLORS = ["var(--accent)", "#a58bff", "#e0b341", "#2fc6b3", "#ff6fa8", "#5aa2ff", "#ff8a4c", "#9bd35a", "#c48bff", "#7aa0b8"];
+function color(id){
+  const i = list().findIndex(s => String(s.id) === String(id || 0));
+  return COLORS[(i < 0 ? 0 : i) % COLORS.length];
 }
-function pick(b){
-  if (!window.Pick) return;
-  const items = list().map((s, i) => ({v: String(s.id), label: nm(s, i)}))
-    .concat([{v: "all", label: D().all}]);
-  Pick.open(b, items, cur, v => { select(v); apply(); });
+function count(id){
+  const all = Array.isArray(S.liveAll) ? S.liveAll : [];
+  return id === "all" ? all.length : all.filter(t => String(t.ts || "0") === String(id)).length;
+}
+const CHEV = '<svg class="sw-chev" width="12" height="12" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M6 9l6 6 6-6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+const TICK = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+function dots(){ return '<span class="sw-dots">' + list().slice(0, 3).map(s => '<i style="--c:' + color(s.id) + '"></i>').join("") + "</span>"; }
+
+/* where: "j" — журнал/огляд/аналітика (є «усі»), "ts" — «Моя ТС» */
+function btn(where){
+  if (off()) return "";
+  if (!multi()){
+    return where === "ts" && L !== undefined
+      ? '<button type="button" class="sw-add" onclick="__strat.add()" data-tip="' + esc(D().addTip) + '">+ ' + esc(D().add) + "</button>"
+      : "";
+  }
+  const v = where === "ts" ? sid() : cur;
+  const all = v === "all";
+  return '<button type="button" class="sw-pill" aria-haspopup="menu" onclick="__strat.menu(this,\'' + (where || "j") + '\')">'
+    + (all ? dots() : '<i class="sw-dot" style="--c:' + color(v) + '"></i>')
+    + '<span class="sw-name">' + esc(all ? D().all : label(v)) + "</span>"
+    + (where === "ts" ? "" : '<span class="sw-n">' + count(v) + "</span>") + CHEV + "</button>";
 }
 
-/* ---------------- вкладки в «Моїй ТС» ---------------- */
-const PEN = '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M4 20h4L19 9l-4-4L4 16v4z" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/></svg>';
-function tabsHtml(){
-  if (off()) return "";
-  if (L === undefined){ load().then(() => { if (S.view === "ts") render(); }); return ""; }
-  const on = sid();
-  return '<div class="strat-tabs" role="tablist">'
-    + list().map((s, i) => {
-        const a = String(s.id) === on;
-        return '<button type="button" role="tab" class="st-tab' + (a ? " on" : "") + '" aria-selected="' + a + '"'
-          + (a ? ' onclick="__strat.edit(' + s.id + ')" data-tip="' + esc(D().editTip) + '"'
-               : ' onclick="__strat.go(\'' + s.id + '\')"')
-          + "><span>" + esc(nm(s, i)) + "</span>" + (a ? PEN : "") + "</button>";
-      }).join("")
-    + (list().length < 10 ? '<button type="button" class="st-tab st-add" onclick="__strat.add()" data-tip="'
-       + esc(D().addTip) + '">+ ' + esc(D().add) + "</button>" : "")
-    + "</div>";
+let pop = null;
+function closeMenu(){
+  if (!pop) return;
+  pop.remove(); pop = null;
+  document.removeEventListener("mousedown", outside, true);
+  document.removeEventListener("keydown", onKey, true);
+  window.removeEventListener("scroll", closeMenu, true);
+}
+function outside(e){ if (pop && !pop.contains(e.target) && !e.target.closest(".sw-pill")) closeMenu(); }
+function onKey(e){ if (e.key === "Escape"){ e.stopPropagation(); closeMenu(); } }
+
+function menu(b, where){
+  if (pop){ const was = pop.dataset.for === where; closeMenu(); if (was) return; }
+  const d = D(), v = where === "ts" ? sid() : cur;
+  const row = (id, name, c, n) =>
+    '<button type="button" role="menuitemradio" class="sw-row' + (String(id) === String(v) ? " on" : "") + '" data-v="' + id + '">'
+    + c + '<span class="sw-rn">' + esc(name) + "</span>"
+    + (n == null ? "" : '<span class="sw-rc">' + n + "</span>") + '<span class="sw-ok">' + TICK + "</span></button>";
+  let h = '<div class="sw-head">' + esc(where === "ts" ? d.labTs : d.lab) + "</div>";
+  h += list().map((s, i) => row(s.id, nm(s, i), '<i class="sw-dot" style="--c:' + color(s.id) + '"></i>',
+                                where === "ts" ? null : count(s.id))).join("");
+  if (where !== "ts") h += '<div class="sw-sep"></div>' + row("all", d.all, dots(), count("all"));
+  h += '<div class="sw-sep"></div><button type="button" class="sw-act" data-a="add">+ ' + esc(d.newOne) + "</button>";
+  if (where === "ts") h += '<button type="button" class="sw-act" data-a="edit">' + esc(d.editTip) + "</button>";
+  pop = document.createElement("div");
+  pop.className = "sw-pop"; pop.setAttribute("role", "menu"); pop.dataset.for = where;
+  pop.innerHTML = h;
+  pop.style.zIndex = window.nextTop ? nextTop() : 9000;
+  document.body.appendChild(pop);
+  const r = b.getBoundingClientRect();
+  const w = pop.offsetWidth, hgt = pop.offsetHeight;
+  pop.style.left = Math.min(Math.max(8, r.left), innerWidth - w - 8) + "px";
+  pop.style.top = (r.bottom + 6 + hgt > innerHeight - 8 && r.top > hgt + 14 ? r.top - hgt - 6 : r.bottom + 6) + "px";
+  pop.addEventListener("click", e => {
+    const it = e.target.closest("[data-v],[data-a]");
+    if (!it) return;
+    closeMenu();
+    if (it.dataset.a === "add") return add();
+    if (it.dataset.a === "edit") return edit(+sid());
+    select(it.dataset.v); apply();
+  });
+  setTimeout(() => {
+    document.addEventListener("mousedown", outside, true);
+    document.addEventListener("keydown", onKey, true);
+    window.addEventListener("scroll", closeMenu, true);
+  }, 0);
 }
 function go(v){ select(v); apply(); }
 
@@ -170,7 +219,7 @@ function formField(t){
     + '<div class="strat-chips">' + list().map((s, i) => {
         const k = s.id ? String(s.id) : "";
         return '<button type="button" class="' + (k === v ? "on" : "") + '" data-v="' + k
-          + '" onclick="__strat.pickForm(this)">' + esc(nm(s, i)) + "</button>";
+          + '" onclick="__strat.pickForm(this)"><i class="sw-dot" style="--c:' + color(s.id) + '"></i>' + esc(nm(s, i)) + "</button>";
       }).join("") + "</div>" + hidden + "</div>";
 }
 function pickForm(b){
@@ -180,12 +229,21 @@ function pickForm(b){
 /* рядок «Стратегія — ТС 2» у картці угоди; поки стратегія одна — нічого */
 function fact(t){ return multi() ? [D().lab, label(t.ts)] : null; }
 
-window.__strat = {load, filter, multi, sid, label, btn, pick, tabsHtml, go, add, create, edit, rename, drop,
+window.__strat = {load, filter, multi, sid, label, color, btn, menu, go, add, create, edit, rename, drop,
                   formField, pickForm, fact};
+
+/* Журнал міг прочитати угоди ще до того, як підвантажився цей файл (на
+   локальному сервері відповідь приходить миттєво) — тоді reload() нас не
+   покликав. Добираємо стратегії самі й перемальовуємо. */
+setTimeout(async () => {
+  if (L !== undefined || !Array.isArray(S.liveAll) || off()) return;
+  await load();
+  if (multi()){ S.trades = S.all = filter(S.liveAll); render(); }
+}, 0);
 
 const DICT = {
 uk: {
-  ts: "ТС", lab: "Стратегія", all: "Усі стратегії", add: "Стратегія", addTip: "Додати ще одну торгову стратегію",
+  ts: "ТС", lab: "Стратегія", labTs: "Торгові стратегії", newOne: "Нова стратегія", all: "Усі стратегії", add: "Стратегія", addTip: "Додати ще одну торгову стратегію",
   editTip: "Перейменувати або прибрати", close: "Закрити", cancel: "Скасувати", save: "Зберегти", del: "Прибрати",
   newTitle: "Нова стратегія", editTitle: "Стратегія", name: "Назва", namePh: "Скальп US100",
   start: "З чого почати", empty: "З нуля", emptyX: "Порожня ТС — заповниш опитуванням, з Notion або руками",
@@ -195,7 +253,7 @@ uk: {
   dropAsk: "Прибрати «%s»? Правила стратегії видаляться, а її угоди перейдуть у «%t».",
 },
 ru: {
-  ts: "ТС", lab: "Стратегия", all: "Все стратегии", add: "Стратегия", addTip: "Добавить ещё одну торговую стратегию",
+  ts: "ТС", lab: "Стратегия", labTs: "Торговые стратегии", newOne: "Новая стратегия", all: "Все стратегии", add: "Стратегия", addTip: "Добавить ещё одну торговую стратегию",
   editTip: "Переименовать или удалить", close: "Закрыть", cancel: "Отмена", save: "Сохранить", del: "Удалить",
   newTitle: "Новая стратегия", editTitle: "Стратегия", name: "Название", namePh: "Скальп US100",
   start: "С чего начать", empty: "С нуля", emptyX: "Пустая ТС — заполнишь опросом, из Notion или вручную",
@@ -205,7 +263,7 @@ ru: {
   dropAsk: "Удалить «%s»? Правила стратегии удалятся, а её сделки перейдут в «%t».",
 },
 en: {
-  ts: "System", lab: "Strategy", all: "All strategies", add: "Strategy", addTip: "Add another trading strategy",
+  ts: "System", lab: "Strategy", labTs: "Trading systems", newOne: "New strategy", all: "All strategies", add: "Strategy", addTip: "Add another trading strategy",
   editTip: "Rename or remove", close: "Close", cancel: "Cancel", save: "Save", del: "Remove",
   newTitle: "New strategy", editTitle: "Strategy", name: "Name", namePh: "US100 scalp",
   start: "Start from", empty: "Scratch", emptyX: "An empty system — fill it via the survey, Notion or by hand",
