@@ -18,7 +18,7 @@ from config import (DATABASE_URL, DB_POOL_MAX, EARLY_MIGRATION,
 # Текстовые поля сделки. Порядок важен: по нему строятся INSERT/UPDATE.
 TEXT_FIELDS = ["pair", "date", "session", "position", "entry_model", "bias", "setup",
                "direction_type", "result", "account", "entry_details", "notes", "mistakes",
-               "comments", "emotion", "bt_run", "notion_id", "import_id"]
+               "comments", "emotion", "bt_run", "notion_id", "import_id", "ts"]
 # rr_plan — скільки дав би тейк, якби досидів. Із різниці з rr виходить,
 # скільки людина лишила на столі, вийшовши рукою.
 NUM_FIELDS = ["rr", "risk", "rr_plan"]
@@ -256,6 +256,8 @@ CREATE INDEX IF NOT EXISTS trades_user_kind ON trades (user_id, "kind");
 -- Подпись прогона: «EURUSD H1, sweep+fvg, 2023». Одной строкой вместо пары
 -- дат — человек сам пишет, что именно гонял. У реальных сделок пусто.
 ALTER TABLE trades ADD COLUMN IF NOT EXISTS "bt_run" TEXT NOT NULL DEFAULT '';
+-- стратегія угоди: "" — перша, інакше id з ts_multi (ts_store.py)
+ALTER TABLE trades ADD COLUMN IF NOT EXISTS "ts" TEXT NOT NULL DEFAULT '';
 
 -- Угоди з Notion, які людина прибрала з журналу руками. Тримаємо не саму
 -- угоду, а позначки, за якими перенесення її впізнає: id запису в Notion,

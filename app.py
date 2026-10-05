@@ -250,6 +250,10 @@ def clean_trade(body, tid):
     # Реальная сделка или бэктест. Всё, кроме "bt", считаем торговлей: тип
     # приходит из браузера, и это единственное место, где он входит внутрь.
     t["kind"] = "bt" if str(body.get("kind") or "").strip() == "bt" else ""
+    # стратегія — номер із ts_multi або "" (перша); у бектесті своєї немає
+    t["ts"] = str(t.get("ts") or "").strip()
+    if not t["ts"].isdigit() or t["ts"] == "0" or t["kind"] == "bt":
+        t["ts"] = ""
     # откуда сделка приехала — нужно, чтобы повторный импорт не задвоил её
     if body.get("notion_id"): t["notion_id"] = str(body["notion_id"])[:64]
     # какое перенесение её принесло — нужно, чтобы его можно было отменить
@@ -2374,9 +2378,15 @@ class H(BaseHTTPRequestHandler):
                 return self._json({"error": "auth required"}, 401)
             # у бектесті своя копія ТС: перший захід знімає її з реальної,
             # далі це два окремі документи
-            kind = "bt" if (parse_qs(urlparse(self.path).query).get("kind")
-                            or [""])[0] == "bt" else ""
-            return self._json({"ts": ts_store.get(uid, kind)})
+            qs = parse_qs(urlparse(self.path).query)
+            kind = "bt" if (qs.get("kind") or [""])[0] == "bt" else ""
+            return self._json({"ts": ts_store.get(uid, kind, sid=(qs.get("sid") or ["0"])[0])})
+
+        if p == "/api/ts/list":
+            uid = self._uid()
+            if not uid:
+                return self._json({"error": "auth required"}, 401)
+            return self._json({"list": ts_store.lst(uid)})
 
         if p.startswith("/tsshot/"):
             uid = self._uid()
@@ -3911,16 +3921,39 @@ class H(BaseHTTPRequestHandler):
             data = dict((body or {}).get("ts") or {})
             # правки лягають у ту стратегію, яку людина зараз бачить
             kind = "bt" if (body or {}).get("kind") == "bt" else ""
-            ts_store.put(uid, data, kind)
-            ts_store.sweep(uid, data, SHOTS, kind)  # старі скріни за собою прибираємо
+            sid = (body or {}).get("sid") or 0
+            ts_store.put(uid, data, kind, sid)
+            ts_store.sweep(uid, data, SHOTS, kind, sid)  # старі скріни за собою прибираємо
             return self._json({"ok": True})
+
+        # ---- кілька стратегій: завести, назвати, прибрати ----
+        if p == "/api/ts/new":
+            b = body or {}
+            sid = ts_store.create(uid, b.get("name") or "",
+                                  b.get("copy") if b.get("copy") is not None else None)
+            if not sid:
+                return self._json({"error": "too many"}, 400)
+            return self._json({"id": sid, "list": ts_store.lst(uid)})
+
+        if p == "/api/ts/rename":
+            b = body or {}
+            ts_store.rename(uid, b.get("sid") or 0, b.get("name") or "")
+            return self._json({"list": ts_store.lst(uid)})
+
+        if p == "/api/ts/drop":
+            sid = (body or {}).get("sid") or 0
+            if not ts_store.drop(uid, sid):
+                return self._json({"error": "can't"}, 400)
+            ts_store.sweep(uid, {}, SHOTS, "", sid)
+            return self._json({"list": ts_store.lst(uid)})
 
         # Звірка щойно записаної угоди з ТС. Окремим запитом, а не всередині
         # POST /api/trades: збереження має бути миттєвим, а тут ще й модель.
         if p == "/api/ts/check":
             tid = str((body or {}).get("id") or "").strip()
             trade = db.get_trade(tid, uid) if tid else None
-            ts = ts_store.get(uid)
+            # звіряємо з тією стратегією, під якою угоду записали
+            ts = ts_store.get(uid, sid=(trade or {}).get("ts") or 0)
             if not trade or not ts:
                 return self._json({"items": [], "text": ""})
             # Бэктест с торговой системой не сверяем: список дня собирается
@@ -3942,8 +3975,9 @@ class H(BaseHTTPRequestHandler):
 
         if p == "/api/ts/clear":
             kind = "bt" if (body or {}).get("kind") == "bt" else ""
-            ts_store.sweep(uid, {}, SHOTS, kind)
-            ts_store.clear(uid, kind)
+            sid = (body or {}).get("sid") or 0
+            ts_store.sweep(uid, {}, SHOTS, kind, sid)
+            ts_store.clear(uid, kind, sid)
             return self._json({"ok": True})
 
         if p == "/api/ts/shot":
@@ -4090,6 +4124,9 @@ class H(BaseHTTPRequestHandler):
         # Тип ставится при записи и правкой не меняется: иначе сделка
         # переехала бы между реальным журналом и бэктестом.
         t["kind"] = old.get("kind") or ""
+        # хто правив без поля стратегії (бот, старий кеш сторінки) — не скидаємо її
+        if "ts" not in body:
+            t["ts"] = old.get("ts") or ""
         try:
             save_screenshots(t, uid, old)
         except filestore.ShotError as e:

@@ -328,7 +328,11 @@ async function reload(){
     S.btAll = got;
     await __btj.sync();
     S.all = __btj.filter(got);
-  } else { S.btAll = null; S.all = got; }
+  } else {
+    /* кілька стратегій (strat.js): на екрани йдуть угоди обраної */
+    S.btAll = null; S.liveAll = got;
+    if(window.__strat){ await __strat.load(); S.all = __strat.filter(got); } else S.all = got;
+  }
   S.trades = S.all;          // в статистике участвуют все сделки
   await Prefs.load();        // після угод: тепер відомо, демо це чи ні
   /* Рахунки читаємо про запас і не чекаємо на них: вони потрібні формі
@@ -1196,7 +1200,7 @@ function vDashboard(){
     /* Шапка тут та сама, що й на «Рахунках»: заголовок-перемикач мусить
        виглядати однаково, у порожньому журналі й у повному. У .vhead свій
        заголовок — дрібніший і жирніший, і на переході це було видно. */
-    return '<div class="ohead">'+ovTabsHtml("dashboard")+'</div>'+
+    return '<div class="ohead">'+ovTabsHtml("dashboard")+(window.__strat?__strat.btn():"")+'</div>'+
       '<div class="card"><div class="in ov-empty" style="padding:26px 24px">'+
       '<div style="font-size:20px;font-weight:600;letter-spacing:-.01em">'+T.bgTitle+'</div>'+
       '<div class="hint" style="margin-top:8px;max-width:62ch;line-height:1.6">'+(bt?(window.__btj&&__btj.none()?T.btNoJ:T.btEmpty):T.bgLead)+'</div>'+
@@ -1225,7 +1229,7 @@ function vDashboard(){
      стоїть там, де одразу видно його наслідок, а в кутку шапки лишається
      одна дія замість трьох предметів поспіль (рішення власника 25.09.2026). */
   return '<div class="ovw">'+
-    '<div class="ohead">'+ovTabsHtml("dashboard")+"</div>"+
+    '<div class="ohead">'+ovTabsHtml("dashboard")+(window.__strat?__strat.btn():"")+"</div>"+
     '<div class="flow">'+
       ovWeekHtml()+
       '<div class="shell rise"><div class="core">'+
@@ -1251,7 +1255,7 @@ function vJournal(){
     '<button class="'+(S.jMode==="table"?"on":"")+'" data-tip="'+T.jrTableTabTip+'" onclick="setJMode(\'table\')">'+T.jrTableTab+'</button>'+
     '<button class="'+(S.jMode==="list"?"on":"")+'" data-tip="'+T.jrAllTabTip+'" onclick="setJMode(\'list\')">'+T.jrAllTab+'</button>'+
     "</div>";
-  let h='<div class="jhead">'+(btOn()&&window.__btj ? __btj.head(S.jMode) : '<h1>'+T.jrTitle+'</h1>'+modeTabs);
+  let h='<div class="jhead">'+(btOn()&&window.__btj ? __btj.head(S.jMode) : '<h1>'+T.jrTitle+'</h1>'+(window.__strat?__strat.btn():"")+modeTabs);
   if(S.jMode==="list"){
     /* «Інструменти» — те саме гніздо, що й у календарі: без нього
        sharelink.js не знаходив місця й ставив «Поділитись» ліворуч. */
@@ -1639,7 +1643,7 @@ function vAnalytics(){
      видно нижче, у самій статистиці (22.09.2026, прохання власника). */
   let h='<div class="vhead"><h1>'+T.anTitle+"</h1>"+
     /* у бектесті розрізи рахуються по одному журналу — обираємо, по якому */
-    (btOn()&&window.__btj?__btj.filterBtn():"")+"</div>";
+    (btOn()&&window.__btj?__btj.filterBtn():(window.__strat?__strat.btn():""))+"</div>";
   h+=filterBar();
   /* Десять розрізів у рядок — стіна кнопок на телефоні. Там вони живуть
      під кнопкою з поточним розрізом і закриваються після вибору. */
@@ -1862,13 +1866,14 @@ function tradeBodyHtml(t){
 
   /* 2. обстоятельства входа. Заполненное показываем, пустое собираем одной
      строкой внизу: видно, чего не хватает, но экран это не съедает */
-  const ctx = isSkip(t)
+  const sf = window.__strat && !btOn() ? __strat.fact(t) : null;
+  const ctx = (sf ? [sf] : []).concat(isSkip(t)
     ? [[T.fPair,t.pair],[T.fSetup,t.setup],[T.fBias,t.bias]]
     : [[T.fAccount,t.account],[T.fSession,t.session],[T.fBias,t.bias],
        [T.fEntryModel,t.entry_model],[T.fSetup,t.setup],[T.fDirTypeFilter,dirType(t)],
        t.result==="WinM"&&t.rr_plan!=null
          ? [T.fmRRPlan, r1(t.rr_plan)+(handLost(t)>0.001?"  ·  −"+r1(handLost(t))+"%":"")] : null
-      ].filter(Boolean);
+      ].filter(Boolean));
   h+=section(T.tcHowTraded,
     '<div class="tfields">'+ctx.filter(f=>f[1]).map(f=>
       '<div class="fr"><span class="l">'+f[0]+'</span><span class="v">'+esc(f[1])+"</span></div>").join("")+"</div>",
@@ -2135,6 +2140,7 @@ function openForm(id, presetDay){
 
   /* ---- сделка ---- */
   '<section class="fcard"><h4>'+T.tradeDefaultName+'</h4><div class="fbody">'+
+    (btOn()||!window.__strat?"":__strat.formField(t))+
     '<div class="frow">'+
       '<div class="f"><label>'+T.fPair+' <i>*</i></label>'+
         pick("pair",pairs,t?t.pair:(btOn()&&window.__btj?__btj.asset():""),T.fmOwnPairPh)+"</div>"+
@@ -2626,7 +2632,7 @@ async function saveTrade(id){
     screenshots:S.formShots,
     /* Куди записуємо: у реальний журнал чи в бектест. Сервер бере тільки
        "bt", решту вважає торгівлею. */
-    bt_run:g("bt_run"), kind: btOn()?"bt":"",
+    bt_run:g("bt_run"), kind: btOn()?"bt":"", ts:btOn()?"":g("ts"),
     cid:S.formKey||"",
   };
   if(!t.pair){ formErr("pair", T.alertNeedPair); return; }

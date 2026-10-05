@@ -62,6 +62,9 @@ function D(){ return DICT[window.LANG] || DICT.uk; }
 const DEMO_KEY = "statsai_ts_demo";
 function demo(){ return typeof DEMO !== "undefined" && DEMO; }
 
+/* яка з кількох стратегій відкрита (strat.js); без нього — перша */
+function sid(){ return window.__strat ? __strat.sid() : "0"; }
+
 async function load(){
   if (demo()){
     try{ TS = normalize(JSON.parse(localStorage.getItem(DEMO_KEY) || "null")); }catch(e){ TS = null; }
@@ -73,7 +76,7 @@ async function load(){
     return;
   }
   try{
-    const r = await api("GET", "/api/ts" + (btOn() ? "?kind=bt" : ""));
+    const r = await api("GET", "/api/ts" + (btOn() ? "?kind=bt" : "?sid=" + sid()));
     TS = (r && r.ts && Object.keys(r.ts).length) ? normalize(r.ts) : null;
   }catch(e){ TS = null; }
   if (S.view === "ts") render();
@@ -88,7 +91,7 @@ function save(){
   }
   clearTimeout(saveTimer);
   saveTimer = setTimeout(() => {
-    api("POST", "/api/ts", {ts: TS, kind: btOn()?"bt":""}).catch(() => {});
+    api("POST", "/api/ts", {ts: TS, kind: btOn()?"bt":"", sid: btOn() ? 0 : +sid()}).catch(() => {});
   }, 400);
 }
 
@@ -1075,7 +1078,8 @@ function vTS(){
     load();
     return '<div class="empty">' + esc(D().loading) + "</div>";
   }
-  return TS ? vFull() : vNone();
+  /* вкладки стратегій над розділом: ТС 1 · ТС 2 · + */
+  return (window.__strat ? __strat.tabsHtml() : "") + (TS ? vFull() : vNone());
 }
 VIEWS.ts = vTS;
 
@@ -1813,7 +1817,7 @@ window.__ts = {
     soft();
     if (!await Ask.yes(D().confirmDelete, {ok:T.askYes, cancel:T.askNo, danger:true})) return;
     if (demo()){ try{ localStorage.removeItem(DEMO_KEY); }catch(e){} }
-    else { try{ await api("POST", "/api/ts/clear", {kind: btOn()?"bt":""}); }catch(e){} }
+    else { try{ await api("POST", "/api/ts/clear", {kind: btOn()?"bt":"", sid: btOn() ? 0 : +sid()}); }catch(e){} }
     TS = null;
     editing = false;
     render();
