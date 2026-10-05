@@ -909,7 +909,11 @@ def user_card(u, titles, kind_ru, refs, billing_html=""):
         + e(u["nickname"]) + "</b></p>"
           '<div style="display:flex;gap:8px;flex-wrap:wrap"><input id=cf placeholder="' + e(u["nickname"]) + '" '
           'style="flex:1;min-width:200px;padding:9px 12px;border-radius:9px;border:1px solid var(--line);background:var(--card);'
-          'color:var(--text);font:inherit"><button id=go class="btn go">Удалить аккаунт</button></div><p id=msg class=mute></p></div>'
+          'color:var(--text);font:inherit"><button id=go class="btn go">Удалить аккаунт</button>'
+          '<button id=goban class="btn go">Забанить и удалить</button></div>'
+          '<p class=mute style="margin:8px 0 0;font-size:12px">«Забанить» ещё и запоминает его IP, устройство и почту: '
+          'новый аккаунт оттуда не заведётся. Осторожно: у мобильных операторов один IP на много людей.</p>'
+          '<p id=msg class=mute></p></div>'
         + "<script>"
           "document.querySelectorAll('.refb').forEach(b=>b.onclick=async()=>{refmsg.textContent='…';"
           "const r=await fetch('/api/admin/set-ref',{method:'POST',headers:{'Content-Type':'application/json'},"
@@ -923,11 +927,12 @@ def user_card(u, titles, kind_ru, refs, billing_html=""):
           "body:JSON.stringify({nick:" + nick_js + ",note:t})});const d=await r.json().catch(()=>({}));"
           "lkgo.disabled=false;lkmsg.textContent=r.ok?(d.locked?'замок стоит':'снят'):(d.error||('ошибка '+r.status));"
           "if(r.ok)setTimeout(()=>location.reload(),700);};"
-          "go.onclick=async()=>{if(!confirm('Удалить аккаунт '+" + nick_js + "+'? Отменить нельзя.'))return;"
-          "go.disabled=true;msg.textContent='Удаляю…';const r=await fetch('/api/admin/delete-user',{method:'POST',"
-          "headers:{'Content-Type':'application/json'},body:JSON.stringify({nick:" + nick_js + ",confirm:cf.value})});"
-          "const d=await r.json().catch(()=>({}));if(r.ok){msg.textContent='Удалён. Файлов убрано: '+d.files;"
-          "setTimeout(()=>location.href='/admin',1200);}else{go.disabled=false;msg.textContent=d.error||('Ошибка '+r.status);}};"
+          "const del=async ban=>{if(!confirm((ban?'Забанить и удалить ':'Удалить аккаунт ')+" + nick_js + "+'? Отменить нельзя.'))return;"
+          "go.disabled=goban.disabled=true;msg.textContent='Удаляю…';const r=await fetch('/api/admin/delete-user',{method:'POST',"
+          "headers:{'Content-Type':'application/json'},body:JSON.stringify({nick:" + nick_js + ",confirm:cf.value,ban:ban})});"
+          "const d=await r.json().catch(()=>({}));if(r.ok){msg.textContent='Удалён. Файлов убрано: '+d.files+(ban?' · в бане записей: '+d.banned:'');"
+          "setTimeout(()=>location.href='/admin',1500);}else{go.disabled=goban.disabled=false;msg.textContent=d.error||('Ошибка '+r.status);}};"
+          "go.onclick=()=>del(false);goban.onclick=()=>del(true);"
           "</script></div></body></html>")
 
 

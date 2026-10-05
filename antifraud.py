@@ -109,8 +109,39 @@ def twin(ip, device):
             (ip, device)).fetchone()
 
 
-def blocked(ip, device):
-    """Чи закривати реєстрацію. Дозволена адреса знімає заслон одразу."""
+def ban_user(u, note=""):
+    """Запам'ятати все, по чому людину впізнати: усі її IP, пристрої й пошту.
+    Робиться ДО видалення — signup_ips видаляється разом з акаунтом."""
+    rows = [("email", db.email_key(u.get("email") or "")),
+            ("ip", u.get("signup_ip")), ("device", u.get("signup_device"))]
+    with db.connect() as conn:
+        for r in conn.execute("SELECT ip, device FROM signup_ips WHERE user_id=%s",
+                              (u["id"],)).fetchall():
+            rows += [("ip", r["ip"]), ("device", r["device"])]
+        for k, v in rows:
+            if v:
+                conn.execute("INSERT INTO bans (kind, value, note) VALUES (%s,%s,%s) "
+                             "ON CONFLICT DO NOTHING", (k, v, note or ""))
+        conn.commit()
+    return sorted({k + ":" + v for k, v in rows if v})
+
+
+def banned(ip="", device="", email=""):
+    """Збіг хоч одного: бан ставить власник свідомо, тут і сам IP рахується."""
+    pairs = [(k, v) for k, v in (("ip", ip), ("device", device),
+                                 ("email", db.email_key(email or ""))) if v]
+    if not pairs:
+        return False
+    with db.connect() as conn:
+        return any(conn.execute("SELECT 1 FROM bans WHERE kind=%s AND value=%s",
+                                p).fetchone() for p in pairs)
+
+
+def blocked(ip, device, email=""):
+    """Чи закривати реєстрацію. Бан сильніший за дозвіл адреси; дозволена
+    адреса знімає лише заслон «той самий IP і пристрій»."""
+    if banned(ip, device, email):
+        return True
     if allowed(ip):
         return None
     return twin(ip, device)

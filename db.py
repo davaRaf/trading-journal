@@ -437,6 +437,16 @@ CREATE TABLE IF NOT EXISTS ip_allow (
   note       TEXT NOT NULL DEFAULT '',
   created_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
+
+-- Бан з адмінки: адреса, пристрій (хеш) і пошта людини, яку прибрали.
+-- Окремою таблицею, бо signup_ips зникає разом з акаунтом.
+CREATE TABLE IF NOT EXISTS bans (
+  kind       TEXT NOT NULL,              -- ip | device | email
+  value      TEXT NOT NULL,
+  note       TEXT NOT NULL DEFAULT '',
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  PRIMARY KEY (kind, value)
+);
 """
 
 

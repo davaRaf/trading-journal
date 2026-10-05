@@ -2093,7 +2093,7 @@ class H(BaseHTTPRequestHandler):
                     urllib.parse.unquote(self._cookie(DEV_COOKIE)))
                 user = oauth.find_or_create_user(
                     prov, ext_id, email, name,
-                    guard=lambda: bool(antifraud.blocked(ip, device)))
+                    guard=lambda: bool(antifraud.blocked(ip, device, email)))
                 try:
                     antifraud.remember(user["id"], ip, device)
                 except Exception as ex:
@@ -3072,8 +3072,9 @@ class H(BaseHTTPRequestHandler):
                 return self._json({"error": "аккаунт владельца так не удаляют"}, 403)
             seclog.event("адмін", True, user=db.get_user(who), ip=self._guest(),
                          дія="видалення", кому=u["nickname"], кому_id=u["id"])
+            banned = antifraud.ban_user(u, "бан з картки " + u["nickname"]) if body.get("ban") else []
             n = delete_user_fully(u["id"])
-            return self._json({"deleted": u["nickname"], "files": n})
+            return self._json({"deleted": u["nickname"], "files": n, "banned": len(banned)})
 
         if p == "/api/auth/register":
             if not isinstance(body, dict):
@@ -3103,7 +3104,7 @@ class H(BaseHTTPRequestHandler):
             # оператора сидить півміста (див. antifraud.py).
             ip = self._guest()
             device = antifraud.device_hash(body.get("device"))
-            if antifraud.blocked(ip, device):
+            if antifraud.blocked(ip, device, email):
                 return self._json({"error": "з цієї адреси вже є акаунт",
                                    "code": "ip_taken"}, 409)
             pw_hash, pw_salt, iters = auth.hash_password(password)
