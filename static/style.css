@@ -692,7 +692,7 @@ table.simple tr.click:hover td{background:var(--panel-2)}
 .dtext .l{font-family:var(--mono);font-size:9.5px;letter-spacing:.12em;text-transform:uppercase;color:var(--faint);margin-bottom:5px}
 .dtext .v{white-space:pre-wrap;color:var(--dim);font-size:14px;background:var(--bg);border:1px solid var(--line-soft);border-radius:var(--r-sm);padding:11px 13px}
 .charts{display:grid;grid-template-columns:repeat(auto-fill,minmax(215px,1fr));gap:10px}
-.chart-item .l{font-family:var(--mono);font-size:11px;letter-spacing:.1em;color:var(--accent);margin-bottom:4px;text-transform:uppercase}
+.chart-item .l{font-family:var(--mono);font-size:11px;letter-spacing:.1em;color:var(--accent);margin-bottom:4px}
 .chart-item img{width:100%;border-radius:var(--r-sm);border:1px solid var(--line);cursor:zoom-in;display:block}
 
 /* lightbox

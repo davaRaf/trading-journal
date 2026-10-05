@@ -550,10 +550,16 @@ TF_CANON = {"1m": "1m", "3m": "3m", "5m": "5m", "15m": "15m", "30m": "30m",
 
 
 def guess_tf(*parts):
+    """Таймфрейм скріна з підпису. «1m - 5m» лишається «1m-5m»: на одному
+    скріні буває кілька ТФ, і перший сам по собі вводив би в оману."""
     for p in parts:
-        m = TF_RE.search(str(p or ""))
-        if m:
-            return TF_CANON[m.group(1).lower()]
+        found = []
+        for m in TF_RE.finditer(str(p or "")):
+            tf = TF_CANON[m.group(1).lower()]
+            if tf not in found:
+                found.append(tf)
+        if found:
+            return "-".join(found)
     return ""
 
 
