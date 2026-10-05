@@ -22,6 +22,7 @@ const WHY = {
   imports_limit: ["pwImpT",   "pwImpX"],
   import_window: ["pwImpT",   "pwWinX"],
   bt_notion:     ["pwBtNotionT", "pwBtNotionX"],
+  bt_notion_limit: ["pwBtLimT", "pwBtLimX"],
   ai_limit:      ["pwAiT",    "pwAiX"],
   ai_cap:        ["pwCapT",   "pwCapX"],
 };
@@ -44,7 +45,7 @@ function show(reason){
   const keys = WHY[reason] || WHY.trades_limit;
   /* ai_cap — не про гроші: у стелю впирається той, хто вже платить,
      і кликати його в тарифи безглуздо. */
-  const sell = reason !== "ai_cap";
+  const sell = reason !== "ai_cap" && reason !== "bt_notion_limit";
   close();
   back = document.createElement("div");
   back.className = "pw-back";

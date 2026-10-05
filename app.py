@@ -899,6 +899,7 @@ def _billing_block(u):
         + kv("Сделки", e(pair("free_trades_used", "free_trades_cap", config.FREE_TRADES)))
         + kv("Бэктест", e(pair("free_bt_used", "free_bt_cap", config.FREE_BT)))
         + kv("Переносы", e(pair("imports_used", "imports_cap", config.FREE_IMPORTS)))
+        + kv("Бэктест из Notion", e(pair("bt_imports_used", "bt_imports_cap", 3) + " (с подпиской)"))
         + kv("Обращения к модели", e("%s из %s%s" % (
             billing.ai_used(u), billing.ai_cap(u),
             (" · окно до " + dt(u["ai_reset_at"])) if u["ai_reset_at"] else "")))
@@ -935,7 +936,8 @@ def _billing_block(u):
           '<span class=mute>бэктест</span><input id=bbt type=number placeholder="0" style="%s">'
           '<span class=mute>переносы</span><input id=bim type=number placeholder="0" style="%s">'
           '<span class=mute>обращения</span><input id=bai type=number placeholder="0" style="%s">'
-          '<button id=bbonus class=btn>Добавить</button></div>' % (inp, inp, inp, inp)
+          '<span class=mute>бэктест из Notion</span><input id=bbti type=number placeholder="0" style="%s">'
+          '<button id=bbonus class=btn>Добавить</button></div>' % (inp, inp, inp, inp, inp)
         + '<div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:14px">'
           '<button id=bearly class=btn>Цены как ранним</button>'
           '<button id=bstd class=btn>Обычные цены</button>'
@@ -959,7 +961,7 @@ def _billing_block(u):
           "brevoke.onclick=()=>{if(confirm('Снять подписку? Оплаченные дни пропадут.'))"
           "bill('revoke');};"
           "bbonus.onclick=()=>bill('bonus',{trades:+btr.value||0,bt:+bbt.value||0,"
-          "imports:+bim.value||0,ai:+bai.value||0});"
+          "imports:+bim.value||0,ai:+bai.value||0,bt_imports:+bbti.value||0});"
           "bearly.onclick=()=>bill('price',{price_plan:'early'});"
           "bstd.onclick=()=>bill('price',{price_plan:'std'});"
           "ballow.onclick=()=>bill('allow-ip',{off:%s});</script>" % (
@@ -2984,11 +2986,12 @@ class H(BaseHTTPRequestHandler):
                 ts_store.put(u["id"], ts)
                 return self._json({"ok": True, "day": day})
             if act == "bonus":
-                if not any(num(k) for k in ("trades", "bt", "imports", "ai")) and note is None:
+                if not any(num(k) for k in ("trades", "bt", "imports", "ai", "bt_imports")) and note is None:
                     return self._json({"error": "нечего добавлять"}, 400)
                 return self._json(billing.bonus(u["id"], trades=num("trades"),
                                                 bt=num("bt"), imports=num("imports"),
-                                                ai=num("ai"), note=note))
+                                                ai=num("ai"), note=note,
+                                                bt_imports=num("bt_imports")))
             if act == "price":
                 plan = str(body.get("price_plan") or "").strip()
                 own = body.get("own_cents")
@@ -3759,6 +3762,16 @@ class H(BaseHTTPRequestHandler):
             conf = notion_conf(uid)
             title = body.get("title") or ""
             run = (str(body.get("bt_run") or "").strip() or title.strip() or "Notion")[:80]
+            # Ліміт бектесту рахує нові бази. Ту саму базу (ті самі таблиці
+            # Notion) перечитати, щоб підтягнути нові угоди, можна скільки
+            # завгодно — і після «Відв'язати» теж: список не чиститься.
+            if kind == "bt":
+                bkey = ",".join(sorted(str(t["collection"]) for t in tables))
+                if bkey not in (conf.get("bt_keys") or []):
+                    ok, why = billing.take_bt_import(uid)
+                    if not ok:
+                        return self._json(billing.deny(uid, why), 402)
+                    conf["bt_keys"] = (conf.get("bt_keys") or []) + [bkey]
             if not kind:
                 conf.update({"url": url, "mapping": mapping, "title": title})
             job = start_import(uid, tables, mapping, body.get("options") or {}, kind, run)
