@@ -411,6 +411,7 @@ function markMode(){
     b.classList.toggle("on", b.dataset.mode===S.mode));
   const flag=$("#btFlag");
   if(flag) flag.hidden = S.mode!=="bt";
+  if(window.__notion && __notion.refreshBtn) __notion.refreshBtn();   // статус Notion — свого режиму
 }
 
 

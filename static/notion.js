@@ -29,6 +29,7 @@ let batch = null;      // остання партія — її можна ска
 let sources = [];      // з яких баз зібрано журнал: кожне перенесення окремо
 let connected = false; // чи вже підключали Notion раніше — міняє статус у рядку «Підключення»
 let bt = false;        // переносимо в бектест: кожна база — окремий журнал бектесту
+let btConnected = false; // чи є перенесені бектест-бази — статус рядка в режимі бектесту
 
 /* Рядок у розділі «Підключення»: статус текстом (Підключено/Не
    підключено), без блимаючих індикаторів. Викликається і звідси, і з
@@ -37,9 +38,13 @@ function paintBtn(){
   const nb = document.getElementById("notionBtn");
   if (!nb) return;
   const st = document.getElementById("notionStatus");
-  nb.classList.toggle("connected", connected);
-  if (st) st.textContent = connected ? T.connConnected : T.connNotConnected;
-  nb.setAttribute("data-tip", connected ? T.sdNotionConnectedTip : T.sdNotionTip);
+  /* у бектесті рядок говорить про бектест-бази, у реальному — про свої */
+  const inBt = typeof btOn === "function" && btOn();
+  const on = inBt ? btConnected : connected;
+  nb.classList.toggle("connected", on);
+  if (st) st.textContent = on ? T.connConnected : T.connNotConnected;
+  nb.setAttribute("data-tip", inBt ? T.sdNotionBtTip
+                  : (on ? T.sdNotionConnectedTip : T.sdNotionTip));
 }
 
 /* ---- інструменти з імпорту показуємо в підказках форми ---- */
@@ -439,7 +444,8 @@ function drawProgress(j){
 
 async function finish(j){
   rememberPairs(j.newAssets);
-  if (!bt){ connected = true; paintBtn(); }
+  if (bt) btConnected = true; else connected = true;
+  paintBtn();
   await refresh();          // щоб у списку баз одразу була й ця
   /* бектест: одразу відкриваємо журнал, у який усе приїхало */
   if (bt && j.added && window.__btj) __btj.select((title || "").trim() || "Notion");
@@ -691,7 +697,8 @@ async function refresh(){
        перенесені угоди підключенням не є: посилання лежить у налаштуваннях
        назавжди, а угоди лишаються в журналі й після відв'язки — від них
        індикатор не гаснув би ніколи. */
-    connected = !!state.connected;
+    connected = sources.some(s => s.kind !== "bt");
+    btConnected = sources.some(s => s.kind === "bt");
     paintBtn();
   }catch(e){}
 }
