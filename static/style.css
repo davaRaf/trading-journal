@@ -1365,6 +1365,8 @@ h1.ovh a.on::after{content:"";position:absolute;left:0;right:0;bottom:0;height:2
   border:1px solid var(--line);background:var(--panel-2);color:var(--text);font:600 13.5px var(--sans);cursor:pointer;
   transition:border-color .15s,background .15s;max-width:280px}
 .sw-pill:hover{border-color:var(--faint);background:var(--card)}
+/* телефон: у журналі перемикач і «Поділитись» — одним рядком, а не двома */
+@media (max-width:760px){.jhead:has(.sw-pill) .tools{width:auto;flex:1;justify-content:flex-end}}
 .sw-pill .sw-name{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .sw-pill .sw-n{font:500 11.5px var(--mono);color:var(--faint);padding:2px 7px;border-radius:999px;background:var(--line-soft)}
 .sw-pill .sw-chev{color:var(--faint);flex:none}
@@ -1395,7 +1397,7 @@ h1.ovh a.on::after{content:"";position:absolute;left:0;right:0;bottom:0;height:2
 
 .strat-form{display:flex;flex-direction:column;gap:8px}
 .strat-form .st-lab{font-size:12px;color:var(--dim);margin-top:8px}
-.strat-form input[type=text],.strat-form #stName{font-size:15px}
+.strat-form input[type=text],.strat-form #stName{font-size:16px}
 .st-opts{display:flex;flex-direction:column;gap:8px}
 .st-opt{display:flex;gap:10px;align-items:flex-start;padding:11px 13px;border:1px solid var(--line);border-radius:var(--r-sm);
   background:var(--panel-2);cursor:pointer}
@@ -1455,7 +1457,7 @@ h1.ovh a.on::after{content:"";position:absolute;left:0;right:0;bottom:0;height:2
 .notes-pnl .ned{flex:1}
 .notes-pnl .ntitle{font-size:18px;font-weight:600;border:0;background:none;padding:2px 0;color:var(--text);outline:none}
 .notes-pnl .ntext{flex:1;min-height:52vh;resize:none;border:0;background:none;padding:0;color:var(--text);
-  font:15px/1.65 var(--sans);outline:none}
+  font:16px/1.65 var(--sans);outline:none}
 .notes-pnl .nstate{font-size:12px;color:var(--faint);margin-right:8px}
 .notes-pnl .npinb.on{color:var(--accent);border-color:var(--accent)}
 .ovq .od[data-tip]{cursor:pointer}
