@@ -55,7 +55,11 @@ function select(v){
   const was = cur;
   cur = String(v);
   try{ localStorage.setItem(LS, cur); }catch(e){}
-  if (was !== cur) sweepEmpty(was);
+  if (was !== cur){
+    sweepEmpty(was);
+    /* боту: нові угоди з Telegram підуть у цю стратегію */
+    api("POST", "/api/ts/active", {ts: cur === "all" ? "" : cur}).catch(() => {});
+  }
 }
 
 /* «+ Нова стратегія» заводить порожню одразу — щоб було куди писати

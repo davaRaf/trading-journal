@@ -1252,6 +1252,8 @@ function wireTsCopy(id){
     btn.disabled = false;
     if (r.ok){
       btn.hidden = true;
+      /* своя ТС уже була — чужа лягла окремою стратегією: відкриємо одразу її */
+      if (j.sid){ try{ localStorage.setItem("tj_strat", String(j.sid)); }catch(e){} }
       return say(esc(T.shTsCopyDone) + ' <a href="/#ts">' + esc(T.shTsCopyOpen) + "</a>");
     }
     if (r.status === 401)

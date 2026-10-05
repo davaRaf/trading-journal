@@ -26,6 +26,7 @@ import time
 from zoneinfo import ZoneInfo
 
 import billing
+import ts_store
 import bot_share
 import botlang
 import db
@@ -599,6 +600,15 @@ def _save(user, chat_id, draft):
         return
     # Емоцію в сценарії вже питали, тому вдогонку її не питаємо: статус
     # «na» саме про це — «питання не стоїть».
+    # кілька стратегій: угода з бота йде в ту, яку людина востаннє відкривала
+    # на сайті (якщо її відтоді не прибрали)
+    act = str(user.get("ts_active") or "")
+    if act and not t_.get("ts"):
+        try:
+            if any(str(s["id"]) == act for s in ts_store.lst(user["id"])):
+                t_["ts"] = act
+        except Exception:
+            pass
     try:
         db.insert_trade(user["id"], t_, "na")
     except Exception:

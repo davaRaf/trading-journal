@@ -3377,6 +3377,10 @@ class H(BaseHTTPRequestHandler):
         if p.startswith("/api/") and not uid:
             return self._json({"error": "auth required"}, 401)
 
+        if p == "/api/ts/active":
+            db.set_ts_active(uid, (body or {}).get("ts"))
+            return self._json({"ok": True})
+
         if p == "/api/me/ts-copy":
             on = bool((body or {}).get("on"))
             db.set_ts_copy(uid, on)
@@ -3391,12 +3395,20 @@ class H(BaseHTTPRequestHandler):
             owner = rec["user_id"]
             if owner == uid:
                 return self._json({"error": "це ваша ТС", "code": "own"}, 400)
-            src = ts_store.get(owner, "", seed=False)
+            src = ts_store.get(owner, "", seed=False, sid=(rec.get("data") or {}).get("sid") or 0)
             if not src:
                 return self._json({"error": "ТС уже немає", "code": "no_copy"}, 404)
-            if ts_store.get(uid, "", seed=False) and not (body or {}).get("replace"):
-                return self._json({"error": "у вас уже є ТС", "code": "has_ts"}, 409)
             data = ts_store.copy_for(uid, src)
+            # Своєї ТС ще немає — чужа стає першою. Є — не затираємо її, а
+            # кладемо чужу окремою стратегією: людина може тримати обидві.
+            if ts_store.get(uid, "", seed=False) and not (body or {}).get("replace"):
+                author = (db.get_user(owner) or {}).get("nickname") or ""
+                sid = ts_store.create(uid, ("ТС " + author).strip()[:60])
+                if not sid:
+                    return self._json({"error": "забагато стратегій", "code": "too_many"}, 409)
+                ts_store.put(uid, data, "", sid)
+                print("ts-copy: %s забрав ТС у %s окремою стратегією" % (uid, owner), flush=True)
+                return self._json({"ok": True, "sid": sid})
             ts_store.put(uid, data, "")
             ts_store.sweep(uid, data, SHOTS, "")   # старі скріни своєї ТС
             print("ts-copy: %s забрав ТС у %s" % (uid, owner), flush=True)
@@ -3966,7 +3978,7 @@ class H(BaseHTTPRequestHandler):
             # из реальных сделок, и самой сделки в нём нет.
             if trade.get("kind") == "bt":
                 return self._json({"items": [], "text": ""})
-            day = ts_check.same_day(db.list_trades(uid), trade)
+            day = ts_check.same_day(db.list_trades(uid, db.strat_kind(trade.get("ts") or "0")), trade)
             items = ts_check.check(ts, trade, day)
             lang = str((body or {}).get("lang") or "ru")
             # Розходження рахує код і вони безкоштовні завжди; модель тут

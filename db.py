@@ -175,8 +175,9 @@ ALTER TABLE trades ADD COLUMN IF NOT EXISTS rr_plan DOUBLE PRECISION;
 ALTER TABLE users ADD COLUMN IF NOT EXISTS public_journal BOOLEAN NOT NULL DEFAULT FALSE;
 -- дозвіл забрати свою ТС за посиланням на неї (кнопка «Скопіювати до себе»)
 ALTER TABLE users ADD COLUMN IF NOT EXISTS ts_copy BOOLEAN NOT NULL DEFAULT FALSE;
+-- стратегія, відкрита на сайті востаннє: туди ж пише угоди бот
+ALTER TABLE users ADD COLUMN IF NOT EXISTS ts_active TEXT NOT NULL DEFAULT '';
 -- дозвіл забрати свою ТС за посиланням на неї (кнопка «Скопіювати до себе»)
-ALTER TABLE users ADD COLUMN IF NOT EXISTS ts_copy BOOLEAN NOT NULL DEFAULT FALSE;
 
 -- Опитування «звідки дізнався» жило один день і прибране — колонку теж.
 ALTER TABLE users DROP COLUMN IF EXISTS heard_from;
@@ -884,9 +885,11 @@ def set_ts_copy(user_id, on):
         conn.commit()
 
 
-def set_ts_copy(user_id, on):
+def set_ts_active(user_id, sid):
+    sid = str(sid or "").strip()
+    sid = sid if sid.isdigit() and sid != "0" else ""
     with connect() as conn:
-        conn.execute("UPDATE users SET ts_copy=%s WHERE id=%s", (bool(on), user_id))
+        conn.execute("UPDATE users SET ts_active=%s WHERE id=%s", (sid, user_id))
         conn.commit()
 
 

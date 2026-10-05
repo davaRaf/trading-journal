@@ -197,6 +197,8 @@ function tsSnapshot(){
   ].filter(x => x.v);
 
   const data = {
+    /* котра з кількох стратегій — щоб «Скопіювати ТС» забрав саме її */
+    sid: window.__strat ? +__strat.sid() : 0,
     kind: T.slKindTs, kindFull: T.slOgTs,
     title: T.tsShTitle,
     total: null,
