@@ -1359,6 +1359,17 @@ h1.ovh a.on::after{content:"";position:absolute;left:0;right:0;bottom:0;height:2
 
 /* ---------- «Огляд»: картка нотаток під календарем року ---------- */
 .ovw .rail .inner.ovn{flex:none;margin-top:6px;padding:16px 16px 12px}
+/* Колонка справа з нотатками вища за ліву — графік дотягуємо до її низу,
+   щоб під ним не лишалось порожнього місця (як у плитках). */
+@media (min-width:1181px){
+  :root:not([data-layout="bento"]) .ovw{align-items:stretch}
+  :root:not([data-layout="bento"]) .ovw .rail{align-self:start}
+  :root:not([data-layout="bento"]) .ovw .flow{display:flex;flex-direction:column}
+  :root:not([data-layout="bento"]) .ovw .flow > .shell:last-child{flex:1;display:flex;flex-direction:column;margin-bottom:0}
+  :root:not([data-layout="bento"]) .ovw .flow > .shell:last-child > .plline{flex:1;display:flex;flex-direction:column}
+  :root:not([data-layout="bento"]) .ovw .flow .plline .chart{flex:1;min-height:0}
+  :root:not([data-layout="bento"]) .ovw .flow .plwrap svg{height:100%}
+}
 .ovn h3{align-items:center!important;margin-bottom:8px!important}
 .ovn .nadd{margin-left:auto;width:24px;height:24px;border-radius:7px;border:1px solid var(--line);background:var(--panel-2);
   color:var(--dim);font:500 16px/1 var(--sans);cursor:pointer;display:grid;place-items:center}
@@ -1384,7 +1395,7 @@ h1.ovh a.on::after{content:"";position:absolute;left:0;right:0;bottom:0;height:2
 .notes-pnl .ntools{display:flex;gap:8px}
 .notes-pnl .ntools input{flex:1;min-width:0}
 .notes-pnl .nitems{display:flex;flex-direction:column;gap:6px}
-.notes-pnl .nitem{display:grid;grid-template-columns:1fr auto;gap:2px 10px;text-align:left;padding:11px 13px;cursor:pointer;
+.notes-pnl .nitem{display:grid;grid-template-columns:1fr;gap:2px;text-align:left;padding:11px 13px;cursor:pointer;
   border:1px solid var(--line);border-radius:var(--r-sm);background:var(--panel-2);color:var(--text);font:inherit}
 .notes-pnl .nitem:hover{border-color:var(--faint)}
 .notes-pnl .nitem .nt{font-weight:600;font-size:14px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}

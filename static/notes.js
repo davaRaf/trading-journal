@@ -18,11 +18,6 @@ const SHOW = 4;      /* сколько названий видно в карто
 
 function D(){ return DICT[window.LANG] || DICT.ru; }
 function off(){ return (typeof DEMO !== "undefined" && DEMO) || (window.Pub && Pub.on); }
-function day(iso){
-  const d = new Date(iso); if (isNaN(d)) return "";
-  const p = n => String(n).padStart(2, "0");
-  return p(d.getDate()) + "." + p(d.getMonth() + 1) + (d.getFullYear() !== new Date().getFullYear() ? "." + d.getFullYear() : "");
-}
 function name(n){
   const t = (n.title || "").trim();
   if (t) return t;
@@ -56,7 +51,7 @@ function railHtml(){
   const rows = list.slice(0, SHOW).map(n =>
     '<button class="nrow" onclick="__notes.open(' + n.id + ')">'
     + (n.pinned ? '<i class="npin" aria-hidden="true">•</i>' : "")
-    + "<b>" + esc(name(n)) + "</b><em>" + esc(day(n.updated)) + "</em></button>").join("");
+    + "<b>" + esc(name(n)) + "</b></button>").join("");
   const body = L === undefined ? ""
     : list.length ? '<div class="nlist">' + rows + "</div>"
       + (list.length > SHOW ? '<button class="nall" onclick="__notes.all()">' + esc(d.all) + " · " + list.length + "</button>" : "")
@@ -82,7 +77,7 @@ function listHtml(){
     '<button class="nitem" onclick="__notes.open(' + n.id + ')">'
     + '<span class="nt">' + (n.pinned ? '<i class="npin">•</i>' : "") + esc(name(n)) + "</span>"
     + (snip(n) ? '<span class="ns">' + esc(snip(n)) + "</span>" : "")
-    + '<span class="nd">' + esc(day(n.updated)) + "</span></button>").join("");
+    + "</button>").join("");
   return rows || '<p class="nempty">' + esc(k ? d.nothing : d.empty) + "</p>";
 }
 
