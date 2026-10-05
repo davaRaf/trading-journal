@@ -171,12 +171,19 @@ def _kind(kind):
     return "bt" if kind == "bt" else ""
 
 
+def _sk(kind, sid):
+    """kind "s:3" несе стратегію в собі (db.strat_kind) — розкладаємо."""
+    k = str(kind or "")
+    return ("", k[2:]) if k.startswith("s:") else (kind, sid)
+
+
 def _row(conn, user_id):
     return conn.execute("SELECT data, data_bt FROM strategies WHERE user_id=%s",
                         (user_id,)).fetchone()
 
 
 def get(user_id, kind="", seed=True, sid=0):
+    kind, sid = _sk(kind, sid)
     """Стратегія того журналу, в якому людина зараз.
 
     Перший захід у бектест знімає копію з реальної ТС: людина не описує
@@ -214,6 +221,7 @@ def get(user_id, kind="", seed=True, sid=0):
 
 
 def put(user_id, data, kind="", sid=0):
+    kind, sid = _sk(kind, sid)
     init()
     sid = _sid(sid)
     if sid and _kind(kind) != "bt":

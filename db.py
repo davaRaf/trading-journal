@@ -946,10 +946,21 @@ def list_trades(user_id, kind=""):
     if kind != "all":
         sql += ' AND "kind"=%s'
         args.append("bt" if kind == "bt" else "")
+    # "s:3" — реальні угоди однієї стратегії ("s:0" — першої), див. strat_kind
+    if str(kind or "").startswith("s:"):
+        sql += ' AND "ts"=%s'
+        args.append("" if kind[2:] in ("", "0") else kind[2:])
     sql += " ORDER BY created_at"
     with connect() as conn:
         rows = conn.execute(sql, args).fetchall()
     return [_row_to_trade(r) for r in rows]
+
+
+def strat_kind(v):
+    """Стратегія з браузера → kind для list_trades / ts_store: "s:<номер>"
+    або "" (усі стратегії / одна-єдина)."""
+    v = str(v or "").strip()
+    return "s:" + v if v.isdigit() else ""
 
 
 def get_trade(tid, user_id):

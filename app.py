@@ -552,13 +552,15 @@ def notion_add_source(conf, rec):
     return conf
 
 
-def add_trades(user_id, items, kind="", run=""):
+def add_trades(user_id, items, kind="", run="", ts=""):
     """Кладём пачку сделок в журнал. Вызывается из фонового потока импорта.
     kind="bt" — в бэктест; run — журнал бэктеста, если колонки под него не было."""
     batch = []
     for it in items:
         if kind == "bt":
             it = dict(it, kind="bt", bt_run=it.get("bt_run") or run)
+        elif ts:
+            it = dict(it, ts=ts)            # у ту стратегію, яку людина зараз бачить
         t = clean_trade(it, new_id())
         t["screenshots"] = it.get("screenshots") or []
         batch.append(t)
@@ -1094,7 +1096,7 @@ def blank_filler(user_id, rows):
     return fill
 
 
-def start_import(user_id, tables, mapping, opts, kind="", run=""):
+def start_import(user_id, tables, mapping, opts, kind="", run="", ts=""):
     jid = secrets.token_urlsafe(6)
     job = notion.Job(jid)
     job.user_id = user_id          # чтобы чужое задание нельзя было подсмотреть
@@ -1113,7 +1115,7 @@ def start_import(user_id, tables, mapping, opts, kind="", run=""):
     th = threading.Thread(
         target=npub.run_public_import,
         args=(job, tables, mapping, opts, SHOTS, known, seen,
-              lambda items: add_trades(user_id, items, kind, run), marks),
+              lambda items: add_trades(user_id, items, kind, run, ts), marks),
         kwargs={"fill": blank_filler(user_id, rows)},
         daemon=True)
     th.start()
@@ -3623,6 +3625,8 @@ class H(BaseHTTPRequestHandler):
             # у якому журналі людина зараз: помічник має відповідати про те,
             # що вона перед собою бачить, і прибирати теж саме те
             kind = "bt" if (body or {}).get("kind") == "bt" else ""
+            # кілька стратегій: помічник дивиться на угоди й ТС обраної
+            kind = kind or db.strat_kind((body or {}).get("ts"))
             # прохання змінити «Мою ТС» — окрема гілка: модель лише каже, ЩО
             # змінити, а перевіряє шляхи й пише в базу код (ts_edit.py).
             # Йде першою, коли прохання явно про ТС: «прибери модель BOS з ТС»
@@ -3654,7 +3658,7 @@ class H(BaseHTTPRequestHandler):
             # бере сторінка (у неї свої, на три мови).
             return self._json(assistant.nudge(
                 uid, lang if lang in ("uk", "ru", "en") else "ru",
-                "bt" if (body or {}).get("kind") == "bt" else "",
+                "bt" if (body or {}).get("kind") == "bt" else db.strat_kind((body or {}).get("ts")),
                 talk=billing.can_use_ai(uid)[0]))
 
         if p == "/api/assistant/review":
@@ -3680,7 +3684,7 @@ class H(BaseHTTPRequestHandler):
             return self._json(assistant.review(
                 uid, history,
                 lang=rlang if rlang in ("uk", "ru", "en") else None,
-                kind="bt" if (body or {}).get("kind") == "bt" else ""))
+                kind="bt" if (body or {}).get("kind") == "bt" else db.strat_kind((body or {}).get("ts"))))
 
         # друга половина видалення на прохання: ключ одноразовий, список id
         # у ньому вже зафіксований — тут нічого не добирається заново
@@ -3792,7 +3796,9 @@ class H(BaseHTTPRequestHandler):
                     conf["bt_keys"] = (conf.get("bt_keys") or []) + [bkey]
             if not kind:
                 conf.update({"url": url, "mapping": mapping, "title": title})
-            job = start_import(uid, tables, mapping, body.get("options") or {}, kind, run)
+            tsid = str(body.get("ts") or "")
+            tsid = tsid if tsid.isdigit() and tsid != "0" and not kind else ""
+            job = start_import(uid, tables, mapping, body.get("options") or {}, kind, run, tsid)
             billing.spend_import(uid)
             when = datetime.datetime.now().strftime("%Y-%m-%d %H:%M")
             # запись про базу кладём до того, как перенос закончится: браузер

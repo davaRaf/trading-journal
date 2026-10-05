@@ -401,7 +401,7 @@ async function run(){
   try{
     job = await call("POST", "/api/notion/import",
       Object.assign({url: link, title, mapping, tables: picked, options: opts},
-                    bt ? {kind: "bt", bt_run: title} : {}));
+                    bt ? {kind: "bt", bt_run: title} : {ts: window.__strat ? __strat.sid() : ""}));
   }catch(e){
     /* Плашка відмови вже все сказала — вертаємо кнопку й мовчимо. */
     const b = document.querySelector("#ntRun");

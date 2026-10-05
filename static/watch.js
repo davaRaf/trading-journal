@@ -119,7 +119,7 @@ async function ask(){
   if(DEMO || !mayTalk()) return false;
   let r;
   try{
-    r = await api("POST", "/api/assistant/nudge", {lang: LANG, kind: btOn()?"bt":""});
+    r = await api("POST", "/api/assistant/nudge", {lang: LANG, kind: btOn()?"bt":"", ts: window.__strat ? __strat.cur() : ""});
   }catch(e){ return false; }
   if(!r || !r.code || !mayTalk()) return false;
   const text = words(r);

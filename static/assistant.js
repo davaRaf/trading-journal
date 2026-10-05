@@ -104,7 +104,7 @@ const Assistant = (function(){
     paint();
     try{
       const r = await api("POST", "/api/assistant/ask",
-                          {question: text, history, lang: LANG, kind: btOn()?"bt":""});
+                          {question: text, history, lang: LANG, kind: btOn()?"bt":"", ts: window.__strat ? __strat.cur() : ""});
       if(r.confirm){
         /* нічого не знайшлось — це звичайна відповідь, картка не потрібна */
         if(r.confirm.count) log.push({who:"ai", text:"", card:r.confirm});
@@ -165,7 +165,7 @@ const Assistant = (function(){
     paint();
     try{
       const r = await api("POST", "/api/assistant/review",
-        {history, kind: btOn()?"bt":"", lang: LANG});
+        {history, kind: btOn()?"bt":"", lang: LANG, ts: window.__strat ? __strat.cur() : ""});
       const facts = (r.facts || []).map(f => "• " + f).join("\n");
       log.push({who:"ai", text: r.text
         ? r.text + (facts ? "\n\n" + facts : "")

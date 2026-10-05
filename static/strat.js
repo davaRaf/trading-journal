@@ -288,7 +288,10 @@ function accTag(a){
 /* у меню «⋯»: першу стратегію можна лише перейменувати */
 function editWord(){ return sid() === "0" ? D().renameOnly : D().editTip; }
 
-window.__strat = {load, editWord, accField, pickAcc, accFilter, accTag, filter, multi, sid, label, color, btn, menu, go, add, quick, create, edit, rename, drop,
+/* для помічника: "" — усі стратегії (або одна), інакше номер обраної */
+function curOut(){ return multi() && cur !== "all" ? cur : ""; }
+
+window.__strat = {cur: curOut, load, editWord, accField, pickAcc, accFilter, accTag, filter, multi, sid, label, color, btn, menu, go, add, quick, create, edit, rename, drop,
                   formField, pickForm, fact};
 
 /* Журнал міг прочитати угоди ще до того, як підвантажився цей файл (на

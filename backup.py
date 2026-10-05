@@ -94,6 +94,9 @@ def snapshot(uid):
         # ТС бектесту — окремий документ, і в зліпку теж окремо. seed=False:
         # зліпок тільки дивиться, копію заводить сама людина, коли заходить
         "strategy_bt": ts_store.get(uid, "bt", seed=False),
+        # додаткові стратегії (strategy — перша з них)
+        "strategies": [dict(s, data=ts_store.get(uid, seed=False, sid=s["id"]))
+                       for s in ts_store.lst(uid) if s["id"]],
         "notes": notes_store.lst(uid),
         # Рахунки: опис того, на чому людина торгувала. Самі гроші тут не
         # лежать — вони рахуються з угод, але без стартового балансу й
