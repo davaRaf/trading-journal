@@ -14,7 +14,7 @@
 let L;               /* заметки с сервера; undefined — ещё не читали */
 let cur = null;      /* открытая в редакторе: {id?, title, body, pinned} */
 let timer = 0, saving = null, q = "";
-const SHOW = 8;      /* сколько названий кладём в карточку — лишние срежет её высота */
+const SHOW = 4;      /* сколько названий видно в карточке; все — по числу в заголовке */
 
 function D(){ return DICT[window.LANG] || DICT.ru; }
 function off(){ return (typeof DEMO !== "undefined" && DEMO) || (window.Pub && Pub.on); }
