@@ -14,7 +14,7 @@
 let L;               /* заметки с сервера; undefined — ещё не читали */
 let cur = null;      /* открытая в редакторе: {id?, title, body, pinned} */
 let timer = 0, saving = null, q = "";
-const SHOW = 4;      /* сколько названий видно в карточке */
+const SHOW = 8;      /* сколько названий кладём в карточку — лишние срежет её высота */
 
 function D(){ return DICT[window.LANG] || DICT.ru; }
 function off(){ return (typeof DEMO !== "undefined" && DEMO) || (window.Pub && Pub.on); }
@@ -54,10 +54,10 @@ function railHtml(){
     + "<b>" + esc(name(n)) + "</b></button>").join("");
   const body = L === undefined ? ""
     : list.length ? '<div class="nlist">' + rows + "</div>"
-      + (list.length > SHOW ? '<button class="nall" onclick="__notes.all()">' + esc(d.all) + " · " + list.length + "</button>" : "")
     : '<p class="nempty">' + esc(d.empty) + "</p>";
   return '<div class="inner ovn"><div class="cut">'
     + "<h3>" + esc(d.title)
+    + (list.length ? '<button class="ncnt" onclick="__notes.all()" data-tip="' + esc(d.all) + '">' + list.length + "</button>" : "")
     + '<button class="nadd" onclick="__notes.add()" data-tip="' + esc(d.newTip) + '" aria-label="' + esc(d.newTip) + '">+</button></h3>'
     + body + "</div></div>";
 }

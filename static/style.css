@@ -1359,17 +1359,28 @@ h1.ovh a.on::after{content:"";position:absolute;left:0;right:0;bottom:0;height:2
 
 /* ---------- «Огляд»: картка нотаток під календарем року ---------- */
 .ovw .rail .inner.ovn{flex:none;margin-top:6px;padding:16px 16px 12px}
-/* Колонка справа з нотатками вища за ліву — графік дотягуємо до її низу,
-   щоб під ним не лишалось порожнього місця (як у плитках). */
+/* Права колонка закінчується там же, де графік ліворуч: у висоту рядка
+   вона не входить (contain:size), а тягнеться на всю її висоту (stretch).
+   Квартали — своєї висоти, нотатки беруть решту, зайві рядки ховаються. */
 @media (min-width:1181px){
-  :root:not([data-layout="bento"]) .ovw{align-items:stretch}
-  :root:not([data-layout="bento"]) .ovw .rail{align-self:start}
-  :root:not([data-layout="bento"]) .ovw .flow{display:flex;flex-direction:column}
-  :root:not([data-layout="bento"]) .ovw .flow > .shell:last-child{flex:1;display:flex;flex-direction:column;margin-bottom:0}
-  :root:not([data-layout="bento"]) .ovw .flow > .shell:last-child > .plline{flex:1;display:flex;flex-direction:column}
-  :root:not([data-layout="bento"]) .ovw .flow .plline .chart{flex:1;min-height:0}
-  :root:not([data-layout="bento"]) .ovw .flow .plwrap svg{height:100%}
+  :root:not([data-layout="bento"]) .ovw{align-content:start}
+  :root:not([data-layout="bento"]) .ovw .rail{align-self:stretch;contain:size}
+  :root:not([data-layout="bento"]) .ovw .flow > .shell:last-child{margin-bottom:0}
+  :root:not([data-layout="bento"]) .ovw .rail .inner.ovi{flex:none}
+  :root:not([data-layout="bento"]) .ovw .rail .inner.ovn{flex:1 1 0;min-height:0;overflow:hidden}
+  :root:not([data-layout="bento"]) .ovw .rail .inner.ovi{padding:16px 16px 14px}
+  :root:not([data-layout="bento"]) .ovw .rail .inner.ovn{padding:12px 16px 8px}
+  :root:not([data-layout="bento"]) .ovq h3{margin-bottom:8px}
+  :root:not([data-layout="bento"]) .ovq .q + .q{margin-top:7px;padding-top:7px}
+  :root:not([data-layout="bento"]) .ovq .qh{margin-bottom:4px}
+  :root:not([data-layout="bento"]) .ovq .mn{margin-bottom:2px}
+  :root:not([data-layout="bento"]) .ovq .g{max-width:74px}
 }
+.ovn .cut{min-height:0}
+.ovn .nlist{min-height:0;overflow:hidden}
+.ovn h3 .ncnt{font-family:var(--sans);letter-spacing:0;text-transform:none;font-size:11px;color:var(--ghost-2);
+  border:0;background:none;padding:0 0 0 8px;cursor:pointer}
+.ovn h3 .ncnt:hover{color:var(--accent)}
 .ovn h3{align-items:center!important;margin-bottom:8px!important}
 .ovn .nadd{margin-left:auto;width:24px;height:24px;border-radius:7px;border:1px solid var(--line);background:var(--panel-2);
   color:var(--dim);font:500 16px/1 var(--sans);cursor:pointer;display:grid;place-items:center}
