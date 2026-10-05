@@ -193,11 +193,32 @@ def month_letter(trades, lang, year, month):
 
 # ------------------------------------------------------------ проверки ----
 
-def _people(extra=""):
+# Хто взагалі отримує листи: почта підтверджена, не відписались. Кожен
+# запит написаний цілком — склеювати SQL з шматків у проєкті не можна
+# (test_sql_safe.py), навіть коли шматки сталі.
+def _people(kind="all"):
     with db.connect() as conn:
+        if kind == "start":
+            return conn.execute(
+                "SELECT * FROM users WHERE email_confirmed_at IS NOT NULL AND mail_news "
+                "AND email IS NOT NULL AND email <> '' AND mail_start_at IS NULL "
+                "AND created_at < now() - interval '2 days' "
+                "AND created_at > now() - interval '7 days'").fetchall()
+        if kind == "start2":
+            return conn.execute(
+                "SELECT * FROM users WHERE email_confirmed_at IS NOT NULL AND mail_news "
+                "AND email IS NOT NULL AND email <> '' AND mail_start2_at IS NULL "
+                "AND created_at < now() - interval '7 days' "
+                "AND created_at > now() - interval '14 days'").fetchall()
+        if kind == "ending":
+            return conn.execute(
+                "SELECT * FROM users WHERE email_confirmed_at IS NOT NULL AND mail_news "
+                "AND email IS NOT NULL AND email <> '' AND plan NOT IN ('free','life') "
+                "AND paid_until IS NOT NULL AND paid_until > now() "
+                "AND paid_until < now() + interval '3 days'").fetchall()
         return conn.execute(
             "SELECT * FROM users WHERE email_confirmed_at IS NOT NULL AND mail_news "
-            "AND email IS NOT NULL AND email <> '' " + extra).fetchall()
+            "AND email IS NOT NULL AND email <> ''").fetchall()
 
 
 def _queue(u, subject, body, kind):
@@ -215,8 +236,7 @@ def check(now=None):
     utc = datetime.timezone.utc
 
     # start — 2–7 дней после регистрации, журнал пустой, ещё не писали
-    for u in _people("AND mail_start_at IS NULL AND created_at < now() - interval '2 days' "
-                     "AND created_at > now() - interval '7 days'"):
+    for u in _people("start"):
         if db.list_trades(u["id"], "all"):
             continue
         s, b = TEXT["start"][lang_of(u)]
@@ -226,8 +246,7 @@ def check(now=None):
         done["start"] += 1
 
     # start2 — неделя после регистрации, журнал всё ещё пустой; дальше новичку не пишем
-    for u in _people("AND mail_start2_at IS NULL AND created_at < now() - interval '7 days' "
-                     "AND created_at > now() - interval '14 days'"):
+    for u in _people("start2"):
         if db.list_trades(u["id"], "all"):
             continue
         s, b = TEXT["start2"][lang_of(u)]
@@ -258,8 +277,7 @@ def check(now=None):
         done["lapse"] += 1
 
     # ending — без автопродления (отменили в Creem или выдано руками/криптой), осталось ≤ 3 дней
-    for u in _people("AND plan NOT IN ('free','life') AND paid_until IS NOT NULL "
-                     "AND paid_until > now() AND paid_until < now() + interval '3 days'"):
+    for u in _people("ending"):
         if u.get("creem_customer") and not u.get("sub_canceled"):
             continue                                   # продлится само — пугать незачем
         key = u["paid_until"].strftime("%Y-%m-%d")
