@@ -54,6 +54,7 @@ TRADES_LIMIT = "trades_limit"
 BT_LIMIT = "bt_limit"
 IMPORTS_LIMIT = "imports_limit"
 IMPORT_WINDOW = "import_window"
+BT_NOTION = "bt_notion"        # бектест з Notion — тільки з підпискою
 # Безкоштовні звернення до моделі на місяць скінчились — тут пропонуємо
 # підписку. AI_CAP — інше: у стелю впирається вже той, хто платить, і
 # підписку йому пропонувати нема чого, йому кажемо зачекати.
@@ -309,13 +310,16 @@ def can_add_trade(u, kind=""):
     return True, ""
 
 
-def can_import(u):
-    """Перенесення з Notion: три рази і тільки в перші 30 днів."""
+def can_import(u, kind=""):
+    """Перенесення з Notion: три рази і тільки в перші 30 днів.
+    Бектест-журнали з Notion — лише з підпискою (власник, 05.10.2026)."""
     row = _user(u)
     if not row:
         return False, NO_USER
     if active(row):
         return True, ""
+    if kind == "bt":
+        return False, BT_NOTION
     if import_days_left(row) <= 0:
         return False, IMPORT_WINDOW
     if _int(row, "imports_used") >= _cap(row, "imports_cap", FREE_IMPORTS):

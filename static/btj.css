@@ -64,3 +64,9 @@
   .btj-nav .btj-style{margin-left:0; width:100%; margin-bottom:10px}
   .btj-style button{flex:1}
 }
+
+/* «З Notion» поруч із «Новий журнал» */
+.btj-acts{margin-left:auto;display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-end}
+.btj-acts .ac-new{margin-left:0}
+.ac-empty .btj-acts{margin:4px 0 0;justify-content:center}
+@media (max-width:640px){.btj-acts{margin-left:0;width:100%}.btj-acts .btn{flex:1}}
