@@ -32,10 +32,6 @@ function money(v, cur){
   const s = SIGNS[cur] || "";
   return s ? sign + s + abs : sign + abs + "\u202F" + (cur || "");
 }
-function moneySigned(v, cur){
-  if (v == null || isNaN(v)) return "—";
-  return (v > 0 ? "+" : "") + money(v, cur);
-}
 function clamp(v, a, b){ return Math.max(a, Math.min(b, v)); }
 
 /* ---------------- угоди рахунку ---------------- */
@@ -234,29 +230,14 @@ function card(a){
   const sub = [a.firm, a.opened_at ? d.since + " " + human(a.opened_at) : ""]
     .filter(Boolean).join(" · ");
 
-  /* Шапка балансу. Без стартового балансу гроші рахувати нема з чого —
-     показуємо відсотки й прямо кажемо, чого бракує. */
+  /* Шапка балансу — сама цифра й більше нічого. Старт, приріст у відсотках
+     і грошах, звідки взявся баланс — усе це збиралось у стовпчик дрібного
+     тексту під головним числом і топило його. Проценти лишаються кольором
+     цифри, решта є в «Докладній статистиці». */
   let head;
   if (s.hasMoney){
     head = '<div class="ac-bal"><div class="big ' + cls(s.net) + '">'
-      +   esc(money(s.balance, a.currency)) + "</div>"
-      + (s.hasPct
-          ? '<div class="ac-delta ' + cls(s.net) + '">' + esc(fmtR(s.net))
-            +   '<i>·</i>' + esc(moneySigned(s.profit, a.currency)) + "</div>"
-            + '<div class="ac-from">' + esc(d.fromStart + " " + money(s.start, a.currency))
-            + "</div>"
-          : '<div class="ac-from">' + esc(d.noStartPct) + "</div>")
-      /* Своя цифра поруч, коли вона розійшлась із кабінетом: журнал бачить
-         тільки записані угоди, і різниця — це те, чого в ньому немає. */
-      + (s.drift ? '<div class="ac-drift">' + esc(d.byJournal) + " "
-            + esc(fmtR(s.journalNet)) + "</div>" : "")
-      /* Звідки взявся баланс: цифра з кабінету на таку-то дату, а далі
-         вже наша арифметика по записаних угодах. Без цього рядка вписаний
-         руками баланс не відрізнити від порахованого. */
-      + (s.manual && a.balance_at
-          ? '<div class="ac-drift">' + esc(d.balAt.replace("%s", human(a.balance_at)))
-            + "</div>" : "")
-      + "</div>";
+      +   esc(money(s.balance, a.currency)) + "</div></div>";
   } else {
     head = '<div class="ac-bal"><div class="big ' + cls(s.net) + '">' + esc(fmtR(s.net)) + "</div>"
       + '<div class="ac-nomoney">' + esc(d.noStart)
@@ -270,6 +251,12 @@ function card(a){
       + (a.dd_daily_pct ? bullet(d.ddDaily, Math.abs(s.worstDayVal), a.dd_daily_pct, "down") : "")
       + "</div>"
     : "";
+
+  /* Крива й смужки лімітів — в одну середину, яка тягнеться на всю вільну
+     висоту, а ліміти в ній притиснуті до низу. У сусідніх картках вміст
+     різний: в однієї крива й два ліміти, в іншої три ліміти й жодної угоди —
+     і без цього смужки та плитки в ряду стояли врозбрід. */
+  const mid = '<div class="ac-mid">' + spark(s.curve) + bars + "</div>";
 
   const cells = [
     [d.nTrades, s.n + (s.skips ? " +" + s.skips + d.skipTag : "")],
@@ -289,7 +276,11 @@ function card(a){
     : "";
 
   const dead = a.status === "failed";
+  /* Головна дія картки — піти в «Аналітику» саме по цьому рахунку. Стоїть
+     першою й кольором акценту: «Правити» поруч — дрібниця порівняно з нею. */
   const foot = '<div class="ac-foot">'
+    + '<button class="ac-link stat" onclick="__acc.stats(' + a.id + ')">'
+        + esc(d.statsLink) + "</button>"
     + (dead ? '<button class="ac-link" onclick="__acc.why(' + a.id + ')">'
         + esc(openId === a.id ? d.hideWhy : d.showWhy) + "</button>" : "")
     + '<span class="sp"></span>'
@@ -305,7 +296,7 @@ function card(a){
     + '<div class="ac-name"><b>' + esc(a.name) + "</b>"
     +   (under ? '<div class="ac-sub">' + under + "</div>" : "") + "</div>"
     + '<span class="ac-st ' + st + '">' + esc(d.status[a.status] || "") + "</span></div>"
-    + head + spark(s.curve) + bars + stats + cut
+    + head + mid + stats + cut
     + (dead && openId === a.id ? why(a, s) : "")
     + foot + "</div></div>";
 }
@@ -393,6 +384,10 @@ const FIRM_LIST = [
   {name: "Take Profit Trader", ic: "takeprofittrader", hint: ["takeprofittrader", "tpt"]},
   {name: "Goat Funded Trader", ic: "goatfundedtrader", hint: ["goatfundedtrader", "goatfunded"]},
   {name: "Funded Trading Plus", ic: "fundedtradingplus", hint: ["fundedtradingplus"]},
+  {name: "The Funded Way", ic: "fundedway", hint: ["thefundedway", "fundedway", "tfw"]},
+  {name: "Blue Guardian", ic: "blueguardian", hint: ["blueguardian"]},
+  {name: "Crypto Fund Trader", ic: "cryptofundtrader", hint: ["cryptofundtrader", "cft"]},
+  {name: "For Traders", ic: "fortraders", hint: ["fortraders"]},
 ];
 const FIRMS = FIRM_LIST.map(f => f.name);
 
@@ -1043,6 +1038,18 @@ window.__acc = {
     if (a) openForm(Object.assign({}, a));
   },
   why(id){ openId = openId === id ? null : id; render(); },
+  /* «Докладна статистика»: розрізи по рахунку живуть в «Аналітиці», тут
+     лишається тільки передати їй назву — рахунки звʼязані з угодами саме
+     назвою, свого id в угоді немає. */
+  stats(id){
+    const a = (ACCS || []).find(x => x.id === id);
+    if (!a || typeof anForAccount !== "function") return;
+    /* Назву беремо з угоди, а не з картки: фільтр порівнює значення поля так,
+       як воно записане в угоді, а картка знаходить свої угоди по спрощеному
+       ключу — «FTMO  100k» і «FTMO 100k» для неї одне й те саме. */
+    const t = tradesOf(a)[0];
+    anForAccount(t ? String(t.account || "").trim() : normName(a.name));
+  },
   /* Підпис вкладки для шапки «Огляду»: словник розділу лежить у цьому
      файлі, тож app.js питає його звідси. */
   navLabel(){ return D().navTitle; },
@@ -1080,12 +1087,12 @@ const DICT = {
 uk: {
   title: "Мої рахунки", navTitle: "Рахунки", navTip: "Свій депозит і рахунки проп-фірм: баланс, ціль, ліміти",
   loading: "Хвилинку…", add: "Новий рахунок", close: "Закрити", cancel: "Скасувати",
-  save: "Зберегти", edit: "Правити", del: "Видалити",
+  save: "Зберегти", edit: "Правити", statsLink: "Докладна статистика", del: "Видалити",
   delAsk: "Прибрати картку рахунку? Угоди лишаться в журналі.",
   delAskN: "Прибрати картку рахунку? Угод із цією назвою в журналі — %n, вони лишаться.",
   delYes: "Прибрати",
   liveN: "живих рахунків: %n",
-  since: "з", fromStart: "старт", noStart: "Стартовий баланс не заданий — гроші рахувати нема з чого.",
+  since: "з", noStart: "Стартовий баланс не заданий — гроші рахувати нема з чого.",
   setStart: "задати",
   toTarget: "До цілі", ddTotal: "Просадка від старту", ddDaily: "Найгірший день",
   nTrades: "Угод", wr: "Вінрейт", avgRR: "Середній RR", maxDD: "Просадка від піку",
@@ -1105,9 +1112,6 @@ uk: {
   pickFirm: "Обрати фірму", noFirm: "без фірми", pickSize: "Обрати розмір",
   phStart: "обрати або вписати",
   noLimit: "немає", nName: "як в угодах",
-  noStartPct: "Стартовий баланс не заданий — відсотків не порахувати.",
-  byJournal: "за угодами журналу:",
-  balAt: "з кабінету на %s, далі за угодами",
   beforeOpen: "Угод раніше за дату відкриття — %n. У рахунок вони не пішли.",
   noBal: "%n без балансу",
   willRename: "Така назва вже є. Збережемо як «%s».",
@@ -1121,12 +1125,12 @@ uk: {
 ru: {
   title: "Мои счета", navTitle: "Счета", navTip: "Свой депозит и счета проп-фирм: баланс, цель, лимиты",
   loading: "Минутку…", add: "Новый счёт", close: "Закрыть", cancel: "Отмена",
-  save: "Сохранить", edit: "Править", del: "Удалить",
+  save: "Сохранить", edit: "Править", statsLink: "Подробная статистика", del: "Удалить",
   delAsk: "Убрать карточку счёта? Сделки останутся в журнале.",
   delAskN: "Убрать карточку счёта? Сделок с этим названием в журнале — %n, они останутся.",
   delYes: "Убрать",
   liveN: "живых счетов: %n",
-  since: "с", fromStart: "старт", noStart: "Стартовый баланс не задан — деньги считать не из чего.",
+  since: "с", noStart: "Стартовый баланс не задан — деньги считать не из чего.",
   setStart: "задать",
   toTarget: "До цели", ddTotal: "Просадка от старта", ddDaily: "Худший день",
   nTrades: "Сделок", wr: "Винрейт", avgRR: "Средний RR", maxDD: "Просадка от пика",
@@ -1146,9 +1150,6 @@ ru: {
   pickFirm: "Выбрать фирму", noFirm: "без фирмы", pickSize: "Выбрать размер",
   phStart: "выбрать или вписать",
   noLimit: "нет", nName: "как в сделках",
-  noStartPct: "Стартовый баланс не задан — процентов не посчитать.",
-  byJournal: "по сделкам журнала:",
-  balAt: "из кабинета на %s, дальше по сделкам",
   beforeOpen: "Сделок раньше даты открытия — %n. В счёт они не пошли.",
   noBal: "%n без баланса",
   willRename: "Такое название уже есть. Сохраним как «%s».",
@@ -1162,12 +1163,12 @@ ru: {
 en: {
   title: "My accounts", navTitle: "Accounts", navTip: "Your own deposit and prop firm accounts: balance, target, limits",
   loading: "One moment…", add: "New account", close: "Close", cancel: "Cancel",
-  save: "Save", edit: "Edit", del: "Delete",
+  save: "Save", edit: "Edit", statsLink: "Detailed stats", del: "Delete",
   delAsk: "Remove this account card? The trades stay in the journal.",
   delAskN: "Remove this account card? %n trades carry this name and will stay in the journal.",
   delYes: "Remove",
   liveN: "live accounts: %n",
-  since: "since", fromStart: "start", noStart: "No starting balance yet — nothing to count money from.",
+  since: "since", noStart: "No starting balance yet — nothing to count money from.",
   setStart: "set it",
   toTarget: "To target", ddTotal: "Drawdown from start", ddDaily: "Worst day",
   nTrades: "Trades", wr: "Win rate", avgRR: "Average RR", maxDD: "Drawdown from peak",
@@ -1187,9 +1188,6 @@ en: {
   pickFirm: "Pick a firm", noFirm: "no firm", pickSize: "Pick a size",
   phStart: "pick or type",
   noLimit: "none", nName: "as in trades",
-  noStartPct: "No starting balance — percentages cannot be counted.",
-  byJournal: "by journal trades:",
-  balAt: "from the dashboard on %s, journal trades after that",
   beforeOpen: "Trades before the opening date: %n. They are not counted here.",
   noBal: "%n with no balance",
   willRename: "That name is taken. We will save it as “%s”.",

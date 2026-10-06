@@ -79,6 +79,9 @@ PARTNER_ALIASES = {"bs": "blackswan", "soc": "social", "ig": "social", "tt": "so
 # supported» — він не пускає запити з IP хостингів. Тепер DeepSeek.
 DEEPSEEK_API_KEY = os.environ.get("DEEPSEEK_API_KEY", "")
 GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY", "")
+# Ключ OpenAI — голосове введення в полі «Як заходив» (voice.py). Окремий
+# ключ, а не DeepSeek: у DeepSeek розпізнавання голосу немає.
+OPENAI_API_KEY = os.environ.get("OPENAI_API_KEY", "")
 # Вхід через сервіси (oauth.py). Кнопка на сторінці входу показується,
 # тільки якщо є обидва ключі. Telegram окремих ключів не потребує.
 GOOGLE_CLIENT_ID     = os.environ.get("GOOGLE_CLIENT_ID", "")

@@ -11,10 +11,10 @@
    на десктопі нічого не змінює.
    ============================================================ */
 
-.mtop, .mtabs, .mmenu-wrap, .fbtn, .dimbtn{display:none}
+.mtop, .mtabs, .mmenu-wrap, .fbtn{display:none}
 /* обгортки згорток потрібні лише на телефоні; на широкому екрані вони
    прозорі для розкладки, тому фільтри й розрізи стоять як стояли */
-.fltbody, .dimbody{display:contents}
+.fltbody{display:contents}
 
 @media (max-width:900px){
   body{display:block; padding-bottom:calc(64px + env(safe-area-inset-bottom))}
@@ -239,31 +239,28 @@
   .dv-nav{width:100%; margin-left:0; justify-content:space-between}
   .dv-strip .s{min-width:140px}
 
-  /* ---- аналітика: фільтри й розріз під кнопками ----
-     Девʼять списків і десять розрізів разом дають два десятки кнопок на
-     одному екрані. Замість них — дві кнопки на всю ширину; те, що під
-     ними, розкривається на дотик. Кількість вибраних фільтрів видно
-     одразу, тож ховати їх безпечно. */
-  .fbtn, .dimbtn{display:flex; align-items:center; gap:8px; width:100%;
+  /* ---- журнал: фільтри під однією кнопкою ----
+     Девʼять списків підряд займають на телефоні пів екрана. Замість них —
+     одна кнопка на всю ширину; те, що під нею, розкривається на дотик.
+     Кількість вибраних видно на самій кнопці, тож ховати їх безпечно. */
+  .fbtn{display:flex; align-items:center; gap:8px; width:100%;
     padding:12px 14px; margin-bottom:12px; border:1px solid var(--line);
     background:var(--panel); color:var(--text); border-radius:12px;
     font-size:14px; text-align:left}
-  .fbtn .chev, .dimbtn .chev{margin-left:auto; color:var(--faint); transition:transform .2s}
-  .fwrap.open .fbtn .chev, .dimsel.open .dimbtn .chev{transform:rotate(180deg)}
+  .fbtn .chev{margin-left:auto; color:var(--faint); transition:transform .2s}
+  .fwrap.open .fbtn .chev{transform:rotate(180deg)}
   .fbtn .cnt{font-style:normal; font-family:var(--mono); font-size:11px; line-height:1;
     padding:4px 7px; border-radius:20px; background:var(--accent); color:var(--accent-ink,#fff)}
-  .dimbtn .k{color:var(--faint); font-size:11px; text-transform:uppercase; letter-spacing:.08em}
-  .dimbtn b{font-weight:600}
 
   /* Розкриття їде плавно: рядок гріда переходить з 0fr у 1fr, тож висота
      анімується сама — без вгаданого max-height, який на довгому списку
      або обрізає, або лишає паузу. Відступ знизу — падінгом усередині,
      інакше він лишався б видимим і в згорнутому стані. */
-  .fltbody, .dimbody{display:grid; grid-template-rows:0fr;
+  .fltbody{display:grid; grid-template-rows:0fr;
     transition:grid-template-rows .28s cubic-bezier(.16,1,.3,1)}
-  .fwrap.open .fltbody, .dimsel.open .dimbody{grid-template-rows:1fr}
-  .fltbody > *, .dimbody > *{overflow:hidden; opacity:0; transition:opacity .16s ease}
-  .fwrap.open .fltbody > *, .dimsel.open .dimbody > *{opacity:1; transition-delay:.08s}
+  .fwrap.open .fltbody{grid-template-rows:1fr}
+  .fltbody > *{overflow:hidden; opacity:0; transition:opacity .16s ease}
+  .fwrap.open .fltbody > *{opacity:1; transition-delay:.08s}
 
   .fwrap .filters{display:grid; grid-template-columns:repeat(2,minmax(0,1fr));
     gap:8px; margin-bottom:0}
@@ -271,10 +268,33 @@
   .fwrap .filters select, .fwrap .filters .fsel{width:100%; min-width:0; justify-content:space-between}
   .fwrap .filters .dbtn, .fwrap .filters .clear{grid-column:1 / -1; width:100%;
     justify-content:center; text-align:center}
-  .dimsel .dims{display:grid; grid-template-columns:repeat(2,minmax(0,1fr));
-    gap:6px; margin-bottom:0}
-  .dimsel.open .dims{padding-bottom:14px}
-  .dimsel .dims .pill{width:100%; padding:10px 8px; font-size:12.5px; text-align:center}
+
+  /* ---- аналітика ----
+     Шапка розділу стояла рядком у чотири кнопки з двома словами-звʼязками
+     між ними: на 360 пікселях вона розсипалась на три поверхи, а самі
+     кнопки лишались заввишки 30px. Тут вона — сітка: розріз (головне слово
+     розділу) на всю ширину, під ним період і «Фільтри» навпіл. Слова
+     «показати» й «за» прибрані: кнопки підписані самі. */
+  .an-ask{display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:8px}
+  .an-ask .w{display:none}
+  .an-ask .dimpick{grid-column:1 / -1; font-size:15px}
+  .an-ask .fsel, .an-ask .dbtn{width:100%; min-height:44px; font-size:13px;
+    justify-content:space-between}
+  .an-ask .an-flt{margin-left:0; min-width:0; display:flex}
+  .an-ask .an-flt > .fsel{height:100%}
+
+  /* Панель фільтрів — нижнім листом. Випадайка на 268px тримала девʼять
+     списків стовпчиком десь посеред екрана, і до «скинути» в її кінці
+     доводилось тягтись пальцем угору. Лист стоїть низом екрана, гортається
+     всередині й перекриває вкладки: поки вибирають фільтр, вони не потрібні. */
+  .an-flt .an-sheet{position:fixed; left:0; right:0; bottom:0; top:auto;
+    width:auto; max-width:none; max-height:min(76dvh,560px); z-index:70;
+    border-radius:16px 16px 0 0;
+    padding:16px 16px calc(16px + env(safe-area-inset-bottom))}
+  .an-sheet .fsel{min-height:44px; margin-bottom:8px}
+  .an-clear{min-height:44px; font-size:12px}
+  /* фішку знімають дотиком по хрестику — вона не має бути дрібнішою за палець */
+  .an-chip{min-height:36px; padding:7px 12px}
 
   /* фонові фігури лізуть під таблиці розрізів і під розбір дня — там,
      де суцільний текст і цифри, вони тільки заважають читати */
@@ -414,7 +434,7 @@
 }
 
 @media (prefers-reduced-motion:reduce){
-  .fltbody, .dimbody, .fltbody > *, .dimbody > *{transition:none}
+  .fltbody, .fltbody > *{transition:none}
 }
 
 /* ============================================================

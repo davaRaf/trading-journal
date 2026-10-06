@@ -47,9 +47,11 @@ import seclog
 import accounts_store
 import bt_journals_store
 import day_store
+import week_store
 import tg_api
 import tidy
 import twofa
+import voice
 import ts_check
 import ts_edit
 import ts_notion
@@ -118,6 +120,7 @@ SHOT_MAX = 8 * 1024 * 1024
 
 NOTE_MAX = 2000            # підпис під скріном: думка, а не пара слів
 ASK_LIMIT = 20             # питань до помічника за хвилину на людину
+VOICE_LIMIT = 12           # записів голосу за хвилину на людину
 
 
 def shot_note(s):
@@ -654,7 +657,7 @@ def ref_short(ref):
     return ref
 KIND_RU = {"trade": "Сделка", "day": "День", "week": "Неделя", "month": "Месяц", "year": "Год",
            "quarter": "Квартал",
-           "reviewmonth": "Анализ дня · месяц",
+           "reviewmonth": "Анализ дня · месяц", "reviewweek": "Анализ недели",
            "ts": "Торговая система", "review": "Анализ дня", "period": "Период (старые)",
            "other": "Другое"}
 
@@ -795,6 +798,7 @@ def _ref_init():
 # зовнішнім ключем, частина (shares, share_stats) ключа не має — тому
 # проходимо списком і не покладаємось на каскад.
 PER_USER_TABLES = ("trades", "strategies", "notion_conf", "user_prefs", "day_notes",
+                   "week_notes",
                    "trade_drafts", "backups", "shares", "share_stats", "identities",
                    "link_codes", "notified_events", "auth_links")
 
@@ -2270,6 +2274,30 @@ class H(BaseHTTPRequestHandler):
                 return self._json({"error": "auth required"}, 401)
             return self._json({"journals": bt_journals_store.lst(uid)})
 
+        # Розбір тижня лежить окремо від денного, але влаштований так само:
+        # ключ — понеділок того тижня, скріни спільні з днем.
+        if p.startswith("/api/week/"):
+            uid = self._uid()
+            if not uid:
+                return self._json({"error": "auth required"}, 401)
+            rest = p[len("/api/week/"):]
+            if rest == "list":
+                return self._json({"weeks": week_store.weeks(uid)})
+            if rest == "stats":
+                # ?since=YYYY-MM-DD (понеділок) — для знімка; без нього, як і з
+                # будь-чим іншим у рядку, беремо останні 12 тижнів
+                want = urllib.parse.parse_qs(urlparse(self.path).query).get("since", [""])[0]
+                if week_store.valid_week(want):
+                    since = want
+                else:
+                    base = week_store.monday(datetime.date.today().isoformat())
+                    since = (datetime.date.fromisoformat(base)
+                             - datetime.timedelta(weeks=11)).isoformat()
+                return self._json({"notes": week_store.notes_since(uid, since), "since": since})
+            if not week_store.valid_week(rest):
+                return self._json({"error": "bad week"}, 400)
+            return self._json({"week": week_store.get(uid, rest)})
+
         if p.startswith("/api/day/"):
             uid = self._uid()
             if not uid:
@@ -3528,6 +3556,51 @@ class H(BaseHTTPRequestHandler):
             db.unlink_telegram(uid)
             return self._json({"ok": True})
 
+        # ---- голос у текст ----
+        if p == "/api/voice":
+            # Кожен запис — платний запит до OpenAI. Дюжини за хвилину
+            # вистачає, щоб надиктувати угоду кількома підходами, а скрипт
+            # далі не піде.
+            keys = ["voice:%s" % uid]
+            wait = ratelimit.check(keys, limit=VOICE_LIMIT)
+            if wait:
+                return self._json({"error": "забагато записів поспіль — спробуй за %d с" % wait,
+                                   "code": "too_many", "wait": wait}, 429)
+            ratelimit.miss(keys, limit=VOICE_LIMIT)
+            if not voice.enabled():
+                return self._json({"error": "голосове введення вимкнене — немає OPENAI_API_KEY",
+                                   "code": "no_voice"}, 503)
+            if not isinstance(body, dict):
+                return self._json({"error": "bad json"}, 400)
+            raw = str(body.get("audio") or "")
+            # Межу рахуємо до розбору: base64 на третину довший за сам
+            # звук, і немає сенсу розкодовувати 50 МБ, щоб потім сказати
+            # «завелике».
+            if len(raw) > voice.MAX_BYTES // 3 * 4 + 16:
+                return self._json({"error": "запис завеликий", "code": "too_big"}, 413)
+            try:
+                blob = base64.b64decode("".join(raw.split()), validate=True)
+            except Exception:
+                return self._json({"error": "не вдалось прочитати запис",
+                                   "code": "bad_audio"}, 400)
+            lang = str(body.get("lang") or "")
+            text, err = voice.transcribe(
+                blob, str(body.get("mime") or ""),
+                lang=lang if lang in ("uk", "ru", "en") else None)
+            if err == "too_big":
+                return self._json({"error": "запис завеликий", "code": "too_big"}, 413)
+            if err == "bad_audio":
+                # Сюда ж приходить тиша: модель відповіла, але слів не почула.
+                return self._json({"error": "не почув слів — спробуй ще раз",
+                                   "code": "bad_audio"}, 400)
+            if err == "quota":
+                return self._json({"error": "розпізнавання зайняте — спробуй за хвилину",
+                                   "code": "too_many", "wait": 60}, 429)
+            if err:
+                return self._json({"error": "розпізнавання не відповіло",
+                                   "code": "voice_failed"}, 502)
+            return self._json({"text": text})
+
         if p == "/api/assistant/ask":
             # Кожне питання — платний запит до моделі. 20 за хвилину на
             # людину вистачає для живої розмови, а скрипт далі не піде.
@@ -3810,6 +3883,17 @@ class H(BaseHTTPRequestHandler):
                 return self._json({"error": str(e), "code": getattr(e, "code", "")},
                                   getattr(e, "status", 400))
             return self._json({"file": name})
+
+        if p.startswith("/api/week/"):
+            week = p[len("/api/week/"):]
+            if not week_store.valid_week(week):
+                return self._json({"error": "bad week"}, 400)
+            data = (body or {}).get("week")
+            if data is None:
+                week_store.drop(uid, week)
+            else:
+                week_store.put(uid, week, dict(data))
+            return self._json({"ok": True})
 
         if p.startswith("/api/day/"):
             date = p[len("/api/day/"):]

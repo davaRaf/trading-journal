@@ -304,6 +304,54 @@ function reviewSnapshot(dk, pick){
   };
 }
 
+/* ---------- розбір тижня ----------
+   Те саме, що й розбір дня, тільки період — сім днів: цифри зверху й угоди
+   в картках беруться з усього тижня. Окремою функцією, а не прапорцем у
+   reviewSnapshot: там кожен рядок говорить про день, і читати мішанину
+   «день або тиждень» було б гірше, ніж два короткі сусідні тексти. */
+function rvWeekSnapshot(wk, pick){
+  const n = (window.__dv && typeof __dv.note === "function") ? __dv.note(wk) : null;
+  if (!n || !(n.assets || []).length) return null;
+  const keep = (pick && pick.length)
+    ? n.assets.filter((a, i) => pick.indexOf(i) >= 0)
+    : n.assets;
+  if (!keep.length) return null;
+
+  const norm = x => String(x || "").toUpperCase().replace(/[^A-Z0-9]/g, "");
+  const [y, m, d] = wk.split("-").map(Number);
+  const last = new Date(y, m - 1, d + 6);
+  const to = last.getFullYear() + "-" + String(last.getMonth() + 1).padStart(2, "0")
+           + "-" + String(last.getDate()).padStart(2, "0");
+  const days = sortAsc(S.all.filter(t => { const k = dayKey(t); return k >= wk && k <= to; }));
+  /* цифри зверху — по тих активах, якими ділимось, а не по всьому тижню */
+  const names = keep.map(a => norm(a.nm)).filter(Boolean);
+  const mineAll = names.length
+    ? days.filter(t => names.indexOf(norm(t.pair)) >= 0) : days;
+
+  const first = new Date(y, m - 1, d);
+  /* «5 – 11 жовтня 2026», а коли тиждень переходить місяць — обидва місяці */
+  const title = first.getMonth() === last.getMonth()
+    ? first.getDate() + " – " + last.getDate() + " " + T.monthsGen[last.getMonth()]
+      + " " + last.getFullYear()
+    : first.getDate() + " " + T.monthsGen[first.getMonth()] + " – "
+      + last.getDate() + " " + T.monthsGen[last.getMonth()] + " " + last.getFullYear();
+
+  return {
+    type: "reviewweek",
+    kind: T.slKindRvWeek, kindFull: T.slOgRvWeek,
+    title: (keep.length === 1 && keep[0].nm ? keep[0].nm + " · " : "") + title,
+    total: mineAll.length ? calc(mineAll).net : null,
+    kpis: mineAll.length ? statsOf(mineAll) : [],
+    review: {
+      closed: !!n.closed,
+      skip: n.skip || "",
+      lesson: (n.fact || {}).lesson || "",
+      assets: reviewAssets(keep, days),
+    },
+    blocks: [],
+  };
+}
+
 /* ---------- місяць розборів дня ----------
    Не угоди, а дисципліна: в які дні план був, збігся з ринком чи ні. Дані
    збирає day.js (shareMonth → monthNotes), тут лише розкладаємо по днях. */
@@ -527,6 +575,7 @@ function open(kind, arg){
   const build = () => kind === "trade"  ? tradeSnapshot(arg)
              : kind === "ts"     ? tsSnapshot()
              : kind === "review" ? reviewSnapshot(arg, pick)
+             : kind === "reviewweek" ? rvWeekSnapshot(arg, pick)
              : kind === "reviewmonth" ? rvMonthSnapshot(arg)
              : kind === "day"    ? daySnapshot(arg)
              : kind === "week"  ? weekSnapshot(arg)
@@ -540,7 +589,7 @@ function open(kind, arg){
   const quarters = kind === "quarter"
     ? [...new Set(S.all.map(t => quarterOf(monKey(t))))].sort() : [];
   /* назви активів для перемикачів — беремо до того, як звузили вибір */
-  const allAssets = kind === "review"
+  const allAssets = (kind === "review" || kind === "reviewweek")
     ? ((((window.__dv && __dv.note && __dv.note(arg)) || {}).assets) || [])
         .map((a, i) => ({i: i, nm: a.nm || T.slAssetNoName}))
     : [];
@@ -680,7 +729,8 @@ function open(kind, arg){
         data.author = {nick: me.nickname, av: me.avatar || ""};
         if (window.OgCal && OgCal.prepAuthor) await OgCal.prepAuthor(data.author);
       }
-      if (kind === "review"){
+      /* У тижня превью таке саме, як у дня: перший скрін розмітки. */
+      if (kind === "review" || kind === "reviewweek"){
         const sh = (window.OgCal && OgCal.reviewShot) ? OgCal.reviewShot(data) : null;
         if (sh && sh.file && !/^data:/.test(sh.file)) data.og = sh.file;
         else delete data.og;

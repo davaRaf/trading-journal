@@ -20,8 +20,10 @@ const S = {
   qYear: now.getFullYear(),     // Quarterly
   yYear: now.getFullYear(),     // Yearly
   dim: "pair",                  // Analytics — інструменти завжди заповнені, на відміну від сетапу
+  dimShown: null,               // який розріз уже на екрані — щоб не програвати підміну дарма
   filters: {},
-  mFlt: false, mDim: false,     // на телефоні фільтри й розрізи згорнуті під кнопку
+  mFlt: false,                 // на телефоні фільтри журналу згорнуті під кнопку
+  anFlt: false,                 // панель фільтрів аналітики (спливає під кнопкою)
   formShots: [],
   formPreset: "",             // день, з якого відкрили форму — для «почати заново»
   all: [], mRep:null, ovPeriod:"month",
@@ -43,6 +45,33 @@ function DIMS(){ return [
   {k:"direction_type",label:T.fDirType},{k:"result",label:T.kResSplit},{k:"mistakes",label:T.fMistakes},
   {k:"emotion",label:T.fEmotion},
 ]; }
+
+/* ---------------- вибране переживає перезавантаження ----------------
+   Фільтри й розріз лежать у localStorage: людина поверталась у журнал і
+   щоразу виставляла те саме. Ключі розрізу перелічені тут, а не взяті з
+   DIMS(), бо на момент читання словник T ще не підхоплений. */
+const FLT_KEY="tj_flt";
+const DIM_KEYS=["pair","session","position","entry_model","bias","setup",
+  "direction_type","result","mistakes","emotion"];
+function fltSave(){
+  try{ localStorage.setItem(FLT_KEY, JSON.stringify({filters:S.filters, dim:S.dim})); }catch(e){}
+}
+function fltLoad(){
+  try{
+    const v=JSON.parse(localStorage.getItem(FLT_KEY)||"null");
+    if(!v || typeof v!=="object") return;
+    if(v.filters && typeof v.filters==="object" && !Array.isArray(v.filters)){
+      /* беремо тільки відомі поля: у сховищі могло лишитись старе сміття */
+      const ok={};
+      for(const k of ["result","position","account","pair","session","setup",
+                      "entry_model","bias","direction_type","from","to"])
+        if(typeof v.filters[k]==="string" && v.filters[k]) ok[k]=v.filters[k];
+      S.filters=ok;
+    }
+    if(DIM_KEYS.indexOf(v.dim)>=0) S.dim=v.dim;
+  }catch(e){}
+}
+fltLoad();
 
 /* ---------------- утилиты ---------------- */
 function $(s){ return document.querySelector(s); }
@@ -740,13 +769,10 @@ function filterBar(){
     (on?'<i class="cnt">'+on+'</i>':'')+CHEV_D+'</button>'+
     '<div class="fltbody">'+h+'</div></div>';
 }
-/* обидві згортки живуть тільки на телефоні; стан памʼятаємо в S, щоб
+/* ця згортка живе тільки на телефоні, у журналі; стан памʼятаємо в S, щоб
    перемальовування після вибору фільтра не закривало панель */
 function togFlt(b){
   const w=b.parentNode; S.mFlt=!w.classList.contains("open"); w.classList.toggle("open",S.mFlt);
-}
-function togDim(b){
-  const w=b.parentNode; S.mDim=!w.classList.contains("open"); w.classList.toggle("open",S.mDim);
 }
 const CHEV_D='<svg class="chev" width="14" height="14" aria-hidden="true" viewBox="0 0 24 24" fill="none">'+
   '<path d="M6 9.5l6 6 6-6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>';
@@ -765,20 +791,20 @@ function pickRange(btn){
   DatePicker.open(btn,{mode:"range",value:{from:S.filters.from||"",to:S.filters.to||""},onPick:r=>{
     if(r.from) S.filters.from=r.from; else delete S.filters.from;
     if(r.to) S.filters.to=r.to; else delete S.filters.to;
-    S.pages={}; render();
+    S.pages={}; fltSave(); render();
   }});
 }
 function pickDate(btn){
   DatePicker.open(btn,{mode:"single",value:S.selDay,onPick:key=>pickDay(key)});
 }
-function setFilter(f,v){ if(v)S.filters[f]=v; else delete S.filters[f]; S.pages={}; render(); }
+function setFilter(f,v){ if(v)S.filters[f]=v; else delete S.filters[f]; S.pages={}; fltSave(); render(); }
 /* значения списков собирает filterBar — тут только раскрываем их у кнопки */
 let FLT_OPTS={};
 function pickFilter(btn){
   const f=btn.dataset.f;
   Pick.open(btn, FLT_OPTS[f]||[], S.filters[f]||"", v=>setFilter(f,v));
 }
-function clearFilters(){ S.filters={}; S.pages={}; render(); }
+function clearFilters(){ S.filters={}; S.pages={}; fltSave(); render(); }
 function applyFilters(list){
   return list.filter(t=>{
     for(const k of ["result","position","account","pair","session","setup","entry_model","bias","direction_type"])
@@ -1628,6 +1654,216 @@ function vYearly(){
   return h;
 }
 
+/* ---------- Analytics: шапка в один рядок ---------- */
+/* Розділ відкривався стіною з двадцяти одного контролу: девʼять списків,
+   період, скидання і десять кнопок розрізу. Тепер зверху один рядок —
+   «Показую <розріз> за <період>», а фільтри сховані під кнопку з лічильником.
+   Вибране разом з ними не ховається: воно лишається смужкою фішок під рядком,
+   і кожна знімається хрестиком, не відкриваючи панель. */
+const X_MARK='<svg class="x" width="12" height="12" aria-hidden="true" viewBox="0 0 24 24" fill="none">'+
+  '<path d="M6 6l12 12M18 6 6 18" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/></svg>';
+/* Ті самі девʼять списків, що й у журналі, тільки розкладені по трьох купках:
+   що сталося в угоді, в якому контексті вона була, на чому торгували. */
+function anGroups(){ return [
+  [T.anGrpTrade, [
+    ["result", T.fResult, ["Win","WinM","Loss","BE","BE-","BE+","Skip","Open"]],
+    ["position", T.fPosition, ["Long","Short"]],
+    ["direction_type", T.fDirTypeFilter, ["Continuation","Reversal"]]]],
+  [T.anGrpCtx, [
+    ["session", T.fSession, uniqueVals("session")],
+    ["entry_model", T.flModel, uniqueVals("entry_model")],
+    ["bias", T.fBias, uniqueVals("bias")],
+    ["setup", T.fSetup, uniqueVals("setup")]]],
+  [T.anGrpAcc, [
+    ["account", T.fAccount, uniqueVals("account")],
+    ["pair", T.fPair, uniqueVals("pair")]]],
+]; }
+function fltLabel(f, v){ return f==="result" ? resLabel(v) : v; }
+/* Перехід з картки рахунку («Докладна статистика»): розріз лишаємо той, що
+   людина дивилась, а фільтри міняємо на один — цей рахунок. Старий вибір не
+   зберігаємо навмисно: прийшли дивитись рахунок цілком, а не його перетин з
+   фільтром, який лишився з журналу. */
+function anForAccount(name){
+  if(!viewAllowed("analytics")) return;
+  S.filters = name ? {account:name} : {};
+  S.pages = {};
+  fltSave();
+  goView("analytics");
+  render();
+}
+function anBar(){
+  FLT_OPTS={};
+  let sheet="", chips="", n=0;
+  for(const [title, rows] of anGroups()){
+    let body="";
+    for(const [f, label, vals] of rows){
+      if(!vals.length) continue;
+      FLT_OPTS[f]=[{v:"", label:label}].concat(vals.map(v=>({v:v, label:fltLabel(f,v)})));
+      const on=S.filters[f]||"";
+      if(on){ n++; chips+=anChip(f, label, fltLabel(f,on)); }
+      body+='<button type="button" class="fsel'+(on?" set":"")+'" data-f="'+f+'" aria-haspopup="listbox"'+
+        ' aria-expanded="false" onclick="pickAnFilter(this)"><span>'+esc(on?fltLabel(f,on):label)+'</span>'+CHEV_D+'</button>';
+    }
+    if(body) sheet+='<div class="an-gt">'+esc(title)+'</div>'+body;
+  }
+  /* проміжок дат живе окремо від списків — у нього свій календар */
+  if(S.filters.from||S.filters.to){
+    n++;
+    const f=S.filters.from||"", t=S.filters.to||"";
+    chips+=anPeriodChip();
+  }
+  const dim=DIMS().find(d=>d.k===S.dim)||DIMS()[0];
+  return '<div class="an-bar">'+
+    '<div class="an-ask">'+
+      '<span class="w">'+esc(T.anShow)+'</span>'+
+      '<button type="button" class="fsel set dimpick" aria-haspopup="listbox" aria-expanded="false"'+
+        ' onclick="pickDim(this)"><span>'+esc(dim.label)+'</span>'+CHEV_D+'</button>'+
+      '<span class="w">'+esc(T.anFor)+'</span>'+anPeriodBtn()+
+      '<div class="an-flt'+(S.anFlt?" open":"")+'">'+
+        '<button type="button" class="fsel'+(n?" set":"")+'" aria-expanded="'+(S.anFlt?"true":"false")+'"'+
+          ' onclick="togAnFlt(this)"><span>'+esc(T.mFilters)+'</span>'+(n?'<i class="cnt">'+n+'</i>':"")+CHEV_D+'</button>'+
+        '<div class="an-sheet">'+sheet+
+          '<button class="an-clear'+(n?"":" off")+'" onclick="anClear()">'+esc(T.flClear)+'</button>'+
+        '</div>'+
+      '</div>'+
+    '</div>'+
+    '<div class="an-chipwrap'+(chips?" on":"")+'"><div class="an-chips">'+chips+'</div></div>'+
+  '</div>';
+}
+/* Фішка вибраного значення: знімається одним дотиком, панель відкривати не
+   треба. Розмітка окремо — її ж перемальовує anPaint() без заміни панелі. */
+function anChip(f, label, val){
+  return '<button class="an-chip" data-tip="'+esc(T.anDropTip)+'" onclick="anSetFilter(\''+f+'\',\'\')">'+
+    '<b>'+esc(label)+'</b><span>'+esc(val)+'</span>'+X_MARK+'</button>';
+}
+function anPeriodChip(){
+  const f=S.filters.from||"", t=S.filters.to||"";
+  return '<button class="an-chip" data-tip="'+esc(T.anDropTip)+'" onclick="anDropPeriod()">'+
+    '<b>'+esc(T.flPeriod)+'</b><span>'+esc((DatePicker.human(f)||"…")+" — "+(DatePicker.human(t)||"…"))+'</span>'+
+    X_MARK+'</button>';
+}
+function anPeriodBtn(){
+  const f=S.filters.from||"", t=S.filters.to||"";
+  const lab=(f||t) ? (DatePicker.human(f)||"…")+" — "+(DatePicker.human(t)||"…") : T.flPeriod;
+  return '<button class="dbtn'+((f||t)?" set":"")+'" data-tip="'+esc(T.flPeriodTip)+'" '+
+    'onclick="pickAnRange(this)">'+CAL_ICON+esc(lab)+"</button>";
+}
+/* Правка фільтра більше не перемальовує розділ: панель лишається на місці,
+   міняються тільки підписи кнопок, смужка фішок і таблиця під ними. */
+function pickAnFilter(btn){
+  const f=btn.dataset.f;
+  Pick.open(btn, FLT_OPTS[f]||[], S.filters[f]||"", v=>anSetFilter(f,v));
+}
+function pickAnRange(btn){
+  DatePicker.open(btn,{mode:"range",value:{from:S.filters.from||"",to:S.filters.to||""},onPick:r=>{
+    if(r.from) S.filters.from=r.from; else delete S.filters.from;
+    if(r.to) S.filters.to=r.to; else delete S.filters.to;
+    S.pages={}; anSync();
+  }});
+}
+function anSetFilter(f, v){
+  if(v) S.filters[f]=v; else delete S.filters[f];
+  S.pages={}; anSync();
+}
+function anDropPeriod(){ delete S.filters.from; delete S.filters.to; S.pages={}; anSync(); }
+function anClear(){ if(!Object.keys(S.filters).length) return; S.filters={}; S.pages={}; anSync(); }
+/* Підписи кнопок, лічильник і смужка фішок правимо на місці: заміна панелі
+   цілком давала помітне моргання. */
+function anPaint(){
+  const bar=document.querySelector(".an-bar");
+  if(!bar) return 0;
+  let n=0, chips="";
+  for(const [, rows] of anGroups()){
+    for(const [f, label] of rows){
+      const on=S.filters[f]||"";
+      const btn=bar.querySelector('.an-sheet .fsel[data-f="'+f+'"]');
+      if(btn){
+        btn.classList.toggle("set", !!on);
+        const sp=btn.querySelector("span");
+        if(sp) sp.textContent = on ? fltLabel(f,on) : label;
+      }
+      if(on){ n++; chips+=anChip(f, label, fltLabel(f,on)); }
+    }
+  }
+  if(S.filters.from||S.filters.to){ n++; chips+=anPeriodChip(); }
+  const per=bar.querySelector(".an-ask .dbtn");
+  if(per) per.outerHTML=anPeriodBtn();
+  const fbtn=bar.querySelector(".an-flt > .fsel");
+  if(fbtn){
+    fbtn.classList.toggle("set", n>0);
+    const cnt=fbtn.querySelector(".cnt");
+    if(n && cnt) cnt.textContent=n;
+    else if(n) fbtn.querySelector("span").insertAdjacentHTML("afterend", '<i class="cnt">'+n+'</i>');
+    else if(cnt) cnt.remove();
+  }
+  const clr=bar.querySelector(".an-clear");
+  if(clr) clr.classList.toggle("off", n===0);
+  const wrap=bar.querySelector(".an-chipwrap"), box=bar.querySelector(".an-chips");
+  const from=wrap?wrap.offsetHeight:0;
+  if(box) box.innerHTML=chips;
+  if(wrap){
+    wrap.classList.toggle("on", !!chips);
+    anHeight(wrap, from);
+  }
+  return n;
+}
+/* Висоту ведемо переходом від старої до нової — і смужці фішок, і таблиці.
+   Викликають після того, як вміст уже замінено: `from` міряють до заміни.
+   Без цього блок стрибав під курсором на кожну правку фільтра. */
+function anHeight(el, from){
+  if(!el || matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+  const to=el.offsetHeight;
+  if(from===to) return;
+  el.style.overflow="hidden";
+  el.style.height=from+"px";
+  el.getBoundingClientRect();                /* без цього перехід не стартує */
+  el.style.transition="height .28s var(--ease)";
+  el.style.height=to+"px";
+  const done=e=>{
+    if(e && e.target!==el) return;
+    el.style.height=el.style.transition=el.style.overflow="";
+    el.removeEventListener("transitionend", done);
+  };
+  el.addEventListener("transitionend", done);
+  setTimeout(done, 450);                     /* страхування, якщо перехід не дограв */
+}
+function anSync(){
+  fltSave();
+  const box=document.querySelector(".an-res");
+  if(!box){ render(); return; }              /* розділ уже інший — малюємо як завжди */
+  anPaint();
+  const from=box.offsetHeight;
+  box.innerHTML=anBody(applyFilters(S.trades));
+  anHeight(box, from);
+}
+function pickDim(btn){
+  Pick.open(btn, DIMS().map(d=>({v:d.k, label:d.label})), S.dim, v=>{
+    S.dim=v;
+    const sp=document.querySelector(".an-ask .dimpick span");
+    if(sp) sp.textContent=(DIMS().find(d=>d.k===v)||{}).label||"";
+    anSync();
+  });
+}
+/* Панель фільтрів спливає під своєю кнопкою, а не стоїть колонкою збоку:
+   колонка забирала ширину в таблиці й лишала під собою порожнє місце. */
+function togAnFlt(b){
+  S.anFlt=!S.anFlt;
+  b.parentNode.classList.toggle("open", S.anFlt);
+  b.setAttribute("aria-expanded", S.anFlt?"true":"false");
+  if(S.anFlt) setTimeout(()=>document.addEventListener("pointerdown", anOutside), 0);
+}
+function anOutside(e){
+  const w=document.querySelector(".an-flt.open");
+  /* клік усередині панелі (чи у списку, що з неї виріс) її не закриває */
+  if(w && (w.contains(e.target) || (e.target.closest && e.target.closest(".spop,.dpop")))) return;
+  document.removeEventListener("pointerdown", anOutside);
+  S.anFlt=false;
+  if(w){
+    w.classList.remove("open");
+    const b=w.querySelector(".fsel"); if(b) b.setAttribute("aria-expanded","false");
+  }
+}
+
 /* ---------- Analytics ---------- */
 function vAnalytics(){
   const list=applyFilters(S.trades);
@@ -1636,13 +1872,15 @@ function vAnalytics(){
   let h='<div class="vhead"><h1>'+T.anTitle+"</h1>"+
     /* у бектесті розрізи рахуються по одному журналу — обираємо, по якому */
     (btOn()&&window.__btj?__btj.filterBtn():"")+"</div>";
-  h+=filterBar();
-  /* Десять розрізів у рядок — стіна кнопок на телефоні. Там вони живуть
-     під кнопкою з поточним розрізом і закриваються після вибору. */
-  h+='<div class="dimsel'+(S.mDim?" open":"")+'">'+
-    '<button class="dimbtn" onclick="togDim(this)"><span class="k">'+T.mDim+'</span>'+
-    '<b>'+esc(DIMS().find(d=>d.k===S.dim).label)+'</b>'+CHEV_D+'</button>'+
-    '<div class="dimbody"><div class="dims">'+DIMS().map(d=>'<button class="pill '+(S.dim===d.k?"on":"")+'" onclick="S.dim=\''+d.k+'\';S.mDim=false;render()">'+d.label+"</button>").join("")+"</div></div></div>";
+  h+=anBar();
+  h+='<div class="an-res">'+anBody(list)+'</div>';
+  return h;
+}
+
+/* Те, що міняється при кожній правці фільтра: таблиця розрізу і звʼязки.
+   Окремо від шапки, щоб оновлювати саме їх, а не перемальовувати розділ. */
+function anBody(list){
+  let h="";
   /* Поля, де значень кілька (емоції, помилки), — кожне окремим рядком:
      угода з «Спокій, Страх» рахується і там, і там. Сума рядків тоді
      більша за кількість угод, зате кожна емоція видна чесно. */
@@ -1676,7 +1914,12 @@ function vAnalytics(){
       '<span class="rr">'+(g.st.avgRR!=null?r1(g.st.avgRR):"—")+"</span>"+
       '<span class="netr '+clsR(g.st.net)+'">'+fmtR(g.st.net)+"</span></div>";
   }).join("");
-  h+='<div class="card m-swap"><h3>'+T.anResultsPrefix+' '+esc(DIMS().find(d=>d.k===S.dim).label)+"</h3>"+
+  /* Плавна підміна доречна тільки тоді, коли міняють розріз: таблиця стає
+     іншою. При зміні фільтра в ній ті самі рядки з іншими числами, і та сама
+     анімація читалась як сіпання розділу на кожен клік. */
+  const swap = (S.dimShown !== null && S.dimShown !== S.dim) ? " m-swap" : "";
+  S.dimShown = S.dim;
+  h='<div class="card'+swap+'"><h3>'+T.anResultsPrefix+' '+esc(DIMS().find(d=>d.k===S.dim).label)+"</h3>"+
     '<div class="ahead"><span>'+T.anColName+'</span><span>'+T.kCount+'</span><span>'+T.kWinRate+'</span><span>'+T.kAvgRRShort+'</span><span>'+T.kNetPct+'</span></div>'+
     (rows||'<div class="empty">'+T.anNoData+'</div>')+"</div>";
   h+=window.__links ? __links.html(list) : "";      /* зв'язки, static/links.js */
@@ -2104,10 +2347,15 @@ function openForm(id, presetDay){
     const all=Prefs.vals(field, vals);
     const known=isMulti(field) ? splitVals(cur).every(x=>all.includes(x)) : all.some(x=>x===cur);
     const more='<button type="button" class="more" onclick="showOwn(\''+field+'\')" title="'+T.fmOwnValueTip+'">＋</button>';
-    return quickHtml(field, vals, cur, more)+
-      '<input class="qinput" id="fld_'+field+'"'+(num?' type="number" step="0.25" min="0"':"")+
+    const inp='<input class="qinput" id="fld_'+field+'"'+(num?' type="number" step="0.25" min="0"':"")+
       ' value="'+esc(cur)+'" placeholder="'+esc(ph||"")+'" autocomplete="off"'+
       (cur&&!known?"":" hidden")+' oninput="markQuick();calcOutcome()">';
+    /* Голос лише в «Помилці»: решта підказок — коротке слово чи число
+       (ризик, інструмент), диктувати їх довше, ніж натиснути кнопку. */
+    const mic=(field==="mistakes"&&window.Voice)
+      ? Voice.btn("fld_"+field,{join:", "}) : "";
+    return quickHtml(field, vals, cur, more)+
+      (mic ? '<span class="vwrap one">'+inp+mic+"</span>"+Voice.hint("fld_"+field) : inp);
   };
 
   const accounts=accountVals();
@@ -2205,8 +2453,17 @@ function openForm(id, presetDay){
 
   /* ---- заметки ---- */
   '<section class="fcard"><h4>'+T.fNotes+'</h4><div class="fbody">'+
-    '<div class="f"><label id="labEntry">'+T.fEntryDetails+'</label><textarea id="fld_entry_details" placeholder="'+T.fmEntryDetailsPh+'" oninput="entryTyped()">'+v("entry_details")+"</textarea></div>"+
-    '<div class="f"><label>'+T.fmThoughtsLabel+'</label><textarea id="fld_notes" class="short">'+v("notes")+"</textarea></div>"+
+    /* Мікрофон лежить усередині поля (.vwrap тримає його в куті), а не
+       біля підпису: applyResultMode переписує label через textContent і
+       кнопку звідти стерло б. */
+    '<div class="f"><label id="labEntry">'+T.fEntryDetails+'</label>'+
+      '<div class="vwrap"><textarea id="fld_entry_details" placeholder="'+T.fmEntryDetailsPh+'" oninput="entryTyped()">'+v("entry_details")+"</textarea>"+
+      (window.Voice?Voice.btn("fld_entry_details"):"")+"</div>"+
+      (window.Voice?Voice.hint("fld_entry_details"):"")+"</div>"+
+    '<div class="f"><label>'+T.fmThoughtsLabel+'</label>'+
+      '<div class="vwrap"><textarea id="fld_notes" class="short">'+v("notes")+"</textarea>"+
+      (window.Voice?Voice.btn("fld_notes"):"")+"</div>"+
+      (window.Voice?Voice.hint("fld_notes"):"")+"</div>"+
     /* помилки й емоції — як решта полів: кнопки, «+» і своє значення */
     '<div class="f"><label>'+T.fmMistakeLabel+'</label>'+
       pick("mistakes",mistakes,t?t.mistakes:"",T.fmMistakeEmptyPh)+"</div>"+

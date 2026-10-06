@@ -28,9 +28,25 @@
    ============================================================ */
 (function(){
 
-let DATE = null;        /* який день дивимось, YYYY-MM-DD */
+let DATE = null;        /* де ми в календарі, YYYY-MM-DD */
+/* День і тиждень розбирають однаково: ті самі активи, скріни, рівні й
+   сценарії, різниця лише в тому, який шматок часу беруть. Тому це один
+   розділ із перемикачем, а не два майже однакові.
+
+   Запис тижня лежить під датою понеділка (week_store.py), тож DATE лишається
+   «де ми в календарі», а ключ запису рахується з нього: перемикання
+   день ↔ тиждень не збиває місце, на яке людина дивиться. */
+let MODE = "day";       /* "day" або "week" */
+try{ if (localStorage.getItem("dv_mode") === "week") MODE = "week"; }catch(e){}
+let WEEKS = null;       /* які тижні розібрані — для календаря */
 let N = undefined;      /* розбір дня: undefined — ще не питали, null — немає */
-let STATS = null;       /* підсумок за 30 днів */
+/* Прочитані записи лишаються при нас. Без цього кожне перемикання
+   день ↔ тиждень (і крок стрілкою назад) гасило розділ до «Хвилинку…» і
+   малювало його наново — екран смикався на рівному місці. Правимо запис
+   тільки ми самі, тож перечитувати його з сервера щоразу нема чого. */
+const MEM = {day: {}, week: {}};
+/* Підсумок окремо для дня й для тижня: перемикач не має його губити. */
+const ST = {day: null, week: null};
 let DAYS = null;        /* які дні розібрані — для календаря */
 let hotShot = null;
 let calOpen = false, calMonth = null;   /* міні-календар: відкритий? який місяць */
@@ -63,10 +79,26 @@ function iso(d){
   return d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0")
        + "-" + String(d.getDate()).padStart(2, "0");
 }
-function shift(days){
+function shift(step){
   const [y, m, d] = DATE.split("-").map(Number);
-  goto(iso(new Date(y, m - 1, d + days)));
+  goto(iso(new Date(y, m - 1, d + step * (week() ? 7 : 1))));
 }
+function week(){ return MODE === "week"; }
+/* Понеділок того тижня, у який потрапляє дата. Той самий рахунок, що й на
+   сервері (week_store.monday), інакше браузер і база звели б одну дату в
+   різні тижні. */
+function mon(dk){
+  const [y, m, d] = dk.split("-").map(Number);
+  const t = new Date(y, m - 1, d);
+  return iso(new Date(y, m - 1, d - ((t.getDay() + 6) % 7)));
+}
+function sun(dk){
+  const [y, m, d] = mon(dk).split("-").map(Number);
+  return iso(new Date(y, m - 1, d + 6));
+}
+/* Під яким ключем лежить те, що зараз дивимось. */
+function pkey(){ return week() ? mon(DATE) : DATE; }
+function api1(){ return week() ? "/api/week/" : "/api/day/"; }
 function goto(date){
   DATE = date; N = undefined; calOpen = false; popOpen = false; tfEdit = null;
   render();
@@ -121,14 +153,15 @@ function rollMarks(){
 /* У публічному демо сервера немає — розбори дня живуть у браузері,
    як і угоди. Скрін там лишається картинкою всередині запису:
    класти його нікуди. */
-const DEMO_KEY = "statsai_day_demo";
+const DEMO_KEY = "statsai_day_demo", DEMO_KEY_W = "statsai_week_demo";
 function demo(){ return typeof DEMO !== "undefined" && DEMO; }
-function demoAll(){
-  try{ return JSON.parse(localStorage.getItem(DEMO_KEY) || "{}"); }catch(e){ return {}; }
+function demoKey(){ return week() ? DEMO_KEY_W : DEMO_KEY; }
+function demoAll(key){
+  try{ return JSON.parse(localStorage.getItem(key || demoKey()) || "{}"); }catch(e){ return {}; }
 }
 
 async function load(){
-  const want = DATE;
+  const want = pkey(), mode = MODE;
   if (demo()){
     N = normalize(demoAll()[want] || null);
     /* Перемальовуємо не одразу: у демо дані лежать у браузері й читаються
@@ -139,42 +172,87 @@ async function load(){
     return;
   }
   try{
-    const r = await api("GET", "/api/day/" + want);
-    if (DATE !== want) return;                 /* встигли перегорнути далі */
-    N = normalize(r.day || null);
+    const r = await api("GET", api1() + want);
+    const got = normalize((week() ? r.week : r.day) || null);
+    MEM[mode][want] = got;
+    /* встигли перегорнути далі — чи перемкнути день на тиждень */
+    if (pkey() !== want || MODE !== mode) return;
+    N = got;
   }catch(e){ N = null; }
   if (S.view === "day") render();
 }
 
+/* Поки відповідь у дорозі, другий запит не шлемо: смужку й календар малює
+   кожен render, і без цього прапорця їх летіло по кілька за один показ. */
+const busy = {stats: {}, marks: {}};
 async function loadStats(){
+  const mode = MODE;
+  if (busy.stats[mode]) return;
+  busy.stats[mode] = 1;
   if (demo()){
     const all = demoAll();
-    STATS = Object.keys(all).map(k => ({date: k, data: all[k],
+    ST[mode] = Object.keys(all).map(k => ({date: k, data: all[k],
       match: (all[k].marks || {}).match || "", hold: (all[k].marks || {}).hold || ""}));
+    busy.stats[mode] = 0;
     setTimeout(() => { if (S.view === "day") render(); }, 0);
     return;
   }
   try{
-    const r = await api("GET", "/api/day/stats");
-    STATS = r.notes || [];
-  }catch(e){ STATS = []; }
+    const r = await api("GET", api1() + "stats");
+    /* у тижневих записів ключ зветься week — зводимо до одного вигляду,
+       щоб підсумок рахувався тим самим кодом */
+    ST[mode] = (r.notes || []).map(n => n.week ? Object.assign({}, n, {date: n.week}) : n);
+  }catch(e){ ST[mode] = []; }
+  busy.stats[mode] = 0;
   if (S.view === "day") render();
+}
+/* Свіжий запис кладемо в підсумок самі, не перепитуючи сервер: збереження
+   відкладене на 400 мс, і запит устигав піти раніше за нього — свій же
+   щойно розібраний період не потрапляв у смужку аж до наступного заходу. */
+function statsPut(){
+  const arr = ST[MODE];
+  if (!arr) return;
+  const k = pkey();
+  const row = {date: k, data: N,
+               match: (N.marks || {}).match || "", hold: (N.marks || {}).hold || ""};
+  const i = arr.findIndex(x => x.date === k);
+  if (i >= 0) arr[i] = row; else arr.push(row);
+}
+/* Те саме для календаря: крапка має зʼявитись одразу, а не наступного разу. */
+function markPut(){
+  const list = week() ? WEEKS : DAYS;
+  if (!list) return;
+  const k = pkey(), m = (N.marks || {}).match || "", h = (N.marks || {}).hold || "";
+  const i = list.findIndex(x => x.date === k);
+  if (i >= 0){ list[i].match = m; list[i].hold = h; }
+  else list.push({date: k, match: m, hold: h});
 }
 
-/* Які дні вже розібрані — щоб календар знав, де ставити крапки. */
+/* Які дні (чи тижні) вже розібрані — щоб календар знав, де ставити крапки.
+   Списки окремі: перемкнувшись на тиждень, людина має бачити тижні, а не
+   денні крапки під новим підписом. */
 async function loadDays(){
+  const w = week();
+  if (busy.marks[MODE]) return;
+  busy.marks[MODE] = 1;
   if (demo()){
     const all = demoAll();
-    DAYS = Object.keys(all).map(k => ({date: k, match: (all[k].marks || {}).match || ""}));
+    const list = Object.keys(all).map(k => ({date: k, match: (all[k].marks || {}).match || ""}));
+    if (w) WEEKS = list; else DAYS = list;
+    busy.marks[w ? "week" : "day"] = 0;
     setTimeout(() => { if (S.view === "day") render(); }, 0);
     return;
   }
   try{
-    const r = await api("GET", "/api/day/list");
-    DAYS = r.days || [];
-  }catch(e){ DAYS = []; }
+    const r = await api("GET", api1() + "list");
+    if (w) WEEKS = (r.weeks || []).map(x => ({date: x.week, match: x.match, hold: x.hold}));
+    else DAYS = r.days || [];
+  }catch(e){ if (w) WEEKS = []; else DAYS = []; }
+  busy.marks[w ? "week" : "day"] = 0;
   if (S.view === "day") render();
 }
+/* Позначки того списку, який зараз показує календар. */
+function marked(){ return week() ? WEEKS : DAYS; }
 
 let saveTimer = null;
 function save(){
@@ -182,17 +260,19 @@ function save(){
      зберегти значення — кличемо завести свій журнал */
   if (window.Guest && Guest.block(T.gsGateTitle)) return;
   rollMarks();
-  STATS = null; DAYS = null;                   /* підсумок і календар перерахуються */
+  MEM[MODE][pkey()] = N;                       /* памʼять — завжди свіжа */
+  statsPut(); markPut();                       /* смужка й календар — теж */
   if (demo()){
     const all = demoAll();
-    all[DATE] = N;
-    try{ localStorage.setItem(DEMO_KEY, JSON.stringify(all)); }catch(e){}
+    all[pkey()] = N;
+    try{ localStorage.setItem(demoKey(), JSON.stringify(all)); }catch(e){}
     return;
   }
   clearTimeout(saveTimer);
-  const date = DATE, body = N;
+  const key = pkey(), body = N, w = week();
   saveTimer = setTimeout(() => {
-    api("POST", "/api/day/" + date, {day: body}).catch(() => {});
+    api("POST", (w ? "/api/week/" : "/api/day/") + key, w ? {week: body} : {day: body})
+      .catch(() => {});
   }, 400);
 }
 
@@ -490,8 +570,14 @@ function plansRead(a){
 }
 
 function dayTrades(){
-  /* у дати угоди може стояти й час — порівнюємо лише день */
-  return (S.trades || []).filter(t => String(t.date || "").slice(0, 10) === DATE && !t.hidden);
+  /* у дати угоди може стояти й час — порівнюємо лише день.
+     У тижні беремо всі сім днів: угоди лягають до своїх активів так само,
+     як у дні, просто їх більше. */
+  const from = week() ? mon(DATE) : DATE, to = week() ? sun(DATE) : DATE;
+  return (S.trades || []).filter(t => {
+    const dk = String(t.date || "").slice(0, 10);
+    return dk >= from && dk <= to && !t.hidden;
+  });
 }
 function tradesFor(a){
   const key = normPair(a.nm);
@@ -546,16 +632,16 @@ function sumR(list){ return list.reduce((s, t) => s + netR(t), 0); }
 /* ---------------- підсумок за місяць ---------------- */
 function strip(){
   const d = D();
-  if (STATS === null){
+  if (ST[MODE] === null){
     loadStats();
     return "";
   }
-  if (!STATS.length) return "";
+  if (!ST[MODE].length) return "";
   const byId = {};
   (S.trades || []).forEach(t => byId[t.id] = t);
 
   let played = 0, off = 0, cost = 0;
-  STATS.forEach(n => {
+  ST[MODE].forEach(n => {
     if (n.match === d.yes) played++;
     const flags = (n.data && n.data.trades) || {};
     Object.keys(flags).forEach(id => {
@@ -570,35 +656,56 @@ function strip(){
     + '<div class="n">' + esc(note) + "</div></div>";
 
   return '<div class="dv-strip">'
-    + s(d.stPlayed, played + " / " + STATS.length, played ? "pos" : "", d.stPlayedNote)
-    + s(d.stOff, String(off), "", d.stOffNote)
+    + s(d.stPlayed, played + " / " + ST[MODE].length, played ? "pos" : "",
+        week() ? d.stPlayedNoteW : d.stPlayedNote)
+    + s(d.stOff, String(off), "", week() ? d.stOffNoteW : d.stOffNote)
     + s(d.stCost, fmtR(cost), cost < 0 ? "neg" : "", d.stCostNote)
     + "</div>";
 }
 
 /* ---------------- шапка, календар ---------------- */
+/* Підпис періоду на кнопці календаря: день — датою, тиждень — проміжком.
+   Рік не пишемо: він стоїть у самому календарі, який відкривається з цієї
+   ж кнопки, а в рядку з'їдав місце. */
+function periodLab(){
+  if (!week()) return DATE;
+  const sh = dk => dk.slice(8, 10) + "." + dk.slice(5, 7);
+  return sh(mon(DATE)) + " – " + sh(sun(DATE));
+}
 function head(){
   const d = D();
   const today = iso(new Date());
+  const here = week() ? (pkey() === mon(today)) : (DATE === today);
   /* Дата біля заголовка не потрібна: вона й так стоїть у перемикачі днів
      поруч (22.09.2026, прохання власника). */
-  return '<div class="vhead"><h1>' + esc(d.title) + "</h1>"
+  /* Заголовок — просто «Аналіз»: що саме розбираємо, каже перемикач поруч,
+     і дублювати це словом у h1 нема потреби. Перемикач стоїть біля
+     заголовка, а не в правій купці кнопок: він про розділ цілком, а там
+     живе робота з конкретним періодом — гортання, календар, «поділитись». */
+  return '<div class="vhead"><h1>' + esc(d.nav) + "</h1>"
+    + '<span class="dv-seg mode">'
+    +   '<button class="' + (week() ? "" : "on") + '" onclick="__dv.mode(\'day\')">' + esc(d.segDay) + "</button>"
+    +   '<button class="' + (week() ? "on" : "") + '" onclick="__dv.mode(\'week\')">' + esc(d.segWeek) + "</button>"
+    + "</span>"
     + '<span class="dv-nav">'
     +   '<span class="dv-seg">'
-    +     '<button class="' + (N.closed ? "" : "on") + '" onclick="__dv.reopen()">' + esc(d.morning) + "</button>"
-    +     '<button class="' + (N.closed ? "on" : "") + '" onclick="__dv.close()">' + esc(d.evening) + "</button>"
+    +     '<button class="' + (N.closed ? "" : "on") + '" onclick="__dv.reopen()">'
+    +       esc(week() ? d.wkPlan : d.morning) + "</button>"
+    +     '<button class="' + (N.closed ? "on" : "") + '" onclick="__dv.close()">'
+    +       esc(week() ? d.wkSum : d.evening) + "</button>"
     +   "</span>"
-    +   '<button onclick="__dv.go(-1)" title="' + esc(d.prevDay) + '">←</button>'
+    +   '<button onclick="__dv.go(-1)" title="' + esc(week() ? d.prevWeek : d.prevDay) + '">←</button>'
     +   '<span class="dv-calwrap">'
     +     '<button class="day" onclick="__dv.cal()">'
     +       '<svg width="13" height="13" viewBox="0 0 24 24" fill="none"><rect x="3" y="4" width="18" height="17" rx="3" stroke="currentColor" stroke-width="1.7"/><path d="M3 9h18M8 3v3M16 3v3" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></svg>'
-    +       esc(DATE) + "</button>"
+    +       esc(periodLab()) + "</button>"
     +     (calOpen ? calendar() : "")
     +   "</span>"
-    +   '<button onclick="__dv.go(1)" title="' + esc(d.nextDay) + '">→</button>'
-    +   (DATE === today ? "" : '<button onclick="__dv.today()">' + esc(d.today) + "</button>")
+    +   '<button onclick="__dv.go(1)" title="' + esc(week() ? d.nextWeek : d.nextDay) + '">→</button>'
+    +   (here ? "" : '<button onclick="__dv.today()">' + esc(week() ? d.thisWeek : d.today) + "</button>")
     +   ((N.assets || []).length
-          ? '<button class="dv-share" onclick="__dv.shareDay()" title="' + esc(d.shareTip2) + '">'
+          ? '<button class="dv-share" onclick="__dv.' + (week() ? "shareWeek" : "shareDay")
+            + '()" title="' + esc(week() ? d.shareTipW : d.shareTip2) + '">'
             + '<svg width="13" height="13" viewBox="0 0 24 24" fill="none">'
             + '<path d="M12 3v12M8 7l4-4 4 4" stroke="currentColor" stroke-width="1.8" '
             + 'stroke-linecap="round" stroke-linejoin="round"/>'
@@ -613,14 +720,14 @@ function head(){
    порожній кружок — план є, вечір не записаний. Клік по дню відкриває його. */
 function calendar(){
   const d = D();
-  if (DAYS === null){ loadDays(); }
+  if (marked() === null){ loadDays(); }
   const [y, m] = (calMonth || DATE.slice(0, 7)).split("-").map(Number);
   const first = new Date(y, m - 1, 1);
   const days = new Date(y, m, 0).getDate();
   const pad = (first.getDay() + 6) % 7;                 /* понеділок — перший */
   const today = iso(new Date());
   const marks = {};
-  (DAYS || []).forEach(x => { marks[x.date] = x; });
+  (marked() || []).forEach(x => { marks[x.date] = x; });
   const dot = x => {
     if (!x) return "";
     const v = x.match;
@@ -629,10 +736,14 @@ function calendar(){
   };
   let cells = "";
   for (let i = 0; i < pad; i++) cells += '<span class="d pad"></span>';
+  /* У тижневому режимі позначка належить усьому тижню: шукаємо її по
+     понеділку, а підсвічуємо всі сім днів. Інакше розібраний тиждень видно
+     було б однією крапкою на понеділку — наче розбирали один день. */
   for (let n = 1; n <= days; n++){
     const key = y + "-" + String(m).padStart(2, "0") + "-" + String(n).padStart(2, "0");
-    const x = marks[key];
-    cells += '<button type="button" class="d' + (x ? " has" : "") + (key === DATE ? " cur" : "")
+    const x = marks[week() ? mon(key) : key];
+    const cur = week() ? (mon(key) === pkey()) : (key === DATE);
+    cells += '<button type="button" class="d' + (x ? " has" : "") + (cur ? " cur" : "")
       + (key > today ? " future" : "") + '" onclick="__dv.goto(\'' + key + '\')">' + n + dot(x) + "</button>";
   }
   const loc = {uk: "uk-UA", ru: "ru-RU", en: "en-GB"}[window.LANG] || "uk-UA";
@@ -646,9 +757,11 @@ function calendar(){
     + '<div class="grid">' + cells + "</div>"
     + '<div class="lg"><span><i class="ok"></i>' + esc(d.lgOk) + '</span><span><i class="part"></i>' + esc(d.lgPart)
     +   '</span><span><i class="no"></i>' + esc(d.lgNo) + '</span><span><i class="open"></i>' + esc(d.lgOpen) + "</span></div>"
-    + '<button type="button" class="dv-calshare" onclick="__dv.shareMonth()">'
+    /* «Поділитись місяцем» — про місяць денних розборів; у тижневому
+       режимі такого зведення немає, тож і кнопки тут немає. */
+    + (week() ? "" : '<button type="button" class="dv-calshare" onclick="__dv.shareMonth()">'
     +   '<svg width="13" height="13" viewBox="0 0 24 24" fill="none"><path d="M12 3v12M8 7l4-4 4 4" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/><path d="M5 14v4a2 2 0 002 2h10a2 2 0 002-2v-4" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>'
-    +   esc(d.shareMonth) + "</button>"
+    +   esc(d.shareMonth) + "</button>")
     + "</div>";
 }
 
@@ -666,7 +779,7 @@ async function fetchMonth(ym){
     assets: (n.assets || []).map(a => a.nm).filter(Boolean), closed: !!n.closed,
     data: n});                                      /* весь розбір: за посиланням день розкривається */
   if (demo()){
-    const all = demoAll();
+    const all = demoAll(DEMO_KEY);            /* місяць — завжди про дні */
     return Object.keys(all).filter(k => k.slice(0, 7) === ym).sort().map(k => pack(k, all[k] || {}));
   }
   const r = await api("GET", "/api/day/stats?since=" + ym + "-01");
@@ -803,7 +916,7 @@ function vClosed(){
   const d = D();
   const orphan = tradesOrphan();
   return head()
-    + '<p class="dv-hint">' + esc(d.hintClosed) + "</p>"
+    + '<p class="dv-hint">' + esc(week() ? d.hintClosedW : d.hintClosed) + "</p>"
     + '<div class="dv-stack">' + N.assets.map(cardClosed).join("")
     + (orphan.length
         ? '<div class="dv-card"><div class="dv-ah"><span class="nm">' + esc(d.otherTrades) + "</span>"
@@ -820,8 +933,14 @@ function vClosed(){
 function vDay(){
   if (!DATE) DATE = iso(new Date());
   if (N === undefined){
-    load();
-    return '<div class="empty">' + esc(D().loading) + "</div>";
+    /* Те, що вже читали, показуємо одразу: інакше кожен крок стрілкою й
+       кожне перемикання день ↔ тиждень гасили б розділ до «Хвилинку…». */
+    const seen = MEM[MODE][pkey()];
+    if (seen !== undefined) N = seen;
+    else {
+      load();
+      return '<div class="empty">' + esc(D().loading) + "</div>";
+    }
   }
   if (N === null) N = blank();
   return N.closed ? vClosed() : vOpen();
@@ -1014,7 +1133,7 @@ function closePop(){
 window.__dv = {
   go: shift,
   goto: goto,
-  today(){ goto(iso(new Date())); },
+  today(){ goto(iso(new Date())); },     /* у тижні це поточний тиждень: ключ рахується з дати */
   cal(){ calOpen = !calOpen; popOpen = false; if (calOpen) calMonth = DATE.slice(0, 7); render(); },
   calMove(dir){
     const [y, m] = (calMonth || DATE.slice(0, 7)).split("-").map(Number);
@@ -1069,7 +1188,8 @@ window.__dv = {
   },
   /* Запис дня назовні — з нього sharelink.js збирає знімок розбору.
      Віддаємо лише той день, який зараз відкритий: інші не завантажені. */
-  note(date){ return (!date || date === DATE) ? N : null; },
+  /* Знімок питає запис по ключу: у дні це дата, у тижні — понеділок. */
+  note(key){ return (!key || key === pkey()) ? N : null; },
   /* місяць розборів для sharelink.js: збираємо наперед у shareMonth() */
   monthNotes(ym){ return (MONTH && MONTH.ym === ym) ? MONTH.notes : null; },
   stat: statOf,
@@ -1083,6 +1203,20 @@ window.__dv = {
   shareDay(){
     if (window.Guest && Guest.block(T.gsGateTitle)) return;
     if (window.Share) Share.open("review", DATE);
+  },
+  shareWeek(){
+    if (window.Guest && Guest.block(T.gsGateTitle)) return;
+    if (window.Share) Share.open("reviewweek", pkey());
+  },
+  /* Перемикання день ↔ тиждень. Місце в календарі лишаємо те саме, а запис
+     перечитуємо: під новим ключем лежить інший розбір. */
+  mode(m){
+    const want = m === "week" ? "week" : "day";
+    if (want === MODE) return;
+    MODE = want;
+    try{ localStorage.setItem("dv_mode", MODE); }catch(e){}
+    N = undefined; calOpen = false; popOpen = false; tfEdit = null;
+    render();
   },
   /* Зведення по одній угоді: та сама картинка, що й у журналі —
      з деталями входу й скрінами. День цілком тут не потрібен. */
@@ -1125,7 +1259,9 @@ function paintNav(){
   const a = document.querySelector('.nav a[data-v="day"]');
   if (!a) return;
   const sp = a.querySelector("span");
-  if (sp) sp.textContent = D().title;
+  /* У меню — коротке «Аналіз»: розділ той самий і для дня, і для тижня,
+     а підпис, що міняється під перемикач, читався б як інший пункт. */
+  if (sp) sp.textContent = D().nav;
   a.setAttribute("data-tip", D().navTip);
 }
 const realApply = window.applyLang;
@@ -1143,8 +1279,14 @@ if (typeof realApply === "function"){
    ============================================================ */
 const DICT = {
 uk: {
-  title: "Аналіз дня", navTip: "Що планував зранку — і як воно відпрацювало",
+  nav: "Аналіз", navTip: "Що планував — і як воно відпрацювало",
   loading: "Хвилинку…", today: "сьогодні", prevDay: "Попередній день", nextDay: "Наступний день",
+  segDay: "День", segWeek: "Тиждень",
+  wkPlan: "План", wkSum: "Підсумок", thisWeek: "цей тиждень",
+  prevWeek: "Попередній тиждень", nextWeek: "Наступний тиждень",
+  shareTipW: "Поділитись планом на тиждень за посиланням",
+  hintClosedW: "Ліворуч — план, як його розмітили на вихідних, праворуч — що вийшло за тиждень. "
+             + "Угоди всіх семи днів самі лягли до своїх активів.",
   long: "Long", short: "Short", flat: "Нейтрально",
   yes: "так", partly: "частково", no: "ні",
   weekdays: ["пн", "вт", "ср", "чт", "пт", "сб", "нд"],
@@ -1203,7 +1345,9 @@ uk: {
   colHold: "тримався", colRes: "результат", lessonTitle: "що з цього винести",
 
   stPlayed: "Сценарій зіграв", stPlayedNote: "днів за останній місяць",
+  stPlayedNoteW: "тижнів за останні три місяці",
   stOff: "Угод поза планом", stOffNote: "взяв те, чого зранку не планував",
+  stOffNoteW: "взяв те, чого в плані тижня не було",
   stCost: "Скільки вони коштували", stCostNote: "разом по цих угодах",
   closeDay: "Записати підсумок дня",
   needMorning: "Спершу заповни ранковий аналіз: додай актив і запиши план — напрям, рівень чи скрін. Тоді можна перейти до вечора.",
@@ -1212,8 +1356,14 @@ uk: {
 },
 
 ru: {
-  title: "Анализ дня", navTip: "Что планировал утром — и как оно отработало",
+  nav: "Анализ", navTip: "Что планировал — и как оно отработало",
   loading: "Минутку…", today: "сегодня", prevDay: "Предыдущий день", nextDay: "Следующий день",
+  segDay: "День", segWeek: "Неделя",
+  wkPlan: "План", wkSum: "Итог", thisWeek: "эта неделя",
+  prevWeek: "Предыдущая неделя", nextWeek: "Следующая неделя",
+  shareTipW: "Поделиться планом на неделю по ссылке",
+  hintClosedW: "Слева — план, как его разметили на выходных, справа — что вышло за неделю. "
+             + "Сделки всех семи дней сами легли к своим активам.",
   long: "Long", short: "Short", flat: "Нейтрально",
   yes: "да", partly: "частично", no: "нет",
   weekdays: ["пн", "вт", "ср", "чт", "пт", "сб", "вс"],
@@ -1272,7 +1422,9 @@ ru: {
   colHold: "держался", colRes: "результат", lessonTitle: "что из этого вынести",
 
   stPlayed: "Сценарий сыграл", stPlayedNote: "дней за последний месяц",
+  stPlayedNoteW: "недель за последние три месяца",
   stOff: "Сделок вне плана", stOffNote: "взял то, чего утром не планировал",
+  stOffNoteW: "взял то, чего в плане недели не было",
   stCost: "Сколько они стоили", stCostNote: "вместе по этим сделкам",
   closeDay: "Записать итог дня",
   needMorning: "Сначала заполни утренний анализ: добавь актив и запиши план — направление, уровень или скрин. Потом можно перейти к вечеру.",
@@ -1281,8 +1433,14 @@ ru: {
 },
 
 en: {
-  title: "Day review", navTip: "What you planned in the morning — and how it played out",
+  nav: "Review", navTip: "What you planned — and how it played out",
   loading: "One moment…", today: "today", prevDay: "Previous day", nextDay: "Next day",
+  segDay: "Day", segWeek: "Week",
+  wkPlan: "Plan", wkSum: "Result", thisWeek: "this week",
+  prevWeek: "Previous week", nextWeek: "Next week",
+  shareTipW: "Share the week plan by link",
+  hintClosedW: "On the left is the plan as you marked it over the weekend, on the right is how the week went. "
+             + "Trades from all seven days landed with their assets.",
   long: "Long", short: "Short", flat: "Neutral",
   yes: "yes", partly: "partly", no: "no",
   weekdays: ["mo", "tu", "we", "th", "fr", "sa", "su"],
@@ -1341,6 +1499,8 @@ en: {
   colHold: "held to it", colRes: "result", lessonTitle: "what to take from it",
 
   stPlayed: "Scenario played out", stPlayedNote: "days in the last month",
+  stPlayedNoteW: "weeks in the last three months",
+  stOffNoteW: "took what the week plan did not have",
   stOff: "Trades off plan", stOffNote: "things you didn't plan in the morning",
   stCost: "What they cost", stCostNote: "total across those trades",
   closeDay: "Write the day up",

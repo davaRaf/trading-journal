@@ -263,8 +263,14 @@ textarea.dv-in{resize:none; overflow:hidden}
 /* ---------- шапка: ранок/вечір і календар ---------- */
 .dv-seg{display:inline-flex; gap:2px; padding:3px; border-radius:var(--r-sm); background:var(--panel-2);
   border:1px solid var(--line-soft); margin-right:6px}
-.dv-nav .dv-seg button{border:0; background:transparent; padding:5px 12px; border-radius:6px}
-.dv-nav .dv-seg button.on{background:var(--panel); color:var(--text); box-shadow:inset 0 0 0 1px var(--line)}
+/* Перемикачі однакові й біля заголовка, і в правій купці кнопок, тому
+   правило не прив'язане до .dv-nav: «День|Тиждень» стоїть поза нею. */
+.dv-seg button{border:0; background:transparent; color:var(--dim); font:inherit; font-size:13px;
+  padding:5px 12px; border-radius:6px; cursor:pointer}
+.dv-seg button:hover{color:var(--text)}
+.dv-seg button.on{background:var(--panel); color:var(--text); box-shadow:inset 0 0 0 1px var(--line)}
+/* Перемикач розділу йде одразу за заголовком, а не з рештою кнопок. */
+.vhead > .dv-seg.mode{margin-right:0}
 .dv-calwrap{position:relative; display:inline-flex}
 .dv-nav .day{display:inline-flex; align-items:center; gap:7px; white-space:nowrap; cursor:pointer}
 .dv-nav .day svg{color:var(--faint)}
@@ -492,8 +498,22 @@ button.dv-tfc:hover{border-color:var(--faint); color:var(--text)}
   color:var(--faint); margin-bottom:7px}
 
 @media (max-width:900px){
-  .dv-nav{flex-wrap:wrap}
-  .dv-cal{right:auto; left:0}
+  /* Кнопок у шапці стало більше: що розбираємо (день чи тиждень), у якому
+     вигляді (план чи підсумок), гортання, календар і «поділитись». У рядок
+     вони не стають, тож перемикачі йдуть зверху по половині ширини, під
+     ними — гортання з календарем, а «поділитись» окремим рядком. Висота
+     44px: нижче пальцем уже не влучити. */
+  .dv-nav{width:100%; margin-left:0; flex-wrap:wrap; gap:8px}
+  /* перемикач розділу біля заголовка лишається поруч із ним, але тягнеться
+     на решту рядка — пальцем у вузькі кнопки не влучити */
+  .vhead > .dv-seg.mode{flex:1; min-width:0}
+  .dv-nav .dv-seg{margin-right:0; flex:1 1 100%}
+  .dv-seg button{flex:1; min-height:40px; justify-content:center}
+  .dv-nav > button{min-height:44px; min-width:44px}
+  .dv-calwrap{flex:1}
+  .dv-nav .day{width:100%; justify-content:center; min-height:44px}
+  .dv-nav .dv-share{flex:1 1 100%; justify-content:center}
+  .dv-cal{right:auto; left:0; width:min(300px, calc(100vw - 28px))}
   .dv-tfs{grid-template-columns:repeat(2,minmax(0,1fr))}
   .dv-sum .srow{grid-template-columns:1fr 1fr; row-gap:6px}
   .dv-sum .srow.hd{display:none}
