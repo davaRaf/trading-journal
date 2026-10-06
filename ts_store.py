@@ -65,6 +65,24 @@ BEGIN
 END $$;
 """
 
+# Кілька стратегій (власник, 05.10.2026). Перша — та сама, що й була
+# (strategies.data, sid 0), щоб нічого зі старого коду не ламалось; решта
+# лежать окремими рядками тут. Угода знає свою стратегію полем trades.ts
+# ("" — перша).
+MULTI = """
+ALTER TABLE strategies ADD COLUMN IF NOT EXISTS name TEXT NOT NULL DEFAULT '';
+CREATE TABLE IF NOT EXISTS ts_multi (
+  id         BIGSERIAL PRIMARY KEY,
+  user_id    BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  name       TEXT NOT NULL DEFAULT '',
+  data       JSONB NOT NULL DEFAULT '{}'::jsonb,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS ts_multi_user ON ts_multi (user_id, id);
+"""
+MAX_TS = 10            # стратегій на людину; більше — уже не система, а каша
+
 _ready = False
 
 
@@ -76,11 +94,87 @@ def init():
         return
     with db.connect() as conn:
         conn.execute(SCHEMA)
+        conn.execute(MULTI)
     _ready = True
+
+
+def _sid(sid):
+    try:
+        return max(0, int(sid or 0))
+    except (TypeError, ValueError):
+        return 0
+
+
+def lst(user_id):
+    """Усі стратегії людини: перша (id 0) і додані. Назва може бути
+    порожньою — тоді сторінка підпише «ТС 1», «ТС 2»…"""
+    init()
+    with db.connect() as conn:
+        row = conn.execute("SELECT name, data FROM strategies WHERE user_id=%s",
+                           (user_id,)).fetchone()
+        rows = conn.execute("SELECT id, name, data FROM ts_multi WHERE user_id=%s ORDER BY id",
+                            (user_id,)).fetchall()
+    out = [{"id": 0, "name": (row or {}).get("name") or "", "has": bool(row and row["data"])}]
+    out += [{"id": r["id"], "name": r["name"], "has": bool(r["data"])} for r in rows]
+    return out
+
+
+def create(user_id, name="", copy_from=None):
+    """Нова стратегія: порожня або копія вже наявної (copy_from — її sid)."""
+    init()
+    data = {}
+    if copy_from is not None:
+        data = get(user_id, "", seed=False, sid=copy_from) or {}
+    with db.connect() as conn:
+        n = conn.execute("SELECT count(*) AS n FROM ts_multi WHERE user_id=%s",
+                         (user_id,)).fetchone()["n"]
+        if n + 1 >= MAX_TS:
+            return None
+        row = conn.execute("INSERT INTO ts_multi (user_id, name, data) VALUES (%s,%s,%s) "
+                           "RETURNING id", (user_id, str(name or "").strip()[:60], Jsonb(data))).fetchone()
+    return row["id"]
+
+
+def rename(user_id, sid, name):
+    init()
+    sid, name = _sid(sid), str(name or "").strip()[:60]
+    with db.connect() as conn:
+        if sid:
+            conn.execute("UPDATE ts_multi SET name=%s WHERE id=%s AND user_id=%s",
+                         (name, sid, user_id))
+        else:
+            conn.execute("INSERT INTO strategies (user_id, name) VALUES (%s,%s) "
+                         "ON CONFLICT (user_id) DO UPDATE SET name=EXCLUDED.name",
+                         (user_id, name))
+
+
+def drop(user_id, sid):
+    """Прибрати додану стратегію. Першу не прибираємо — її можна лише
+    очистити. Угоди стратегії переходять у першу: журнал не губимо."""
+    init()
+    sid = _sid(sid)
+    if not sid:
+        return False
+    with db.connect() as conn:
+        got = conn.execute("DELETE FROM ts_multi WHERE id=%s AND user_id=%s RETURNING id",
+                           (sid, user_id)).fetchone()
+        if got:
+            conn.execute("UPDATE trades SET ts='' WHERE user_id=%s AND ts=%s",
+                         (user_id, str(sid)))
+            # рахунки цієї стратегії — туди ж, куди й угоди
+            conn.execute("UPDATE accounts SET ts='0' WHERE user_id=%s AND ts=%s",
+                         (user_id, str(sid)))
+    return bool(got)
 
 
 def _kind(kind):
     return "bt" if kind == "bt" else ""
+
+
+def _sk(kind, sid):
+    """kind "s:3" несе стратегію в собі (db.strat_kind) — розкладаємо."""
+    k = str(kind or "")
+    return ("", k[2:]) if k.startswith("s:") else (kind, sid)
 
 
 def _row(conn, user_id):
@@ -88,7 +182,8 @@ def _row(conn, user_id):
                         (user_id,)).fetchone()
 
 
-def get(user_id, kind="", seed=True):
+def get(user_id, kind="", seed=True, sid=0):
+    kind, sid = _sk(kind, sid)
     """Стратегія того журналу, в якому людина зараз.
 
     Перший захід у бектест знімає копію з реальної ТС: людина не описує
@@ -103,6 +198,12 @@ def get(user_id, kind="", seed=True):
     бектесту, якого вони не відкривали, ні до чого.
     """
     init()
+    sid = _sid(sid)
+    if sid and _kind(kind) != "bt":
+        with db.connect() as conn:
+            r = conn.execute("SELECT data FROM ts_multi WHERE id=%s AND user_id=%s",
+                             (sid, user_id)).fetchone()
+        return ts_ai.route_saved((r or {}).get("data") or None)
     with db.connect() as conn:
         row = _row(conn, user_id)
         if row is None:
@@ -119,8 +220,15 @@ def get(user_id, kind="", seed=True):
         return ts_ai.route_saved(src)
 
 
-def put(user_id, data, kind=""):
+def put(user_id, data, kind="", sid=0):
+    kind, sid = _sk(kind, sid)
     init()
+    sid = _sid(sid)
+    if sid and _kind(kind) != "bt":
+        with db.connect() as conn:
+            conn.execute("UPDATE ts_multi SET data=%s, updated_at=now() WHERE id=%s AND user_id=%s",
+                         (Jsonb(data or {}), sid, user_id))
+        return
     col = "data_bt" if _kind(kind) == "bt" else "data"
     with db.connect() as conn:
         # у рядка обидві колонки: у сусідньої лишається те, що в ній було
@@ -131,9 +239,13 @@ def put(user_id, data, kind=""):
             (user_id, Jsonb(data or {})))
 
 
-def clear(user_id, kind=""):
+def clear(user_id, kind="", sid=0):
     """Прибирає стратегію одного журналу. Сусідню не чіпає."""
     init()
+    sid = _sid(sid)
+    if sid and _kind(kind) != "bt":
+        put(user_id, {}, "", sid)
+        return
     with db.connect() as conn:
         if _kind(kind) == "bt":
             # порожній документ, а не NULL: прибрана стратегія має лишитись
@@ -190,6 +302,76 @@ def owns_shot(user_id, name):
     return bool(m) and m.group(1) == str(user_id)
 
 
+def copy_for(user_id, data):
+    """Чужа ТС як своя: та сама структура, але кожен скрін — нова копія з
+    іменем нового власника (ts<його id>_…). Інакше картинки лишились би
+    чужими: їх не віддасть перевірка власника і прибере sweep автора."""
+    n = [0]
+
+    def dup(name):
+        got = filestore.get(os.path.basename(name)) if name else None
+        if not got:
+            return ""
+        mime, blob = got
+        ext = name.rsplit(".", 1)[-1].lower()
+        n[0] += 1
+        new = "ts%d_%x%02d.%s" % (int(user_id), int(time.time() * 1000), n[0] % 100, ext)
+        filestore.put(new, bytes(blob), mime)
+        return new
+
+    def walk(x):
+        if isinstance(x, dict):
+            out = {}
+            for k, v in x.items():
+                if k in ("shot", "file") and isinstance(v, str):
+                    out[k] = dup(v)
+                elif k == "shots" and isinstance(v, list):
+                    out[k] = [s for s in (dup(i) if isinstance(i, str) else walk(i) for i in v) if s]
+                else:
+                    out[k] = walk(v)
+            return out
+        if isinstance(x, list):
+            return [walk(v) for v in x]
+        return x
+
+    return walk(data or {})
+
+
+def copy_for(user_id, data):
+    """Чужа ТС як своя: та сама структура, але кожен скрін — нова копія з
+    іменем нового власника (ts<його id>_…). Інакше картинки лишились би
+    чужими: їх не віддасть перевірка власника і прибере sweep автора."""
+    n = [0]
+
+    def dup(name):
+        got = filestore.get(os.path.basename(name)) if name else None
+        if not got:
+            return ""
+        mime, blob = got
+        ext = name.rsplit(".", 1)[-1].lower()
+        n[0] += 1
+        new = "ts%d_%x%02d.%s" % (int(user_id), int(time.time() * 1000), n[0] % 100, ext)
+        filestore.put(new, bytes(blob), mime)
+        return new
+
+    def walk(x):
+        if isinstance(x, dict):
+            out = {}
+            for k, v in x.items():
+                if k in ("shot", "file") and isinstance(v, str):
+                    out[k] = dup(v)
+                elif k == "shots" and isinstance(v, list):
+                    out[k] = [s for s in (dup(i) if isinstance(i, str) else walk(i) for i in v) if s]
+                else:
+                    out[k] = walk(v)
+            return out
+        if isinstance(x, list):
+            return [walk(v) for v in x]
+        return x
+
+    return walk(data or {})
+
+
 def used_files(data):
     """Усі імена файлів, на які посилається стратегія."""
     out = set()
@@ -217,7 +399,7 @@ def used_files(data):
     return out
 
 
-def sweep(user_id, data, shots_dir, kind=""):
+def sweep(user_id, data, shots_dir, kind="", sid=0):
     """Прибирає файли, на які стратегія більше не посилається.
 
     Людина може перекласти скрін тричі — старі копії інакше лишаться
@@ -228,15 +410,27 @@ def sweep(user_id, data, shots_dir, kind=""):
     сусідній журнал: інакше прибирання в одному забрало б картинки з іншого.
     """
     init()
-    kind = _kind(kind)
+    kind, sid = _kind(kind), _sid(sid)
+    if kind == "bt":
+        sid = 0
     try:
         with db.connect() as conn:
             row = _row(conn, user_id) or {}
-        other = (row.get("data") if kind == "bt" else row.get("data_bt")) or None
+            extra = conn.execute("SELECT id, data FROM ts_multi WHERE user_id=%s",
+                                 (user_id,)).fetchall()
     except Exception:
         # не змогли спитати базу — краще нічого не чіпати, ніж стерти чуже
         return
-    keep = used_files(data) | used_files(other)
+    # лишаємо все, чим користуються інші стратегії: скріни в копії ТС —
+    # ті самі файли, що й в оригіналі
+    others = [r["data"] for r in extra if r["id"] != sid]
+    if sid or kind == "bt":
+        others.append(row.get("data"))
+    if sid or kind != "bt":
+        others.append(row.get("data_bt"))
+    keep = used_files(data)
+    for doc in others:
+        keep |= used_files(doc or None)
     pref = "ts%d_" % int(user_id)
     try:
         names = os.listdir(shots_dir)

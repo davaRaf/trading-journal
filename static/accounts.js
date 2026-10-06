@@ -188,8 +188,10 @@ function cls(v){ return v > 0 ? "up" : (v < 0 ? "down" : ""); }
 function bullet(label, val, limit, tone){
   const on = limit != null && limit > 0;
   const part = on ? clamp(val / limit * 100, 0, 100) : 0;
-  const hot = on && part >= 70;
-  return '<div class="ac-bul' + (hot ? " hot" : "") + '">'
+  /* Червоніє тільки межа просадки; ціль, що наближається, — це добре. */
+  const hot = on && part >= 70 && tone !== "up";
+  const done = on && part >= 100 && tone === "up";
+  return '<div class="ac-bul' + (hot ? " hot" : "") + (done ? " done" : "") + '">'
     + '<div class="ac-bul-h"><span>' + esc(label) + "</span>"
     +   "<b>" + (on ? fmtR1(val) + " / " + fmtR1(limit) : fmtR1(val)) + "</b></div>"
     + '<div class="ac-bul-t"><i class="' + esc(tone || "") + '" style="width:'
@@ -294,11 +296,33 @@ function card(a){
   return '<div class="shell"><div class="core ac-card ' + st + '">'
     + '<div class="ac-top">' + logo(a.firm, a.name, "ac-logo")
     + '<div class="ac-name"><b>' + esc(a.name) + "</b>"
-    +   (under ? '<div class="ac-sub">' + under + "</div>" : "") + "</div>"
-    + '<span class="ac-st ' + st + '">' + esc(d.status[a.status] || "") + "</span></div>"
+    +   (under ? '<div class="ac-sub">' + under + "</div>" : "")
+    +   (window.__strat ? __strat.accTag(a) : "") + "</div>"
+    + (st === "pass" ? "" : '<span class="ac-st ' + st + '">' + esc(d.status[a.status] || "") + "</span>")
+    + "</div>"
+    + (st === "pass" ? passBanner(a) : "")
     + head + mid + stats + cut
+
     + (dead && openId === a.id ? why(a, s) : "")
     + foot + "</div></div>";
+}
+
+/* Пройдений челендж — головна подія в житті рахунку, тож замість маленької
+   плашки в кутку він отримує власну смугу: кубок, «Челендж пройдено» і за
+   скільки днів узята ціль. */
+function passBanner(a){
+  const d = D();
+  const days = a.opened_at && a.closed_at
+    ? Math.round((Date.parse(a.closed_at) - Date.parse(a.opened_at)) / 864e5) : null;
+  const meta = [a.closed_at ? human(a.closed_at) : "",
+                days != null && days >= 0 ? d.passDays.replace("%n", days) : ""]
+    .filter(Boolean).join(" · ");
+  return '<div class="ac-win"><span class="ac-cup" aria-hidden="true">'
+    + '<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">'
+    + '<path d="M8 21h8M12 17v4M7 4h10v5a5 5 0 0 1-10 0V4z"/><path d="M17 5h3v2a3 3 0 0 1-3 3M7 5H4v2a3 3 0 0 0 3 3"/></svg></span>'
+    + '<div class="ac-win-t"><b>' + esc(d.passTitle) + "</b>"
+    + (meta ? "<i>" + esc(meta) + "</i>" : "") + "</div>"
+    + '<span class="ac-win-ok" aria-hidden="true">✓</span></div>';
 }
 
 /* ---------------- чому рахунок злили ---------------- */
@@ -653,6 +677,8 @@ function form(a){
     +   '<div class="ac-row2">' + dateField(d.fClosed, "acClosed", a.closed_at)
     +     field(d.fReason, "acReason", a.reason, d.phReason) + "</div></div>"
     + field(d.fNote, "acNote", a.note, d.phNote)
+    /* під яку стратегію рахунок — лише коли їх кілька (strat.js) */
+    + (window.__strat ? __strat.accField(a) : "")
     + '<p class="ac-err" id="acErr" hidden></p>'
     + "</div>";
 }
@@ -752,6 +778,7 @@ async function save(id){
     target_pct: num("acTarget"), dd_total_pct: num("acDdTotal"), dd_daily_pct: num("acDdDaily"),
     opened_at: val("acOpened"), status: segVal("acStatus"),
     closed_at: val("acClosed"), reason: val("acReason"), note: val("acNote"),
+    ts: val("acTs"),
   };
   if (!acc.name){ show(err, d.errName); return; }
   let saved = null;
@@ -907,7 +934,8 @@ function vAccounts(){
   /* Шапка спільна з «Оглядом»: заголовок там і є перемикачем вкладок.
      Без app.js (такого не буває, але хай) лишиться просто назва. */
   const head = '<div class="ohead ac-head">'
-    + (window.ovTabsHtml ? ovTabsHtml("accounts") : "<h1>" + esc(d.title) + "</h1>") + total()
+    + (window.ovTabsHtml ? ovTabsHtml("accounts") : "<h1>" + esc(d.title) + "</h1>")
+    + (window.__strat ? __strat.btn() : "") + total()
     + '<button class="btn primary ac-new" id="acAdd">' + esc(d.add) + "</button></div>";
 
   if (!ACCS.length){
@@ -917,9 +945,12 @@ function vAccounts(){
       + '<button class="btn primary" id="acAdd2">' + esc(d.add) + "</button>"
       + "</div></div></div>";
   }
+  /* кілька стратегій: рахунки обраної плюс спільні */
+  const shown = window.__strat ? __strat.accFilter(ACCS) : ACCS;
   return '<div class="acw">' + head
-    + '<div class="ac-grid">' + ACCS.map(card).join("") + "</div></div>";
+    + '<div class="ac-grid">' + shown.map(card).join("") + "</div></div>";
 }
+window.__accList = () => ACCS || [];
 
 function blank(){ return {name: "", firm: "", kind: "own", currency: "USD", status: "active"}; }
 
@@ -1102,6 +1133,7 @@ uk: {
   topEmotion: "Найчастіша емоція", reason: "Причина", worstTrades: "Найгірші угоди",
   timesTag: " раз",
   status: {active: "Активний", passed: "Пройдений", failed: "Злитий", closed: "Закритий"},
+  passTitle: "Челендж пройдено", passDays: "за %n дн.",
   kinds: {own: "свій депозит", challenge: "челендж", funded: "фандед"},
   newTitle: "Новий рахунок", editTitle: "Рахунок",
   fName: "Назва", fFirm: "Фірма", fKind: "Тип", fStart: "Стартовий баланс", fCur: "Валюта",
@@ -1140,6 +1172,7 @@ ru: {
   topEmotion: "Частая эмоция", reason: "Причина", worstTrades: "Худшие сделки",
   timesTag: " раз",
   status: {active: "Активный", passed: "Пройден", failed: "Слит", closed: "Закрыт"},
+  passTitle: "Челлендж пройден", passDays: "за %n дн.",
   kinds: {own: "свой депозит", challenge: "челлендж", funded: "фандед"},
   newTitle: "Новый счёт", editTitle: "Счёт",
   fName: "Название", fFirm: "Фирма", fKind: "Тип", fStart: "Стартовый баланс", fCur: "Валюта",
@@ -1178,6 +1211,7 @@ en: {
   topEmotion: "Most common emotion", reason: "Reason", worstTrades: "Worst trades",
   timesTag: "x",
   status: {active: "Active", passed: "Passed", failed: "Blown", closed: "Closed"},
+  passTitle: "Challenge passed", passDays: "in %n days",
   kinds: {own: "own deposit", challenge: "challenge", funded: "funded"},
   newTitle: "New account", editTitle: "Account",
   fName: "Name", fFirm: "Firm", fKind: "Type", fStart: "Starting balance", fCur: "Currency",

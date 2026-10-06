@@ -170,10 +170,12 @@ function isSkip(t){ return t.result==="Skip"; }
    поки не з'явиться TP / SL / BE. */
 function isOpen(t){ return t.result==="Open"; }
 function realTrades(list){ return list.filter(t=>!isSkip(t) && !isOpen(t)); }
+/* BE− і BE+ — один фіолетовий колір (власник, 05.10.2026); чистий BE — жовтий */
+function isBePM(r){ return r==="BE+"||r==="BE-"; }
 /* класс плашки результата — один на все места, где она рисуется */
 function resCls(r){
   return r==="Win"?"win":r==="WinM"?"win hand":r==="Loss"?"loss"
-       :r==="Skip"?"skip":r==="Open"?"open":r==="BE+"?"beplus":"be";
+       :r==="Skip"?"skip":r==="Open"?"open":isBePM(r)?"beplus":"be";
 }
 /* сколько человек оставил на столе, выйдя рукой раньше цели */
 function handLost(t){
@@ -355,7 +357,11 @@ async function reload(){
     S.btAll = got;
     await __btj.sync();
     S.all = __btj.filter(got);
-  } else { S.btAll = null; S.all = got; }
+  } else {
+    /* кілька стратегій (strat.js): на екрани йдуть угоди обраної */
+    S.btAll = null; S.liveAll = got;
+    if(window.__strat){ await __strat.load(); S.all = __strat.filter(got); } else S.all = got;
+  }
   S.trades = S.all;          // в статистике участвуют все сделки
   await Prefs.load();        // після угод: тепер відомо, демо це чи ні
   /* Рахунки читаємо про запас і не чекаємо на них: вони потрібні формі
@@ -440,6 +446,7 @@ function markMode(){
     b.classList.toggle("on", b.dataset.mode===S.mode));
   const flag=$("#btFlag");
   if(flag) flag.hidden = S.mode!=="bt";
+  if(window.__notion && __notion.refreshBtn) __notion.refreshBtn();   // статус Notion — свого режиму
 }
 
 
@@ -545,7 +552,8 @@ function calHtml(ym, clickFn, selDay){
     const key=Y+"-"+pad(M)+"-"+pad(d);
     const list=byDay.get(key)||[];
     const net=list.reduce((a,t)=>a+netR(t),0);
-    const tint=list.length?(net>0.0001?" up":net<-0.0001?" down":" flat"):"";
+    const tint=list.length?(net>0.0001?" up":net<-0.0001?" down"
+      :(list.some(t=>isBePM(t.result)) && !list.some(t=>t.result==="BE")?" flat bepm":" flat")):"";
     const cls=tint+(key===selDay?" sel":"")+(key===today?" today":"");
     let body="";
     if(list.length){
@@ -558,7 +566,7 @@ function calHtml(ym, clickFn, selDay){
         if(t.result==="Loss") return '<i class="mk sl'+(rv?" rev":"")+'" data-tip="'+T.calSlTip+(rv?" · "+T.calRevSuffix:"")+'">SL</i>';
         if(t.result==="BE+")  return '<i class="mk beplus'+(rv?" rev":"")+'" data-tip="'+T.calBePlusTip+'">BE+</i>';
         if(t.result==="BE")   return '<i class="mk be'+(rv?" rev":"")+'" data-tip="'+T.calBeTip+'">BE</i>';
-        return '<i class="mk be'+(rv?" rev":"")+'" data-tip="'+T.calBeMinusTip+'">BE\u2212</i>';
+        return '<i class="mk beplus'+(rv?" rev":"")+'" data-tip="'+T.calBeMinusTip+'">BE\u2212</i>';
       }).join("");
       body='<div class="marks">'+marks+'</div><div class="res '+clsR(net)+'">'+fmtR(net)+"</div>";
     }
@@ -888,9 +896,9 @@ function ovWeekHtml(){
     const cnt={};
     for(const t of list) cnt[t.result]=(cnt[t.result]||0)+1;
     const top=Object.keys(cnt).sort((a,b)=>cnt[b]-cnt[a])[0];
-    const cls=(top==="Win"||top==="WinM")?"w":top==="Loss"?"l":"b";
+    const cls=(top==="Win"||top==="WinM")?"w":top==="Loss"?"l":isBePM(top)?"p":"b";
     const val=ovFmtRaw(r);
-    cells+='<div class="day '+ovSign(r)+'" onclick="ovOpenDay(\''+key+'\')" title="'+
+    cells+='<div class="day '+ovSign(r)+(ovSign(r)==="be"&&isBePM(top)?" bepm":"")+'" onclick="ovOpenDay(\''+key+'\')" title="'+
       list.length+" "+ovWord(list.length)+'">'+
       '<span class="glow '+cls+'">'+(RES_TAG[top]||"")+'</span>'+
       '<span class="wd">'+wd+'</span><span class="dn">'+d.getDate()+'</span>'+
@@ -1157,7 +1165,7 @@ function ovRailHtml(){
   return '<aside class="rail"><div class="inner ovi"><div class="cut ovq">'+
     "<h3>"+esc(T.railYearWord)+"<em>"+Y+"</em></h3>"+
     (any ? [0,1,2,3].map(quarter).join("") : '<div class="empty">'+T.railNoData+"</div>")+
-    "</div></div></aside>";
+    "</div></div>"+(window.__notes?__notes.railHtml():"")+"</aside>";
 }
 
 /* Заголовок «Огляду» — це і є перемикач: «Огляд» і «Рахунки» поруч,
@@ -1218,7 +1226,7 @@ function vDashboard(){
     /* Шапка тут та сама, що й на «Рахунках»: заголовок-перемикач мусить
        виглядати однаково, у порожньому журналі й у повному. У .vhead свій
        заголовок — дрібніший і жирніший, і на переході це було видно. */
-    return '<div class="ohead">'+ovTabsHtml("dashboard")+'</div>'+
+    return '<div class="ohead">'+ovTabsHtml("dashboard")+(window.__strat?__strat.btn():"")+'</div>'+
       '<div class="card"><div class="in ov-empty" style="padding:26px 24px">'+
       '<div style="font-size:20px;font-weight:600;letter-spacing:-.01em">'+T.bgTitle+'</div>'+
       '<div class="hint" style="margin-top:8px;max-width:62ch;line-height:1.6">'+(bt?(window.__btj&&__btj.none()?T.btNoJ:T.btEmpty):T.bgLead)+'</div>'+
@@ -1247,7 +1255,7 @@ function vDashboard(){
      стоїть там, де одразу видно його наслідок, а в кутку шапки лишається
      одна дія замість трьох предметів поспіль (рішення власника 25.09.2026). */
   return '<div class="ovw">'+
-    '<div class="ohead">'+ovTabsHtml("dashboard")+"</div>"+
+    '<div class="ohead">'+ovTabsHtml("dashboard")+(window.__strat?__strat.btn():"")+"</div>"+
     '<div class="flow">'+
       ovWeekHtml()+
       '<div class="shell rise"><div class="core">'+
@@ -1273,7 +1281,7 @@ function vJournal(){
     '<button class="'+(S.jMode==="table"?"on":"")+'" data-tip="'+T.jrTableTabTip+'" onclick="setJMode(\'table\')">'+T.jrTableTab+'</button>'+
     '<button class="'+(S.jMode==="list"?"on":"")+'" data-tip="'+T.jrAllTabTip+'" onclick="setJMode(\'list\')">'+T.jrAllTab+'</button>'+
     "</div>";
-  let h='<div class="jhead">'+(btOn()&&window.__btj ? __btj.head(S.jMode) : '<h1>'+T.jrTitle+'</h1>'+modeTabs);
+  let h='<div class="jhead">'+(btOn()&&window.__btj ? __btj.head(S.jMode) : '<h1>'+T.jrTitle+'</h1>'+modeTabs+(window.__strat?__strat.btn():""));
   if(S.jMode==="list"){
     /* «Інструменти» — те саме гніздо, що й у календарі: без нього
        sharelink.js не знаходив місця й ставив «Поділитись» ліворуч. */
@@ -1871,7 +1879,7 @@ function vAnalytics(){
      видно нижче, у самій статистиці (22.09.2026, прохання власника). */
   let h='<div class="vhead"><h1>'+T.anTitle+"</h1>"+
     /* у бектесті розрізи рахуються по одному журналу — обираємо, по якому */
-    (btOn()&&window.__btj?__btj.filterBtn():"")+"</div>";
+    (btOn()&&window.__btj?__btj.filterBtn():(window.__strat?__strat.btn():""))+"</div>";
   h+=anBar();
   h+='<div class="an-res">'+anBody(list)+'</div>';
   return h;
@@ -1881,6 +1889,7 @@ function vAnalytics(){
    Окремо від шапки, щоб оновлювати саме їх, а не перемальовувати розділ. */
 function anBody(list){
   let h="";
+
   /* Поля, де значень кілька (емоції, помилки), — кожне окремим рядком:
      угода з «Спокій, Страх» рахується і там, і там. Сума рядків тоді
      більша за кількість угод, зате кожна емоція видна чесно. */
@@ -2101,13 +2110,14 @@ function tradeBodyHtml(t){
 
   /* 2. обстоятельства входа. Заполненное показываем, пустое собираем одной
      строкой внизу: видно, чего не хватает, но экран это не съедает */
-  const ctx = isSkip(t)
+  const sf = window.__strat && !btOn() ? __strat.fact(t) : null;
+  const ctx = (sf ? [sf] : []).concat(isSkip(t)
     ? [[T.fPair,t.pair],[T.fSetup,t.setup],[T.fBias,t.bias]]
     : [[T.fAccount,t.account],[T.fSession,t.session],[T.fBias,t.bias],
        [T.fEntryModel,t.entry_model],[T.fSetup,t.setup],[T.fDirTypeFilter,dirType(t)],
        t.result==="WinM"&&t.rr_plan!=null
          ? [T.fmRRPlan, r1(t.rr_plan)+(handLost(t)>0.001?"  ·  −"+r1(handLost(t))+"%":"")] : null
-      ].filter(Boolean);
+      ].filter(Boolean));
   h+=section(T.tcHowTraded,
     '<div class="tfields">'+ctx.filter(f=>f[1]).map(f=>
       '<div class="fr"><span class="l">'+f[0]+'</span><span class="v">'+esc(f[1])+"</span></div>").join("")+"</div>",
@@ -2379,6 +2389,7 @@ function openForm(id, presetDay){
 
   /* ---- сделка ---- */
   '<section class="fcard"><h4>'+T.tradeDefaultName+'</h4><div class="fbody">'+
+    (btOn()||!window.__strat?"":__strat.formField(t))+
     '<div class="frow">'+
       '<div class="f"><label>'+T.fPair+' <i>*</i></label>'+
         pick("pair",pairs,t?t.pair:(btOn()&&window.__btj?__btj.asset():""),T.fmOwnPairPh)+"</div>"+
@@ -2424,12 +2435,16 @@ function openForm(id, presetDay){
 
   /* ---- результат ---- */
   '<section class="fcard accent"><h4>'+T.fmResultSection+'</h4><div class="fbody">'+
+    /* Спершу статус (закрита / в роботі / скіп), і лише в закритої —
+       чим саме: так «Скіп» і «В роботі» не губляться серед тейків і стопів. */
     '<div class="f"><label>'+T.fmFinishedAs+' <i>*</i></label>'+
+      '<div class="rstat" id="rstat">'+[["",T.resClosed],["Open",T.resOpen],["Skip",T.resSkip]].map(o=>
+        '<button type="button" class="'+(resStat(t)===o[0]?"on":"")+'" data-v="'+o[0]+'" onclick="resStatus(this)">'+o[1]+"</button>").join("")+"</div>"+
+      '<div id="resChips"'+(resStat(t)?" hidden":"")+'>'+
       seg("result",[{v:"Win",t:"TP",cls:"win"},{v:"WinM",t:T.resHand,cls:"win"},
-                    {v:"Loss",t:"SL",cls:"loss"},{v:"BE",t:"BE",cls:"bek"},
-                    {v:"BE-",t:"BE\u2212",cls:"bek"},{v:"BE+",t:"BE+",cls:"bepk"},
-                    {v:"Skip",t:T.resSkip,cls:"skipk"},
-                    {v:"Open",t:T.resOpen,cls:"openk"}],t?t.result:"","big res")+"</div>"+
+                    {v:"BE",t:"BE",cls:"bek"},{v:"BE-",t:"BE\u2212",cls:"bepk"},
+                    {v:"BE+",t:"BE+",cls:"bepk"},{v:"Loss",t:"SL",cls:"loss"}],t?t.result:"","res chips")+
+      "</div></div>"+
     '<div class="frow" id="rowRR">'+
       '<div class="f"><label id="labRR">RR</label>'+
         '<input id="fld_rr" type="number" step="0.1" min="0" placeholder="2.5" oninput="calcOutcome()" value="'+(t&&t.rr!=null?t.rr:"")+'"></div>'+
@@ -2567,7 +2582,7 @@ function calcOutcome(){
     return;
   }
   else { val=0; txt = res==="BE+" ? T.calcBePlusMsg : res==="BE" ? T.calcBeMsg : T.calcBeMinusMsg; }
-  box.className="outcome "+(val>0.0001?"pos":val<-0.0001?"neg":"be");
+  box.className="outcome "+(val>0.0001?"pos":val<-0.0001?"neg":"be")+(isBePM(res)?" bepm":"");
   box.innerHTML='<span class="big">'+fmtR(val)+'</span><span class="txt">'+txt+"</span>";
 }
 
@@ -2607,6 +2622,19 @@ function onPasteShot(e){
       if(idx===0) S.activeTf=null;
     });
   });
+}
+
+/* Статус угоди у формі: "" — закрита (тоді обирають підсумок), "Open", "Skip". */
+function resStat(t){ const r=t&&t.result; return r==="Open"||r==="Skip"?r:""; }
+function resStatus(btn){
+  document.querySelectorAll("#rstat button").forEach(b=>b.classList.toggle("on",b===btn));
+  const v=btn.dataset.v, inp=$("#fld_result");
+  $("#resChips").hidden=!!v;
+  /* «Закрита» поверх уже обраного тейка чи стопа нічого не скидає */
+  if(!v && inp.value!=="Open" && inp.value!=="Skip") return;
+  $("#seg_result").querySelectorAll("button").forEach(b=>b.classList.remove("on","win","loss","bek","bepk"));
+  inp.value=v;
+  calcOutcome();
 }
 
 /* выбор варианта в переключателе */
@@ -2862,7 +2890,7 @@ async function saveTrade(id){
     screenshots:S.formShots,
     /* Куди записуємо: у реальний журнал чи в бектест. Сервер бере тільки
        "bt", решту вважає торгівлею. */
-    bt_run:g("bt_run"), kind: btOn()?"bt":"",
+    bt_run:g("bt_run"), kind: btOn()?"bt":"", ts:btOn()?"":g("ts"),
     cid:S.formKey||"",
   };
   if(!t.pair){ formErr("pair", T.alertNeedPair); return; }

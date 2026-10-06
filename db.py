@@ -18,7 +18,7 @@ from config import (DATABASE_URL, DB_POOL_MAX, EARLY_MIGRATION,
 # Текстовые поля сделки. Порядок важен: по нему строятся INSERT/UPDATE.
 TEXT_FIELDS = ["pair", "date", "session", "position", "entry_model", "bias", "setup",
                "direction_type", "result", "account", "entry_details", "notes", "mistakes",
-               "comments", "emotion", "bt_run", "notion_id", "import_id"]
+               "comments", "emotion", "bt_run", "notion_id", "import_id", "ts"]
 # rr_plan — скільки дав би тейк, якби досидів. Із різниці з rr виходить,
 # скільки людина лишила на столі, вийшовши рукою.
 NUM_FIELDS = ["rr", "risk", "rr_plan"]
@@ -173,6 +173,11 @@ ALTER TABLE trades ADD COLUMN IF NOT EXISTS rr_plan DOUBLE PRECISION;
 -- Журнал можно открыть другим: тогда его смотрят по ссылке /u/<ник>.
 -- По умолчанию закрыт: открытость человек включает сам.
 ALTER TABLE users ADD COLUMN IF NOT EXISTS public_journal BOOLEAN NOT NULL DEFAULT FALSE;
+-- дозвіл забрати свою ТС за посиланням на неї (кнопка «Скопіювати до себе»)
+ALTER TABLE users ADD COLUMN IF NOT EXISTS ts_copy BOOLEAN NOT NULL DEFAULT FALSE;
+-- стратегія, відкрита на сайті востаннє: туди ж пише угоди бот
+ALTER TABLE users ADD COLUMN IF NOT EXISTS ts_active TEXT NOT NULL DEFAULT '';
+-- дозвіл забрати свою ТС за посиланням на неї (кнопка «Скопіювати до себе»)
 
 -- Опитування «звідки дізнався» жило один день і прибране — колонку теж.
 ALTER TABLE users DROP COLUMN IF EXISTS heard_from;
@@ -252,6 +257,8 @@ CREATE INDEX IF NOT EXISTS trades_user_kind ON trades (user_id, "kind");
 -- Подпись прогона: «EURUSD H1, sweep+fvg, 2023». Одной строкой вместо пары
 -- дат — человек сам пишет, что именно гонял. У реальных сделок пусто.
 ALTER TABLE trades ADD COLUMN IF NOT EXISTS "bt_run" TEXT NOT NULL DEFAULT '';
+-- стратегія угоди: "" — перша, інакше id з ts_multi (ts_store.py)
+ALTER TABLE trades ADD COLUMN IF NOT EXISTS "ts" TEXT NOT NULL DEFAULT '';
 
 -- Угоди з Notion, які людина прибрала з журналу руками. Тримаємо не саму
 -- угоду, а позначки, за якими перенесення її впізнає: id запису в Notion,
@@ -298,6 +305,10 @@ ALTER TABLE users ADD COLUMN IF NOT EXISTS free_bt_used INTEGER NOT NULL DEFAULT
 ALTER TABLE users ADD COLUMN IF NOT EXISTS free_bt_cap INTEGER NOT NULL DEFAULT 20;
 ALTER TABLE users ADD COLUMN IF NOT EXISTS imports_used INTEGER NOT NULL DEFAULT 0;
 ALTER TABLE users ADD COLUMN IF NOT EXISTS imports_cap INTEGER NOT NULL DEFAULT 3;
+-- Бектест-журнали з Notion для підписників: 3 бази, далі — докупити
+-- (стелю піднімає оплата або адмін, витрачене не чіпаємо).
+ALTER TABLE users ADD COLUMN IF NOT EXISTS bt_imports_used INTEGER NOT NULL DEFAULT 0;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS bt_imports_cap INTEGER NOT NULL DEFAULT 3;
 -- Стеля була 30, стала 20 (власники, 29.09.2026). ADD COLUMN IF NOT EXISTS
 -- на вже наявній колонці нічого не робить — DEFAULT у ній лишився б старий,
 -- і кожен новий акаунт знову заводився б з тридцяткою. Тому окремим рядком.
@@ -868,6 +879,20 @@ def profile_stats(user_id, today, weeks=12, tz=None):
     }
 
 
+def set_ts_copy(user_id, on):
+    with connect() as conn:
+        conn.execute("UPDATE users SET ts_copy=%s WHERE id=%s", (bool(on), user_id))
+        conn.commit()
+
+
+def set_ts_active(user_id, sid):
+    sid = str(sid or "").strip()
+    sid = sid if sid.isdigit() and sid != "0" else ""
+    with connect() as conn:
+        conn.execute("UPDATE users SET ts_active=%s WHERE id=%s", (sid, user_id))
+        conn.commit()
+
+
 def set_public(user_id, on):
     with connect() as conn:
         conn.execute("UPDATE users SET public_journal=%s WHERE id=%s",
@@ -924,10 +949,21 @@ def list_trades(user_id, kind=""):
     if kind != "all":
         sql += ' AND "kind"=%s'
         args.append("bt" if kind == "bt" else "")
+    # "s:3" — реальні угоди однієї стратегії ("s:0" — першої), див. strat_kind
+    if str(kind or "").startswith("s:"):
+        sql += ' AND "ts"=%s'
+        args.append("" if kind[2:] in ("", "0") else kind[2:])
     sql += " ORDER BY created_at"
     with connect() as conn:
         rows = conn.execute(sql, args).fetchall()
     return [_row_to_trade(r) for r in rows]
+
+
+def strat_kind(v):
+    """Стратегія з браузера → kind для list_trades / ts_store: "s:<номер>"
+    або "" (усі стратегії / одна-єдина)."""
+    v = str(v or "").strip()
+    return "s:" + v if v.isdigit() else ""
 
 
 def get_trade(tid, user_id):

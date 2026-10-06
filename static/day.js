@@ -465,7 +465,7 @@ function tsAssets(){
     }catch(e){}
     return TSA;
   }
-  api("GET", "/api/ts").then(r => {
+  api("GET", "/api/ts" + (window.__strat ? "?sid=" + __strat.sid() : "")).then(r => {
     TSA = (r && r.ts && Array.isArray(r.ts.assets)) ? r.ts.assets.filter(Boolean) : [];
     if (S.view === "day" && popOpen) render();
   }).catch(() => {});

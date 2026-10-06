@@ -74,6 +74,30 @@
 .ac-st.pass{color:var(--up); border-color:var(--up); background:var(--up-soft)}
 .ac-st.fail{color:var(--down); border-color:var(--down); background:var(--down-soft)}
 .ac-st.shut{color:var(--faint)}
+/* Пройдений челендж: зелена рамка з легким сяйвом, згори — смуга-перемога. */
+.shell:has(> .ac-card.pass){border-color:color-mix(in srgb,var(--up) 45%,transparent);
+  background:linear-gradient(160deg,color-mix(in srgb,var(--up) 22%,transparent),var(--shell-bg) 55%);
+  box-shadow:0 10px 34px -16px color-mix(in srgb,var(--up) 55%,transparent)}
+.ac-card.pass{border-color:color-mix(in srgb,var(--up) 35%,transparent);
+  background:radial-gradient(120% 70% at 100% 0%,var(--up-soft),transparent 60%),var(--card)}
+.ac-win{position:relative; overflow:hidden; display:flex; align-items:center; gap:12px;
+  padding:11px 14px; border-radius:13px; color:var(--up);
+  background:linear-gradient(100deg,color-mix(in srgb,var(--up) 18%,transparent),color-mix(in srgb,var(--up) 6%,transparent));
+  border:1px solid color-mix(in srgb,var(--up) 40%,transparent)}
+.ac-win::after{content:""; position:absolute; inset:0; pointer-events:none;
+  background:linear-gradient(105deg,transparent 35%,rgba(255,255,255,.28) 50%,transparent 65%);
+  transform:translateX(-100%); animation:acShine 4.5s ease-in-out 1s infinite}
+@keyframes acShine{0%{transform:translateX(-100%)} 30%,100%{transform:translateX(100%)}}
+@media (prefers-reduced-motion:reduce){.ac-win::after{animation:none; display:none}}
+.ac-cup{flex:none; display:grid; place-items:center; width:36px; height:36px; border-radius:10px;
+  background:var(--up); color:var(--card); box-shadow:0 4px 14px -4px var(--up)}
+.ac-win-t{min-width:0; display:flex; flex-direction:column; gap:2px}
+.ac-win-t b{font-size:14.5px; font-weight:650; letter-spacing:-.01em}
+.ac-win-t i{font-style:normal; font-size:12px; color:var(--dim)}
+.ac-win-ok{margin-left:auto; flex:none; width:24px; height:24px; border-radius:50%;
+  display:grid; place-items:center; font-size:13px; font-weight:700;
+  border:1.5px solid var(--up); color:var(--up)}
+
 /* злитий рахунок притишений цілком: він уже не робочий інструмент */
 .ac-card.fail{opacity:.92}
 
@@ -114,6 +138,7 @@
 .ac-bul-t i.down{background:var(--down)}
 /* близько до межі — підпис теж змінює колір, не лише смужка */
 .ac-bul.hot .ac-bul-h b{color:var(--down)}
+.ac-bul.done .ac-bul-h b{color:var(--up)}
 
 /* ---------------- цифри рахунку ---------------- */
 /* Двома рядами по дві, а не чотирма в ряд: у чотирьох колонках картки

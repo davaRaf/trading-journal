@@ -103,6 +103,13 @@ SMTP_USER     = os.environ.get("SMTP_USER", "")
 SMTP_PASS     = os.environ.get("SMTP_PASS", "")
 SMTP_FROM     = os.environ.get("SMTP_FROM", "") or SMTP_USER
 SMTP_NAME     = os.environ.get("SMTP_NAME", "StatsAI")
+# Розсилки (mailout.py) і взагалі листи — через Resend, якщо є ключ.
+# MAIL_FROM — адреса на підтвердженому в Resend домені; поки домен не
+# підтверджений, Resend дає слати лише собі з onboarding@resend.dev.
+RESEND_API_KEY = os.environ.get("RESEND_API_KEY", "")
+MAIL_FROM      = os.environ.get("MAIL_FROM", "StatsAI <hello@statsai.xyz>")
+# скільки листів розсилки за добу: безкоштовний Resend — 100
+MAIL_DAILY     = int(os.environ.get("MAIL_DAILY", 100))
 # Ключ до історії котирувань Oanda — щоб у «Перемотці» можна було ганяти
 # прогін цінами цього брокера, а не лише Dukascopy. Безкоштовний
 # демо-рахунок дає такий ключ: AMP > My Services > Manage API Access.

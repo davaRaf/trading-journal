@@ -54,6 +54,8 @@ TRADES_LIMIT = "trades_limit"
 BT_LIMIT = "bt_limit"
 IMPORTS_LIMIT = "imports_limit"
 IMPORT_WINDOW = "import_window"
+BT_NOTION = "bt_notion"        # бектест з Notion — тільки з підпискою
+BT_NOTION_LIMIT = "bt_notion_limit"  # три бази бектесту вже перенесені
 # Безкоштовні звернення до моделі на місяць скінчились — тут пропонуємо
 # підписку. AI_CAP — інше: у стелю впирається вже той, хто платить, і
 # підписку йому пропонувати нема чого, йому кажемо зачекати.
@@ -164,6 +166,7 @@ def state(u):
         "imports_left": max(0, _cap(row, "imports_cap", FREE_IMPORTS)
                             - _int(row, "imports_used")),
         "import_days_left": import_days_left(row),
+        "bt_imports_left": max(0, _cap(row, "bt_imports_cap", 3) - _int(row, "bt_imports_used")),
         # Звернення до моделі — єдине, що людині показати не гріх: вона має
         # розуміти, чому помічник раптом відмовив. Скільки лишилось угод,
         # як і раніше, не показуємо ніде.
@@ -309,13 +312,16 @@ def can_add_trade(u, kind=""):
     return True, ""
 
 
-def can_import(u):
-    """Перенесення з Notion: три рази і тільки в перші 30 днів."""
+def can_import(u, kind=""):
+    """Перенесення з Notion: три рази і тільки в перші 30 днів.
+    Бектест-журнали з Notion — лише з підпискою (власник, 05.10.2026)."""
     row = _user(u)
     if not row:
         return False, NO_USER
     if active(row):
         return True, ""
+    if kind == "bt":
+        return False, BT_NOTION
     if import_days_left(row) <= 0:
         return False, IMPORT_WINDOW
     if _int(row, "imports_used") >= _cap(row, "imports_cap", FREE_IMPORTS):
@@ -467,6 +473,23 @@ def take_import(u):
     return (True, "") if got else (False, IMPORTS_LIMIT)
 
 
+def take_bt_import(u):
+    """Нова база бектесту з Notion: дозвіл і списання одним запитом.
+    Тільки з підпискою; стеля — bt_imports_cap (3 + докуплене)."""
+    row = _user(u)
+    if not row:
+        return False, NO_USER
+    if not active(row):
+        return False, BT_NOTION
+    with db.connect() as conn:
+        got = conn.execute(
+            "UPDATE users SET bt_imports_used = bt_imports_used + 1 "
+            "WHERE id=%s AND bt_imports_used < bt_imports_cap RETURNING id",
+            (row["id"],)).fetchone()
+        conn.commit()
+    return (True, "") if got else (False, BT_NOTION_LIMIT)
+
+
 def release_import(u):
     """Повернути зайняте перенесення: у файлі не виявилось жодної угоди."""
     row = _user(u)
@@ -596,7 +619,7 @@ def revoke(uid):
     return state(uid)
 
 
-def bonus(uid, trades=0, bt=0, imports=0, ai=0, note=None):
+def bonus(uid, trades=0, bt=0, imports=0, ai=0, note=None, bt_imports=0):
     """Підняти безкоштовний ліміт саме цій людині (в адмінці).
 
     Піднімаємо межу, а не зменшуємо витрачене: так видно і скільки людина
@@ -604,7 +627,8 @@ def bonus(uid, trades=0, bt=0, imports=0, ai=0, note=None):
     """
     sets, vals = [], []
     for col, n in (("free_trades_cap", trades), ("free_bt_cap", bt),
-                   ("imports_cap", imports), ("ai_cap", ai)):
+                   ("imports_cap", imports), ("ai_cap", ai),
+                   ("bt_imports_cap", bt_imports)):
         if n:
             sets.append("{0}={0}+%s".format(col))
             vals.append(int(n))

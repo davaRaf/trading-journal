@@ -366,7 +366,7 @@ uk: {
   tsShManage: "Супровід угоди", tsShNo: "Коли не входжу",
   tsShNoMarket: "Ринок", tsShNoTime: "Час", tsShNoSelf: "Свій стан",
   tsShCheck: "Чек-лист перед входом", tsShExtra: "Додатково", tsShPsy: "Психологія", tsShCtx: "Ще про контекст",
-  resHand: "TP руками", resSkip: "Скіп", resOpen: "В роботі", accOwn: "Особистий деп",
+  resHand: "TP руками", resSkip: "Скіп", resOpen: "В роботі", resClosed: "Закрита", accOwn: "Особистий деп",
   fAccount: "Рахунок", fmOwnAccountPh: "своя назва",
   fmWhyNot: "Чому не зайшов", fmWhyNotPh: "що зупинило: не було підтвердження, новини, свій стан",
   fmRRPlan: "Планував RR", fmRRFact: "RR за фактом",
@@ -465,6 +465,7 @@ uk: {
   sdCalcTip: "Порахувати розмір позиції під свій ризик",
   sdNotionTip: "Перенести свої угоди з Notion — записи, нотатки й скріншоти",
   sdNotionConnectedTip: "Notion уже підключено — можна перенести нові угоди ще раз",
+  sdNotionBtTip: "Перенести бектест-журнал з Notion — з підпискою",
   sdTelegramTip: "Нагадування про новини та питання про емоції",
   connLabel: "Підключення", connConnected: "Підключено", connNotConnected: "Не підключено",
   stTitle: "Налаштування", stTip: "Мова інтерфейсу й відкритий журнал",
@@ -561,6 +562,10 @@ uk: {
   pwBtT: "Прогін не збережено",
   pwBtX: "Безкоштовні 20 угод у режимі бектесту вже записані. Реальні угоди пишуться далі.",
   pwImpT: "Перенесення недоступне",
+  pwBtLimT: "Ти переніс усі бектест-журнали",
+  pwBtLimX: "З підпискою можна перенести 3 бектест-журнали з Notion. Уже перенесені бази оновлюй скільки завгодно. Потрібно більше — напиши нам у підтримку.",
+  pwBtNotionT: "Бектест з Notion — з підпискою",
+  pwBtNotionX: "Старі бектест-журнали з Notion переносяться сюди разом зі скрінами й нотатками — кожен окремим журналом бектесту. Це відкривається з будь-якою підпискою.",
   pwImpX: "Три безкоштовні перенесення вже використані. Усе перенесене лишається в журналі.",
   pwWinX: "Безкоштовно переносити можна перші 30 днів після реєстрації — вони вже минули.",
   pwAiT: "Помічник мовчить",
@@ -608,6 +613,8 @@ uk: {
   shCtaTitle: "Так виглядає журнал, у якому це зроблено",
   shCtaText: "Зайдіть подивитись зсередини — реєстрація для цього не потрібна. Записувати вже у свій.",
   shCtaLook: "Подивитись журнал", shCtaMake: "Створити свій",
+  ppMail: "Отримувати листи з новинами StatsAI", ppMailNote: "Оновлення журналу й корисне про статистику — нечасто. Листи про пароль і вхід приходять завжди.",
+  ppTsCopy: "Дозволити копіювати мою ТС за посиланням", ppTsCopyNote: "Коли ділитесь ТС, у посиланні з'явиться кнопка «Скопіювати ТС до себе». Людина отримає окрему копію — ваші подальші правки до неї не потраплять.", shTsCopyTitle: "Забрати цю ТС до себе", shTsCopyText: "Автор дозволив скопіювати свою торгову систему. Вона стане вашою окремою копією — правте як завгодно.", shTsCopyBtn: "Скопіювати ТС до себе", shTsCopyDone: "Готово — ТС скопійовано у ваш журнал.", shTsCopyOpen: "Відкрити «Мою ТС»", shTsCopyLogin: "Щоб скопіювати, увійдіть або зареєструйтесь, а потім знову відкрийте це посилання.", shTsCopyLoginBtn: "Увійти", shTsCopyReplace: "У вас уже є своя ТС. Замінити її цією? Стара зникне.", shTsCopyOwn: "Це ваша ТС — вона вже у вас.", shTsCopyFail: "Не вдалося скопіювати. Спробуйте ще раз.",
   slOgDay: "Зведення за день", slOgWeek: "Зведення за тиждень",
   slOgMonth: "Зведення за місяць", slOgQuarter: "Зведення за квартал",
   slOgYear: "Зведення за рік",
@@ -1104,7 +1111,7 @@ ru: {
   tsShManage: "Сопровождение сделки", tsShNo: "Когда не вхожу",
   tsShNoMarket: "Рынок", tsShNoTime: "Время", tsShNoSelf: "Своё состояние",
   tsShCheck: "Чек-лист перед входом", tsShExtra: "Дополнительно", tsShPsy: "Психология", tsShCtx: "Ещё о контексте",
-  resHand: "TP руками", resSkip: "Скип", resOpen: "В работе", accOwn: "Личный деп",
+  resHand: "TP руками", resSkip: "Скип", resOpen: "В работе", resClosed: "Закрыта", accOwn: "Личный деп",
   fAccount: "Счёт", fmOwnAccountPh: "своё название",
   fmWhyNot: "Почему не зашёл", fmWhyNotPh: "что остановило: не было подтверждения, новости, своё состояние",
   fmRRPlan: "Планировал RR", fmRRFact: "RR по факту",
@@ -1199,6 +1206,7 @@ ru: {
   sdCalcTip: "Посчитать размер позиции под свой риск",
   sdNotionTip: "Перенести свои сделки из Notion — записи, заметки и скриншоты",
   sdNotionConnectedTip: "Notion уже подключён — можно перенести новые сделки ещё раз",
+  sdNotionBtTip: "Перенести бэктест-журнал из Notion — по подписке",
   sdTelegramTip: "Напоминания о новостях и вопросы об эмоциях",
   connLabel: "Подключения", connConnected: "Подключено", connNotConnected: "Не подключено",
   stTitle: "Настройки", stTip: "Язык интерфейса и открытый журнал",
@@ -1295,6 +1303,10 @@ ru: {
   pwBtT: "Прогон не сохранён",
   pwBtX: "Бесплатные 20 сделок в режиме бэктеста уже записаны. Реальные сделки пишутся дальше.",
   pwImpT: "Перенос недоступен",
+  pwBtLimT: "Ты перенёс все бэктест-журналы",
+  pwBtLimX: "С подпиской можно перенести 3 бэктест-журнала из Notion. Уже перенесённые базы обновляй сколько угодно. Нужно больше — напиши нам в поддержку.",
+  pwBtNotionT: "Бэктест из Notion — по подписке",
+  pwBtNotionX: "Старые бэктест-журналы из Notion переносятся сюда вместе со скринами и заметками — каждый отдельным журналом бэктеста. Это открывается с любой подпиской.",
   pwImpX: "Три бесплатных переноса уже использованы. Всё перенесённое остаётся в журнале.",
   pwWinX: "Бесплатно переносить можно первые 30 дней после регистрации — они уже прошли.",
   pwAiT: "Помощник молчит",
@@ -1341,6 +1353,8 @@ ru: {
   shCtaTitle: "Так выглядит журнал, в котором это сделано",
   shCtaText: "Зайдите посмотреть изнутри — регистрация для этого не нужна. Записывать уже в свой.",
   shCtaLook: "Посмотреть журнал", shCtaMake: "Создать свой",
+  ppMail: "Получать письма с новостями StatsAI", ppMailNote: "Обновления журнала и полезное про статистику — нечасто. Письма про пароль и вход приходят всегда.",
+  ppTsCopy: "Разрешить копировать мою ТС по ссылке", ppTsCopyNote: "Когда делитесь ТС, в ссылке появится кнопка «Скопировать ТС к себе». Человек получит отдельную копию — ваши дальнейшие правки к нему не попадут.", shTsCopyTitle: "Забрать эту ТС к себе", shTsCopyText: "Автор разрешил скопировать свою торговую систему. Она станет вашей отдельной копией — правьте как угодно.", shTsCopyBtn: "Скопировать ТС к себе", shTsCopyDone: "Готово — ТС скопирована в ваш журнал.", shTsCopyOpen: "Открыть «Мою ТС»", shTsCopyLogin: "Чтобы скопировать, войдите или зарегистрируйтесь, а потом снова откройте эту ссылку.", shTsCopyLoginBtn: "Войти", shTsCopyReplace: "У вас уже есть своя ТС. Заменить её этой? Старая пропадёт.", shTsCopyOwn: "Это ваша ТС — она уже у вас.", shTsCopyFail: "Не получилось скопировать. Попробуйте ещё раз.",
   slOgDay: "Сводка за день", slOgWeek: "Сводка за неделю",
   slOgMonth: "Сводка за месяц", slOgQuarter: "Сводка за квартал",
   slOgYear: "Сводка за год",
@@ -1836,7 +1850,7 @@ en: {
   tsShManage: "Managing the trade", tsShNo: "When I stay out",
   tsShNoMarket: "Market", tsShNoTime: "Time", tsShNoSelf: "My own state",
   tsShCheck: "Checklist before entry", tsShExtra: "Anything else", tsShPsy: "Psychology", tsShCtx: "More on context",
-  resHand: "TP by hand", resSkip: "Skip", resOpen: "In progress", accOwn: "Own account",
+  resHand: "TP by hand", resSkip: "Skip", resOpen: "In progress", resClosed: "Closed", accOwn: "Own account",
   fAccount: "Account", fmOwnAccountPh: "your own name",
   fmWhyNot: "Why I stayed out", fmWhyNotPh: "what stopped you: no confirmation, news, your own state",
   fmRRPlan: "Planned RR", fmRRFact: "RR actual",
@@ -1931,6 +1945,7 @@ en: {
   sdCalcTip: "Work out position size for your risk",
   sdNotionTip: "Import your trades from Notion — entries, notes and screenshots",
   sdNotionConnectedTip: "Notion is already connected — you can import new trades again",
+  sdNotionBtTip: "Move a backtest journal from Notion — with a subscription",
   sdTelegramTip: "Reminders about news and questions about emotions",
   connLabel: "Connections", connConnected: "Connected", connNotConnected: "Not connected",
   stTitle: "Settings", stTip: "Interface language and open journal",
@@ -2027,6 +2042,10 @@ en: {
   pwBtT: "Backtest entry not saved",
   pwBtX: "Your 20 free trades in backtest mode are already logged. Real trades keep saving.",
   pwImpT: "Import unavailable",
+  pwBtLimT: "You've moved all your backtest journals",
+  pwBtLimX: "A subscription covers 3 backtest journals from Notion. Journals you've already moved can be refreshed any time. Need more? Message us in support.",
+  pwBtNotionT: "Backtests from Notion need a subscription",
+  pwBtNotionX: "Your old Notion backtest journals move over here with screenshots and notes, each as its own backtest journal. Any subscription unlocks it.",
   pwImpX: "All three free imports are used. Everything imported stays in the journal.",
   pwWinX: "Free imports work for the first 30 days after signup — they are over.",
   pwAiT: "The assistant is out of answers",
@@ -2073,6 +2092,8 @@ en: {
   shCtaTitle: "This is the journal it was made in",
   shCtaText: "Have a look inside — no account needed for that. Logging trades needs your own.",
   shCtaLook: "Look inside", shCtaMake: "Create yours",
+  ppMail: "Get StatsAI news by email", ppMailNote: "Journal updates and useful stats tips — not often. Password and sign-in emails always come.",
+  ppTsCopy: "Let people copy my trading system by link", ppTsCopyNote: "When you share your system, the link will show a “Copy to my journal” button. People get their own copy — your later edits won't reach it.", shTsCopyTitle: "Take this system", shTsCopyText: "The author lets you copy this trading system. It becomes your own copy — edit it however you like.", shTsCopyBtn: "Copy to my journal", shTsCopyDone: "Done — the system is in your journal.", shTsCopyOpen: "Open “My system”", shTsCopyLogin: "To copy it, log in or sign up, then open this link again.", shTsCopyLoginBtn: "Log in", shTsCopyReplace: "You already have a trading system. Replace it with this one? The old one will be gone.", shTsCopyOwn: "This is your own system — you already have it.", shTsCopyFail: "Couldn't copy it. Please try again.",
   slOgDay: "Day summary", slOgWeek: "Week summary",
   slOgMonth: "Month summary", slOgQuarter: "Quarter summary",
   slOgYear: "Year summary",
@@ -2250,6 +2271,13 @@ function applyLang(code){
   try{ window.T = T; window.LANG = LANG; }catch(e){}
   document.documentElement.setAttribute("lang", T.htmlLang);
   try{ localStorage.setItem("statsai_lang", LANG); }catch(e){}
+  /* мова — і на сервер: автоматичні листи йдуть тією ж мовою. Шлемо лише
+     коли змінилась, і тільки в журналі (на сторінці входу api() немає). */
+  try{
+    if (typeof api === "function" && localStorage.getItem("statsai_lang_sent") !== LANG)
+      api("POST", "/api/me/lang", {lang: LANG})
+        .then(() => { try{ localStorage.setItem("statsai_lang_sent", LANG); }catch(e){} }).catch(() => {});
+  }catch(e){}
 
   const setText = (id, txt) => { const el = document.getElementById(id); if(el) el.textContent = txt; };
   const setTip  = (el, txt) => { if(el) el.setAttribute("data-tip", txt); };
@@ -2295,9 +2323,9 @@ function applyLang(code){
   if(su){ setTip(su, T.suTip); const sp = su.querySelector("span"); if(sp) sp.textContent = T.suTitle; }
 
   setText("socLab", T.socHere);
-  const tg = document.getElementById("socTg"); if(tg) setTip(tg, T.socTgTip);
   const ig = document.getElementById("socIg"); if(ig) setTip(ig, T.socIgTip);
   const tt = document.getElementById("socTt"); if(tt) setTip(tt, T.socTtTip);
+  const tg = document.getElementById("socTg"); if(tg) setTip(tg, T.socTgTip);
 
   const st = document.getElementById("settingsBtn");
   if(st){ setTip(st, T.stTip); st.setAttribute("aria-label", T.stTitle); const sp = st.querySelector("span"); if(sp) sp.textContent = T.stTitle; }

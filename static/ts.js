@@ -62,6 +62,9 @@ function D(){ return DICT[window.LANG] || DICT.uk; }
 const DEMO_KEY = "statsai_ts_demo";
 function demo(){ return typeof DEMO !== "undefined" && DEMO; }
 
+/* яка з кількох стратегій відкрита (strat.js); без нього — перша */
+function sid(){ return window.__strat ? __strat.sid() : "0"; }
+
 async function load(){
   if (demo()){
     try{ TS = normalize(JSON.parse(localStorage.getItem(DEMO_KEY) || "null")); }catch(e){ TS = null; }
@@ -73,7 +76,7 @@ async function load(){
     return;
   }
   try{
-    const r = await api("GET", "/api/ts" + (btOn() ? "?kind=bt" : ""));
+    const r = await api("GET", "/api/ts" + (btOn() ? "?kind=bt" : "?sid=" + sid()));
     TS = (r && r.ts && Object.keys(r.ts).length) ? normalize(r.ts) : null;
   }catch(e){ TS = null; }
   if (S.view === "ts") render();
@@ -88,7 +91,7 @@ function save(){
   }
   clearTimeout(saveTimer);
   saveTimer = setTimeout(() => {
-    api("POST", "/api/ts", {ts: TS, kind: btOn()?"bt":""}).catch(() => {});
+    api("POST", "/api/ts", {ts: TS, kind: btOn()?"bt":"", sid: btOn() ? 0 : +sid()}).catch(() => {});
   }, 400);
 }
 
@@ -1036,6 +1039,7 @@ function vFull(){
      екрані. */
   let h = '<div class="tsv' + (editing ? " editing" : "") + '">';
   h += '<div class="vhead tsv-head"><h1>' + esc(d.title) + "</h1>"
+    + (window.__strat ? __strat.btn("ts") : "")
     + '<span class="right">'
     +   '<button class="tsv-btn pri" type="button" onclick="__ts.edit()">'
     +     (editing ? DONE_IC + esc(d.btnDone) : PEN_IC + esc(d.btnEdit)) + "</button>"
@@ -1048,6 +1052,9 @@ function vFull(){
           ? '<div class="tsv-menu" role="menu">'
             + '<button type="button" role="menuitem" class="m-share" onclick="__ts.share()">' + esc(d.btnShare) + "</button>"
             + '<button type="button" role="menuitem" onclick="__ts.srcOpen()">' + esc(d.btnNotion) + "</button>"
+            /* кілька стратегій: назва й видалення самої стратегії — тут, а не в перемикачі */
+            + (window.__strat && __strat.multi()
+              ? '<button type="button" role="menuitem" onclick="__ts.menuClose();__strat.edit(+__strat.sid())">' + esc(__strat.editWord()) + "</button>" : "")
             + '<button type="button" role="menuitem" class="danger" onclick="__ts.wipe()">' + esc(d.btnDelete) + "</button>"
             + "</div>"
           : "")
@@ -1075,7 +1082,13 @@ function vTS(){
     load();
     return '<div class="empty">' + esc(D().loading) + "</div>";
   }
-  return TS ? vFull() : vNone();
+  /* у порожньої стратегії свого заголовка немає — коли їх кілька, даємо
+     шапку з перемикачем, інакше з неї не вибратись */
+  const sw = window.__strat && __strat.multi()
+    ? '<div class="vhead tsv-head"><h1>' + esc(D().title) + "</h1>" + __strat.btn("ts")
+      + '<button type="button" class="sw-ic" onclick="__strat.edit(+__strat.sid())" data-tip="' + esc(__strat.editWord())
+      + '" aria-label="' + esc(__strat.editWord()) + '">⋯</button></div>' : "";
+  return TS ? vFull() : sw + vNone();
 }
 VIEWS.ts = vTS;
 
@@ -1667,6 +1680,7 @@ window.__ts = {
   /* перечитати з сервера: помічник міг щось дописати на прохання трейдера,
      і розділ під вікном має показати це без F5 */
   reload(){ return load(); },
+  menuClose(){ menuOpen = false; soft(); },
   /* що з ТС іде в підказки форми: інструменти й моделі входу. Таймфрейми
      ні — у ТС їх пишуть як завгодно («1M», «D»), і слоти під скріни двоїлись. */
   hints(){
@@ -1813,7 +1827,7 @@ window.__ts = {
     soft();
     if (!await Ask.yes(D().confirmDelete, {ok:T.askYes, cancel:T.askNo, danger:true})) return;
     if (demo()){ try{ localStorage.removeItem(DEMO_KEY); }catch(e){} }
-    else { try{ await api("POST", "/api/ts/clear", {kind: btOn()?"bt":""}); }catch(e){} }
+    else { try{ await api("POST", "/api/ts/clear", {kind: btOn()?"bt":"", sid: btOn() ? 0 : +sid()}); }catch(e){} }
     TS = null;
     editing = false;
     render();
