@@ -21,7 +21,6 @@ const WHY = {
   bt_limit:      ["pwBtT",    "pwBtX"],
   imports_limit: ["pwImpT",   "pwImpX"],
   import_window: ["pwImpT",   "pwWinX"],
-  bt_notion:     ["pwBtNotionT", "pwBtNotionX"],
   ai_limit:      ["pwAiT",    "pwAiX"],
   ai_cap:        ["pwCapT",   "pwCapX"],
 };

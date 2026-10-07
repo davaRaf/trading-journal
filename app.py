@@ -558,14 +558,11 @@ def notion_add_source(conf, rec):
     return conf
 
 
-def add_trades(user_id, items, kind="", run="", ts=""):
-    """Кладём пачку сделок в журнал. Вызывается из фонового потока импорта.
-    kind="bt" — в бэктест; run — журнал бэктеста, если колонки под него не было."""
+def add_trades(user_id, items, ts=""):
+    """Кладём пачку сделок в журнал. Вызывается из фонового потока импорта."""
     batch = []
     for it in items:
-        if kind == "bt":
-            it = dict(it, kind="bt", bt_run=it.get("bt_run") or run)
-        elif ts:
+        if ts:
             it = dict(it, ts=ts)            # у ту стратегію, яку людина зараз бачить
         t = clean_trade(it, new_id())
         t["screenshots"] = it.get("screenshots") or []
@@ -1111,7 +1108,7 @@ def blank_filler(user_id, rows):
     return fill
 
 
-def start_import(user_id, tables, mapping, opts, kind="", run="", ts=""):
+def start_import(user_id, tables, mapping, opts, ts=""):
     jid = secrets.token_urlsafe(6)
     job = notion.Job(jid)
     job.user_id = user_id          # чтобы чужое задание нельзя было подсмотреть
@@ -1123,14 +1120,12 @@ def start_import(user_id, tables, mapping, opts, kind="", run="", ts=""):
     # что уже было: сделки в журнале плюс те, что человек из него убрал.
     # Отпечатки нужны, чтобы узнать сделку, записанную в другой базе Notion, —
     # там у неё свой notion_id, и он не совпадёт
-    # бектест звіряємо з бектестом: та сама угода в реальному журналі —
-    # не причина її не перенести
-    rows = db.list_trades(user_id, kind)
+    rows = db.list_trades(user_id)
     known, seen, marks = db.import_seen(user_id, rows)
     th = threading.Thread(
         target=npub.run_public_import,
         args=(job, tables, mapping, opts, SHOTS, known, seen,
-              lambda items: add_trades(user_id, items, kind, run, ts), marks),
+              lambda items: add_trades(user_id, items, ts), marks),
         kwargs={"fill": blank_filler(user_id, rows)},
         daemon=True)
     th.start()
@@ -4009,26 +4004,22 @@ class H(BaseHTTPRequestHandler):
             if not tables or not mapping.get("pair"):
                 return self._json({"error": "потрібні таблиця і колонка з інструментом"}, 400)
             # Три перенесення в перші 30 днів — далі тільки з підпискою.
-            # Бектест з Notion — тільки з підпискою одразу.
             # Дивимось до запуску потоку: скасувати його потім нічим.
-            kind = "bt" if body.get("kind") == "bt" else ""
-            ok, why = billing.can_import(uid, kind)
+            ok, why = billing.can_import(uid)
             if not ok:
                 return self._json(billing.deny(uid, why), 402)
             conf = notion_conf(uid)
             title = body.get("title") or ""
-            run = (str(body.get("bt_run") or "").strip() or title.strip() or "Notion")[:80]
-            if not kind:
-                conf.update({"url": url, "mapping": mapping, "title": title})
+            conf.update({"url": url, "mapping": mapping, "title": title})
             tsid = str(body.get("ts") or "")
-            tsid = tsid if tsid.isdigit() and tsid != "0" and not kind else ""
-            job = start_import(uid, tables, mapping, body.get("options") or {}, kind, run, tsid)
+            tsid = tsid if tsid.isdigit() and tsid != "0" else ""
+            job = start_import(uid, tables, mapping, body.get("options") or {}, tsid)
             billing.spend_import(uid)
             when = datetime.datetime.now().strftime("%Y-%m-%d %H:%M")
             # запись про базу кладём до того, как перенос закончится: браузер
             # могут закрыть посреди работы, а сделки уже поедут в журнал
             notion_add_source(conf, {"id": job.batch, "url": url, "title": title,
-                                     "when": when, "mapping": mapping, "kind": kind})
+                                     "when": when, "mapping": mapping})
             conf["last"] = {"id": job.batch, "count": 0, "when": when}
             notion_save(uid, conf)
             return self._json(job.snapshot(), 202)

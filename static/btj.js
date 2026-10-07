@@ -236,24 +236,18 @@ function card(j){
     + "</div></div></div>";
 }
 
-/* Значок Notion — той самий, що в «Підключеннях». */
-const NOTION_IC = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" style="vertical-align:-2px;margin-right:6px"><rect x="3.5" y="3.5" width="17" height="17" rx="3.5" stroke="currentColor" stroke-width="1.7"/><path d="M9 16V8l6 8V8" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg>';
-
 function vBtj(){
   const d = D();
   if (JS === undefined){ sync().then(() => { if (S.view === "btj") render(); }); return '<div class="empty">' + esc(d.loading) + "</div>"; }
   const head = '<div class="ohead ac-head">'
     + "<h1>" + esc(d.title) + "</h1>"
-    + '<span class="btj-acts"><button class="btn ac-new" onclick="__notion.openBt()" title="' + esc(d.fromNotionTip) + '">'
-    +   NOTION_IC + esc(d.fromNotion) + "</button>"
-    + '<button class="btn primary ac-new" onclick="__btj.add()">' + esc(d.add) + "</button></span></div>";
+    + '<button class="btn primary ac-new" onclick="__btj.add()">' + esc(d.add) + "</button></div>";
   const l = list();
   if (!l.length){
     return '<div class="acw">' + head
       + '<div class="shell"><div class="core ac-empty">'
       + "<p>" + esc(d.emptyLead) + '</p><p class="ac-hint">' + esc(d.emptyHint) + "</p>"
-      + '<div class="btj-acts"><button class="btn primary" onclick="__btj.add()">' + esc(d.add) + "</button>"
-      + '<button class="btn" onclick="__notion.openBt()">' + NOTION_IC + esc(d.fromNotion) + "</button></div>"
+      + '<button class="btn primary" onclick="__btj.add()">' + esc(d.add) + "</button>"
       + "</div></div></div>";
   }
   return '<div class="acw">' + head + '<div class="ac-grid btj-grid">' + l.map(card).join("") + "</div></div>";
@@ -428,7 +422,6 @@ VIEWS.btj = vBtj;
 const DICT = {
 uk: {
   title: "Журнали бектесту", navTitle: "Журнали", loading: "Хвилинку…",
-  fromNotion: "З Notion", fromNotionTip: "Перенести бектест-журнал з Notion — зі скрінами й нотатками",
   add: "Новий журнал", close: "Закрити", cancel: "Скасувати", save: "Зберегти",
   edit: "Правити", del: "Видалити", open: "Відкрити", opened: "Відкритий",
   nameIt: "Назвати", blank: "Без журналу",
@@ -451,7 +444,6 @@ uk: {
 },
 ru: {
   title: "Журналы бэктеста", navTitle: "Журналы", loading: "Минутку…",
-  fromNotion: "Из Notion", fromNotionTip: "Перенести бэктест-журнал из Notion — со скринами и заметками",
   add: "Новый журнал", close: "Закрыть", cancel: "Отмена", save: "Сохранить",
   edit: "Править", del: "Удалить", open: "Открыть", opened: "Открыт",
   nameIt: "Назвать", blank: "Без журнала",
@@ -474,7 +466,6 @@ ru: {
 },
 en: {
   title: "Backtest journals", navTitle: "Journals", loading: "One moment…",
-  fromNotion: "From Notion", fromNotionTip: "Move a backtest journal over from Notion, with screenshots and notes",
   add: "New journal", close: "Close", cancel: "Cancel", save: "Save",
   edit: "Edit", del: "Delete", open: "Open", opened: "Open now",
   nameIt: "Name it", blank: "No journal",

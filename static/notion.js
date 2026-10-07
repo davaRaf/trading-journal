@@ -28,7 +28,6 @@ let chosen = null;     // за якою звіряємо колонки
 let batch = null;      // остання партія — її можна скасувати
 let sources = [];      // з яких баз зібрано журнал: кожне перенесення окремо
 let connected = false; // чи вже підключали Notion раніше — міняє статус у рядку «Підключення»
-let bt = false;        // переносимо в бектест: кожна база — окремий журнал бектесту
 
 /* Рядок у розділі «Підключення»: статус текстом (Підключено/Не
    підключено), без блимаючих індикаторів. Викликається і звідси, і з
@@ -220,15 +219,11 @@ function soak(r){
 
    Натиснути на рядок = перечитати ту саму базу: нові угоди з неї
    додадуться, старі не задвояться (кожна пам'ятає свій id у Notion). */
-/* Бази свого режиму: бектестові — у бектесті, решта — у реальному. */
-function mine(){ return sources.filter(s => (s.kind === "bt") === bt); }
-
 function sourcesHtml(){
-  const list = mine();
-  if (!list.length) return "";
-  const rows = list.map(s =>
+  if (!sources.length) return "";
+  const rows = sources.map((s, i) =>
     '<div class="nt-src">'
-    + '<button type="button" class="nt-src-go" onclick="__notion.useSource(' + sources.indexOf(s) + ')">'
+    + '<button type="button" class="nt-src-go" onclick="__notion.useSource(' + i + ')">'
     +   "<b>" + esc(s.title || T.ntNoTitle) + "</b>"
     +   "<span>" + (s.count || 0) + " " + word(s.count || 0) + "</span>"
     +   "<i>" + esc([s.when, shortLink(s.url)].filter(Boolean).join(" · ")) + "</i>"
@@ -257,7 +252,7 @@ function shortLink(u){
 /* Скільки вже лежить у журналі — щоб перенесені не змішалися з чужими
    непомітно. Найчастіше це демо-угоди, з якими журнал приїхав. */
 function haveHtml(){
-  const n = typeof S === "undefined" ? 0 : ((bt ? S.btAll : S.all) || []).length;
+  const n = (typeof S !== "undefined" && S.all) ? S.all.length : 0;
   if (!n) return "";
   return '<p class="nt-note">' + T.ntHaveAlready + ' <b>' + n + "</b> " + T.wordTradeMany + " " + T.ntHaveWillAdd + "</p>";
 }
@@ -395,8 +390,8 @@ async function run(){
   let job;
   try{
     job = await call("POST", "/api/notion/import",
-      Object.assign({url: link, title, mapping, tables: picked, options: opts},
-                    bt ? {kind: "bt", bt_run: title} : {ts: window.__strat ? __strat.sid() : ""}));
+      {url: link, title, mapping, tables: picked, options: opts,
+       ts: window.__strat ? __strat.sid() : ""});
   }catch(e){
     /* Плашка відмови вже все сказала — вертаємо кнопку й мовчимо. */
     const b = document.querySelector("#ntRun");
@@ -439,10 +434,8 @@ function drawProgress(j){
 
 async function finish(j){
   rememberPairs(j.newAssets);
-  if (!bt){ connected = true; paintBtn(); }
+  connected = true; paintBtn();
   await refresh();          // щоб у списку баз одразу була й ця
-  /* бектест: одразу відкриваємо журнал, у який усе приїхало */
-  if (bt && j.added && window.__btj) __btj.select((title || "").trim() || "Notion");
   try{ await reload(); render(); }catch(e){}
   if (window.Tidy) await Tidy.look();
 
@@ -542,27 +535,6 @@ async function openNotion(){
 }
 
 function open(){
-  /* у режимі бектесту «Підключення → Notion» веде в перенесення бектесту */
-  if (typeof btOn === "function" && btOn()) return openBt();
-  bt = false;
-  return openWizard();
-}
-
-/* Бектест-журнали з Notion — тільки з підпискою. Без неї одразу кажемо
-   про це плашкою, а не ведемо через увесь майстер до відмови. */
-async function openBt(){
-  if (window.Guest && Guest.block(T.gsGateConnect)) return;
-  let st = null;
-  try{ st = await call("GET", "/api/billing/state"); }catch(e){}
-  if (st && !st.active){
-    if (window.Paywall) Paywall.show("bt_notion");
-    return;
-  }
-  bt = true;
-  return openWizard();
-}
-
-function openWizard(){
   if (window.Guest && Guest.block(T.gsGateConnect)) return;
   if (typeof openImport !== "function") return;
   if (openImport() === false) return;   // обов'язковий екран зайняв вікно
@@ -633,7 +605,7 @@ function openVideo(){
 }
 
 window.__notion = {
-  open, openBt, tab, run, toMap, undo,
+  open, tab, run, toMap, undo,
   video: openVideo,
   back: stepLink,
   toTables(){ stepTables([]); },
