@@ -1223,6 +1223,11 @@ function vDashboard(){
        та й Notion тут не при справах. Лишаються два шляхи — записати
        прогін або спершу описати свою ТС. */
     const bt=btOn();
+    /* Третій шлях — описати свою ТС. Друга стратегія народжується саме з
+       опитування, тож правила в ній уже є, а угод ще немає: пропонувати
+       там «описати ТС» означало б не бачити зробленого. У бектесті в
+       стратегій своєї відповіді немає — лишаємо три шляхи, як було. */
+    const tsDone=!bt&&window.__strat&&__strat.hasTs&&__strat.hasTs();
     /* Шапка тут та сама, що й на «Рахунках»: заголовок-перемикач мусить
        виглядати однаково, у порожньому журналі й у повному. У .vhead свій
        заголовок — дрібніший і жирніший, і на переході це було видно. */
@@ -1235,7 +1240,7 @@ function vDashboard(){
         (bt&&window.__btj&&__btj.none()
           ? way(" main","__btj.add()","bgBtjTag","bgBtjTitle","bgBtjText")
           : way(bt?" main":"","openForm()","bgTradeTag","bgTradeTitle","bgTradeText"))+
-        way("","location.hash='ts'","bgTsTag","bgTsTitle","bgTsText")+
+        (tsDone?"":way("","location.hash='ts'","bgTsTag","bgTsTitle","bgTsText"))+
       '</div></div></div>';
   }
   const per=ovPeriod(), st=calc(per.list);

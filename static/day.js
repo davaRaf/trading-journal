@@ -290,10 +290,15 @@ function set(path, val){
   o[keys[keys.length - 1]] = val;
 }
 
-function ed(path, ph, multi){
+/* mic — поле, яке частіше наговорюють, ніж набирають: «куди дивишся» і
+   сценарії. Мікрофон з'являється не в самому тексті, а коли поле
+   відкрили на правку (обробник кліку нижче), — інакше розбір дня
+   виглядав би рядом кнопок замість записів. */
+function ed(path, ph, multi, mic){
   const v = get(path);
   return '<span class="dv-f' + (v ? "" : " blank") + (multi ? " wide" : "")
-    + '" data-p="' + path + '"' + (multi ? ' data-multi="1"' : "") + ">"
+    + '" data-p="' + path + '"' + (multi ? ' data-multi="1"' : "")
+    + (mic ? ' data-mic="1"' : "") + ">"
     + (v ? esc(v).replace(/\n/g, "<br>") : esc(ph)) + "</span>";
 }
 
@@ -511,7 +516,7 @@ function biasEd(i){
     + '" onclick="__dv.side(' + i + ',this.dataset.v)" data-v="' + val + '">' + esc(val) + "</button>";
   return '<div class="dv-bias"><div class="dv-pick">'
     + b(d.long) + b(d.short, "down") + b(d.flat, "flat") + "</div></div>"
-    + ed("assets." + i + ".why", d.phWhy, true);
+    + ed("assets." + i + ".why", d.phWhy, true, true);
 }
 function biasRead(a){
   const d = D();
@@ -556,9 +561,9 @@ function plansEd(i){
   const d = D(), base = "assets." + i + ".plans.";
   return '<div class="dv-sc">'
     + '<div class="dv-scr main"><span class="k">A</span><span class="tx">'
-    +   ed(base + "0.tx", d.phPlanA, true) + "</span></div>"
+    +   ed(base + "0.tx", d.phPlanA, true, true) + "</span></div>"
     + '<div class="dv-scr"><span class="k">Б</span><span class="tx">'
-    +   ed(base + "1.tx", d.phPlanB, true) + "</span></div>"
+    +   ed(base + "1.tx", d.phPlanB, true, true) + "</span></div>"
     + "</div>";
 }
 function plansRead(a){
@@ -1021,7 +1026,28 @@ document.addEventListener("click", e => {
   f.value = cur == null ? "" : cur;
   el.textContent = "";
   el.classList.add("editing");
-  el.appendChild(f);
+  /* Мікрофон — тільки в полях, які наговорюють (data-mic), і тільки коли
+     браузер уміє писати звук. Він живе всередині поля, тому поле треба
+     загорнути: .vwrap — те саме, від чого кнопка відштовхується у формі
+     угоди. */
+  const mic = el.dataset.mic === "1" && window.Voice && Voice.can();
+  if (mic){
+    const vid = "dvf_" + path.replace(/[^a-z0-9]+/gi, "_");
+    f.id = vid;
+    const w = document.createElement("span");
+    w.className = "vwrap";
+    w.appendChild(f);
+    el.appendChild(w);
+    w.insertAdjacentHTML("beforeend", Voice.btn(vid));
+    el.insertAdjacentHTML("beforeend", Voice.hint(vid));
+    /* Натискання на мікрофон не має забирати фокус із поля: інакше blur
+       закриває правку, поле зникає — і диктувати вже нема куди. */
+    w.addEventListener("mousedown", ev => {
+      if (ev.target.closest && ev.target.closest(".micbtn")) ev.preventDefault();
+    });
+  } else {
+    el.appendChild(f);
+  }
   /* Поле росте під текст, а не ховає його за смугою прокрутки: раніше
      textarea мала сталу висоту, і довгий сценарій обрізався на клік. */
   if (multi) autoGrow(f);
@@ -1034,7 +1060,17 @@ document.addEventListener("click", e => {
     if (ok){ set(path, f.value.trim()); save(); }
     render();
   };
-  f.addEventListener("blur", () => commit(true));
+  if (mic){
+    /* На телефоні кнопка таки забирає фокус, і preventDefault вище не
+       рятує. Тому стежимо за всім полем разом із мікрофоном: пішли з
+       нього обидва — записуємо. Кадр чекаємо, бо під час переходу
+       activeElement устигає побувати порожнім. */
+    el.addEventListener("focusout", () => setTimeout(() => {
+      if (!el.contains(document.activeElement)) commit(true);
+    }, 0));
+  } else {
+    f.addEventListener("blur", () => commit(true));
+  }
   if (multi) f.addEventListener("input", () => autoGrow(f));
   f.addEventListener("keydown", ev => {
     if (ev.key === "Escape"){ ev.stopPropagation(); commit(false); }

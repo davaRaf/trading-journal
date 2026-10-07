@@ -97,3 +97,16 @@
   .micbtn.on,.micbtn.on:not(.live){animation:none;
     box-shadow:0 0 0 2px var(--down-soft)}
 }
+
+/* ---------- Розбір дня: мікрофон у полі, яке правлять на місці ---------- */
+/* Тут немає форми з рамками: текст лежить просто на картці, а полем стає
+   сам абзац. Тому кнопка притискається до правого нижнього кута абзацу,
+   а полю лишаємо під неї місце — інакше вона лягла б на останній рядок. */
+.dv-f .vwrap{display:block}
+.dv-f .vwrap textarea.dv-in{padding-bottom:30px}
+.dv-f .micbtn{right:0;bottom:0;padding:4px}
+.dv-f .micbtn .micico{width:19px;height:19px}
+.dv-f .micbtn.on,.dv-f .micbtn.wait{padding:4px 11px;min-height:30px}
+/* Підказка («не почув слів», «не вийшло») стоїть під полем окремим
+   рядком, а не поруч із текстом. */
+.dv-f .vhint{display:block;margin-top:4px}

@@ -75,17 +75,28 @@ async function sweepEmpty(id){
     if ((ACCS_OF(id)).length) return;
     L = (await api("POST", "/api/ts/drop", {sid: +id})).list || L;
   }catch(e){ return; }
-  render();
+  paint();
 }
 /* рахунки, заведені саме під цю стратегію (accounts.js кладе їх у window.__accs) */
 function ACCS_OF(id){ return (window.__accList ? __accList() : []).filter(a => String(a.ts || "") === String(id)); }
+
+/* Перемалювати екран після будь-якої зміни в стратегіях.
+
+   У «Моїй ТС» — тихо: розділ уміє мінятись без анімації. Інакше людина
+   бачила, як він випливає заново по кілька разів поспіль: одне
+   перемальовування по натисканню, друге — коли приїдуть правила, третє —
+   коли порожня стратегія, з якої пішли, прибереться сама. */
+function paint(){
+  if (S.view === "ts" && window.__ts && __ts.quiet) __ts.quiet();
+  else render();
+}
 
 /* після зміни стратегії: журнал — її угоди, «Моя ТС» — її правила */
 function apply(){
   if (Array.isArray(S.liveAll)) S.trades = S.all = filter(S.liveAll);
   S.pages = {}; S.filters = {};
   if (window.__ts && __ts.reload) __ts.reload();
-  render();
+  paint();
 }
 
 /* ---------------- перемикач ---------------- */
@@ -100,12 +111,17 @@ function count(id){
   return id === "all" ? all.length : all.filter(t => String(t.ts || "0") === String(id)).length;
 }
 const CHEV = '<svg class="sw-chev" width="12" height="12" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M6 9l6 6 6-6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>';
-const TICK = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+const TRASH = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+const PLUS = '<svg class="sw-pi" width="14" height="14" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M12 5v14M5 12h14" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>';
+const PEN = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M4 20.5h4L19.3 9.2a2.1 2.1 0 0 0-3-3L5 17.5v3z" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"/></svg>';
 function dots(){ return '<span class="sw-dots">' + list().slice(0, 3).map(s => '<i style="--c:' + color(s.id) + '"></i>').join("") + "</span>"; }
 
 /* where: "j" — журнал/огляд/аналітика (є «усі»), "ts" — «Моя ТС» */
 function btn(where){
   if (off()) return "";
+  /* Поки стратегія одна, перемикача немає — і завести другу можна лише
+     звідси. Щойно їх кілька, ця кнопка зі шапки йде: вона живе останнім
+     рядком у самому списку, поруч із тими, між ким вибирають. */
   const plus = where === "ts" && L !== undefined
     ? '<button type="button" class="sw-add" onclick="__strat.quick()" data-tip="' + esc(D().addTip) + '">+ ' + esc(D().newOne) + "</button>"
     : "";
@@ -115,12 +131,12 @@ function btn(where){
   return '<button type="button" class="sw-pill" aria-haspopup="menu" onclick="__strat.menu(this,\'' + (where || "j") + '\')">'
     + (all ? dots() : '<i class="sw-dot" style="--c:' + color(v) + '"></i>')
     + '<span class="sw-name">' + esc(all ? D().all : label(v)) + "</span>"
-    + (where === "ts" ? "" : '<span class="sw-n">' + count(v) + "</span>") + CHEV + "</button>" + plus;
+    + (where === "ts" ? "" : '<span class="sw-n">' + count(v) + "</span>") + CHEV + "</button>";
 }
 
 /* «+ Нова стратегія»: одразу заводимо порожню й відкриваємо її — там
    людину чекає звичний вибір: опитування з нуля або підтягнути з Notion.
-   Назва — «ТС N», перейменувати можна в меню «⋯». */
+   Назва — «ТС N», перейменувати можна олівцем у списку стратегій. */
 async function quick(){
   let r;
   try{ r = await api("POST", "/api/ts/new", {name: ""}); }catch(e){ return; }
@@ -131,7 +147,12 @@ async function quick(){
 let pop = null;
 function closeMenu(){
   if (!pop) return;
-  pop.remove(); pop = null;
+  /* Список згортається, а не зникає: поки доживає свою анімацію, він уже
+     нічий — pop порожній, кліки крізь нього не проходять. */
+  const gone = pop;
+  pop = null;
+  gone.classList.add("out");
+  setTimeout(() => gone.remove(), 160);
   document.removeEventListener("mousedown", outside, true);
   document.removeEventListener("keydown", onKey, true);
   window.removeEventListener("scroll", closeMenu, true);
@@ -139,17 +160,50 @@ function closeMenu(){
 function outside(e){ if (pop && !pop.contains(e.target) && !e.target.closest(".sw-pill")) closeMenu(); }
 function onKey(e){ if (e.key === "Escape"){ e.stopPropagation(); closeMenu(); } }
 
-function menu(b, where){
-  if (pop){ const was = pop.dataset.for === where; closeMenu(); if (was) return; }
+/* Розмітка списку — окремо від його відкриття: після перейменування той
+   самий список перемальовується на місці, не згортаючись. */
+function menuHtml(where){
   const d = D(), v = where === "ts" ? sid() : cur;
-  const row = (id, name, c, n) =>
-    '<button type="button" role="menuitemradio" class="sw-row' + (String(id) === String(v) ? " on" : "") + '" data-v="' + id + '">'
+  /* Назву правлять тут-таки, зі списку: олівець у правому краю рядка.
+     Раніше для цього треба було спершу перемкнутись на стратегію, а тоді
+     шукати її назву в меню «⋯» біля заголовка «Моєї ТС» — два кроки й
+     зовсім не те місце, де про назву думають.
+
+     Сам рядок — обгортка, а не кнопка: кнопка в кнопці була б несправною
+     розміткою. Тло при наведенні й позначка обраної висять на обгортці,
+     тож олівець лежить усередині тієї самої плитки, а не збоку від неї. */
+  const row = (id, name, c, n, pen) =>
+    '<div class="sw-rw' + (String(id) === String(v) ? " on" : "") + '" data-id="' + id + '">'
+    + '<button type="button" role="menuitemradio" class="sw-row" data-v="' + id + '">'
     + c + '<span class="sw-rn">' + esc(name) + "</span>"
-    + (n == null ? "" : '<span class="sw-rc">' + n + "</span>") + '<span class="sw-ok">' + TICK + "</span></button>";
+    + (n == null ? "" : '<span class="sw-rc">' + n + "</span>") + "</button>"
+    + (pen ? '<button type="button" class="sw-pen" data-edit="' + id + '" data-tip="' + esc(d.renameOnly)
+        + '" aria-label="' + esc(d.renameOnly) + '">' + PEN + "</button>" : "")
+    + "</div>";
   let h = '<div class="sw-head">' + esc(where === "ts" ? d.labTs : d.lab) + "</div>";
   h += list().map((s, i) => row(s.id, nm(s, i), '<i class="sw-dot" style="--c:' + color(s.id) + '"></i>',
-                                where === "ts" ? null : count(s.id))).join("");
-  if (where !== "ts") h += '<div class="sw-sep"></div>' + row("all", d.all, dots(), count("all"));
+                                where === "ts" ? null : count(s.id), true)).join("");
+  if (where !== "ts") h += '<div class="sw-sep"></div>' + row("all", D().all, dots(), count("all"));
+  h += '<div class="sw-sep"></div>'
+    + '<button type="button" class="sw-act sw-new" data-new="1">' + PLUS + esc(d.newOne) + "</button>";
+  return h;
+}
+
+/* Перемалювати відкритий список: назва помінялась, а список лишається
+   на місці — згортати його людині на очах значило б відбирати те, заради
+   чого вона його відкрила. Збережений рядок коротко підсвічуємо: інакше
+   незрозуміло, чи записалось, адже вікно нічого не каже. */
+function repaint(flash){
+  if (!pop) return;
+  pop.innerHTML = menuHtml(pop.dataset.for);
+  if (flash == null) return;
+  const rw = pop.querySelector('.sw-rw[data-id="' + flash + '"]');
+  if (rw) rw.classList.add("saved");
+}
+
+function menu(b, where){
+  if (pop){ const was = pop.dataset.for === where; closeMenu(); if (was) return; }
+  const h = menuHtml(where);
   pop = document.createElement("div");
   pop.className = "sw-pop"; pop.setAttribute("role", "menu"); pop.dataset.for = where;
   pop.innerHTML = h;
@@ -160,6 +214,9 @@ function menu(b, where){
   pop.style.left = Math.min(Math.max(8, r.left), innerWidth - w - 8) + "px";
   pop.style.top = (r.bottom + 6 + hgt > innerHeight - 8 && r.top > hgt + 14 ? r.top - hgt - 6 : r.bottom + 6) + "px";
   pop.addEventListener("click", e => {
+    const pen = e.target.closest("[data-edit]");
+    if (pen){ penEdit(pen.dataset.edit); return; }
+    if (e.target.closest("[data-new]")){ closeMenu(); quick(); return; }
     const it = e.target.closest("[data-v]");
     if (!it) return;
     closeMenu();
@@ -209,24 +266,52 @@ async function create(){
   go(String(r.id));
 }
 
-function edit(id){
-  const d = D(), l = list(), i = l.findIndex(s => s.id === id);
-  if (i < 0) return;
-  const s = l[i];
-  sheet(d.editTitle,
-    '<label class="st-lab">' + esc(d.name) + '</label><input id="stName" maxlength="60" placeholder="'
-    + esc(nm(s, i)) + '" value="' + esc(s.name || "") + '">'
-    + (id ? '<p class="st-note">' + esc(d.dropNote.replace("%s", label(0))) + "</p>" : ""),
-    (id ? '<button class="btn danger" onclick="__strat.drop(' + id + ')">' + esc(d.del) + "</button>" : "")
-    + '<span class="sp"></span><button class="btn" onclick="Sheet.close()">' + esc(d.cancel) + "</button>"
-    + '<button class="btn primary" onclick="__strat.rename(' + id + ')">' + esc(d.save) + "</button>");
+/* Перейменування просто в списку: рядок стає полем, Enter зберігає,
+   Escape лишає як було. Раніше олівець відкривав панель збоку — заради
+   одного слова там був заголовок, підпис «Назва», примітка й три кнопки.
+   Поруч із полем лишається тільки кошик: прибрати стратегію більше нема
+   звідки, а думають про це рівно тоді, коли дивляться на її назву. */
+function penEdit(id){
+  if (!pop) return;
+  const rw = pop.querySelector('.sw-rw[data-id="' + id + '"]');
+  const l = list(), i = l.findIndex(x => String(x.id) === String(id));
+  if (!rw || i < 0) return;
+  const d = D();
+  rw.classList.add("edit");
+  rw.innerHTML = '<input class="sw-inp" maxlength="60" placeholder="' + esc(nm(l[i], i))
+    + '" value="' + esc(l[i].name || "") + '" aria-label="' + esc(d.name) + '">'
+    /* першу стратегію прибрати нема куди: її угоди нікуди перенести */
+    + (String(id) === "0" ? "" : '<button type="button" class="sw-pen sw-del" data-tip="'
+        + esc(d.del) + '" aria-label="' + esc(d.del) + '">' + TRASH + "</button>");
+  const inp = rw.querySelector("input");
+  let done = false;
+  const save = () => { if (done) return; done = true; rename(id, inp.value); };
+  inp.addEventListener("keydown", e => {
+    if (e.key === "Enter"){ e.preventDefault(); save(); }
+    else if (e.key === "Escape"){ e.stopPropagation(); done = true; closeMenu(); }
+  });
+  /* Пішов геть із поля — вважаємо, що дописав: так само поводиться правка
+     на місці в «Моїй ТС». */
+  inp.addEventListener("blur", save);
+  const del = rw.querySelector(".sw-del");
+  /* mousedown, а не click: натискання мишею спершу забрало б фокус із
+     поля, blur устиг би зберегти й закрити меню — і до click справа вже
+     не дійшло б. preventDefault тримає фокус на місці. */
+  if (del) del.addEventListener("mousedown", e => {
+    e.preventDefault();
+    done = true;
+    closeMenu();
+    drop(+id);
+  });
+  inp.focus(); inp.select();
 }
 
-async function rename(id){
-  const name = ((document.getElementById("stName") || {}).value || "").trim();
-  try{ L = (await api("POST", "/api/ts/rename", {sid: id, name: name})).list || L; }catch(e){ return; }
-  Sheet.close();
-  render();
+async function rename(id, raw){
+  const name = String(raw == null ? "" : raw).trim();
+  try{ L = (await api("POST", "/api/ts/rename", {sid: +id, name: name})).list || L; }
+  catch(e){ repaint(); return; }
+  repaint(id);
+  paint();
 }
 
 async function drop(id){
@@ -234,7 +319,6 @@ async function drop(id){
   if (!(await Ask.yes(d.dropAsk.replace("%s", label(id)).replace("%t", label(0)),
                       {ok: d.del, cancel: d.cancel, danger: true}))) return;
   try{ L = (await api("POST", "/api/ts/drop", {sid: id})).list || L; }catch(e){ return; }
-  Sheet.close();
   /* угоди стратегії тепер у першій — перечитуємо журнал */
   select("0");
   try{ await reload(); }catch(e){}
@@ -289,14 +373,31 @@ function accTag(a){
     + esc(all ? D().all : label(a.ts)) + "</span>";
 }
 
-/* у меню «⋯»: першу стратегію можна лише перейменувати */
+/* першу стратегію можна лише перейменувати: прибрати її нема куди */
 function editWord(){ return sid() === "0" ? D().renameOnly : D().editTip; }
+
+/* Чи описана ТС обраної стратегії. Порожній «Огляд» питає про це: кликати
+   описати ТС того, хто щойно її описав, — це казати людині, що її роботи
+   немає. Відповідь беремо зі списку стратегій (/api/ts/list віддає has). */
+function hasTs(id){
+  const v = String(id == null ? sid() : id);
+  const s = list().find(x => String(x.id) === v);
+  return !!(s && s.has);
+}
+
+/* ТС заповнили (опитування, Notion, руками) або стерли — список мусить
+   знати про це одразу. Інакше «Огляд» відповідав би за старим зліпком до
+   наступного перезавантаження сторінки. */
+function mark(id, yes){
+  const s = list().find(x => String(x.id) === String(id == null ? sid() : id));
+  if (s) s.has = !!yes;
+}
 
 /* для помічника: "" — усі стратегії (або одна), інакше номер обраної */
 function curOut(){ return multi() && cur !== "all" ? cur : ""; }
 
-window.__strat = {cur: curOut, load, editWord, accField, pickAcc, accFilter, accTag, filter, multi, sid, label, color, btn, menu, go, add, quick, create, edit, rename, drop,
-                  formField, pickForm, fact};
+window.__strat = {cur: curOut, load, editWord, accField, pickAcc, accFilter, accTag, filter, multi, sid, label, color, btn, menu, go, add, quick, create, drop,
+                  formField, pickForm, fact, hasTs, mark};
 
 /* Журнал міг прочитати угоди ще до того, як підвантажився цей файл (на
    локальному сервері відповідь приходить миттєво) — тоді reload() нас не
@@ -305,7 +406,7 @@ window.__strat = {cur: curOut, load, editWord, accField, pickAcc, accFilter, acc
   if (L !== undefined) return;                       /* reload() уже покликав */
   if (!Array.isArray(S.liveAll)){ if (n < 60) setTimeout(() => wait(n + 1), 250); return; }
   if (off()) return;
-  load().then(() => { if (multi()){ S.trades = S.all = filter(S.liveAll); render(); } });
+  load().then(() => { if (multi()){ S.trades = S.all = filter(S.liveAll); paint(); } });
 })(0);
 
 const DICT = {

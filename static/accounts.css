@@ -21,14 +21,13 @@
    там само, де в «Огляді». Тут лишається тільки те, чого там немає. */
 .ac-new{margin-left:auto}
 
-/* підсумок по живих рахунках: тихий рядок біля заголовка */
-.ac-total{display:flex; align-items:baseline; gap:10px; color:var(--faint);
-  font-family:var(--mono); font-size:12px}
-.ac-total b{color:var(--text); font-size:15px; font-weight:600;
-  font-variant-numeric:tabular-nums}
-/* Скільки рахунків у суму не ввійшло. Дрібним і без нахилу: це виноска
-   до цифри поруч, а не окрема думка. */
-.ac-total .ac-muted{font-style:normal; font-size:11.5px; color:var(--faint)}
+/* Алокація біля заголовка: скільки грошей під управлінням. Гола цифра,
+   без підпису — тут була тиха виноска «живих рахунків: 1  $10 851»
+   дрібним сірим, за кеглем підпис до чогось іншого, хоч це й число,
+   яке звіряють найчастіше. Тепер воно читається з відстані. */
+.ac-alloc{min-width:0; font-family:var(--mono); font-size:20px; font-weight:500;
+  letter-spacing:-.02em; color:var(--text); font-variant-numeric:tabular-nums;
+  overflow-wrap:anywhere}
 
 /* ---------------- сітка карток ---------------- */
 /* Скільки колонок — вирішує 330: стільки треба картці, щоб підписи цифр
@@ -64,8 +63,6 @@
   object-fit:cover; border:1px solid var(--line); background:var(--panel-2)}
 .ac-name{min-width:0}
 .ac-name b{font-size:16px; font-weight:600; letter-spacing:-.01em}
-.ac-kind{font-style:normal; font-family:var(--mono); font-size:9.5px;
-  letter-spacing:.10em; text-transform:uppercase; color:var(--faint)}
 .ac-sub{margin-top:3px; color:var(--faint); font-size:12px}
 
 /* стан рахунку: слово плюс колір, ніколи не колір сам по собі */
@@ -278,7 +275,7 @@
   .ac-grid{grid-template-columns:minmax(0,1fr)}
   /* Ширину заголовка на телефоні задає спільна .ohead у mobile.css. */
   .ac-new{margin-left:0; width:100%; min-height:46px}
-  .ac-total{width:100%}
+  .ac-alloc{width:100%}
 }
 @media (max-width:560px){
   /* ---- картка ---- */

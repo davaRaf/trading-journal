@@ -228,9 +228,6 @@ const STATUS_CLS = {active: "act", passed: "pass", failed: "fail", closed: "shut
 function card(a){
   const d = D(), s = stat(a);
   const st = STATUS_CLS[a.status] || "act";
-  const kind = d.kinds[a.kind] || "";
-  const sub = [a.firm, a.opened_at ? d.since + " " + human(a.opened_at) : ""]
-    .filter(Boolean).join(" · ");
 
   /* Шапка балансу — сама цифра й більше нічого. Старт, приріст у відсотках
      і грошах, звідки взявся баланс — усе це збиралось у стовпчик дрібного
@@ -288,15 +285,14 @@ function card(a){
     + '<span class="sp"></span>'
     + '<button class="ac-link" onclick="__acc.edit(' + a.id + ')">' + esc(d.edit) + "</button></div>";
 
-  /* Тип, фірма й дата — одним сірим рядком під назвою. Раніше тип стояв
-     одразу за назвою, і в картці вужчій за 380 пікселів назва
-     переносилась, а тип приклеювався до її хвоста: «100k ЧЕЛЕНДЖ». */
-  const under = (kind ? '<i class="ac-kind">' + esc(kind) + "</i>" : "")
-    + (sub ? (kind ? " · " : "") + esc(sub) : "");
+  /* Під назвою більше нічого не стоїть. Там був сірий рядок «тип · фірма ·
+     з такого-то дня», і в ньому слово в слово повторювалось те, що й так
+     написано поряд: назву рахунку люди складають із фірми й розміру
+     («The5ers Фандед 10k»), а значок фірми стоїть ліворуч. Дата відкриття
+     лишається у формі рахунку — звідти її й читають, коли треба. */
   return '<div class="shell"><div class="core ac-card ' + st + '">'
     + '<div class="ac-top">' + logo(a.firm, a.name, "ac-logo")
     + '<div class="ac-name"><b>' + esc(a.name) + "</b>"
-    +   (under ? '<div class="ac-sub">' + under + "</div>" : "")
     +   (window.__strat ? __strat.accTag(a) : "") + "</div>"
     + (st === "pass" ? "" : '<span class="ac-st ' + st + '">' + esc(d.status[a.status] || "") + "</span>")
     + "</div>"
@@ -518,6 +514,32 @@ function madeName(){
 }
 let nameTouched = false;
 let editId = null;          /* який рахунок правимо: своє імʼя не рахуємо зайнятим */
+let nowAuto = "";           /* що ми самі підставили в «Баланс зараз» */
+
+/* «Пройдений» — це рівно та мить, коли баланс дійшов до цілі: 10% цілі на
+   100 000 означають 110 000 на рахунку. Підставляємо це в «Баланс зараз»
+   самі: інакше пройдений челендж показував би баланс, застиглий на старті,
+   і людині довелось би рахувати ту саму десятку в голові.
+
+   Памʼятаємо, що саме підставили. Вписане руками не чіпаємо ніколи, а свою
+   ж цифру прибираємо, щойно стан перемкнули назад: лишити «110 000» на
+   активному челенджі означало б сказати про рахунок неправду. */
+function syncPassed(){
+  const inp = document.getElementById("acNow");
+  if (!inp) return;
+  const cur = inp.value.trim();
+  if (cur && cur !== nowAuto) return;
+  if (segVal("acStatus") !== "passed"){
+    if (cur){ inp.value = ""; nowAuto = ""; }
+    return;
+  }
+  /* Без цілі рахувати нема від чого: «пройдено» саме по собі не каже,
+     скільки на рахунку грошей. */
+  const st = num("acStart"), t = num("acTarget");
+  if (st == null || !(st > 0) || t == null || !(t > 0)) return;
+  nowAuto = String(Math.round(st * (1 + t / 100)));
+  inp.value = nowAuto;
+}
 
 /* Сервер не відмовляє через збіг назв — він дописує номер. Але дізнаватись
    про це вже після збереження людина не має: тут вона бачить майбутню
@@ -637,6 +659,7 @@ function paintStatus(){
   box.innerHTML = wrap.firstChild.innerHTML;
   const dead = document.getElementById("acDead");
   if (dead) dead.hidden = (segVal("acStatus") || "active") === "active";
+  syncPassed();
 }
 
 function form(a){
@@ -644,6 +667,7 @@ function form(a){
   const dead = a.status && a.status !== "active";
   nameTouched = !!(a.name || "").trim();   /* у готового рахунку назва вже своя */
   editId = a.id || null;
+  nowAuto = "";                            /* те, що вже в картці, — не наше */
   return '<div class="m-body ac-form">'
     /* Спершу фірма й тип, потім розмір — у цьому порядку з них і збирається
        назва. Саме поле назви стоїть нижче: воно тут підсумок, а не перше
@@ -899,30 +923,30 @@ function unlisted(){
   return [...seen.values()].sort((a, b) => b.n - a.n);
 }
 
-function total(){
-  const d = D();
+/* ---------------- алокація ---------------- */
+
+/* Скільки грошей під управлінням: сума розмірів живих рахунків. Стоїть
+   поруч із заголовком розділу голою цифрою — без підпису, без балансу,
+   без лічильника рахунків: усе це є на самих картках, а тут потрібне
+   саме число, яке звіряють найчастіше.
+
+   Складати гроші можна лише в межах однієї валюти: перерахунку курсів у
+   журналі немає, і вигадувати його тут не будемо. Тому кожна валюта
+   рахується окремо й пишеться поруч. */
+function allocBar(){
   const live = (ACCS || []).filter(a => a.status === "active");
   if (!live.length) return "";
-  /* Складати гроші можна лише в межах однієї валюти: перерахунку курсів у
-     журналі немає, і вигадувати його тут не будемо. Тому рахуємо кожну
-     валюту окремо й показуємо їх поруч — раніше на двох валютах не
-     показувалось узагалі нічого, без жодного пояснення. */
   const sums = new Map();
-  let mute = 0;
   for (const a of live){
-    const bal = stat(a).balance;
-    if (bal == null){ mute++; continue; }
+    const st = a.start_balance;
+    if (st == null || isNaN(st) || !(st > 0)) continue;
     const cur = a.currency || "USD";
-    sums.set(cur, (sums.get(cur) || 0) + bal);
+    sums.set(cur, (sums.get(cur) || 0) + st);
   }
+  if (!sums.size) return "";
   const parts = [...sums.entries()].sort((x, y) => y[1] - x[1])
     .map(e => money(e[1], e[0]));
-  return '<div class="ac-total"><span>' + esc(d.liveN.replace("%n", live.length)) + "</span>"
-    + (parts.length ? "<b>" + esc(parts.join(" · ")) + "</b>" : "")
-    /* Рахунки без стартового балансу в суму не входять — інакше вона
-       вдавала б, що знає більше, ніж знає. */
-    + (mute ? '<i class="ac-muted">' + esc(d.noBal.replace("%n", mute)) + "</i>" : "")
-    + "</div>";
+  return '<div class="ac-alloc">' + esc(parts.join(" · ")) + "</div>";
 }
 
 function vAccounts(){
@@ -935,7 +959,7 @@ function vAccounts(){
      Без app.js (такого не буває, але хай) лишиться просто назва. */
   const head = '<div class="ohead ac-head">'
     + (window.ovTabsHtml ? ovTabsHtml("accounts") : "<h1>" + esc(d.title) + "</h1>")
-    + (window.__strat ? __strat.btn() : "") + total()
+    + (window.__strat ? __strat.btn() : "") + allocBar()
     + '<button class="btn primary ac-new" id="acAdd">' + esc(d.add) + "</button></div>";
 
   if (!ACCS.length){
@@ -965,6 +989,7 @@ document.addEventListener("click", e => {
     if (box.dataset.seg === "acStatus"){
       const dead = document.getElementById("acDead");
       if (dead) dead.hidden = seg.dataset.v === "active";
+      syncPassed();
     }
     if (box.dataset.seg === "acKind"){ syncName(); paintStatus(); }
     keepDraft();
@@ -1042,12 +1067,13 @@ document.addEventListener("input", e => {
   if (window.Pick && Pick.isOpen && Pick.isOpen()) Pick.close();
   if (id === "acName"){ nameTouched = !!e.target.value.trim(); paintTaken(); }
   else if (id === "acFirm" || id === "acStart") syncName();
+  if (id === "acStart" || id === "acTarget") syncPassed();
   if (e.target.closest && e.target.closest(".ac-form")) keepDraft();
 });
 
 /* Гачок для перевірок: збірку назви інакше не викликати ззовні. */
 window.__accTest = {factor: factorOf, stamp: stampOld, sync: syncName, made: madeName, firms: openFirms, sizes: openSizes, status: paintStatus,
-  stat: stat, total: total, free: freeName, norm: normName, spark: spark,
+  stat: stat, alloc: allocBar, passed: syncPassed, free: freeName, norm: normName, spark: spark,
   accs(list){ ACCS = list; }};
 
 window.__acc = {
@@ -1122,8 +1148,7 @@ uk: {
   delAsk: "Прибрати картку рахунку? Угоди лишаться в журналі.",
   delAskN: "Прибрати картку рахунку? Угод із цією назвою в журналі — %n, вони лишаться.",
   delYes: "Прибрати",
-  liveN: "живих рахунків: %n",
-  since: "з", noStart: "Стартовий баланс не заданий — гроші рахувати нема з чого.",
+  noStart: "Стартовий баланс не заданий — гроші рахувати нема з чого.",
   setStart: "задати",
   toTarget: "До цілі", ddTotal: "Просадка від старту", ddDaily: "Найгірший день",
   nTrades: "Угод", wr: "Вінрейт", avgRR: "Середній RR", maxDD: "Просадка від піку",
@@ -1145,7 +1170,6 @@ uk: {
   phStart: "обрати або вписати",
   noLimit: "немає", nName: "як в угодах",
   beforeOpen: "Угод раніше за дату відкриття — %n. У рахунок вони не пішли.",
-  noBal: "%n без балансу",
   willRename: "Така назва вже є. Збережемо як «%s».",
   phName: "FTMO 100k", phFirm: "FTMO", phReason: "перевищив денний ліміт",
   phNote: "що завгодно про цей рахунок",
@@ -1161,8 +1185,7 @@ ru: {
   delAsk: "Убрать карточку счёта? Сделки останутся в журнале.",
   delAskN: "Убрать карточку счёта? Сделок с этим названием в журнале — %n, они останутся.",
   delYes: "Убрать",
-  liveN: "живых счетов: %n",
-  since: "с", noStart: "Стартовый баланс не задан — деньги считать не из чего.",
+  noStart: "Стартовый баланс не задан — деньги считать не из чего.",
   setStart: "задать",
   toTarget: "До цели", ddTotal: "Просадка от старта", ddDaily: "Худший день",
   nTrades: "Сделок", wr: "Винрейт", avgRR: "Средний RR", maxDD: "Просадка от пика",
@@ -1184,7 +1207,6 @@ ru: {
   phStart: "выбрать или вписать",
   noLimit: "нет", nName: "как в сделках",
   beforeOpen: "Сделок раньше даты открытия — %n. В счёт они не пошли.",
-  noBal: "%n без баланса",
   willRename: "Такое название уже есть. Сохраним как «%s».",
   phName: "FTMO 100k", phFirm: "FTMO", phReason: "превысил дневной лимит",
   phNote: "что угодно про этот счёт",
@@ -1200,8 +1222,7 @@ en: {
   delAsk: "Remove this account card? The trades stay in the journal.",
   delAskN: "Remove this account card? %n trades carry this name and will stay in the journal.",
   delYes: "Remove",
-  liveN: "live accounts: %n",
-  since: "since", noStart: "No starting balance yet — nothing to count money from.",
+  noStart: "No starting balance yet — nothing to count money from.",
   setStart: "set it",
   toTarget: "To target", ddTotal: "Drawdown from start", ddDaily: "Worst day",
   nTrades: "Trades", wr: "Win rate", avgRR: "Average RR", maxDD: "Drawdown from peak",
@@ -1223,7 +1244,6 @@ en: {
   phStart: "pick or type",
   noLimit: "none", nName: "as in trades",
   beforeOpen: "Trades before the opening date: %n. They are not counted here.",
-  noBal: "%n with no balance",
   willRename: "That name is taken. We will save it as “%s”.",
   phName: "FTMO 100k", phFirm: "FTMO", phReason: "went past the daily limit",
   phNote: "anything about this account",

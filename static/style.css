@@ -1433,22 +1433,82 @@ h1.ovh a.on::after{content:"";position:absolute;left:0;right:0;bottom:0;height:2
   color:var(--dim);font:500 12.5px var(--sans);cursor:pointer}
 .sw-add:hover{color:var(--accent);border-color:var(--accent)}
 .sw-pop{position:fixed;min-width:240px;max-width:320px;padding:6px;border-radius:14px;border:1px solid var(--line);
-  background:var(--card);box-shadow:var(--shadow-pop);animation:swIn .14s ease}
-@keyframes swIn{from{opacity:0;transform:translateY(-4px)}to{opacity:1;transform:none}}
+  background:var(--card);box-shadow:var(--shadow-pop);transform-origin:top center;
+  animation:swIn .2s cubic-bezier(.16,1,.3,1)}
+@keyframes swIn{from{opacity:0;transform:translateY(-6px) scale(.97)}to{opacity:1;transform:none}}
+/* Список не зникає рвучком: згортається так само, як розгортався, тільки
+   швидше — те, що йде геть, не має затримувати. Поки він доживає свою
+   анімацію, клікати по ньому вже нема чого. */
+.sw-pop.out{pointer-events:none;animation:swOut .13s ease-in forwards}
+@keyframes swOut{to{opacity:0;transform:translateY(-5px) scale(.98)}}
 .sw-head{padding:8px 10px 6px;font:500 10px var(--mono);letter-spacing:.16em;text-transform:uppercase;color:var(--faint)}
+/* Рядок списку й олівець «перейменувати» стоять поруч, а не вкладено:
+   кнопка в кнопці — несправна розмітка. Тло при наведенні й позначка
+   обраної висять на обгортці — тоді олівець лежить усередині тієї самої
+   плитки, а не окремою кнопкою збоку від неї. */
+.sw-rw{position:relative;display:flex;align-items:center;border-radius:9px;
+  transition:background .2s cubic-bezier(.16,1,.3,1)}
+.sw-rw:hover{background:var(--panel-2)}
+.sw-rw .sw-row{flex:1;min-width:0}
 .sw-row,.sw-act{display:flex;align-items:center;gap:10px;width:100%;padding:9px 10px;border:0;border-radius:9px;background:none;
   color:var(--text);font:500 14px var(--sans);text-align:left;cursor:pointer}
-.sw-row:hover,.sw-act:hover{background:var(--panel-2)}
+.sw-row:hover{background:none}
+.sw-act:hover{background:var(--panel-2)}
+/* Олівець лежить поверх правого краю рядка, а не займає там місце:
+   інакше назва й лічильник угод тулились би ліворуч, звільняючи поле
+   під кнопку, якої не видно. */
+.sw-pen{position:absolute;right:5px;top:50%;transform:translateY(-50%);
+  display:grid;place-items:center;width:26px;height:26px;border:0;border-radius:8px;
+  background:none;color:var(--faint);cursor:pointer;opacity:0;
+  transition:opacity .18s ease,color .18s ease,background .18s ease,transform .12s ease}
+.sw-rw:hover .sw-pen,.sw-pen:focus-visible{opacity:1}
+/* натиснули — олівець трохи втискається, як решта кнопок журналу */
+.sw-pen:active{transform:translateY(-50%) scale(.88)}
+.sw-pen:hover{color:var(--accent);background:var(--card)}
+/* На дотик наведення немає: олівець видно завжди, тож він стоїть у ряд
+   із рештою, а не поверх неї. */
+@media (hover:none){.sw-pen{position:static;transform:none;opacity:1;flex:none}
+  .sw-pen:active{transform:scale(.88)}}
+/* кому рух заважає — тому без руху */
+@media (prefers-reduced-motion:reduce){
+  .sw-pop,.sw-pop.out,.sw-inp,.sw-rw.edit .sw-del,.sw-rw.saved{animation:none}
+  .sw-rw,.sw-pen{transition:none}
+}
+/* Правка назви просто в рядку: поле стає на місце самої назви, поруч
+   лишається кошик. Окремого вікна збоку для одного слова більше немає. */
+.sw-rw.edit{background:var(--panel-2);padding:3px 4px 3px 5px;gap:3px}
+.sw-rw.edit .sw-pen{position:static;transform:none;width:30px;height:30px;flex:none;opacity:1}
+.sw-rw.edit .sw-pen:active{transform:scale(.88)}
+/* Поле не підміняє назву стрибком: воно розгортається з того самого
+   рядка, а кошик поруч проявляється слідом. */
+.sw-inp{flex:1;min-width:0;height:30px;padding:0 9px;border:1px solid var(--accent);border-radius:7px;
+  background:var(--card);color:var(--text);font:500 14px var(--sans);outline:none;
+  animation:swField .2s cubic-bezier(.16,1,.3,1)}
+@keyframes swField{from{opacity:0;transform:scaleX(.96);transform-origin:left center}to{opacity:1;transform:none}}
+.sw-rw.edit .sw-del{animation:swField .24s cubic-bezier(.16,1,.3,1)}
+.sw-del:hover{color:var(--down);background:var(--down-soft)}
+/* Збережену назву коротко підсвічуємо: список лишається відкритим, і без
+   цього незрозуміло, чи записалось. */
+.sw-rw.saved{animation:swSaved .7s ease}
+@keyframes swSaved{0%{background:var(--accent-soft)} 45%{background:var(--accent-soft)} 100%{background:none}}
+/* В обраної рядок уже підсвічений — спалах їй робимо яскравішим за її
+   ж тло, інакше його просто не видно. */
+.sw-rw.on.saved{animation:swSavedOn .7s ease}
+@keyframes swSavedOn{0%,45%{background:color-mix(in srgb,var(--accent) 30%,transparent)}
+  100%{background:var(--accent-soft)}}
 .sw-row .sw-rn{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .sw-row .sw-rc{font:500 11.5px var(--mono);color:var(--faint)}
-.sw-row .sw-ok{width:14px;color:var(--accent);visibility:hidden}
-.sw-row.on{background:var(--accent-soft)} .sw-row.on .sw-ok{visibility:visible}
+/* Обрану стратегію видно по тлу рядка й кольоровій крапці зліва —
+   галочки праворуч більше немає. */
+.sw-rw.on{background:var(--accent-soft)}
 .sw-sep{height:1px;background:var(--line-soft);margin:5px 6px}
 .sw-act{color:var(--dim);font-size:13px} .sw-act:hover{color:var(--accent)}
-
-.sw-ic{width:32px;height:32px;margin-left:-2px;border-radius:999px;border:1px solid var(--line);background:none;
-  color:var(--dim);font:600 15px/1 var(--sans);cursor:pointer}
-.sw-ic:hover{color:var(--text);border-color:var(--faint)}
+/* Останній рядок списку: завести ще одну стратегію. Тихий, як і решта
+   дій, — між назвами він не має сперечатися за увагу. */
+.sw-new{gap:9px;border-radius:9px;transition:background .2s cubic-bezier(.16,1,.3,1),color .2s}
+.sw-new .sw-pi{flex:none;color:var(--faint);transition:color .2s}
+.sw-new:hover{background:var(--panel-2)}
+.sw-new:hover .sw-pi{color:var(--accent)}
 
 .strat-form{display:flex;flex-direction:column;gap:8px}
 .strat-form .st-lab{font-size:12px;color:var(--dim);margin-top:8px}
