@@ -45,7 +45,6 @@ import oauth
 import ratelimit
 import seclog
 import accounts_store
-import notes_store
 import mailout
 import mailauto
 import bt_journals_store
@@ -2366,12 +2365,6 @@ class H(BaseHTTPRequestHandler):
             if not week_store.valid_week(rest):
                 return self._json({"error": "bad week"}, 400)
             return self._json({"week": week_store.get(uid, rest)})
-        # ---- нотатки (notes_store.py) ----
-        if p == "/api/notes":
-            uid = self._uid()
-            if not uid:
-                return self._json({"error": "auth required"}, 401)
-            return self._json({"notes": notes_store.lst(uid)})
 
         if p.startswith("/api/day/"):
             uid = self._uid()
@@ -4066,19 +4059,6 @@ class H(BaseHTTPRequestHandler):
             accounts_store.drop(uid, acc_id)
             return self._json({"ok": True})
 
-        # ---- нотатки ----
-        if p == "/api/notes":
-            n = notes_store.save(uid, (body or {}).get("note"))
-            if not n:
-                return self._json({"error": "not saved"}, 400)
-            return self._json({"note": n})
-
-        if p == "/api/notes/drop":
-            try:
-                nid = int((body or {}).get("id"))
-            except (TypeError, ValueError):
-                return self._json({"error": "bad id"}, 400)
-            notes_store.drop(uid, nid)
             return self._json({"ok": True})
 
         # ---- журнали бектесту ----
