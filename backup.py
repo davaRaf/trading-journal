@@ -28,7 +28,6 @@ import accounts_store
 import day_store
 import week_store
 import ts_store
-import notes_store
 
 KEEP = 14                  # скільки денних зліпків тримаємо на людину
 EVERY = 3600               # як часто прокидаємось і дивимось на дату
@@ -100,7 +99,6 @@ def snapshot(uid):
         # додаткові стратегії (strategy — перша з них)
         "strategies": [dict(s, data=ts_store.get(uid, seed=False, sid=s["id"]))
                        for s in ts_store.lst(uid) if s["id"]],
-        "notes": notes_store.lst(uid),
         # Рахунки: опис того, на чому людина торгувала. Самі гроші тут не
         # лежать — вони рахуються з угод, але без стартового балансу й
         # лімітів порахувати їх удруге не вийде.

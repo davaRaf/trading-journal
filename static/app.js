@@ -1165,7 +1165,7 @@ function ovRailHtml(){
   return '<aside class="rail"><div class="inner ovi"><div class="cut ovq">'+
     "<h3>"+esc(T.railYearWord)+"<em>"+Y+"</em></h3>"+
     (any ? [0,1,2,3].map(quarter).join("") : '<div class="empty">'+T.railNoData+"</div>")+
-    "</div></div>"+(window.__notes?__notes.railHtml():"")+"</aside>";
+    "</div></div></aside>";
 }
 
 /* Заголовок «Огляду» — це і є перемикач: «Огляд» і «Рахунки» поруч,
