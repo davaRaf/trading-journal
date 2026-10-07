@@ -15,7 +15,6 @@
 (function(){
 
 let ACCS = undefined;     /* undefined — ще не питали, [] — порожньо */
-let openId = null;        /* у якої картки розгорнутий розбір */
 
 function D(){ return DICT[window.LANG] || DICT.uk; }
 
@@ -280,8 +279,6 @@ function card(a){
   const foot = '<div class="ac-foot">'
     + '<button class="ac-link stat" onclick="__acc.stats(' + a.id + ')">'
         + esc(d.statsLink) + "</button>"
-    + (dead ? '<button class="ac-link" onclick="__acc.why(' + a.id + ')">'
-        + esc(openId === a.id ? d.hideWhy : d.showWhy) + "</button>" : "")
     + '<span class="sp"></span>'
     + '<button class="ac-link" onclick="__acc.edit(' + a.id + ')">' + esc(d.edit) + "</button></div>";
 
@@ -299,7 +296,6 @@ function card(a){
     + (st === "pass" ? passBanner(a) : dead ? loseBanner(a) : "")
     + head + mid + stats + cut
 
-    + (dead && openId === a.id ? why(a, s) : "")
     + foot + "</div></div>";
 }
 
@@ -338,58 +334,6 @@ function loseBanner(a){
     + (meta ? "<i>" + esc(meta) + "</i>" : "")
     + (a.reason ? '<i class="why">' + esc(a.reason) + "</i>" : "") + "</div>"
     + '<span class="ac-win-ok" aria-hidden="true">✕</span></div>';
-}
-
-/* ---------------- чому рахунок злили ---------------- */
-/*
-   Найкорисніше в розділі. Людина памʼятає останню угоду, а не всі; тут
-   видно, що саме зʼїло рахунок: три найгірші угоди, день, коли пробило
-   ліміт, і чого в збиткових угодах було найбільше.
-*/
-function dayOfBreak(a, s){
-  if (!a.dd_total_pct) return null;
-  let f = 1;
-  for (const t of s.list){
-    f *= 1 + netR(t) / 100;
-    const at = (f - 1) * 100;
-    if (at <= -a.dd_total_pct) return {date: (t.date || "").slice(0, 10), at: at};
-  }
-  return null;
-}
-function topField(list, field){
-  const m = groupByField(list, field);
-  let best = null, bestN = 0;
-  m.forEach((arr, v) => { if (arr.length > bestN){ bestN = arr.length; best = v; } });
-  return best ? {name: best, n: bestN} : null;
-}
-
-function why(a, s){
-  const d = D();
-  const losers = s.list.filter(t => netR(t) < 0)
-    .sort((x, y) => netR(x) - netR(y)).slice(0, 3);
-  const brk = dayOfBreak(a, s);
-  const mist = topField(s.list.filter(t => netR(t) < 0), "mistakes");
-  const emo = topField(s.list.filter(t => netR(t) < 0), "emotion");
-
-  let rows = "";
-  if (brk) rows += line(d.brokeAt, human(brk.date) + " · " + fmtR(brk.at));
-  if (s.worstDay) rows += line(d.worstDay, human(s.worstDay) + " · " + fmtR(s.worstDayVal));
-  if (mist) rows += line(d.topMistake, mist.name + " · " + mist.n + d.timesTag);
-  if (emo) rows += line(d.topEmotion, emo.name + " · " + emo.n + d.timesTag);
-  if (a.reason) rows += line(d.reason, a.reason);
-
-  const worst = losers.length
-    ? '<div class="ac-worst"><div class="l">' + esc(d.worstTrades) + "</div>"
-      + losers.map(t => '<div class="ac-wrow"><span>' + esc(t.pair || "—") + "</span>"
-        + '<i>' + esc(human((t.date || "").slice(0, 10))) + "</i>"
-        + '<b class="down">' + esc(fmtR(netR(t))) + "</b></div>").join("") + "</div>"
-    : "";
-
-  return '<div class="ac-why">' + (rows ? '<div class="ac-wlist">' + rows + "</div>" : "")
-    + worst + "</div>";
-}
-function line(l, v){
-  return '<div class="ac-wline"><span>' + esc(l) + "</span><b>" + esc(String(v)) + "</b></div>";
 }
 
 function human(iso){
@@ -1113,7 +1057,6 @@ window.__acc = {
     const a = (ACCS || []).find(x => x.id === id);
     if (a) openForm(Object.assign({}, a));
   },
-  why(id){ openId = openId === id ? null : id; render(); },
   /* «Докладна статистика»: розрізи по рахунку живуть в «Аналітиці», тут
      лишається тільки передати їй назву — рахунки звʼязані з угодами саме
      назвою, свого id в угоді немає. */
