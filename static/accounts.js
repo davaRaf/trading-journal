@@ -294,9 +294,9 @@ function card(a){
     + '<div class="ac-top">' + logo(a.firm, a.name, "ac-logo")
     + '<div class="ac-name"><b>' + esc(a.name) + "</b>"
     +   (window.__strat ? __strat.accTag(a) : "") + "</div>"
-    + (st === "pass" ? "" : '<span class="ac-st ' + st + '">' + esc(d.status[a.status] || "") + "</span>")
+    + (st === "pass" || dead ? "" : '<span class="ac-st ' + st + '">' + esc(d.status[a.status] || "") + "</span>")
     + "</div>"
-    + (st === "pass" ? passBanner(a) : "")
+    + (st === "pass" ? passBanner(a) : dead ? loseBanner(a) : "")
     + head + mid + stats + cut
 
     + (dead && openId === a.id ? why(a, s) : "")
@@ -319,6 +319,25 @@ function passBanner(a){
     + '<div class="ac-win-t"><b>' + esc(d.passTitle) + "</b>"
     + (meta ? "<i>" + esc(meta) + "</i>" : "") + "</div>"
     + '<span class="ac-win-ok" aria-hidden="true">✓</span></div>';
+}
+
+/* Злитий рахунок — дзеркало пройденого: та сама смуга, тільки червона,
+   з графіком донизу, датою, скільки днів протримався, і причиною, якщо
+   її записали. Без блиску — святкувати тут нічого. */
+function loseBanner(a){
+  const d = D();
+  const days = a.opened_at && a.closed_at
+    ? Math.round((Date.parse(a.closed_at) - Date.parse(a.opened_at)) / 864e5) : null;
+  const meta = [a.closed_at ? human(a.closed_at) : "",
+                days != null && days >= 0 ? d.loseDays.replace("%n", days) : ""]
+    .filter(Boolean).join(" · ");
+  return '<div class="ac-win lose"><span class="ac-cup" aria-hidden="true">'
+    + '<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round">'
+    + '<path d="M3 6l6 6 4-4 8 8"/><path d="M21 10v6h-6"/></svg></span>'
+    + '<div class="ac-win-t"><b>' + esc(a.kind === "challenge" ? d.loseTitle : d.loseAcc) + "</b>"
+    + (meta ? "<i>" + esc(meta) + "</i>" : "")
+    + (a.reason ? '<i class="why">' + esc(a.reason) + "</i>" : "") + "</div>"
+    + '<span class="ac-win-ok" aria-hidden="true">✕</span></div>';
 }
 
 /* ---------------- чому рахунок злили ---------------- */
@@ -1159,6 +1178,7 @@ uk: {
   timesTag: " раз",
   status: {active: "Активний", passed: "Пройдений", failed: "Злитий", closed: "Закритий"},
   passTitle: "Челендж пройдено", passDays: "за %n дн.",
+  loseTitle: "Челендж злито", loseAcc: "Рахунок злито", loseDays: "протримався %n дн.",
   kinds: {own: "свій депозит", challenge: "челендж", funded: "фандед"},
   newTitle: "Новий рахунок", editTitle: "Рахунок",
   fName: "Назва", fFirm: "Фірма", fKind: "Тип", fStart: "Стартовий баланс", fCur: "Валюта",
@@ -1196,6 +1216,7 @@ ru: {
   timesTag: " раз",
   status: {active: "Активный", passed: "Пройден", failed: "Слит", closed: "Закрыт"},
   passTitle: "Челлендж пройден", passDays: "за %n дн.",
+  loseTitle: "Челлендж слит", loseAcc: "Счёт слит", loseDays: "продержался %n дн.",
   kinds: {own: "свой депозит", challenge: "челлендж", funded: "фандед"},
   newTitle: "Новый счёт", editTitle: "Счёт",
   fName: "Название", fFirm: "Фирма", fKind: "Тип", fStart: "Стартовый баланс", fCur: "Валюта",
@@ -1233,6 +1254,7 @@ en: {
   timesTag: "x",
   status: {active: "Active", passed: "Passed", failed: "Blown", closed: "Closed"},
   passTitle: "Challenge passed", passDays: "in %n days",
+  loseTitle: "Challenge blown", loseAcc: "Account blown", loseDays: "lasted %n days",
   kinds: {own: "own deposit", challenge: "challenge", funded: "funded"},
   newTitle: "New account", editTitle: "Account",
   fName: "Name", fFirm: "Firm", fKind: "Type", fStart: "Starting balance", fCur: "Currency",

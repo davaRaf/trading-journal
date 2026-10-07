@@ -95,8 +95,21 @@
   display:grid; place-items:center; font-size:13px; font-weight:700;
   border:1.5px solid var(--up); color:var(--up)}
 
-/* злитий рахунок притишений цілком: він уже не робочий інструмент */
-.ac-card.fail{opacity:.92}
+/* Злитий: червона рамка без сяйва, картка притишена, логотип сірий —
+   рахунок уже не робочий інструмент, але й не ховається. */
+.shell:has(> .ac-card.fail){border-color:color-mix(in srgb,var(--down) 35%,transparent);
+  background:linear-gradient(160deg,color-mix(in srgb,var(--down) 14%,transparent),var(--shell-bg) 55%)}
+.ac-card.fail{border-color:color-mix(in srgb,var(--down) 28%,transparent);
+  background:radial-gradient(120% 70% at 100% 0%,var(--down-soft),transparent 60%),var(--card)}
+.ac-card.fail .ac-logo{filter:grayscale(1); opacity:.6}
+.ac-card.fail .ac-bal .big{color:var(--dim)}
+.ac-win.lose{color:var(--down);
+  background:linear-gradient(100deg,color-mix(in srgb,var(--down) 15%,transparent),color-mix(in srgb,var(--down) 4%,transparent));
+  border:1px dashed color-mix(in srgb,var(--down) 45%,transparent)}
+.ac-win.lose::after{display:none}
+.ac-win.lose .ac-cup{background:var(--down); box-shadow:0 4px 14px -4px var(--down)}
+.ac-win.lose .ac-win-ok{border-color:var(--down); color:var(--down)}
+.ac-win-t i.why{color:var(--text); opacity:.75; overflow:hidden; text-overflow:ellipsis; white-space:nowrap}
 
 /* ---------------- баланс ---------------- */
 .ac-bal .big{font-family:var(--mono); font-size:30px; font-weight:500; letter-spacing:-.02em;
