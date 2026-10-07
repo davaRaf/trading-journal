@@ -76,7 +76,9 @@ async function load(){
     return;
   }
   try{
-    const r = await api("GET", "/api/ts" + (btOn() ? "?kind=bt" : "?sid=" + sid()));
+    /* Стратегія обрана одна на обидва режими, а правила в кожного свої:
+       сервер при першому заході в бектест зніме копію з реальних. */
+    const r = await api("GET", "/api/ts?sid=" + sid() + (btOn() ? "&kind=bt" : ""));
     TS = (r && r.ts && Object.keys(r.ts).length) ? normalize(r.ts) : null;
   }catch(e){ TS = null; }
   /* Тихо: render() міняє весь #main, і розділ заново випливає з анімацією.
@@ -89,7 +91,7 @@ async function load(){
    читається один раз на завантаження, тож про свої ж правки кажемо йому
    самі — і коли вони з'явились, і коли їх стерли. */
 function told(yes){
-  if (!btOn() && window.__strat && __strat.mark) __strat.mark(sid(), !!yes);
+  if (window.__strat && __strat.mark) __strat.mark(sid(), !!yes);
 }
 
 let saveTimer = null;
@@ -101,7 +103,7 @@ function save(){
   }
   clearTimeout(saveTimer);
   saveTimer = setTimeout(() => {
-    api("POST", "/api/ts", {ts: TS, kind: btOn()?"bt":"", sid: btOn() ? 0 : +sid()})
+    api("POST", "/api/ts", {ts: TS, kind: btOn()?"bt":"", sid: +sid()})
       .then(() => told(TS && Object.keys(TS).length))
       .catch(() => {});
   }, 400);
@@ -1838,7 +1840,7 @@ window.__ts = {
     soft();
     if (!await Ask.yes(D().confirmDelete, {ok:T.askYes, cancel:T.askNo, danger:true})) return;
     if (demo()){ try{ localStorage.removeItem(DEMO_KEY); }catch(e){} }
-    else { try{ await api("POST", "/api/ts/clear", {kind: btOn()?"bt":"", sid: btOn() ? 0 : +sid()}); told(false); }catch(e){} }
+    else { try{ await api("POST", "/api/ts/clear", {kind: btOn()?"bt":"", sid: +sid()}); told(false); }catch(e){} }
     TS = null;
     editing = false;
     render();

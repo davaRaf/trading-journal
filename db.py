@@ -944,26 +944,36 @@ def list_trades(user_id, kind=""):
     аргумента и продолжают видеть только настоящие сделки. "all" нужен
     одному месту — снимку для бэкапа, он спасает всё подряд.
     """
+    # kind несе режим і стратегію разом (strat_kind): "" / "bt" — весь
+    # режим, "s:3" / "bt:s:3" — лише угоди третьої стратегії в ньому.
+    k = str(kind or "")
+    bt = k == "bt" or k.startswith("bt:")
+    strat = k[3:] if k.startswith("bt:") else (k if k.startswith("s:") else "")
     sql = "SELECT * FROM trades WHERE user_id=%s"
     args = [user_id]
-    if kind != "all":
+    if k != "all":
         sql += ' AND "kind"=%s'
-        args.append("bt" if kind == "bt" else "")
-    # "s:3" — реальні угоди однієї стратегії ("s:0" — першої), див. strat_kind
-    if str(kind or "").startswith("s:"):
+        args.append("bt" if bt else "")
+    if strat.startswith("s:"):
         sql += ' AND "ts"=%s'
-        args.append("" if kind[2:] in ("", "0") else kind[2:])
+        args.append("" if strat[2:] in ("", "0") else strat[2:])
     sql += " ORDER BY created_at"
     with connect() as conn:
         rows = conn.execute(sql, args).fetchall()
     return [_row_to_trade(r) for r in rows]
 
 
-def strat_kind(v):
-    """Стратегія з браузера → kind для list_trades / ts_store: "s:<номер>"
-    або "" (усі стратегії / одна-єдина)."""
+def strat_kind(v, bt=False):
+    """Режим і стратегія з браузера → kind для list_trades / ts_store.
+
+    `v` — номер стратегії ("" або нецифра означає «всі» / одну-єдину),
+    `bt` — чи людина зараз у бектесті. Виходить одне з чотирьох: "" (вся
+    реальна торгівля), "s:3", "bt" (весь бектест), "bt:s:3"."""
     v = str(v or "").strip()
-    return "s:" + v if v.isdigit() else ""
+    s = "s:" + v if v.isdigit() else ""
+    if not bt:
+        return s
+    return "bt:" + s if s else "bt"
 
 
 def get_trade(tid, user_id):

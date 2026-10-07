@@ -254,9 +254,11 @@ def clean_trade(body, tid):
     # Реальная сделка или бэктест. Всё, кроме "bt", считаем торговлей: тип
     # приходит из браузера, и это единственное место, где он входит внутрь.
     t["kind"] = "bt" if str(body.get("kind") or "").strip() == "bt" else ""
-    # стратегія — номер із ts_multi або "" (перша); у бектесті своєї немає
+    # стратегія — номер із ts_multi або "" (перша). У бектесті стратегії
+    # ті самі, що в реальній торгівлі: список один, а правила й угоди під
+    # кожною — свої в кожному режимі.
     t["ts"] = str(t.get("ts") or "").strip()
-    if not t["ts"].isdigit() or t["ts"] == "0" or t["kind"] == "bt":
+    if not t["ts"].isdigit() or t["ts"] == "0":
         t["ts"] = ""
     # откуда сделка приехала — нужно, чтобы повторный импорт не задвоил её
     if body.get("notion_id"): t["notion_id"] = str(body["notion_id"])[:64]
@@ -563,7 +565,7 @@ def add_trades(user_id, items, kind="", run="", ts=""):
     for it in items:
         if kind == "bt":
             it = dict(it, kind="bt", bt_run=it.get("bt_run") or run)
-        elif ts:
+        if ts:
             it = dict(it, ts=ts)            # у ту стратегію, яку людина зараз бачить
         t = clean_trade(it, new_id())
         t["screenshots"] = it.get("screenshots") or []
@@ -2326,9 +2328,11 @@ class H(BaseHTTPRequestHandler):
                 return self._json({"error": "auth required"}, 401)
             # Журнал переключается между реальной торговлей и бэктестом целиком.
             # Без параметра — торговля, как было до появления бэктеста.
-            kind = "bt" if (parse_qs(urlparse(self.path).query).get("kind")
-                            or [""])[0] == "bt" else ""
-            return self._json(db.list_trades(uid, kind))
+            # `ts` — выбранная стратегия (пусто — все): она есть в обоих
+            # режимах, см. db.strat_kind.
+            q = parse_qs(urlparse(self.path).query)
+            bt = (q.get("kind") or [""])[0] == "bt"
+            return self._json(db.list_trades(uid, db.strat_kind((q.get("ts") or [""])[0], bt)))
 
         # ---- рахунки: свій депозит і проп-фірми (accounts_store.py) ----
         #
@@ -2455,7 +2459,8 @@ class H(BaseHTTPRequestHandler):
             uid = self._uid()
             if not uid:
                 return self._json({"error": "auth required"}, 401)
-            return self._json({"list": ts_store.lst(uid)})
+            lk = (parse_qs(urlparse(self.path).query).get("kind") or [""])[0]
+            return self._json({"list": ts_store.lst(uid, "bt" if lk == "bt" else "")})
 
         if p.startswith("/tsshot/"):
             uid = self._uid()
@@ -3797,9 +3802,10 @@ class H(BaseHTTPRequestHandler):
             lang = lang if lang in ("uk", "ru", "en") else None
             # у якому журналі людина зараз: помічник має відповідати про те,
             # що вона перед собою бачить, і прибирати теж саме те
-            kind = "bt" if (body or {}).get("kind") == "bt" else ""
-            # кілька стратегій: помічник дивиться на угоди й ТС обраної
-            kind = kind or db.strat_kind((body or {}).get("ts"))
+            # кілька стратегій: помічник дивиться на угоди й ТС обраної —
+            # і в реальній торгівлі, і в бектесті
+            kind = db.strat_kind((body or {}).get("ts"),
+                                 (body or {}).get("kind") == "bt")
             # прохання змінити «Мою ТС» — окрема гілка: модель лише каже, ЩО
             # змінити, а перевіряє шляхи й пише в базу код (ts_edit.py).
             # Йде першою, коли прохання явно про ТС: «прибери модель BOS з ТС»
@@ -3831,7 +3837,7 @@ class H(BaseHTTPRequestHandler):
             # бере сторінка (у неї свої, на три мови).
             return self._json(assistant.nudge(
                 uid, lang if lang in ("uk", "ru", "en") else "ru",
-                "bt" if (body or {}).get("kind") == "bt" else db.strat_kind((body or {}).get("ts")),
+                db.strat_kind((body or {}).get("ts"), (body or {}).get("kind") == "bt"),
                 talk=billing.can_use_ai(uid)[0]))
 
         if p == "/api/assistant/review":
@@ -3857,7 +3863,7 @@ class H(BaseHTTPRequestHandler):
             return self._json(assistant.review(
                 uid, history,
                 lang=rlang if rlang in ("uk", "ru", "en") else None,
-                kind="bt" if (body or {}).get("kind") == "bt" else db.strat_kind((body or {}).get("ts"))))
+                kind=db.strat_kind((body or {}).get("ts"), (body or {}).get("kind") == "bt")))
 
         # друга половина видалення на прохання: ключ одноразовий, список id
         # у ньому вже зафіксований — тут нічого не добирається заново
@@ -3970,8 +3976,10 @@ class H(BaseHTTPRequestHandler):
                     conf["bt_keys"] = (conf.get("bt_keys") or []) + [bkey]
             if not kind:
                 conf.update({"url": url, "mapping": mapping, "title": title})
+            # стратегія, під яку переносимо: у бектесті так само, як у
+            # реальній торгівлі — список стратегій один на обидва режими
             tsid = str(body.get("ts") or "")
-            tsid = tsid if tsid.isdigit() and tsid != "0" and not kind else ""
+            tsid = tsid if tsid.isdigit() and tsid != "0" else ""
             job = start_import(uid, tables, mapping, body.get("options") or {}, kind, run, tsid)
             # Бектест уже списаний своїм лічильником (take_bt_import вище) —
             # інакше одна база бектесту забирала б ще й перенесення журналу.
@@ -4110,11 +4118,13 @@ class H(BaseHTTPRequestHandler):
         # ---- кілька стратегій: завести, назвати, прибрати ----
         if p == "/api/ts/new":
             b = body or {}
+            kind = "bt" if b.get("kind") == "bt" else ""
             sid = ts_store.create(uid, b.get("name") or "",
-                                  b.get("copy") if b.get("copy") is not None else None)
+                                  b.get("copy") if b.get("copy") is not None else None,
+                                  kind)
             if not sid:
                 return self._json({"error": "too many"}, 400)
-            return self._json({"id": sid, "list": ts_store.lst(uid)})
+            return self._json({"id": sid, "list": ts_store.lst(uid, kind)})
 
         if p == "/api/ts/rename":
             b = body or {}

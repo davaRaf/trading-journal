@@ -80,6 +80,9 @@ CREATE TABLE IF NOT EXISTS ts_multi (
   updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 CREATE INDEX IF NOT EXISTS ts_multi_user ON ts_multi (user_id, id);
+-- Копія стратегії для бектесту — так само, як у першої (strategies.data_bt):
+-- NULL — копію ще не знімали, '{}' — людина прибрала її сама.
+ALTER TABLE ts_multi ADD COLUMN IF NOT EXISTS data_bt JSONB;
 """
 MAX_TS = 10            # стратегій на людину; більше — уже не система, а каша
 
@@ -105,33 +108,49 @@ def _sid(sid):
         return 0
 
 
-def lst(user_id):
+def lst(user_id, kind=""):
     """Усі стратегії людини: перша (id 0) і додані. Назва може бути
-    порожньою — тоді сторінка підпише «ТС 1», «ТС 2»…"""
+    порожньою — тоді сторінка підпише «ТС 1», «ТС 2»…
+
+    `kind="bt"` — список для бектесту: «заповнена» рахуємо по копії для
+    бектесту. Копію ще не знімали (NULL) — дивимось на реальну: перший
+    захід саме її й скопіює, тож людина побачить свої правила."""
     init()
+    bt = _kind(kind) == "bt"
     with db.connect() as conn:
-        row = conn.execute("SELECT name, data FROM strategies WHERE user_id=%s",
+        row = conn.execute("SELECT name, data, data_bt FROM strategies WHERE user_id=%s",
                            (user_id,)).fetchone()
-        rows = conn.execute("SELECT id, name, data FROM ts_multi WHERE user_id=%s ORDER BY id",
+        rows = conn.execute("SELECT id, name, data, data_bt FROM ts_multi WHERE user_id=%s ORDER BY id",
                             (user_id,)).fetchall()
-    out = [{"id": 0, "name": (row or {}).get("name") or "", "has": bool(row and row["data"])}]
-    out += [{"id": r["id"], "name": r["name"], "has": bool(r["data"])} for r in rows]
+
+    def has(r):
+        return bool(r["data_bt"] if bt and r["data_bt"] is not None else r["data"])
+
+    out = [{"id": 0, "name": (row or {}).get("name") or "", "has": bool(row) and has(row)}]
+    out += [{"id": r["id"], "name": r["name"], "has": has(r)} for r in rows]
     return out
 
 
-def create(user_id, name="", copy_from=None):
-    """Нова стратегія: порожня або копія вже наявної (copy_from — її sid)."""
+def create(user_id, name="", copy_from=None, kind=""):
+    """Нова стратегія: порожня або копія вже наявної (copy_from — її sid).
+
+    Заводять у бектесті — і копія лягає в бектестову колонку: правка в
+    бектесті в реальну торгівлю не тече, і заведення нової теж."""
     init()
+    bt = _kind(kind) == "bt"
     data = {}
     if copy_from is not None:
-        data = get(user_id, "", seed=False, sid=copy_from) or {}
+        data = get(user_id, kind, seed=False, sid=copy_from) or {}
     with db.connect() as conn:
         n = conn.execute("SELECT count(*) AS n FROM ts_multi WHERE user_id=%s",
                          (user_id,)).fetchone()["n"]
         if n + 1 >= MAX_TS:
             return None
-        row = conn.execute("INSERT INTO ts_multi (user_id, name, data) VALUES (%s,%s,%s) "
-                           "RETURNING id", (user_id, str(name or "").strip()[:60], Jsonb(data))).fetchone()
+        row = conn.execute("INSERT INTO ts_multi (user_id, name, data, data_bt) "
+                           "VALUES (%s,%s,%s,%s) RETURNING id",
+                           (user_id, str(name or "").strip()[:60],
+                            Jsonb({} if bt else data),
+                            Jsonb(data) if bt else None)).fetchone()
     return row["id"]
 
 
@@ -172,9 +191,15 @@ def _kind(kind):
 
 
 def _sk(kind, sid):
-    """kind "s:3" несе стратегію в собі (db.strat_kind) — розкладаємо."""
+    """kind несе в собі і режим, і стратегію (db.strat_kind) — розкладаємо:
+    "s:3" — третя стратегія в реальній торгівлі, "bt:s:3" — вона ж у
+    бектесті, "bt" — бектест першої."""
     k = str(kind or "")
-    return ("", k[2:]) if k.startswith("s:") else (kind, sid)
+    if k.startswith("bt:s:"):
+        return ("bt", k[5:])
+    if k.startswith("s:"):
+        return ("", k[2:])
+    return (kind, sid)
 
 
 def _row(conn, user_id):
@@ -198,12 +223,23 @@ def get(user_id, kind="", seed=True, sid=0):
     бектесту, якого вони не відкривали, ні до чого.
     """
     init()
-    sid = _sid(sid)
-    if sid and _kind(kind) != "bt":
+    sid, bt = _sid(sid), _kind(kind) == "bt"
+    if sid:
         with db.connect() as conn:
-            r = conn.execute("SELECT data FROM ts_multi WHERE id=%s AND user_id=%s",
+            r = conn.execute("SELECT data, data_bt FROM ts_multi WHERE id=%s AND user_id=%s",
                              (sid, user_id)).fetchone()
-        return ts_ai.route_saved((r or {}).get("data") or None)
+            if r is None:
+                return None
+            if not bt:
+                return ts_ai.route_saved(r["data"] or None)
+            if r["data_bt"] is not None or not seed:
+                return ts_ai.route_saved(r["data_bt"] or None)
+            src = r["data"] or None
+            if not src:
+                return None                 # копіювати нема чого
+            conn.execute("UPDATE ts_multi SET data_bt=%s WHERE id=%s AND user_id=%s "
+                         "AND data_bt IS NULL", (Jsonb(src), sid, user_id))
+            return ts_ai.route_saved(src)
     with db.connect() as conn:
         row = _row(conn, user_id)
         if row is None:
@@ -224,9 +260,11 @@ def put(user_id, data, kind="", sid=0):
     kind, sid = _sk(kind, sid)
     init()
     sid = _sid(sid)
-    if sid and _kind(kind) != "bt":
+    if sid:
+        col = "data_bt" if _kind(kind) == "bt" else "data"
         with db.connect() as conn:
-            conn.execute("UPDATE ts_multi SET data=%s, updated_at=now() WHERE id=%s AND user_id=%s",
+            conn.execute("UPDATE ts_multi SET %s=%%s, updated_at=now() "
+                         "WHERE id=%%s AND user_id=%%s" % col,
                          (Jsonb(data or {}), sid, user_id))
         return
     col = "data_bt" if _kind(kind) == "bt" else "data"
@@ -242,9 +280,13 @@ def put(user_id, data, kind="", sid=0):
 def clear(user_id, kind="", sid=0):
     """Прибирає стратегію одного журналу. Сусідню не чіпає."""
     init()
+    kind, sid = _sk(kind, sid)
     sid = _sid(sid)
-    if sid and _kind(kind) != "bt":
-        put(user_id, {}, "", sid)
+    if sid:
+        # Порожній документ, а не NULL: прибрана копія для бектесту має
+        # лишитись прибраною, інакше наступний захід знову притяг би її з
+        # реальної. put() кладе саме в колонку свого режиму.
+        put(user_id, {}, kind, sid)
         return
     with db.connect() as conn:
         if _kind(kind) == "bt":
@@ -410,24 +452,24 @@ def sweep(user_id, data, shots_dir, kind="", sid=0):
     сусідній журнал: інакше прибирання в одному забрало б картинки з іншого.
     """
     init()
-    kind, sid = _kind(kind), _sid(sid)
-    if kind == "bt":
-        sid = 0
+    kind, sid = _sk(kind, sid)
+    bt, sid = _kind(kind) == "bt", _sid(sid)
     try:
         with db.connect() as conn:
             row = _row(conn, user_id) or {}
-            extra = conn.execute("SELECT id, data FROM ts_multi WHERE user_id=%s",
+            extra = conn.execute("SELECT id, data, data_bt FROM ts_multi WHERE user_id=%s",
                                  (user_id,)).fetchall()
     except Exception:
         # не змогли спитати базу — краще нічого не чіпати, ніж стерти чуже
         return
-    # лишаємо все, чим користуються інші стратегії: скріни в копії ТС —
-    # ті самі файли, що й в оригіналі
-    others = [r["data"] for r in extra if r["id"] != sid]
-    if sid or kind == "bt":
-        others.append(row.get("data"))
-    if sid or kind != "bt":
-        others.append(row.get("data_bt"))
+    # Лишаємо все, чим користуються інші стратегії й сусідній режим: скріни
+    # в копії для бектесту — ті самі файли, що й в оригіналі. Тому збираємо
+    # всі документи людини, крім того єдиного, який щойно переписали.
+    docs = [(0, False, row.get("data")), (0, True, row.get("data_bt"))]
+    for r in extra:
+        docs.append((r["id"], False, r["data"]))
+        docs.append((r["id"], True, r["data_bt"]))
+    others = [d for (i, b, d) in docs if not (i == sid and b == bt)]
     keep = used_files(data)
     for doc in others:
         keep |= used_files(doc or None)

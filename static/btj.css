@@ -57,12 +57,16 @@
 /* .btj-nav спереду — інакше .jhead .seg-tabs{margin-left:0} зі style.css
    тримав би перемикач впритул до вкладок. */
 .btj-nav .btj-style{margin-left:auto; margin-bottom:6px}
+/* Перемикач стратегій поруч із вкладками: рядок вирівняний по низу, тож
+   піднімаємо його на ту саму лінію, що й перемикач вигляду. */
+.btj-nav .sw-pill{margin-bottom:6px}
 @media (max-width:560px){
   .btj-main{gap:18px}
   .btj-main button{font-size:14.5px; padding:12px 0}
   /* на телефоні вигляд журналу — окремим рядком на всю ширину */
   .btj-nav .btj-style{margin-left:0; width:100%; margin-bottom:10px}
   .btj-style button{flex:1}
+  .btj-nav .sw-pill{margin-bottom:10px}
 }
 
 /* «З Notion» поруч із «Новий журнал» */

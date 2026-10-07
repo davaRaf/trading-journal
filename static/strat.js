@@ -10,7 +10,13 @@
 
    Поки стратегія одна, перемикача ніде немає — лише тиха кнопка
    «+ Стратегія» біля «Моєї ТС», щоб було звідки почати.
-   У бектесті стратегій немає: там свої журнали (btj.js).
+
+   У бектесті стратегії ті самі: список один на обидва режими, і обрана
+   теж одна — перемкнув режим, лишився в тій самій стратегії. Своїми в
+   кожному режимі є правила («Моя ТС») й угоди: правка ТС у бектесті в
+   реальну торгівлю не тече (копію знімає сервер, ts_store.data_bt).
+   Журнали прогонів (btj.js) живуть усередині стратегії, як рахунки в
+   реальній торгівлі.
    ============================================================ */
 (function(){
 
@@ -20,8 +26,17 @@ const LS = "tj_strat";
 try{ cur = localStorage.getItem(LS) || "0"; }catch(e){}
 
 function D(){ return DICT[window.LANG] || DICT.ru; }
+/* чи ми зараз у бектесті — від цього залежить, звідки брати угоди й у яку
+   копію ТС писати */
+function bt(){ return typeof btOn === "function" && btOn(); }
+/* демо й чужий журнал за посиланням стратегій не мають: там один набір */
 function off(){
-  return (typeof btOn === "function" && btOn()) || (typeof DEMO !== "undefined" && DEMO) || (window.Pub && Pub.on);
+  return (typeof DEMO !== "undefined" && DEMO) || (window.Pub && Pub.on);
+}
+/* усі угоди того режиму, в якому людина зараз */
+function src(){
+  const l = bt() ? S.btAll : S.liveAll;
+  return Array.isArray(l) ? l : [];
 }
 function list(){ return L || [{id: 0, name: "", has: false}]; }
 function nm(s, i){ return (s.name || "").trim() || D().ts + " " + (i + 1); }
@@ -37,8 +52,8 @@ async function load(){
   /* DEMO тут ще не відомий: reload() з'ясовує його після угод, а нас кличе
      раніше. Тож питаємо лише бектест і чужий журнал; у демо запит просто
      не вдасться, і лишиться одна стратегія. */
-  if ((typeof btOn === "function" && btOn()) || (window.Pub && Pub.on)) return;
-  try{ L = (await api("GET", "/api/ts/list")).list || []; }
+  if (window.Pub && Pub.on) return;
+  try{ L = (await api("GET", "/api/ts/list" + (bt() ? "?kind=bt" : ""))).list || []; }
   catch(e){ L = L || [{id: 0, name: "", has: false}]; }
   if (cur !== "all" && !list().some(s => String(s.id) === cur)) cur = "0";
   if (cur === "all" && !multi()) cur = "0";
@@ -57,8 +72,10 @@ function select(v){
   try{ localStorage.setItem(LS, cur); }catch(e){}
   if (was !== cur){
     sweepEmpty(was);
-    /* боту: нові угоди з Telegram підуть у цю стратегію */
-    api("POST", "/api/ts/active", {ts: cur === "all" ? "" : cur}).catch(() => {});
+    /* боту: нові угоди з Telegram підуть у цю стратегію. З бектесту не
+       кажемо — бот пише тільки реальні угоди, і перемикання прогону не
+       має міняти, куди вони лягають. */
+    if (!bt()) api("POST", "/api/ts/active", {ts: cur === "all" ? "" : cur}).catch(() => {});
   }
 }
 
@@ -70,9 +87,10 @@ async function sweepEmpty(id){
   const s = list().find(x => String(x.id) === String(id));
   if (!s) return;
   try{
-    const r = await api("GET", "/api/ts?sid=" + id);
+    const r = await api("GET", "/api/ts?sid=" + id + (bt() ? "&kind=bt" : ""));
     if (r && r.ts && Object.keys(r.ts).length) return;
     if ((ACCS_OF(id)).length) return;
+    if (window.__btj && __btj.ofTs && __btj.ofTs(id).length) return;
     L = (await api("POST", "/api/ts/drop", {sid: +id})).list || L;
   }catch(e){ return; }
   paint();
@@ -93,7 +111,14 @@ function paint(){
 
 /* після зміни стратегії: журнал — її угоди, «Моя ТС» — її правила */
 function apply(){
-  if (Array.isArray(S.liveAll)) S.trades = S.all = filter(S.liveAll);
+  let out = filter(src());
+  /* у бектесті на екрани йде ще й один журнал прогону; відкритий міг
+     належати іншій стратегії — тоді журнали самі переберуть свіжіший */
+  if (bt() && window.__btj){
+    if (__btj.recheck) __btj.recheck();
+    out = __btj.filter(out);
+  }
+  S.trades = S.all = out;
   S.pages = {}; S.filters = {};
   if (window.__ts && __ts.reload) __ts.reload();
   paint();
@@ -107,7 +132,7 @@ function color(id){
   return COLORS[(i < 0 ? 0 : i) % COLORS.length];
 }
 function count(id){
-  const all = Array.isArray(S.liveAll) ? S.liveAll : [];
+  const all = src();
   return id === "all" ? all.length : all.filter(t => String(t.ts || "0") === String(id)).length;
 }
 const CHEV = '<svg class="sw-chev" width="12" height="12" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M6 9l6 6 6-6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>';
@@ -144,7 +169,7 @@ function btn(where){
    Назва — «ТС N», перейменувати можна олівцем у списку стратегій. */
 async function quick(){
   let r;
-  try{ r = await api("POST", "/api/ts/new", {name: ""}); }catch(e){ return; }
+  try{ r = await api("POST", "/api/ts/new", {name: "", kind: bt() ? "bt" : ""}); }catch(e){ return; }
   L = r.list || L;
   go(String(r.id));
 }
@@ -266,7 +291,8 @@ async function create(){
   const name = (document.getElementById("stName") || {}).value || "";
   const copy = (document.querySelector('input[name="stFrom"]:checked') || {}).value === "copy";
   let r;
-  try{ r = await api("POST", "/api/ts/new", Object.assign({name: name.trim()}, copy ? {copy: +sid()} : {})); }
+  try{ r = await api("POST", "/api/ts/new",
+    Object.assign({name: name.trim(), kind: bt() ? "bt" : ""}, copy ? {copy: +sid()} : {})); }
   catch(e){ return; }
   L = r.list || L;
   Sheet.close();
@@ -380,6 +406,32 @@ function accTag(a){
     + esc(all ? D().all : label(a.ts)) + "</span>";
 }
 
+/* ---------------- журнали бектесту ----------------
+   Журнал прогону живе всередині стратегії — рівно так, як рахунок у
+   реальній торгівлі: "" — спільний для всіх, "0" — перша, інакше номер.
+   Журнали, заведені до появи стратегій, лишаються спільними: нічого не
+   зникає, поки людина сама не припише прогін до стратегії. */
+function jField(j){
+  const v = j && j.id ? String(j.ts || "") : (cur === "all" ? "" : sid());
+  const hidden = '<input type="hidden" id="btjTs" value="' + esc(v) + '">';
+  if (!multi()) return hidden;
+  const chip = (k, name, dot) => '<button type="button" class="' + (k === v ? "on" : "") + '" data-v="' + k
+    + '" onclick="__strat.pickJ(this)">' + dot + esc(name) + "</button>";
+  return '<div class="ac-f strat-f"><span>' + esc(D().accFor) + "</span>"
+    + '<div class="strat-chips">' + chip("", D().all, dots())
+    + list().map((s, i) => chip(String(s.id), nm(s, i), '<i class="sw-dot" style="--c:' + color(s.id) + '"></i>')).join("")
+    + "</div>" + hidden + "</div>";
+}
+function pickJ(b){
+  b.parentElement.querySelectorAll("button").forEach(x => x.classList.toggle("on", x === b));
+  document.getElementById("btjTs").value = b.dataset.v;
+}
+/* у списку журналів — журнали обраної стратегії плюс спільні */
+function jFilter(list_){
+  if (!multi() || cur === "all") return list_;
+  return list_.filter(j => !j.ts || String(j.ts) === cur);
+}
+
 /* першу стратегію можна лише перейменувати: прибрати її нема куди */
 function editWord(){ return sid() === "0" ? D().renameOnly : D().editTip; }
 
@@ -404,16 +456,18 @@ function mark(id, yes){
 function curOut(){ return multi() && cur !== "all" ? cur : ""; }
 
 window.__strat = {cur: curOut, load, editWord, accField, pickAcc, accFilter, accTag, filter, multi, sid, label, color, btn, menu, go, add, quick, create, drop,
-                  formField, pickForm, fact, hasTs, mark};
+                  formField, pickForm, fact, hasTs, mark,
+                  /* журнали бектесту: позначка в картці — та сама, що в рахунку */
+                  jField, pickJ, jFilter, jTag: accTag};
 
 /* Журнал міг прочитати угоди ще до того, як підвантажився цей файл (на
    локальному сервері відповідь приходить миттєво) — тоді reload() нас не
    покликав. Добираємо стратегії самі й перемальовуємо. */
 (function wait(n){
   if (L !== undefined) return;                       /* reload() уже покликав */
-  if (!Array.isArray(S.liveAll)){ if (n < 60) setTimeout(() => wait(n + 1), 250); return; }
+  if (!Array.isArray(S.btAll) && !Array.isArray(S.liveAll)){ if (n < 60) setTimeout(() => wait(n + 1), 250); return; }
   if (off()) return;
-  load().then(() => { if (multi()){ S.trades = S.all = filter(S.liveAll); paint(); } });
+  load().then(() => { if (multi()) apply(); });
 })(0);
 
 const DICT = {

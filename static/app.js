@@ -354,9 +354,13 @@ async function reload(){
   /* У бектесті статистика завжди по одному журналу (btj.js): усі прогони
      лежать у S.btAll, а на екрани йдуть угоди відкритого. */
   if(btOn() && window.__btj){
-    S.btAll = got;
+    /* Стратегії читаємо до журналів: список журналів ріжеться обраною
+       стратегією, і __btj.sync() має вже її знати. На екрани йдуть угоди
+       обраної стратегії з відкритого журналу. */
+    S.btAll = got; S.liveAll = null;
+    if(window.__strat) await __strat.load();
     await __btj.sync();
-    S.all = __btj.filter(got);
+    S.all = __btj.filter(window.__strat ? __strat.filter(got) : got);
   } else {
     /* кілька стратегій (strat.js): на екрани йдуть угоди обраної */
     S.btAll = null; S.liveAll = got;
@@ -1889,8 +1893,9 @@ function vAnalytics(){
   /* Біля заголовка розділу дрібного підпису немає: скільки угод у вибірці
      видно нижче, у самій статистиці (22.09.2026, прохання власника). */
   let h='<div class="vhead"><h1>'+T.anTitle+"</h1>"+
-    /* у бектесті розрізи рахуються по одному журналу — обираємо, по якому */
-    (btOn()&&window.__btj?__btj.filterBtn():(window.__strat?__strat.btn():""))+"</div>";
+    /* у бектесті розрізи рахуються по одному журналу — обираємо, по якому;
+       стратегія ріже вибірку й тут, тому перемикач стоїть поруч */
+    (btOn()&&window.__btj?__btj.filterBtn():"")+(window.__strat?__strat.btn():"")+"</div>";
   h+=anBar();
   h+='<div class="an-res">'+anBody(list)+'</div>';
   return h;
@@ -2121,7 +2126,7 @@ function tradeBodyHtml(t){
 
   /* 2. обстоятельства входа. Заполненное показываем, пустое собираем одной
      строкой внизу: видно, чего не хватает, но экран это не съедает */
-  const sf = window.__strat && !btOn() ? __strat.fact(t) : null;
+  const sf = window.__strat ? __strat.fact(t) : null;
   const ctx = (sf ? [sf] : []).concat(isSkip(t)
     ? [[T.fPair,t.pair],[T.fSetup,t.setup],[T.fBias,t.bias]]
     : [[T.fAccount,t.account],[T.fSession,t.session],[T.fBias,t.bias],
@@ -2400,7 +2405,7 @@ function openForm(id, presetDay){
 
   /* ---- сделка ---- */
   '<section class="fcard"><h4>'+T.tradeDefaultName+'</h4><div class="fbody">'+
-    (btOn()||!window.__strat?"":__strat.formField(t))+
+    (window.__strat?__strat.formField(t):"")+
     '<div class="frow">'+
       '<div class="f"><label>'+T.fPair+' <i>*</i></label>'+
         pick("pair",pairs,t?t.pair:(btOn()&&window.__btj?__btj.asset():""),T.fmOwnPairPh)+"</div>"+

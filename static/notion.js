@@ -400,8 +400,10 @@ async function run(){
   let job;
   try{
     job = await call("POST", "/api/notion/import",
-      Object.assign({url: link, title, mapping, tables: picked, options: opts},
-                    bt ? {kind: "bt", bt_run: title} : {ts: window.__strat ? __strat.sid() : ""}));
+      /* стратегія їде в обох режимах: у бектесті вона теж своя */
+      Object.assign({url: link, title, mapping, tables: picked, options: opts,
+                     ts: window.__strat ? __strat.sid() : ""},
+                    bt ? {kind: "bt", bt_run: title} : {}));
   }catch(e){
     /* Плашка відмови вже все сказала — вертаємо кнопку й мовчимо. */
     const b = document.querySelector("#ntRun");
