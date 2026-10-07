@@ -189,7 +189,9 @@ function menuHtml(where){
   h += list().map((s, i) => row(s.id, nm(s, i), '<i class="sw-dot" style="--c:' + color(s.id) + '"></i>',
                                 where === "ts" ? null : count(s.id), true)).join("");
   if (where !== "ts") h += '<div class="sw-sep"></div>' + row("all", D().all, dots(), count("all"));
-  h += '<div class="sw-sep"></div>'
+  /* Нову стратегію заводять тільки в «Моїй ТС»: там її одразу й описують.
+     У журналі, аналітиці, огляді й рахунках список лише перемикає. */
+  if (where === "ts") h += '<div class="sw-sep"></div>'
     + '<button type="button" class="sw-act sw-new" data-new="1">' + PLUS + esc(d.newOne) + "</button>";
   return h;
 }
