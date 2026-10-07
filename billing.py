@@ -35,9 +35,11 @@ import datetime
 import math
 
 import db
-from config import (AI_WINDOW_DAYS, CURRENCY, FREE_AI, FREE_BT, FREE_IMPORTS,
-                    FREE_TRADES, IMPORT_WINDOW_DAYS, PAID_AI, PLAN_DAYS,
-                    PRICES, PROMOS)
+from config import (AI_WINDOW_DAYS, BT_PACK_MAX, BT_PACK_MIN, CURRENCY,
+                    FREE_AI, FREE_BT, FREE_IMPORTS, FREE_TRADES,
+                    IMPORT_WINDOW_DAYS, PAID_AI, PLAN_DAYS, PRICES, PROMOS,
+                    bt_pack_cents)
+from config import CREEM_API_KEY, CREEM_BT_PACK_PRODUCT
 
 # Платні тарифи. 'free' — не тариф, а його відсутність.
 PLANS = ("month", "quarter", "year")
@@ -54,7 +56,8 @@ TRADES_LIMIT = "trades_limit"
 BT_LIMIT = "bt_limit"
 IMPORTS_LIMIT = "imports_limit"
 IMPORT_WINDOW = "import_window"
-BT_NOTION_LIMIT = "bt_notion_limit"  # три бази бектесту вже перенесені
+BT_NOTION = "bt_notion"              # бектест з Notion — тільки з підпискою
+BT_NOTION_LIMIT = "bt_notion_limit"  # свої бази бектесту вже перенесені
 # Безкоштовні звернення до моделі на місяць скінчились — тут пропонуємо
 # підписку. AI_CAP — інше: у стелю впирається вже той, хто платить, і
 # підписку йому пропонувати нема чого, йому кажемо зачекати.
@@ -216,6 +219,7 @@ def public(u):
     for k in ("trades_left", "bt_left", "imports_left", "import_days_left"):
         out.pop(k, None)
     out["prices"] = prices(u)
+    out["bt_pack"] = bt_pack(u)
     out["free"] = free_terms(u)
     # Чи є куди вести кнопку «керувати підпискою». Номер покупця з'являється
     # після першої оплати, тому в того, хто ще не платив, кабінету немає.
@@ -291,6 +295,68 @@ def promo_paid(uid):
         conn.commit()
 
 
+# ------------------------------------------- докупка бектест-перенесень ----
+
+def bt_pack(u=None):
+    """Умови докупки бектест-перенесень — для вікна з ползунком.
+
+    Ціни рахує сервер і віддає всі вісімнадцять разом: ползунок має
+    показувати суму одразу, без запиту на кожне смикання. Але ціну, яку
+    браузер узяв з цього списку, при оплаті ми не приймаємо — звідти
+    береться лише кількість, суму сервер рахує заново (bt_pack_cents).
+    """
+    row = _user(u) if u is not None else None
+    return {
+        "currency": CURRENCY,
+        "min": BT_PACK_MIN,
+        "max": BT_PACK_MAX,
+        # кількість → ціна в центах
+        "prices": {str(n): bt_pack_cents(n)
+                   for n in range(BT_PACK_MIN, BT_PACK_MAX + 1)},
+        # Стеля саме цієї людини: скільком базам вона вже господиня. Це не
+        # залишок (його ми не показуємо ніде) — це те, що вона докупила, і
+        # бачити це вона має право.
+        "cap": _cap(row, "bt_imports_cap", BT_PACK_MIN) if row else BT_PACK_MIN,
+        # Чи є куди вести кнопку. Немає ключа каси або товару — кнопка має
+        # чесно сказати «скоро», а не відкривати порожнечу.
+        "on": bool(CREEM_API_KEY and CREEM_BT_PACK_PRODUCT),
+    }
+
+
+def bt_pack_add(uid, n):
+    """Докупку оплачено — піднімаємо стелю бектест-перенесень на n.
+
+    Піднімаємо межу, а не зменшуємо витрачене, точно як bonus: так у рядку
+    видно і скільки людина перенесла, і скільки докупила. Куплене не
+    згорає — стеля не зменшується ніколи, окрім повернення грошей.
+    """
+    n = int(n or 0)
+    if n <= 0:
+        return state(uid)
+    with db.connect() as conn:
+        conn.execute("UPDATE users SET bt_imports_cap = bt_imports_cap + %s "
+                     "WHERE id=%s", (n, uid))
+        conn.commit()
+    return state(uid)
+
+
+def bt_pack_drop(uid, n):
+    """Гроші за докупку повернули — забираємо стелю назад.
+
+    Нижче BT_PACK_MIN не опускаємось: ті три бази дає сама підписка, за них
+    окремо не платили, і забирати їх при поверненні докупки нема за що.
+    """
+    n = int(n or 0)
+    if n <= 0:
+        return state(uid)
+    with db.connect() as conn:
+        conn.execute("UPDATE users SET bt_imports_cap = GREATEST(%s, "
+                     "bt_imports_cap - %s) WHERE id=%s",
+                     (BT_PACK_MIN, n, uid))
+        conn.commit()
+    return state(uid)
+
+
 # --------------------------------------------------------------- дозволи ----
 
 def can_add_trade(u, kind=""):
@@ -314,11 +380,11 @@ def can_add_trade(u, kind=""):
 def can_import(u, kind=""):
     """Перенесення з Notion: три рази і тільки в перші 30 днів.
 
-    Бектест-журнали рахуються окремо, своїм лічильником — див.
-    take_bt_import. Три бази дається всім, і без підписки теж (власник,
-    07.10.2026), тому ні вікно перших днів, ні стеля звичайних перенесень
-    на них не поширюються: бектест-архіви люди тягнуть сюди не в перший
-    тиждень і не замість свого журналу.
+    Бектест-журнали йдуть окремою дорогою. Вони тільки з підпискою, і
+    рахуються своїм лічильником — див. take_bt_import. Вікно перших днів і
+    стеля звичайних перенесень на них не діють: бектест-архіви люди тягнуть
+    сюди не в перший тиждень і не замість свого журналу. Зате стеля в них
+    своя, і коли вона скінчилась, перенесення докуповують (bt_pack).
     """
     row = _user(u)
     if not row:
@@ -326,7 +392,10 @@ def can_import(u, kind=""):
     if active(row):
         return True, ""
     if kind == "bt":
-        return True, ""
+        # Без підписки бектест-архіви не переносимо зовсім — тут плашка
+        # веде в тарифи, а не в докупку: докупати нема чого тому, в кого
+        # ще немає підписки.
+        return False, BT_NOTION
     if import_days_left(row) <= 0:
         return False, IMPORT_WINDOW
     if _int(row, "imports_used") >= _cap(row, "imports_cap", FREE_IMPORTS):
@@ -481,13 +550,19 @@ def take_import(u):
 def take_bt_import(u):
     """Нова база бектесту з Notion: дозвіл і списання одним запитом.
 
-    Стеля — bt_imports_cap (3), і вона однакова з підпискою й без неї
-    (власник, 07.10.2026). Рахуються саме нові бази: ту саму базу
-    перечитувати можна скільки завгодно, це вирішує app.py по bt_keys.
+    Стеля — bt_imports_cap: BT_PACK_MIN з підпискою, далі скільки докупили.
+    Рахуються саме нові бази: ту саму базу перечитувати можна скільки
+    завгодно, це вирішує app.py по bt_keys.
+
+    Докуплені перенесення не згорають — вони лежать у стелі, а стеля не
+    зменшується. Але скористатись ними можна тільки поки йде підписка: це
+    не окремий товар замість неї, а розширення того, що в неї входить.
     """
     row = _user(u)
     if not row:
         return False, NO_USER
+    if not active(row):
+        return False, BT_NOTION
     with db.connect() as conn:
         got = conn.execute(
             "UPDATE users SET bt_imports_used = bt_imports_used + 1 "

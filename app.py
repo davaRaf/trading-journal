@@ -2872,6 +2872,45 @@ class H(BaseHTTPRequestHandler):
             print("каса: відкрили, тариф=%s" % plan, flush=True)
             return self._json({"url": url})
 
+        # ---- докупка бектест-перенесень ----
+        if p == "/api/billing/bt-imports":
+            # Разова оплата: сума залежить від кількості. З браузера
+            # приходить тільки кількість — ціну сторінка теж знає, але вона
+            # з того самого списку, який сервер їй віддав, і приймати її
+            # назад не можна. Рахуємо заново.
+            uid = self._uid()
+            if not uid:
+                return self._json({"error": "auth required"}, 401)
+            if not isinstance(body, dict):
+                return self._json({"error": "bad json"}, 400)
+            # Порядок перевірок тут не випадковий: спершу те, що прислали
+            # (погане число — це 400 завжди, хоч каса ввімкнена, хоч ні),
+            # далі право купувати, і лише потім наші власні налаштування.
+            n = (body or {}).get("n")
+            cents = config.bt_pack_cents(n)
+            if not cents:
+                return self._json({"error": "кількість не та",
+                                   "code": "bad_n"}, 400)
+            # Докупка розширює підписку, а не заміняє її: без підписки
+            # перенесеннями все одно не скористатись (take_bt_import), тож
+            # і продавати їх тут нечесно.
+            if not billing.active(uid):
+                return self._json(billing.deny(uid, billing.BT_NOTION), 402)
+            if not creem.enabled() or not config.CREEM_BT_PACK_PRODUCT:
+                return self._json({"error": "оплата ще не ввімкнена",
+                                   "code": "no_pay"}, 503)
+            try:
+                u = db.get_user(uid) or {}
+                url = creem.pack_checkout(uid, int(n), cents,
+                                          email=u.get("email") or "")
+            except Exception as ex:
+                print("докупка:", ex, flush=True)
+                return self._json({"error": "не вдалося відкрити оплату",
+                                   "code": "pay_failed"}, 502)
+            print("докупка: каса на %d перенесень, %d центів, uid=%s"
+                  % (int(n), cents, uid), flush=True)
+            return self._json({"url": url, "n": int(n), "cents": cents})
+
         # ---- оплата криптою ----
         if p == "/api/billing/crypto":
             # Виставляємо рахунок: адреса, сума й скільки її чекати.
@@ -3003,8 +3042,30 @@ class H(BaseHTTPRequestHandler):
                 return self._json({"ok": True, "unknown_user": True})
 
             try:
-                if ev in ("subscription.active", "subscription.paid",
-                          "checkout.completed"):
+                # Разова докупка бектест-перенесень приходить тим самим
+                # checkout.completed, що й перша оплата підписки, — відрізнити
+                # їх можна тільки по нашій же позначці в metadata. Без цієї
+                # розвилки покупка за чотири євро видавала б місяць підписки.
+                pack = creem.pack_of(obj)
+                if pack:
+                    # Беремо рівно одну подію з оплати. Повторна доставка тієї
+                    # самої відсіяна вище (db.payment_once), а інші події про
+                    # ту саму покупку мають свої id — зарахувавши їх теж, ми
+                    # підняли б стелю двічі за одні гроші.
+                    if ev == "checkout.completed":
+                        billing.bt_pack_add(uid, pack)
+                        print("докупка: +%d перенесень для %s" % (pack, uid),
+                              flush=True)
+                    elif ev in ("refund.created", "dispute.created"):
+                        # Гроші пішли назад — стелю забираємо, підписку не
+                        # чіпаємо: за неї тут не платили.
+                        billing.bt_pack_drop(uid, pack)
+                        print("докупка: -%d перенесень у %s (%s)"
+                              % (pack, uid, ev), flush=True)
+                    else:
+                        print("докупка: подію %s пропустили" % ev, flush=True)
+                elif ev in ("subscription.active", "subscription.paid",
+                            "checkout.completed"):
                     plan = creem.plan_of(obj) or "month"
                     billing.apply_paid(uid, plan, creem.period_end(obj))
                     billing.promo_paid(uid)   # перша оплата — код відпрацював

@@ -22,8 +22,8 @@ import urllib.error
 import urllib.parse
 import urllib.request
 
-from config import (CREEM_API, CREEM_API_KEY, CREEM_PRODUCTS, CREEM_RETURN,
-                    CREEM_WEBHOOK_SECRET)
+from config import (CREEM_API, CREEM_API_KEY, CREEM_BT_PACK_PRODUCT,
+                    CREEM_PRODUCTS, CREEM_RETURN, CREEM_WEBHOOK_SECRET)
 
 UA = "StatsAI/1.0 (+https://statsai.xyz)"
 TIMEOUT = 20
@@ -99,6 +99,75 @@ def checkout(user_id, plan, price_set="std", email="", return_url="", discount="
     if not url:
         raise ValueError("Creem не повернув адресу каси: %s" % res)
     return url
+
+
+# Як ми позначаємо разову докупку бектест-перенесень у metadata каси.
+# Те саме слово читаємо назад з події (pack_of) — на ньому тримається
+# розвилка у вебхуку, бо тип події в разової оплати той самий, що в першої
+# оплати підписки.
+PACK_BT = "bt_imports"
+
+
+def pack_checkout(user_id, n, cents, email="", return_url=""):
+    """Каса на разову докупку бектест-перенесень.
+
+    Товар один на всі кількості, а ціну передаємо свою: custom_price — це
+    ціна за одиницю, тож беремо units=1 і кладемо туди всю суму. Інакше під
+    кожне з вісімнадцяти значень ползунка треба було б окремий товар.
+
+    Суму рахує той, хто кличе (config.bt_pack_cents), і рахує з кількості —
+    з браузера сюди ціна не доходить ніколи.
+    """
+    if not CREEM_BT_PACK_PRODUCT:
+        raise ValueError("немає товару під докупку бектест-перенесень")
+    n, cents = int(n), int(cents)
+    if n <= 0 or cents <= 0:
+        raise ValueError("кількість і сума мають бути додатні")
+    body = {
+        "product_id": CREEM_BT_PACK_PRODUCT,
+        "units": 1,
+        "custom_price": cents,
+        # Номер має бути свій на кожну покупку: та сама людина докуповує не
+        # один раз, а Creem по однаковому request_id віддає стару касу.
+        "request_id": "u%s-%s%d-%d" % (user_id, PACK_BT, n,
+                                       int(datetime.datetime.now().timestamp())),
+        "success_url": return_url or CREEM_RETURN,
+        "metadata": {"user_id": str(user_id), "kind": PACK_BT, "n": str(n)},
+    }
+    if email:
+        body["customer"] = {"email": email}
+    res = _post("/v1/checkouts", body)
+    url = res.get("checkout_url") or res.get("url")
+    if not url:
+        raise ValueError("Creem не повернув адресу каси: %s" % res)
+    return url
+
+
+def pack_of(obj):
+    """Скільки бектест-перенесень оплачено цією подією, або 0.
+
+    Нуль означає «це не докупка» — і тоді подію розбирають як підписку.
+    Розрізнити їх інакше не можна: разова оплата приходить тим самим
+    checkout.completed, що й перша оплата підписки, і без цієї перевірки
+    покупка за чотири євро видавала б місяць підписки.
+
+    Шукаємо в тих самих місцях, що й who(): metadata лежить то в самому
+    об'єкті, то в замовленні чи касі всередині нього.
+    """
+    for src in (obj, obj.get("order") or {}, obj.get("checkout") or {},
+                obj.get("subscription") or {}):
+        if not isinstance(src, dict):
+            continue
+        meta = src.get("metadata") or {}
+        if (meta.get("kind") or "") != PACK_BT:
+            continue
+        try:
+            n = int(meta.get("n") or 0)
+        except (TypeError, ValueError):
+            n = 0
+        if n > 0:
+            return n
+    return 0
 
 
 def verify(raw_body, signature):

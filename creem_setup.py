@@ -18,6 +18,12 @@
     py -3 creem_setup.py --go           # тестовий режим, створити
     py -3 creem_setup.py --live --go    # бойовий режим, створити
 
+Тарифи вже заведені, тому для нового разового товару (докупка
+бектест-перенесень) є --pack: тоді з усього списку береться лише він, і
+шість тарифних не задвоюються.
+
+    py -3 creem_setup.py --pack --live --go
+
 Ключ береться з .env (CREEM_API_KEY). Для тестового й бойового режимів
 ключі різні, тому перед --live його треба замінити.
 """
@@ -26,7 +32,7 @@ import sys
 import urllib.error
 import urllib.request
 
-from config import CURRENCY, PRICES
+from config import BT_PACK_ANCHORS, BT_PACK_MIN, CURRENCY, PRICES
 
 TEST_API = "https://test-api.creem.io"
 LIVE_API = "https://api.creem.io"
@@ -50,8 +56,17 @@ DESC = ("Підписка на журнал угод StatsAI. Угоди й бе
 RETURN_URL = "https://statsai.xyz/?paid=1"
 
 
+# Опис разового товару під докупку бектест-перенесень. Ціна в ньому стоїть
+# для кабінету й чека, але списується не вона: суму ми передаємо в касу самі
+# (custom_price), бо вона залежить від того, скільки перенесень узяли. Інакше
+# під кожне значення ползунка потрібен був би свій товар.
+PACK_DESC = ("Додаткові перенесення бектест-журналів з Notion у StatsAI. "
+             "Разова оплата, перенесення не згорають. Користуватись ними "
+             "можна поки діє підписка.")
+
+
 def products():
-    """Шість товарів у тому порядку, в якому їх зручно читати в кабінеті."""
+    """Сім товарів у тому порядку, в якому їх зручно читати в кабінеті."""
     out = []
     for kind in ("std", "early"):
         for plan in ("month", "quarter", "year"):
@@ -68,6 +83,18 @@ def products():
                     "tax_category": "saas",
                 },
             })
+    out.append({
+        "kind": "bt", "plan": "imports",
+        "body": {
+            "name": "StatsAI — перенесення бектесту",
+            "description": PACK_DESC,
+            "price": BT_PACK_ANCHORS[BT_PACK_MIN],
+            "currency": CURRENCY,
+            "billing_type": "onetime",
+            "tax_mode": "inclusive",
+            "tax_category": "saas",
+        },
+    })
     return out
 
 
@@ -90,6 +117,7 @@ def create(base, key, body):
 def main():
     live = "--live" in sys.argv
     go = "--go" in sys.argv
+    only_pack = "--pack" in sys.argv
     base = LIVE_API if live else TEST_API
 
     import os
@@ -101,13 +129,16 @@ def main():
     print()
 
     items = products()
-    print("%-22s %9s  %-20s %s" % ("назва", "ціна", "період", "набір"))
+    if only_pack:
+        # Тарифи вже стоять у кабінеті — заводимо тільки разовий товар.
+        items = [it for it in items if it["kind"] == "bt"]
+    print("%-30s %9s  %-20s %s" % ("назва", "ціна", "період", "набір"))
     print("-" * 72)
     for it in items:
         b = it["body"]
-        print("%-22s %6.2f %s  %-20s %s" % (
+        print("%-30s %6.2f %s  %-20s %s" % (
             b["name"], b["price"] / 100, b["currency"],
-            b["billing_period"], it["kind"]))
+            b.get("billing_period") or "разово", it["kind"]))
     print()
     print("податок: %s | категорія: %s" % (items[0]["body"]["tax_mode"],
                                            items[0]["body"]["tax_category"]))
@@ -128,10 +159,20 @@ def main():
         try:
             res = create(base, key, b)
         except urllib.error.HTTPError as ex:
-            print("  ПОМИЛКА %s — %s %.2f: %s" % (
-                ex.code, b["name"], b["price"] / 100,
-                ex.read().decode("utf-8", "replace")[:300]))
-            continue
+            # Разовий тип у їхніх документах зветься то «onetime», то
+            # «one-time». Пробуємо другий правопис, перш ніж здаватись.
+            if ex.code == 400 and b.get("billing_type") == "onetime":
+                b = dict(b, billing_type="one-time")
+                try:
+                    res = create(base, key, b)
+                except Exception as ex2:
+                    print("  ПОМИЛКА — %s: %s" % (b["name"], ex2))
+                    continue
+            else:
+                print("  ПОМИЛКА %s — %s %.2f: %s" % (
+                    ex.code, b["name"], b["price"] / 100,
+                    ex.read().decode("utf-8", "replace")[:300]))
+                continue
         except Exception as ex:
             print("  ПОМИЛКА — %s: %s" % (b["name"], ex))
             continue
