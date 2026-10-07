@@ -305,6 +305,10 @@ ALTER TABLE users ADD COLUMN IF NOT EXISTS free_bt_used INTEGER NOT NULL DEFAULT
 ALTER TABLE users ADD COLUMN IF NOT EXISTS free_bt_cap INTEGER NOT NULL DEFAULT 20;
 ALTER TABLE users ADD COLUMN IF NOT EXISTS imports_used INTEGER NOT NULL DEFAULT 0;
 ALTER TABLE users ADD COLUMN IF NOT EXISTS imports_cap INTEGER NOT NULL DEFAULT 3;
+-- Бектест-журнали з Notion для підписників: 3 бази, далі — докупити
+-- (стелю піднімає оплата або адмін, витрачене не чіпаємо).
+ALTER TABLE users ADD COLUMN IF NOT EXISTS bt_imports_used INTEGER NOT NULL DEFAULT 0;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS bt_imports_cap INTEGER NOT NULL DEFAULT 3;
 -- Стеля була 30, стала 20 (власники, 29.09.2026). ADD COLUMN IF NOT EXISTS
 -- на вже наявній колонці нічого не робить — DEFAULT у ній лишився б старий,
 -- і кожен новий акаунт знову заводився б з тридцяткою. Тому окремим рядком.

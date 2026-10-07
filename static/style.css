@@ -1647,7 +1647,7 @@ h1.ovh a.on::after{content:"";position:absolute;left:0;right:0;bottom:0;height:2
    і сховати треба заразом і їх. */
 :root[data-mode="bt"] a[data-v="day"],
 :root[data-mode="bt"] #toolsGrp,
-:root[data-mode="bt"] #conn{display:none}
+:root[data-mode="bt"] #telegramBtn{display:none}
 /* «Огляд» і «Журнал» у бектесті — всередині обраного журналу, у меню
    замість них один пункт «Журнали». Він є тільки в бектесті. */
 :root[data-mode="bt"] .nav .nav-row,
