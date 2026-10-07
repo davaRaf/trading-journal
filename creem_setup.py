@@ -128,6 +128,30 @@ def main():
     print("ключ:    %s" % ("є, %d символів" % len(key) if key else "НЕМАЄ"))
     print()
 
+    # Ключ перевіряємо до першого запиту й кажемо словами, що з ним не так.
+    # Інакше не-ASCII у ключі (а це означає, що підставили приклад із
+    # підказки, а не справжній ключ) вилітає з надр http як «'latin-1'
+    # codec can't encode», і за цим текстом не зрозуміти нічого.
+    if key:
+        try:
+            key.encode("ascii")
+        except UnicodeEncodeError:
+            print("Ключ містить не латинські символи — схоже, підставлено")
+            print("приклад із підказки, а не справжній ключ з кабінету Creem.")
+            return
+        if not key.startswith("creem_"):
+            print("Ключ не схожий на ключ Creem: вони починаються з creem_.")
+            return
+        test_key = key.startswith("creem_test_")
+        if live and test_key:
+            print("Режим бойовий, а ключ тестовий — бойова каса його не")
+            print("приймає. Візьми ключ з бойового кабінету Creem.")
+            return
+        if not live and not test_key:
+            print("Режим тестовий, а ключ бойовий. Так створяться справжні")
+            print("товари — додай --live, якщо саме цього й хочеш.")
+            return
+
     items = products()
     if only_pack:
         # Тарифи вже стоять у кабінеті — заводимо тільки разовий товар.
