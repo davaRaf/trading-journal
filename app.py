@@ -60,7 +60,6 @@ import ts_notion
 import ts_store
 import calendar_feed
 import tv_calendar
-import candles
 from calendar_feed import calendar_events, event_history
 from zoneinfo import ZoneInfo
 
@@ -557,11 +556,14 @@ def notion_add_source(conf, rec):
     return conf
 
 
-def add_trades(user_id, items, ts=""):
-    """Кладём пачку сделок в журнал. Вызывается из фонового потока импорта."""
+def add_trades(user_id, items, kind="", run="", ts=""):
+    """Кладём пачку сделок в журнал. Вызывается из фонового потока импорта.
+    kind="bt" — в бэктест; run — журнал бэктеста, если колонки под него не было."""
     batch = []
     for it in items:
-        if ts:
+        if kind == "bt":
+            it = dict(it, kind="bt", bt_run=it.get("bt_run") or run)
+        elif ts:
             it = dict(it, ts=ts)            # у ту стратегію, яку людина зараз бачить
         t = clean_trade(it, new_id())
         t["screenshots"] = it.get("screenshots") or []
@@ -909,6 +911,7 @@ def _billing_block(u):
         + kv("Сделки", e(pair("free_trades_used", "free_trades_cap", config.FREE_TRADES)))
         + kv("Бэктест", e(pair("free_bt_used", "free_bt_cap", config.FREE_BT)))
         + kv("Переносы", e(pair("imports_used", "imports_cap", config.FREE_IMPORTS)))
+        + kv("Бэктест из Notion", e(pair("bt_imports_used", "bt_imports_cap", 3)))
         + kv("Обращения к модели", e("%s из %s%s" % (
             billing.ai_used(u), billing.ai_cap(u),
             (" · окно до " + dt(u["ai_reset_at"])) if u["ai_reset_at"] else "")))
@@ -945,7 +948,8 @@ def _billing_block(u):
           '<span class=mute>бэктест</span><input id=bbt type=number placeholder="0" style="%s">'
           '<span class=mute>переносы</span><input id=bim type=number placeholder="0" style="%s">'
           '<span class=mute>обращения</span><input id=bai type=number placeholder="0" style="%s">'
-          '<button id=bbonus class=btn>Добавить</button></div>' % (inp, inp, inp, inp)
+          '<span class=mute>бэктест из Notion</span><input id=bbti type=number placeholder="0" style="%s">'
+          '<button id=bbonus class=btn>Добавить</button></div>' % (inp, inp, inp, inp, inp)
         + '<div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:14px">'
           '<button id=bearly class=btn>Цены как ранним</button>'
           '<button id=bstd class=btn>Обычные цены</button>'
@@ -969,7 +973,7 @@ def _billing_block(u):
           "brevoke.onclick=()=>{if(confirm('Снять подписку? Оплаченные дни пропадут.'))"
           "bill('revoke');};"
           "bbonus.onclick=()=>bill('bonus',{trades:+btr.value||0,bt:+bbt.value||0,"
-          "imports:+bim.value||0,ai:+bai.value||0});"
+          "imports:+bim.value||0,ai:+bai.value||0,bt_imports:+bbti.value||0});"
           "bearly.onclick=()=>bill('price',{price_plan:'early'});"
           "bstd.onclick=()=>bill('price',{price_plan:'std'});"
           "ballow.onclick=()=>bill('allow-ip',{off:%s});</script>" % (
@@ -1107,7 +1111,7 @@ def blank_filler(user_id, rows):
     return fill
 
 
-def start_import(user_id, tables, mapping, opts, ts=""):
+def start_import(user_id, tables, mapping, opts, kind="", run="", ts=""):
     jid = secrets.token_urlsafe(6)
     job = notion.Job(jid)
     job.user_id = user_id          # чтобы чужое задание нельзя было подсмотреть
@@ -1119,12 +1123,14 @@ def start_import(user_id, tables, mapping, opts, ts=""):
     # что уже было: сделки в журнале плюс те, что человек из него убрал.
     # Отпечатки нужны, чтобы узнать сделку, записанную в другой базе Notion, —
     # там у неё свой notion_id, и он не совпадёт
-    rows = db.list_trades(user_id)
+    # бектест звіряємо з бектестом: та сама угода в реальному журналі —
+    # не причина її не перенести
+    rows = db.list_trades(user_id, kind)
     known, seen, marks = db.import_seen(user_id, rows)
     th = threading.Thread(
         target=npub.run_public_import,
         args=(job, tables, mapping, opts, SHOTS, known, seen,
-              lambda items: add_trades(user_id, items, ts), marks),
+              lambda items: add_trades(user_id, items, kind, run, ts), marks),
         kwargs={"fill": blank_filler(user_id, rows)},
         daemon=True)
     th.start()
@@ -2523,55 +2529,6 @@ class H(BaseHTTPRequestHandler):
                     out["invoice"] = crypto_pay.public(inv)
             return self._json(out)
 
-        # ---- свічки для перемотки (candles.py) ----
-        if p == "/api/candles/symbols":
-            if not self._uid():
-                return self._json({"error": "auth required"}, 401)
-            return self._json({"symbols": candles.symbols(),
-                               "sources": candles.source_list(),
-                               "tfs": sorted(candles.TF, key=candles.TF.get)})
-
-        if p == "/api/candles":
-            uid = self._uid()
-            if not uid:
-                return self._json({"error": "auth required"}, 401)
-            q = parse_qs(urlparse(self.path).query)
-            sym = (q.get("symbol", [""])[0] or "").upper()
-            tf = q.get("tf", ["15m"])[0]
-            src = q.get("source", [""])[0] or None
-            try:
-                since = datetime.date.fromisoformat(q.get("from", [""])[0])
-                until = datetime.date.fromisoformat(q.get("to", [""])[0])
-            except ValueError:
-                return self._json({"error": "bad dates"}, 400)
-            # Кожен незакешований день — це похід у мережу, а фід відповідає
-            # неквапливо. Тому за раз віддаємо щонайбільше місяць: браузер
-            # довантажує наступний шматок, поки людина дивиться поточний.
-            if (until - since).days > 31:
-                until = since + datetime.timedelta(days=31)
-            try:
-                src = candles.pick_source(sym, src)
-                rows = candles.bars(sym, tf, since, until, src)
-            except ValueError as ex:
-                return self._json({"error": str(ex)}, 400)
-            except candles.FeedError as ex:
-                # Джерело мовчить — це не наша помилка й не порожня історія:
-                # браузер має сказати «спробуйте ще раз», а не малювати
-                # порожній графік.
-                print("свічки: %s" % ex, flush=True)
-                # Текст потрібен на екрані: «Dukascopy не відповідає» — це
-                # порада змінити джерело, а «feed unavailable» — загадка.
-                return self._json({"error": str(ex), "source": src,
-                                   "cooling": candles.cooling(src)}, 503)
-            digits = candles.SYMBOLS[sym]["digits"]
-            out = [[int(b[0]), round(b[1], digits), round(b[2], digits),
-                    round(b[3], digits), round(b[4], digits), round(b[5], 2)]
-                   for b in rows]
-            return self._json({"symbol": sym, "tf": tf, "source": src,
-                               "digits": digits,
-                               "from": since.isoformat(), "to": until.isoformat(),
-                               "bars": out})
-
         if p == "/api/calendar":
             # Розділу «Новини» віддаємо рівно один робочий тиждень: усередині
             # ми знаємо більше (фід плюс дні вперед з TradingView), і без
@@ -2818,13 +2775,6 @@ class H(BaseHTTPRequestHandler):
                 # гість без позначок бачить стартову сторінку
                 return self._landing()
             return self._file(os.path.join(STATIC, "index.html"), "text/html; charset=utf-8")
-
-        # Перемотка — окремий екран на весь монітор, а не розділ журналу:
-        # графік із панеллю інструментів не вміщається поряд із бічним меню.
-        # Сторінку віддаємо всім, а дані за нею вимагають входу, і вона сама
-        # відправить гостя на /login, коли /api/candles відповість 401.
-        if p == "/replay":
-            return self._file(os.path.join(STATIC, "replay.html"), "text/html; charset=utf-8")
 
         if p == "/landing":
             # стартова сторінка й для того, хто вже увійшов, — подивитись, як її бачать гості
@@ -3128,11 +3078,12 @@ class H(BaseHTTPRequestHandler):
                 ts_store.put(u["id"], ts)
                 return self._json({"ok": True, "day": day})
             if act == "bonus":
-                if not any(num(k) for k in ("trades", "bt", "imports", "ai")) and note is None:
+                if not any(num(k) for k in ("trades", "bt", "imports", "ai", "bt_imports")) and note is None:
                     return self._json({"error": "нечего добавлять"}, 400)
                 return self._json(billing.bonus(u["id"], trades=num("trades"),
                                                 bt=num("bt"), imports=num("imports"),
-                                                ai=num("ai"), note=note))
+                                                ai=num("ai"), note=note,
+                                                bt_imports=num("bt_imports")))
             if act == "price":
                 plan = str(body.get("price_plan") or "").strip()
                 own = body.get("own_cents")
@@ -3997,22 +3948,40 @@ class H(BaseHTTPRequestHandler):
             if not tables or not mapping.get("pair"):
                 return self._json({"error": "потрібні таблиця і колонка з інструментом"}, 400)
             # Три перенесення в перші 30 днів — далі тільки з підпискою.
+            # Бектест з Notion рахується окремо: три бази без підписки теж,
+            # і вікно перших днів на них не діє (власник, 07.10.2026).
             # Дивимось до запуску потоку: скасувати його потім нічим.
-            ok, why = billing.can_import(uid)
+            kind = "bt" if body.get("kind") == "bt" else ""
+            ok, why = billing.can_import(uid, kind)
             if not ok:
                 return self._json(billing.deny(uid, why), 402)
             conf = notion_conf(uid)
             title = body.get("title") or ""
-            conf.update({"url": url, "mapping": mapping, "title": title})
+            run = (str(body.get("bt_run") or "").strip() or title.strip() or "Notion")[:80]
+            # Ліміт бектесту рахує нові бази. Ту саму базу (ті самі таблиці
+            # Notion) перечитати, щоб підтягнути нові угоди, можна скільки
+            # завгодно — і після «Відв'язати» теж: список не чиститься.
+            if kind == "bt":
+                bkey = ",".join(sorted(str(t["collection"]) for t in tables))
+                if bkey not in (conf.get("bt_keys") or []):
+                    ok, why = billing.take_bt_import(uid)
+                    if not ok:
+                        return self._json(billing.deny(uid, why), 402)
+                    conf["bt_keys"] = (conf.get("bt_keys") or []) + [bkey]
+            if not kind:
+                conf.update({"url": url, "mapping": mapping, "title": title})
             tsid = str(body.get("ts") or "")
-            tsid = tsid if tsid.isdigit() and tsid != "0" else ""
-            job = start_import(uid, tables, mapping, body.get("options") or {}, tsid)
-            billing.spend_import(uid)
+            tsid = tsid if tsid.isdigit() and tsid != "0" and not kind else ""
+            job = start_import(uid, tables, mapping, body.get("options") or {}, kind, run, tsid)
+            # Бектест уже списаний своїм лічильником (take_bt_import вище) —
+            # інакше одна база бектесту забирала б ще й перенесення журналу.
+            if not kind:
+                billing.spend_import(uid)
             when = datetime.datetime.now().strftime("%Y-%m-%d %H:%M")
             # запись про базу кладём до того, как перенос закончится: браузер
             # могут закрыть посреди работы, а сделки уже поедут в журнал
             notion_add_source(conf, {"id": job.batch, "url": url, "title": title,
-                                     "when": when, "mapping": mapping})
+                                     "when": when, "mapping": mapping, "kind": kind})
             conf["last"] = {"id": job.batch, "count": 0, "when": when}
             notion_save(uid, conf)
             return self._json(job.snapshot(), 202)
