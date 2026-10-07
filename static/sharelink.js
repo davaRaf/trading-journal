@@ -245,6 +245,11 @@ function tsSnapshot(){
    базі), а не з угод. */
 /* активи розбору у форму знімка; day — угоди того дня, щоб підписати
    результат і показати їх під активом */
+/* ключі угод активу розбору: у зв'язки — кожен її актив */
+function assetKeys(a){
+  const norm = x => String(x || "").toUpperCase().replace(/[^A-Z0-9]/g, "");
+  return (a.legs ? a.legs.map(l => l.nm) : [a.nm]).map(norm).filter(Boolean);
+}
 function reviewAssets(keep, day){
   const norm = x => String(x || "").toUpperCase().replace(/[^A-Z0-9]/g, "");
   /* У зв'язки скріни й рівні лежать по активах — у знімок кладемо їх
@@ -252,24 +257,24 @@ function reviewAssets(keep, day){
   const legs = (a, get) => a.legs
     ? a.legs.flatMap(l => (get(l) || []).map(x => Object.assign({}, x, {leg: l.nm})))
     : (get(a) || []);
-  const tag = (x, k) => x.leg ? x.leg + (x[k] ? " · " + x[k] : "") : (x[k] || "");
   return keep.map(a => {
-    const keys = (a.legs ? a.legs.map(l => l.nm) : [a.nm]).map(norm).filter(Boolean);
+    const keys = assetKeys(a);
     const mine = keys.length ? day.filter(t => keys.indexOf(norm(t.pair)) >= 0) : [];
     const st = mine.length ? calc(mine) : null;
     return {
       nm: a.nm || "",
+      legs: a.legs ? a.legs.map(l => l.nm) : undefined,
       side: a.side || "",
       why: a.why || "",
       shots: legs(a, o => o.shots).filter(x => x.file)
-        .map(x => ({tf: tag(x, "tf"), file: x.file, note: (x.note || "").trim()})),
+        .map(x => ({tf: x.tf || "", leg: x.leg || "", file: x.file, note: (x.note || "").trim()})),
       levels: legs(a, o => o.levels).filter(l => l.p || l.t || l.n || l.did)
-        .map(l => ({p: l.p || "", t: tag(l, "t"), n: l.n || "", did: l.did || "", cls: l.dcls || ""})),
+        .map(l => ({p: l.p || "", t: l.t || "", leg: l.leg || "", n: l.n || "", did: l.did || "", cls: l.dcls || ""})),
       plans: (a.plans || []).map((pl, i) => ({k: i ? "Б" : "A", tx: (pl || {}).tx || ""}))
         .filter(pl => pl.tx),
       eve: {text: ((a.eve || {}).text) || "",
             shots: legs(a, o => (o.eve || {}).shots).filter(x => x.file)
-              .map(x => ({tf: tag(x, "tf"), file: x.file, note: (x.note || "").trim()}))},
+              .map(x => ({tf: x.tf || "", leg: x.leg || "", file: x.file, note: (x.note || "").trim()}))},
       marks: {match: (a.marks || {}).match || "", hold: (a.marks || {}).hold || ""},
       net: st ? st.net : null,
       trades: mine.map(tradeDetail),
@@ -289,7 +294,7 @@ function reviewSnapshot(dk, pick){
   const norm = x => String(x || "").toUpperCase().replace(/[^A-Z0-9]/g, "");
   const day = sortAsc(S.all.filter(t => dayKey(t) === dk));
   /* цифри зверху — по тих активах, якими ділимось, а не по всьому дню */
-  const names = keep.map(a => norm(a.nm)).filter(Boolean);
+  const names = [].concat(...keep.map(assetKeys));
   const mineAll = names.length
     ? day.filter(t => names.indexOf(norm(t.pair)) >= 0) : day;
   const d = new Date(dk + "T00:00");
@@ -334,7 +339,7 @@ function rvWeekSnapshot(wk, pick){
            + "-" + String(last.getDate()).padStart(2, "0");
   const days = sortAsc(S.all.filter(t => { const k = dayKey(t); return k >= wk && k <= to; }));
   /* цифри зверху — по тих активах, якими ділимось, а не по всьому тижню */
-  const names = keep.map(a => norm(a.nm)).filter(Boolean);
+  const names = [].concat(...keep.map(assetKeys));
   const mineAll = names.length
     ? days.filter(t => names.indexOf(norm(t.pair)) >= 0) : days;
 

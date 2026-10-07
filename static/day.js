@@ -115,7 +115,8 @@ function blankAsset(nm, fromTs){
 function fixAsset(a){
   a.shots = a.shots || []; a.levels = a.levels || []; a.plans = a.plans || [{}, {}];
   a.eve = a.eve || {}; a.eve.shots = a.eve.shots || []; a.marks = a.marks || {};
-  if (Array.isArray(a.legs)) a.legs.forEach(fixLeg);
+  /* назву зв'язки завжди збираємо з її активів: «GER40 + EU50» */
+  if (Array.isArray(a.legs)){ a.legs.forEach(fixLeg); a.nm = a.legs.map(l => l.nm).join(" + "); }
   return a;
 }
 /* Зв'язка (SMT): одна картка на кілька активів, які дивляться разом —
@@ -123,7 +124,7 @@ function fixAsset(a){
    спільні: висновок по зв'язці один. А скріни й рівні в кожного активу
    свої — ціни в них різні, спільні рівні нічого б не значили. */
 function blankBundle(names){
-  const a = blankAsset(names.join(" · "));
+  const a = blankAsset(names.join(" + "));
   a.legs = names.map(nm => fixLeg({nm: nm}));
   return a;
 }
@@ -547,7 +548,7 @@ function bundles(){
 function bundlesGrp(taken){
   const d = D(), list = bundles();
   const chips = list.map((b, k) => {
-    const nm = b.join(" · ");
+    const nm = b.join(" + ");
     return '<span class="dv-bchip"><button type="button" onclick="__dv.addBundle(' + k + ')"'
       + (taken[normPair(nm)] ? " disabled" : "") + ">" + esc(b.join(" + ")) + "</button>"
       + '<button type="button" class="x" title="' + esc(d.dropBundle) + '" aria-label="' + esc(d.dropBundle)
@@ -1257,8 +1258,10 @@ window.__dv = {
   saveBundle(){
     const inp = document.getElementById("dvBundle");
     const seen = {};
-    const names = ((inp && inp.value) || "").toUpperCase().split(/[\s+,;/&·]+/)
-      .map(s => s.trim()).filter(s => s && !seen[normPair(s)] && (seen[normPair(s)] = 1)).slice(0, 4);
+    /* ділимо тільки по «+», комі, «;», «&», «·»: «GER 40» — один актив
+       (пробіл прибираємо), а «EUR/USD» не розрізаємо */
+    const names = ((inp && inp.value) || "").toUpperCase().split(/[+,;&·]+/)
+      .map(s => s.replace(/\s+/g, "")).filter(s => s && !seen[normPair(s)] && (seen[normPair(s)] = 1)).slice(0, 4);
     if (names.length < 2){ if (inp){ inp.focus(); inp.classList.add("bad"); } return; }
     const key = normPair(names.join(""));
     const list = bundles().filter(b => normPair(b.join("")) !== key);

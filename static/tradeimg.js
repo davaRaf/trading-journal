@@ -170,7 +170,7 @@ async function shotsOf(t, limit, srcOf){
   const out = [];
   for (const s of list){
     const im = await loadImg((srcOf || shotSrc)(s));
-    if (im) out.push({im, tf: s.tf || "", note: (s.note || "").trim()});
+    if (im) out.push({im, tf: (s.leg ? s.leg + (s.tf ? " · " + s.tf : "") : s.tf) || "", note: (s.note || "").trim()});
   }
   return out;
 }
@@ -696,7 +696,7 @@ async function buildReviewImage(data){
           ctx.font = "500 23px " + MONO; ctx.fillStyle = C.text;
           ctx.fillText(l.p || "—", ix, iy + 22);
           ctx.font = "22px " + SANS; ctx.fillStyle = C.dim;
-          ctx.fillText([l.t, l.n].filter(Boolean).join(" · "), ix + 150, iy + 22);
+          ctx.fillText([l.leg, l.t, l.n].filter(Boolean).join(" · "), ix + 150, iy + 22);
           if ((l.did || "").trim()){
             ctx.fillStyle = l.cls === "ok" ? C.up : l.cls === "no" ? C.down : C.faint;
             ctx.textAlign = "right";
