@@ -247,22 +247,29 @@ function tsSnapshot(){
    результат і показати їх під активом */
 function reviewAssets(keep, day){
   const norm = x => String(x || "").toUpperCase().replace(/[^A-Z0-9]/g, "");
+  /* У зв'язки скріни й рівні лежать по активах — у знімок кладемо їх
+     одним списком, з назвою активу в підписі. */
+  const legs = (a, get) => a.legs
+    ? a.legs.flatMap(l => (get(l) || []).map(x => Object.assign({}, x, {leg: l.nm})))
+    : (get(a) || []);
+  const tag = (x, k) => x.leg ? x.leg + (x[k] ? " · " + x[k] : "") : (x[k] || "");
   return keep.map(a => {
-    const mine = a.nm ? day.filter(t => norm(t.pair) === norm(a.nm)) : [];
+    const keys = (a.legs ? a.legs.map(l => l.nm) : [a.nm]).map(norm).filter(Boolean);
+    const mine = keys.length ? day.filter(t => keys.indexOf(norm(t.pair)) >= 0) : [];
     const st = mine.length ? calc(mine) : null;
     return {
       nm: a.nm || "",
       side: a.side || "",
       why: a.why || "",
-      shots: (a.shots || []).filter(x => x.file)
-        .map(x => ({tf: x.tf || "", file: x.file, note: (x.note || "").trim()})),
-      levels: (a.levels || []).filter(l => l.p || l.t || l.n || l.did)
-        .map(l => ({p: l.p || "", t: l.t || "", n: l.n || "", did: l.did || "", cls: l.dcls || ""})),
+      shots: legs(a, o => o.shots).filter(x => x.file)
+        .map(x => ({tf: tag(x, "tf"), file: x.file, note: (x.note || "").trim()})),
+      levels: legs(a, o => o.levels).filter(l => l.p || l.t || l.n || l.did)
+        .map(l => ({p: l.p || "", t: tag(l, "t"), n: l.n || "", did: l.did || "", cls: l.dcls || ""})),
       plans: (a.plans || []).map((pl, i) => ({k: i ? "Б" : "A", tx: (pl || {}).tx || ""}))
         .filter(pl => pl.tx),
       eve: {text: ((a.eve || {}).text) || "",
-            shots: (((a.eve || {}).shots) || []).filter(x => x.file)
-              .map(x => ({tf: x.tf || "", file: x.file, note: (x.note || "").trim()}))},
+            shots: legs(a, o => (o.eve || {}).shots).filter(x => x.file)
+              .map(x => ({tf: tag(x, "tf"), file: x.file, note: (x.note || "").trim()}))},
       marks: {match: (a.marks || {}).match || "", hold: (a.marks || {}).hold || ""},
       net: st ? st.net : null,
       trades: mine.map(tradeDetail),

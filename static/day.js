@@ -115,7 +115,33 @@ function blankAsset(nm, fromTs){
 function fixAsset(a){
   a.shots = a.shots || []; a.levels = a.levels || []; a.plans = a.plans || [{}, {}];
   a.eve = a.eve || {}; a.eve.shots = a.eve.shots || []; a.marks = a.marks || {};
+  if (Array.isArray(a.legs)) a.legs.forEach(fixLeg);
   return a;
+}
+/* Зв'язка (SMT): одна картка на кілька активів, які дивляться разом —
+   US100 і US500, EURUSD і GBPUSD. Напрям, причина, сценарії й оцінки —
+   спільні: висновок по зв'язці один. А скріни й рівні в кожного активу
+   свої — ціни в них різні, спільні рівні нічого б не значили. */
+function blankBundle(names){
+  const a = blankAsset(names.join(" · "));
+  a.legs = names.map(nm => fixLeg({nm: nm}));
+  return a;
+}
+function fixLeg(l){
+  l.shots = l.shots || []; l.levels = l.levels || [{}, {}];
+  l.eve = l.eve || {}; l.eve.shots = l.eve.shots || [];
+  return l;
+}
+/* Ключі угод картки: у зв'язки — усі її активи, у звичайної — назва. */
+function legKeys(a){
+  return (a.legs ? a.legs.map(l => l.nm) : [a.nm]).map(normPair).filter(Boolean);
+}
+/* Шматок картки по кожному активу зв'язки, з підписом; у звичайної
+   картки — той самий шматок один раз, як і було. */
+function perLeg(a, i, fn){
+  if (!a.legs) return fn("assets." + i, a);
+  return a.legs.map((l, j) => '<div class="dv-leg"><div class="dv-legnm">' + esc(l.nm) + "</div>"
+    + fn("assets." + i + ".legs." + j, l) + "</div>").join("");
 }
 /* Запис, зроблений до появи активів, — це один актив без назви.
    Загортаємо його в картку, нічого не втрачаючи. */
@@ -499,6 +525,7 @@ function assetPop(){
         + (taken[normPair(nm)] ? " disabled" : "") + ">" + esc(nm) + "</button>").join("")
     : '<span class="none">' + esc(fromTs ? d.noTsAssets : d.noJournalAssets) + "</span>";
   return '<div class="dv-pop">'
+    + bundlesGrp(taken)
     + '<div class="grp"><div class="lbl"><em>◆</em>' + esc(d.fromTs) + "</div>"
     +   '<div class="chips">' + chips(src.ts, true) + "</div></div>"
     + '<div class="grp"><div class="lbl">' + esc(d.fromJournal) + "</div>"
@@ -506,6 +533,36 @@ function assetPop(){
     + '<div class="grp"><div class="lbl">' + esc(d.ownAsset) + '</div><div class="own">'
     +   '<input id="dvOwn" placeholder="' + esc(d.phOwnAsset) + '" aria-label="' + esc(d.ownAsset) + '">'
     +   '<button type="button" onclick="__dv.addOwn()">' + esc(d.add) + "</button></div></div>"
+    + "</div>";
+}
+
+/* Свої зв'язки людини. Готових не пропонуємо: які активи дивитись разом —
+   рішення самого трейдера. Лежать у налаштуваннях акаунта (Prefs → сервер),
+   тож на телефоні й комп'ютері ті самі. */
+let bundleNew = false;                  /* відкрите поле «своя зв'язка» */
+function bundles(){
+  const b = window.Prefs && Prefs.get("bundles");
+  return Array.isArray(b) ? b.filter(x => Array.isArray(x) && x.length > 1) : [];
+}
+function bundlesGrp(taken){
+  const d = D(), list = bundles();
+  const chips = list.map((b, k) => {
+    const nm = b.join(" · ");
+    return '<span class="dv-bchip"><button type="button" onclick="__dv.addBundle(' + k + ')"'
+      + (taken[normPair(nm)] ? " disabled" : "") + ">" + esc(b.join(" + ")) + "</button>"
+      + '<button type="button" class="x" title="' + esc(d.dropBundle) + '" aria-label="' + esc(d.dropBundle)
+      + '" onclick="__dv.dropBundle(' + k + ')">×</button></span>';
+  }).join("");
+  return '<div class="grp"><div class="lbl"><em>⇄</em>' + esc(d.bundles) + "</div>"
+    + '<div class="chips">' + chips
+    +   (bundleNew ? "" : '<button type="button" class="dv-bnew" onclick="__dv.bundleNew()">+ ' + esc(d.newBundle) + "</button>")
+    + "</div>"
+    + (!list.length && !bundleNew ? '<div class="dv-bhint">' + esc(d.noBundles) + "</div>" : "")
+    + (bundleNew
+        ? '<div class="own" style="margin-top:8px"><input id="dvBundle" placeholder="' + esc(d.phBundle)
+          + '" aria-label="' + esc(d.newBundle) + '" onkeydown="if(event.key===\'Enter\')__dv.saveBundle()">'
+          + '<button type="button" onclick="__dv.saveBundle()">' + esc(d.saveBundle) + "</button></div>"
+        : "")
     + "</div>";
 }
 
@@ -526,16 +583,16 @@ function biasRead(a){
     + '<div class="dv-say">' + (a.why ? esc(a.why).replace(/\n/g, "<br>") : "—") + "</div>";
 }
 
-function levelsEd(i){
-  const d = D(), base = "assets." + i + ".levels.";
-  const rows = (N.assets[i].levels || []).map((l, j) =>
+function levelsEd(path, o){
+  const d = D(), base = path + ".levels.";
+  const rows = (o.levels || []).map((l, j) =>
     '<div class="dv-lvr"><span class="p">' + ed(base + j + ".p", d.phPrice) + "</span>"
     + '<span class="t">' + ed(base + j + ".t", d.phWhat) + "</span>"
     + '<span class="n">' + ed(base + j + ".n", d.phWhy2) + "</span>"
-    + '<button class="dv-add" style="margin:0" onclick="__dv.delLevel(' + i + "," + j + ')">×</button>'
+    + '<button class="dv-add" style="margin:0" onclick="__dv.delLevel(\'' + path + "'," + j + ')">×</button>'
     + "</div>").join("");
   return '<div class="dv-lv">' + rows + "</div>"
-    + '<button class="dv-add" onclick="__dv.addLevel(' + i + ')">+ ' + esc(d.addLevel) + "</button>";
+    + '<button class="dv-add" onclick="__dv.addLevel(\'' + path + '\')">+ ' + esc(d.addLevel) + "</button>";
 }
 function levelsRead(a){
   const list = (a.levels || []).filter(l => l.p || l.t || l.n);
@@ -545,14 +602,14 @@ function levelsRead(a){
     + '<span class="t">' + esc(l.t || "") + "</span>"
     + '<span class="n">' + esc(l.n || "") + "</span></div>").join("") + "</div>";
 }
-function levelsDone(i){
-  const d = D(), base = "assets." + i + ".levels.";
-  const list = N.assets[i].levels || [];
+function levelsDone(path, o){
+  const d = D(), base = path + ".levels.";
+  const list = o.levels || [];
   if (!list.some(l => l.p || l.t)) return '<div class="hint">—</div>';
   return '<div class="dv-lvd">' + list.map((l, j) =>
     '<div class="dv-lvr2 ' + (l.dcls || "") + '"><span class="p">' + esc(l.p || "—") + "</span>"
     + '<button class="dv-hit" type="button" title="' + esc(d.hitTip)
-    + '" onclick="__dv.hit(' + i + "," + j + ')"></button>'
+    + '" onclick="__dv.hit(\'' + path + "'," + j + ')"></button>'
     + '<span class="n">' + ed(base + j + ".did", d.phDid) + "</span></div>").join("")
     + "</div>";
 }
@@ -585,11 +642,11 @@ function dayTrades(){
   });
 }
 function tradesFor(a){
-  const key = normPair(a.nm);
-  return key ? dayTrades().filter(t => normPair(t.pair) === key) : [];
+  const keys = legKeys(a);
+  return keys.length ? dayTrades().filter(t => keys.indexOf(normPair(t.pair)) >= 0) : [];
 }
 function tradesOrphan(){
-  const keys = {}; (N.assets || []).forEach(a => { if (a.nm) keys[normPair(a.nm)] = 1; });
+  const keys = {}; (N.assets || []).forEach(a => legKeys(a).forEach(k => keys[k] = 1));
   return dayTrades().filter(t => !keys[normPair(t.pair)]);
 }
 
@@ -811,7 +868,8 @@ function assetHead(a, i, extra){
   const cls = a.side === d.short ? "short" : a.side === d.long ? "long" : "";
   return '<div class="dv-ah">'
     + (N.closed ? "" : '<span class="lab">' + esc(d.morningCharts) + "</span>")
-    + '<span class="nm">' + (N.closed ? esc(a.nm || d.phAsset) : ed("assets." + i + ".nm", d.phAsset)) + "</span>"
+    + '<span class="nm">' + (N.closed || a.legs ? esc(a.nm || d.phAsset) : ed("assets." + i + ".nm", d.phAsset)) + "</span>"
+    + (a.legs ? '<span class="from bundle">' + esc(d.bundleTag) + "</span>" : "")
     + (a.ts ? '<span class="from">' + esc(d.fromTsTag) + "</span>" : "")
     + (a.side ? '<span class="tag ' + cls + '">' + esc(a.side) + "</span>" : "")
     + '<span class="sp"></span>' + (extra || "")
@@ -823,16 +881,16 @@ function cardOpen(a, i){
   const d = D();
   return '<div class="dv-card">' + assetHead(a, i)
     + '<div class="dv-cb">'
-    +   '<div class="dv-blk">' + pt("01", d.p1) + shotsRow("assets." + i + ".shots", d.shotPlan) + "</div>"
+    +   '<div class="dv-blk">' + pt("01", d.p1) + perLeg(a, i, p => shotsRow(p + ".shots", d.shotPlan)) + "</div>"
     +   '<div class="dv-blk">' + pt("02", d.p2) + biasEd(i) + "</div>"
-    +   '<div class="dv-blk">' + pt("03", d.p3) + levelsEd(i) + "</div>"
+    +   '<div class="dv-blk">' + pt("03", d.p3) + perLeg(a, i, levelsEd) + "</div>"
     +   '<div class="dv-blk">' + pt("04", d.p4) + plansEd(i) + "</div>"
     + "</div></div>";
 }
 
 function ready(){
   return (N.assets || []).some(a => a.side || ((a.plans || [])[0] && a.plans[0].tx)
-    || (a.levels || []).some(l => l.p) || (a.shots || []).length);
+    || [a].concat(a.legs || []).some(o => (o.levels || []).some(l => l.p) || (o.shots || []).length));
 }
 
 function vOpen(){
@@ -871,16 +929,16 @@ function cardClosed(a, i){
     + '<div class="dv-two">'
     +   '<div class="col left">'
     +     '<div class="dv-colhead"><b class="plan">' + esc(d.morning) + " · " + esc(d.planTag) + "</b></div>"
-    +     '<div class="dv-blk">' + pt("01", d.p1) + shotsRow("assets." + i + ".shots", d.shotPlan, true) + "</div>"
+    +     '<div class="dv-blk">' + pt("01", d.p1) + perLeg(a, i, p => shotsRow(p + ".shots", d.shotPlan, true)) + "</div>"
     +     '<div class="dv-blk">' + pt("02", d.p2) + biasRead(a) + "</div>"
-    +     '<div class="dv-blk">' + pt("03", d.p3) + levelsRead(a) + "</div>"
+    +     '<div class="dv-blk">' + pt("03", d.p3) + perLeg(a, i, (p, o) => levelsRead(o)) + "</div>"
     +     '<div class="dv-blk">' + pt("04", d.p4) + plansRead(a) + "</div>"
     +   "</div>"
     +   '<div class="col">'
     +     '<div class="dv-colhead"><b class="fact">' + esc(d.evening) + " · " + esc(d.factTag) + "</b></div>"
-    +     '<div class="dv-blk">' + pt("01", d.q1, true) + shotsRow("assets." + i + ".eve.shots", d.shotFact) + "</div>"
+    +     '<div class="dv-blk">' + pt("01", d.q1, true) + perLeg(a, i, p => shotsRow(p + ".eve.shots", d.shotFact)) + "</div>"
     +     '<div class="dv-blk">' + pt("02", d.q2, true) + ed("assets." + i + ".eve.text", d.phFact, true) + "</div>"
-    +     '<div class="dv-blk">' + pt("03", d.q3, true) + levelsDone(i) + "</div>"
+    +     '<div class="dv-blk">' + pt("03", d.q3, true) + perLeg(a, i, levelsDone) + "</div>"
     +     '<div class="dv-blk">' + pt("04", d.q4, true)
     +        tradesHtml(list, d.tradesAuto) + "</div>"
     +     '<div class="dv-blk">' + pt("05", d.q5, true) + marksEd(i) + "</div>"
@@ -1163,7 +1221,7 @@ function closePop(){
   el.classList.add("out");
   const btn = el.parentNode.querySelector(".dv-addblock");
   if (btn){ btn.classList.remove("open"); btn.setAttribute("aria-expanded", "false"); }
-  setTimeout(() => { popOpen = false; render(); }, 120);
+  setTimeout(() => { popOpen = false; bundleNew = false; render(); }, 120);
 }
 
 window.__dv = {
@@ -1185,6 +1243,32 @@ window.__dv = {
   addAsset(nm, fromTs){
     N.assets.push(blankAsset(nm, fromTs === 1 || fromTs === "1" || fromTs === true));
     save(); closePop();          /* картка з'явиться, коли плашка зникне */
+  },
+  addBundle(k){
+    const b = bundles()[k];
+    if (!b) return;
+    N.assets.push(blankBundle(b));
+    save(); closePop();
+  },
+  bundleNew(){
+    bundleNew = true; render();
+    setTimeout(() => { const el = document.getElementById("dvBundle"); if (el) el.focus(); }, 0);
+  },
+  saveBundle(){
+    const inp = document.getElementById("dvBundle");
+    const seen = {};
+    const names = ((inp && inp.value) || "").toUpperCase().split(/[\s+,;/&·]+/)
+      .map(s => s.trim()).filter(s => s && !seen[normPair(s)] && (seen[normPair(s)] = 1)).slice(0, 4);
+    if (names.length < 2){ if (inp){ inp.focus(); inp.classList.add("bad"); } return; }
+    const key = normPair(names.join(""));
+    const list = bundles().filter(b => normPair(b.join("")) !== key);
+    list.push(names);
+    Prefs.set("bundles", list);
+    bundleNew = false; render();
+  },
+  dropBundle(k){
+    const list = bundles(); list.splice(k, 1);
+    Prefs.set("bundles", list); render();
   },
   addOwn(){
     const inp = document.getElementById("dvOwn");
@@ -1216,9 +1300,9 @@ window.__dv = {
     a.marks[k] = (a.marks[k] === v ? "" : v);
     save(); render();
   },
-  hit(i, j){
+  hit(path, j){
     const cycle = {"": "ok", ok: "mid", mid: "no", no: ""};
-    const l = N.assets[i].levels[j];
+    const l = get(path).levels[j];
     l.dcls = cycle[l.dcls || ""];
     save(); render();
   },
@@ -1266,8 +1350,8 @@ window.__dv = {
     N.trades[id] = cycle[N.trades[id] || ""];
     save(); render();
   },
-  addLevel(i){ (N.assets[i].levels = N.assets[i].levels || []).push({}); save(); render(); },
-  delLevel(i, j){ N.assets[i].levels.splice(j, 1); save(); render(); },
+  addLevel(path){ const o = get(path); (o.levels = o.levels || []).push({}); save(); render(); },
+  delLevel(path, j){ get(path).levels.splice(j, 1); save(); render(); },
   close(){
     if (N.closed) return;
     if (!ready()) return needMorning();
@@ -1333,6 +1417,9 @@ uk: {
   morning: "Ранок", evening: "Вечір", planTag: "план", factTag: "факт",
 
   addAsset: "додати актив", dropAsset: "Прибрати актив", phAsset: "актив",
+  bundles: "Зв'язки", newBundle: "своя зв'язка", phBundle: "US100 + US500", saveBundle: "Зберегти",
+  bundleTag: "зв'язка", dropBundle: "Видалити зв'язку",
+  noBundles: "Активи, які дивишся разом (SMT): збери свою — і додавай однією карткою.",
   fromTs: "з вашої ТС", fromTsTag: "з вашої ТС", fromJournal: "вже були в журналі",
   ownAsset: "свій", phOwnAsset: "напр. USDJPY", add: "Додати",
   noTsAssets: "у ТС інструменти ще не записані", noJournalAssets: "у журналі ще нічого",
@@ -1410,6 +1497,9 @@ ru: {
   morning: "Утро", evening: "Вечер", planTag: "план", factTag: "факт",
 
   addAsset: "добавить актив", dropAsset: "Убрать актив", phAsset: "актив",
+  bundles: "Связки", newBundle: "своя связка", phBundle: "US100 + US500", saveBundle: "Сохранить",
+  bundleTag: "связка", dropBundle: "Удалить связку",
+  noBundles: "Активы, которые смотришь вместе (SMT): собери свою — и добавляй одной карточкой.",
   fromTs: "из твоей ТС", fromTsTag: "из твоей ТС", fromJournal: "уже были в журнале",
   ownAsset: "свой", phOwnAsset: "напр. USDJPY", add: "Добавить",
   noTsAssets: "в ТС инструменты ещё не записаны", noJournalAssets: "в журнале ещё ничего",
@@ -1487,6 +1577,9 @@ en: {
   morning: "Morning", evening: "Evening", planTag: "plan", factTag: "fact",
 
   addAsset: "add instrument", dropAsset: "Remove instrument", phAsset: "instrument",
+  bundles: "Pairs", newBundle: "your own pair", phBundle: "US100 + US500", saveBundle: "Save",
+  bundleTag: "pair", dropBundle: "Delete pair",
+  noBundles: "Instruments you read together (SMT): build your own and add them as one card.",
   fromTs: "from your system", fromTsTag: "from your system", fromJournal: "seen in the journal",
   ownAsset: "custom", phOwnAsset: "e.g. USDJPY", add: "Add",
   noTsAssets: "no instruments in your system yet", noJournalAssets: "nothing in the journal yet",

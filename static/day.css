@@ -453,6 +453,22 @@ button.dv-tfc:hover{border-color:var(--faint); color:var(--text)}
 .dv-pop .own button{padding:8px 12px; border-radius:8px; border:0; background:var(--accent);
   color:var(--accent-ink,#fff); font:inherit; font-size:13px; font-weight:500; cursor:pointer}
 
+/* ---------- зв'язки (SMT) ---------- */
+.dv-pop .dv-bchip{display:inline-flex; align-items:stretch; border-radius:8px; overflow:hidden;
+  border:1px solid color-mix(in srgb,var(--accent) 40%,var(--line-soft)); background:var(--accent-soft)}
+.dv-pop .dv-bchip button{border:0; border-radius:0; background:none; color:var(--accent)}
+.dv-pop .dv-bchip button:hover{background:color-mix(in srgb,var(--accent) 14%,transparent); color:var(--accent)}
+.dv-pop .dv-bchip .x{padding:6px 8px; color:var(--faint); border-left:1px solid color-mix(in srgb,var(--accent) 25%,transparent)}
+.dv-pop .dv-bchip .x:hover{color:var(--down); background:var(--down-soft)}
+.dv-pop .chips .dv-bnew{border-style:dashed; color:var(--dim); background:none}
+.dv-pop .dv-bhint{margin-top:7px; font-size:11.5px; line-height:1.45; color:var(--faint)}
+.dv-pop .own input.bad{border-color:var(--down)}
+.dv-ah .from.bundle{color:var(--accent); border-color:color-mix(in srgb,var(--accent) 40%,transparent)}
+.dv-leg + .dv-leg{margin-top:14px; padding-top:12px; border-top:1px dashed var(--line-soft)}
+.dv-legnm{display:inline-block; margin-bottom:8px; font-family:var(--mono); font-size:11px; font-weight:600;
+  letter-spacing:.06em; padding:3px 9px; border-radius:6px; background:var(--panel-2);
+  border:1px solid var(--line-soft); color:var(--text)}
+
 /* ---------- спільне на день і кнопка закриття ---------- */
 /* У смузі лишилась сама кнопка — стоїть праворуч, як і стояла. */
 .dv-closebar{margin-top:14px; display:flex; align-items:center; justify-content:flex-end;
