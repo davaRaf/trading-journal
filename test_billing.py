@@ -142,6 +142,16 @@ def check_rules():
          billing.import_days_left(person(
              imports_until=NOW + datetime.timedelta(hours=5))), 1)
 
+    # Бектест-журнали з Notion — окремий рахунок: без підписки теж три,
+    # і ні вікно перших днів, ні витрачені звичайні перенесення їх не
+    # закривають (власник, 07.10.2026).
+    case("бектест переносять і без підписки",
+         billing.can_import(person(), "bt"), (True, ""))
+    case("бектест не впирається у звичайні перенесення",
+         billing.can_import(person(imports_used=3), "bt"), (True, ""))
+    case("бектест переносять і після вікна",
+         billing.can_import(late, "bt"), (True, ""))
+
     # Звернення до моделі: 15 на місяць без підписки. Розділи журналу при
     # цьому відкриті всі — платимо ми саме за відповіді моделі.
     case("новому ШІ відкрито", billing.can_use_ai(person()), (True, ""))
@@ -356,6 +366,18 @@ def check_db():
         case("перенесень зайнято рівно три", sum(took), 3)
         case("четверте перенесення відбито", billing.take_import(uid),
              (False, "imports_limit"))
+
+        # Бектест-бази з Notion: та сама межа в три, але своїм лічильником
+        # і без підписки (людина тут ще free — grant нижче).
+        with db.connect() as c2:
+            c2.execute("UPDATE users SET bt_imports_used=0 WHERE id=%s", (uid,))
+            c2.commit()
+        took = [billing.take_bt_import(uid)[0] for _ in range(6)]
+        case("бектест-баз зайнято рівно три", sum(took), 3)
+        case("четверта база бектесту відбита", billing.take_bt_import(uid),
+             (False, "bt_notion_limit"))
+        case("звичайні перенесення бектест не чіпав",
+             db.get_user(uid)["imports_used"], 3)
 
         # Порція звернень до моделі — так само однією дією.
         with db.connect() as c2:

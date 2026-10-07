@@ -1778,7 +1778,16 @@ a.mini.on .ic{opacity:1;color:var(--accent)}
 :root[data-skin="fxlab"][data-nav="icons"] .brand .mark.fx .fx{height:24px}
 
 /* ---- Bklit UI · Profit/Loss Line ---- */
-.plwrap{position:relative;min-width:0}
+/* Сам графік — рівно 156px заввишки (стільки ж у viewBox, ширина тягнеться
+   по колонці). Та сама висота стоїть і тут, щоб період без графіка займав
+   стільки ж місця: інакше «Огляд» підстрибував на кожному перемиканні
+   місяць/квартал/рік. */
+.plwrap{position:relative;min-width:0;min-height:156px}
+/* Період без графіка: напис стоїть посередині того самого місця. */
+.plwrap.none{display:grid;place-items:center}
+.plwrap.none .empty{padding:0}
+/* Рядок підпису над графіком тримає висоту і без суми та просадки. */
+.chart-lab{min-height:20px}
 /* нулевая ось выделена, как Grid highlightRowValues={[0]} */
 .plzero{stroke:var(--text);stroke-width:1;opacity:.35}
 .plcursor{stroke:var(--faint);stroke-width:1;stroke-dasharray:2 3;opacity:.75}

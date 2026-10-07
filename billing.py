@@ -54,7 +54,6 @@ TRADES_LIMIT = "trades_limit"
 BT_LIMIT = "bt_limit"
 IMPORTS_LIMIT = "imports_limit"
 IMPORT_WINDOW = "import_window"
-BT_NOTION = "bt_notion"        # бектест з Notion — тільки з підпискою
 BT_NOTION_LIMIT = "bt_notion_limit"  # три бази бектесту вже перенесені
 # Безкоштовні звернення до моделі на місяць скінчились — тут пропонуємо
 # підписку. AI_CAP — інше: у стелю впирається вже той, хто платить, і
@@ -314,14 +313,20 @@ def can_add_trade(u, kind=""):
 
 def can_import(u, kind=""):
     """Перенесення з Notion: три рази і тільки в перші 30 днів.
-    Бектест-журнали з Notion — лише з підпискою (власник, 05.10.2026)."""
+
+    Бектест-журнали рахуються окремо, своїм лічильником — див.
+    take_bt_import. Три бази дається всім, і без підписки теж (власник,
+    07.10.2026), тому ні вікно перших днів, ні стеля звичайних перенесень
+    на них не поширюються: бектест-архіви люди тягнуть сюди не в перший
+    тиждень і не замість свого журналу.
+    """
     row = _user(u)
     if not row:
         return False, NO_USER
     if active(row):
         return True, ""
     if kind == "bt":
-        return False, BT_NOTION
+        return True, ""
     if import_days_left(row) <= 0:
         return False, IMPORT_WINDOW
     if _int(row, "imports_used") >= _cap(row, "imports_cap", FREE_IMPORTS):
@@ -475,12 +480,14 @@ def take_import(u):
 
 def take_bt_import(u):
     """Нова база бектесту з Notion: дозвіл і списання одним запитом.
-    Тільки з підпискою; стеля — bt_imports_cap (3 + докуплене)."""
+
+    Стеля — bt_imports_cap (3), і вона однакова з підпискою й без неї
+    (власник, 07.10.2026). Рахуються саме нові бази: ту саму базу
+    перечитувати можна скільки завгодно, це вирішує app.py по bt_keys.
+    """
     row = _user(u)
     if not row:
         return False, NO_USER
-    if not active(row):
-        return False, BT_NOTION
     with db.connect() as conn:
         got = conn.execute(
             "UPDATE users SET bt_imports_used = bt_imports_used + 1 "

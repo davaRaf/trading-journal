@@ -912,7 +912,7 @@ def _billing_block(u):
         + kv("Сделки", e(pair("free_trades_used", "free_trades_cap", config.FREE_TRADES)))
         + kv("Бэктест", e(pair("free_bt_used", "free_bt_cap", config.FREE_BT)))
         + kv("Переносы", e(pair("imports_used", "imports_cap", config.FREE_IMPORTS)))
-        + kv("Бэктест из Notion", e(pair("bt_imports_used", "bt_imports_cap", 3) + " (с подпиской)"))
+        + kv("Бэктест из Notion", e(pair("bt_imports_used", "bt_imports_cap", 3)))
         + kv("Обращения к модели", e("%s из %s%s" % (
             billing.ai_used(u), billing.ai_cap(u),
             (" · окно до " + dt(u["ai_reset_at"])) if u["ai_reset_at"] else "")))
@@ -4005,7 +4005,8 @@ class H(BaseHTTPRequestHandler):
             if not tables or not mapping.get("pair"):
                 return self._json({"error": "потрібні таблиця і колонка з інструментом"}, 400)
             # Три перенесення в перші 30 днів — далі тільки з підпискою.
-            # Бектест з Notion — тільки з підпискою одразу.
+            # Бектест з Notion рахується окремо: три бази без підписки теж,
+            # і вікно перших днів на них не діє (власник, 07.10.2026).
             # Дивимось до запуску потоку: скасувати його потім нічим.
             kind = "bt" if body.get("kind") == "bt" else ""
             ok, why = billing.can_import(uid, kind)
@@ -4029,7 +4030,10 @@ class H(BaseHTTPRequestHandler):
             tsid = str(body.get("ts") or "")
             tsid = tsid if tsid.isdigit() and tsid != "0" and not kind else ""
             job = start_import(uid, tables, mapping, body.get("options") or {}, kind, run, tsid)
-            billing.spend_import(uid)
+            # Бектест уже списаний своїм лічильником (take_bt_import вище) —
+            # інакше одна база бектесту забирала б ще й перенесення журналу.
+            if not kind:
+                billing.spend_import(uid)
             when = datetime.datetime.now().strftime("%Y-%m-%d %H:%M")
             # запись про базу кладём до того, как перенос закончится: браузер
             # могут закрыть посреди работы, а сделки уже поедут в журнал

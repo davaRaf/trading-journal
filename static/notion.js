@@ -554,16 +554,10 @@ function open(){
   return openWizard();
 }
 
-/* Бектест-журнали з Notion — тільки з підпискою. Без неї одразу кажемо
-   про це плашкою, а не ведемо через увесь майстер до відмови. */
-async function openBt(){
-  if (window.Guest && Guest.block(T.gsGateConnect)) return;
-  let st = null;
-  try{ st = await call("GET", "/api/billing/state"); }catch(e){}
-  if (st && !st.active){
-    if (window.Paywall) Paywall.show("bt_notion");
-    return;
-  }
+/* Бектест-журнали з Notion: три бази дається всім, і без підписки теж
+   (власник, 07.10.2026). Межу тримає сервер (take_bt_import), тут нічого
+   не питаємо — четверта база впирається плашкою вже в майстрі. */
+function openBt(){
   bt = true;
   return openWizard();
 }

@@ -1009,10 +1009,16 @@ function plChart(list, opts){
   const title=opts.title||T.ovPnlTitle;
   const month=opts.ym||null;                       /* "YYYY-MM" — режим месяца */
   const arr=sortAsc(list);
+  /* Нічого малювати — але місце лишається тим самим. Раніше тут була
+     низенька картка з написом, і «Огляд» підстрибував щоразу, коли
+     перемикали період: у місяці графік є, у кварталі ще нема. Тому та
+     сама розмітка, тільки замість лінії — напис посередині. */
   if(arr.length<2)
-    return '<div class="shell rise"><div class="core"><div class="chart-lab">'+
+    return '<div class="shell rise"><div class="core plline"><div class="chart-lab">'+
       '<span class="t">'+esc(title)+'</span></div>'+
-      '<div class="empty">'+T.kEmptyChart+'</div></div></div>';
+      '<div class="chart"><div class="yax"></div>'+
+      '<div class="plwrap none"><div class="empty">'+T.kEmptyChart+'</div></div></div>'+
+      '<div class="xax"></div></div></div>';
   const vals=[], iso=[];
   let acc=0, peak=0, dd=0;
   for(const t of arr){
