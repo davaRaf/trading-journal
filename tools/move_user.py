@@ -26,7 +26,7 @@ from psycopg.rows import dict_row
 from psycopg.types.json import Jsonb
 
 # таблиці з user_id, крім самої users; все пишеться однією транзакцією
-PER_USER = ["trades", "strategies", "notion_conf", "user_prefs", "day_notes",
+PER_USER = ["trades", "strategies", "notion_conf", "user_prefs", "day_notes", "week_notes",
             "trade_drafts", "backups", "shares", "identities", "link_codes", "notified_events"]
 
 

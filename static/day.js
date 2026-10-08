@@ -28,9 +28,25 @@
    ============================================================ */
 (function(){
 
-let DATE = null;        /* який день дивимось, YYYY-MM-DD */
+let DATE = null;        /* де ми в календарі, YYYY-MM-DD */
+/* День і тиждень розбирають однаково: ті самі активи, скріни, рівні й
+   сценарії, різниця лише в тому, який шматок часу беруть. Тому це один
+   розділ із перемикачем, а не два майже однакові.
+
+   Запис тижня лежить під датою понеділка (week_store.py), тож DATE лишається
+   «де ми в календарі», а ключ запису рахується з нього: перемикання
+   день ↔ тиждень не збиває місце, на яке людина дивиться. */
+let MODE = "day";       /* "day" або "week" */
+try{ if (localStorage.getItem("dv_mode") === "week") MODE = "week"; }catch(e){}
+let WEEKS = null;       /* які тижні розібрані — для календаря */
 let N = undefined;      /* розбір дня: undefined — ще не питали, null — немає */
-let STATS = null;       /* підсумок за 30 днів */
+/* Прочитані записи лишаються при нас. Без цього кожне перемикання
+   день ↔ тиждень (і крок стрілкою назад) гасило розділ до «Хвилинку…» і
+   малювало його наново — екран смикався на рівному місці. Правимо запис
+   тільки ми самі, тож перечитувати його з сервера щоразу нема чого. */
+const MEM = {day: {}, week: {}};
+/* Підсумок окремо для дня й для тижня: перемикач не має його губити. */
+const ST = {day: null, week: null};
 let DAYS = null;        /* які дні розібрані — для календаря */
 let hotShot = null;
 let calOpen = false, calMonth = null;   /* міні-календар: відкритий? який місяць */
@@ -63,10 +79,26 @@ function iso(d){
   return d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0")
        + "-" + String(d.getDate()).padStart(2, "0");
 }
-function shift(days){
+function shift(step){
   const [y, m, d] = DATE.split("-").map(Number);
-  goto(iso(new Date(y, m - 1, d + days)));
+  goto(iso(new Date(y, m - 1, d + step * (week() ? 7 : 1))));
 }
+function week(){ return MODE === "week"; }
+/* Понеділок того тижня, у який потрапляє дата. Той самий рахунок, що й на
+   сервері (week_store.monday), інакше браузер і база звели б одну дату в
+   різні тижні. */
+function mon(dk){
+  const [y, m, d] = dk.split("-").map(Number);
+  const t = new Date(y, m - 1, d);
+  return iso(new Date(y, m - 1, d - ((t.getDay() + 6) % 7)));
+}
+function sun(dk){
+  const [y, m, d] = mon(dk).split("-").map(Number);
+  return iso(new Date(y, m - 1, d + 6));
+}
+/* Під яким ключем лежить те, що зараз дивимось. */
+function pkey(){ return week() ? mon(DATE) : DATE; }
+function api1(){ return week() ? "/api/week/" : "/api/day/"; }
 function goto(date){
   DATE = date; N = undefined; calOpen = false; popOpen = false; tfEdit = null;
   render();
@@ -83,7 +115,34 @@ function blankAsset(nm, fromTs){
 function fixAsset(a){
   a.shots = a.shots || []; a.levels = a.levels || []; a.plans = a.plans || [{}, {}];
   a.eve = a.eve || {}; a.eve.shots = a.eve.shots || []; a.marks = a.marks || {};
+  /* назву зв'язки завжди збираємо з її активів: «GER40 + EU50» */
+  if (Array.isArray(a.legs)){ a.legs.forEach(fixLeg); a.nm = a.legs.map(l => l.nm).join(" + "); }
   return a;
+}
+/* Зв'язка (SMT): одна картка на кілька активів, які дивляться разом —
+   US100 і US500, EURUSD і GBPUSD. Напрям, причина, сценарії й оцінки —
+   спільні: висновок по зв'язці один. А скріни й рівні в кожного активу
+   свої — ціни в них різні, спільні рівні нічого б не значили. */
+function blankBundle(names){
+  const a = blankAsset(names.join(" + "));
+  a.legs = names.map(nm => fixLeg({nm: nm}));
+  return a;
+}
+function fixLeg(l){
+  l.shots = l.shots || []; l.levels = l.levels || [{}, {}];
+  l.eve = l.eve || {}; l.eve.shots = l.eve.shots || [];
+  return l;
+}
+/* Ключі угод картки: у зв'язки — усі її активи, у звичайної — назва. */
+function legKeys(a){
+  return (a.legs ? a.legs.map(l => l.nm) : [a.nm]).map(normPair).filter(Boolean);
+}
+/* Шматок картки по кожному активу зв'язки, з підписом; у звичайної
+   картки — той самий шматок один раз, як і було. */
+function perLeg(a, i, fn){
+  if (!a.legs) return fn("assets." + i, a);
+  return a.legs.map((l, j) => '<div class="dv-leg"><div class="dv-legnm">' + esc(l.nm) + "</div>"
+    + fn("assets." + i + ".legs." + j, l) + "</div>").join("");
 }
 /* Запис, зроблений до появи активів, — це один актив без назви.
    Загортаємо його в картку, нічого не втрачаючи. */
@@ -121,14 +180,15 @@ function rollMarks(){
 /* У публічному демо сервера немає — розбори дня живуть у браузері,
    як і угоди. Скрін там лишається картинкою всередині запису:
    класти його нікуди. */
-const DEMO_KEY = "statsai_day_demo";
+const DEMO_KEY = "statsai_day_demo", DEMO_KEY_W = "statsai_week_demo";
 function demo(){ return typeof DEMO !== "undefined" && DEMO; }
-function demoAll(){
-  try{ return JSON.parse(localStorage.getItem(DEMO_KEY) || "{}"); }catch(e){ return {}; }
+function demoKey(){ return week() ? DEMO_KEY_W : DEMO_KEY; }
+function demoAll(key){
+  try{ return JSON.parse(localStorage.getItem(key || demoKey()) || "{}"); }catch(e){ return {}; }
 }
 
 async function load(){
-  const want = DATE;
+  const want = pkey(), mode = MODE;
   if (demo()){
     N = normalize(demoAll()[want] || null);
     /* Перемальовуємо не одразу: у демо дані лежать у браузері й читаються
@@ -139,42 +199,87 @@ async function load(){
     return;
   }
   try{
-    const r = await api("GET", "/api/day/" + want);
-    if (DATE !== want) return;                 /* встигли перегорнути далі */
-    N = normalize(r.day || null);
+    const r = await api("GET", api1() + want);
+    const got = normalize((week() ? r.week : r.day) || null);
+    MEM[mode][want] = got;
+    /* встигли перегорнути далі — чи перемкнути день на тиждень */
+    if (pkey() !== want || MODE !== mode) return;
+    N = got;
   }catch(e){ N = null; }
   if (S.view === "day") render();
 }
 
+/* Поки відповідь у дорозі, другий запит не шлемо: смужку й календар малює
+   кожен render, і без цього прапорця їх летіло по кілька за один показ. */
+const busy = {stats: {}, marks: {}};
 async function loadStats(){
+  const mode = MODE;
+  if (busy.stats[mode]) return;
+  busy.stats[mode] = 1;
   if (demo()){
     const all = demoAll();
-    STATS = Object.keys(all).map(k => ({date: k, data: all[k],
+    ST[mode] = Object.keys(all).map(k => ({date: k, data: all[k],
       match: (all[k].marks || {}).match || "", hold: (all[k].marks || {}).hold || ""}));
+    busy.stats[mode] = 0;
     setTimeout(() => { if (S.view === "day") render(); }, 0);
     return;
   }
   try{
-    const r = await api("GET", "/api/day/stats");
-    STATS = r.notes || [];
-  }catch(e){ STATS = []; }
+    const r = await api("GET", api1() + "stats");
+    /* у тижневих записів ключ зветься week — зводимо до одного вигляду,
+       щоб підсумок рахувався тим самим кодом */
+    ST[mode] = (r.notes || []).map(n => n.week ? Object.assign({}, n, {date: n.week}) : n);
+  }catch(e){ ST[mode] = []; }
+  busy.stats[mode] = 0;
   if (S.view === "day") render();
+}
+/* Свіжий запис кладемо в підсумок самі, не перепитуючи сервер: збереження
+   відкладене на 400 мс, і запит устигав піти раніше за нього — свій же
+   щойно розібраний період не потрапляв у смужку аж до наступного заходу. */
+function statsPut(){
+  const arr = ST[MODE];
+  if (!arr) return;
+  const k = pkey();
+  const row = {date: k, data: N,
+               match: (N.marks || {}).match || "", hold: (N.marks || {}).hold || ""};
+  const i = arr.findIndex(x => x.date === k);
+  if (i >= 0) arr[i] = row; else arr.push(row);
+}
+/* Те саме для календаря: крапка має зʼявитись одразу, а не наступного разу. */
+function markPut(){
+  const list = week() ? WEEKS : DAYS;
+  if (!list) return;
+  const k = pkey(), m = (N.marks || {}).match || "", h = (N.marks || {}).hold || "";
+  const i = list.findIndex(x => x.date === k);
+  if (i >= 0){ list[i].match = m; list[i].hold = h; }
+  else list.push({date: k, match: m, hold: h});
 }
 
-/* Які дні вже розібрані — щоб календар знав, де ставити крапки. */
+/* Які дні (чи тижні) вже розібрані — щоб календар знав, де ставити крапки.
+   Списки окремі: перемкнувшись на тиждень, людина має бачити тижні, а не
+   денні крапки під новим підписом. */
 async function loadDays(){
+  const w = week();
+  if (busy.marks[MODE]) return;
+  busy.marks[MODE] = 1;
   if (demo()){
     const all = demoAll();
-    DAYS = Object.keys(all).map(k => ({date: k, match: (all[k].marks || {}).match || ""}));
+    const list = Object.keys(all).map(k => ({date: k, match: (all[k].marks || {}).match || ""}));
+    if (w) WEEKS = list; else DAYS = list;
+    busy.marks[w ? "week" : "day"] = 0;
     setTimeout(() => { if (S.view === "day") render(); }, 0);
     return;
   }
   try{
-    const r = await api("GET", "/api/day/list");
-    DAYS = r.days || [];
-  }catch(e){ DAYS = []; }
+    const r = await api("GET", api1() + "list");
+    if (w) WEEKS = (r.weeks || []).map(x => ({date: x.week, match: x.match, hold: x.hold}));
+    else DAYS = r.days || [];
+  }catch(e){ if (w) WEEKS = []; else DAYS = []; }
+  busy.marks[w ? "week" : "day"] = 0;
   if (S.view === "day") render();
 }
+/* Позначки того списку, який зараз показує календар. */
+function marked(){ return week() ? WEEKS : DAYS; }
 
 let saveTimer = null;
 function save(){
@@ -182,17 +287,19 @@ function save(){
      зберегти значення — кличемо завести свій журнал */
   if (window.Guest && Guest.block(T.gsGateTitle)) return;
   rollMarks();
-  STATS = null; DAYS = null;                   /* підсумок і календар перерахуються */
+  MEM[MODE][pkey()] = N;                       /* памʼять — завжди свіжа */
+  statsPut(); markPut();                       /* смужка й календар — теж */
   if (demo()){
     const all = demoAll();
-    all[DATE] = N;
-    try{ localStorage.setItem(DEMO_KEY, JSON.stringify(all)); }catch(e){}
+    all[pkey()] = N;
+    try{ localStorage.setItem(demoKey(), JSON.stringify(all)); }catch(e){}
     return;
   }
   clearTimeout(saveTimer);
-  const date = DATE, body = N;
+  const key = pkey(), body = N, w = week();
   saveTimer = setTimeout(() => {
-    api("POST", "/api/day/" + date, {day: body}).catch(() => {});
+    api("POST", (w ? "/api/week/" : "/api/day/") + key, w ? {week: body} : {day: body})
+      .catch(() => {});
   }, 400);
 }
 
@@ -210,10 +317,18 @@ function set(path, val){
   o[keys[keys.length - 1]] = val;
 }
 
-function ed(path, ph, multi){
+/* mic — поле, яке наговорюють, а не набирають. Таких тут усі довгі:
+   підпис під скріном, «куди дивишся», обидва сценарії, «куди ринок
+   пішов» і рядок собі на завтра. Короткі (ціна, рівень) мікрофона не
+   мають — надиктовувати число довше, ніж набрати.
+   Мікрофон з'являється не в самому тексті, а коли поле відкрили на
+   правку (обробник кліку нижче), — інакше розбір дня виглядав би
+   рядом кнопок замість записів. */
+function ed(path, ph, multi, mic){
   const v = get(path);
   return '<span class="dv-f' + (v ? "" : " blank") + (multi ? " wide" : "")
-    + '" data-p="' + path + '"' + (multi ? ' data-multi="1"' : "") + ">"
+    + '" data-p="' + path + '"' + (multi ? ' data-multi="1"' : "")
+    + (mic ? ' data-mic="1"' : "") + ">"
     + (v ? esc(v).replace(/\n/g, "<br>") : esc(ph)) + "</span>";
 }
 
@@ -247,7 +362,8 @@ function shotCell(path, cap, readOnly){
   const note = !f ? ""
     : readOnly
       ? (s.note ? '<div class="dv-snote ro">' + esc(s.note).replace(/\n/g, "<br>") + "</div>" : "")
-      : '<div class="dv-snote">' + ed(path + ".note", d.shotNote, true) + "</div>";
+      : '<div class="dv-snote">' + ed(path + ".note", d.shotNote, true, true)
+        + "</div>";
   return '<div class="dv-tf"><div class="cap">' + chip + "</div>"
     + '<div class="dv-shot' + (f ? " has" : "") + (readOnly ? " ro" : "") + (on ? " armed" : "")
     + '" data-shot="' + slot + '">'
@@ -385,7 +501,7 @@ function tsAssets(){
     }catch(e){}
     return TSA;
   }
-  api("GET", "/api/ts").then(r => {
+  api("GET", "/api/ts" + (window.__strat ? "?sid=" + __strat.sid() : "")).then(r => {
     TSA = (r && r.ts && Array.isArray(r.ts.assets)) ? r.ts.assets.filter(Boolean) : [];
     if (S.view === "day" && popOpen) render();
   }).catch(() => {});
@@ -414,6 +530,7 @@ function assetPop(){
         + (taken[normPair(nm)] ? " disabled" : "") + ">" + esc(nm) + "</button>").join("")
     : '<span class="none">' + esc(fromTs ? d.noTsAssets : d.noJournalAssets) + "</span>";
   return '<div class="dv-pop">'
+    + bundlesGrp(taken)
     + '<div class="grp"><div class="lbl"><em>◆</em>' + esc(d.fromTs) + "</div>"
     +   '<div class="chips">' + chips(src.ts, true) + "</div></div>"
     + '<div class="grp"><div class="lbl">' + esc(d.fromJournal) + "</div>"
@@ -424,6 +541,36 @@ function assetPop(){
     + "</div>";
 }
 
+/* Свої зв'язки людини. Готових не пропонуємо: які активи дивитись разом —
+   рішення самого трейдера. Лежать у налаштуваннях акаунта (Prefs → сервер),
+   тож на телефоні й комп'ютері ті самі. */
+let bundleNew = false;                  /* відкрите поле «своя зв'язка» */
+function bundles(){
+  const b = window.Prefs && Prefs.get("bundles");
+  return Array.isArray(b) ? b.filter(x => Array.isArray(x) && x.length > 1) : [];
+}
+function bundlesGrp(taken){
+  const d = D(), list = bundles();
+  const chips = list.map((b, k) => {
+    const nm = b.join(" + ");
+    return '<span class="dv-bchip"><button type="button" onclick="__dv.addBundle(' + k + ')"'
+      + (taken[normPair(nm)] ? " disabled" : "") + ">" + esc(b.join(" + ")) + "</button>"
+      + '<button type="button" class="x" title="' + esc(d.dropBundle) + '" aria-label="' + esc(d.dropBundle)
+      + '" onclick="__dv.dropBundle(' + k + ')">×</button></span>';
+  }).join("");
+  return '<div class="grp"><div class="lbl"><em>⇄</em>' + esc(d.bundles) + "</div>"
+    + '<div class="chips">' + chips
+    +   (bundleNew ? "" : '<button type="button" class="dv-bnew" onclick="__dv.bundleNew()">+ ' + esc(d.newBundle) + "</button>")
+    + "</div>"
+    + (!list.length && !bundleNew ? '<div class="dv-bhint">' + esc(d.noBundles) + "</div>" : "")
+    + (bundleNew
+        ? '<div class="own" style="margin-top:8px"><input id="dvBundle" placeholder="' + esc(d.phBundle)
+          + '" aria-label="' + esc(d.newBundle) + '" onkeydown="if(event.key===\'Enter\')__dv.saveBundle()">'
+          + '<button type="button" onclick="__dv.saveBundle()">' + esc(d.saveBundle) + "</button></div>"
+        : "")
+    + "</div>";
+}
+
 /* ---------------- шматки картки ---------------- */
 function biasEd(i){
   const d = D(), a = N.assets[i], cur = a.side || "";
@@ -431,7 +578,7 @@ function biasEd(i){
     + '" onclick="__dv.side(' + i + ',this.dataset.v)" data-v="' + val + '">' + esc(val) + "</button>";
   return '<div class="dv-bias"><div class="dv-pick">'
     + b(d.long) + b(d.short, "down") + b(d.flat, "flat") + "</div></div>"
-    + ed("assets." + i + ".why", d.phWhy, true);
+    + ed("assets." + i + ".why", d.phWhy, true, true);
 }
 function biasRead(a){
   const d = D();
@@ -441,16 +588,16 @@ function biasRead(a){
     + '<div class="dv-say">' + (a.why ? esc(a.why).replace(/\n/g, "<br>") : "—") + "</div>";
 }
 
-function levelsEd(i){
-  const d = D(), base = "assets." + i + ".levels.";
-  const rows = (N.assets[i].levels || []).map((l, j) =>
+function levelsEd(path, o){
+  const d = D(), base = path + ".levels.";
+  const rows = (o.levels || []).map((l, j) =>
     '<div class="dv-lvr"><span class="p">' + ed(base + j + ".p", d.phPrice) + "</span>"
     + '<span class="t">' + ed(base + j + ".t", d.phWhat) + "</span>"
     + '<span class="n">' + ed(base + j + ".n", d.phWhy2) + "</span>"
-    + '<button class="dv-add" style="margin:0" onclick="__dv.delLevel(' + i + "," + j + ')">×</button>'
+    + '<button class="dv-add" style="margin:0" onclick="__dv.delLevel(\'' + path + "'," + j + ')">×</button>'
     + "</div>").join("");
   return '<div class="dv-lv">' + rows + "</div>"
-    + '<button class="dv-add" onclick="__dv.addLevel(' + i + ')">+ ' + esc(d.addLevel) + "</button>";
+    + '<button class="dv-add" onclick="__dv.addLevel(\'' + path + '\')">+ ' + esc(d.addLevel) + "</button>";
 }
 function levelsRead(a){
   const list = (a.levels || []).filter(l => l.p || l.t || l.n);
@@ -460,14 +607,14 @@ function levelsRead(a){
     + '<span class="t">' + esc(l.t || "") + "</span>"
     + '<span class="n">' + esc(l.n || "") + "</span></div>").join("") + "</div>";
 }
-function levelsDone(i){
-  const d = D(), base = "assets." + i + ".levels.";
-  const list = N.assets[i].levels || [];
+function levelsDone(path, o){
+  const d = D(), base = path + ".levels.";
+  const list = o.levels || [];
   if (!list.some(l => l.p || l.t)) return '<div class="hint">—</div>';
   return '<div class="dv-lvd">' + list.map((l, j) =>
     '<div class="dv-lvr2 ' + (l.dcls || "") + '"><span class="p">' + esc(l.p || "—") + "</span>"
     + '<button class="dv-hit" type="button" title="' + esc(d.hitTip)
-    + '" onclick="__dv.hit(' + i + "," + j + ')"></button>'
+    + '" onclick="__dv.hit(\'' + path + "'," + j + ')"></button>'
     + '<span class="n">' + ed(base + j + ".did", d.phDid) + "</span></div>").join("")
     + "</div>";
 }
@@ -476,9 +623,9 @@ function plansEd(i){
   const d = D(), base = "assets." + i + ".plans.";
   return '<div class="dv-sc">'
     + '<div class="dv-scr main"><span class="k">A</span><span class="tx">'
-    +   ed(base + "0.tx", d.phPlanA, true) + "</span></div>"
+    +   ed(base + "0.tx", d.phPlanA, true, true) + "</span></div>"
     + '<div class="dv-scr"><span class="k">Б</span><span class="tx">'
-    +   ed(base + "1.tx", d.phPlanB, true) + "</span></div>"
+    +   ed(base + "1.tx", d.phPlanB, true, true) + "</span></div>"
     + "</div>";
 }
 function plansRead(a){
@@ -490,15 +637,21 @@ function plansRead(a){
 }
 
 function dayTrades(){
-  /* у дати угоди може стояти й час — порівнюємо лише день */
-  return (S.trades || []).filter(t => String(t.date || "").slice(0, 10) === DATE && !t.hidden);
+  /* у дати угоди може стояти й час — порівнюємо лише день.
+     У тижні беремо всі сім днів: угоди лягають до своїх активів так само,
+     як у дні, просто їх більше. */
+  const from = week() ? mon(DATE) : DATE, to = week() ? sun(DATE) : DATE;
+  return (S.trades || []).filter(t => {
+    const dk = String(t.date || "").slice(0, 10);
+    return dk >= from && dk <= to && !t.hidden;
+  });
 }
 function tradesFor(a){
-  const key = normPair(a.nm);
-  return key ? dayTrades().filter(t => normPair(t.pair) === key) : [];
+  const keys = legKeys(a);
+  return keys.length ? dayTrades().filter(t => keys.indexOf(normPair(t.pair)) >= 0) : [];
 }
 function tradesOrphan(){
-  const keys = {}; (N.assets || []).forEach(a => { if (a.nm) keys[normPair(a.nm)] = 1; });
+  const keys = {}; (N.assets || []).forEach(a => legKeys(a).forEach(k => keys[k] = 1));
   return dayTrades().filter(t => !keys[normPair(t.pair)]);
 }
 
@@ -546,16 +699,16 @@ function sumR(list){ return list.reduce((s, t) => s + netR(t), 0); }
 /* ---------------- підсумок за місяць ---------------- */
 function strip(){
   const d = D();
-  if (STATS === null){
+  if (ST[MODE] === null){
     loadStats();
     return "";
   }
-  if (!STATS.length) return "";
+  if (!ST[MODE].length) return "";
   const byId = {};
   (S.trades || []).forEach(t => byId[t.id] = t);
 
   let played = 0, off = 0, cost = 0;
-  STATS.forEach(n => {
+  ST[MODE].forEach(n => {
     if (n.match === d.yes) played++;
     const flags = (n.data && n.data.trades) || {};
     Object.keys(flags).forEach(id => {
@@ -570,35 +723,56 @@ function strip(){
     + '<div class="n">' + esc(note) + "</div></div>";
 
   return '<div class="dv-strip">'
-    + s(d.stPlayed, played + " / " + STATS.length, played ? "pos" : "", d.stPlayedNote)
-    + s(d.stOff, String(off), "", d.stOffNote)
+    + s(d.stPlayed, played + " / " + ST[MODE].length, played ? "pos" : "",
+        week() ? d.stPlayedNoteW : d.stPlayedNote)
+    + s(d.stOff, String(off), "", week() ? d.stOffNoteW : d.stOffNote)
     + s(d.stCost, fmtR(cost), cost < 0 ? "neg" : "", d.stCostNote)
     + "</div>";
 }
 
 /* ---------------- шапка, календар ---------------- */
+/* Підпис періоду на кнопці календаря: день — датою, тиждень — проміжком.
+   Рік не пишемо: він стоїть у самому календарі, який відкривається з цієї
+   ж кнопки, а в рядку з'їдав місце. */
+function periodLab(){
+  if (!week()) return DATE;
+  const sh = dk => dk.slice(8, 10) + "." + dk.slice(5, 7);
+  return sh(mon(DATE)) + " – " + sh(sun(DATE));
+}
 function head(){
   const d = D();
   const today = iso(new Date());
+  const here = week() ? (pkey() === mon(today)) : (DATE === today);
   /* Дата біля заголовка не потрібна: вона й так стоїть у перемикачі днів
      поруч (22.09.2026, прохання власника). */
-  return '<div class="vhead"><h1>' + esc(d.title) + "</h1>"
+  /* Заголовок — просто «Аналіз»: що саме розбираємо, каже перемикач поруч,
+     і дублювати це словом у h1 нема потреби. Перемикач стоїть біля
+     заголовка, а не в правій купці кнопок: він про розділ цілком, а там
+     живе робота з конкретним періодом — гортання, календар, «поділитись». */
+  return '<div class="vhead"><h1>' + esc(d.nav) + "</h1>"
+    + '<span class="dv-seg mode">'
+    +   '<button class="' + (week() ? "" : "on") + '" onclick="__dv.mode(\'day\')">' + esc(d.segDay) + "</button>"
+    +   '<button class="' + (week() ? "on" : "") + '" onclick="__dv.mode(\'week\')">' + esc(d.segWeek) + "</button>"
+    + "</span>"
     + '<span class="dv-nav">'
     +   '<span class="dv-seg">'
-    +     '<button class="' + (N.closed ? "" : "on") + '" onclick="__dv.reopen()">' + esc(d.morning) + "</button>"
-    +     '<button class="' + (N.closed ? "on" : "") + '" onclick="__dv.close()">' + esc(d.evening) + "</button>"
+    +     '<button class="' + (N.closed ? "" : "on") + '" onclick="__dv.reopen()">'
+    +       esc(week() ? d.wkPlan : d.morning) + "</button>"
+    +     '<button class="' + (N.closed ? "on" : "") + '" onclick="__dv.close()">'
+    +       esc(week() ? d.wkSum : d.evening) + "</button>"
     +   "</span>"
-    +   '<button onclick="__dv.go(-1)" title="' + esc(d.prevDay) + '">←</button>'
+    +   '<button onclick="__dv.go(-1)" title="' + esc(week() ? d.prevWeek : d.prevDay) + '">←</button>'
     +   '<span class="dv-calwrap">'
     +     '<button class="day" onclick="__dv.cal()">'
     +       '<svg width="13" height="13" viewBox="0 0 24 24" fill="none"><rect x="3" y="4" width="18" height="17" rx="3" stroke="currentColor" stroke-width="1.7"/><path d="M3 9h18M8 3v3M16 3v3" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></svg>'
-    +       esc(DATE) + "</button>"
+    +       esc(periodLab()) + "</button>"
     +     (calOpen ? calendar() : "")
     +   "</span>"
-    +   '<button onclick="__dv.go(1)" title="' + esc(d.nextDay) + '">→</button>'
-    +   (DATE === today ? "" : '<button onclick="__dv.today()">' + esc(d.today) + "</button>")
+    +   '<button onclick="__dv.go(1)" title="' + esc(week() ? d.nextWeek : d.nextDay) + '">→</button>'
+    +   (here ? "" : '<button onclick="__dv.today()">' + esc(week() ? d.thisWeek : d.today) + "</button>")
     +   ((N.assets || []).length
-          ? '<button class="dv-share" onclick="__dv.shareDay()" title="' + esc(d.shareTip2) + '">'
+          ? '<button class="dv-share" onclick="__dv.' + (week() ? "shareWeek" : "shareDay")
+            + '()" title="' + esc(week() ? d.shareTipW : d.shareTip2) + '">'
             + '<svg width="13" height="13" viewBox="0 0 24 24" fill="none">'
             + '<path d="M12 3v12M8 7l4-4 4 4" stroke="currentColor" stroke-width="1.8" '
             + 'stroke-linecap="round" stroke-linejoin="round"/>'
@@ -613,14 +787,14 @@ function head(){
    порожній кружок — план є, вечір не записаний. Клік по дню відкриває його. */
 function calendar(){
   const d = D();
-  if (DAYS === null){ loadDays(); }
+  if (marked() === null){ loadDays(); }
   const [y, m] = (calMonth || DATE.slice(0, 7)).split("-").map(Number);
   const first = new Date(y, m - 1, 1);
   const days = new Date(y, m, 0).getDate();
   const pad = (first.getDay() + 6) % 7;                 /* понеділок — перший */
   const today = iso(new Date());
   const marks = {};
-  (DAYS || []).forEach(x => { marks[x.date] = x; });
+  (marked() || []).forEach(x => { marks[x.date] = x; });
   const dot = x => {
     if (!x) return "";
     const v = x.match;
@@ -629,10 +803,14 @@ function calendar(){
   };
   let cells = "";
   for (let i = 0; i < pad; i++) cells += '<span class="d pad"></span>';
+  /* У тижневому режимі позначка належить усьому тижню: шукаємо її по
+     понеділку, а підсвічуємо всі сім днів. Інакше розібраний тиждень видно
+     було б однією крапкою на понеділку — наче розбирали один день. */
   for (let n = 1; n <= days; n++){
     const key = y + "-" + String(m).padStart(2, "0") + "-" + String(n).padStart(2, "0");
-    const x = marks[key];
-    cells += '<button type="button" class="d' + (x ? " has" : "") + (key === DATE ? " cur" : "")
+    const x = marks[week() ? mon(key) : key];
+    const cur = week() ? (mon(key) === pkey()) : (key === DATE);
+    cells += '<button type="button" class="d' + (x ? " has" : "") + (cur ? " cur" : "")
       + (key > today ? " future" : "") + '" onclick="__dv.goto(\'' + key + '\')">' + n + dot(x) + "</button>";
   }
   const loc = {uk: "uk-UA", ru: "ru-RU", en: "en-GB"}[window.LANG] || "uk-UA";
@@ -646,9 +824,11 @@ function calendar(){
     + '<div class="grid">' + cells + "</div>"
     + '<div class="lg"><span><i class="ok"></i>' + esc(d.lgOk) + '</span><span><i class="part"></i>' + esc(d.lgPart)
     +   '</span><span><i class="no"></i>' + esc(d.lgNo) + '</span><span><i class="open"></i>' + esc(d.lgOpen) + "</span></div>"
-    + '<button type="button" class="dv-calshare" onclick="__dv.shareMonth()">'
+    /* «Поділитись місяцем» — про місяць денних розборів; у тижневому
+       режимі такого зведення немає, тож і кнопки тут немає. */
+    + (week() ? "" : '<button type="button" class="dv-calshare" onclick="__dv.shareMonth()">'
     +   '<svg width="13" height="13" viewBox="0 0 24 24" fill="none"><path d="M12 3v12M8 7l4-4 4 4" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/><path d="M5 14v4a2 2 0 002 2h10a2 2 0 002-2v-4" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>'
-    +   esc(d.shareMonth) + "</button>"
+    +   esc(d.shareMonth) + "</button>")
     + "</div>";
 }
 
@@ -666,7 +846,7 @@ async function fetchMonth(ym){
     assets: (n.assets || []).map(a => a.nm).filter(Boolean), closed: !!n.closed,
     data: n});                                      /* весь розбір: за посиланням день розкривається */
   if (demo()){
-    const all = demoAll();
+    const all = demoAll(DEMO_KEY);            /* місяць — завжди про дні */
     return Object.keys(all).filter(k => k.slice(0, 7) === ym).sort().map(k => pack(k, all[k] || {}));
   }
   const r = await api("GET", "/api/day/stats?since=" + ym + "-01");
@@ -693,7 +873,8 @@ function assetHead(a, i, extra){
   const cls = a.side === d.short ? "short" : a.side === d.long ? "long" : "";
   return '<div class="dv-ah">'
     + (N.closed ? "" : '<span class="lab">' + esc(d.morningCharts) + "</span>")
-    + '<span class="nm">' + (N.closed ? esc(a.nm || d.phAsset) : ed("assets." + i + ".nm", d.phAsset)) + "</span>"
+    + '<span class="nm">' + (N.closed || a.legs ? esc(a.nm || d.phAsset) : ed("assets." + i + ".nm", d.phAsset)) + "</span>"
+    + (a.legs ? '<span class="from bundle">' + esc(d.bundleTag) + "</span>" : "")
     + (a.ts ? '<span class="from">' + esc(d.fromTsTag) + "</span>" : "")
     + (a.side ? '<span class="tag ' + cls + '">' + esc(a.side) + "</span>" : "")
     + '<span class="sp"></span>' + (extra || "")
@@ -705,16 +886,16 @@ function cardOpen(a, i){
   const d = D();
   return '<div class="dv-card">' + assetHead(a, i)
     + '<div class="dv-cb">'
-    +   '<div class="dv-blk">' + pt("01", d.p1) + shotsRow("assets." + i + ".shots", d.shotPlan) + "</div>"
+    +   '<div class="dv-blk">' + pt("01", d.p1) + perLeg(a, i, p => shotsRow(p + ".shots", d.shotPlan)) + "</div>"
     +   '<div class="dv-blk">' + pt("02", d.p2) + biasEd(i) + "</div>"
-    +   '<div class="dv-blk">' + pt("03", d.p3) + levelsEd(i) + "</div>"
+    +   '<div class="dv-blk">' + pt("03", d.p3) + perLeg(a, i, levelsEd) + "</div>"
     +   '<div class="dv-blk">' + pt("04", d.p4) + plansEd(i) + "</div>"
     + "</div></div>";
 }
 
 function ready(){
   return (N.assets || []).some(a => a.side || ((a.plans || [])[0] && a.plans[0].tx)
-    || (a.levels || []).some(l => l.p) || (a.shots || []).length);
+    || [a].concat(a.legs || []).some(o => (o.levels || []).some(l => l.p) || (o.shots || []).length));
 }
 
 function vOpen(){
@@ -753,16 +934,16 @@ function cardClosed(a, i){
     + '<div class="dv-two">'
     +   '<div class="col left">'
     +     '<div class="dv-colhead"><b class="plan">' + esc(d.morning) + " · " + esc(d.planTag) + "</b></div>"
-    +     '<div class="dv-blk">' + pt("01", d.p1) + shotsRow("assets." + i + ".shots", d.shotPlan, true) + "</div>"
+    +     '<div class="dv-blk">' + pt("01", d.p1) + perLeg(a, i, p => shotsRow(p + ".shots", d.shotPlan, true)) + "</div>"
     +     '<div class="dv-blk">' + pt("02", d.p2) + biasRead(a) + "</div>"
-    +     '<div class="dv-blk">' + pt("03", d.p3) + levelsRead(a) + "</div>"
+    +     '<div class="dv-blk">' + pt("03", d.p3) + perLeg(a, i, (p, o) => levelsRead(o)) + "</div>"
     +     '<div class="dv-blk">' + pt("04", d.p4) + plansRead(a) + "</div>"
     +   "</div>"
     +   '<div class="col">'
     +     '<div class="dv-colhead"><b class="fact">' + esc(d.evening) + " · " + esc(d.factTag) + "</b></div>"
-    +     '<div class="dv-blk">' + pt("01", d.q1, true) + shotsRow("assets." + i + ".eve.shots", d.shotFact) + "</div>"
-    +     '<div class="dv-blk">' + pt("02", d.q2, true) + ed("assets." + i + ".eve.text", d.phFact, true) + "</div>"
-    +     '<div class="dv-blk">' + pt("03", d.q3, true) + levelsDone(i) + "</div>"
+    +     '<div class="dv-blk">' + pt("01", d.q1, true) + perLeg(a, i, p => shotsRow(p + ".eve.shots", d.shotFact)) + "</div>"
+    +     '<div class="dv-blk">' + pt("02", d.q2, true) + ed("assets." + i + ".eve.text", d.phFact, true, true) + "</div>"
+    +     '<div class="dv-blk">' + pt("03", d.q3, true) + perLeg(a, i, levelsDone) + "</div>"
     +     '<div class="dv-blk">' + pt("04", d.q4, true)
     +        tradesHtml(list, d.tradesAuto) + "</div>"
     +     '<div class="dv-blk">' + pt("05", d.q5, true) + marksEd(i) + "</div>"
@@ -795,7 +976,7 @@ function summary(){
     +   '</span><span style="text-align:right">' + esc(d.colRes) + "</span></div>"
     + rows
     + '<div class="lesson"><div class="k">' + esc(d.lessonTitle) + "</div>"
-    +   ed("fact.lesson", d.phLesson, true) + "</div>"
+    +   ed("fact.lesson", d.phLesson, true, true) + "</div>"
     + "</div>";
 }
 
@@ -803,7 +984,7 @@ function vClosed(){
   const d = D();
   const orphan = tradesOrphan();
   return head()
-    + '<p class="dv-hint">' + esc(d.hintClosed) + "</p>"
+    + '<p class="dv-hint">' + esc(week() ? d.hintClosedW : d.hintClosed) + "</p>"
     + '<div class="dv-stack">' + N.assets.map(cardClosed).join("")
     + (orphan.length
         ? '<div class="dv-card"><div class="dv-ah"><span class="nm">' + esc(d.otherTrades) + "</span>"
@@ -820,8 +1001,14 @@ function vClosed(){
 function vDay(){
   if (!DATE) DATE = iso(new Date());
   if (N === undefined){
-    load();
-    return '<div class="empty">' + esc(D().loading) + "</div>";
+    /* Те, що вже читали, показуємо одразу: інакше кожен крок стрілкою й
+       кожне перемикання день ↔ тиждень гасили б розділ до «Хвилинку…». */
+    const seen = MEM[MODE][pkey()];
+    if (seen !== undefined) N = seen;
+    else {
+      load();
+      return '<div class="empty">' + esc(D().loading) + "</div>";
+    }
   }
   if (N === null) N = blank();
   return N.closed ? vClosed() : vOpen();
@@ -902,7 +1089,28 @@ document.addEventListener("click", e => {
   f.value = cur == null ? "" : cur;
   el.textContent = "";
   el.classList.add("editing");
-  el.appendChild(f);
+  /* Мікрофон — тільки в полях, які наговорюють (data-mic), і тільки коли
+     браузер уміє писати звук. Він живе всередині поля, тому поле треба
+     загорнути: .vwrap — те саме, від чого кнопка відштовхується у формі
+     угоди. */
+  const mic = el.dataset.mic === "1" && window.Voice && Voice.can();
+  if (mic){
+    const vid = "dvf_" + path.replace(/[^a-z0-9]+/gi, "_");
+    f.id = vid;
+    const w = document.createElement("span");
+    w.className = "vwrap";
+    w.appendChild(f);
+    el.appendChild(w);
+    w.insertAdjacentHTML("beforeend", Voice.btn(vid));
+    el.insertAdjacentHTML("beforeend", Voice.hint(vid));
+    /* Натискання на мікрофон не має забирати фокус із поля: інакше blur
+       закриває правку, поле зникає — і диктувати вже нема куди. */
+    w.addEventListener("mousedown", ev => {
+      if (ev.target.closest && ev.target.closest(".micbtn")) ev.preventDefault();
+    });
+  } else {
+    el.appendChild(f);
+  }
   /* Поле росте під текст, а не ховає його за смугою прокрутки: раніше
      textarea мала сталу висоту, і довгий сценарій обрізався на клік. */
   if (multi) autoGrow(f);
@@ -915,7 +1123,17 @@ document.addEventListener("click", e => {
     if (ok){ set(path, f.value.trim()); save(); }
     render();
   };
-  f.addEventListener("blur", () => commit(true));
+  if (mic){
+    /* На телефоні кнопка таки забирає фокус, і preventDefault вище не
+       рятує. Тому стежимо за всім полем разом із мікрофоном: пішли з
+       нього обидва — записуємо. Кадр чекаємо, бо під час переходу
+       activeElement устигає побувати порожнім. */
+    el.addEventListener("focusout", () => setTimeout(() => {
+      if (!el.contains(document.activeElement)) commit(true);
+    }, 0));
+  } else {
+    f.addEventListener("blur", () => commit(true));
+  }
   if (multi) f.addEventListener("input", () => autoGrow(f));
   f.addEventListener("keydown", ev => {
     if (ev.key === "Escape"){ ev.stopPropagation(); commit(false); }
@@ -1008,13 +1226,13 @@ function closePop(){
   el.classList.add("out");
   const btn = el.parentNode.querySelector(".dv-addblock");
   if (btn){ btn.classList.remove("open"); btn.setAttribute("aria-expanded", "false"); }
-  setTimeout(() => { popOpen = false; render(); }, 120);
+  setTimeout(() => { popOpen = false; bundleNew = false; render(); }, 120);
 }
 
 window.__dv = {
   go: shift,
   goto: goto,
-  today(){ goto(iso(new Date())); },
+  today(){ goto(iso(new Date())); },     /* у тижні це поточний тиждень: ключ рахується з дати */
   cal(){ calOpen = !calOpen; popOpen = false; if (calOpen) calMonth = DATE.slice(0, 7); render(); },
   calMove(dir){
     const [y, m] = (calMonth || DATE.slice(0, 7)).split("-").map(Number);
@@ -1030,6 +1248,34 @@ window.__dv = {
   addAsset(nm, fromTs){
     N.assets.push(blankAsset(nm, fromTs === 1 || fromTs === "1" || fromTs === true));
     save(); closePop();          /* картка з'явиться, коли плашка зникне */
+  },
+  addBundle(k){
+    const b = bundles()[k];
+    if (!b) return;
+    N.assets.push(blankBundle(b));
+    save(); closePop();
+  },
+  bundleNew(){
+    bundleNew = true; render();
+    setTimeout(() => { const el = document.getElementById("dvBundle"); if (el) el.focus(); }, 0);
+  },
+  saveBundle(){
+    const inp = document.getElementById("dvBundle");
+    const seen = {};
+    /* ділимо тільки по «+», комі, «;», «&», «·»: «GER 40» — один актив
+       (пробіл прибираємо), а «EUR/USD» не розрізаємо */
+    const names = ((inp && inp.value) || "").toUpperCase().split(/[+,;&·]+/)
+      .map(s => s.replace(/\s+/g, "")).filter(s => s && !seen[normPair(s)] && (seen[normPair(s)] = 1)).slice(0, 4);
+    if (names.length < 2){ if (inp){ inp.focus(); inp.classList.add("bad"); } return; }
+    const key = normPair(names.join(""));
+    const list = bundles().filter(b => normPair(b.join("")) !== key);
+    list.push(names);
+    Prefs.set("bundles", list);
+    bundleNew = false; render();
+  },
+  dropBundle(k){
+    const list = bundles(); list.splice(k, 1);
+    Prefs.set("bundles", list); render();
   },
   addOwn(){
     const inp = document.getElementById("dvOwn");
@@ -1061,15 +1307,16 @@ window.__dv = {
     a.marks[k] = (a.marks[k] === v ? "" : v);
     save(); render();
   },
-  hit(i, j){
+  hit(path, j){
     const cycle = {"": "ok", ok: "mid", mid: "no", no: ""};
-    const l = N.assets[i].levels[j];
+    const l = get(path).levels[j];
     l.dcls = cycle[l.dcls || ""];
     save(); render();
   },
   /* Запис дня назовні — з нього sharelink.js збирає знімок розбору.
      Віддаємо лише той день, який зараз відкритий: інші не завантажені. */
-  note(date){ return (!date || date === DATE) ? N : null; },
+  /* Знімок питає запис по ключу: у дні це дата, у тижні — понеділок. */
+  note(key){ return (!key || key === pkey()) ? N : null; },
   /* місяць розборів для sharelink.js: збираємо наперед у shareMonth() */
   monthNotes(ym){ return (MONTH && MONTH.ym === ym) ? MONTH.notes : null; },
   stat: statOf,
@@ -1084,6 +1331,20 @@ window.__dv = {
     if (window.Guest && Guest.block(T.gsGateTitle)) return;
     if (window.Share) Share.open("review", DATE);
   },
+  shareWeek(){
+    if (window.Guest && Guest.block(T.gsGateTitle)) return;
+    if (window.Share) Share.open("reviewweek", pkey());
+  },
+  /* Перемикання день ↔ тиждень. Місце в календарі лишаємо те саме, а запис
+     перечитуємо: під новим ключем лежить інший розбір. */
+  mode(m){
+    const want = m === "week" ? "week" : "day";
+    if (want === MODE) return;
+    MODE = want;
+    try{ localStorage.setItem("dv_mode", MODE); }catch(e){}
+    N = undefined; calOpen = false; popOpen = false; tfEdit = null;
+    render();
+  },
   /* Зведення по одній угоді: та сама картинка, що й у журналі —
      з деталями входу й скрінами. День цілком тут не потрібен. */
   share(id){
@@ -1096,8 +1357,8 @@ window.__dv = {
     N.trades[id] = cycle[N.trades[id] || ""];
     save(); render();
   },
-  addLevel(i){ (N.assets[i].levels = N.assets[i].levels || []).push({}); save(); render(); },
-  delLevel(i, j){ N.assets[i].levels.splice(j, 1); save(); render(); },
+  addLevel(path){ const o = get(path); (o.levels = o.levels || []).push({}); save(); render(); },
+  delLevel(path, j){ get(path).levels.splice(j, 1); save(); render(); },
   close(){
     if (N.closed) return;
     if (!ready()) return needMorning();
@@ -1125,7 +1386,9 @@ function paintNav(){
   const a = document.querySelector('.nav a[data-v="day"]');
   if (!a) return;
   const sp = a.querySelector("span");
-  if (sp) sp.textContent = D().title;
+  /* У меню — коротке «Аналіз»: розділ той самий і для дня, і для тижня,
+     а підпис, що міняється під перемикач, читався б як інший пункт. */
+  if (sp) sp.textContent = D().nav;
   a.setAttribute("data-tip", D().navTip);
 }
 const realApply = window.applyLang;
@@ -1143,8 +1406,14 @@ if (typeof realApply === "function"){
    ============================================================ */
 const DICT = {
 uk: {
-  title: "Аналіз дня", navTip: "Що планував зранку — і як воно відпрацювало",
+  nav: "Аналіз", navTip: "Що планував — і як воно відпрацювало",
   loading: "Хвилинку…", today: "сьогодні", prevDay: "Попередній день", nextDay: "Наступний день",
+  segDay: "День", segWeek: "Тиждень",
+  wkPlan: "План", wkSum: "Підсумок", thisWeek: "цей тиждень",
+  prevWeek: "Попередній тиждень", nextWeek: "Наступний тиждень",
+  shareTipW: "Поділитись планом на тиждень за посиланням",
+  hintClosedW: "Ліворуч — план, як його розмітили на вихідних, праворуч — що вийшло за тиждень. "
+             + "Угоди всіх семи днів самі лягли до своїх активів.",
   long: "Long", short: "Short", flat: "Нейтрально",
   yes: "так", partly: "частково", no: "ні",
   weekdays: ["пн", "вт", "ср", "чт", "пт", "сб", "нд"],
@@ -1155,6 +1424,9 @@ uk: {
   morning: "Ранок", evening: "Вечір", planTag: "план", factTag: "факт",
 
   addAsset: "додати актив", dropAsset: "Прибрати актив", phAsset: "актив",
+  bundles: "Зв'язки", newBundle: "своя зв'язка", phBundle: "US100 + US500", saveBundle: "Зберегти",
+  bundleTag: "зв'язка", dropBundle: "Видалити зв'язку",
+  noBundles: "Активи, які дивишся разом (SMT): збери свою — і додавай однією карткою.",
   fromTs: "з вашої ТС", fromTsTag: "з вашої ТС", fromJournal: "вже були в журналі",
   ownAsset: "свій", phOwnAsset: "напр. USDJPY", add: "Додати",
   noTsAssets: "у ТС інструменти ще не записані", noJournalAssets: "у журналі ще нічого",
@@ -1203,7 +1475,9 @@ uk: {
   colHold: "тримався", colRes: "результат", lessonTitle: "що з цього винести",
 
   stPlayed: "Сценарій зіграв", stPlayedNote: "днів за останній місяць",
+  stPlayedNoteW: "тижнів за останні три місяці",
   stOff: "Угод поза планом", stOffNote: "взяв те, чого зранку не планував",
+  stOffNoteW: "взяв те, чого в плані тижня не було",
   stCost: "Скільки вони коштували", stCostNote: "разом по цих угодах",
   closeDay: "Записати підсумок дня",
   needMorning: "Спершу заповни ранковий аналіз: додай актив і запиши план — напрям, рівень чи скрін. Тоді можна перейти до вечора.",
@@ -1212,8 +1486,14 @@ uk: {
 },
 
 ru: {
-  title: "Анализ дня", navTip: "Что планировал утром — и как оно отработало",
+  nav: "Анализ", navTip: "Что планировал — и как оно отработало",
   loading: "Минутку…", today: "сегодня", prevDay: "Предыдущий день", nextDay: "Следующий день",
+  segDay: "День", segWeek: "Неделя",
+  wkPlan: "План", wkSum: "Итог", thisWeek: "эта неделя",
+  prevWeek: "Предыдущая неделя", nextWeek: "Следующая неделя",
+  shareTipW: "Поделиться планом на неделю по ссылке",
+  hintClosedW: "Слева — план, как его разметили на выходных, справа — что вышло за неделю. "
+             + "Сделки всех семи дней сами легли к своим активам.",
   long: "Long", short: "Short", flat: "Нейтрально",
   yes: "да", partly: "частично", no: "нет",
   weekdays: ["пн", "вт", "ср", "чт", "пт", "сб", "вс"],
@@ -1224,6 +1504,9 @@ ru: {
   morning: "Утро", evening: "Вечер", planTag: "план", factTag: "факт",
 
   addAsset: "добавить актив", dropAsset: "Убрать актив", phAsset: "актив",
+  bundles: "Связки", newBundle: "своя связка", phBundle: "US100 + US500", saveBundle: "Сохранить",
+  bundleTag: "связка", dropBundle: "Удалить связку",
+  noBundles: "Активы, которые смотришь вместе (SMT): собери свою — и добавляй одной карточкой.",
   fromTs: "из твоей ТС", fromTsTag: "из твоей ТС", fromJournal: "уже были в журнале",
   ownAsset: "свой", phOwnAsset: "напр. USDJPY", add: "Добавить",
   noTsAssets: "в ТС инструменты ещё не записаны", noJournalAssets: "в журнале ещё ничего",
@@ -1272,7 +1555,9 @@ ru: {
   colHold: "держался", colRes: "результат", lessonTitle: "что из этого вынести",
 
   stPlayed: "Сценарий сыграл", stPlayedNote: "дней за последний месяц",
+  stPlayedNoteW: "недель за последние три месяца",
   stOff: "Сделок вне плана", stOffNote: "взял то, чего утром не планировал",
+  stOffNoteW: "взял то, чего в плане недели не было",
   stCost: "Сколько они стоили", stCostNote: "вместе по этим сделкам",
   closeDay: "Записать итог дня",
   needMorning: "Сначала заполни утренний анализ: добавь актив и запиши план — направление, уровень или скрин. Потом можно перейти к вечеру.",
@@ -1281,8 +1566,14 @@ ru: {
 },
 
 en: {
-  title: "Day review", navTip: "What you planned in the morning — and how it played out",
+  nav: "Review", navTip: "What you planned — and how it played out",
   loading: "One moment…", today: "today", prevDay: "Previous day", nextDay: "Next day",
+  segDay: "Day", segWeek: "Week",
+  wkPlan: "Plan", wkSum: "Result", thisWeek: "this week",
+  prevWeek: "Previous week", nextWeek: "Next week",
+  shareTipW: "Share the week plan by link",
+  hintClosedW: "On the left is the plan as you marked it over the weekend, on the right is how the week went. "
+             + "Trades from all seven days landed with their assets.",
   long: "Long", short: "Short", flat: "Neutral",
   yes: "yes", partly: "partly", no: "no",
   weekdays: ["mo", "tu", "we", "th", "fr", "sa", "su"],
@@ -1293,6 +1584,9 @@ en: {
   morning: "Morning", evening: "Evening", planTag: "plan", factTag: "fact",
 
   addAsset: "add instrument", dropAsset: "Remove instrument", phAsset: "instrument",
+  bundles: "Pairs", newBundle: "your own pair", phBundle: "US100 + US500", saveBundle: "Save",
+  bundleTag: "pair", dropBundle: "Delete pair",
+  noBundles: "Instruments you read together (SMT): build your own and add them as one card.",
   fromTs: "from your system", fromTsTag: "from your system", fromJournal: "seen in the journal",
   ownAsset: "custom", phOwnAsset: "e.g. USDJPY", add: "Add",
   noTsAssets: "no instruments in your system yet", noJournalAssets: "nothing in the journal yet",
@@ -1341,6 +1635,8 @@ en: {
   colHold: "held to it", colRes: "result", lessonTitle: "what to take from it",
 
   stPlayed: "Scenario played out", stPlayedNote: "days in the last month",
+  stPlayedNoteW: "weeks in the last three months",
+  stOffNoteW: "took what the week plan did not have",
   stOff: "Trades off plan", stOffNote: "things you didn't plan in the morning",
   stCost: "What they cost", stCostNote: "total across those trades",
   closeDay: "Write the day up",

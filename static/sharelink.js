@@ -82,7 +82,8 @@ function tradeDetail(t){
     time: (t.date || "").slice(11, 16),
     pair: t.pair || "",
     result: resLabel(t.result),
-    cls: isWin(t) ? "pos" : t.result === "Loss" ? "neg" : "be",
+    cls: isWin(t) ? "pos" : t.result === "Loss" ? "neg"
+       : (t.result === "BE+" || t.result === "BE-") ? "bepm" : "be",
     skip: isSkip(t) || isOpen(t),    /* скіп і відкрита — без відсотка й кольору */
     net: netR(t),
     info: info,
@@ -196,6 +197,8 @@ function tsSnapshot(){
   ].filter(x => x.v);
 
   const data = {
+    /* котра з кількох стратегій — щоб «Скопіювати ТС» забрав саме її */
+    sid: window.__strat ? +__strat.sid() : 0,
     kind: T.slKindTs, kindFull: T.slOgTs,
     title: T.tsShTitle,
     total: null,
@@ -242,24 +245,36 @@ function tsSnapshot(){
    базі), а не з угод. */
 /* активи розбору у форму знімка; day — угоди того дня, щоб підписати
    результат і показати їх під активом */
+/* ключі угод активу розбору: у зв'язки — кожен її актив */
+function assetKeys(a){
+  const norm = x => String(x || "").toUpperCase().replace(/[^A-Z0-9]/g, "");
+  return (a.legs ? a.legs.map(l => l.nm) : [a.nm]).map(norm).filter(Boolean);
+}
 function reviewAssets(keep, day){
   const norm = x => String(x || "").toUpperCase().replace(/[^A-Z0-9]/g, "");
+  /* У зв'язки скріни й рівні лежать по активах — у знімок кладемо їх
+     одним списком, з назвою активу в підписі. */
+  const legs = (a, get) => a.legs
+    ? a.legs.flatMap(l => (get(l) || []).map(x => Object.assign({}, x, {leg: l.nm})))
+    : (get(a) || []);
   return keep.map(a => {
-    const mine = a.nm ? day.filter(t => norm(t.pair) === norm(a.nm)) : [];
+    const keys = assetKeys(a);
+    const mine = keys.length ? day.filter(t => keys.indexOf(norm(t.pair)) >= 0) : [];
     const st = mine.length ? calc(mine) : null;
     return {
       nm: a.nm || "",
+      legs: a.legs ? a.legs.map(l => l.nm) : undefined,
       side: a.side || "",
       why: a.why || "",
-      shots: (a.shots || []).filter(x => x.file)
-        .map(x => ({tf: x.tf || "", file: x.file, note: (x.note || "").trim()})),
-      levels: (a.levels || []).filter(l => l.p || l.t || l.n || l.did)
-        .map(l => ({p: l.p || "", t: l.t || "", n: l.n || "", did: l.did || "", cls: l.dcls || ""})),
+      shots: legs(a, o => o.shots).filter(x => x.file)
+        .map(x => ({tf: x.tf || "", leg: x.leg || "", file: x.file, note: (x.note || "").trim()})),
+      levels: legs(a, o => o.levels).filter(l => l.p || l.t || l.n || l.did)
+        .map(l => ({p: l.p || "", t: l.t || "", leg: l.leg || "", n: l.n || "", did: l.did || "", cls: l.dcls || ""})),
       plans: (a.plans || []).map((pl, i) => ({k: i ? "Б" : "A", tx: (pl || {}).tx || ""}))
         .filter(pl => pl.tx),
       eve: {text: ((a.eve || {}).text) || "",
-            shots: (((a.eve || {}).shots) || []).filter(x => x.file)
-              .map(x => ({tf: x.tf || "", file: x.file, note: (x.note || "").trim()}))},
+            shots: legs(a, o => (o.eve || {}).shots).filter(x => x.file)
+              .map(x => ({tf: x.tf || "", leg: x.leg || "", file: x.file, note: (x.note || "").trim()}))},
       marks: {match: (a.marks || {}).match || "", hold: (a.marks || {}).hold || ""},
       net: st ? st.net : null,
       trades: mine.map(tradeDetail),
@@ -279,7 +294,7 @@ function reviewSnapshot(dk, pick){
   const norm = x => String(x || "").toUpperCase().replace(/[^A-Z0-9]/g, "");
   const day = sortAsc(S.all.filter(t => dayKey(t) === dk));
   /* цифри зверху — по тих активах, якими ділимось, а не по всьому дню */
-  const names = keep.map(a => norm(a.nm)).filter(Boolean);
+  const names = [].concat(...keep.map(assetKeys));
   const mineAll = names.length
     ? day.filter(t => names.indexOf(norm(t.pair)) >= 0) : day;
   const d = new Date(dk + "T00:00");
@@ -299,6 +314,54 @@ function reviewSnapshot(dk, pick){
       skip: n.skip || "",
       lesson: (n.fact || {}).lesson || "",
       assets: assets,
+    },
+    blocks: [],
+  };
+}
+
+/* ---------- розбір тижня ----------
+   Те саме, що й розбір дня, тільки період — сім днів: цифри зверху й угоди
+   в картках беруться з усього тижня. Окремою функцією, а не прапорцем у
+   reviewSnapshot: там кожен рядок говорить про день, і читати мішанину
+   «день або тиждень» було б гірше, ніж два короткі сусідні тексти. */
+function rvWeekSnapshot(wk, pick){
+  const n = (window.__dv && typeof __dv.note === "function") ? __dv.note(wk) : null;
+  if (!n || !(n.assets || []).length) return null;
+  const keep = (pick && pick.length)
+    ? n.assets.filter((a, i) => pick.indexOf(i) >= 0)
+    : n.assets;
+  if (!keep.length) return null;
+
+  const norm = x => String(x || "").toUpperCase().replace(/[^A-Z0-9]/g, "");
+  const [y, m, d] = wk.split("-").map(Number);
+  const last = new Date(y, m - 1, d + 6);
+  const to = last.getFullYear() + "-" + String(last.getMonth() + 1).padStart(2, "0")
+           + "-" + String(last.getDate()).padStart(2, "0");
+  const days = sortAsc(S.all.filter(t => { const k = dayKey(t); return k >= wk && k <= to; }));
+  /* цифри зверху — по тих активах, якими ділимось, а не по всьому тижню */
+  const names = [].concat(...keep.map(assetKeys));
+  const mineAll = names.length
+    ? days.filter(t => names.indexOf(norm(t.pair)) >= 0) : days;
+
+  const first = new Date(y, m - 1, d);
+  /* «5 – 11 жовтня 2026», а коли тиждень переходить місяць — обидва місяці */
+  const title = first.getMonth() === last.getMonth()
+    ? first.getDate() + " – " + last.getDate() + " " + T.monthsGen[last.getMonth()]
+      + " " + last.getFullYear()
+    : first.getDate() + " " + T.monthsGen[first.getMonth()] + " – "
+      + last.getDate() + " " + T.monthsGen[last.getMonth()] + " " + last.getFullYear();
+
+  return {
+    type: "reviewweek",
+    kind: T.slKindRvWeek, kindFull: T.slOgRvWeek,
+    title: (keep.length === 1 && keep[0].nm ? keep[0].nm + " · " : "") + title,
+    total: mineAll.length ? calc(mineAll).net : null,
+    kpis: mineAll.length ? statsOf(mineAll) : [],
+    review: {
+      closed: !!n.closed,
+      skip: n.skip || "",
+      lesson: (n.fact || {}).lesson || "",
+      assets: reviewAssets(keep, days),
     },
     blocks: [],
   };
@@ -527,6 +590,7 @@ function open(kind, arg){
   const build = () => kind === "trade"  ? tradeSnapshot(arg)
              : kind === "ts"     ? tsSnapshot()
              : kind === "review" ? reviewSnapshot(arg, pick)
+             : kind === "reviewweek" ? rvWeekSnapshot(arg, pick)
              : kind === "reviewmonth" ? rvMonthSnapshot(arg)
              : kind === "day"    ? daySnapshot(arg)
              : kind === "week"  ? weekSnapshot(arg)
@@ -540,7 +604,7 @@ function open(kind, arg){
   const quarters = kind === "quarter"
     ? [...new Set(S.all.map(t => quarterOf(monKey(t))))].sort() : [];
   /* назви активів для перемикачів — беремо до того, як звузили вибір */
-  const allAssets = kind === "review"
+  const allAssets = (kind === "review" || kind === "reviewweek")
     ? ((((window.__dv && __dv.note && __dv.note(arg)) || {}).assets) || [])
         .map((a, i) => ({i: i, nm: a.nm || T.slAssetNoName}))
     : [];
@@ -680,7 +744,8 @@ function open(kind, arg){
         data.author = {nick: me.nickname, av: me.avatar || ""};
         if (window.OgCal && OgCal.prepAuthor) await OgCal.prepAuthor(data.author);
       }
-      if (kind === "review"){
+      /* У тижня превью таке саме, як у дня: перший скрін розмітки. */
+      if (kind === "review" || kind === "reviewweek"){
         const sh = (window.OgCal && OgCal.reviewShot) ? OgCal.reviewShot(data) : null;
         if (sh && sh.file && !/^data:/.test(sh.file)) data.og = sh.file;
         else delete data.og;

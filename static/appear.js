@@ -26,7 +26,7 @@ const IMAX  = 48;    /* більше цього в блоці не анімує�
 
 /* Блоки — те, що спливає цілком. Порядок черги — порядок у документі. */
 const BLOCKS = [
-  ".vhead", ".filters", ".dimsel",
+  ".vhead", ".filters", ".dimsel", ".an-bar",
   ".ovw .shell", ".ovw .rail", ".card", ".dv-card", ".dv-head",
   ".nw-warn", ".nw-days", ".nw-filters", ".nw-search", ".nw-list",
   ".st-sec", ".fcard", ".hb", ".th-grp > .nt-sub", ".th-grid", ".th-collab", ".th-custom",

@@ -424,10 +424,21 @@ function openFilter(){
 
 function closeFilter(){
   draft = null;
-  paint();
   document.removeEventListener("keydown", onEsc);
   document.removeEventListener("pointerdown", onOutside);
   const btn = document.getElementById("nwFbtn");
+  if (btn) btn.setAttribute("aria-expanded", "false");
+  syncLock();
+  /* Даємо панелі згорнутись і лише потім прибираємо її з розмітки —
+     інакше вона зникала ривком, а розкривалась плавно. Так само
+     поводиться список часових поясів поруч. */
+  const box = document.getElementById("nwFbox");
+  const pan = box && box.querySelector(".nw-panel");
+  if (!pan || calm()){ paint(); }
+  else {
+    pan.classList.add("shut");
+    setTimeout(() => { if (!draft && box) box.innerHTML = ""; }, 150);
+  }
   if (btn) btn.focus();
 }
 
@@ -463,14 +474,24 @@ function applyFilter(){
   keep();
   document.removeEventListener("keydown", onEsc);
   document.removeEventListener("pointerdown", onOutside);
-  render();
+  /* Таблиця перемальовується разом з усім розділом, тож панель зникла б
+     разом із ним — рвучком. Спершу даємо їй згорнутись. */
+  const pan = document.querySelector("#nwFbox .nw-panel");
+  if (!pan || calm()){ render(); return; }
+  pan.classList.add("shut");
+  setTimeout(render, 140);
 }
 
 function paint(){
   const box = document.getElementById("nwFbox");
   const btn = document.getElementById("nwFbtn");
   if (!box) return;
+  /* Панель уже стоїть — значить це перемальовка («вибрати всі», «зняти
+     всі»), і виїжджати їй заново нема чого. */
+  const again = !!box.querySelector(".nw-panel");
   box.innerHTML = draft ? panel() : "";
+  const pan = again && box.querySelector(".nw-panel");
+  if (pan) pan.classList.add("still");
   if (btn) btn.setAttribute("aria-expanded", String(!!draft));
   syncLock();
 }

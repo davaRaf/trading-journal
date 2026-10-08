@@ -15,7 +15,6 @@
 (function(){
 
 let ACCS = undefined;     /* undefined — ще не питали, [] — порожньо */
-let openId = null;        /* у якої картки розгорнутий розбір */
 
 function D(){ return DICT[window.LANG] || DICT.uk; }
 
@@ -31,10 +30,6 @@ function money(v, cur){
   const abs = Math.round(Math.abs(v)).toString().replace(/\B(?=(\d{3})+(?!\d))/g, "\u202F");
   const s = SIGNS[cur] || "";
   return s ? sign + s + abs : sign + abs + "\u202F" + (cur || "");
-}
-function moneySigned(v, cur){
-  if (v == null || isNaN(v)) return "—";
-  return (v > 0 ? "+" : "") + money(v, cur);
 }
 function clamp(v, a, b){ return Math.max(a, Math.min(b, v)); }
 
@@ -192,8 +187,10 @@ function cls(v){ return v > 0 ? "up" : (v < 0 ? "down" : ""); }
 function bullet(label, val, limit, tone){
   const on = limit != null && limit > 0;
   const part = on ? clamp(val / limit * 100, 0, 100) : 0;
-  const hot = on && part >= 70;
-  return '<div class="ac-bul' + (hot ? " hot" : "") + '">'
+  /* Червоніє тільки межа просадки; ціль, що наближається, — це добре. */
+  const hot = on && part >= 70 && tone !== "up";
+  const done = on && part >= 100 && tone === "up";
+  return '<div class="ac-bul' + (hot ? " hot" : "") + (done ? " done" : "") + '">'
     + '<div class="ac-bul-h"><span>' + esc(label) + "</span>"
     +   "<b>" + (on ? fmtR1(val) + " / " + fmtR1(limit) : fmtR1(val)) + "</b></div>"
     + '<div class="ac-bul-t"><i class="' + esc(tone || "") + '" style="width:'
@@ -230,33 +227,15 @@ const STATUS_CLS = {active: "act", passed: "pass", failed: "fail", closed: "shut
 function card(a){
   const d = D(), s = stat(a);
   const st = STATUS_CLS[a.status] || "act";
-  const kind = d.kinds[a.kind] || "";
-  const sub = [a.firm, a.opened_at ? d.since + " " + human(a.opened_at) : ""]
-    .filter(Boolean).join(" · ");
 
-  /* Шапка балансу. Без стартового балансу гроші рахувати нема з чого —
-     показуємо відсотки й прямо кажемо, чого бракує. */
+  /* Шапка балансу — сама цифра й більше нічого. Старт, приріст у відсотках
+     і грошах, звідки взявся баланс — усе це збиралось у стовпчик дрібного
+     тексту під головним числом і топило його. Проценти лишаються кольором
+     цифри, решта є в «Докладній статистиці». */
   let head;
   if (s.hasMoney){
     head = '<div class="ac-bal"><div class="big ' + cls(s.net) + '">'
-      +   esc(money(s.balance, a.currency)) + "</div>"
-      + (s.hasPct
-          ? '<div class="ac-delta ' + cls(s.net) + '">' + esc(fmtR(s.net))
-            +   '<i>·</i>' + esc(moneySigned(s.profit, a.currency)) + "</div>"
-            + '<div class="ac-from">' + esc(d.fromStart + " " + money(s.start, a.currency))
-            + "</div>"
-          : '<div class="ac-from">' + esc(d.noStartPct) + "</div>")
-      /* Своя цифра поруч, коли вона розійшлась із кабінетом: журнал бачить
-         тільки записані угоди, і різниця — це те, чого в ньому немає. */
-      + (s.drift ? '<div class="ac-drift">' + esc(d.byJournal) + " "
-            + esc(fmtR(s.journalNet)) + "</div>" : "")
-      /* Звідки взявся баланс: цифра з кабінету на таку-то дату, а далі
-         вже наша арифметика по записаних угодах. Без цього рядка вписаний
-         руками баланс не відрізнити від порахованого. */
-      + (s.manual && a.balance_at
-          ? '<div class="ac-drift">' + esc(d.balAt.replace("%s", human(a.balance_at)))
-            + "</div>" : "")
-      + "</div>";
+      +   esc(money(s.balance, a.currency)) + "</div></div>";
   } else {
     head = '<div class="ac-bal"><div class="big ' + cls(s.net) + '">' + esc(fmtR(s.net)) + "</div>"
       + '<div class="ac-nomoney">' + esc(d.noStart)
@@ -270,6 +249,12 @@ function card(a){
       + (a.dd_daily_pct ? bullet(d.ddDaily, Math.abs(s.worstDayVal), a.dd_daily_pct, "down") : "")
       + "</div>"
     : "";
+
+  /* Крива й смужки лімітів — в одну середину, яка тягнеться на всю вільну
+     висоту, а ліміти в ній притиснуті до низу. У сусідніх картках вміст
+     різний: в однієї крива й два ліміти, в іншої три ліміти й жодної угоди —
+     і без цього смужки та плитки в ряду стояли врозбрід. */
+  const mid = '<div class="ac-mid">' + spark(s.curve) + bars + "</div>";
 
   const cells = [
     [d.nTrades, s.n + (s.skips ? " +" + s.skips + d.skipTag : "")],
@@ -289,77 +274,66 @@ function card(a){
     : "";
 
   const dead = a.status === "failed";
+  /* Головна дія картки — піти в «Аналітику» саме по цьому рахунку. Стоїть
+     першою й кольором акценту: «Правити» поруч — дрібниця порівняно з нею. */
   const foot = '<div class="ac-foot">'
-    + (dead ? '<button class="ac-link" onclick="__acc.why(' + a.id + ')">'
-        + esc(openId === a.id ? d.hideWhy : d.showWhy) + "</button>" : "")
+    + '<button class="ac-link stat" onclick="__acc.stats(' + a.id + ')">'
+        + esc(d.statsLink) + "</button>"
     + '<span class="sp"></span>'
     + '<button class="ac-link" onclick="__acc.edit(' + a.id + ')">' + esc(d.edit) + "</button></div>";
 
-  /* Тип, фірма й дата — одним сірим рядком під назвою. Раніше тип стояв
-     одразу за назвою, і в картці вужчій за 380 пікселів назва
-     переносилась, а тип приклеювався до її хвоста: «100k ЧЕЛЕНДЖ». */
-  const under = (kind ? '<i class="ac-kind">' + esc(kind) + "</i>" : "")
-    + (sub ? (kind ? " · " : "") + esc(sub) : "");
+  /* Під назвою більше нічого не стоїть. Там був сірий рядок «тип · фірма ·
+     з такого-то дня», і в ньому слово в слово повторювалось те, що й так
+     написано поряд: назву рахунку люди складають із фірми й розміру
+     («The5ers Фандед 10k»), а значок фірми стоїть ліворуч. Дата відкриття
+     лишається у формі рахунку — звідти її й читають, коли треба. */
   return '<div class="shell"><div class="core ac-card ' + st + '">'
     + '<div class="ac-top">' + logo(a.firm, a.name, "ac-logo")
     + '<div class="ac-name"><b>' + esc(a.name) + "</b>"
-    +   (under ? '<div class="ac-sub">' + under + "</div>" : "") + "</div>"
-    + '<span class="ac-st ' + st + '">' + esc(d.status[a.status] || "") + "</span></div>"
-    + head + spark(s.curve) + bars + stats + cut
-    + (dead && openId === a.id ? why(a, s) : "")
+    +   (window.__strat ? __strat.accTag(a) : "") + "</div>"
+    + (st === "pass" || dead ? "" : '<span class="ac-st ' + st + '">' + esc(d.status[a.status] || "") + "</span>")
+    + "</div>"
+    + (st === "pass" ? passBanner(a) : dead ? loseBanner(a) : "")
+    + head + mid + stats + cut
+
     + foot + "</div></div>";
 }
 
-/* ---------------- чому рахунок злили ---------------- */
-/*
-   Найкорисніше в розділі. Людина памʼятає останню угоду, а не всі; тут
-   видно, що саме зʼїло рахунок: три найгірші угоди, день, коли пробило
-   ліміт, і чого в збиткових угодах було найбільше.
-*/
-function dayOfBreak(a, s){
-  if (!a.dd_total_pct) return null;
-  let f = 1;
-  for (const t of s.list){
-    f *= 1 + netR(t) / 100;
-    const at = (f - 1) * 100;
-    if (at <= -a.dd_total_pct) return {date: (t.date || "").slice(0, 10), at: at};
-  }
-  return null;
-}
-function topField(list, field){
-  const m = groupByField(list, field);
-  let best = null, bestN = 0;
-  m.forEach((arr, v) => { if (arr.length > bestN){ bestN = arr.length; best = v; } });
-  return best ? {name: best, n: bestN} : null;
-}
-
-function why(a, s){
+/* Пройдений челендж — головна подія в житті рахунку, тож замість маленької
+   плашки в кутку він отримує власну смугу: кубок, «Челендж пройдено» і за
+   скільки днів узята ціль. */
+function passBanner(a){
   const d = D();
-  const losers = s.list.filter(t => netR(t) < 0)
-    .sort((x, y) => netR(x) - netR(y)).slice(0, 3);
-  const brk = dayOfBreak(a, s);
-  const mist = topField(s.list.filter(t => netR(t) < 0), "mistakes");
-  const emo = topField(s.list.filter(t => netR(t) < 0), "emotion");
-
-  let rows = "";
-  if (brk) rows += line(d.brokeAt, human(brk.date) + " · " + fmtR(brk.at));
-  if (s.worstDay) rows += line(d.worstDay, human(s.worstDay) + " · " + fmtR(s.worstDayVal));
-  if (mist) rows += line(d.topMistake, mist.name + " · " + mist.n + d.timesTag);
-  if (emo) rows += line(d.topEmotion, emo.name + " · " + emo.n + d.timesTag);
-  if (a.reason) rows += line(d.reason, a.reason);
-
-  const worst = losers.length
-    ? '<div class="ac-worst"><div class="l">' + esc(d.worstTrades) + "</div>"
-      + losers.map(t => '<div class="ac-wrow"><span>' + esc(t.pair || "—") + "</span>"
-        + '<i>' + esc(human((t.date || "").slice(0, 10))) + "</i>"
-        + '<b class="down">' + esc(fmtR(netR(t))) + "</b></div>").join("") + "</div>"
-    : "";
-
-  return '<div class="ac-why">' + (rows ? '<div class="ac-wlist">' + rows + "</div>" : "")
-    + worst + "</div>";
+  const days = a.opened_at && a.closed_at
+    ? Math.round((Date.parse(a.closed_at) - Date.parse(a.opened_at)) / 864e5) : null;
+  const meta = [a.closed_at ? human(a.closed_at) : "",
+                days != null && days >= 0 ? d.passDays.replace("%n", days) : ""]
+    .filter(Boolean).join(" · ");
+  return '<div class="ac-win"><span class="ac-cup" aria-hidden="true">'
+    + '<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">'
+    + '<path d="M8 21h8M12 17v4M7 4h10v5a5 5 0 0 1-10 0V4z"/><path d="M17 5h3v2a3 3 0 0 1-3 3M7 5H4v2a3 3 0 0 0 3 3"/></svg></span>'
+    + '<div class="ac-win-t"><b>' + esc(d.passTitle) + "</b>"
+    + (meta ? "<i>" + esc(meta) + "</i>" : "") + "</div>"
+    + '<span class="ac-win-ok" aria-hidden="true">✓</span></div>';
 }
-function line(l, v){
-  return '<div class="ac-wline"><span>' + esc(l) + "</span><b>" + esc(String(v)) + "</b></div>";
+
+/* Злитий рахунок — дзеркало пройденого: та сама смуга, тільки червона,
+   з графіком донизу, датою, скільки днів протримався, і причиною, якщо
+   її записали. Без блиску — святкувати тут нічого. */
+function loseBanner(a){
+  const d = D();
+  const days = a.opened_at && a.closed_at
+    ? Math.round((Date.parse(a.closed_at) - Date.parse(a.opened_at)) / 864e5) : null;
+  const meta = [a.closed_at ? human(a.closed_at) : "",
+                days != null && days >= 0 ? d.loseDays.replace("%n", days) : ""]
+    .filter(Boolean).join(" · ");
+  return '<div class="ac-win lose"><span class="ac-cup" aria-hidden="true">'
+    + '<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round">'
+    + '<path d="M3 6l6 6 4-4 8 8"/><path d="M21 10v6h-6"/></svg></span>'
+    + '<div class="ac-win-t"><b>' + esc(a.kind === "challenge" ? d.loseTitle : d.loseAcc) + "</b>"
+    + (meta ? "<i>" + esc(meta) + "</i>" : "")
+    + (a.reason ? '<i class="why">' + esc(a.reason) + "</i>" : "") + "</div>"
+    + '<span class="ac-win-ok" aria-hidden="true">✕</span></div>';
 }
 
 function human(iso){
@@ -393,6 +367,10 @@ const FIRM_LIST = [
   {name: "Take Profit Trader", ic: "takeprofittrader", hint: ["takeprofittrader", "tpt"]},
   {name: "Goat Funded Trader", ic: "goatfundedtrader", hint: ["goatfundedtrader", "goatfunded"]},
   {name: "Funded Trading Plus", ic: "fundedtradingplus", hint: ["fundedtradingplus"]},
+  {name: "The Funded Way", ic: "fundedway", hint: ["thefundedway", "fundedway", "tfw"]},
+  {name: "Blue Guardian", ic: "blueguardian", hint: ["blueguardian"]},
+  {name: "Crypto Fund Trader", ic: "cryptofundtrader", hint: ["cryptofundtrader", "cft"]},
+  {name: "For Traders", ic: "fortraders", hint: ["fortraders"]},
 ];
 const FIRMS = FIRM_LIST.map(f => f.name);
 
@@ -499,6 +477,32 @@ function madeName(){
 }
 let nameTouched = false;
 let editId = null;          /* який рахунок правимо: своє імʼя не рахуємо зайнятим */
+let nowAuto = "";           /* що ми самі підставили в «Баланс зараз» */
+
+/* «Пройдений» — це рівно та мить, коли баланс дійшов до цілі: 10% цілі на
+   100 000 означають 110 000 на рахунку. Підставляємо це в «Баланс зараз»
+   самі: інакше пройдений челендж показував би баланс, застиглий на старті,
+   і людині довелось би рахувати ту саму десятку в голові.
+
+   Памʼятаємо, що саме підставили. Вписане руками не чіпаємо ніколи, а свою
+   ж цифру прибираємо, щойно стан перемкнули назад: лишити «110 000» на
+   активному челенджі означало б сказати про рахунок неправду. */
+function syncPassed(){
+  const inp = document.getElementById("acNow");
+  if (!inp) return;
+  const cur = inp.value.trim();
+  if (cur && cur !== nowAuto) return;
+  if (segVal("acStatus") !== "passed"){
+    if (cur){ inp.value = ""; nowAuto = ""; }
+    return;
+  }
+  /* Без цілі рахувати нема від чого: «пройдено» саме по собі не каже,
+     скільки на рахунку грошей. */
+  const st = num("acStart"), t = num("acTarget");
+  if (st == null || !(st > 0) || t == null || !(t > 0)) return;
+  nowAuto = String(Math.round(st * (1 + t / 100)));
+  inp.value = nowAuto;
+}
 
 /* Сервер не відмовляє через збіг назв — він дописує номер. Але дізнаватись
    про це вже після збереження людина не має: тут вона бачить майбутню
@@ -618,6 +622,7 @@ function paintStatus(){
   box.innerHTML = wrap.firstChild.innerHTML;
   const dead = document.getElementById("acDead");
   if (dead) dead.hidden = (segVal("acStatus") || "active") === "active";
+  syncPassed();
 }
 
 function form(a){
@@ -625,6 +630,7 @@ function form(a){
   const dead = a.status && a.status !== "active";
   nameTouched = !!(a.name || "").trim();   /* у готового рахунку назва вже своя */
   editId = a.id || null;
+  nowAuto = "";                            /* те, що вже в картці, — не наше */
   return '<div class="m-body ac-form">'
     /* Спершу фірма й тип, потім розмір — у цьому порядку з них і збирається
        назва. Саме поле назви стоїть нижче: воно тут підсумок, а не перше
@@ -658,6 +664,8 @@ function form(a){
     +   '<div class="ac-row2">' + dateField(d.fClosed, "acClosed", a.closed_at)
     +     field(d.fReason, "acReason", a.reason, d.phReason) + "</div></div>"
     + field(d.fNote, "acNote", a.note, d.phNote)
+    /* під яку стратегію рахунок — лише коли їх кілька (strat.js) */
+    + (window.__strat ? __strat.accField(a) : "")
     + '<p class="ac-err" id="acErr" hidden></p>'
     + "</div>";
 }
@@ -757,6 +765,7 @@ async function save(id){
     target_pct: num("acTarget"), dd_total_pct: num("acDdTotal"), dd_daily_pct: num("acDdDaily"),
     opened_at: val("acOpened"), status: segVal("acStatus"),
     closed_at: val("acClosed"), reason: val("acReason"), note: val("acNote"),
+    ts: val("acTs"),
   };
   if (!acc.name){ show(err, d.errName); return; }
   let saved = null;
@@ -877,30 +886,30 @@ function unlisted(){
   return [...seen.values()].sort((a, b) => b.n - a.n);
 }
 
-function total(){
-  const d = D();
+/* ---------------- алокація ---------------- */
+
+/* Скільки грошей під управлінням: сума розмірів живих рахунків. Стоїть
+   поруч із заголовком розділу голою цифрою — без підпису, без балансу,
+   без лічильника рахунків: усе це є на самих картках, а тут потрібне
+   саме число, яке звіряють найчастіше.
+
+   Складати гроші можна лише в межах однієї валюти: перерахунку курсів у
+   журналі немає, і вигадувати його тут не будемо. Тому кожна валюта
+   рахується окремо й пишеться поруч. */
+function allocBar(){
   const live = (ACCS || []).filter(a => a.status === "active");
   if (!live.length) return "";
-  /* Складати гроші можна лише в межах однієї валюти: перерахунку курсів у
-     журналі немає, і вигадувати його тут не будемо. Тому рахуємо кожну
-     валюту окремо й показуємо їх поруч — раніше на двох валютах не
-     показувалось узагалі нічого, без жодного пояснення. */
   const sums = new Map();
-  let mute = 0;
   for (const a of live){
-    const bal = stat(a).balance;
-    if (bal == null){ mute++; continue; }
+    const st = a.start_balance;
+    if (st == null || isNaN(st) || !(st > 0)) continue;
     const cur = a.currency || "USD";
-    sums.set(cur, (sums.get(cur) || 0) + bal);
+    sums.set(cur, (sums.get(cur) || 0) + st);
   }
+  if (!sums.size) return "";
   const parts = [...sums.entries()].sort((x, y) => y[1] - x[1])
     .map(e => money(e[1], e[0]));
-  return '<div class="ac-total"><span>' + esc(d.liveN.replace("%n", live.length)) + "</span>"
-    + (parts.length ? "<b>" + esc(parts.join(" · ")) + "</b>" : "")
-    /* Рахунки без стартового балансу в суму не входять — інакше вона
-       вдавала б, що знає більше, ніж знає. */
-    + (mute ? '<i class="ac-muted">' + esc(d.noBal.replace("%n", mute)) + "</i>" : "")
-    + "</div>";
+  return '<div class="ac-alloc">' + esc(parts.join(" · ")) + "</div>";
 }
 
 function vAccounts(){
@@ -912,7 +921,8 @@ function vAccounts(){
   /* Шапка спільна з «Оглядом»: заголовок там і є перемикачем вкладок.
      Без app.js (такого не буває, але хай) лишиться просто назва. */
   const head = '<div class="ohead ac-head">'
-    + (window.ovTabsHtml ? ovTabsHtml("accounts") : "<h1>" + esc(d.title) + "</h1>") + total()
+    + (window.ovTabsHtml ? ovTabsHtml("accounts") : "<h1>" + esc(d.title) + "</h1>")
+    + (window.__strat ? __strat.btn() : "") + allocBar()
     + '<button class="btn primary ac-new" id="acAdd">' + esc(d.add) + "</button></div>";
 
   if (!ACCS.length){
@@ -922,9 +932,12 @@ function vAccounts(){
       + '<button class="btn primary" id="acAdd2">' + esc(d.add) + "</button>"
       + "</div></div></div>";
   }
+  /* кілька стратегій: рахунки обраної плюс спільні */
+  const shown = window.__strat ? __strat.accFilter(ACCS) : ACCS;
   return '<div class="acw">' + head
-    + '<div class="ac-grid">' + ACCS.map(card).join("") + "</div></div>";
+    + '<div class="ac-grid">' + shown.map(card).join("") + "</div></div>";
 }
+window.__accList = () => ACCS || [];
 
 function blank(){ return {name: "", firm: "", kind: "own", currency: "USD", status: "active"}; }
 
@@ -939,6 +952,7 @@ document.addEventListener("click", e => {
     if (box.dataset.seg === "acStatus"){
       const dead = document.getElementById("acDead");
       if (dead) dead.hidden = seg.dataset.v === "active";
+      syncPassed();
     }
     if (box.dataset.seg === "acKind"){ syncName(); paintStatus(); }
     keepDraft();
@@ -1016,12 +1030,13 @@ document.addEventListener("input", e => {
   if (window.Pick && Pick.isOpen && Pick.isOpen()) Pick.close();
   if (id === "acName"){ nameTouched = !!e.target.value.trim(); paintTaken(); }
   else if (id === "acFirm" || id === "acStart") syncName();
+  if (id === "acStart" || id === "acTarget") syncPassed();
   if (e.target.closest && e.target.closest(".ac-form")) keepDraft();
 });
 
 /* Гачок для перевірок: збірку назви інакше не викликати ззовні. */
 window.__accTest = {factor: factorOf, stamp: stampOld, sync: syncName, made: madeName, firms: openFirms, sizes: openSizes, status: paintStatus,
-  stat: stat, total: total, free: freeName, norm: normName, spark: spark,
+  stat: stat, alloc: allocBar, passed: syncPassed, free: freeName, norm: normName, spark: spark,
   accs(list){ ACCS = list; }};
 
 window.__acc = {
@@ -1042,7 +1057,18 @@ window.__acc = {
     const a = (ACCS || []).find(x => x.id === id);
     if (a) openForm(Object.assign({}, a));
   },
-  why(id){ openId = openId === id ? null : id; render(); },
+  /* «Докладна статистика»: розрізи по рахунку живуть в «Аналітиці», тут
+     лишається тільки передати їй назву — рахунки звʼязані з угодами саме
+     назвою, свого id в угоді немає. */
+  stats(id){
+    const a = (ACCS || []).find(x => x.id === id);
+    if (!a || typeof anForAccount !== "function") return;
+    /* Назву беремо з угоди, а не з картки: фільтр порівнює значення поля так,
+       як воно записане в угоді, а картка знаходить свої угоди по спрощеному
+       ключу — «FTMO  100k» і «FTMO 100k» для неї одне й те саме. */
+    const t = tradesOf(a)[0];
+    anForAccount(t ? String(t.account || "").trim() : normName(a.name));
+  },
   /* Підпис вкладки для шапки «Огляду»: словник розділу лежить у цьому
      файлі, тож app.js питає його звідси. */
   navLabel(){ return D().navTitle; },
@@ -1080,12 +1106,11 @@ const DICT = {
 uk: {
   title: "Мої рахунки", navTitle: "Рахунки", navTip: "Свій депозит і рахунки проп-фірм: баланс, ціль, ліміти",
   loading: "Хвилинку…", add: "Новий рахунок", close: "Закрити", cancel: "Скасувати",
-  save: "Зберегти", edit: "Правити", del: "Видалити",
+  save: "Зберегти", edit: "Правити", statsLink: "Докладна статистика", del: "Видалити",
   delAsk: "Прибрати картку рахунку? Угоди лишаться в журналі.",
   delAskN: "Прибрати картку рахунку? Угод із цією назвою в журналі — %n, вони лишаться.",
   delYes: "Прибрати",
-  liveN: "живих рахунків: %n",
-  since: "з", fromStart: "старт", noStart: "Стартовий баланс не заданий — гроші рахувати нема з чого.",
+  noStart: "Стартовий баланс не заданий — гроші рахувати нема з чого.",
   setStart: "задати",
   toTarget: "До цілі", ddTotal: "Просадка від старту", ddDaily: "Найгірший день",
   nTrades: "Угод", wr: "Вінрейт", avgRR: "Середній RR", maxDD: "Просадка від піку",
@@ -1095,6 +1120,8 @@ uk: {
   topEmotion: "Найчастіша емоція", reason: "Причина", worstTrades: "Найгірші угоди",
   timesTag: " раз",
   status: {active: "Активний", passed: "Пройдений", failed: "Злитий", closed: "Закритий"},
+  passTitle: "Челендж пройдено", passDays: "за %n дн.",
+  loseTitle: "Челендж злито", loseAcc: "Рахунок злито", loseDays: "протримався %n дн.",
   kinds: {own: "свій депозит", challenge: "челендж", funded: "фандед"},
   newTitle: "Новий рахунок", editTitle: "Рахунок",
   fName: "Назва", fFirm: "Фірма", fKind: "Тип", fStart: "Стартовий баланс", fCur: "Валюта",
@@ -1105,11 +1132,7 @@ uk: {
   pickFirm: "Обрати фірму", noFirm: "без фірми", pickSize: "Обрати розмір",
   phStart: "обрати або вписати",
   noLimit: "немає", nName: "як в угодах",
-  noStartPct: "Стартовий баланс не заданий — відсотків не порахувати.",
-  byJournal: "за угодами журналу:",
-  balAt: "з кабінету на %s, далі за угодами",
   beforeOpen: "Угод раніше за дату відкриття — %n. У рахунок вони не пішли.",
-  noBal: "%n без балансу",
   willRename: "Така назва вже є. Збережемо як «%s».",
   phName: "FTMO 100k", phFirm: "FTMO", phReason: "перевищив денний ліміт",
   phNote: "що завгодно про цей рахунок",
@@ -1121,12 +1144,11 @@ uk: {
 ru: {
   title: "Мои счета", navTitle: "Счета", navTip: "Свой депозит и счета проп-фирм: баланс, цель, лимиты",
   loading: "Минутку…", add: "Новый счёт", close: "Закрыть", cancel: "Отмена",
-  save: "Сохранить", edit: "Править", del: "Удалить",
+  save: "Сохранить", edit: "Править", statsLink: "Подробная статистика", del: "Удалить",
   delAsk: "Убрать карточку счёта? Сделки останутся в журнале.",
   delAskN: "Убрать карточку счёта? Сделок с этим названием в журнале — %n, они останутся.",
   delYes: "Убрать",
-  liveN: "живых счетов: %n",
-  since: "с", fromStart: "старт", noStart: "Стартовый баланс не задан — деньги считать не из чего.",
+  noStart: "Стартовый баланс не задан — деньги считать не из чего.",
   setStart: "задать",
   toTarget: "До цели", ddTotal: "Просадка от старта", ddDaily: "Худший день",
   nTrades: "Сделок", wr: "Винрейт", avgRR: "Средний RR", maxDD: "Просадка от пика",
@@ -1136,6 +1158,8 @@ ru: {
   topEmotion: "Частая эмоция", reason: "Причина", worstTrades: "Худшие сделки",
   timesTag: " раз",
   status: {active: "Активный", passed: "Пройден", failed: "Слит", closed: "Закрыт"},
+  passTitle: "Челлендж пройден", passDays: "за %n дн.",
+  loseTitle: "Челлендж слит", loseAcc: "Счёт слит", loseDays: "продержался %n дн.",
   kinds: {own: "свой депозит", challenge: "челлендж", funded: "фандед"},
   newTitle: "Новый счёт", editTitle: "Счёт",
   fName: "Название", fFirm: "Фирма", fKind: "Тип", fStart: "Стартовый баланс", fCur: "Валюта",
@@ -1146,11 +1170,7 @@ ru: {
   pickFirm: "Выбрать фирму", noFirm: "без фирмы", pickSize: "Выбрать размер",
   phStart: "выбрать или вписать",
   noLimit: "нет", nName: "как в сделках",
-  noStartPct: "Стартовый баланс не задан — процентов не посчитать.",
-  byJournal: "по сделкам журнала:",
-  balAt: "из кабинета на %s, дальше по сделкам",
   beforeOpen: "Сделок раньше даты открытия — %n. В счёт они не пошли.",
-  noBal: "%n без баланса",
   willRename: "Такое название уже есть. Сохраним как «%s».",
   phName: "FTMO 100k", phFirm: "FTMO", phReason: "превысил дневной лимит",
   phNote: "что угодно про этот счёт",
@@ -1162,12 +1182,11 @@ ru: {
 en: {
   title: "My accounts", navTitle: "Accounts", navTip: "Your own deposit and prop firm accounts: balance, target, limits",
   loading: "One moment…", add: "New account", close: "Close", cancel: "Cancel",
-  save: "Save", edit: "Edit", del: "Delete",
+  save: "Save", edit: "Edit", statsLink: "Detailed stats", del: "Delete",
   delAsk: "Remove this account card? The trades stay in the journal.",
   delAskN: "Remove this account card? %n trades carry this name and will stay in the journal.",
   delYes: "Remove",
-  liveN: "live accounts: %n",
-  since: "since", fromStart: "start", noStart: "No starting balance yet — nothing to count money from.",
+  noStart: "No starting balance yet — nothing to count money from.",
   setStart: "set it",
   toTarget: "To target", ddTotal: "Drawdown from start", ddDaily: "Worst day",
   nTrades: "Trades", wr: "Win rate", avgRR: "Average RR", maxDD: "Drawdown from peak",
@@ -1177,6 +1196,8 @@ en: {
   topEmotion: "Most common emotion", reason: "Reason", worstTrades: "Worst trades",
   timesTag: "x",
   status: {active: "Active", passed: "Passed", failed: "Blown", closed: "Closed"},
+  passTitle: "Challenge passed", passDays: "in %n days",
+  loseTitle: "Challenge blown", loseAcc: "Account blown", loseDays: "lasted %n days",
   kinds: {own: "own deposit", challenge: "challenge", funded: "funded"},
   newTitle: "New account", editTitle: "Account",
   fName: "Name", fFirm: "Firm", fKind: "Type", fStart: "Starting balance", fCur: "Currency",
@@ -1187,11 +1208,7 @@ en: {
   pickFirm: "Pick a firm", noFirm: "no firm", pickSize: "Pick a size",
   phStart: "pick or type",
   noLimit: "none", nName: "as in trades",
-  noStartPct: "No starting balance — percentages cannot be counted.",
-  byJournal: "by journal trades:",
-  balAt: "from the dashboard on %s, journal trades after that",
   beforeOpen: "Trades before the opening date: %n. They are not counted here.",
-  noBal: "%n with no balance",
   willRename: "That name is taken. We will save it as “%s”.",
   phName: "FTMO 100k", phFirm: "FTMO", phReason: "went past the daily limit",
   phNote: "anything about this account",

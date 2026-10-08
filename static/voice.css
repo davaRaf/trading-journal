@@ -1,0 +1,119 @@
+/* ---------- Голосове введення: мікрофон усередині поля ---------- */
+/* Кольори й радіуси — змінні з style.css, тому тема (світла/темна)
+   підхоплюється сама, окремих правил для темної тут не треба. */
+
+/* Обгортка навколо textarea — тільки щоб кнопці було від чого
+   відштовхнутись. Поле всередині лишається на всю ширину. */
+.vwrap{position:relative;display:block}
+.vwrap textarea{display:block;width:100%}
+/* Місце під кнопку, щоб текст не заповзав під неї: 6px відступу знизу
+   плюс 34px самої кнопки і трохи повітря. */
+.form .vwrap textarea{padding-bottom:46px}
+/* «Думки про угоду» — низьке поле (.short), з кнопкою в ньому стало б
+   тісно: піднімаємо до двох рядків плюс кнопка. */
+.form .vwrap textarea.short{min-height:88px}
+
+/* Однорядкове поле («Помилка», що відкривається кнопкою «＋»): кнопка так
+   само всередині, але не в куті, а по центру праворуч — у рядок висотою
+   в одне поле низ і центр це те саме місце. */
+/* Відступ від кнопок-підказок тримає сама обгортка, а не поле. У полі
+   (style.css: .qinput{margin-top:7px}) ці 7px лишались усередині
+   обгортки зверху, обгортка виходила вищою за поле, і кнопка, яка
+   центрується по обгортці, ставала вище за середину поля — зверху
+   просвіт менший, ніж знизу.
+   display:block — щоб під полем не лишалось місця під нижні виносні
+   елементи рядка; width явно, бо в колонці .f поле розтягувалось саме,
+   а всередині обгортки знову стало завширшки зі свій size. */
+.vwrap.one{margin-top:7px}
+.vwrap.one .qinput{display:block;width:100%;margin-top:0;padding-right:46px}
+.vwrap.one .micbtn{top:50%;bottom:auto;transform:translateY(-50%)}
+/* Поки «＋» не натиснуто, поле сховане — ховаємо разом із ним і кнопку.
+   Через :has, а не через js: hidden знімають два різні місця (showOwn і
+   відновлення чернетки), і css бачить обидва сам. */
+.vwrap.one:has(.qinput[hidden]){display:none}
+
+/* Поле світиться, поки пишемо: коли на екрані кілька мікрофонів, одразу
+   видно, куди приїде текст. */
+.vwrap.rec textarea,
+.form .vwrap.rec textarea,
+.vwrap.rec .qinput,
+.form .vwrap.rec .qinput{border-color:var(--down);
+  box-shadow:0 0 0 3px var(--down-soft)}
+
+/* У спокої — тільки іконка: ні рамки, ні тла, ні підпису. Поле належить
+   тексту, а не кнопці; що вона вміє, видно з підказки при наведенні
+   (title) і з того, що під запис вона сама розгортається. */
+.micbtn{position:absolute;right:6px;bottom:6px;z-index:1;
+  display:inline-flex;align-items:center;gap:7px;cursor:pointer;
+  background:none;border:1px solid transparent;border-radius:999px;
+  padding:6px;min-height:34px;color:var(--faint);
+  font-family:var(--mono);font-size:10px;letter-spacing:.08em;text-transform:uppercase;
+  white-space:nowrap;transition:color .12s,border-color .12s,background .12s,opacity .12s}
+/* Іконка велика, але тиха: помітність тримаємо розміром, а не рамкою й
+   тлом — тоді вона не сперечається з текстом у полі. Тонша лінія на
+   великій іконці, інакше вона виглядає жирною. */
+.micbtn .micico{width:21px;height:21px;flex:none;fill:none;stroke:currentColor;
+  stroke-width:1.5;stroke-linecap:round;stroke-linejoin:round}
+.micbtn:hover{color:var(--accent);background:var(--accent-soft)}
+.micbtn:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+/* Підпис з'являється лише тоді, коли є що сказати: «Стоп 0:07» під запис
+   і «Розпізнаю…» поки чекаємо. */
+.micbtn .mictxt{display:none;font-variant-numeric:tabular-nums}
+.micbtn.on .mictxt,.micbtn.wait .mictxt{display:inline}
+/* Під запис і в очікуванні всередині лише текст, тому відступи рівні. */
+.micbtn.on,.micbtn.wait{padding:6px 13px;min-height:34px}
+
+/* Пишемо. Червоний, щоб «пишемо» й «не пишемо» не можна було сплутати,
+   а кільце навколо кнопки дихає за громкістю (--lv ставить voice.js). */
+.micbtn.on{color:var(--down);border-color:var(--down);background:var(--down-soft);
+  box-shadow:0 0 0 calc(1px + var(--lv,0) * 5px) var(--down-soft)}
+.micbtn.on:hover{color:var(--down);border-color:var(--down);background:var(--down-soft)}
+
+/* Смужки громкості. Показуємо тільки під запис, замість іконки. */
+/* Під запис у кнопці лишаються тільки «Стоп» і таймер — іконку ховаємо,
+   а що нас чують, видно по кільцю навколо неї. */
+.micbtn.on .micico{display:none}
+/* .live — громкість веде js (--lv). Без неї (браузер не дав AudioContext)
+   кільце дихає само рівним темпом: краще за мертву кнопку. */
+.micbtn.on:not(.live){animation:micglow 1.3s ease-in-out infinite}
+@keyframes micglow{
+  0%,100%{box-shadow:0 0 0 1px var(--down-soft)}
+  50%{box-shadow:0 0 0 6px var(--down-soft)}
+}
+
+/* Чекаємо відповідь. Кнопка вимкнена, але не зникає: інакше на секунду
+   тиші здається, що натискання не спрацювало. */
+.micbtn.wait{color:var(--faint);border-color:var(--line-soft);cursor:default;
+  background:var(--panel)}
+.micbtn.wait:hover{color:var(--faint);border-color:var(--line-soft);background:var(--panel)}
+/* Другий мікрофон на час запису: видно, але натиснути не можна. */
+.micbtn.off{opacity:.35;pointer-events:none}
+
+/* Рядок під полем: порожній не займає місця, тому форма не стрибає. */
+.vhint{font-size:11.5px;color:var(--down);line-height:1.4}
+.vhint:empty{display:none}
+
+@media (prefers-reduced-motion:reduce){
+  .micbtn.on,.micbtn.on:not(.live){animation:none;
+    box-shadow:0 0 0 2px var(--down-soft)}
+}
+
+/* ---------- Розбір дня: мікрофон у полі, яке правлять на місці ---------- */
+/* Тут немає форми з рамками: текст лежить просто на картці, а полем стає
+   сам абзац. Тому кнопка притискається до правого нижнього кута абзацу,
+   а полю лишаємо під неї місце — інакше вона лягла б на останній рядок. */
+.dv-f .vwrap{display:block}
+.dv-f .vwrap textarea.dv-in{padding-bottom:30px}
+.dv-f .micbtn{right:0;bottom:0;padding:4px}
+.dv-f .micbtn .micico{width:19px;height:19px}
+.dv-f .micbtn.on,.dv-f .micbtn.wait{padding:4px 11px;min-height:30px}
+/* Підказка («не почув слів», «не вийшло») стоїть під полем окремим
+   рядком, а не поруч із текстом. */
+.dv-f .vhint{display:block;margin-top:4px}
+
+/* Підпис під скріном у формі угоди: рядок один і росте під текст,
+   тому кнопка стоїть праворуч по центру, а не в куті (.vwrap.one).
+   Відступ згори тримає обгортка, інакше він порахувався б двічі —
+   і в обгортки, і в самого поля. */
+.tfslot .vwrap.one{margin-top:7px}
+.tfslot .vwrap.one .tfnote{margin-top:0; padding-right:42px}

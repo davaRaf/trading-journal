@@ -1,0 +1,12 @@
+[Unit]
+Description=Щохвилини перевіряти GitHub на новий коміт
+
+[Timer]
+# Після перезавантаження даємо серверу піднятись, далі — раз на хвилину.
+OnBootSec=2min
+OnUnitActiveSec=1min
+AccuracySec=15s
+Unit=tj-autodeploy.service
+
+[Install]
+WantedBy=timers.target

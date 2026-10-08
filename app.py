@@ -45,11 +45,15 @@ import oauth
 import ratelimit
 import seclog
 import accounts_store
+import mailout
+import mailauto
 import bt_journals_store
 import day_store
+import week_store
 import tg_api
 import tidy
 import twofa
+import voice
 import ts_check
 import ts_edit
 import ts_notion
@@ -118,6 +122,7 @@ SHOT_MAX = 8 * 1024 * 1024
 
 NOTE_MAX = 2000            # підпис під скріном: думка, а не пара слів
 ASK_LIMIT = 20             # питань до помічника за хвилину на людину
+VOICE_LIMIT = 12           # записів голосу за хвилину на людину
 
 
 def shot_note(s):
@@ -249,6 +254,12 @@ def clean_trade(body, tid):
     # Реальная сделка или бэктест. Всё, кроме "bt", считаем торговлей: тип
     # приходит из браузера, и это единственное место, где он входит внутрь.
     t["kind"] = "bt" if str(body.get("kind") or "").strip() == "bt" else ""
+    # стратегія — номер із ts_multi або "" (перша). У бектесті стратегії
+    # ті самі, що в реальній торгівлі: список один, а правила й угоди під
+    # кожною — свої в кожному режимі.
+    t["ts"] = str(t.get("ts") or "").strip()
+    if not t["ts"].isdigit() or t["ts"] == "0":
+        t["ts"] = ""
     # откуда сделка приехала — нужно, чтобы повторный импорт не задвоил её
     if body.get("notion_id"): t["notion_id"] = str(body["notion_id"])[:64]
     # какое перенесение её принесло — нужно, чтобы его можно было отменить
@@ -408,6 +419,17 @@ def share_og(rec, sid, base):
     return "\n".join(tags)
 
 
+def ts_copy_ok(rec):
+    """Посилання на ТС, і автор дозволив її забирати."""
+    if not rec or share_store.kind_of(rec.get("data")) != "ts" or not rec.get("user_id"):
+        return False
+    try:
+        u = db.get_user(rec["user_id"])
+    except Exception:
+        return False
+    return bool(u and u.get("ts_copy"))
+
+
 def share_read(sid):
     """Отдаёт снимок или None, если его нет либо срок вышел.
 
@@ -536,10 +558,15 @@ def notion_add_source(conf, rec):
     return conf
 
 
-def add_trades(user_id, items):
-    """Кладём пачку сделок в журнал. Вызывается из фонового потока импорта."""
+def add_trades(user_id, items, kind="", run="", ts=""):
+    """Кладём пачку сделок в журнал. Вызывается из фонового потока импорта.
+    kind="bt" — в бэктест; run — журнал бэктеста, если колонки под него не было."""
     batch = []
     for it in items:
+        if kind == "bt":
+            it = dict(it, kind="bt", bt_run=it.get("bt_run") or run)
+        if ts:
+            it = dict(it, ts=ts)            # у ту стратегію, яку людина зараз бачить
         t = clean_trade(it, new_id())
         t["screenshots"] = it.get("screenshots") or []
         batch.append(t)
@@ -654,7 +681,7 @@ def ref_short(ref):
     return ref
 KIND_RU = {"trade": "Сделка", "day": "День", "week": "Неделя", "month": "Месяц", "year": "Год",
            "quarter": "Квартал",
-           "reviewmonth": "Анализ дня · месяц",
+           "reviewmonth": "Анализ дня · месяц", "reviewweek": "Анализ недели",
            "ts": "Торговая система", "review": "Анализ дня", "period": "Период (старые)",
            "other": "Другое"}
 
@@ -795,6 +822,7 @@ def _ref_init():
 # зовнішнім ключем, частина (shares, share_stats) ключа не має — тому
 # проходимо списком і не покладаємось на каскад.
 PER_USER_TABLES = ("trades", "strategies", "notion_conf", "user_prefs", "day_notes",
+                   "week_notes",
                    "trade_drafts", "backups", "shares", "share_stats", "identities",
                    "link_codes", "notified_events", "auth_links")
 
@@ -885,6 +913,7 @@ def _billing_block(u):
         + kv("Сделки", e(pair("free_trades_used", "free_trades_cap", config.FREE_TRADES)))
         + kv("Бэктест", e(pair("free_bt_used", "free_bt_cap", config.FREE_BT)))
         + kv("Переносы", e(pair("imports_used", "imports_cap", config.FREE_IMPORTS)))
+        + kv("Бэктест из Notion", e(pair("bt_imports_used", "bt_imports_cap", 3)))
         + kv("Обращения к модели", e("%s из %s%s" % (
             billing.ai_used(u), billing.ai_cap(u),
             (" · окно до " + dt(u["ai_reset_at"])) if u["ai_reset_at"] else "")))
@@ -921,7 +950,8 @@ def _billing_block(u):
           '<span class=mute>бэктест</span><input id=bbt type=number placeholder="0" style="%s">'
           '<span class=mute>переносы</span><input id=bim type=number placeholder="0" style="%s">'
           '<span class=mute>обращения</span><input id=bai type=number placeholder="0" style="%s">'
-          '<button id=bbonus class=btn>Добавить</button></div>' % (inp, inp, inp, inp)
+          '<span class=mute>бэктест из Notion</span><input id=bbti type=number placeholder="0" style="%s">'
+          '<button id=bbonus class=btn>Добавить</button></div>' % (inp, inp, inp, inp, inp)
         + '<div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:14px">'
           '<button id=bearly class=btn>Цены как ранним</button>'
           '<button id=bstd class=btn>Обычные цены</button>'
@@ -945,7 +975,7 @@ def _billing_block(u):
           "brevoke.onclick=()=>{if(confirm('Снять подписку? Оплаченные дни пропадут.'))"
           "bill('revoke');};"
           "bbonus.onclick=()=>bill('bonus',{trades:+btr.value||0,bt:+bbt.value||0,"
-          "imports:+bim.value||0,ai:+bai.value||0});"
+          "imports:+bim.value||0,ai:+bai.value||0,bt_imports:+bbti.value||0});"
           "bearly.onclick=()=>bill('price',{price_plan:'early'});"
           "bstd.onclick=()=>bill('price',{price_plan:'std'});"
           "ballow.onclick=()=>bill('allow-ip',{off:%s});</script>" % (
@@ -980,6 +1010,16 @@ def _ts_restore_block(u):
             '<script>tsback.onclick=()=>{if(confirm("Заменить нынешнюю ТС копией за "+'
             'tsday.selectedOptions[0].textContent.split(" ")[0]+"?"))bill("ts-restore",{day:tsday.value});};'
             '</script></div>' % (len(cur), opts))
+
+
+def _sub_canceled(uid, on):
+    try:
+        mailauto.init()
+        with db.connect() as conn:
+            conn.execute("UPDATE users SET sub_canceled=%s WHERE id=%s", (bool(on), uid))
+            conn.commit()
+    except Exception as ex:
+        print("sub_canceled:", ex, flush=True)
 
 
 def _is_admin(uid):
@@ -1073,7 +1113,7 @@ def blank_filler(user_id, rows):
     return fill
 
 
-def start_import(user_id, tables, mapping, opts):
+def start_import(user_id, tables, mapping, opts, kind="", run="", ts=""):
     jid = secrets.token_urlsafe(6)
     job = notion.Job(jid)
     job.user_id = user_id          # чтобы чужое задание нельзя было подсмотреть
@@ -1085,12 +1125,14 @@ def start_import(user_id, tables, mapping, opts):
     # что уже было: сделки в журнале плюс те, что человек из него убрал.
     # Отпечатки нужны, чтобы узнать сделку, записанную в другой базе Notion, —
     # там у неё свой notion_id, и он не совпадёт
-    rows = db.list_trades(user_id)
+    # бектест звіряємо з бектестом: та сама угода в реальному журналі —
+    # не причина її не перенести
+    rows = db.list_trades(user_id, kind)
     known, seen, marks = db.import_seen(user_id, rows)
     th = threading.Thread(
         target=npub.run_public_import,
         args=(job, tables, mapping, opts, SHOTS, known, seen,
-              lambda items: add_trades(user_id, items), marks),
+              lambda items: add_trades(user_id, items, kind, run, ts), marks),
         kwargs={"fill": blank_filler(user_id, rows)},
         daemon=True)
     th.start()
@@ -1239,6 +1281,8 @@ def user_public(user):
             "digest_hour": user["digest_hour"], "digest_minute": user["digest_minute"],
             "digest_enabled": user["digest_enabled"],
             "public_journal": bool(user["public_journal"]),
+            "ts_copy": bool(user.get("ts_copy")),
+            "mail_news": user.get("mail_news") is not False,
             "tz": user["tz"] or "Europe/Kyiv",
             "email_confirmed": user["email_confirmed_at"] is not None,
             "avatar": avatar_url(user.get("avatar")),
@@ -2009,6 +2053,8 @@ class H(BaseHTTPRequestHandler):
             nick = public_owner(rec.get("user_id"))
             if nick:
                 out["owner"] = {"nick": nick}
+            if ts_copy_ok(rec):
+                out["ts_copy"] = True
             author = share_author(rec.get("user_id"))
             if author:
                 out["author"] = author
@@ -2134,6 +2180,40 @@ class H(BaseHTTPRequestHandler):
             return self._json({"prefs": prefs_get(uid)})
 
         # ---- звідки про нас дізнались: лише власникам ----
+        # ---- відписка з листа: без входу, за підписаним посиланням ----
+        if p == "/unsub":
+            qs = parse_qs(urlparse(self.path).query)
+            ok = mailout.unsubscribe((qs.get("u") or [""])[0], (qs.get("t") or [""])[0])
+            text = ("Готово — больше не пришлём писем с новостями. Вернуть можно в профиле журнала."
+                    if ok else "Ссылка не сработала. Отписаться можно в профиле журнала.")
+            data = ('<!doctype html><meta charset=utf-8><meta name=viewport content="width=device-width,initial-scale=1">'
+                    '<title>StatsAI</title><body style="font-family:Segoe UI,Arial,sans-serif;background:#0d0f12;color:#e8eaee;'
+                    'display:grid;place-items:center;min-height:90vh;margin:0;padding:16px"><div style="max-width:420px;text-align:center">'
+                    '<h2>Stats<span style="color:#3ccf8e">AI</span></h2><p style="line-height:1.6">%s</p>'
+                    '<p><a href="/" style="color:#3ccf8e">Открыть журнал</a></p></div></body>' % _html.escape(text)).encode("utf-8")
+            self.send_response(200)
+            self.send_header("Content-Type", "text/html; charset=utf-8")
+            self.send_header("Content-Length", str(len(data)))
+            self.end_headers()
+            self.wfile.write(data)
+            return
+
+        if p == "/admin/mail":
+            uid = self._uid()
+            if not uid:
+                return self._redirect("/login")
+            if not _is_admin(uid):
+                self.send_response(403); self.end_headers(); return
+            data = admin_page.mail_page(mailout.stats(), mailout.AUDIENCES, list(ref_all()),
+                                        REF_TITLES, bool(config.RESEND_API_KEY)).encode("utf-8")
+            self.send_response(200)
+            self.send_header("Content-Type", "text/html; charset=utf-8")
+            self.send_header("Content-Length", str(len(data)))
+            self.send_header("Cache-Control", "no-store")
+            self.end_headers()
+            self.wfile.write(data)
+            return
+
         # ---- службова сторінка з цифрами: лише власникам ----
         if p == "/admin":
             uid = self._uid()
@@ -2248,9 +2328,11 @@ class H(BaseHTTPRequestHandler):
                 return self._json({"error": "auth required"}, 401)
             # Журнал переключается между реальной торговлей и бэктестом целиком.
             # Без параметра — торговля, как было до появления бэктеста.
-            kind = "bt" if (parse_qs(urlparse(self.path).query).get("kind")
-                            or [""])[0] == "bt" else ""
-            return self._json(db.list_trades(uid, kind))
+            # `ts` — выбранная стратегия (пусто — все): она есть в обоих
+            # режимах, см. db.strat_kind.
+            q = parse_qs(urlparse(self.path).query)
+            bt = (q.get("kind") or [""])[0] == "bt"
+            return self._json(db.list_trades(uid, db.strat_kind((q.get("ts") or [""])[0], bt)))
 
         # ---- рахунки: свій депозит і проп-фірми (accounts_store.py) ----
         #
@@ -2269,6 +2351,30 @@ class H(BaseHTTPRequestHandler):
             if not uid:
                 return self._json({"error": "auth required"}, 401)
             return self._json({"journals": bt_journals_store.lst(uid)})
+
+        # Розбір тижня лежить окремо від денного, але влаштований так само:
+        # ключ — понеділок того тижня, скріни спільні з днем.
+        if p.startswith("/api/week/"):
+            uid = self._uid()
+            if not uid:
+                return self._json({"error": "auth required"}, 401)
+            rest = p[len("/api/week/"):]
+            if rest == "list":
+                return self._json({"weeks": week_store.weeks(uid)})
+            if rest == "stats":
+                # ?since=YYYY-MM-DD (понеділок) — для знімка; без нього, як і з
+                # будь-чим іншим у рядку, беремо останні 12 тижнів
+                want = urllib.parse.parse_qs(urlparse(self.path).query).get("since", [""])[0]
+                if week_store.valid_week(want):
+                    since = want
+                else:
+                    base = week_store.monday(datetime.date.today().isoformat())
+                    since = (datetime.date.fromisoformat(base)
+                             - datetime.timedelta(weeks=11)).isoformat()
+                return self._json({"notes": week_store.notes_since(uid, since), "since": since})
+            if not week_store.valid_week(rest):
+                return self._json({"error": "bad week"}, 400)
+            return self._json({"week": week_store.get(uid, rest)})
 
         if p.startswith("/api/day/"):
             uid = self._uid()
@@ -2345,9 +2451,16 @@ class H(BaseHTTPRequestHandler):
                 return self._json({"error": "auth required"}, 401)
             # у бектесті своя копія ТС: перший захід знімає її з реальної,
             # далі це два окремі документи
-            kind = "bt" if (parse_qs(urlparse(self.path).query).get("kind")
-                            or [""])[0] == "bt" else ""
-            return self._json({"ts": ts_store.get(uid, kind)})
+            qs = parse_qs(urlparse(self.path).query)
+            kind = "bt" if (qs.get("kind") or [""])[0] == "bt" else ""
+            return self._json({"ts": ts_store.get(uid, kind, sid=(qs.get("sid") or ["0"])[0])})
+
+        if p == "/api/ts/list":
+            uid = self._uid()
+            if not uid:
+                return self._json({"error": "auth required"}, 401)
+            lk = (parse_qs(urlparse(self.path).query).get("kind") or [""])[0]
+            return self._json({"list": ts_store.lst(uid, "bt" if lk == "bt" else "")})
 
         if p.startswith("/tsshot/"):
             uid = self._uid()
@@ -2759,6 +2872,45 @@ class H(BaseHTTPRequestHandler):
             print("каса: відкрили, тариф=%s" % plan, flush=True)
             return self._json({"url": url})
 
+        # ---- докупка бектест-перенесень ----
+        if p == "/api/billing/bt-imports":
+            # Разова оплата: сума залежить від кількості. З браузера
+            # приходить тільки кількість — ціну сторінка теж знає, але вона
+            # з того самого списку, який сервер їй віддав, і приймати її
+            # назад не можна. Рахуємо заново.
+            uid = self._uid()
+            if not uid:
+                return self._json({"error": "auth required"}, 401)
+            if not isinstance(body, dict):
+                return self._json({"error": "bad json"}, 400)
+            # Порядок перевірок тут не випадковий: спершу те, що прислали
+            # (погане число — це 400 завжди, хоч каса ввімкнена, хоч ні),
+            # далі право купувати, і лише потім наші власні налаштування.
+            n = (body or {}).get("n")
+            cents = config.bt_pack_cents(n)
+            if not cents:
+                return self._json({"error": "кількість не та",
+                                   "code": "bad_n"}, 400)
+            # Докупка розширює підписку, а не заміняє її: без підписки
+            # перенесеннями все одно не скористатись (take_bt_import), тож
+            # і продавати їх тут нечесно.
+            if not billing.active(uid):
+                return self._json(billing.deny(uid, billing.BT_NOTION), 402)
+            if not creem.enabled() or not config.CREEM_BT_PACK_PRODUCT:
+                return self._json({"error": "оплата ще не ввімкнена",
+                                   "code": "no_pay"}, 503)
+            try:
+                u = db.get_user(uid) or {}
+                url = creem.pack_checkout(uid, int(n), cents,
+                                          email=u.get("email") or "")
+            except Exception as ex:
+                print("докупка:", ex, flush=True)
+                return self._json({"error": "не вдалося відкрити оплату",
+                                   "code": "pay_failed"}, 502)
+            print("докупка: каса на %d перенесень, %d центів, uid=%s"
+                  % (int(n), cents, uid), flush=True)
+            return self._json({"url": url, "n": int(n), "cents": cents})
+
         # ---- оплата криптою ----
         if p == "/api/billing/crypto":
             # Виставляємо рахунок: адреса, сума й скільки її чекати.
@@ -2890,11 +3042,38 @@ class H(BaseHTTPRequestHandler):
                 return self._json({"ok": True, "unknown_user": True})
 
             try:
-                if ev in ("subscription.active", "subscription.paid",
-                          "checkout.completed"):
+                # Разова докупка бектест-перенесень приходить тим самим
+                # checkout.completed, що й перша оплата підписки, — відрізнити
+                # їх можна тільки по нашій же позначці в metadata. Без цієї
+                # розвилки покупка за чотири євро видавала б місяць підписки.
+                pack = creem.pack_of(obj)
+                if pack:
+                    # Беремо рівно одну подію з оплати. Повторна доставка тієї
+                    # самої відсіяна вище (db.payment_once), а інші події про
+                    # ту саму покупку мають свої id — зарахувавши їх теж, ми
+                    # підняли б стелю двічі за одні гроші.
+                    if ev == "checkout.completed":
+                        billing.bt_pack_add(uid, pack)
+                        print("докупка: +%d перенесень для %s" % (pack, uid),
+                              flush=True)
+                    elif ev in ("refund.created", "dispute.created"):
+                        # Гроші пішли назад — стелю забираємо, підписку не
+                        # чіпаємо: за неї тут не платили.
+                        billing.bt_pack_drop(uid, pack)
+                        print("докупка: -%d перенесень у %s (%s)"
+                              % (pack, uid, ev), flush=True)
+                    else:
+                        print("докупка: подію %s пропустили" % ev, flush=True)
+                elif ev in ("subscription.active", "subscription.paid",
+                            "checkout.completed"):
                     plan = creem.plan_of(obj) or "month"
                     billing.apply_paid(uid, plan, creem.period_end(obj))
                     billing.promo_paid(uid)   # перша оплата — код відпрацював
+                    _sub_canceled(uid, False)
+                elif ev in ("subscription.canceled", "subscription.scheduled_cancel"):
+                    # дати не чіпаємо (див. нижче), лише запам'ятовуємо: сама
+                    # не продовжиться — за 3 дні до кінця нагадаємо листом
+                    _sub_canceled(uid, True)
                 elif ev in ("refund.created", "dispute.created",
                             "subscription.expired", "subscription.unpaid"):
                     # Повернення й спір — гроші пішли назад, підписку знімаємо.
@@ -2965,11 +3144,12 @@ class H(BaseHTTPRequestHandler):
                 ts_store.put(u["id"], ts)
                 return self._json({"ok": True, "day": day})
             if act == "bonus":
-                if not any(num(k) for k in ("trades", "bt", "imports", "ai")) and note is None:
+                if not any(num(k) for k in ("trades", "bt", "imports", "ai", "bt_imports")) and note is None:
                     return self._json({"error": "нечего добавлять"}, 400)
                 return self._json(billing.bonus(u["id"], trades=num("trades"),
                                                 bt=num("bt"), imports=num("imports"),
-                                                ai=num("ai"), note=note))
+                                                ai=num("ai"), note=note,
+                                                bt_imports=num("bt_imports")))
             if act == "price":
                 plan = str(body.get("price_plan") or "").strip()
                 own = body.get("own_cents")
@@ -3335,6 +3515,87 @@ class H(BaseHTTPRequestHandler):
         if p.startswith("/api/") and not uid:
             return self._json({"error": "auth required"}, 401)
 
+        # мова сайту — щоб автоматичні листи (mailauto.py) йшли нею
+        if p == "/api/me/lang":
+            lg = str((body or {}).get("lang") or "")
+            if lg in ("uk", "ru", "en"):
+                mailauto.init()
+                with db.connect() as conn:
+                    conn.execute("UPDATE users SET lang=%s WHERE id=%s", (lg, uid))
+                    conn.commit()
+            return self._json({"ok": True})
+
+        if p == "/api/me/mail":
+            on = bool((body or {}).get("on"))
+            mailout.set_news(uid, on)
+            return self._json({"mail_news": on})
+
+        # ---- розсилка: лише власникам ----
+        if p.startswith("/api/admin/mail/"):
+            if not _is_admin(uid):
+                return self._json({"error": "forbidden"}, 403)
+            b = body or {}
+            act = p[len("/api/admin/mail/"):]
+            subject = str(b.get("subject") or "").strip()[:150]
+            text = str(b.get("body") or "")[:20000]
+            aud = b.get("audience") if b.get("audience") in mailout.AUDIENCES else "all"
+            ref = str(b.get("ref") or "")
+            ref = ref if ref in ref_all() else ""
+            if act == "count":
+                return self._json({"n": len(mailout.recipients(aud, ref))})
+            if act == "run":
+                return self._json({"n": mailout.run_once()})
+            if act == "auto":
+                return self._json(mailauto.check())
+            if not subject or not text.strip():
+                return self._json({"error": "нужны тема и текст"}, 400)
+            if act == "test":
+                me = db.get_user(uid)
+                ok = mailout.send_one(me["email"], subject, text, uid)
+                return self._json({"to": me["email"]} if ok else {"error": "письмо не ушло — смотри лог сервера"},
+                                  200 if ok else 502)
+            if act == "send":
+                seclog.event("розсилка", True, user=db.get_user(uid), ip=self._guest(), тема=subject)
+                return self._json({"n": mailout.enqueue(subject, text, aud, ref)})
+            return self._json({"error": "неизвестное действие"}, 400)
+
+        if p == "/api/ts/active":
+            db.set_ts_active(uid, (body or {}).get("ts"))
+            return self._json({"ok": True})
+
+        if p == "/api/me/ts-copy":
+            on = bool((body or {}).get("on"))
+            db.set_ts_copy(uid, on)
+            return self._json({"ts_copy": on})
+
+        # Забрати чужу ТС до себе за посиланням на неї — якщо автор дозволив
+        m = re.match(r"^/api/share/([A-Za-z0-9_-]{6,32})/copy-ts$", p)
+        if m:
+            rec = share_read(m.group(1))
+            if not ts_copy_ok(rec):
+                return self._json({"error": "копіювати не можна", "code": "no_copy"}, 404)
+            owner = rec["user_id"]
+            if owner == uid:
+                return self._json({"error": "це ваша ТС", "code": "own"}, 400)
+            src = ts_store.get(owner, "", seed=False, sid=(rec.get("data") or {}).get("sid") or 0)
+            if not src:
+                return self._json({"error": "ТС уже немає", "code": "no_copy"}, 404)
+            data = ts_store.copy_for(uid, src)
+            # Своєї ТС ще немає — чужа стає першою. Є — не затираємо її, а
+            # кладемо чужу окремою стратегією: людина може тримати обидві.
+            if ts_store.get(uid, "", seed=False) and not (body or {}).get("replace"):
+                author = (db.get_user(owner) or {}).get("nickname") or ""
+                sid = ts_store.create(uid, ("ТС " + author).strip()[:60])
+                if not sid:
+                    return self._json({"error": "забагато стратегій", "code": "too_many"}, 409)
+                ts_store.put(uid, data, "", sid)
+                print("ts-copy: %s забрав ТС у %s окремою стратегією" % (uid, owner), flush=True)
+                return self._json({"ok": True, "sid": sid})
+            ts_store.put(uid, data, "")
+            ts_store.sweep(uid, data, SHOTS, "")   # старі скріни своєї ТС
+            print("ts-copy: %s забрав ТС у %s" % (uid, owner), flush=True)
+            return self._json({"ok": True})
+
         if p == "/api/me/public":
             on = bool((body or {}).get("on"))
             db.set_public(uid, on)
@@ -3528,6 +3789,51 @@ class H(BaseHTTPRequestHandler):
             db.unlink_telegram(uid)
             return self._json({"ok": True})
 
+        # ---- голос у текст ----
+        if p == "/api/voice":
+            # Кожен запис — платний запит до OpenAI. Дюжини за хвилину
+            # вистачає, щоб надиктувати угоду кількома підходами, а скрипт
+            # далі не піде.
+            keys = ["voice:%s" % uid]
+            wait = ratelimit.check(keys, limit=VOICE_LIMIT)
+            if wait:
+                return self._json({"error": "забагато записів поспіль — спробуй за %d с" % wait,
+                                   "code": "too_many", "wait": wait}, 429)
+            ratelimit.miss(keys, limit=VOICE_LIMIT)
+            if not voice.enabled():
+                return self._json({"error": "голосове введення вимкнене — немає OPENAI_API_KEY",
+                                   "code": "no_voice"}, 503)
+            if not isinstance(body, dict):
+                return self._json({"error": "bad json"}, 400)
+            raw = str(body.get("audio") or "")
+            # Межу рахуємо до розбору: base64 на третину довший за сам
+            # звук, і немає сенсу розкодовувати 50 МБ, щоб потім сказати
+            # «завелике».
+            if len(raw) > voice.MAX_BYTES // 3 * 4 + 16:
+                return self._json({"error": "запис завеликий", "code": "too_big"}, 413)
+            try:
+                blob = base64.b64decode("".join(raw.split()), validate=True)
+            except Exception:
+                return self._json({"error": "не вдалось прочитати запис",
+                                   "code": "bad_audio"}, 400)
+            lang = str(body.get("lang") or "")
+            text, err = voice.transcribe(
+                blob, str(body.get("mime") or ""),
+                lang=lang if lang in ("uk", "ru", "en") else None)
+            if err == "too_big":
+                return self._json({"error": "запис завеликий", "code": "too_big"}, 413)
+            if err == "bad_audio":
+                # Сюда ж приходить тиша: модель відповіла, але слів не почула.
+                return self._json({"error": "не почув слів — спробуй ще раз",
+                                   "code": "bad_audio"}, 400)
+            if err == "quota":
+                return self._json({"error": "розпізнавання зайняте — спробуй за хвилину",
+                                   "code": "too_many", "wait": 60}, 429)
+            if err:
+                return self._json({"error": "розпізнавання не відповіло",
+                                   "code": "voice_failed"}, 502)
+            return self._json({"text": text})
+
         if p == "/api/assistant/ask":
             # Кожне питання — платний запит до моделі. 20 за хвилину на
             # людину вистачає для живої розмови, а скрипт далі не піде.
@@ -3557,7 +3863,10 @@ class H(BaseHTTPRequestHandler):
             lang = lang if lang in ("uk", "ru", "en") else None
             # у якому журналі людина зараз: помічник має відповідати про те,
             # що вона перед собою бачить, і прибирати теж саме те
-            kind = "bt" if (body or {}).get("kind") == "bt" else ""
+            # кілька стратегій: помічник дивиться на угоди й ТС обраної —
+            # і в реальній торгівлі, і в бектесті
+            kind = db.strat_kind((body or {}).get("ts"),
+                                 (body or {}).get("kind") == "bt")
             # прохання змінити «Мою ТС» — окрема гілка: модель лише каже, ЩО
             # змінити, а перевіряє шляхи й пише в базу код (ts_edit.py).
             # Йде першою, коли прохання явно про ТС: «прибери модель BOS з ТС»
@@ -3589,7 +3898,7 @@ class H(BaseHTTPRequestHandler):
             # бере сторінка (у неї свої, на три мови).
             return self._json(assistant.nudge(
                 uid, lang if lang in ("uk", "ru", "en") else "ru",
-                "bt" if (body or {}).get("kind") == "bt" else "",
+                db.strat_kind((body or {}).get("ts"), (body or {}).get("kind") == "bt"),
                 talk=billing.can_use_ai(uid)[0]))
 
         if p == "/api/assistant/review":
@@ -3615,7 +3924,7 @@ class H(BaseHTTPRequestHandler):
             return self._json(assistant.review(
                 uid, history,
                 lang=rlang if rlang in ("uk", "ru", "en") else None,
-                kind="bt" if (body or {}).get("kind") == "bt" else ""))
+                kind=db.strat_kind((body or {}).get("ts"), (body or {}).get("kind") == "bt")))
 
         # друга половина видалення на прохання: ключ одноразовий, список id
         # у ньому вже зафіксований — тут нічого не добирається заново
@@ -3706,20 +4015,42 @@ class H(BaseHTTPRequestHandler):
             if not tables or not mapping.get("pair"):
                 return self._json({"error": "потрібні таблиця і колонка з інструментом"}, 400)
             # Три перенесення в перші 30 днів — далі тільки з підпискою.
+            # Бектест з Notion рахується окремо: три бази без підписки теж,
+            # і вікно перших днів на них не діє (власник, 07.10.2026).
             # Дивимось до запуску потоку: скасувати його потім нічим.
-            ok, why = billing.can_import(uid)
+            kind = "bt" if body.get("kind") == "bt" else ""
+            ok, why = billing.can_import(uid, kind)
             if not ok:
                 return self._json(billing.deny(uid, why), 402)
             conf = notion_conf(uid)
             title = body.get("title") or ""
-            conf.update({"url": url, "mapping": mapping, "title": title})
-            job = start_import(uid, tables, mapping, body.get("options") or {})
-            billing.spend_import(uid)
+            run = (str(body.get("bt_run") or "").strip() or title.strip() or "Notion")[:80]
+            # Ліміт бектесту рахує нові бази. Ту саму базу (ті самі таблиці
+            # Notion) перечитати, щоб підтягнути нові угоди, можна скільки
+            # завгодно — і після «Відв'язати» теж: список не чиститься.
+            if kind == "bt":
+                bkey = ",".join(sorted(str(t["collection"]) for t in tables))
+                if bkey not in (conf.get("bt_keys") or []):
+                    ok, why = billing.take_bt_import(uid)
+                    if not ok:
+                        return self._json(billing.deny(uid, why), 402)
+                    conf["bt_keys"] = (conf.get("bt_keys") or []) + [bkey]
+            if not kind:
+                conf.update({"url": url, "mapping": mapping, "title": title})
+            # стратегія, під яку переносимо: у бектесті так само, як у
+            # реальній торгівлі — список стратегій один на обидва режими
+            tsid = str(body.get("ts") or "")
+            tsid = tsid if tsid.isdigit() and tsid != "0" else ""
+            job = start_import(uid, tables, mapping, body.get("options") or {}, kind, run, tsid)
+            # Бектест уже списаний своїм лічильником (take_bt_import вище) —
+            # інакше одна база бектесту забирала б ще й перенесення журналу.
+            if not kind:
+                billing.spend_import(uid)
             when = datetime.datetime.now().strftime("%Y-%m-%d %H:%M")
             # запись про базу кладём до того, как перенос закончится: браузер
             # могут закрыть посреди работы, а сделки уже поедут в журнал
             notion_add_source(conf, {"id": job.batch, "url": url, "title": title,
-                                     "when": when, "mapping": mapping})
+                                     "when": when, "mapping": mapping, "kind": kind})
             conf["last"] = {"id": job.batch, "count": 0, "when": when}
             notion_save(uid, conf)
             return self._json(job.snapshot(), 202)
@@ -3764,6 +4095,8 @@ class H(BaseHTTPRequestHandler):
             except (TypeError, ValueError):
                 return self._json({"error": "bad id"}, 400)
             accounts_store.drop(uid, acc_id)
+            return self._json({"ok": True})
+
             return self._json({"ok": True})
 
         # ---- журнали бектесту ----
@@ -3811,6 +4144,17 @@ class H(BaseHTTPRequestHandler):
                                   getattr(e, "status", 400))
             return self._json({"file": name})
 
+        if p.startswith("/api/week/"):
+            week = p[len("/api/week/"):]
+            if not week_store.valid_week(week):
+                return self._json({"error": "bad week"}, 400)
+            data = (body or {}).get("week")
+            if data is None:
+                week_store.drop(uid, week)
+            else:
+                week_store.put(uid, week, dict(data))
+            return self._json({"ok": True})
+
         if p.startswith("/api/day/"):
             date = p[len("/api/day/"):]
             if not day_store.valid_date(date):
@@ -3827,23 +4171,48 @@ class H(BaseHTTPRequestHandler):
             data = dict((body or {}).get("ts") or {})
             # правки лягають у ту стратегію, яку людина зараз бачить
             kind = "bt" if (body or {}).get("kind") == "bt" else ""
-            ts_store.put(uid, data, kind)
-            ts_store.sweep(uid, data, SHOTS, kind)  # старі скріни за собою прибираємо
+            sid = (body or {}).get("sid") or 0
+            ts_store.put(uid, data, kind, sid)
+            ts_store.sweep(uid, data, SHOTS, kind, sid)  # старі скріни за собою прибираємо
             return self._json({"ok": True})
+
+        # ---- кілька стратегій: завести, назвати, прибрати ----
+        if p == "/api/ts/new":
+            b = body or {}
+            kind = "bt" if b.get("kind") == "bt" else ""
+            sid = ts_store.create(uid, b.get("name") or "",
+                                  b.get("copy") if b.get("copy") is not None else None,
+                                  kind)
+            if not sid:
+                return self._json({"error": "too many"}, 400)
+            return self._json({"id": sid, "list": ts_store.lst(uid, kind)})
+
+        if p == "/api/ts/rename":
+            b = body or {}
+            ts_store.rename(uid, b.get("sid") or 0, b.get("name") or "")
+            return self._json({"list": ts_store.lst(uid)})
+
+        if p == "/api/ts/drop":
+            sid = (body or {}).get("sid") or 0
+            if not ts_store.drop(uid, sid):
+                return self._json({"error": "can't"}, 400)
+            ts_store.sweep(uid, {}, SHOTS, "", sid)
+            return self._json({"list": ts_store.lst(uid)})
 
         # Звірка щойно записаної угоди з ТС. Окремим запитом, а не всередині
         # POST /api/trades: збереження має бути миттєвим, а тут ще й модель.
         if p == "/api/ts/check":
             tid = str((body or {}).get("id") or "").strip()
             trade = db.get_trade(tid, uid) if tid else None
-            ts = ts_store.get(uid)
+            # звіряємо з тією стратегією, під якою угоду записали
+            ts = ts_store.get(uid, sid=(trade or {}).get("ts") or 0)
             if not trade or not ts:
                 return self._json({"items": [], "text": ""})
             # Бэктест с торговой системой не сверяем: список дня собирается
             # из реальных сделок, и самой сделки в нём нет.
             if trade.get("kind") == "bt":
                 return self._json({"items": [], "text": ""})
-            day = ts_check.same_day(db.list_trades(uid), trade)
+            day = ts_check.same_day(db.list_trades(uid, db.strat_kind(trade.get("ts") or "0")), trade)
             items = ts_check.check(ts, trade, day)
             lang = str((body or {}).get("lang") or "ru")
             # Розходження рахує код і вони безкоштовні завжди; модель тут
@@ -3858,8 +4227,9 @@ class H(BaseHTTPRequestHandler):
 
         if p == "/api/ts/clear":
             kind = "bt" if (body or {}).get("kind") == "bt" else ""
-            ts_store.sweep(uid, {}, SHOTS, kind)
-            ts_store.clear(uid, kind)
+            sid = (body or {}).get("sid") or 0
+            ts_store.sweep(uid, {}, SHOTS, kind, sid)
+            ts_store.clear(uid, kind, sid)
             return self._json({"ok": True})
 
         if p == "/api/ts/shot":
@@ -4006,6 +4376,9 @@ class H(BaseHTTPRequestHandler):
         # Тип ставится при записи и правкой не меняется: иначе сделка
         # переехала бы между реальным журналом и бэктестом.
         t["kind"] = old.get("kind") or ""
+        # хто правив без поля стратегії (бот, старий кеш сторінки) — не скидаємо її
+        if "ts" not in body:
+            t["ts"] = old.get("ts") or ""
         try:
             save_screenshots(t, uid, old)
         except filestore.ShotError as e:
@@ -4091,6 +4464,8 @@ if __name__ == "__main__":
     if config.RUN_JOBS:
         # щоденний зліпок журналу: тихо, у фоні, раз на добу
         backup.start()
+        # розсилка: черга листів, не більше MAIL_DAILY на добу
+        mailout.start()
         # оплата криптою: дивимось у блокчейн, чи не прийшли гроші
         crypto_pay.start()
     if config.RUN_BOT and config.BOT_TOKEN:

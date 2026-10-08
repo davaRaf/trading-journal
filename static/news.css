@@ -112,11 +112,19 @@
 .nw-fbtn .dot{width:6px; height:6px; border-radius:50%; background:var(--accent)}
 .nw-fbtn[aria-expanded="true"]{background:var(--panel-2); color:var(--text)}
 
+/* Панель виїжджає й ховається тим самим рухом, що й список часових
+   поясів поруч (nw-pop / nw-unpop): дві панелі в одному ряду мусять
+   поводитись однаково. «still» — це перемальовка вже відкритої панелі
+   («вибрати всі», «зняти всі»): там анімації не місце, інакше панель
+   підстрибувала б на кожне натискання. */
 .nw-panel{position:absolute; right:0; top:calc(100% + 8px); z-index:30; width:600px;
   max-width:min(600px, calc(100vw - 32px));
   display:flex; flex-direction:column; gap:12px; padding:14px;
   background:var(--card); border:1px solid var(--line); border-radius:var(--r);
-  box-shadow:var(--shadow-pop)}
+  box-shadow:var(--shadow-pop); transform-origin:top right;
+  animation:nw-pop .24s cubic-bezier(.22,.9,.24,1) both}
+.nw-panel.shut{pointer-events:none; animation:nw-unpop .15s ease-in both}
+.nw-panel.still{animation:none}
 .nw-panel .cols{display:grid; grid-template-columns:1.35fr .65fr; gap:12px; align-items:start}
 .nw-panel .left{display:flex; flex-direction:column; gap:12px}
 .nw-panel .grp{padding:11px 13px 12px; border:1px solid var(--line-soft);
@@ -129,8 +137,23 @@
 .nw-panel .rows.imps{display:grid; grid-template-columns:1fr 1fr; gap:7px 12px}
 .nw-panel .chk{display:flex; align-items:center; gap:8px; font-size:13px; color:var(--text);
   cursor:pointer; min-height:22px}
-.nw-panel .chk input{width:15px; height:15px; margin:0; flex:none; cursor:pointer;
-  accent-color:var(--accent)}
+/* Своя галочка замість системної: та вмикається миттєво, без жодного
+   руху, і при знятті зникає ривком. Тут квадратик заливається кольором, а
+   сама пташка виростає з нуля. Поле лишається справжнім <input>, тож
+   клавіатура й читалки працюють як працювали. */
+.nw-panel .chk input{position:relative; width:16px; height:16px; margin:0; flex:none; cursor:pointer;
+  -webkit-appearance:none; appearance:none; border:1.5px solid var(--line); border-radius:5px;
+  background:var(--card);
+  transition:background .18s ease, border-color .18s ease, transform .12s ease}
+.nw-panel .chk:hover input{border-color:var(--faint)}
+.nw-panel .chk input:checked{background:var(--accent); border-color:var(--accent)}
+.nw-panel .chk input:active{transform:scale(.88)}
+.nw-panel .chk input::after{content:""; position:absolute; left:4.5px; top:1.5px;
+  width:4px; height:8px; border:solid var(--accent-ink); border-width:0 2px 2px 0;
+  transform:rotate(45deg) scale(.3); opacity:0;
+  transition:opacity .12s ease, transform .2s cubic-bezier(.22,.9,.24,1)}
+.nw-panel .chk input:checked::after{opacity:1; transform:rotate(45deg) scale(1)}
+.nw-panel .chk input:focus-visible{outline:2px solid var(--accent); outline-offset:2px}
 .nw-panel .chk span{min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap}
 .nw-panel .foot{display:flex; align-items:center; gap:8px; flex-wrap:wrap}
 .nw-panel .nw-btn{font:inherit; font-size:12.5px; padding:8px 15px; border-radius:var(--r-sm);
@@ -474,4 +497,10 @@
 
 @media (prefers-reduced-motion:reduce){
   .nw-det .slide,.nw-det .slide .in,.nw-tzpanel{animation:none}
+}
+
+/* кому рух заважає — тому без руху */
+@media (prefers-reduced-motion:reduce){
+  .nw-panel,.nw-panel.shut{animation:none}
+  .nw-panel .chk input,.nw-panel .chk input::after{transition:none}
 }

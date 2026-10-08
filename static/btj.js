@@ -11,6 +11,11 @@
    читанні. Угоди без підпису збираються в «Без журналу» — його можна
    назвати, і тоді він стане звичайним журналом.
 
+   Журнал живе всередині торгової стратегії — як рахунок у реальній
+   торгівлі (strat.js): у журналі поле `ts` ("" — спільний для всіх
+   стратегій, "0" — перша, інакше номер). Обрана стратегія ріже і список
+   журналів, і угоди в них.
+
    Оформлення розділу — те саме, що в «Рахунків» (accounts.css): картки,
    поля, сітка. Своє тут тільки в btj.css.
    ============================================================ */
@@ -18,14 +23,22 @@
 
 let JS;              /* журнали з сервера; undefined — ще не читали */
 let cur = null;      /* ключ відкритого журналу; "" — «Без журналу» */
-let blankN = 0;      /* скільки угод бектесту без підпису */
 const LS = "tj_btj";
 
 function D(){ return DICT[window.LANG] || DICT.uk; }
 function norm(s){ return String(s == null ? "" : s).replace(/[\s\u00a0\u202f\u2007]+/g, " ").trim(); }
 function key(s){ return norm(s).toLowerCase(); }
 function all(){ return Array.isArray(S.btAll) ? S.btAll : []; }
-function tradesOf(k){ return all().filter(t => key(t.bt_run) === k); }
+/* Угоди, які зараз видно: вся вибірка, зрізана обраною стратегією.
+   `all()` лишається для того, що мусить бачити весь бектест, — заведення
+   карток журналу під старі прогони. */
+function base(){ return window.__strat ? __strat.filter(all()) : all(); }
+function tradesOf(k){ return base().filter(t => key(t.bt_run) === k); }
+/* скільки угод обраної стратегії лежить без підпису журналу */
+function blanks(){ return base().filter(t => !key(t.bt_run)).length; }
+/* журнали, приписані саме до цієї стратегії (strat.js питає перед тим,
+   як прибрати порожню стратегію) */
+function ofTs(id){ return (JS || []).filter(j => String(j.ts || "") === String(id)); }
 function human(iso){
   const p = String(iso || "").split("-");
   return p.length === 3 ? p[2] + "." + p[1] + "." + p[0] : "";
@@ -33,8 +46,9 @@ function human(iso){
 
 /* Усе, що можна відкрити: журнали плюс «Без журналу», якщо такі угоди є. */
 function list(){
-  const out = (JS || []).map(j => Object.assign({k: key(j.name)}, j));
-  if (blankN) out.push({id: 0, k: "", name: "", blank: true});
+  const mine = window.__strat ? __strat.jFilter(JS || []) : (JS || []);
+  const out = mine.map(j => Object.assign({k: key(j.name)}, j));
+  if (blanks()) out.push({id: 0, k: "", name: "", blank: true});
   return out;
 }
 function find(k){ return list().find(j => j.k === k) || null; }
@@ -65,10 +79,9 @@ async function sync(){
      що журнал — це окремий запис. */
   const have = new Set((JS || []).map(j => key(j.name)));
   const orphans = new Map();
-  blankN = 0;
   for (const t of all()){
     const nm = norm(t.bt_run), k = nm.toLowerCase();
-    if (!k){ blankN++; continue; }
+    if (!k) continue;
     if (!have.has(k) && !orphans.has(k)) orphans.set(k, nm);
   }
   if (orphans.size){
@@ -81,6 +94,19 @@ async function sync(){
   try{ want = localStorage.getItem(LS); }catch(e){}
   if (want !== null && find(want)) cur = want;
   else { const f = freshest(); cur = f ? f.k : null; }
+  paint();
+}
+
+/* Стратегію перемкнули — відкритий журнал може бути вже не її. Тоді
+   відкриваємо найсвіжіший із видимих: порожній екран під назвою чужого
+   прогону нічого людині не пояснює. Кличе strat.js, коли міняє вибір. */
+function recheck(){
+  if (cur === null || find(cur)) return;
+  const f = freshest();
+  cur = f ? f.k : null;
+  try{
+    if (cur === null) localStorage.removeItem(LS); else localStorage.setItem(LS, cur);
+  }catch(e){}
   paint();
 }
 
@@ -133,7 +159,7 @@ function pickJournal(btn){
     const j = find(k);
     if (!j) return;
     select(j.name);
-    S.trades = S.all = filter(all());
+    S.trades = S.all = filter(base());
     S.pages = {}; S.filters = {};
     render();
   });
@@ -172,6 +198,7 @@ function head(active){
     + '<div class="btj-nav"><div class="btj-main" role="tablist">'
     + main("journal", inJ, d.jTab, d.jTabTip)
     + main("list", active === "list", T.jrAllTab, T.jrAllTabTip) + "</div>"
+    + (window.__strat ? __strat.btn() : "")
     + (inJ ? '<div class="seg-tabs btj-style">'
         + tab("cal", T.jrCalTab, T.jrCalTabTip) + tab("table", T.jrTableTab, T.jrTableTabTip) + "</div>" : "")
     + "</div>";
@@ -217,6 +244,7 @@ function card(j){
   return '<div class="shell"><div class="core ac-card btj-card" onclick="' + go + '">'
     + '<div class="ac-top"><div class="ac-name"><b>' + esc(label(j)) + "</b>"
     +   (sub ? '<div class="ac-sub">' + esc(sub) + "</div>" : "") + "</div>"
+    +   (j.blank || !window.__strat ? "" : __strat.jTag(j))
     + "</div>"
     + '<div class="ac-bal"><div class="big ' + tone + '">' + esc(c.n ? fmtR(c.net) : "—") + "</div>"
     +   '<div class="ac-from">' + esc(s.n ? d.tradedAt.replace("%s", human(s.first) + (s.last !== s.first ? " – " + human(s.last) : "")) : d.noTrades)
@@ -236,18 +264,25 @@ function card(j){
     + "</div></div></div>";
 }
 
+/* Значок Notion — той самий, що в «Підключеннях». */
+const NOTION_IC = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" style="vertical-align:-2px;margin-right:6px"><rect x="3.5" y="3.5" width="17" height="17" rx="3.5" stroke="currentColor" stroke-width="1.7"/><path d="M9 16V8l6 8V8" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+
 function vBtj(){
   const d = D();
   if (JS === undefined){ sync().then(() => { if (S.view === "btj") render(); }); return '<div class="empty">' + esc(d.loading) + "</div>"; }
   const head = '<div class="ohead ac-head">'
     + "<h1>" + esc(d.title) + "</h1>"
-    + '<button class="btn primary ac-new" onclick="__btj.add()">' + esc(d.add) + "</button></div>";
+    + (window.__strat ? __strat.btn() : "")
+    + '<span class="btj-acts"><button class="btn ac-new" onclick="__notion.openBt()" title="' + esc(d.fromNotionTip) + '">'
+    +   NOTION_IC + esc(d.fromNotion) + "</button>"
+    + '<button class="btn primary ac-new" onclick="__btj.add()">' + esc(d.add) + "</button></span></div>";
   const l = list();
   if (!l.length){
     return '<div class="acw">' + head
       + '<div class="shell"><div class="core ac-empty">'
       + "<p>" + esc(d.emptyLead) + '</p><p class="ac-hint">' + esc(d.emptyHint) + "</p>"
-      + '<button class="btn primary" onclick="__btj.add()">' + esc(d.add) + "</button>"
+      + '<div class="btj-acts"><button class="btn primary" onclick="__btj.add()">' + esc(d.add) + "</button>"
+      + '<button class="btn" onclick="__notion.openBt()">' + NOTION_IC + esc(d.fromNotion) + "</button></div>"
       + "</div></div></div>";
   }
   return '<div class="acw">' + head + '<div class="ac-grid btj-grid">' + l.map(card).join("") + "</div></div>";
@@ -302,6 +337,7 @@ function openForm(j){
     + '<div class="ac-row2">' + dateField(d.fFrom, "btjFrom", j.period_from)
     +   dateField(d.fTo, "btjTo", j.period_to) + "</div>"
     + field(d.fNote, "btjNote", j.note, d.phNote)
+    + (window.__strat ? __strat.jField(j) : "")
     + '<p class="ac-err" id="btjErr" hidden></p></div>'
     + '<div class="m-foot">'
     + (j.id ? '<button class="btn danger" onclick="__btj.drop(' + j.id + ')">' + esc(d.del) + "</button>" : "")
@@ -318,7 +354,8 @@ async function save(){
   const d = D(), j = editJ || {};
   const err = document.getElementById("btjErr");
   const body = {id: j.id || null, name: val("btjName"), asset: val("btjAsset"),
-    period_from: val("btjFrom"), period_to: val("btjTo"), note: val("btjNote")};
+    period_from: val("btjFrom"), period_to: val("btjTo"), note: val("btjNote"),
+    ts: val("btjTs")};
   if (!body.name){ if (err){ err.textContent = d.errName; err.hidden = false; } return; }
   let saved;
   try{
@@ -365,7 +402,7 @@ async function reloadAll(){
 
 window.__btj = {
   sync: sync, filter: filter, select: select, paint: paint, head: head, paneTitle: paneTitle,
-  filterBtn: filterBtn, pickJournal: pickJournal,
+  filterBtn: filterBtn, pickJournal: pickJournal, ofTs: ofTs, recheck: recheck,
   isOpen(){ return !!curJ(); },
   /* Вкладки шапки журналу: календар, список і всі угоди — режими розділу
      «Журнал». «Огляду» в бектесті немає (18.09.2026, власник: «не потрібен»). */
@@ -399,7 +436,7 @@ window.__btj = {
     const j = id === "" ? {name: ""} : (JS || []).find(x => x.id === id);
     if (!j) return;
     select(j.name);
-    S.trades = S.all = filter(all());
+    S.trades = S.all = filter(base());
     /* Новий журнал відкривається вкладкою «Журнал» (календар чи список —
        як звик), а не тим, що лишилось відкритим у попередньому. */
     S.jMode = jStyle();
@@ -422,6 +459,7 @@ VIEWS.btj = vBtj;
 const DICT = {
 uk: {
   title: "Журнали бектесту", navTitle: "Журнали", loading: "Хвилинку…",
+  fromNotion: "З Notion", fromNotionTip: "Перенести бектест-журнал з Notion — зі скрінами й нотатками",
   add: "Новий журнал", close: "Закрити", cancel: "Скасувати", save: "Зберегти",
   edit: "Правити", del: "Видалити", open: "Відкрити", opened: "Відкритий",
   nameIt: "Назвати", blank: "Без журналу",
@@ -444,6 +482,7 @@ uk: {
 },
 ru: {
   title: "Журналы бэктеста", navTitle: "Журналы", loading: "Минутку…",
+  fromNotion: "Из Notion", fromNotionTip: "Перенести бэктест-журнал из Notion — со скринами и заметками",
   add: "Новый журнал", close: "Закрыть", cancel: "Отмена", save: "Сохранить",
   edit: "Править", del: "Удалить", open: "Открыть", opened: "Открыт",
   nameIt: "Назвать", blank: "Без журнала",
@@ -466,6 +505,7 @@ ru: {
 },
 en: {
   title: "Backtest journals", navTitle: "Journals", loading: "One moment…",
+  fromNotion: "From Notion", fromNotionTip: "Move a backtest journal over from Notion, with screenshots and notes",
   add: "New journal", close: "Close", cancel: "Cancel", save: "Save",
   edit: "Edit", del: "Delete", open: "Open", opened: "Open now",
   nameIt: "Name it", blank: "No journal",

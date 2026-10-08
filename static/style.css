@@ -373,6 +373,8 @@ svg.chart{display:block;width:100%;height:auto}
 .cal .day.up{background:var(--up-soft);border-color:transparent}
 .cal .day.down{background:var(--down-soft);border-color:transparent}
 .cal .day.flat{background:var(--be-soft);border-color:transparent}
+.cal .day.flat.bepm{background:var(--beplus-soft)}
+.cal .day.bepm .res{color:var(--beplus);text-shadow:none}
 .cal .day.up:hover,.cal .day.down:hover,.cal .day.flat:hover{border-color:var(--faint)}
 .cal .day.sel{border-color:var(--accent) !important;box-shadow:0 0 0 1px var(--accent)}
 .cal .day .n{font-family:var(--mono);font-size:11px;color:var(--faint)}
@@ -525,6 +527,56 @@ svg.chart{display:block;width:100%;height:auto}
 .filters .clear:hover{color:var(--text)}
 
 /* ---------- аналитика ---------- */
+/* Шапка розділу: один рядок «Показую <розріз> за <період>» і кнопка фільтрів.
+   Фільтри спливають під кнопкою, тому таблиця завжди на всю ширину. */
+.an-bar{margin-bottom:16px}
+.an-ask{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.an-ask .w{color:var(--dim);font-size:14px}
+.an-ask .fsel,.an-ask .dbtn{background:var(--panel);border:1px solid var(--line);color:var(--text);
+  border-radius:var(--r-sm);font-family:var(--mono);font-size:12px;padding:6px 9px;
+  display:inline-flex;align-items:center;gap:8px;cursor:pointer;line-height:1.35}
+.an-ask .fsel .chev{flex:none;color:var(--faint);transition:transform .18s var(--m-ease-out,ease)}
+.an-ask .fsel[aria-expanded="true"] .chev{transform:rotate(180deg)}
+.an-ask .fsel:hover,.an-ask .fsel[aria-expanded="true"]{border-color:var(--faint)}
+.an-ask .fsel.set{border-color:color-mix(in srgb, var(--accent) 45%, var(--line))}
+.an-ask .fsel.set .chev{color:var(--accent)}
+/* обраний розріз — головне слово рядка, тож він набраний як текст, не як код */
+.an-ask .dimpick{font-family:var(--sans);font-size:14px;font-weight:600;padding:5px 10px}
+.an-ask .an-flt{position:relative;margin-left:auto}
+.an-ask .an-flt .cnt{font-style:normal;font-family:var(--mono);font-size:10.5px;font-weight:600;
+  background:var(--accent);color:var(--accent-ink,#fff);border-radius:20px;padding:1px 6px;line-height:1.5}
+.an-sheet{position:absolute;right:0;top:calc(100% + 7px);z-index:12;width:268px;max-width:calc(100vw - 32px);
+  max-height:min(460px,70vh);overflow-y:auto;overscroll-behavior:contain;
+  background:var(--panel);border:1px solid var(--line);border-radius:var(--r);
+  box-shadow:var(--shadow-pop);padding:12px;display:none}
+.an-flt.open .an-sheet{display:block}
+.an-sheet .an-gt{font-family:var(--mono);font-size:9.5px;letter-spacing:.12em;text-transform:uppercase;
+  color:var(--faint);margin:14px 0 8px}
+.an-sheet .an-gt:first-child{margin-top:0}
+.an-sheet .fsel{width:100%;justify-content:space-between;margin-bottom:6px}
+.an-sheet .fsel span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.an-clear{width:100%;margin-top:10px;padding:8px;border-radius:var(--r-sm);border:1px solid var(--line);
+  color:var(--dim);font-family:var(--mono);font-size:11px;text-transform:uppercase;letter-spacing:.08em}
+.an-clear:hover{color:var(--text);border-color:var(--faint)}
+.an-clear.off{opacity:.4;pointer-events:none}
+/* Обране видно й зі згорнутою панеллю: фішка знімає свій фільтр одним дотиком.
+   Смужка не виникає ривком: обгортка веде висоту переходом (0fr → 1fr), тож
+   таблиця під нею не підстрибує, коли фішок стає більше чи менше. */
+.an-chipwrap{overflow:hidden}
+.an-chips{display:flex;flex-wrap:wrap;gap:6px}
+.an-chipwrap.on .an-chips{padding-top:10px}
+.an-chip{display:inline-flex;align-items:center;gap:7px;font-family:var(--mono);font-size:11.5px;
+  background:var(--accent-soft);color:var(--accent);border:1px solid transparent;border-radius:20px;
+  padding:5px 10px;max-width:100%}
+.an-chip b{font-weight:600;opacity:.75;flex:none}
+.an-chip span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.an-chip .x{flex:none;opacity:.6}
+.an-chip:hover{border-color:color-mix(in srgb, var(--accent) 35%, transparent)}
+.an-chip:hover .x{opacity:1}
+@media(max-width:620px){
+  .an-ask .an-flt{margin-left:0}
+  .an-sheet{right:auto;left:0}
+}
 .dims{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:14px}
 .ahead{display:grid;grid-template-columns:minmax(120px,1.4fr) 60px 150px 90px 80px;gap:12px;padding:10px 16px;
   border-bottom:1px solid var(--line-soft);font-family:var(--mono);font-size:9.5px;letter-spacing:.1em;text-transform:uppercase;color:var(--faint)}
@@ -539,10 +591,15 @@ svg.chart{display:block;width:100%;height:auto}
 .wrbar .track{flex:1;height:5px;border-radius:3px;background:var(--line-soft);overflow:hidden}
 .wrbar .track i{display:block;height:100%;background:var(--accent);border-radius:3px}
 .wrbar b{font-family:var(--mono);font-size:12px;font-weight:500;min-width:48px;text-align:right}
+/* Вузький екран: ховаємо смужку винрейту й колонку RR — лишаються назва,
+   кількість, винрейт і підсумок. Було три колонки проти чотирьох клітинок
+   у рядку (смужка винрейту ховалась не вся), і підсумок з'їжджав рядком
+   нижче, під назву: таблиця читалась як поламана. */
 @media(max-width:760px){
-  .arow,.ahead{grid-template-columns:minmax(0,1fr) 50px 80px}
-  .arow .rr,.ahead span:nth-child(3),.ahead span:nth-child(4){display:none}
+  .arow,.ahead{grid-template-columns:minmax(0,1fr) 38px 56px 62px;gap:8px;padding-left:14px;padding-right:14px}
+  .arow .rr,.ahead span:nth-child(4){display:none}
   .arow .wrbar .track{display:none}
+  .wrbar b{min-width:0}
 }
 
 /* ---------- таблицы ---------- */
@@ -692,7 +749,7 @@ table.simple tr.click:hover td{background:var(--panel-2)}
 .dtext .l{font-family:var(--mono);font-size:9.5px;letter-spacing:.12em;text-transform:uppercase;color:var(--faint);margin-bottom:5px}
 .dtext .v{white-space:pre-wrap;color:var(--dim);font-size:14px;background:var(--bg);border:1px solid var(--line-soft);border-radius:var(--r-sm);padding:11px 13px}
 .charts{display:grid;grid-template-columns:repeat(auto-fill,minmax(215px,1fr));gap:10px}
-.chart-item .l{font-family:var(--mono);font-size:11px;letter-spacing:.1em;color:var(--accent);margin-bottom:4px;text-transform:uppercase}
+.chart-item .l{font-family:var(--mono);font-size:11px;letter-spacing:.1em;color:var(--accent);margin-bottom:4px}
 .chart-item img{width:100%;border-radius:var(--r-sm);border:1px solid var(--line);cursor:zoom-in;display:block}
 
 /* lightbox
@@ -971,6 +1028,24 @@ table.simple.mini td:last-child{white-space:nowrap;font-weight:600}
 .seg.res button.on.bek{background:var(--be);border-color:var(--be);color:#1c1608}
 .seg.res button.on.bepk{background:var(--beplus);border-color:var(--beplus);color:#fff}
 
+/* Результат: статус зверху, підсумки кольоровими кнопками під ним */
+.rstat{display:grid;grid-template-columns:repeat(3,1fr);border:1px solid var(--line);border-radius:var(--r-sm);overflow:hidden;margin-bottom:10px}
+.rstat button{padding:10px 6px;font-family:var(--sans);font-size:14px;font-weight:600;color:var(--dim);
+  background:transparent;border:0;border-left:1px solid var(--line);cursor:pointer}
+.rstat button:first-child{border-left:0}
+.rstat button:hover{color:var(--text)}
+.rstat button.on{background:var(--panel-2);color:var(--text)}
+.seg.chips{display:flex;flex-wrap:wrap;gap:8px}
+.seg.chips button{display:inline-flex;align-items:center;gap:7px;padding:8px 16px;border-radius:999px;
+  border:1px solid var(--line);background:var(--panel-2);color:var(--dim);font-family:var(--sans);font-size:14px;font-weight:600;cursor:pointer}
+.seg.chips button:hover{color:var(--text);border-color:var(--faint)}
+.seg.chips button::before{content:"";width:8px;height:8px;border-radius:50%;background:var(--c,var(--faint))}
+.seg.chips button[data-cls=win]{--c:var(--up)}
+.seg.chips button[data-cls=loss]{--c:var(--down)}
+.seg.chips button[data-cls=bek]{--c:var(--be)}
+.seg.chips button[data-cls=bepk]{--c:var(--beplus)}
+.seg.res.chips button.on[data-cls]{color:var(--c);border-color:var(--c);background:color-mix(in srgb,var(--c) 14%,var(--panel-2))}
+
 /* автоопределение типа входа */
 .autobox{display:flex;align-items:center;gap:10px;border:1px dashed var(--line);border-radius:var(--r-sm);
   padding:12px 14px;background:var(--panel-2)}
@@ -990,6 +1065,7 @@ table.simple.mini td:last-child{white-space:nowrap;font-weight:600}
 .outcome.pos{border-color:var(--up);background:var(--up-soft)} .outcome.pos .big{color:var(--up)}
 .outcome.neg{border-color:var(--down);background:var(--down-soft)} .outcome.neg .big{color:var(--down)}
 .outcome.be{border-color:var(--be);background:var(--be-soft)} .outcome.be .big{color:var(--be)}
+.outcome.bepm{border-color:var(--beplus);background:var(--beplus-soft)} .outcome.bepm .big{color:var(--beplus)}
 .outcome.skip{border-color:var(--line);background:var(--panel-2)} .outcome.skip .big{color:var(--faint)}
 
 /* форма стоит окном по центру: шапка и подвал держатся, поля прокручиваются */
@@ -1186,7 +1262,9 @@ h1.ovh a.on::after{content:"";position:absolute;left:0;right:0;bottom:0;height:2
 .ovw .glow{position:absolute;inset:0;display:grid;place-items:center;pointer-events:none;
   font-family:var(--mono);font-weight:500;font-size:62px;line-height:1;letter-spacing:-.05em;
   padding:0 3px;opacity:.20;filter:none;text-shadow:none}
-.ovw .glow.w{color:var(--up)} .ovw .glow.l{color:var(--down)} .ovw .glow.b{color:var(--be)}
+.ovw .glow.w{color:var(--up)} .ovw .glow.l{color:var(--down)} .ovw .glow.b{color:var(--be)} .ovw .glow.p{color:var(--beplus)}
+.ovw .day.be.bepm{border-color:color-mix(in srgb,var(--beplus) 26%,transparent);
+  background:linear-gradient(180deg,color-mix(in srgb,var(--beplus) 9%,transparent),color-mix(in srgb,var(--beplus) 2%,transparent))}
 .ovw .day .wd,.ovw .day .dn,.ovw .day .bot{position:relative;z-index:1}
 .ovw .day .wd{font-family:var(--mono);font-size:9px;letter-spacing:.14em;text-transform:uppercase;color:var(--faint)}
 .ovw .day .dn{font-family:var(--mono);font-size:16px;color:var(--dim);margin-top:3px;letter-spacing:-.02em}
@@ -1333,6 +1411,125 @@ h1.ovh a.on::after{content:"";position:absolute;left:0;right:0;bottom:0;height:2
 .ovq .od.today::after{box-shadow:0 0 0 1.5px var(--ghost-2)}
 /* в картці з кварталами поля вужчі: місце йде крапкам */
 .ovw .rail .inner.ovi{padding:20px 16px 18px}
+
+/* ---------- кілька стратегій (strat.js) ---------- */
+.sw-pill{display:inline-flex;align-items:center;gap:9px;height:36px;padding:0 12px 0 13px;margin-left:4px;border-radius:999px;
+  border:1px solid var(--line);background:var(--panel-2);color:var(--text);font:600 13.5px var(--sans);cursor:pointer;
+  transition:border-color .15s,background .15s;max-width:280px}
+.sw-pill:hover{border-color:var(--faint);background:var(--card)}
+/* телефон: у журналі перемикач і «Поділитись» — одним рядком, а не двома */
+@media (max-width:760px){.jhead:has(.sw-pill) .tools{width:auto;flex:1;justify-content:flex-end}}
+.sw-pill .sw-name{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.sw-pill .sw-n{font:500 11.5px var(--mono);color:var(--faint);padding:2px 7px;border-radius:999px;background:var(--line-soft)}
+.sw-pill .sw-chev{color:var(--faint);flex:none}
+.sw-dot{flex:none;width:9px;height:9px;border-radius:50%;background:var(--c);box-shadow:0 0 0 3px color-mix(in srgb,var(--c) 22%,transparent)}
+.sw-dots{display:inline-flex;flex:none}
+.sw-dots i{width:9px;height:9px;border-radius:50%;background:var(--c);border:1.5px solid var(--panel-2);margin-left:-4px}
+.sw-dots i:first-child{margin-left:0}
+.sw-add{height:32px;padding:0 12px;margin-left:4px;border-radius:999px;border:1px dashed var(--line);background:none;
+  color:var(--dim);font:500 12.5px var(--sans);cursor:pointer}
+.sw-add:hover{color:var(--accent);border-color:var(--accent)}
+.sw-pop{position:fixed;min-width:240px;max-width:320px;padding:6px;border-radius:14px;border:1px solid var(--line);
+  background:var(--card);box-shadow:var(--shadow-pop);transform-origin:top center;
+  animation:swIn .2s cubic-bezier(.16,1,.3,1)}
+@keyframes swIn{from{opacity:0;transform:translateY(-6px) scale(.97)}to{opacity:1;transform:none}}
+/* Список не зникає рвучком: згортається так само, як розгортався, тільки
+   швидше — те, що йде геть, не має затримувати. Поки він доживає свою
+   анімацію, клікати по ньому вже нема чого. */
+.sw-pop.out{pointer-events:none;animation:swOut .13s ease-in forwards}
+@keyframes swOut{to{opacity:0;transform:translateY(-5px) scale(.98)}}
+.sw-head{padding:8px 10px 6px;font:500 10px var(--mono);letter-spacing:.16em;text-transform:uppercase;color:var(--faint)}
+/* Рядок списку й олівець «перейменувати» стоять поруч, а не вкладено:
+   кнопка в кнопці — несправна розмітка. Тло при наведенні й позначка
+   обраної висять на обгортці — тоді олівець лежить усередині тієї самої
+   плитки, а не окремою кнопкою збоку від неї. */
+.sw-rw{position:relative;display:flex;align-items:center;border-radius:9px;
+  transition:background .2s cubic-bezier(.16,1,.3,1)}
+.sw-rw:hover{background:var(--panel-2)}
+.sw-rw .sw-row{flex:1;min-width:0}
+.sw-row,.sw-act{display:flex;align-items:center;gap:10px;width:100%;padding:9px 10px;border:0;border-radius:9px;background:none;
+  color:var(--text);font:500 14px var(--sans);text-align:left;cursor:pointer}
+.sw-row:hover{background:none}
+.sw-act:hover{background:var(--panel-2)}
+/* Олівець лежить поверх правого краю рядка, а не займає там місце:
+   інакше назва й лічильник угод тулились би ліворуч, звільняючи поле
+   під кнопку, якої не видно. */
+.sw-pen{position:absolute;right:5px;top:50%;transform:translateY(-50%);
+  display:grid;place-items:center;width:26px;height:26px;border:0;border-radius:8px;
+  background:none;color:var(--faint);cursor:pointer;opacity:0;
+  transition:opacity .18s ease,color .18s ease,background .18s ease,transform .12s ease}
+.sw-rw:hover .sw-pen,.sw-pen:focus-visible{opacity:1}
+/* натиснули — олівець трохи втискається, як решта кнопок журналу */
+.sw-pen:active{transform:translateY(-50%) scale(.88)}
+.sw-pen:hover{color:var(--accent);background:var(--card)}
+/* На дотик наведення немає: олівець видно завжди, тож він стоїть у ряд
+   із рештою, а не поверх неї. */
+@media (hover:none){.sw-pen{position:static;transform:none;opacity:1;flex:none}
+  .sw-pen:active{transform:scale(.88)}}
+/* кому рух заважає — тому без руху */
+@media (prefers-reduced-motion:reduce){
+  .sw-pop,.sw-pop.out,.sw-inp,.sw-rw.edit .sw-del,.sw-rw.saved{animation:none}
+  .sw-rw,.sw-pen{transition:none}
+}
+/* Правка назви просто в рядку: поле стає на місце самої назви, поруч
+   лишається кошик. Окремого вікна збоку для одного слова більше немає. */
+.sw-rw.edit{background:var(--panel-2);padding:3px 4px 3px 5px;gap:3px}
+.sw-rw.edit .sw-pen{position:static;transform:none;width:30px;height:30px;flex:none;opacity:1}
+.sw-rw.edit .sw-pen:active{transform:scale(.88)}
+/* Поле не підміняє назву стрибком: воно розгортається з того самого
+   рядка, а кошик поруч проявляється слідом. */
+.sw-inp{flex:1;min-width:0;height:30px;padding:0 9px;border:1px solid var(--accent);border-radius:7px;
+  background:var(--card);color:var(--text);font:500 14px var(--sans);outline:none;
+  animation:swField .2s cubic-bezier(.16,1,.3,1)}
+@keyframes swField{from{opacity:0;transform:scaleX(.96);transform-origin:left center}to{opacity:1;transform:none}}
+.sw-rw.edit .sw-del{animation:swField .24s cubic-bezier(.16,1,.3,1)}
+.sw-del:hover{color:var(--down);background:var(--down-soft)}
+/* Збережену назву коротко підсвічуємо: список лишається відкритим, і без
+   цього незрозуміло, чи записалось. */
+.sw-rw.saved{animation:swSaved .7s ease}
+@keyframes swSaved{0%{background:var(--accent-soft)} 45%{background:var(--accent-soft)} 100%{background:none}}
+/* В обраної рядок уже підсвічений — спалах їй робимо яскравішим за її
+   ж тло, інакше його просто не видно. */
+.sw-rw.on.saved{animation:swSavedOn .7s ease}
+@keyframes swSavedOn{0%,45%{background:color-mix(in srgb,var(--accent) 30%,transparent)}
+  100%{background:var(--accent-soft)}}
+.sw-row .sw-rn{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.sw-row .sw-rc{font:500 11.5px var(--mono);color:var(--faint)}
+/* Обрану стратегію видно по тлу рядка й кольоровій крапці зліва —
+   галочки праворуч більше немає. */
+.sw-rw.on{background:var(--accent-soft)}
+.sw-sep{height:1px;background:var(--line-soft);margin:5px 6px}
+.sw-act{color:var(--dim);font-size:13px} .sw-act:hover{color:var(--accent)}
+/* Останній рядок списку: завести ще одну стратегію. Тихий, як і решта
+   дій, — між назвами він не має сперечатися за увагу. */
+.sw-new{gap:9px;border-radius:9px;transition:background .2s cubic-bezier(.16,1,.3,1),color .2s}
+.sw-new .sw-pi{flex:none;color:var(--faint);transition:color .2s}
+.sw-new:hover{background:var(--panel-2)}
+.sw-new:hover .sw-pi{color:var(--accent)}
+
+.strat-form{display:flex;flex-direction:column;gap:8px}
+.strat-form .st-lab{font-size:12px;color:var(--dim);margin-top:8px}
+.strat-form input[type=text],.strat-form #stName{font-size:16px}
+.st-opts{display:flex;flex-direction:column;gap:8px}
+.st-opt{display:flex;gap:10px;align-items:flex-start;padding:11px 13px;border:1px solid var(--line);border-radius:var(--r-sm);
+  background:var(--panel-2);cursor:pointer}
+.st-opt:has(input:checked){border-color:var(--accent);background:var(--accent-soft)}
+.st-opt input{margin-top:3px;accent-color:var(--accent)}
+.st-opt b{display:block;font-weight:600;font-size:14px}
+.st-opt i{display:block;font-style:normal;font-size:12.5px;color:var(--dim);margin-top:2px}
+.st-note{font-size:12.5px;color:var(--faint);margin:10px 0 0;line-height:1.5}
+.strat-chips{display:flex;flex-wrap:wrap;gap:8px}
+.strat-chips button{display:inline-flex;align-items:center;gap:8px;padding:8px 15px;border-radius:999px;border:1px solid var(--line);background:var(--panel-2);
+  color:var(--dim);font:600 14px var(--sans);cursor:pointer}
+.strat-chips button:hover{color:var(--text);border-color:var(--faint)}
+.strat-chips button.on{color:var(--accent);border-color:var(--accent);background:var(--accent-soft)}
+.strat-f{margin-bottom:6px}
+.ac-form .strat-f{display:flex;flex-direction:column;gap:8px;margin-top:4px}
+.ac-st{display:inline-flex;align-items:center;gap:7px;margin-top:7px;padding:3px 10px 3px 8px;border-radius:999px;
+  border:1px solid var(--line-soft);font-size:12px;font-weight:500;color:var(--dim)}
+.ac-st .sw-dot{width:7px;height:7px;box-shadow:none}
+.ac-st .sw-dots i{width:7px;height:7px}
+
 .ovq .od[data-tip]{cursor:pointer}
 .ovq .od[data-tip]:hover::after{transform:scale(1.7)}
 @media (prefers-reduced-motion:reduce){ .ovq .od::after{transition:none} }
@@ -1450,7 +1647,7 @@ h1.ovh a.on::after{content:"";position:absolute;left:0;right:0;bottom:0;height:2
    і сховати треба заразом і їх. */
 :root[data-mode="bt"] a[data-v="day"],
 :root[data-mode="bt"] #toolsGrp,
-:root[data-mode="bt"] #conn{display:none}
+:root[data-mode="bt"] #telegramBtn{display:none}
 /* «Огляд» і «Журнал» у бектесті — всередині обраного журналу, у меню
    замість них один пункт «Журнали». Він є тільки в бектесті. */
 :root[data-mode="bt"] .nav .nav-row,
@@ -1581,7 +1778,16 @@ a.mini.on .ic{opacity:1;color:var(--accent)}
 :root[data-skin="fxlab"][data-nav="icons"] .brand .mark.fx .fx{height:24px}
 
 /* ---- Bklit UI · Profit/Loss Line ---- */
-.plwrap{position:relative;min-width:0}
+/* Сам графік — рівно 156px заввишки (стільки ж у viewBox, ширина тягнеться
+   по колонці). Та сама висота стоїть і тут, щоб період без графіка займав
+   стільки ж місця: інакше «Огляд» підстрибував на кожному перемиканні
+   місяць/квартал/рік. */
+.plwrap{position:relative;min-width:0;min-height:156px}
+/* Період без графіка: напис стоїть посередині того самого місця. */
+.plwrap.none{display:grid;place-items:center}
+.plwrap.none .empty{padding:0}
+/* Рядок підпису над графіком тримає висоту і без суми та просадки. */
+.chart-lab{min-height:20px}
 /* нулевая ось выделена, как Grid highlightRowValues={[0]} */
 .plzero{stroke:var(--text);stroke-width:1;opacity:.35}
 .plcursor{stroke:var(--faint);stroke-width:1;stroke-dasharray:2 3;opacity:.75}
@@ -2031,3 +2237,4 @@ body::after{
 
 /* рядок «Не вказано» в розрізі аналітики — приглушено, це пропуск */
 .arow.none .nm{color:var(--faint);font-style:italic}
+

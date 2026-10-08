@@ -26,6 +26,7 @@ import time
 import db
 import accounts_store
 import day_store
+import week_store
 import ts_store
 
 KEEP = 14                  # скільки денних зліпків тримаємо на людину
@@ -89,10 +90,15 @@ def snapshot(uid):
         # спасать наравне с реальными сделками, различить их можно по полю.
         "trades": db.list_trades(uid, "all"),
         "days": day_store.notes_since(uid, "0001-01-01"),
+        # розбори тижнів — така сама робота руками, як і денні
+        "weeks": week_store.notes_since(uid, "0001-01-01"),
         "strategy": ts_store.get(uid),
         # ТС бектесту — окремий документ, і в зліпку теж окремо. seed=False:
         # зліпок тільки дивиться, копію заводить сама людина, коли заходить
         "strategy_bt": ts_store.get(uid, "bt", seed=False),
+        # додаткові стратегії (strategy — перша з них)
+        "strategies": [dict(s, data=ts_store.get(uid, seed=False, sid=s["id"]))
+                       for s in ts_store.lst(uid) if s["id"]],
         # Рахунки: опис того, на чому людина торгувала. Самі гроші тут не
         # лежать — вони рахуються з угод, але без стартового балансу й
         # лімітів порахувати їх удруге не вийде.
@@ -103,7 +109,7 @@ def snapshot(uid):
 
 def _worth(snap):
     """Порожній журнал зберігати нема сенсу — лише сміття в таблиці."""
-    return bool(snap.get("trades") or snap.get("days")
+    return bool(snap.get("trades") or snap.get("days") or snap.get("weeks")
                 or snap.get("strategy") or snap.get("accounts"))
 
 

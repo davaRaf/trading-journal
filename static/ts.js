@@ -62,6 +62,9 @@ function D(){ return DICT[window.LANG] || DICT.uk; }
 const DEMO_KEY = "statsai_ts_demo";
 function demo(){ return typeof DEMO !== "undefined" && DEMO; }
 
+/* яка з кількох стратегій відкрита (strat.js); без нього — перша */
+function sid(){ return window.__strat ? __strat.sid() : "0"; }
+
 async function load(){
   if (demo()){
     try{ TS = normalize(JSON.parse(localStorage.getItem(DEMO_KEY) || "null")); }catch(e){ TS = null; }
@@ -73,10 +76,22 @@ async function load(){
     return;
   }
   try{
-    const r = await api("GET", "/api/ts" + (btOn() ? "?kind=bt" : ""));
+    /* Стратегія обрана одна на обидва режими, а правила в кожного свої:
+       сервер при першому заході в бектест зніме копію з реальних. */
+    const r = await api("GET", "/api/ts?sid=" + sid() + (btOn() ? "&kind=bt" : ""));
     TS = (r && r.ts && Object.keys(r.ts).length) ? normalize(r.ts) : null;
   }catch(e){ TS = null; }
-  if (S.view === "ts") render();
+  /* Тихо: render() міняє весь #main, і розділ заново випливає з анімацією.
+     При перемиканні стратегій це було видно як смикання — перемалювання
+     йде двічі поспіль (одразу по натисканню і коли прийдуть правила). */
+  if (S.view === "ts") soft();
+}
+
+/* «Огляд» вирішує за списком стратегій, чи кликати описувати ТС. Список
+   читається один раз на завантаження, тож про свої ж правки кажемо йому
+   самі — і коли вони з'явились, і коли їх стерли. */
+function told(yes){
+  if (window.__strat && __strat.mark) __strat.mark(sid(), !!yes);
 }
 
 let saveTimer = null;
@@ -88,7 +103,9 @@ function save(){
   }
   clearTimeout(saveTimer);
   saveTimer = setTimeout(() => {
-    api("POST", "/api/ts", {ts: TS, kind: btOn()?"bt":""}).catch(() => {});
+    api("POST", "/api/ts", {ts: TS, kind: btOn()?"bt":"", sid: +sid()})
+      .then(() => told(TS && Object.keys(TS).length))
+      .catch(() => {});
   }, 400);
 }
 
@@ -1027,7 +1044,8 @@ function vFull(){
                  ["real", d.tabReal], ["extra", d.tabExtra]];
   /* Біля назви розділу нічого не пишемо: звідки взялась ТС і коли її чіпали
      востаннє — службова дрібниця, а не заголовок. Головна дія одна —
-     «Редагувати»; видалення пішло в меню «⋯».
+     «Редагувати»; видалення пішло в меню «⋯». Назва самої стратегії
+     правиться олівцем у її списку — там, де на неї й дивляться.
 
      Опитування в цьому меню немає: ТС уже зібрана, а пройти його наново
      означає переписати її з нуля — людина тисне «Пройти опитування», щоб
@@ -1036,6 +1054,7 @@ function vFull(){
      екрані. */
   let h = '<div class="tsv' + (editing ? " editing" : "") + '">';
   h += '<div class="vhead tsv-head"><h1>' + esc(d.title) + "</h1>"
+    + (window.__strat ? __strat.btn("ts") : "")
     + '<span class="right">'
     +   '<button class="tsv-btn pri" type="button" onclick="__ts.edit()">'
     +     (editing ? DONE_IC + esc(d.btnDone) : PEN_IC + esc(d.btnEdit)) + "</button>"
@@ -1075,7 +1094,12 @@ function vTS(){
     load();
     return '<div class="empty">' + esc(D().loading) + "</div>";
   }
-  return TS ? vFull() : vNone();
+  /* у порожньої стратегії свого заголовка немає — коли їх кілька, даємо
+     шапку з перемикачем, інакше з неї не вибратись */
+  const sw = window.__strat && __strat.multi()
+    ? '<div class="vhead tsv-head"><h1>' + esc(D().title) + "</h1>" + __strat.btn("ts")
+      + "</div>" : "";
+  return TS ? vFull() : sw + vNone();
 }
 VIEWS.ts = vTS;
 
@@ -1667,6 +1691,9 @@ window.__ts = {
   /* перечитати з сервера: помічник міг щось дописати на прохання трейдера,
      і розділ під вікном має показати це без F5 */
   reload(){ return load(); },
+  /* тиха перемальовка розділу — нею strat.js міняє стратегію */
+  quiet(){ return soft(); },
+  menuClose(){ menuOpen = false; soft(); },
   /* що з ТС іде в підказки форми: інструменти й моделі входу. Таймфрейми
      ні — у ТС їх пишуть як завгодно («1M», «D»), і слоти під скріни двоїлись. */
   hints(){
@@ -1813,7 +1840,7 @@ window.__ts = {
     soft();
     if (!await Ask.yes(D().confirmDelete, {ok:T.askYes, cancel:T.askNo, danger:true})) return;
     if (demo()){ try{ localStorage.removeItem(DEMO_KEY); }catch(e){} }
-    else { try{ await api("POST", "/api/ts/clear", {kind: btOn()?"bt":""}); }catch(e){} }
+    else { try{ await api("POST", "/api/ts/clear", {kind: btOn()?"bt":"", sid: +sid()}); told(false); }catch(e){} }
     TS = null;
     editing = false;
     render();

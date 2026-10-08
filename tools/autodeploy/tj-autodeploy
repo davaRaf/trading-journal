@@ -1,0 +1,60 @@
+#!/bin/bash
+# ============================================================
+# Автовикладка: сервер сам стежить за GitHub.
+#
+# Раніше код потрапляв на сервер тільки руками — ./deploy.sh з ноутбука.
+# Через це запушений коміт міг годинами лежати в репозиторії, поки хтось
+# не згадає виконати виклад. Тепер таймер щохвилини питає GitHub, і
+# новий коміт у main їде на сервер сам.
+#
+# Вебхук чи GitHub Actions зробили б це миттєво, але їх заводять у
+# налаштуваннях репозиторію, а він чужий (davaRaf). Опитування працює
+# без жодних прав: репозиторій публічний, читаємо його по HTTPS.
+#
+# Свою копію коду тримаємо окремо, у /opt/tj-src: у робочій теці сайту
+# git-репозиторію немає й не треба — там лежать ще .env, база й скріни,
+# яких у репозиторії нема.
+# ============================================================
+set -euo pipefail
+
+SRC=/opt/tj-src
+DIR=/opt/trading-journal
+REPO=https://github.com/davaRaf/trading-journal.git
+BRANCH=main
+
+[ -d "$SRC/.git" ] || git clone --quiet --branch "$BRANCH" "$REPO" "$SRC"
+
+cd "$SRC"
+git fetch --quiet origin "$BRANCH"
+
+# Нічого нового — виходимо мовчки, щоб журнал не забивався щохвилинними
+# записами «змін немає».
+[ "$(git rev-parse HEAD)" = "$(git rev-parse "origin/$BRANCH")" ] && exit 0
+
+echo "новий коміт: $(git log --oneline -1 "origin/$BRANCH")"
+git reset --hard --quiet "origin/$BRANCH"
+
+# --delete прибирає з сервера те, що видалили в репозиторії. Виключення —
+# усе, чого в репозиторії нема й бути не повинно: паролі, віртуальне
+# оточення, база зі скрінами.
+rsync -a --delete \
+  --exclude=.git --exclude=.env --exclude=.venv \
+  --exclude=data --exclude=__pycache__ \
+  "$SRC"/ "$DIR"/
+chown -R journal:journal "$DIR"
+
+"$DIR/.venv/bin/pip" install -q -r "$DIR/requirements.txt"
+
+systemctl restart trading-journal
+sleep 3
+
+CODE=$(curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1:8172/health)
+if [ "$CODE" = "200" ]; then
+  echo "готово: сайт відповідає"
+else
+  # Сайт не піднявся — лишаємо в журналі причину, щоб не лізти на сервер
+  # наосліп: journalctl -u tj-autodeploy покаже і коміт, і помилку.
+  echo "УВАГА: сайт повернув $CODE"
+  journalctl -u trading-journal -n 20 --no-pager
+  exit 1
+fi

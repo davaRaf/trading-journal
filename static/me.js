@@ -17,16 +17,14 @@ let editing = false;
 let draft = "";
 let checkTimer = null, checkSeq = 0;
 let busy = false;
-let allPresets = false;   // розгорнутий повний список готових аватарок
-
-/* Готові аватарки — помічник StatsAI у різних настроях: static/avatars/<назва>.svg. Порядок — як у наборі:
-   перші п'ять видно одразу, решта — за кнопкою «Усі аватарки».
+/* Готові аватарки — помічник StatsAI у різних настроях: static/avatars/<назва>.svg.
+   Набір відкривається вікном з кнопки під фото: витриною під фото він займав
+   пів розділу, хоч потрібен раз — коли заводять профіль.
    Сервер приймає тільки ці назви (AVATAR_PRESETS в app.py). */
 const PRESETS = ["wink", "shades", "surprised", "focused", "laugh",
                  "sleepy", "love", "stars", "sly", "bull",
                  "bear", "headphones", "cap", "tongue", "robot"];
 const PRESET_V = 1;
-const PRESET_SHOWN = 5;
 
 const esc = s => String(s == null ? "" : s)
   .replace(/[&<>"]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
@@ -209,12 +207,12 @@ function pane(){
     +     '<button type="button" class="me-cam" id="mePhotoCam" aria-label="' + esc(user().avatar ? T.meChange : T.meUpload) + '">' + ic("camera") + "</button></div>"
     +   '<div class="me-who">' + nickBlock()
     +     '<div class="me-acts"><button type="button" class="btn" id="mePhoto">' + esc(user().avatar ? T.meChange : T.meUpload) + "</button>"
+    +       '<button type="button" class="btn" id="mePresets">' + esc(T.mePresets) + "</button>"
     +       (user().avatar ? '<button type="button" class="btn" id="mePhotoDel">' + esc(T.meRemove) + "</button>" : "")
     +       '<span class="me-photo-msg" id="mePhotoMsg" role="alert"></span></div>'
     +     '<input type="file" id="meFile" accept="image/png,image/jpeg,image/webp,image/gif" hidden>'
     +   "</div>"
     + "</div>"
-    + presetsBlock()
     + '<div class="me-block"><h4 class="me-h">' + esc(T.meStats) + "</h4>" + tiles(s) + "</div>"
     + '<div class="me-two">'
     +   '<div class="me-card"><h4 class="me-h">' + esc(T.meHeat) + "</h4>" + cal(s) + "</div>"
@@ -223,23 +221,49 @@ function pane(){
     + '<div class="me-block"><h4 class="me-h">' + esc(T.meBadges) + "</h4>" + badges(s) + "</div>";
 }
 
-/* Ряд готових аватарок під фото. Вибрана — з обведенням. */
+/* Яка з готових аватарок стоїть зараз — щоб обвести її у вікні вибору. */
 function currentPreset(){
   const m = /\/static\/avatars\/([a-z]+)\.svg/.exec((user() && user().avatar) || "");
   return m ? m[1] : "";
 }
-function presetsBlock(){
+function presetsClose(){
+  const layer = $id("mePick");
+  if (layer) layer.remove();
+  const b = $id("mePresets");
+  if (b) b.focus();
+}
+/* Увесь набір — шаром поверх налаштувань, тим самим, що й обрізка знімка:
+   розділ під ним лишається на місці, а не перебудовується під список. */
+function openPresets(){
+  if ($id("mePick")) presetsClose();
+  const box = document.querySelector(".modal-box");
+  if (!box) return;
   const cur = currentPreset();
-  const list = allPresets ? PRESETS : PRESETS.slice(0, PRESET_SHOWN);
-  return '<div class="me-pick">'
-    + '<div class="me-pick-h"><span>' + esc(T.mePresets) + "</span>"
-    +   '<button type="button" class="me-pick-more" id="mePresetMore" aria-expanded="' + allPresets + '">'
-    +     esc(allPresets ? T.meLessPresets : T.meAllPresets + " · " + PRESETS.length) + "</button></div>"
-    + '<div class="me-pick-grid">'
-    + list.map(id => '<button type="button" class="me-pre" data-preset="' + id + '" aria-pressed="' + (id === cur) + '"'
-        + ' aria-label="' + esc(T["av_" + id] || id) + '" title="' + esc(T["av_" + id] || id) + '">'
-        + '<img src="/static/avatars/' + id + ".svg?v=" + PRESET_V + '" alt="" width="52" height="52" loading="lazy"></button>').join("")
-    + "</div></div>";
+  box.insertAdjacentHTML("beforeend",
+    '<div class="me-pick" id="mePick" role="dialog" aria-modal="true" aria-label="'
+    + esc(T.meAllPresets) + '" data-own-esc>'
+    + '<div class="me-pick-in">'
+    +   '<h3>' + esc(T.meAllPresets) + "</h3>"
+    +   '<div class="me-pick-grid">'
+    +   PRESETS.map(id => '<button type="button" class="me-pre" data-preset="' + id + '" aria-pressed="' + (id === cur) + '"'
+          + ' aria-label="' + esc(T["av_" + id] || id) + '" title="' + esc(T["av_" + id] || id) + '">'
+          + '<img src="/static/avatars/' + id + ".svg?v=" + PRESET_V + '" alt="" width="52" height="52" loading="lazy"></button>').join("")
+    +   "</div>"
+    +   '<button type="button" class="btn me-pick-x" id="mePickX">' + esc(T.mrClose) + "</button>"
+    + "</div></div>");
+  const layer = $id("mePick");
+  $id("mePickX").onclick = presetsClose;
+  /* вибрали — вікно закривається одразу: дивитись у ньому більше нема на що */
+  layer.querySelectorAll(".me-pre[data-preset]").forEach(b => {
+    b.onclick = () => { const id = b.dataset.preset; presetsClose(); setPreset(id); };
+  });
+  /* клік повз список — теж вихід */
+  layer.addEventListener("pointerdown", e => { if (e.target === layer) presetsClose(); });
+  layer.addEventListener("keydown", e => {
+    if (e.key === "Escape"){ e.preventDefault(); e.stopPropagation(); presetsClose(); }
+  });
+  const first = layer.querySelector('.me-pre[aria-pressed="true"]') || layer.querySelector(".me-pre");
+  if (first) first.focus();
 }
 async function setPreset(id){
   if (busy || id === currentPreset()) return;
@@ -529,9 +553,8 @@ function wire(){
   const del = $id("mePhotoDel");
   if (del) del.onclick = removePhoto;
 
-  const more = $id("mePresetMore");
-  if (more) more.onclick = () => { allPresets = !allPresets; redraw(); };
-  document.querySelectorAll(".me-pre[data-preset]").forEach(b => { b.onclick = () => setPreset(b.dataset.preset); });
+  const pre = $id("mePresets");
+  if (pre) pre.onclick = openPresets;
   wireCal();
 }
 

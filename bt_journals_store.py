@@ -37,6 +37,10 @@ CREATE INDEX IF NOT EXISTS bt_journals_user ON bt_journals (user_id, id);
 -- Угоди звʼязані з журналом по імені, тож два однакових імені в однієї
 -- людини розрізнити було б нічим.
 CREATE UNIQUE INDEX IF NOT EXISTS bt_journals_user_name ON bt_journals (user_id, lower(name));
+-- Під яку стратегію прогін (ts_store.py): "" — під усі, "0" — перша,
+-- інакше номер із ts_multi. Так само, як у рахунків: журнали, заведені до
+-- появи стратегій, лишаються спільними й нікуди не зникають.
+ALTER TABLE bt_journals ADD COLUMN IF NOT EXISTS ts TEXT NOT NULL DEFAULT '';
 """
 
 _ready = False
@@ -52,6 +56,8 @@ def init():
 
 
 TEXT_FIELDS = ("name", "asset", "period_from", "period_to", "note")
+# усе, що журнал кладе в базу й віддає браузеру
+FIELDS = TEXT_FIELDS + ("ts",)
 DATE_RE = re.compile(r"^\d{4}-\d{2}-\d{2}$")
 _TAIL_RE = re.compile(r"^(.*?)\s+(\d{1,3})$")
 
@@ -74,6 +80,8 @@ def clean(body):
     # Переплутані краї періоду — не причина відмовляти: міняємо місцями.
     if j["period_from"] and j["period_to"] and j["period_from"] > j["period_to"]:
         j["period_from"], j["period_to"] = j["period_to"], j["period_from"]
+    ts = str((body or {}).get("ts") or "").strip()
+    j["ts"] = ts if ts.isdigit() else ""
     return j
 
 
@@ -105,7 +113,7 @@ def free_name(user_id, name, skip_id=None):
 
 
 def _row(r):
-    j = {k: r[k] for k in TEXT_FIELDS}
+    j = {k: r[k] for k in FIELDS}
     j["id"] = r["id"]
     return j
 
@@ -134,12 +142,12 @@ def add(user_id, body, adopt=None):
     init()
     j = clean(body)
     j["name"] = free_name(user_id, j["name"])
-    cols = ", ".join(TEXT_FIELDS)
-    marks = ", ".join(["%s"] * len(TEXT_FIELDS))
+    cols = ", ".join(FIELDS)
+    marks = ", ".join(["%s"] * len(FIELDS))
     with db.connect() as conn:
         r = conn.execute(
             "INSERT INTO bt_journals (user_id, %s) VALUES (%%s, %s) RETURNING id" % (cols, marks),
-            tuple([user_id] + [j[k] for k in TEXT_FIELDS])).fetchone()
+            tuple([user_id] + [j[k] for k in FIELDS])).fetchone()
         if adopt is not None and adopt != j["name"]:
             _rename_trades(conn, user_id, adopt, j["name"])
         conn.commit()
@@ -156,11 +164,11 @@ def put(user_id, jid, body):
         return None
     j = clean(body)
     j["name"] = free_name(user_id, j["name"], jid)
-    sets = ", ".join("%s=%%s" % k for k in TEXT_FIELDS)
+    sets = ", ".join("%s=%%s" % k for k in FIELDS)
     with db.connect() as conn:
         conn.execute("UPDATE bt_journals SET %s, updated_at=now() "
                      "WHERE user_id=%%s AND id=%%s" % sets,
-                     tuple([j[k] for k in TEXT_FIELDS] + [user_id, jid]))
+                     tuple([j[k] for k in FIELDS] + [user_id, jid]))
         if old["name"] != j["name"]:
             _rename_trades(conn, user_id, old["name"], j["name"])
         conn.commit()
