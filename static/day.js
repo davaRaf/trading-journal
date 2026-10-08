@@ -317,10 +317,13 @@ function set(path, val){
   o[keys[keys.length - 1]] = val;
 }
 
-/* mic — поле, яке частіше наговорюють, ніж набирають: «куди дивишся» і
-   сценарії. Мікрофон з'являється не в самому тексті, а коли поле
-   відкрили на правку (обробник кліку нижче), — інакше розбір дня
-   виглядав би рядом кнопок замість записів. */
+/* mic — поле, яке наговорюють, а не набирають. Таких тут усі довгі:
+   підпис під скріном, «куди дивишся», обидва сценарії, «куди ринок
+   пішов» і рядок собі на завтра. Короткі (ціна, рівень) мікрофона не
+   мають — надиктовувати число довше, ніж набрати.
+   Мікрофон з'являється не в самому тексті, а коли поле відкрили на
+   правку (обробник кліку нижче), — інакше розбір дня виглядав би
+   рядом кнопок замість записів. */
 function ed(path, ph, multi, mic){
   const v = get(path);
   return '<span class="dv-f' + (v ? "" : " blank") + (multi ? " wide" : "")
@@ -359,7 +362,8 @@ function shotCell(path, cap, readOnly){
   const note = !f ? ""
     : readOnly
       ? (s.note ? '<div class="dv-snote ro">' + esc(s.note).replace(/\n/g, "<br>") + "</div>" : "")
-      : '<div class="dv-snote">' + ed(path + ".note", d.shotNote, true) + "</div>";
+      : '<div class="dv-snote">' + ed(path + ".note", d.shotNote, true, true)
+        + "</div>";
   return '<div class="dv-tf"><div class="cap">' + chip + "</div>"
     + '<div class="dv-shot' + (f ? " has" : "") + (readOnly ? " ro" : "") + (on ? " armed" : "")
     + '" data-shot="' + slot + '">'
@@ -938,7 +942,7 @@ function cardClosed(a, i){
     +   '<div class="col">'
     +     '<div class="dv-colhead"><b class="fact">' + esc(d.evening) + " · " + esc(d.factTag) + "</b></div>"
     +     '<div class="dv-blk">' + pt("01", d.q1, true) + perLeg(a, i, p => shotsRow(p + ".eve.shots", d.shotFact)) + "</div>"
-    +     '<div class="dv-blk">' + pt("02", d.q2, true) + ed("assets." + i + ".eve.text", d.phFact, true) + "</div>"
+    +     '<div class="dv-blk">' + pt("02", d.q2, true) + ed("assets." + i + ".eve.text", d.phFact, true, true) + "</div>"
     +     '<div class="dv-blk">' + pt("03", d.q3, true) + perLeg(a, i, levelsDone) + "</div>"
     +     '<div class="dv-blk">' + pt("04", d.q4, true)
     +        tradesHtml(list, d.tradesAuto) + "</div>"
@@ -972,7 +976,7 @@ function summary(){
     +   '</span><span style="text-align:right">' + esc(d.colRes) + "</span></div>"
     + rows
     + '<div class="lesson"><div class="k">' + esc(d.lessonTitle) + "</div>"
-    +   ed("fact.lesson", d.phLesson, true) + "</div>"
+    +   ed("fact.lesson", d.phLesson, true, true) + "</div>"
     + "</div>";
 }
 

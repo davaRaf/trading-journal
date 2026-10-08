@@ -2677,8 +2677,14 @@ function renderShots(){
     return '<div class="tfslot filled"><div class="tfl"><span>'+esc(label)+'</span>'+
       '<button type="button" class="rm" title="'+T.shotRemoveTip+'" onclick="removeShot('+i+')">×</button></div>'+
       '<img src="'+safeImg(src)+'" onclick="openLightbox(this)">'+
-      '<textarea class="tfnote" rows="1" data-i="'+i+'" placeholder="'+esc(T.snPh)+'" '+
-      'oninput="shotNote('+i+',this)">'+esc(s.note||"")+"</textarea></div>";
+      /* Підпис під скріном наговорюють так само, як «Як заходив»:
+         мікрофон стоїть у полі праворуч (.vwrap.one — по центру, бо
+         рядок тут один). */
+      '<span class="vwrap one"><textarea class="tfnote" rows="1" data-i="'+i+'" '+
+      'id="tfn_'+i+'" placeholder="'+esc(T.snPh)+'" '+
+      'oninput="shotNote('+i+',this)">'+esc(s.note||"")+"</textarea>"+
+      (window.Voice?Voice.btn("tfn_"+i):"")+"</span>"+
+      (window.Voice?Voice.hint("tfn_"+i):"")+"</div>";
   };
   let h="";
   for(const tf of Prefs.tfs()){
