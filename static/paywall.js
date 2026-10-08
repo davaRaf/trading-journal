@@ -114,13 +114,27 @@ function pack(){
     '<div class="pw-w pw-pack" role="dialog" aria-modal="true">'
     + '<h3>' + esc(T.pwBtLimT || "") + '</h3>'
     + '<p>' + esc(T.pwBtLimX || "") + '</p>'
-    + '<div class="pk-sum"><b class="pk-money">—</b><span class="pk-each"></span></div>'
-    + '<input type="range" class="pk-range" min="3" max="20" step="1" value="3"'
-    + ' aria-label="' + esc(T.pwBtLimT || "") + '">'
-    + '<div class="pk-scale"><span class="pk-lo">3</span><span class="pk-hi">20</span></div>'
+    + '<div class="pk-count"><b class="pk-n">\u2014</b>'
+    +   '<span class="pk-word"></span></div>'
+    + '<div class="pk-sum"><span class="pk-each"></span>'
+    +   '<span class="pk-off"></span></div>'
+    + '<div class="pk-row">'
+    +   '<button type="button" class="pk-step pk-less" aria-label="'
+    +     esc(T.pwPackLess || "") + '">\u2212</button>'
+    +   '<div class="pk-sl">'
+    +     '<input type="range" class="pk-range" min="3" max="20" step="1"'
+    +     ' value="3" aria-label="' + esc(T.pwBtLimT || "") + '">'
+    +     '<span class="pk-tr"></span><span class="pk-fl"></span>'
+    +     '<span class="pk-th"></span><span class="pk-bub"></span>'
+    +   '</div>'
+    +   '<button type="button" class="pk-step pk-more" aria-label="'
+    +     esc(T.pwPackMore || "") + '">+</button>'
+    + '</div>'
+    + '<div class="pk-scale"><span class="pk-lo">3</span>'
+    +   '<span class="pk-hi">20</span></div>'
     + '<div class="pk-note" role="status"></div>'
-    + '<button type="button" class="pw-go" disabled>' + esc(T.pwPackGo || "") + '</button>'
-    + '<div class="pk-tab">' + esc(T.pwPackTab || "") + '</div>'
+    + '<button type="button" class="pw-go" disabled>' + esc(T.pwPackGo || "")
+    +   '</button>'
     + '<button type="button" class="pw-later">' + esc(T.pwLater) + '</button>'
     + '</div>';
   back.addEventListener("click", e => { if (e.target === back) close(); });
@@ -130,9 +144,16 @@ function pack(){
   document.addEventListener("keydown", onKey);
 
   const w = back;
+  const dlg = w.querySelector(".pw-pack");
   const range = w.querySelector(".pk-range");
-  const sum = w.querySelector(".pk-money");
+  const sl = w.querySelector(".pk-sl");
+  const num = w.querySelector(".pk-n");
+  const word = w.querySelector(".pk-word");
+  const bub = w.querySelector(".pk-bub");
   const each = w.querySelector(".pk-each");
+  const save = w.querySelector(".pk-off");
+  const less = w.querySelector(".pk-less");
+  const more = w.querySelector(".pk-more");
   const note = w.querySelector(".pk-note");
   const go = w.querySelector(".pw-go");
 
@@ -144,26 +165,105 @@ function pack(){
     w.querySelector(".pk-hi").textContent = info.max;
     const price = n => (info.prices || {})[String(n)] || 0;
     const base = price(info.min) / info.min;      /* від чого рахуємо вигоду */
+    const span = Math.max(1, info.max - info.min);
+    /* Каси немає (немає ключа чи товару) — кнопку не вмикаємо зовсім. */
+    const noPay = !info.on;
+
+    /* Розмиття на бігу. Рахуємо не крок, а швидкість: від стрілки чи
+       «+» виходить майже нуль і число лишається чітким, а від ривка
+       мишею — повні п'ять пікселів, як на барабані лічильника.
+       Зсув по вертикалі домальовує напрямок: вгору чи вниз. */
+    const still = window.matchMedia
+      && matchMedia('(prefers-reduced-motion: reduce)').matches;
+    let was = info.min, wasAt = 0, soon = null;
+
+    function spin(n){
+      if (still) return;
+      const now = Date.now();
+      const dt = Math.max(16, now - wasAt);
+      const fast = Math.abs(n - was) / dt * 1000;   /* штук за секунду */
+      const up = n > was ? -1 : 1;
+      was = n; wasAt = now;
+      const b = Math.min(5, fast / 12);
+      if (b < 0.4) return sharp();
+      num.style.filter = 'blur(' + b.toFixed(2) + 'px)';
+      num.style.transform = 'translateY(' + (up * Math.min(4, b)).toFixed(1)
+        + 'px)';
+      bub.style.filter = 'blur(' + (b / 2).toFixed(2) + 'px)';
+      clearTimeout(soon);
+      soon = setTimeout(sharp, 110);
+    }
+
+    /* Зупинились — число наздоганяє себе й стає чітким. */
+    function sharp(){
+      clearTimeout(soon);
+      num.style.filter = '';
+      num.style.transform = '';
+      bub.style.filter = '';
+    }
 
     function draw(){
       const n = +range.value, c = price(n);
-      sum.textContent = money(c);
+      spin(n);
+      num.textContent = n;
+      bub.textContent = n;
+      /* Три-чотири перенесення, але п'ять перенесень: у трьох мовах
+         слово при числі різне, тому обидві форми лежать у перекладі. */
+      word.textContent = (n === 3 || n === 4) ? (T.pwPackWordA || "")
+                                              : (T.pwPackWordB || "");
+      /* Частка, а не відсоток: нею CSS рахує й ширину заливки, і зсув
+         кульки з поправкою на її власні 22 пікселі. */
+      sl.style.setProperty("--pk", (n - info.min) / span);
+      each.textContent = (T.pwPackEach || "%s")
+        .replace("%s", money(Math.round(c / n)));
       const off = Math.round(100 * (1 - (c / n) / base));
-      each.textContent = (T.pwPackEach || "%s").replace("%s", money(Math.round(c / n)))
-        + (off > 0 ? " · " + (T.pwPackSave || "%s").replace("%s", off) : "");
+      /* Не ховаємо, а гасимо: місце під пилюлю лишається зайнятим,
+         інакше на четвертому перенесенні підстрибує вся картка. */
+      save.style.visibility = off > 0 ? "" : "hidden";
+      save.textContent = (T.pwPackSave || "%s").replace("%s", off);
       go.textContent = (T.pwPackPay || "%s").replace("%s", money(c));
-      go.disabled = !c;
+      go.disabled = !c || noPay;
+      less.disabled = n <= info.min;
+      more.disabled = n >= info.max;
     }
+
+    function step(to){
+      const n = Math.min(info.max, Math.max(info.min, to));
+      if (+range.value === n) return;
+      range.value = n;
+      draw();
+    }
+
     range.addEventListener("input", draw);
-    draw();
-    /* Каси немає (немає ключа чи товару) — чесно кажемо це, а не ведемо
-       в порожнечу. */
-    if (!info.on){
-      go.disabled = true;
-      note.textContent = T.pwPackSoon || "";
-      return;
+    less.addEventListener("click", () => step(+range.value - 1));
+    more.addEventListener("click", () => step(+range.value + 1));
+    /* Поки тягнуть — картка в стані «on»: кулька більшає, над нею
+       спливає число. Відпустили — все на місце. */
+    function grab(){
+      dlg.classList.add("on");
+      /* Відпускають часто вже не над ползунком — миша зривається
+         вбік. Тому кінець тягання ловимо на вікні, інакше картка
+         застрягає в стані «тягнуть» і більше не слухається. */
+      window.addEventListener("pointerup", calm);
+      window.addEventListener("pointercancel", calm);
     }
-    go.onclick = () => buy(+range.value, info.cap, w, note, go, range);
+
+    function calm(){
+      dlg.classList.remove("on");
+      sharp();
+      window.removeEventListener("pointerup", calm);
+      window.removeEventListener("pointercancel", calm);
+    }
+
+    range.addEventListener("pointerdown", grab);
+    range.addEventListener("blur", calm);
+    /* Оплата, якщо зірветься, вмикає кнопки назад — і тоді треба
+       перемалювати, щоб «−» і «+» знову знали свої межі. */
+    w.__pkDraw = draw;
+    draw();
+
+    if (noPay){ note.textContent = T.pwPackSoon || ""; return; }
+    go.onclick = () => buy(+range.value, info.cap, w, note, go);
   });
 }
 
@@ -173,9 +273,13 @@ function pack(){
    питаємо стан — підняли стелю чи ні. */
 const PACK_TRIES = 30;          /* ~60 секунд, далі вже не наша швидкість */
 
-async function buy(n, capWas, w, note, go, range){
+async function buy(n, capWas, w, note, go){
+  /* На час оплати замикаємо і ползунок, і «−/+»: кількість уже
+     поїхала в касу, міняти її тут більше нема сенсу. */
+  const lock = v => w.querySelectorAll('.pk-range, .pk-step')
+                      .forEach(el => { el.disabled = v; });
   go.disabled = true;
-  range.disabled = true;
+  lock(true);
   note.textContent = "";
   let url = "";
   try{
@@ -190,7 +294,9 @@ async function buy(n, capWas, w, note, go, range){
     url = d.url || "";
   }catch(e){
     note.textContent = e.message || T.pwPackFail || "";
-    go.disabled = false; range.disabled = false;
+    go.disabled = false;
+    lock(false);
+    if (w.__pkDraw) w.__pkDraw();
     return;
   }
   window.open(url, "_blank", "noopener");
