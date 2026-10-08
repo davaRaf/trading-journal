@@ -196,6 +196,27 @@ function keepImgs(from, to){
     if (i >= 0){ im.replaceWith(pool[i]); pool.splice(i, 1); }
   });
 }
+/* Меню «⋯» біля заголовка. Відкривається й закривається саме по собі:
+   раніше на кожен клік перемальовувався весь розділ, і анімація переходу
+   у вкладку (смужка під вкладками, поява вмісту) грала наново. */
+function menuHtml(){
+  const d = D();
+  return '<div class="tsv-menu" role="menu">'
+    + '<button type="button" role="menuitem" class="m-share" onclick="__ts.share()">' + esc(d.btnShare) + "</button>"
+    + '<button type="button" role="menuitem" onclick="__ts.srcOpen()">' + esc(d.btnNotion) + "</button>"
+    + '<button type="button" role="menuitem" class="danger" onclick="__ts.wipe()">' + esc(d.btnDelete) + "</button>"
+    + "</div>";
+}
+function paintMenu(){
+  const box = S.view === "ts" && document.querySelector("#main .tsv-more");
+  if (!box){ soft(); return; }
+  const was = box.querySelector(".tsv-menu");
+  if (was) was.remove();
+  if (menuOpen) box.insertAdjacentHTML("beforeend", menuHtml());
+  const b = box.querySelector("button[aria-haspopup]");
+  if (b) b.setAttribute("aria-expanded", String(menuOpen));
+}
+
 function soft(ids){
   const old = S.view === "ts" && TS && document.querySelector("#main .tsv");
   if (!old){ render(); return; }
@@ -1063,13 +1084,7 @@ function vFull(){
     +   '<span class="tsv-more"><button class="tsv-btn ic" type="button" aria-haspopup="menu" aria-expanded="'
     +     menuOpen + '" aria-label="' + esc(d.btnMore) + '" title="' + esc(d.btnMore)
     +     '" onclick="__ts.menu()">' + DOTS_IC + "</button>"
-    +     (menuOpen
-          ? '<div class="tsv-menu" role="menu">'
-            + '<button type="button" role="menuitem" class="m-share" onclick="__ts.share()">' + esc(d.btnShare) + "</button>"
-            + '<button type="button" role="menuitem" onclick="__ts.srcOpen()">' + esc(d.btnNotion) + "</button>"
-            + '<button type="button" role="menuitem" class="danger" onclick="__ts.wipe()">' + esc(d.btnDelete) + "</button>"
-            + "</div>"
-          : "")
+    +     (menuOpen ? menuHtml() : "")
     +   "</span></span></div>";
   if (editing){
     h += '<div class="tsv-editbar"><p>' + d.editTip + "</p>"
@@ -1233,7 +1248,7 @@ document.addEventListener("click", e => {
   /* меню «⋯» закривається кліком будь-куди поза ним */
   if (menuOpen && !(e.target.closest && e.target.closest(".tsv-more"))){
     menuOpen = false;
-    soft();
+    paintMenu();
     return;
   }
 
@@ -1314,7 +1329,7 @@ document.addEventListener("keydown", e => {
      зареєстрований раніше й інакше відкрив би ще одне таке саме питання */
   if (window.Ask && Ask.isOpen()) return;
   if (e.key === "Escape" && askBox){ e.stopPropagation(); askClose(); return; }
-  if (e.key === "Escape" && menuOpen && S.view === "ts"){ menuOpen = false; soft(); }
+  if (e.key === "Escape" && menuOpen && S.view === "ts"){ menuOpen = false; paintMenu(); }
 }, true);
 
 document.addEventListener("paste", e => {
@@ -1693,7 +1708,7 @@ window.__ts = {
   reload(){ return load(); },
   /* тиха перемальовка розділу — нею strat.js міняє стратегію */
   quiet(){ return soft(); },
-  menuClose(){ menuOpen = false; soft(); },
+  menuClose(){ menuOpen = false; paintMenu(); },
   /* що з ТС іде в підказки форми: інструменти й моделі входу. Таймфрейми
      ні — у ТС їх пишуть як завгодно («1M», «D»), і слоти під скріни двоїлись. */
   hints(){
@@ -1748,7 +1763,7 @@ window.__ts = {
     render();
     placeInk();
   },
-  menu(){ menuOpen = !menuOpen; soft(); },
+  menu(){ menuOpen = !menuOpen; paintMenu(); },
   /* «Додати сторінку з Notion»: відкриваємо вкладку з джерелами й ставимо
      курсор у порожнє поле під посилання */
   srcOpen(){
