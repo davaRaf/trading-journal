@@ -500,7 +500,8 @@ def emotion_stats(rows):
         risk = r["risk"] if r["risk"] is not None else 1.0
         rr = r["rr"] if r["rr"] is not None else 0.0
         res = r["result"]
-        val = risk * rr if res == "Win" else (-risk if res == "Loss" else 0.0)
+        win = res in ("Win", "WinM")   # «TP руками» — теж тейк
+        val = risk * rr if win else (-risk if res == "Loss" else 0.0)
         # кілька емоцій в угоді — угода рахується в кожній
         for name in emotions.label(r["emotion"], "uk").split(", "):
             if not name:
@@ -508,7 +509,7 @@ def emotion_stats(rows):
             s = by.setdefault(name, {"n": 0, "win": 0, "loss": 0, "net": 0.0})
             s["n"] += 1
             s["net"] += val
-            if res == "Win": s["win"] += 1
+            if win: s["win"] += 1
             elif res == "Loss": s["loss"] += 1
     for s in by.values():
         s["wr"] = 100.0 * s["win"] / s["n"] if s["n"] else 0.0

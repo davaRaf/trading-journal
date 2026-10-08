@@ -184,7 +184,7 @@
     const score = m => by[m].reduce((sum, t) => {
       const risk = parseFloat(t.risk) || 1, rr = parseFloat(t.rr) || 0;
       const r = String(t.result || "");
-      return sum + (r === "Win" ? risk * rr : r === "Loss" ? -risk : 0);
+      return sum + (r === "Win" || r === "WinM" ? risk * rr : r === "Loss" ? -risk : 0);
     }, 0);
     months.sort((a, b) => score(a) - score(b));
     return by[months[Math.floor(months.length / 2)]]

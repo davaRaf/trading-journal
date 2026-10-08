@@ -2583,7 +2583,7 @@ function calcOutcome(){
   markQuick();
   if(!res){ box.className="outcome"; box.innerHTML='<span class="hint">'+T.calcChooseResult+'</span>'; return; }
   let val=0, txt="";
-  if(res==="Win"){ val=r*rr; txt=T.calcTakePrefix+r1(r)+T.calcTakeMid+r1(rr); }
+  if(WIN_SET.includes(res)){ val=r*rr; txt=T.calcTakePrefix+r1(r)+T.calcTakeMid+r1(rr); }
   else if(res==="Loss"){ val=-r; txt=T.calcStopMsg; }
   else if(res==="Skip"){
     /* угоди не було — ні відсотка, ні жовтого: скіп у статистику не йде */
@@ -2922,7 +2922,7 @@ async function saveTrade(id){
   if(!t.date){ formErr("date", T.alertNeedDate); return; }
   if(btOn() && !t.bt_run.trim()){ formErr("bt_run", T.alertNeedJournal); return; }
   if(!t.result){ formErr("result", T.alertNeedResult); return; }
-  if(t.result==="Win" && !num(t.rr)){ formErr("rr", T.alertNeedRR); return; }
+  if(WIN_SET.includes(t.result) && !num(t.rr)){ formErr("rr", T.alertNeedRR); return; }
   /* У скипа сделки не было: RR и риск не сохраняем, чтобы они не попали
      в средние. Инструмент оставляем — по нему видно, что именно пропустил. */
   if(t.result==="Skip"){ t.rr=""; t.risk=""; t.rr_plan=""; }
