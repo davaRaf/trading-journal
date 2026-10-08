@@ -98,21 +98,18 @@ const Voice = (function(){
     document.querySelectorAll(".micbtn").forEach(o => {
       if(o !== b) o.classList.toggle("off", state === "rec" || state === "busy");
     });
-    const label = state === "rec" ? T.voiceStop
+    /* Під запис кнопка лишається іконкою (css), тому «Стоп» і таймер
+       живуть у підказці й у голосі читача екрана: у полі вони
+       змушували кнопку стрибати в ширині щосекунди. */
+    const s = sec || 0;
+    const label = state === "rec"
+                ? T.voiceStop + " · " + Math.floor(s / 60) + ":" +
+                  String(s % 60).padStart(2, "0")
                 : state === "busy" ? T.voiceBusy : T.voiceStart;
     b.title = label;
     b.setAttribute("aria-label", label);
     const t = b.querySelector(".mictxt");
-    if(!t) return;
-    if(state === "rec"){
-      /* Разом із «Стоп», а не лише цифрами: червоне з таймером показує, що
-         пишемо, але не те, що буде від натискання. */
-      const s = sec || 0;
-      t.textContent = T.voiceStop + " " + Math.floor(s / 60) + ":" +
-                      String(s % 60).padStart(2, "0");
-    }else{
-      t.textContent = label;
-    }
+    if(t) t.textContent = label;
   }
 
   /* Кільце навколо кнопки за справжньою громкістю: voice.js ставить --lv,
@@ -262,8 +259,10 @@ const Voice = (function(){
                  too_many: T.voiceTooMany, voice_failed: T.voiceFailed,
                  too_big: T.voiceLong};
     if(e && e.code && map[e.code]) return map[e.code];
-    /* Гість і чужий журнал кидають свої мітки — їм api() вже показав
-       своє вікно, і другий рядок тут був би зайвим. */
+    /* Гість, чужий журнал і скінчена порція кидають свої мітки — їм
+       api() вже показав своє вікно, і другий рядок тут був би зайвим.
+       Мітку soft ставить сам Paywall. */
+    if(e && e.soft) return "";
     if(e && (e.message === "guest" || e.message === "pub")) return "";
     return T.voiceFailed;
   }

@@ -359,6 +359,15 @@ ALTER TABLE users ADD COLUMN IF NOT EXISTS ai_used INTEGER NOT NULL DEFAULT 0;
 ALTER TABLE users ADD COLUMN IF NOT EXISTS ai_cap INTEGER NOT NULL DEFAULT 15;
 ALTER TABLE users ADD COLUMN IF NOT EXISTS ai_reset_at TIMESTAMPTZ;
 
+-- Голосове введення: скільки диктувань витрачено у поточному вікні.
+-- Вікно те саме, що в звернень до моделі, і причина та сама: кожне
+-- розпізнавання — платні хвилини в OpenAI. voice_cap порожній у всіх,
+-- поки адмін не дасть комусь більше руками; тоді зміна FREE_VOICE у
+-- config діє одразу на всіх, а не на тих, кого завели пізніше.
+ALTER TABLE users ADD COLUMN IF NOT EXISTS voice_used INTEGER NOT NULL DEFAULT 0;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS voice_cap INTEGER;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS voice_reset_at TIMESTAMPTZ;
+
 -- Номер людини на боці платіжки. Треба рівно для одного: відкрити їй
 -- кабінет Creem, де вона сама скасує продовження чи змінить картку. Перший
 -- платіж його й приносить — до першого платежу кабінету нема чого показувати.
