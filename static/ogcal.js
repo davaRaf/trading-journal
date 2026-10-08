@@ -70,23 +70,22 @@ let C = DARK;
 /* Тло «Хелловіну»: тепле світло згори, фіолетовий відблиск знизу,
    павутина в куті, кажани й силуети гарбузів. Усе бліде — це фактура
    під цифрами, а не малюнок поверх них. */
-const BAT = new Path2D("M32 14c-2-4-5-5-5-5s1 3 0 5c-3-1-7-6-13-5 3 2 4 5 3 8-3-2-8-2-12 0 4 1 7 4 8 8 2-2 6-3 9-1-1-3 1-6 4-6 2 2 4 6 6 6s4-4 6-6c3 0 5 3 4 6 3-2 7-1 9 1 1-4 4-7 8-8-4-2-9-2-12 0-1-3 0-6 3-8-6-1-10 4-13 5-1-2 0-5 0-5s-3 1-5 5z");
+/* Острий силует кажана й гарбузи без облич — дорослий тон, як на
+   прев'ю /halloween (рішення власника 08.10.2026: «не мультяшно»). */
+const BAT = new Path2D("M0 6 L9 3 L13 0 L15 4 L18 2 L20 5 L22 2 L25 4 L27 0 L31 3 L40 6 L33 7 L30 10 L26 8 L20 12 L14 8 L10 10 L7 7 Z");
 function pumpkin(ctx, cx, cy, r){
   ctx.save();
-  ctx.fillStyle = "#ff7a1a";
-  [[-.55, .78], [.55, .78], [0, 1]].forEach(([dx, k]) => {
-    ctx.beginPath(); ctx.ellipse(cx + dx * r, cy, r * .62 * k + r * .1, r * .8, 0, 0, Math.PI * 2); ctx.fill();
+  const g = ctx.createRadialGradient(cx, cy, 0, cx, cy, r * 2.4);
+  g.addColorStop(0, "rgba(255,138,42,.35)"); g.addColorStop(1, "rgba(255,138,42,0)");
+  ctx.fillStyle = g; ctx.fillRect(cx - r * 2.4, cy - r * 2.4, r * 4.8, r * 4.8);
+  ctx.fillStyle = "#5a2208";
+  [[-.5, .62], [.5, .62], [0, .7]].forEach(([dx, k]) => {
+    ctx.beginPath(); ctx.ellipse(cx + dx * r, cy, r * k, r * .82, 0, 0, Math.PI * 2); ctx.fill();
   });
-  ctx.fillStyle = "#4d7c1f";
-  ctx.fillRect(cx - r * .09, cy - r * 1.12, r * .18, r * .36);
-  ctx.globalCompositeOperation = "destination-out";
-  ctx.beginPath();
-  ctx.moveTo(cx - r * .45, cy - r * .2); ctx.lineTo(cx - r * .2, cy - r * .2); ctx.lineTo(cx - r * .32, cy - r * .42); ctx.closePath();
-  ctx.moveTo(cx + r * .45, cy - r * .2); ctx.lineTo(cx + r * .2, cy - r * .2); ctx.lineTo(cx + r * .32, cy - r * .42); ctx.closePath();
-  ctx.moveTo(cx - r * .5, cy + r * .12);
-  ctx.quadraticCurveTo(cx, cy + r * .62, cx + r * .5, cy + r * .12);
-  ctx.quadraticCurveTo(cx, cy + r * .34, cx - r * .5, cy + r * .12);
-  ctx.fill();
+  ctx.fillStyle = "#2f3d17";
+  ctx.fillRect(cx - r * .07, cy - r * 1.08, r * .14, r * .32);
+  ctx.strokeStyle = "rgba(255,138,42,.4)"; ctx.lineWidth = 1.5;
+  ctx.beginPath(); ctx.moveTo(cx - r * .78, cy - r * .55); ctx.quadraticCurveTo(cx, cy - r * 1.05, cx + r * .78, cy - r * .55); ctx.stroke();
   ctx.restore();
 }
 function hwBg(ctx, w, h){
@@ -114,14 +113,14 @@ function hwBg(ctx, w, h){
   ctx.stroke(); ctx.restore();
   /* кажани — посередині вгорі: праворуч угорі стоять підпис і підсумок,
      і кажани поверх них заважали читати */
-  ctx.save(); ctx.fillStyle = "rgba(255,255,255,.11)";
+  ctx.save(); ctx.fillStyle = "rgba(0,0,0,.75)";
   [[.50, .04, 1.1], [.60, .11, .75], [.43, .13, .55], [.67, .03, .5]].forEach(([x, y, k]) => {
-    const sc = k * s / 330;
+    const sc = k * s / 260;
     ctx.save(); ctx.translate(w * x, Math.min(h * y, s * y * 1.4)); ctx.scale(sc, sc); ctx.fill(BAT); ctx.restore();
   });
   ctx.restore();
   /* силуети гарбузів унизу */
-  ctx.save(); ctx.globalAlpha = .16;
+  ctx.save(); ctx.globalAlpha = .8;
   const r = s * .07;
   /* гарбузи — праворуч: ліворуч унизу стоять цифри */
   pumpkin(ctx, w * .80, h - r * .40, r * .8);
