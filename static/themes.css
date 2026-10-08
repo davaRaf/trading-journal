@@ -297,3 +297,70 @@
 :root[data-skin="wine"],:root[data-skin="pine"],:root[data-skin="fxlab"]{--beplus:#b48cff}
 :root[data-skin="day"],:root[data-skin="paper"],:root[data-skin="fog"],
 :root[data-skin="sand"],:root[data-skin="blackswan"]{--beplus:#7c4dff}
+
+/* ================= Хелловін — сезонна тема (жовтень 2026) =================
+   Гарбузова: теплий чорний, гарбузовий акцент. Фоном — павутина в куті,
+   кажани й силуети гарбузів унизу, біля логотипа 🎃. Помічник перевдягнений
+   у вампіра: крила кажана махають, на обличчі ікла. Колір росту й збитку
+   лишились звичними — зелений і червоний, щоб цифри читались як завжди. */
+:root[data-skin="halloween"]{
+  --bg:#0b0705; --panel:#140d09; --panel-2:#1a110b;
+  --line:rgba(255,140,50,.16); --line-soft:rgba(255,140,50,.09);
+  --text:#f6ebe0; --dim:#c2a48c; --faint:#8a6c56;
+  --accent:#ff7a1a; --accent-ink:#1a0a00; --accent-soft:rgba(255,122,26,.14);
+  --up:#a3e635; --down:#ff4d4d; --be:#ffc94a; --beplus:#b48cff;
+  --up-soft:rgba(163,230,53,.12); --down-soft:rgba(255,77,77,.12); --be-soft:rgba(255,201,74,.12);
+  --card:#120b08; --side-bg:#080504; --shell-bg:rgba(20,12,8,.6);
+  --seg-bg:#140d09; --seg-on-bg:rgba(255,122,26,.16); --seg-on-line:rgba(255,140,50,.4);
+  --ghost:#6b5040; --ghost-2:#523d31; --side-line:rgba(255,140,50,.1);
+  --mark-bg:rgba(255,122,26,.08); --mark-line:rgba(255,140,50,.25);
+  --ov-eq-line:#ff7a1a; --ov-eq-fill:rgba(255,122,26,.16); --ov-grid:rgba(255,140,50,.07);
+  --bar-track:rgba(255,140,50,.08); --bar-fill:linear-gradient(90deg,#ff7a1a,rgba(255,122,26,.25));
+  --shadow:0 30px 80px -30px rgba(0,0,0,.8);
+  --glow:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 220 220' fill='none' stroke='%23ffffff' stroke-opacity='.22' stroke-width='1'%3E%3Cpath d='M0 0L220 40M0 0L200 120M0 0L120 200M0 0L40 220'/%3E%3Cpath d='M38 7Q30 22 34 34Q22 32 7 38M76 14Q60 42 68 66Q44 62 14 76M118 21Q92 66 104 101Q66 96 21 118M160 29Q124 92 140 136Q90 130 29 160'/%3E%3C/svg%3E") left 216px top 0 / 260px no-repeat,
+         url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 300 160'%3E%3Cg fill='%23ffffff' fill-opacity='.22'%3E%3Cpath id='b' d='M32 14c-2-4-5-5-5-5s1 3 0 5c-3-1-7-6-13-5 3 2 4 5 3 8-3-2-8-2-12 0 4 1 7 4 8 8 2-2 6-3 9-1-1-3 1-6 4-6 2 2 4 6 6 6s4-4 6-6c3 0 5 3 4 6 3-2 7-1 9 1 1-4 4-7 8-8-4-2-9-2-12 0-1-3 0-6 3-8-6-1-10 4-13 5-1-2 0-5 0-5s-3 1-5 5z'/%3E%3Cuse href='%23b' transform='translate(120 40) scale(.7)'/%3E%3Cuse href='%23b' transform='translate(210 10) scale(.5)'/%3E%3Cuse href='%23b' transform='translate(70 95) scale(.45)'/%3E%3C/g%3E%3C/svg%3E") right 40px top 60px / 300px no-repeat,
+         radial-gradient(38% 34% at 88% -6%,rgba(255,122,26,.28),transparent 70%),
+         url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 400 90'%3E%3Cg fill='%23ff7a1a' fill-opacity='.16'%3E%3Cellipse cx='60' cy='70' rx='42' ry='26'/%3E%3Cellipse cx='40' cy='70' rx='18' ry='24'/%3E%3Cellipse cx='80' cy='70' rx='18' ry='24'/%3E%3Crect x='56' y='36' width='7' height='14' rx='3'/%3E%3Cellipse cx='300' cy='74' rx='32' ry='20'/%3E%3Cellipse cx='285' cy='74' rx='14' ry='18'/%3E%3Cellipse cx='315' cy='74' rx='14' ry='18'/%3E%3Crect x='297' y='48' width='6' height='11' rx='3'/%3E%3C/g%3E%3Cg fill='%23ffb066' fill-opacity='.22'%3E%3Cpath d='M44 62l8 6-8 2zM76 62l-8 6 8 2zM46 80q14 8 28 0q-14 4-28 0z'/%3E%3Cpath d='M288 68l6 4-6 2zM312 68l-6 4 6 2zM290 82q10 6 20 0q-10 3-20 0z'/%3E%3C/g%3E%3C/svg%3E") left 260px bottom -6px / 520px no-repeat,
+         radial-gradient(45% 40% at 0% 108%,rgba(130,40,170,.22),transparent 70%);
+}
+/* на телефоні бокової панелі немає — павутина в самому куті */
+@media (max-width:900px){
+  :root[data-skin="halloween"]{
+    --glow:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 220 220' fill='none' stroke='%23ffffff' stroke-opacity='.22' stroke-width='1'%3E%3Cpath d='M0 0L220 40M0 0L200 120M0 0L120 200M0 0L40 220'/%3E%3Cpath d='M38 7Q30 22 34 34Q22 32 7 38M76 14Q60 42 68 66Q44 62 14 76M118 21Q92 66 104 101Q66 96 21 118M160 29Q124 92 140 136Q90 130 29 160'/%3E%3C/svg%3E") left top / 190px no-repeat,
+           url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 300 160'%3E%3Cg fill='%23ffffff' fill-opacity='.22'%3E%3Cpath id='b' d='M32 14c-2-4-5-5-5-5s1 3 0 5c-3-1-7-6-13-5 3 2 4 5 3 8-3-2-8-2-12 0 4 1 7 4 8 8 2-2 6-3 9-1-1-3 1-6 4-6 2 2 4 6 6 6s4-4 6-6c3 0 5 3 4 6 3-2 7-1 9 1 1-4 4-7 8-8-4-2-9-2-12 0-1-3 0-6 3-8-6-1-10 4-13 5-1-2 0-5 0-5s-3 1-5 5z'/%3E%3Cuse href='%23b' transform='translate(120 40) scale(.7)'/%3E%3Cuse href='%23b' transform='translate(210 10) scale(.5)'/%3E%3Cuse href='%23b' transform='translate(70 95) scale(.45)'/%3E%3C/g%3E%3C/svg%3E") right 10px top 70px / 220px no-repeat,
+           radial-gradient(60% 30% at 90% -6%,rgba(255,122,26,.26),transparent 70%),
+           url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 400 90'%3E%3Cg fill='%23ff7a1a' fill-opacity='.16'%3E%3Cellipse cx='60' cy='70' rx='42' ry='26'/%3E%3Cellipse cx='40' cy='70' rx='18' ry='24'/%3E%3Cellipse cx='80' cy='70' rx='18' ry='24'/%3E%3Crect x='56' y='36' width='7' height='14' rx='3'/%3E%3Cellipse cx='300' cy='74' rx='32' ry='20'/%3E%3Cellipse cx='285' cy='74' rx='14' ry='18'/%3E%3Cellipse cx='315' cy='74' rx='14' ry='18'/%3E%3Crect x='297' y='48' width='6' height='11' rx='3'/%3E%3C/g%3E%3Cg fill='%23ffb066' fill-opacity='.22'%3E%3Cpath d='M44 62l8 6-8 2zM76 62l-8 6 8 2zM46 80q14 8 28 0q-14 4-28 0z'/%3E%3Cpath d='M288 68l6 4-6 2zM312 68l-6 4 6 2zM290 82q10 6 20 0q-10 3-20 0z'/%3E%3C/g%3E%3C/svg%3E") left 10px bottom 64px / 360px no-repeat;
+  }
+}
+:root[data-skin="halloween"] .main .core,
+:root[data-skin="halloween"] .main .card{box-shadow:inset 0 1px 0 rgba(255,150,70,.10),0 0 0 1px rgba(255,122,26,.05),var(--shadow)}
+:root[data-skin="halloween"] .newtrade{background:linear-gradient(180deg,#ff8a2a,#e85d00);color:#1a0a00;
+  box-shadow:0 0 22px -4px rgba(255,122,26,.65)}
+:root[data-skin="halloween"] .brand .mark{position:relative}
+:root[data-skin="halloween"] .brand .mark::after{content:"🎃";position:absolute;left:22px;top:-8px;font-size:15px;
+  pointer-events:none;filter:drop-shadow(0 0 6px rgba(255,122,26,.7))}
+
+/* Помічник-вампір. Праве крило виходить за кнопку, тому сама кнопка
+   стоїть далі від краю екрана — інакше крило обрізалось би. */
+:root[data-skin="halloween"] .as-fab{right:56px;
+  background:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 8'%3E%3Cpath d='M2 0 L4.5 8 L7 0 Z M9 0 L11.5 8 L14 0 Z' fill='%23ffffff'/%3E%3C/svg%3E") 50% 74% / 13px 7px no-repeat,radial-gradient(circle at 35% 30%,#ff9440,#e85d00);
+  box-shadow:0 0 0 2px #7a0d12 inset,0 10px 24px -8px rgba(160,10,20,.8)}
+:root[data-skin="halloween"] .as-fab::before,
+:root[data-skin="halloween"] .as-fab::after{content:"";position:absolute;top:14px;width:42px;height:30px;pointer-events:none;
+  background:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 44 36'%3E%3Cpath d='M44 5 C34 0 22 1 10 7 C13 11 11 14 6 15 C9 18 8 21 2 23 C11 23 15 25 17 30 C21 24 29 20 44 19 Z' fill='%23161018'/%3E%3C/svg%3E") center/contain no-repeat;z-index:-1;
+  animation:hwFlap 1.6s ease-in-out infinite;transform-origin:100% 40%}
+:root[data-skin="halloween"] .as-fab::before{left:-34px}
+:root[data-skin="halloween"] .as-fab::after{right:-34px;transform:scaleX(-1);transform-origin:50% 40%;animation-name:hwFlapR}
+@keyframes hwFlap{0%,100%{transform:rotate(0)}50%{transform:rotate(-14deg)}}
+@keyframes hwFlapR{0%,100%{transform:scaleX(-1) rotate(0)}50%{transform:scaleX(-1) rotate(-14deg)}}
+@media (prefers-reduced-motion:reduce){
+  :root[data-skin="halloween"] .as-fab::before,:root[data-skin="halloween"] .as-fab::after{animation:none}
+}
+/* на телефоні кнопка менша — і крила менші, і від краю ближче */
+@media (max-width:900px){
+  :root[data-skin="halloween"] .as-fab{right:34px !important;background-size:10px 5px,auto}
+  :root[data-skin="halloween"] .as-fab::before,
+  :root[data-skin="halloween"] .as-fab::after{top:10px;width:28px;height:20px}
+  :root[data-skin="halloween"] .as-fab::before{left:-22px}
+  :root[data-skin="halloween"] .as-fab::after{right:-22px}
+}

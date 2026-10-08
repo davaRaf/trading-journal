@@ -438,7 +438,7 @@ uk: {
   thCollabGroupFx: "Колаборація · FX LAB",
   thCollabNoteFx: "Нічна лабораторія: скло, міліметрівка й синє світло моніторів",
   thSelected: "обрана", thCustom: "Своя", thModalTitle: "Оформлення", thCollabs: "Колаборації",
-  thDarkGroup: "Темні", thLightGroup: "Світлі",
+  thDarkGroup: "Темні", thLightGroup: "Світлі", thSeason: "Сезонні", thHalloween: "Хелловін",
   thBase: "Основа", thBaseDark: "Темна", thBaseLight: "Світла", thBg: "Тло", thAccent: "Акцент",
   thNoteHint: "Два кольори — решту підберемо: підкладки, лінії й підсвітку.",
 
@@ -1192,7 +1192,7 @@ ru: {
   thCollabGroupFx: "Коллаборация · FX LAB",
   thCollabNoteFx: "Ночная лаборатория: стекло, миллиметровка и синий свет мониторов",
   thSelected: "выбрана", thCustom: "Своя", thModalTitle: "Оформление", thCollabs: "Коллаборации",
-  thDarkGroup: "Тёмные", thLightGroup: "Светлые",
+  thDarkGroup: "Тёмные", thLightGroup: "Светлые", thSeason: "Сезонные", thHalloween: "Хэллоуин",
   thBase: "Основа", thBaseDark: "Тёмная", thBaseLight: "Светлая", thBg: "Фон", thAccent: "Акцент",
   thNoteHint: "Два цвета — остальное подберём: подложки, линии и подсветку.",
 
@@ -1943,7 +1943,7 @@ en: {
   thCollabGroupFx: "Collaboration · FX LAB",
   thCollabNoteFx: "A night lab: glass, graph paper and the blue glow of monitors",
   thSelected: "selected", thCustom: "Custom", thModalTitle: "Appearance", thCollabs: "Collaborations",
-  thDarkGroup: "Dark", thLightGroup: "Light",
+  thDarkGroup: "Dark", thLightGroup: "Light", thSeason: "Seasonal", thHalloween: "Halloween",
   thBase: "Base", thBaseDark: "Dark", thBaseLight: "Light", thBg: "Background", thAccent: "Accent",
   thNoteHint: "Two colors — we'll work out the rest: panels, lines and highlights.",
 

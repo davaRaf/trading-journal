@@ -16,6 +16,10 @@ const KEY  = "statsai_skin";
 const SEED = "statsai_skin_custom";
 
 function THEMES(){ return [
+  /* Сезонна: окремим рядком угорі вікна, поки йде жовтень. */
+  {id:"halloween", name:T.thHalloween, base:"dark", bg:"#0b0705", panel:"#140d09",
+   line:"#3a2414", accent:"#ff7a1a", up:"#a3e635", down:"#ff4d4d", be:"#ffc94a", season:true},
+
   {id:"night",    name:T.thNight,       base:"dark",  bg:"#050505", panel:"#0d0d0e",
    line:"#26262a", accent:"#40e094", up:"#40e094", down:"#ff6e60", be:"#efc258"},
   {id:"graphite", name:T.thGraphite,    base:"dark",  bg:"#101012", panel:"#17171a",
@@ -124,10 +128,12 @@ function section(){
 
   /* Теми спільнот стоять окремим блоком: це не просто ще одна світла
      тема, а оформлення партнера, і воно має читатись саме так. */
-  const own    = THEMES().filter(t => !t.collab);
+  const own    = THEMES().filter(t => !t.collab && !t.season);
+  const season = THEMES().filter(t => t.season);
   const collab = THEMES().filter(t => t.collab);
 
   return '<div class="nt th-grp">'
+    + (season.length ? group(T.thSeason, season) : "")
     + group(T.thDarkGroup,  own.filter(t => t.base === "dark"))
     + group(T.thLightGroup, own.filter(t => t.base === "light"))
     /* усі колаборації — одним рядком звичайних карток, без описів: FX LAB,
