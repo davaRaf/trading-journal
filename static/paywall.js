@@ -23,6 +23,7 @@ const WHY = {
   import_window: ["pwImpT",   "pwWinX"],
   bt_notion:     ["pwBtNotT", "pwBtNotX"],
   bt_notion_limit: ["pwBtLimT", "pwBtLimX"],
+  voice_limit:   ["pwVoiceT", "pwVoiceX"],
   ai_limit:      ["pwAiT",    "pwAiX"],
   ai_cap:        ["pwCapT",   "pwCapX"],
 };

@@ -3803,6 +3803,12 @@ class H(BaseHTTPRequestHandler):
             if not voice.enabled():
                 return self._json({"error": "голосове введення вимкнене — немає OPENAI_API_KEY",
                                    "code": "no_voice"}, 503)
+            # Порція диктувань. Питаємо дозвіл ДО запиту в OpenAI, щоб не
+            # платити за розпізнавання тому, кому воно вже не належить.
+            # Списуємо — нижче й лише коли текст приїхав.
+            ok, why = billing.can_voice(uid)
+            if not ok:
+                return self._json(billing.deny(uid, why), 402)
             if not isinstance(body, dict):
                 return self._json({"error": "bad json"}, 400)
             raw = str(body.get("audio") or "")
@@ -3832,6 +3838,10 @@ class H(BaseHTTPRequestHandler):
             if err:
                 return self._json({"error": "розпізнавання не відповіло",
                                    "code": "voice_failed"}, 502)
+            # Порцію знімаємо тільки тут: людина отримала слова. Тиша,
+            # шум і будь-яка помилка вище вийшли, нічого не списавши.
+            if (text or "").strip():
+                billing.spend_voice(uid)
             return self._json({"text": text})
 
         if p == "/api/assistant/ask":

@@ -210,3 +210,9 @@ body:has(.pnl-wrap) .as-say, body:has(.modal:not([hidden])) .as-say{
   .as-say{transition:opacity .18s; transform:none}
   .as-say.in{transform:none}
 }
+
+/* Мікрофон у полі питання (voice.js). Поле високе й саме тягнеться,
+   тому кнопка стоїть у правому нижньому куті, як у формі угоди, а
+   полю віддано місце під неї, щоб текст не заповзав. */
+.as-foot .vwrap{display:block}
+.as-foot .vwrap .as-input{padding-bottom:42px}

@@ -186,8 +186,13 @@ const Assistant = (function(){
         '<div class="as-log" aria-live="polite"></div>' +
       "</div>" +
       '<div class="m-foot as-foot">' +
-        '<textarea class="as-input" rows="3" placeholder="' + T.asInputPh + '" ' +
+        /* Питання агентові так само частіше наговорюють, ніж набирають,
+           тому мікрофон стоїть і тут — усередині поля, як усюди. */
+        '<span class="vwrap"><textarea class="as-input" id="asInput" rows="3" ' +
+          'placeholder="' + T.asInputPh + '" ' +
           'aria-label="' + T.asInputAria + '"></textarea>' +
+          (window.Voice ? Voice.btn("asInput") : "") + '</span>' +
+          (window.Voice ? Voice.hint("asInput") : "") +
         '<div class="as-actions">' +
           '<button class="btn as-review" type="button" data-tip="' + T.asReviewTip + '">' + T.asReviewBtn + '</button>' +
           '<span class="sp"></span>' +

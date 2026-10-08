@@ -36,7 +36,7 @@ import math
 
 import db
 from config import (AI_WINDOW_DAYS, BT_PACK_MAX, BT_PACK_MIN, CURRENCY,
-                    FREE_AI, FREE_BT, FREE_IMPORTS, FREE_TRADES,
+                    FREE_AI, FREE_BT, FREE_IMPORTS, FREE_TRADES, FREE_VOICE,
                     IMPORT_WINDOW_DAYS, PAID_AI, PLAN_DAYS, PRICES, PROMOS,
                     bt_pack_cents)
 from config import CREEM_API_KEY, CREEM_BT_PACK_PRODUCT
@@ -62,6 +62,9 @@ BT_NOTION_LIMIT = "bt_notion_limit"  # свої бази бектесту вже
 # підписку. AI_CAP — інше: у стелю впирається вже той, хто платить, і
 # підписку йому пропонувати нема чого, йому кажемо зачекати.
 AI_LIMIT = "ai_limit"
+# Назва збігається з межею частоти в app.py (VOICE_LIMIT у ratelimit),
+# але це різні речі: там «не частіше ніж», тут «скільки всього».
+VOICE_LIMIT = "voice_limit"
 AI_CAP = "ai_cap"
 NO_USER = "no_user"
 
@@ -442,6 +445,62 @@ def can_use_ai(u):
     if ai_used(row) < ai_cap(row):
         return True, ""
     return False, (AI_CAP if active(row) else AI_LIMIT)
+
+
+def voice_used(u):
+    """Скільки диктувань витрачено у поточному вікні. Вікно минуло —
+    нуль: лічильник обнуляє саме перше диктування (spend_voice)."""
+    row = _user(u)
+    if not row:
+        return 0
+    until = row.get("voice_reset_at")
+    if not until or until <= db.now():
+        return 0
+    return _int(row, "voice_used")
+
+
+def can_voice(u):
+    """Чи можна диктувати. З підпискою — скільки треба, без неї
+    FREE_VOICE разів на вікно.
+
+    Друкувати руками можна завжди: платне тут саме розпізнавання.
+    """
+    row = _user(u)
+    if not row:
+        return False, NO_USER
+    if active(row):
+        return True, ""
+    if voice_used(row) < _cap(row, "voice_cap", FREE_VOICE):
+        return True, ""
+    return False, VOICE_LIMIT
+
+
+def spend_voice(u):
+    """Зняти одне диктування — вже ПІСЛЯ того, як текст приїхав.
+
+    Навмисне не одним запитом із перевіркою, як take_ai. Там пачка
+    одночасних питань могла з'їсти порцію за раз, а тут одночасних не
+    буває: поки пишемо, решта мікрофонів глуха (voice.js), і межа
+    частоти стоїть окремо. Зате людина не платить порцією за те, чого
+    не отримала: ввімкнув і вимкнув випадково — запис навіть не поїхав
+    на сервер; надиктував тишу — модель не почула слів, і ми теж не
+    списуємо.
+    """
+    row = _user(u)
+    if not row or active(row):
+        return
+    with db.connect() as conn:
+        conn.execute(
+            "UPDATE users SET "
+            " voice_used = CASE WHEN voice_reset_at IS NULL"
+            "                    OR voice_reset_at <= now()"
+            "                   THEN 1 ELSE voice_used + 1 END,"
+            " voice_reset_at = CASE WHEN voice_reset_at IS NULL"
+            "                         OR voice_reset_at <= now()"
+            "                       THEN now() + %s * interval '1 day'"
+            "                       ELSE voice_reset_at END"
+            " WHERE id=%s", (AI_WINDOW_DAYS, row["id"]))
+        conn.commit()
 
 
 def deny(u, reason):
