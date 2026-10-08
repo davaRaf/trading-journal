@@ -216,3 +216,11 @@ body:has(.pnl-wrap) .as-say, body:has(.modal:not([hidden])) .as-say{
    полю віддано місце під неї, щоб текст не заповзав. */
 .as-foot .vwrap{display:block}
 .as-foot .vwrap .as-input{padding-bottom:42px}
+/* На телефоні поле в один рядок: високе порожнє поле з'їдало пів
+   екрана над клавіатурою. Далі воно тягнеться під текст само (assistant.js),
+   мікрофон праворуч, тому запас під нього — збоку, а не знизу. 16px — щоб
+   iPhone не збільшував сторінку, коли ставиш курсор у поле. */
+@media (max-width:900px){
+  .as-input{min-height:48px; height:48px; font-size:16px; line-height:1.4}
+  .as-foot .vwrap .as-input{padding:12px 48px 12px 14px}
+}
