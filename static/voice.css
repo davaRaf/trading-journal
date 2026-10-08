@@ -121,4 +121,8 @@
    Відступ згори тримає обгортка, інакше він порахувався б двічі —
    і в обгортки, і в самого поля. */
 .tfslot .vwrap.one{margin-top:7px}
-.tfslot .vwrap.one .tfnote{margin-top:0; padding-right:42px}
+.tfslot .vwrap.one .tfnote{margin-top:0; padding-right:38px}
+/* Запас знизу під кнопку (.form .vwrap textarea, 46px) — для великих полів,
+   де мікрофон у куті. Тут він збоку, тож низ звичайний, як у полі без
+   мікрофона: інакше підпис з одного рядка роздувався на пів картки. */
+.form .tfslot .vwrap.one .tfnote{padding-bottom:7px}
