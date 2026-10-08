@@ -12,9 +12,9 @@
    затримку знімаємо — інакше hover-ефекти (translate у картках) билися б
    із transform анімації.
 
-   Коли грає: зміна розділу (не перемальовування після правки угоди —
-   інакше сторінка моргала б на кожен клік), відкриття вікна (#modalBox)
-   і будь-якої панелі (Sheet/Drawer). Не грає при prefers-reduced-motion.
+   Коли грає: лише зміна розділу (не перемальовування після правки угоди —
+   інакше сторінка моргала б на кожен клік). Вікна й панелі — без черги,
+   див. нижче. Не грає при prefers-reduced-motion.
    ============================================================ */
 (function(){
 
@@ -160,36 +160,11 @@ if (typeof renderOrig === "function"){
   };
 }
 
-/* ---- вікна: після того, як motion.js показав саме вікно ---- */
-const openOrig = window.openModal;
-if (typeof openOrig === "function"){
-  window.openModal = function(html){
-    /* Чи було вікно вже відкрите. Налаштування перемальовують себе цілком
-       на кожен клік по розділу (settings.js, draw), і анімація появи грала
-       щоразу: блоки спливали на 18px знизу, тобто вміст сіпався вниз і
-       повертався. Поява доречна, коли вікно показують, а не коли міняють
-       його вміст, — тому тут граємо лише на першому показі. */
-    const m = document.getElementById("modal");
-    const wasOpen = !!m && !m.hidden;
-    const r = openOrig.apply(this, arguments);
-    if (r !== false && !wasOpen) run(document.getElementById("modalBox"));
-    return r;
-  };
-}
-
-/* ---- панелі (Sheet/Drawer): їх будує ui.js, зовні не підмінити — тому
-   дивимось, що додалось у body. Вміст помічника перемальовується при
-   кожній репліці, але ми бачимо лише появу самої панелі, тож старі
-   репліки не стрибають щоразу. ---- */
-new MutationObserver(muts => {
-  muts.forEach(m => m.addedNodes.forEach(n => {
-    if (n.nodeType !== 1 || !n.classList.contains("pnl-wrap")) return;
-    const box = n.querySelector(".pnl");
-    /* даємо панелі дописати свій вміст (insertAdjacentHTML іде після build).
-       setTimeout, не rAF: у прихованій вкладці rAF не приходить узагалі */
-    setTimeout(() => run(box), 0);
-  }));
-}).observe(document.body, {childList: true});
+/* Вікна й панелі (#modalBox, Sheet/Drawer) черги не грають: саме вікно
+   вже з'являється своєю анімацією (motion.js), а блоки, що слідом по
+   черзі спливали знизу, виглядали так, ніби вміст перемальовується
+   вдруге (08.10.2026, скарга користувача). Тепер вікно відкривається
+   одразу готовим; черга лишилась тільки для зміни розділу. */
 
 window.Appear = {run};
 
