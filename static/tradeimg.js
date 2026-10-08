@@ -67,6 +67,7 @@ function drawAuthor(ctx, C, x, y){
    міліметрівка, малює OgCal, щоб тло було одне на всі картинки. */
 function paintBg(ctx, C, w, h){
   if (C.partner === "fxlab" && window.OgCal && OgCal.labBg){ OgCal.labBg(ctx, w, h); return; }
+  if (C.season === "halloween" && window.OgCal && OgCal.hwBg){ OgCal.hwBg(ctx, w, h); return; }
   ctx.fillStyle = C.bg; ctx.fillRect(0, 0, w, h);
 }
 function paintCorners(ctx, C, w, h){
@@ -88,8 +89,8 @@ function themeColors(){
   const swap = forceSkin && forceSkin !== prevSkin;
   if (swap){
     root.setAttribute("data-skin", forceSkin);
-    /* Black Swan світла, FX LAB темна */
-    root.setAttribute("data-theme", forceSkin === "fxlab" ? "dark" : "light");
+    /* Black Swan світла, FX LAB і Хелловін темні */
+    root.setAttribute("data-theme", forceSkin === "fxlab" || forceSkin === "halloween" ? "dark" : "light");
   }
   const skinNow = root.getAttribute("data-skin");
   const cs = getComputedStyle(root);
@@ -103,10 +104,13 @@ function themeColors(){
     mark:g("--logo-green") || "#40e094",
     /* чия спільнота: за цим OgCal вибирає знак і тло */
     partner: skinNow === "blackswan" || skinNow === "fxlab" ? skinNow : "",
+    /* сезонне оформлення — своє тло, але без «×» і знаків спільноти */
+    season: skinNow === "halloween" ? "halloween" : "",
   };
   /* На екрані картки FX LAB — скло, а на картинці під ними фото лабораторії:
      напівпрозорі губились на тлі, тому тут вони щільні. */
   if (out.partner === "fxlab"){ out.panel = "#0B1526"; out.panel2 = "#0E1A2E"; }
+  if (out.season === "halloween") out.mark = "#ff7a1a";
   if (swap){
     if (prevSkin) root.setAttribute("data-skin", prevSkin);
     else root.removeAttribute("data-skin");

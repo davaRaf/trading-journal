@@ -1547,18 +1547,23 @@ class H(BaseHTTPRequestHandler):
         self.send_header("Location", where)
         self.end_headers()
 
-    def _landing(self):
+    def _landing(self, og="og-main.png", og_title=""):
         """Стартова сторінка. Як і в /login: месенджерам потрібна повна адреса
-        картинки прев'ю, а у файлі вона відносна — дописуємо базу на віддачі."""
+        картинки прев'ю, а у файлі вона відносна — дописуємо базу на віддачі.
+
+        og — інша картинка прев'ю для тієї ж сторінки: так /halloween веде на
+        звичайний сайт, а в месенджері показує сезонну картинку."""
         try:
             with open(os.path.join(STATIC, "landing.html"), "r", encoding="utf-8") as f:
                 html = f.read()
         except OSError:
             self.send_response(404); self.end_headers(); return
-        main_og = os.path.join(STATIC, "og-main.png")
+        main_og = os.path.join(STATIC, og)
         if os.path.exists(main_og):
             html = html.replace('"/static/og-main.png"',
-                                '"/static/og-main.png?v=%d"' % int(os.path.getmtime(main_og)))
+                                '"/static/%s?v=%d"' % (og, int(os.path.getmtime(main_og))))
+        if og_title:
+            html = re.sub(r'(<meta property="og:title" content=")[^"]*', lambda m: m.group(1) + html_escape(og_title), html, count=1)
         # Адреса сайту без PUBLIC_URL збирається із заголовка Host, а його
         # підробляють одним рядком у запиті: у розмітку — лише екрановану.
         html = html.replace('content="/static/', 'content="%s/static/' % html_escape(self._base()))
@@ -2784,6 +2789,11 @@ class H(BaseHTTPRequestHandler):
         if p == "/landing":
             # стартова сторінка й для того, хто вже увійшов, — подивитись, як її бачать гості
             return self._landing()
+
+        if p == "/halloween":
+            # Сезонне посилання на сайт: та сама стартова сторінка, але
+            # прев'ю в месенджері — хеловінське (static/og-halloween.png).
+            return self._landing("og-halloween.png", "StatsAI — Хэллоуин в журнале трейдера 🎃")
 
         if p == "/demo":
             # Журнал без акаунта, на демонстраційних даних. Сюди ведуть

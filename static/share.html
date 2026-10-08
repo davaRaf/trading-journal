@@ -59,6 +59,27 @@
   --card:linear-gradient(180deg,#0F1D33,#0B1526); --g:#4F9BFF; --mark:#40e094;
   --mono:"Geist Mono","Cascadia Mono",Consolas,monospace;
 }
+/* Хелловін — сезонне оформлення знімка: гарбузовий акцент, тепле світло,
+   павутина, кажани й гарбузи по краях. */
+:root[data-skin="halloween"]{
+  --bg:#0b0705; --panel:#140d09; --panel-2:#1a110b;
+  --line:rgba(255,140,50,.16); --line-soft:rgba(255,140,50,.09);
+  --text:#f6ebe0; --dim:#c2a48c; --faint:#8a6c56;
+  --up:#a3e635; --down:#ff4d4d; --be:#ffc94a;
+  --up-soft:rgba(163,230,53,.13); --down-soft:rgba(255,77,77,.12); --be-soft:rgba(255,201,74,.12);
+  --card:linear-gradient(180deg,#1a110b,#140d09); --g:#ff7a1a; --mark:#ff7a1a;
+}
+:root[data-skin="halloween"] .stage{background:
+  url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 220 220' fill='none' stroke='%23ffffff' stroke-opacity='.18' stroke-width='1'%3E%3Cpath d='M0 0L220 40M0 0L200 120M0 0L120 200M0 0L40 220'/%3E%3Cpath d='M38 7Q30 22 34 34Q22 32 7 38M76 14Q60 42 68 66Q44 62 14 76M118 21Q92 66 104 101Q66 96 21 118M160 29Q124 92 140 136Q90 130 29 160'/%3E%3C/svg%3E") left top / 260px no-repeat,
+  url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 300 160'%3E%3Cg fill='%23ffffff' fill-opacity='.2'%3E%3Cpath id='b' d='M32 14c-2-4-5-5-5-5s1 3 0 5c-3-1-7-6-13-5 3 2 4 5 3 8-3-2-8-2-12 0 4 1 7 4 8 8 2-2 6-3 9-1-1-3 1-6 4-6 2 2 4 6 6 6s4-4 6-6c3 0 5 3 4 6 3-2 7-1 9 1 1-4 4-7 8-8-4-2-9-2-12 0-1-3 0-6 3-8-6-1-10 4-13 5-1-2 0-5 0-5s-3 1-5 5z'/%3E%3Cuse href='%23b' transform='translate(120 40) scale(.7)'/%3E%3Cuse href='%23b' transform='translate(210 10) scale(.5)'/%3E%3Cuse href='%23b' transform='translate(70 95) scale(.45)'/%3E%3C/g%3E%3C/svg%3E") right 30px top 40px / 300px no-repeat,
+  url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 400 90'%3E%3Cg fill='%23ff7a1a' fill-opacity='.16'%3E%3Cellipse cx='60' cy='70' rx='42' ry='26'/%3E%3Cellipse cx='40' cy='70' rx='18' ry='24'/%3E%3Cellipse cx='80' cy='70' rx='18' ry='24'/%3E%3Crect x='56' y='36' width='7' height='14' rx='3'/%3E%3Cellipse cx='300' cy='74' rx='32' ry='20'/%3E%3Cellipse cx='285' cy='74' rx='14' ry='18'/%3E%3Cellipse cx='315' cy='74' rx='14' ry='18'/%3E%3Crect x='297' y='48' width='6' height='11' rx='3'/%3E%3C/g%3E%3C/svg%3E") left 20px bottom 0 / 520px no-repeat,
+  radial-gradient(40% 35% at 88% -6%,rgba(255,122,26,.28),transparent 70%),
+  radial-gradient(45% 40% at 0% 108%,rgba(130,40,170,.22),transparent 70%), #0b0705}
+:root[data-skin="halloween"] .sheet{border-color:rgba(255,140,50,.28);
+  background:radial-gradient(70% 40% at 85% -5%,rgba(255,122,26,.16),transparent 70%), var(--bg);
+  box-shadow:0 40px 90px -30px rgba(0,0,0,.8),0 0 50px -20px rgba(255,122,26,.45)}
+:root[data-skin="halloween"] .cta .b.pri{background:linear-gradient(180deg,#ff8a2a,#e85d00);color:#1a0a00}
+
 /* поле навколо карти — їхня лабораторія під темним склом */
 :root[data-skin="fxlab"] .stage{background:
   linear-gradient(rgba(120,175,255,.05) 1px, transparent 1px) 0 0/24px 24px,
@@ -1182,6 +1203,9 @@ function render(rec){
     document.documentElement.setAttribute("data-skin", "fxlab");
     document.documentElement.setAttribute("data-theme", "dark");
     collabFx();
+  } else if (d.skin === "halloween"){
+    document.documentElement.setAttribute("data-skin", "halloween");
+    document.documentElement.setAttribute("data-theme", "dark");
   }
   const owner = (rec.owner && rec.owner.nick) || "";
   const rows = (title, items) => !items || !items.length ? "" :

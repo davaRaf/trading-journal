@@ -35,15 +35,23 @@ const inCollab = () => !!collabRef();
    (static/themes.js), щоб нова колаборація з’являлась тут сама. */
 const COLLABS = () => (window.__skin && __skin.collabs) ? __skin.collabs() : [];
 
-let lastSkin = "";
-try{ lastSkin = localStorage.getItem("share_skin") || ""; }catch(e){}
+/* null — людина ще нічого не вибирала: тоді в темі «Хелловін» знімок
+   іде хеловінським, а в інших темах — звичайним. Вибрала сама (зокрема
+   «Обычное») — поважаємо вибір. */
+let lastSkin = null;
+try{ lastSkin = localStorage.getItem("share_skin"); }catch(e){}
+
+/* Сезонні оформлення — не спільноти: просто ще один вигляд знімка. */
+const SEASONS = () => [{id: "halloween", name: T.thHalloween || "Halloween"}];
+const SHARE_SKINS = () => COLLABS().concat(SEASONS());
 
 /* стиль, у якому робимо знімок просто зараз.
    Запам’ятаний вибір звіряємо зі списком: у пам’яті браузера може
    лежати спільнота, якої вже немає, — тоді знімок йде звичайний. */
 function shareSkin(){
   if (inCollab()) return curSkin();
-  return COLLABS().some(c => c.id === lastSkin) ? lastSkin : "";
+  if (lastSkin === null) return curSkin() === "halloween" ? "halloween" : "";
+  return SHARE_SKINS().some(c => c.id === lastSkin) ? lastSkin : "";
 }
 
 /* ---------- що саме показуємо ---------- */
@@ -637,7 +645,7 @@ function open(kind, arg){
         + '<div class="sh-skin" id="shSkin">'
         +   '<button class="sh-chip' + (shareSkin() ? "" : " on") + '" data-s="">'
         +     esc(T.slStylePlain) + '</button>'
-        +   COLLABS().map(c => '<button class="sh-chip' + (shareSkin() === c.id ? " on" : "")
+        +   SHARE_SKINS().map(c => '<button class="sh-chip' + (shareSkin() === c.id ? " on" : "")
         +     '" data-s="' + esc(c.id) + '">' + esc(c.name) + '</button>').join("")
         + '</div>')
     + '<div class="sh-lab">' + T.slDurationLabel + '</div>'
