@@ -132,7 +132,18 @@
    Так нижня смужка ліміту, плитки й підвал у сусідніх картках лягають на
    одну лінію, хоч би скільки лімітів було задано в кожній. */
 .ac-mid{flex:1 1 auto; display:flex; flex-direction:column; gap:14px}
-.ac-mid > .ac-bars{margin-top:auto}
+/* Крива разом зі смужками притиснута до низу, а не до балансу: вільне
+   місце — над ними, і крива читається як частина блоку лімітів. */
+.ac-mid > :first-child{margin-top:auto}
+/* Без лімітів крива сама займає всю середину; без угод — заглушка
+   пунктиром, підказка «задати ціль» — внизу. */
+.ac-mid.free > :first-child{margin-top:0}
+.ac-spark.tall{flex:1 1 auto; height:auto; min-height:60px}
+.ac-nocurve{flex:1 1 auto; min-height:60px; display:flex; flex-direction:column; justify-content:center;
+  gap:10px; color:var(--faint); font-size:12px; text-align:center}
+.ac-nocurve svg{display:block; width:100%; height:12px}
+.ac-nocurve line{stroke:var(--line); stroke-width:1.5; stroke-dasharray:4 5; vector-effect:non-scaling-stroke}
+.ac-rules{margin-top:auto; color:var(--faint); font-size:12px; line-height:1.5}
 /* Порожня середина (ні угод, ні лімітів) не повинна додавати ще один
    проміжок — gap картки вже стоїть з обох боків від неї. */
 .ac-mid:empty{margin-bottom:-14px}

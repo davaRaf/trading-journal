@@ -254,7 +254,22 @@ function card(a){
      висоту, а ліміти в ній притиснуті до низу. У сусідніх картках вміст
      різний: в однієї крива й два ліміти, в іншої три ліміти й жодної угоди —
      і без цього смужки та плитки в ряду стояли врозбрід. */
-  const mid = '<div class="ac-mid">' + spark(s.curve) + bars + "</div>";
+  /* Без цілі й лімітів середина лишалась порожньою дірою: особистий
+     рахунок без угод — лише цифра балансу й прірва до плиток. Тепер крива
+     займає все вільне місце, без угод на її місці — тиха заглушка, а
+     внизу — підказка, що ціль і ліміти можна задати. */
+  let mid;
+  if (bars) mid = '<div class="ac-mid">' + spark(s.curve) + bars + "</div>";
+  else {
+    const line = spark(s.curve).replace('class="ac-spark"', 'class="ac-spark tall"')
+      || '<div class="ac-nocurve"><svg viewBox="0 0 260 40" preserveAspectRatio="none" aria-hidden="true">'
+        + '<line x1="0" y1="20" x2="260" y2="20"/></svg><span>' + esc(d.noTradesYet) + "</span></div>";
+    const hint = st === "act"
+      ? '<div class="ac-rules">' + esc(d.noRules)
+        + ' <button class="ac-link" onclick="__acc.edit(' + a.id + ')">' + esc(d.setRules) + "</button></div>"
+      : "";
+    mid = '<div class="ac-mid free">' + line + hint + "</div>";
+  }
 
   const cells = [
     [d.nTrades, s.n + (s.skips ? " +" + s.skips + d.skipTag : "")],
@@ -1112,6 +1127,9 @@ uk: {
   delYes: "Прибрати",
   noStart: "Стартовий баланс не заданий — гроші рахувати нема з чого.",
   setStart: "задати",
+  noTradesYet: "Угод ще немає — крива з'явиться після першої",
+  noRules: "Ціль і ліміти просадки не задані —",
+  setRules: "задати",
   toTarget: "До цілі", ddTotal: "Просадка від старту", ddDaily: "Найгірший день",
   nTrades: "Угод", wr: "Вінрейт", avgRR: "Середній RR", maxDD: "Просадка від піку",
   skipTag: " скіп",
@@ -1150,6 +1168,9 @@ ru: {
   delYes: "Убрать",
   noStart: "Стартовый баланс не задан — деньги считать не из чего.",
   setStart: "задать",
+  noTradesYet: "Сделок пока нет — график появится после первой",
+  noRules: "Цель и лимиты просадки не заданы —",
+  setRules: "задать",
   toTarget: "До цели", ddTotal: "Просадка от старта", ddDaily: "Худший день",
   nTrades: "Сделок", wr: "Винрейт", avgRR: "Средний RR", maxDD: "Просадка от пика",
   skipTag: " скип",
@@ -1188,6 +1209,9 @@ en: {
   delYes: "Remove",
   noStart: "No starting balance yet — nothing to count money from.",
   setStart: "set it",
+  noTradesYet: "No trades yet — the curve appears after the first one",
+  noRules: "No target or drawdown limits —",
+  setRules: "set them",
   toTarget: "To target", ddTotal: "Drawdown from start", ddDaily: "Worst day",
   nTrades: "Trades", wr: "Win rate", avgRR: "Average RR", maxDD: "Drawdown from peak",
   skipTag: " skip",
