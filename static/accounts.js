@@ -165,7 +165,7 @@ function stat(acc){
     drift: (manual && has && Math.abs(grown - net) > 0.01),
     maxDD: -dd,                       /* просадка від піку, у % (додатне) */
     worstDay, worstDayVal,
-    curve, list, all, before,
+    curve, list, all, before, byDay,
     hasMoney: has || manual,
     hasPct: has,
     start: has ? start : null,
@@ -220,6 +220,39 @@ function spark(curve){
     + '<polyline points="' + pts + '" class="' + cls(last) + '"/></svg>';
 }
 
+/* Ціль на місяць для особистого рахунку — кільце прогресу. Великий графік
+   тут виглядав порожньо, сітка днів — сухо; кільце й на новому рахунку
+   щось каже: «ціль не задана — постав». Ціль живе в налаштуваннях людини
+   (Prefs), а не в рахунку: це її особисте бажання, не правило фірми.
+   Місяць рахуємо так само, як решту рахунку, — множенням днів. */
+function goals(){ const g = window.Prefs && Prefs.get("goals"); return g && typeof g === "object" ? g : {}; }
+
+function goal(a, s){
+  const d = D(), g = goals()[a.id], now = new Date();
+  const ym = now.getFullYear() + "-" + String(now.getMonth() + 1).padStart(2, "0");
+  let f = 1;
+  s.byDay.forEach((v, k) => { if (k.startsWith(ym)) f *= 1 + v / 100; });
+  const got = (f - 1) * 100;
+  const part = g > 0 ? clamp(got / g, 0, 1) : 0;
+  const R = 36, L = 2 * Math.PI * R;
+  const ring = '<svg class="ac-ring" viewBox="0 0 86 86" aria-hidden="true">'
+    + '<circle cx="43" cy="43" r="' + R + '" class="bg"/>'
+    + (part > 0 ? '<circle cx="43" cy="43" r="' + R + '" class="on" stroke-dasharray="'
+        + (L * part).toFixed(1) + " " + L.toFixed(1) + '" transform="rotate(-90 43 43)"/>' : "")
+    + '<text x="43" y="48" text-anchor="middle">' + (g > 0 ? Math.round(part * 100) + "%" : "—") + "</text></svg>";
+  if (!(g > 0)){
+    return '<div class="ac-goal">' + ring + '<div class="ac-goal-t"><div class="t">' + esc(d.goalNone) + "</div>"
+      + '<button type="button" class="btn ac-goal-set" onclick="__acc.goal(' + a.id + ')">' + esc(d.goalSet) + "</button></div></div>";
+  }
+  const mon = new Intl.DateTimeFormat(window.LANG === "en" ? "en" : window.LANG === "ru" ? "ru" : "uk", {month: "long"}).format(now);
+  const sign = v => (v > 0 ? "+" : "") + (Math.round(v * 100) / 100) + "%";
+  return '<div class="ac-goal">' + ring
+    + '<button type="button" class="ac-goal-t" onclick="__acc.goal(' + a.id + ')">'
+    +   '<div class="t">' + esc(d.goalFor.replace("%m", mon)) + "</div>"
+    +   '<div class="v ' + cls(got) + '">' + sign(got) + ' <span>' + esc(d.goalOf) + " +" + g + "%</span></div>"
+    +   '<div class="t">' + (got >= g ? esc(d.goalDone) : esc(d.goalLeft) + " " + sign(g - got)) + "</div></button></div>";
+}
+
 const STATUS_CLS = {active: "act", passed: "pass", failed: "fail", closed: "shut"};
 
 /* ---------------- картка рахунку ---------------- */
@@ -261,9 +294,7 @@ function card(a){
   let mid;
   if (bars) mid = '<div class="ac-mid">' + spark(s.curve) + bars + "</div>";
   else {
-    const line = spark(s.curve).replace('class="ac-spark"', 'class="ac-spark tall"')
-      || '<div class="ac-nocurve"><svg viewBox="0 0 260 40" preserveAspectRatio="none" aria-hidden="true">'
-        + '<line x1="0" y1="20" x2="260" y2="20"/></svg><span>' + esc(d.noTradesYet) + "</span></div>";
+    const line = goal(a, s);
     const hint = st === "act"
       ? '<div class="ac-rules">' + esc(d.noRules)
         + ' <button class="ac-link" onclick="__acc.edit(' + a.id + ')">' + esc(d.setRules) + "</button></div>"
@@ -1068,6 +1099,28 @@ window.__acc = {
   },
   /* «Скасувати» в новому рахунку — свідомий відказ: чернетку прибираємо */
   cancel(){ dropDraft(); closeModal(); },
+  /* Вікно «Ціль на місяць»: одне число. Порожнє поле чи «Прибрати» — без цілі. */
+  goal(id){
+    const d = D(), cur = goals()[id];
+    openModal('<div class="m-head"><h2>' + esc(d.goalTitle) + "</h2>"
+      + '<button class="x" onclick="closeModal()" aria-label="' + esc(d.close) + '">×</button></div>'
+      + '<div class="m-body ac-form">' + field(d.goalField, "acGoal", cur, "5", "number", d.goalNote) + "</div>"
+      + '<div class="m-foot">'
+      + (cur ? '<button class="btn" onclick="__acc.goalSave(' + id + ',1)">' + esc(d.goalClear) + "</button>" : "")
+      + '<span class="sp"></span>'
+      + '<button class="btn" onclick="closeModal()">' + esc(d.cancel) + "</button>"
+      + '<button class="btn primary" onclick="__acc.goalSave(' + id + ')">' + esc(d.save) + "</button></div>");
+    const i = document.getElementById("acGoal");
+    if (i){ i.focus(); i.onkeydown = e => { if (e.key === "Enter") __acc.goalSave(id); }; }
+  },
+  goalSave(id, clear){
+    const g = Object.assign({}, goals());
+    const v = parseFloat(String((document.getElementById("acGoal") || {}).value || "").replace(",", "."));
+    if (clear || !(v > 0)) delete g[id]; else g[id] = Math.round(v * 100) / 100;
+    Prefs.set("goals", g);
+    closeModal();
+    if (S.view === "accounts") render();
+  },
   edit(id){
     const a = (ACCS || []).find(x => x.id === id);
     if (a) openForm(Object.assign({}, a));
@@ -1127,8 +1180,10 @@ uk: {
   delYes: "Прибрати",
   noStart: "Стартовий баланс не заданий — гроші рахувати нема з чого.",
   setStart: "задати",
-  noTradesYet: "Угод ще немає — крива з'явиться після першої",
-  noRules: "Ціль і ліміти просадки не задані —",
+  goalNone: "Ціль на місяць не задана", goalSet: "Поставити ціль", goalFor: "Ціль на %m",
+  goalOf: "з", goalLeft: "лишилось", goalDone: "ціль виконана ✓", goalTitle: "Ціль на місяць",
+  goalField: "Скільки хочу зробити за місяць, %", goalNote: "від балансу на початок місяця", goalClear: "Прибрати ціль",
+  noRules: "Ліміти просадки не задані —",
   setRules: "задати",
   toTarget: "До цілі", ddTotal: "Просадка від старту", ddDaily: "Найгірший день",
   nTrades: "Угод", wr: "Вінрейт", avgRR: "Середній RR", maxDD: "Просадка від піку",
@@ -1168,8 +1223,10 @@ ru: {
   delYes: "Убрать",
   noStart: "Стартовый баланс не задан — деньги считать не из чего.",
   setStart: "задать",
-  noTradesYet: "Сделок пока нет — график появится после первой",
-  noRules: "Цель и лимиты просадки не заданы —",
+  goalNone: "Цель на месяц не задана", goalSet: "Поставить цель", goalFor: "Цель на %m",
+  goalOf: "из", goalLeft: "осталось", goalDone: "цель выполнена ✓", goalTitle: "Цель на месяц",
+  goalField: "Сколько хочу сделать за месяц, %", goalNote: "от баланса на начало месяца", goalClear: "Убрать цель",
+  noRules: "Лимиты просадки не заданы —",
   setRules: "задать",
   toTarget: "До цели", ddTotal: "Просадка от старта", ddDaily: "Худший день",
   nTrades: "Сделок", wr: "Винрейт", avgRR: "Средний RR", maxDD: "Просадка от пика",
@@ -1209,8 +1266,10 @@ en: {
   delYes: "Remove",
   noStart: "No starting balance yet — nothing to count money from.",
   setStart: "set it",
-  noTradesYet: "No trades yet — the curve appears after the first one",
-  noRules: "No target or drawdown limits —",
+  goalNone: "No monthly goal yet", goalSet: "Set a goal", goalFor: "%m goal",
+  goalOf: "of", goalLeft: "left", goalDone: "goal reached ✓", goalTitle: "Monthly goal",
+  goalField: "What I want to make this month, %", goalNote: "from the balance at month start", goalClear: "Remove goal",
+  noRules: "No drawdown limits —",
   setRules: "set them",
   toTarget: "To target", ddTotal: "Drawdown from start", ddDaily: "Worst day",
   nTrades: "Trades", wr: "Win rate", avgRR: "Average RR", maxDD: "Drawdown from peak",

@@ -135,15 +135,20 @@
 /* Крива разом зі смужками притиснута до низу, а не до балансу: вільне
    місце — над ними, і крива читається як частина блоку лімітів. */
 .ac-mid > :first-child{margin-top:auto}
-/* Без лімітів крива сама займає всю середину; без угод — заглушка
-   пунктиром, підказка «задати ціль» — внизу. */
-.ac-mid.free > :first-child{margin-top:0}
-.ac-spark.tall{flex:1 1 auto; height:auto; min-height:60px}
-.ac-nocurve{flex:1 1 auto; min-height:60px; display:flex; flex-direction:column; justify-content:center;
-  gap:10px; color:var(--faint); font-size:12px; text-align:center}
-.ac-nocurve svg{display:block; width:100%; height:12px}
-.ac-nocurve line{stroke:var(--line); stroke-width:1.5; stroke-dasharray:4 5; vector-effect:non-scaling-stroke}
-.ac-rules{margin-top:auto; color:var(--faint); font-size:12px; line-height:1.5}
+/* Без лімітів — кільце цілі на місяць, підказка «задати ліміти» — внизу. */
+.ac-goal{display:flex; align-items:center; gap:16px}
+.ac-ring{width:86px; height:86px; flex:none}
+.ac-ring circle{fill:none; stroke-width:7}
+.ac-ring .bg{stroke:var(--line)}
+.ac-ring .on{stroke:var(--up); stroke-linecap:round}
+.ac-ring text{font-family:var(--mono); font-size:15px; fill:var(--text)}
+.ac-goal-t{display:block; text-align:left; background:none; border:0; padding:0; color:inherit; font:inherit; cursor:pointer}
+.ac-goal-t .t{font-size:12px; color:var(--faint)}
+.ac-goal-t .v{font-family:var(--mono); font-size:20px; font-weight:500; margin:4px 0 3px}
+.ac-goal-t .v.up{color:var(--up)} .ac-goal-t .v.down{color:var(--down)}
+.ac-goal-t .v span{font-size:13px; color:var(--faint)}
+.ac-goal-set{margin-top:9px}
+.ac-rules{color:var(--faint); font-size:12px; line-height:1.5}
 /* Порожня середина (ні угод, ні лімітів) не повинна додавати ще один
    проміжок — gap картки вже стоїть з обох боків від неї. */
 .ac-mid:empty{margin-bottom:-14px}
