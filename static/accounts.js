@@ -294,7 +294,10 @@ function card(a){
   let mid;
   if (bars) mid = '<div class="ac-mid">' + spark(s.curve) + bars + "</div>";
   else {
-    const line = goal(a, s);
+    /* Над кільцем — та сама невелика крива, що в челенджах: без неї між
+       балансом і кільцем зяяла порожнеча. Без угод — рівна пунктирна лінія. */
+    const line = (spark(s.curve) || '<svg class="ac-spark flat" viewBox="0 0 260 40" preserveAspectRatio="none"'
+        + ' aria-hidden="true"><line x1="0" y1="20" x2="260" y2="20" class="z"/></svg>') + goal(a, s);
     const hint = st === "act"
       ? '<div class="ac-rules">' + esc(d.noRules)
         + ' <button class="ac-link" onclick="__acc.edit(' + a.id + ')">' + esc(d.setRules) + "</button></div>"
