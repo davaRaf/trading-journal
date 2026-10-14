@@ -18,13 +18,18 @@
 налаштуваннях віддає той самий зліпок файлом, і ось він уже лежить поза
 нашими руками.
 """
+import codecs
+import csv
 import datetime
+import io
 import json
+import re
 import threading
 import time
 
 import db
 import accounts_store
+import bt_journals_store
 import day_store
 import week_store
 import ts_store
@@ -89,6 +94,11 @@ def snapshot(uid):
         # kind="all" — вместе с бэктестом: часы работы над прогоном стоит
         # спасать наравне с реальными сделками, различить их можно по полю.
         "trades": db.list_trades(uid, "all"),
+        # Картки журналів бектесту. Угоди підписані іменем прогону
+        # (bt_run), а назва — це ще не все: в картці лежать актив, період
+        # історії й нотатка. Без них зліпок рятував угоди й губив те,
+        # заради чого прогін узагалі робили.
+        "bt_journals": bt_journals_store.lst(uid),
         "days": day_store.notes_since(uid, "0001-01-01"),
         # розбори тижнів — така сама робота руками, як і денні
         "weeks": week_store.notes_since(uid, "0001-01-01"),
@@ -105,6 +115,111 @@ def snapshot(uid):
         "accounts": accounts_store.lst(uid),
         "notion": _notion(uid),
     })
+
+
+# ------------------------------------------------- вибірка і таблиця ----
+
+# Один файл на весь журнал годиться, щоб нічого не втратити, але не
+# годиться, щоб віддати комусь один прогін. Тому ті самі дані вміємо
+# звузити — режимом і назвою прогону — і покласти не лише в JSON.
+
+_SPACES = re.compile(r"[\s\u00a0\u202f\u2007]+")
+
+
+def run_key(name):
+    """Назва прогону до спільного вигляду. Так само, як у btj.js: зайві
+    пробіли в один, краї геть, регістр не рахується. Інакше «US100 Март»
+    із кнопки не знайде угод, підписаних «US100  март»."""
+    return _SPACES.sub(" ", str(name if name is not None else "")).strip().lower()
+
+
+def only(trades, kind="all", run=None):
+    """Угоди, що лишаються після звуження.
+
+    `kind`: "all" — усі, "bt" — лише бектест, "live" — лише справжня
+    торгівля. `run` — назва журналу бектесту; порожній рядок означає
+    «без журналу», і це не те саме, що None («не звужуємо»).
+    """
+    want = str(kind or "all")
+    rk = None if run is None else run_key(run)
+    out = []
+    for t in trades or []:
+        bt = str(t.get("kind") or "") == "bt"
+        if want == "bt" and not bt:
+            continue
+        if want == "live" and bt:
+            continue
+        if rk is not None and run_key(t.get("bt_run")) != rk:
+            continue
+        out.append(t)
+    return out
+
+
+def narrow(snap, kind="all", run=None):
+    """Зліпок під ту саму вибірку. Крім угод прибираємо й те, що до цього
+    режиму не стосується: у вивантаженні бектесту нема чого робити ТС
+    реальної торгівлі, і навпаки."""
+    out = dict(snap)
+    out["trades"] = only(snap.get("trades"), kind, run)
+    out["only"] = {"kind": str(kind or "all"),
+                   "run": None if run is None else str(run)}
+    if str(kind or "all") == "bt":
+        out.pop("strategy", None)
+    elif str(kind or "all") == "live":
+        out.pop("strategy_bt", None)
+        out.pop("bt_journals", None)
+    if run is not None:
+        rk = run_key(run)
+        out["bt_journals"] = [j for j in (snap.get("bt_journals") or [])
+                              if run_key(j.get("name")) == rk]
+    return out
+
+
+# Порядок колонок у таблиці: спершу те, за чим угоду впізнають, потім
+# числа, потім довгі тексти. Поля ті самі, що в JSON, — таблиця нічого
+# свого не вигадує, лише розкладає рядком.
+CSV_FIELDS = ["id", "kind", "bt_run", "date", "pair", "session", "position",
+              "bias", "direction_type", "entry_model", "setup", "result",
+              "rr", "rr_plan", "risk", "account", "ts",
+              "entry_details", "notes", "mistakes", "comments", "emotion",
+              "screenshots"]
+
+
+def _cell(v):
+    if v is None:
+        return ""
+    if isinstance(v, (list, tuple)):
+        return "; ".join(str(x) for x in v)
+    if isinstance(v, bool):
+        return "1" if v else ""
+    return str(v)
+
+
+def trades_csv(trades):
+    """Таблиця угод. Коми між колонками — так її приймають і Notion, і
+    Google Sheets; попереду BOM, інакше Excel відкриє кирилицю кракозябрами."""
+    buf = io.StringIO()
+    w = csv.writer(buf, lineterminator="\r\n")
+    w.writerow(CSV_FIELDS)
+    for t in trades or []:
+        w.writerow([_cell(t.get(f)) for f in CSV_FIELDS])
+    return codecs.BOM_UTF8 + buf.getvalue().encode("utf-8")
+
+
+_SLUG = re.compile(r"[^A-Za-z0-9]+")
+
+
+def file_name(kind="all", run=None, ext="json", today=None):
+    """Ім'я файла, яке людина впізнає через півроку. Назву прогону
+    перекладаємо на латиницю-цифри: не-ASCII в заголовку відповіді
+    довелось би окремо кодувати, а користі з того на ім'я файла немає."""
+    day = (today or datetime.date.today()).isoformat()
+    want = str(kind or "all")
+    head = "backtest" if want == "bt" else ("journal" if want != "live" else "journal-live")
+    if run is not None:
+        slug = _SLUG.sub("-", str(run)).strip("-")
+        head += "-" + (slug if slug else "run")
+    return "%s-%s.%s" % (head, day, ext)
 
 
 def _worth(snap):

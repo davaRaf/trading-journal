@@ -257,7 +257,15 @@
 .st-sec.bk .pp-lead{margin-top:0; margin-bottom:14px}
 .bk-get{display:inline-flex; align-items:center; justify-content:center;
   min-height:44px; text-decoration:none}
+/* Форматів два, і жоден з них не головніший за інший настільки, щоб
+   ховати другий: стоять поруч, перший — залитий. */
+.bk-row{display:flex; flex-wrap:wrap; gap:8px}
 .bk-note{margin:12px 0 0; font-size:12.5px; line-height:1.55; color:var(--dim)}
+/* Бектест — окрема справа, тому відділений рискою, а не просто відступом. */
+.bk-bt{margin-top:18px; padding-top:16px; border-top:1px solid var(--line)}
+.bk-sub{margin:0 0 6px; font-size:13.5px; font-weight:600; color:var(--text)}
+.bk-bt .bk-note{margin:0 0 10px}
+.bk-bt .bk-row + .bk-row{margin-top:8px}
 .bk-note b{color:var(--text); font-weight:600}
 /* Скільки днів зберігається — довідка другого плану, тому тьмяніша й
    на вузькому екрані йде окремим рядком, а не тисне дату. */
@@ -267,6 +275,8 @@
   .m-body.st{gap:22px}
   .st-langs button{font-size:13px}
   .bk-get{width:100%}
+  .bk-row{display:block}
+  .bk-row .bk-get + .bk-get{margin-top:8px}
   .bk-kept{display:block; margin-top:2px}
 }
 

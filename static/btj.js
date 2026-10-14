@@ -404,6 +404,11 @@ window.__btj = {
   sync: sync, filter: filter, select: select, paint: paint, head: head, paneTitle: paneTitle,
   filterBtn: filterBtn, pickJournal: pickJournal, ofTs: ofTs, recheck: recheck,
   isOpen(){ return !!curJ(); },
+  /* Відкритий журнал цілком: назва потрібна не лише шапці, а й
+     вивантаженню в налаштуваннях — воно забирає саме цей прогін.
+     Назва не `open`: нижче в цьому ж об'єкті `open(id)` відкриває
+     журнал, і другий ключ затер би перший. */
+  shown(){ return curJ(); },
   /* Вкладки шапки журналу: календар, список і всі угоди — режими розділу
      «Журнал». «Огляду» в бектесті немає (18.09.2026, власник: «не потрібен»). */
   tab(v){
