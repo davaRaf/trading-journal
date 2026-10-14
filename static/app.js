@@ -1947,10 +1947,10 @@ function anBody(list){
   h='<div class="card'+swap+'"><h3>'+T.anResultsPrefix+' '+esc(DIMS().find(d=>d.k===S.dim).label)+"</h3>"+
     '<div class="ahead"><span>'+T.anColName+'</span><span>'+T.kCount+'</span><span>'+T.kWinRate+'</span><span>'+T.kAvgRRShort+'</span><span>'+T.kNetPct+'</span></div>'+
     (rows||'<div class="empty">'+T.anNoData+'</div>')+"</div>";
-  /* безубитки окремою плашкою — по тій самій вибірці, що й розріз, тож
-     з періодом «весь час» це підсумок по всьому журналу */
-  h+=beReportHtml(list);
   h+=window.__links ? __links.html(list) : "";      /* зв'язки, static/links.js */
+  /* безубитки окремою плашкою під зв'язками — по тій самій вибірці, що й
+     розріз, тож без фільтра дат це підсумок по всьому журналу */
+  h+=beReportHtml(list);
   return h;
 }
 
