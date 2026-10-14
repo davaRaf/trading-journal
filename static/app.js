@@ -2861,20 +2861,29 @@ function onShotFiles(e){
   const files=[...e.target.files]; e.target.value="";
   acceptFiles(files, null);
 }
-/* большие скрины ужимаем до 1600px по ширине, чтобы журнал не разбухал */
+/* Скрін графіка — це дрібний текст і тонкі лінії, тож якість важливіша за
+   вагу: до 2560px по ширині і до 6 МБ лишаємо оригінал байт у байт (PNG
+   так і лишається PNG). Більший — зменшуємо до 2560px і зберігаємо PNG, а
+   JPEG 0.95 — тільки якщо PNG не влазить у межу сервера (8 МБ). Раніше тут
+   було 1600px і JPEG 0.88 — звідси «замилені» скріни (13.10.2026). */
+const SHOT_W=2560, SHOT_KEEP=6*1024*1024;
+function shotFit(c){
+  const png=c.toDataURL("image/png");
+  return png.length*0.75<7*1024*1024 ? png : c.toDataURL("image/jpeg",0.95);
+}
 function resizeImage(file){
   return new Promise(res=>{
     const img=new Image();
     img.onload=()=>{
-      const MAX=1600;
-      if(img.width<=MAX && file.size<900*1024){ // маленькие не трогаем
+      if(img.width<=SHOT_W && file.size<SHOT_KEEP){ // оригінал без перепакування
         const fr=new FileReader(); fr.onload=()=>res(fr.result); fr.readAsDataURL(file); return;
       }
-      const k=Math.min(1,MAX/img.width);
+      const k=Math.min(1,SHOT_W/img.width);
       const c=document.createElement("canvas");
       c.width=Math.round(img.width*k); c.height=Math.round(img.height*k);
-      c.getContext("2d").drawImage(img,0,0,c.width,c.height);
-      res(c.toDataURL("image/jpeg",0.88));
+      const g=c.getContext("2d"); g.imageSmoothingQuality="high";
+      g.drawImage(img,0,0,c.width,c.height);
+      res(shotFit(c));
     };
     img.onerror=()=>{ const fr=new FileReader(); fr.onload=()=>res(fr.result); fr.readAsDataURL(file); };
     img.src=URL.createObjectURL(file);

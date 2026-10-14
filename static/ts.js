@@ -1194,12 +1194,19 @@ function startEdit(el, fresh){
 function shrink(url, cb){
   const im = new Image();
   im.onload = () => {
-    const k = Math.min(1, 1400 / im.width);
+    /* Як і в угодах (app.js: resizeImage): до 2560px і 6 МБ — оригінал,
+       більший — зменшуємо в PNG, JPEG 0.95 лише коли PNG завеликий. */
+    if (im.width <= 2560 && url.length * 0.75 < 6 * 1024 * 1024) return cb(url);
+    const k = Math.min(1, 2560 / im.width);
     const c = document.createElement("canvas");
     c.width = Math.round(im.width * k);
     c.height = Math.round(im.height * k);
-    c.getContext("2d").drawImage(im, 0, 0, c.width, c.height);
-    try{ cb(c.toDataURL("image/jpeg", .86)); }catch(e){ cb(url); }
+    const g = c.getContext("2d"); g.imageSmoothingQuality = "high";
+    g.drawImage(im, 0, 0, c.width, c.height);
+    try{
+      const png = c.toDataURL("image/png");
+      cb(png.length * 0.75 < 7 * 1024 * 1024 ? png : c.toDataURL("image/jpeg", .95));
+    }catch(e){ cb(url); }
   };
   im.onerror = () => cb(url);
   im.src = url;
