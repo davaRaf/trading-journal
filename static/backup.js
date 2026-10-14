@@ -51,10 +51,60 @@ function note(){
     + '<span class="bk-kept">' + esc(T.bkKept.replace("%d", have.length)) + "</span></p>";
 }
 
+/* Адреса вивантаження. Без параметрів — те саме, що було: весь журнал
+   одним JSON. `kind` звужує до режиму, `run` — до одного прогону, і
+   порожній рядок у ньому означає «Без журналу», а не «без звуження». */
+function url(fmt, kind, run){
+  const q = [];
+  if (fmt === "csv") q.push("fmt=csv");
+  if (kind) q.push("kind=" + kind);
+  if (run !== null && run !== undefined) q.push("run=" + encodeURIComponent(run));
+  return "/api/export" + (q.length ? "?" + q.join("&") : "");
+}
+
+function get(href, text, main){
+  return '<a class="btn' + (main ? " primary" : "") + ' bk-get" href="' + href
+    + '" download>' + esc(text) + "</a>";
+}
+
+/* Чи стоїть людина зараз у бектесті. Питаємо в app.js, а не вгадуємо:
+   там же враховано і демо, і чужий журнал за посиланням. */
+function onBt(){
+  return typeof btOn === "function" && btOn();
+}
+
+/* Угоди бектесту — не той самий журнал, і забирати їх разом зі справжніми
+   доводилось тільки тому, що іншого способу не було. Поки відкритий
+   бектест, поруч стоїть вивантаження самого прогону. */
+function btPart(){
+  if (!onBt()) return "";
+  const j = window.__btj && __btj.shown ? __btj.shown() : null;
+  let out = '<div class="bk-bt"><h4 class="bk-sub">' + esc(T.bkBtTitle) + "</h4>"
+    + '<p class="bk-note">' + esc(T.bkBtLead) + "</p>";
+  if (j){
+    const name = j.blank ? "" : String(j.name || "");
+    out += '<p class="bk-note">' + esc(T.bkBtOpen) + " <b>"
+      + esc(j.blank ? T.bkBtBlank : name) + "</b></p>"
+      + '<div class="bk-row">'
+      + get(url("", "bt", name), T.bkBtRun, true)
+      + get(url("csv", "bt", name), T.bkBtRun + " · CSV")
+      + "</div>";
+  }
+  out += '<div class="bk-row">'
+    + get(url("", "bt"), T.bkBtAll)
+    + get(url("csv", "bt"), T.bkBtAll + " · CSV")
+    + "</div></div>";
+  return out;
+}
+
 function inner(){
   return '<p class="pp-lead">' + esc(T.bkLead) + "</p>"
-    + '<a class="btn bk-get" href="/api/export" download>' + esc(T.bkGet) + "</a>"
-    + note();
+    + '<div class="bk-row">'
+    + get(url(""), T.bkGet, true)
+    + get(url("csv"), T.bkCsv)
+    + "</div>"
+    + note()
+    + btPart();
 }
 
 /* Порожній рядок означає «показувати нема чого»: чужий журнал. */

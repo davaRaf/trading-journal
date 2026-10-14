@@ -2488,14 +2488,36 @@ class H(BaseHTTPRequestHandler):
             uid = self._uid()
             if not uid:
                 return self._json({"error": "auth required"}, 401)
+            # Три питання до вивантаження, і всі три необов'язкові:
+            # у якому вигляді (fmt), що саме (kind) і котрий прогін (run).
+            # Без жодного з них віддаємо те саме, що й раніше, — увесь
+            # журнал одним JSON, щоб давні посилання не зламались.
+            q = parse_qs(urlparse(self.path).query)
+            fmt = ((q.get("fmt") or [""])[0] or "json").strip().lower()
+            if fmt != "csv":
+                fmt = "json"
+            kind = ((q.get("kind") or [""])[0] or "all").strip().lower()
+            if kind not in ("all", "bt", "live"):
+                kind = "all"
+            # run="" — це «Без журналу», окремий випадок, тому дивимось на
+            # наявність ключа, а не на порожність значення.
+            run = q["run"][0] if q.get("run") else None
             snap = backup.snapshot(uid)
-            data = json.dumps(snap, ensure_ascii=False, indent=1).encode("utf-8")
-            name = "journal-%s.json" % datetime.date.today().isoformat()
+            if kind != "all" or run is not None:
+                snap = backup.narrow(snap, kind, run)
+            if fmt == "csv":
+                data = backup.trades_csv(snap.get("trades"))
+                ctype = "text/csv; charset=utf-8"
+            else:
+                data = json.dumps(snap, ensure_ascii=False,
+                                  indent=1).encode("utf-8")
+                ctype = "application/json; charset=utf-8"
+            name = backup.file_name(kind, run, fmt)
             enc = self._squeeze(data)
             if enc is not None:
                 data = enc
             self.send_response(200)
-            self.send_header("Content-Type", "application/json; charset=utf-8")
+            self.send_header("Content-Type", ctype)
             self.send_header("Content-Disposition",
                              'attachment; filename="%s"' % name)
             if enc is not None:
