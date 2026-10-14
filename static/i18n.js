@@ -764,9 +764,8 @@ uk: {
 
   // ---- копія журналу (backup.js) ----
   bkTitle: "Копія журналу",
-  bkLead: "Раз на добу журнал сам зберігається окремо — угоди, розбори днів і стратегія. Копію можна забрати собі будь-коли: один файл, який відкриє будь-що.",
-  bkGet: "Завантажити журнал",
-  bkCsv: "Таблицею (CSV)",
+  bkLead: "Раз на добу журнал сам зберігається окремо — угоди, розбори днів і стратегія. Свої угоди можна забрати собі будь-коли таблицею: її відкриють Excel, Таблиці Google і Notion.",
+  bkGet: "Завантажити таблицею",
   bkBtTitle: "Бектест окремо",
   bkBtLead: "Зараз відкритий режим бектесту — прогін можна забрати окремо від справжньої торгівлі.",
   bkBtOpen: "Відкритий журнал:",
@@ -1522,9 +1521,8 @@ ru: {
 
   // ---- копия журнала (backup.js) ----
   bkTitle: "Копия журнала",
-  bkLead: "Раз в сутки журнал сам сохраняется отдельно — сделки, разборы дней и стратегия. Копию можно забрать себе в любой момент: один файл, который откроет что угодно.",
-  bkGet: "Скачать журнал",
-  bkCsv: "Таблицей (CSV)",
+  bkLead: "Раз в сутки журнал сам сохраняется отдельно — сделки, разборы дней и стратегия. Свои сделки можно забрать себе в любой момент таблицей: её откроют Excel, Google Таблицы и Notion.",
+  bkGet: "Скачать таблицей",
   bkBtTitle: "Бэктест отдельно",
   bkBtLead: "Сейчас открыт режим бэктеста — прогон можно забрать отдельно от реальной торговли.",
   bkBtOpen: "Открытый журнал:",
@@ -2280,9 +2278,8 @@ en: {
 
   // ---- journal backup (backup.js) ----
   bkTitle: "Journal backup",
-  bkLead: "Once a day the journal saves a copy of itself — trades, daily reviews and strategy. You can take that copy any time: a single file anything can open.",
-  bkGet: "Download journal",
-  bkCsv: "As a table (CSV)",
+  bkLead: "Once a day the journal saves a copy of itself — trades, daily reviews and strategy. You can take your own trades any time as a table: Excel, Google Sheets and Notion all open it.",
+  bkGet: "Download as a table",
   bkBtTitle: "Backtest on its own",
   bkBtLead: "Backtest mode is open — a run can be taken on its own, apart from live trading.",
   bkBtOpen: "Open journal:",
