@@ -51,15 +51,16 @@ function note(){
     + '<span class="bk-kept">' + esc(T.bkKept.replace("%d", have.length)) + "</span></p>";
 }
 
-/* Адреса вивантаження. Без параметрів — те саме, що було: весь журнал
-   одним JSON. `kind` звужує до режиму, `run` — до одного прогону, і
+/* Адреса вивантаження. Назовні віддаємо тільки таблицю: JSON лишився
+   маршрутом (на ньому щоденний зліпок і давні посилання), але в вікні
+   його немає — людина забирає угоди тим, що відкриє Excel, Таблиці й
+   Notion. `kind` звужує до режиму, `run` — до одного прогону, і
    порожній рядок у ньому означає «Без журналу», а не «без звуження». */
-function url(fmt, kind, run){
-  const q = [];
-  if (fmt === "csv") q.push("fmt=csv");
+function url(kind, run){
+  const q = ["fmt=csv"];
   if (kind) q.push("kind=" + kind);
   if (run !== null && run !== undefined) q.push("run=" + encodeURIComponent(run));
-  return "/api/export" + (q.length ? "?" + q.join("&") : "");
+  return "/api/export?" + q.join("&");
 }
 
 function get(href, text, main){
@@ -85,24 +86,15 @@ function btPart(){
     const name = j.blank ? "" : String(j.name || "");
     out += '<p class="bk-note">' + esc(T.bkBtOpen) + " <b>"
       + esc(j.blank ? T.bkBtBlank : name) + "</b></p>"
-      + '<div class="bk-row">'
-      + get(url("", "bt", name), T.bkBtRun, true)
-      + get(url("csv", "bt", name), T.bkBtRun + " · CSV")
-      + "</div>";
+      + '<div class="bk-row">' + get(url("bt", name), T.bkBtRun, true) + "</div>";
   }
-  out += '<div class="bk-row">'
-    + get(url("", "bt"), T.bkBtAll)
-    + get(url("csv", "bt"), T.bkBtAll + " · CSV")
-    + "</div></div>";
+  out += '<div class="bk-row">' + get(url("bt"), T.bkBtAll) + "</div></div>";
   return out;
 }
 
 function inner(){
   return '<p class="pp-lead">' + esc(T.bkLead) + "</p>"
-    + '<div class="bk-row">'
-    + get(url(""), T.bkGet, true)
-    + get(url("csv"), T.bkCsv)
-    + "</div>"
+    + '<div class="bk-row">' + get(url(""), T.bkGet, true) + "</div>"
     + note()
     + btPart();
 }
