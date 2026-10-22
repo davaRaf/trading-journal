@@ -240,7 +240,7 @@ table{width:100%;border-collapse:collapse}
 th{font-family:var(--mono);font-size:10px;letter-spacing:.12em;text-transform:uppercase;color:var(--faint);
 font-weight:500;text-align:left;padding:8px 10px;border-bottom:1px solid var(--line);white-space:nowrap}
 td{padding:9px 10px;border-bottom:1px solid var(--soft);font-size:13px;vertical-align:middle}
-td.num,th.num{text-align:right;font-family:var(--mono)}
+td.num,th.num{text-align:right;font-family:var(--mono);white-space:nowrap}
 td:first-child{white-space:nowrap}
 tr.lnk{cursor:pointer}tr.lnk:hover td{background:rgba(255,255,255,.025)}
 .coh td{text-align:center;font-family:var(--mono);font-size:12px;padding:8px 6px;border-radius:0}
@@ -248,6 +248,16 @@ tr.lnk{cursor:pointer}tr.lnk:hover td{background:rgba(255,255,255,.025)}
 .pill{display:inline-block;padding:2px 9px;border-radius:999px;font-size:11.5px;white-space:nowrap}
 .p-active{background:rgba(64,224,148,.14);color:var(--acc)}
 .p-cool{background:rgba(239,194,88,.14);color:var(--be)}
+.p-paid{background:rgba(64,224,148,.22);color:var(--acc);font-weight:600}
+.p-lim{background:rgba(255,110,96,.16);color:var(--down);font-weight:600}
+.p-near{background:rgba(239,194,88,.16);color:var(--be)}
+tr.st-p-paid td:first-child{box-shadow:inset 3px 0 0 var(--acc)}
+tr.st-p-lim td:first-child{box-shadow:inset 3px 0 0 var(--down)}
+tr.st-p-near td:first-child{box-shadow:inset 3px 0 0 var(--be)}
+.lim{display:inline-block;width:54px;height:6px;border-radius:3px;background:rgba(255,255,255,.08);overflow:hidden;vertical-align:middle;margin-right:7px}
+.lim i{display:block;height:100%;background:var(--faint)}
+.lim i.near{background:var(--be)} .lim i.full{background:var(--down)}
+.limn{font-family:var(--mono);font-size:12px}
 .p-sleep{background:rgba(255,110,96,.12);color:var(--down)}
 .p-new{background:rgba(255,255,255,.06);color:var(--dim)}
 .tag{display:inline-block;font-family:var(--mono);font-size:10.5px;padding:1px 6px;border-radius:5px;
@@ -475,21 +485,76 @@ def _kpis(D):
     lim = sum(1 for p in dry if p["free"] >= p["cap"])
     near = sum(1 for p in dry if p["cap"] - 5 <= p["free"] < p["cap"])
     bs = D.get("bstart")
-    paid = {k: sum(1 for p in P if p["sub"] == k) for k in ("month", "quarter", "year", "life")}
     return ('<div class="grid kpis">'
             + _kpi("Аккаунтов", str(len(P)),
                    '<div class=d><span class=up>+%d</span> за 7 дней · неделей раньше +%d</div>' % (new7, new_p))
             + _kpi("Активны 7 дней", str(a7), _delta(a7, a7p))
             + _kpi("Активны 30 дней", str(a30), '<div class=d>%d%% от всех</div>' % (round(a30 * 100 / len(P)) if P else 0))
-            + _kpi("Сделок вручную за 7 дн.", str(tm7), _delta(tm7, tm7p))
+            + _kpi("Записано сделок за 7 дн.", str(tm7),
+                   _delta(tm7, tm7p).replace("</div>", " · руками и через бота, без переноса из Notion</div>", 1))
             + _kpi("Ссылок за 7 дней", str(sh7), _delta(sh7, sh7p).replace("</div>", " · %d переходов всего</div>" % views, 1))
-            + _kpi("Платят сейчас", '<span class=up>%d</span>' % (paid["month"] + paid["quarter"] + paid["year"]),
-                   '<div class=d>месяц %d · квартал %d · год %d · Special %d</div>'
-                   % (paid["month"], paid["quarter"], paid["year"], paid["life"]))
             + _kpi("Упёрлись в лимит %d" % FREE_LIMIT, '<span class=up>%d</span>' % lim,
                    '<div class=d>ещё %d на подходе (%d–%d)%s</div>'
                    % (near, FREE_LIMIT - 5, FREE_LIMIT - 1,
                       (" · счёт с " + bs.strftime("%d.%m")) if bs else ""))
+            + "</div>")
+
+
+def _money(D):
+    """Гроші: що реально прийшло. Картка — події Creem з бази (payments),
+    крипта — оплачені рахунки USDT (crypto_invoices).
+
+    Одна оплата в Creem шле кілька подій. Рахуємо checkout.completed (перша
+    оплата й разові покупки) і subscription.paid — але її лише тоді, коли це
+    не та сама перша оплата (не в межах години від checkout тієї ж людини),
+    тобто продовження. ponytail: евристика за часом; якщо сума розійдеться
+    з кабінетом Creem — рахувати за id транзакції з raw."""
+    rows = _q("""SELECT p.created_at, p.event, p.user_id, coalesce(u.nickname,'') AS nick,
+                        coalesce(p.amount_cents,
+                                 nullif(p.raw #>> '{object,order,amount}', '')::int,
+                                 nullif(p.raw #>> '{object,last_transaction,amount}', '')::int, 0) AS cents
+                 FROM payments p LEFT JOIN users u ON u.id = p.user_id
+                 WHERE p.event IN ('checkout.completed', 'subscription.paid')
+                 ORDER BY p.created_at""")
+    first, pays = {}, []
+    for r in rows:
+        if r["event"] == "checkout.completed":
+            first.setdefault(r["user_id"], []).append(r["created_at"])
+        elif any(abs((r["created_at"] - t).total_seconds()) < 3600 for t in first.get(r["user_id"], [])):
+            continue
+        pays.append({"at": r["created_at"], "nick": r["nick"], "eur": (r["cents"] or 0) / 100.0, "src": "Карта"})
+    for r in _q("""SELECT ci.paid_at AS at, coalesce(u.nickname,'') AS nick, ci.units
+                   FROM crypto_invoices ci LEFT JOIN users u ON u.id = ci.user_id
+                   WHERE ci.status = 'paid' AND ci.paid_at IS NOT NULL"""):
+        pays.append({"at": r["at"], "nick": r["nick"], "eur": r["units"] / 1e6, "src": "USDT"})
+    pays.sort(key=lambda x: x["at"])
+    paid = {k: sum(1 for p in D["people"] if p["sub"] == k) for k in ("month", "quarter", "year", "life")}
+    now = D["now"]
+    in30 = [x for x in pays if (now - x["at"]).days < 30]
+    total = sum(x["eur"] for x in pays)
+    m30 = sum(x["eur"] for x in in30)
+    avg = total / len(pays) if pays else 0
+    eur = lambda v: "€" + ("%.2f" % v).replace(".", ",")
+    day = lambda ts: (_kdate(ts) or "") and _kdate(ts).strftime("%d.%m")
+    last = "".join('<tr class=lnk data-n="%s"><td>%s</td><td><b>%s</b></td><td class=num>%s</td>'
+                   '<td><span class=tag>%s</span></td></tr>'
+                   % (e(x["nick"]), day(x["at"]), e(x["nick"] or "—"), eur(x["eur"]), x["src"])
+                   for x in reversed(pays[-8:]))
+    return ('<div class="card money" style="margin-bottom:12px"><h2>Деньги</h2><div class="grid kpis" style="margin:0">'
+            + _kpi("Пришло за 30 дней", '<span class=up>%s</span>' % eur(m30), '<div class=d>%d %s</div>' % (len(in30), _plural(len(in30), "оплата", "оплаты", "оплат")))
+            + _kpi("Всего с запуска оплаты", eur(total), '<div class=d>%d %s · карта и USDT</div>' % (len(pays), _plural(len(pays), "оплата", "оплаты", "оплат")))
+            + _kpi("Средний чек", eur(avg), '<div class=d>до комиссии Creem 3,9% + €0,40</div>')
+            + _kpi("Платят сейчас", '<span class=up>%d</span>' % (paid["month"] + paid["quarter"] + paid["year"]),
+                   '<div class=d>месяц %d · квартал %d · год %d · Special %d</div>'
+                   % (paid["month"], paid["quarter"], paid["year"], paid["life"]))
+            + "</div>"
+            + ('<div class=tw style="margin-top:12px"><table id=mt><thead><tr><th>Дата</th><th>Кто</th>'
+               '<th class=num>Сумма</th><th>Как</th></tr></thead><tbody>' + last + "</tbody></table></div>"
+               if pays else '<p class=mute style="margin:10px 0 0">Оплат пока нет</p>')
+            + '<p class=mute style="margin:10px 0 0;font-size:12px">Суммы до комиссий. '
+              'Точную сверку делать в кабинете Creem и кошельке.</p>'
+            + "<script>document.querySelectorAll('#mt tr.lnk').forEach(r=>r.onclick=()=>"
+              "location.href='/admin/u/'+encodeURIComponent(r.dataset.n));</script>"
             + "</div>")
 
 
@@ -683,20 +748,26 @@ def _people(D, titles, query):
     data = _js(rows)
     return ('<div class=card id=people><h2>Все люди</h2><div class=chips id=chips></div>'
             '<div class=tw><table id=pt><thead><tr>'
-            '<th class=s data-k=nick>Ник</th><th class="s" data-k=st>Статус</th><th class="s num" data-k=n>Сделок'
+            '<th class=s data-k=nick>Ник</th><th class="s" data-k=st>Этап</th>'
+            '<th class="s num" data-k=nall title="Все сделки в журнале, включая перенесённые из Notion/Excel">Всего сделок</th>'
+            '<th class="s num" data-k=manual title="Записано руками или через бота после запуска оплаты — только они идут в лимит">Вручную'
             + since_th + '</th>'
-            '<th class="s num" data-k=d7>7 дн.</th><th class="s num" data-k=notes>Анализ</th>'
-            '<th class="s num" data-k=since>Активность</th><th class="s num" data-k=regd>Регистрация</th>'
-            '<th class="s" data-k=sub>Тариф</th><th>Метка</th><th>Есть</th></tr></thead><tbody></tbody></table></div>'
+            '<th class="s" data-k=free title="Сколько бесплатных сделок из лимита потрачено">Лимит</th>'
+            '<th class="s num" data-k=d7>За 7 дн.</th><th class="s num" data-k=notes>Разборов дня</th>'
+            '<th class="s num" data-k=since>Был</th><th class="s num" data-k=regd>Регистрация</th>'
+            '<th class="s" data-k=sub>Тариф</th><th>Откуда</th><th>Подключено</th></tr></thead><tbody></tbody></table></div>'
             '<p class=mute id=pcount style="margin:10px 0 0;font-size:12.5px"></p></div>'
             "<script>const P=" + data + ";const Q=" + _js(query or "") + ";" + PEOPLE_JS + "</script>")
 
 
 PEOPLE_JS = r"""
 const ST={active:['Активный','p-active'],cool:['Остывает','p-cool'],sleep:['Спит','p-sleep'],new:['Не начал','p-new']};
+/* этап как в CRM: платит / у лимита / близко — важнее, чем активность */
+const STAGE=p=>['month','quarter','year'].includes(p.sub)?['Платит','p-paid']:p.sub==='life'?['Special','p-cool']
+ :p.free>=p.cap?['У лимита','p-lim']:p.free>=p.cap-5?['Близко к лимиту','p-near']:ST[p.st];
 const F=[['all','Все',()=>true],['active','Активные',p=>p.st==='active'],['cool','Остывают',p=>p.st==='cool'],
 ['sleep','Спят',p=>p.st==='sleep'],['new','Не начали',p=>p.st==='new'],['fresh','Новые 7 дн.',p=>p.regd<=6],
-['limit','Упёрлись в лимит',p=>!p.sub&&p.free>=p.cap],['paid','Платят',p=>['month','quarter','year'].includes(p.sub)],
+['limit','Упёрлись в лимит',p=>!p.sub&&p.free>=p.cap],['near','Близко к лимиту',p=>!p.sub&&p.free<p.cap&&p.free>=p.cap-5],['paid','Платят',p=>['month','quarter','year'].includes(p.sub)],
 ['special','Special',p=>p.sub==='life'],['tg','С Telegram',p=>p.tg]];
 const SUB={month:'Месяц',quarter:'Квартал',year:'Год',life:'Special'};
 let f='all',k='regd',dir=1,q=(Q||'').toLowerCase();
@@ -710,16 +781,19 @@ function draw(){
  let L=P.filter(fn).filter(p=>!q||(p.nick+' '+p.email).toLowerCase().includes(q));
  L.sort((a,b)=>{let x=a[k],y=b[k];if(k==='since'){x=x==null?1e9:x;y=y==null?1e9:y;}
   if(typeof x==='string')return x.localeCompare(y)*dir;return ((x||0)-(y||0))*dir;});
- document.querySelector('#pt tbody').innerHTML=L.map(p=>'<tr class=lnk data-n="'+esc(p.nick)+'"><td><b>'+esc(p.nick)+
-  '</b><br><span class=mute style="font-size:12px">'+esc(p.email)+'</span></td><td><span class="pill '+ST[p.st][1]+'">'+ST[p.st][0]+
-  '</span></td><td class=num>'+p.n+(p.n>p.manual?'<br><span class=mute style="font-size:11px">'+p.manual+' вручную</span>':'')+
+ document.querySelector('#pt tbody').innerHTML=L.map(p=>'<tr class="lnk st-'+STAGE(p)[1]+'" data-n="'+esc(p.nick)+'"><td><b>'+esc(p.nick)+
+  '</b><br><span class=mute style="font-size:12px">'+esc(p.email)+'</span></td><td><span class="pill '+STAGE(p)[1]+'">'+STAGE(p)[0]+
+  '</span></td><td class=num>'+(p.nall||'<span class=mute>0</span>')+
+  '</td><td class=num>'+(p.manual||'<span class=mute>0</span>')+
+  '</td><td>'+(p.sub?'<span class=mute>—</span>':'<span class=lim><i class="'+(p.free>=p.cap?'full':p.free>=p.cap-5?'near':'')
+   +'" style="width:'+Math.min(100,p.free/p.cap*100)+'%"></i></span><span class="mute limn">'+p.free+'/'+p.cap+'</span>')+
   '</td><td class=num>'+(p.d7||'<span class=mute>0</span>')+'</td><td class=num>'+(p.notes||'<span class=mute>0</span>')+
   '</td><td class=num>'+ago(p.since)+'</td><td class=num>'+p.reg.split('-').reverse().join('.')+
-  '</td><td>'+(p.sub?'<span class="pill '+(p.sub==='life'?'p-cool':'p-active')+'">'+SUB[p.sub]+'</span>'
-   :'<span class=mute>'+p.free+' / '+p.cap+'</span>')+
+  '</td><td>'+(p.sub?'<span class="pill '+(p.sub==='life'?'p-cool':'p-paid')+'">'+SUB[p.sub]+'</span>'
+   :'<span class=mute>Бесплатно</span>')+
   '</td><td>'+(p.refT?'<span class=tag>'+esc(p.refT)+'</span>':'<span class=mute>—</span>')+'</td><td>'+
   (p.tg?'<span class=tag>TG</span>':'')+(p.ts?'<span class=tag>ТС</span>':'')+(p.sh?'<span class=tag>🔗'+p.sh+'</span>':'')+
-  (p.acc?'<span class=tag>счета</span>':'')+'</td></tr>').join('')||'<tr><td colspan=10 class=empty>Никого</td></tr>';
+  (p.acc?'<span class=tag>счета</span>':'')+'</td></tr>').join('')||'<tr><td colspan=12 class=empty>Никого</td></tr>';
  document.getElementById('pcount').textContent='Показано '+L.length+' из '+P.length;
  document.querySelectorAll('#pt th.s').forEach(th=>th.classList.toggle('on',th.dataset.k===k));
 }
@@ -741,7 +815,7 @@ def dashboard(query, titles, kind_ru, refs=()):
               'stroke-linecap=round /></svg><input id=q placeholder="Ник или почта" autocomplete=off></label>'
               '<a class=back href="/admin/mail" style="margin-right:14px">✉ Рассылка</a>'
               '<span class=stamp>обновлено ' + stamp + "</span></div>"
-            + _kpis(D) + _charts(D)
+            + _kpis(D) + _money(D) + _charts(D)
             + '<div class="grid three">' + _funnel(D) + _features(D) + _status(D) + "</div>"
             + _cohorts(D) + _watch(D)
             + '<div class="grid two">' + _partners(D, titles, refs) + _links(D, kind_ru) + "</div>"
