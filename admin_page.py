@@ -506,7 +506,7 @@ def _money(D):
 
     Одна оплата в Creem шле кілька подій. Рахуємо checkout.completed (перша
     оплата й разові покупки) і subscription.paid — але її лише тоді, коли це
-    не та сама перша оплата (не в межах години від checkout тієї ж людини),
+    не та сама перша оплата (не в межах 6 годин від checkout тієї ж людини),
     тобто продовження. ponytail: евристика за часом; якщо сума розійдеться
     з кабінетом Creem — рахувати за id транзакції з raw."""
     rows = _q("""SELECT p.created_at, p.event, p.user_id, coalesce(u.nickname,'') AS nick,
@@ -516,11 +516,15 @@ def _money(D):
                  FROM payments p LEFT JOIN users u ON u.id = p.user_id
                  WHERE p.event IN ('checkout.completed', 'subscription.paid')
                  ORDER BY p.created_at""")
+    # Спершу всі checkout, потім решта: subscription.paid буває, приходить
+    # раніше за checkout тієї ж оплати (на бою 22.10.2026 так задвоїлось).
     first, pays = {}, []
     for r in rows:
         if r["event"] == "checkout.completed":
             first.setdefault(r["user_id"], []).append(r["created_at"])
-        elif any(abs((r["created_at"] - t).total_seconds()) < 3600 for t in first.get(r["user_id"], [])):
+    for r in rows:
+        if r["event"] != "checkout.completed" and any(
+                abs((r["created_at"] - t).total_seconds()) < 6 * 3600 for t in first.get(r["user_id"], [])):
             continue
         pays.append({"at": r["created_at"], "nick": r["nick"], "eur": (r["cents"] or 0) / 100.0, "src": "Карта"})
     for r in _q("""SELECT ci.paid_at AS at, coalesce(u.nickname,'') AS nick, ci.units
