@@ -268,6 +268,15 @@ font:inherit;font-size:12.5px;cursor:pointer}
 .chip.on{background:var(--text);color:var(--bg);border-color:var(--text)}
 .chip b{font-family:var(--mono);font-weight:500;margin-left:5px;opacity:.7}
 .tw{overflow-x:auto;margin:0 -18px;padding:0 18px}
+/* «Все люди» — шире самої сторінки: колонок багато, і в 1200px «Откуда»
+   й «Подключено» ховались за прокруткою (власник, 22.10.2026) */
+#people{position:relative;left:50%;transform:translateX(-50%);width:calc(100vw - 40px);max-width:1680px}
+#pt td{padding:8px 8px;font-size:12.5px}
+#pt th{padding-left:8px;padding-right:8px;white-space:normal;line-height:1.35;vertical-align:bottom}
+#pt .em{display:inline-block;max-width:210px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:11.5px;vertical-align:bottom}
+#pt td:first-child{min-width:170px}
+.src{display:inline-block;padding:2px 8px;border-radius:6px;font-size:11.5px;font-weight:600;white-space:nowrap;
+ background:rgba(120,160,255,.14);color:#9db8ff}
 th.s{cursor:pointer;user-select:none}th.s:hover{color:var(--dim)}th.s.on{color:var(--text)}
 .mute{color:var(--faint)}
 .list{display:flex;flex-direction:column}
@@ -752,14 +761,14 @@ def _people(D, titles, query):
     data = _js(rows)
     return ('<div class=card id=people><h2>Все люди</h2><div class=chips id=chips></div>'
             '<div class=tw><table id=pt><thead><tr>'
-            '<th class=s data-k=nick>Ник</th><th class="s" data-k=st>Этап</th>'
+            '<th class=s data-k=nick>Ник</th><th class="s" data-k=st>Этап</th><th class="s" data-k=refT>Откуда</th>'
             '<th class="s num" data-k=nall title="Все сделки в журнале, включая перенесённые из Notion/Excel">Всего сделок</th>'
             '<th class="s num" data-k=manual title="Записано руками или через бота после запуска оплаты — только они идут в лимит">Вручную'
             + since_th + '</th>'
             '<th class="s" data-k=free title="Сколько бесплатных сделок из лимита потрачено">Лимит</th>'
             '<th class="s num" data-k=d7>За 7 дн.</th><th class="s num" data-k=notes>Разборов дня</th>'
             '<th class="s num" data-k=since>Был</th><th class="s num" data-k=regd>Регистрация</th>'
-            '<th class="s" data-k=sub>Тариф</th><th>Откуда</th><th>Подключено</th></tr></thead><tbody></tbody></table></div>'
+            '<th class="s" data-k=sub>Тариф</th><th>Подключено</th></tr></thead><tbody></tbody></table></div>'
             '<p class=mute id=pcount style="margin:10px 0 0;font-size:12.5px"></p></div>'
             "<script>const P=" + data + ";const Q=" + _js(query or "") + ";" + PEOPLE_JS + "</script>")
 
@@ -786,8 +795,9 @@ function draw(){
  L.sort((a,b)=>{let x=a[k],y=b[k];if(k==='since'){x=x==null?1e9:x;y=y==null?1e9:y;}
   if(typeof x==='string')return x.localeCompare(y)*dir;return ((x||0)-(y||0))*dir;});
  document.querySelector('#pt tbody').innerHTML=L.map(p=>'<tr class="lnk st-'+STAGE(p)[1]+'" data-n="'+esc(p.nick)+'"><td><b>'+esc(p.nick)+
-  '</b><br><span class=mute style="font-size:12px">'+esc(p.email)+'</span></td><td><span class="pill '+STAGE(p)[1]+'">'+STAGE(p)[0]+
-  '</span></td><td class=num>'+(p.nall||'<span class=mute>0</span>')+
+  '</b><br><span class="mute em">'+esc(p.email)+'</span></td><td><span class="pill '+STAGE(p)[1]+'">'+STAGE(p)[0]+
+  '</span></td><td>'+(p.refT?'<span class="src">'+esc(p.refT)+'</span>':'<span class=mute>—</span>')+
+  '</td><td class=num>'+(p.nall||'<span class=mute>0</span>')+
   '</td><td class=num>'+(p.manual||'<span class=mute>0</span>')+
   '</td><td>'+(p.sub?'<span class=mute>—</span>':'<span class=lim><i class="'+(p.free>=p.cap?'full':p.free>=p.cap-5?'near':'')
    +'" style="width:'+Math.min(100,p.free/p.cap*100)+'%"></i></span><span class="mute limn">'+p.free+'/'+p.cap+'</span>')+
@@ -795,7 +805,7 @@ function draw(){
   '</td><td class=num>'+ago(p.since)+'</td><td class=num>'+p.reg.split('-').reverse().join('.')+
   '</td><td>'+(p.sub?'<span class="pill '+(p.sub==='life'?'p-cool':'p-paid')+'">'+SUB[p.sub]+'</span>'
    :'<span class=mute>Бесплатно</span>')+
-  '</td><td>'+(p.refT?'<span class=tag>'+esc(p.refT)+'</span>':'<span class=mute>—</span>')+'</td><td>'+
+  '</td><td>'+
   (p.tg?'<span class=tag>TG</span>':'')+(p.ts?'<span class=tag>ТС</span>':'')+(p.sh?'<span class=tag>🔗'+p.sh+'</span>':'')+
   (p.acc?'<span class=tag>счета</span>':'')+'</td></tr>').join('')||'<tr><td colspan=12 class=empty>Никого</td></tr>';
  document.getElementById('pcount').textContent='Показано '+L.length+' из '+P.length;
